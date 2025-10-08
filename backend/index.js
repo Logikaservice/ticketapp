@@ -23,15 +23,27 @@ app.get('/api', (req, res) => {
   res.json({ message: "API del sistema di ticketing funzionante." });
 });
 
-app.get('/api/db-test', async (req, res) => {
+// ENDPOINT: Login utente
+// NOTA BENE: Salvare password in chiaro è insicuro. In un progetto reale, bisognerebbe usare una libreria come bcrypt per "crittografarle".
+app.post('/api/login', async (req, res) => {
+    const { email, password } = req.body;
     try {
         const client = await pool.connect();
-        const result = await client.query('SELECT NOW()');
-        res.json({ success: true, time: result.rows[0] });
+        const result = await client.query('SELECT * FROM users WHERE email = $1 AND password = $2', [email, password]);
         client.release();
+
+        if (result.rows.length > 0) {
+            const user = result.rows[0];
+            // Per sicurezza, non inviare mai la password al frontend
+            delete user.password;
+            res.json(user);
+        } else {
+            // Se non trova l'utente, risponde con un errore di "Non autorizzato"
+            res.status(401).json({ error: 'Credenziali non valide' });
+        }
     } catch (err) {
-        console.error('Errore connessione DB', err);
-        res.status(500).json({ success: false, error: 'Impossibile connettersi al database.' });
+        console.error('Errore durante il login:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
     }
 });
 
@@ -39,40 +51,36 @@ app.get('/api/db-test', async (req, res) => {
 app.get('/api/tickets', async (req, res) => {
     try {
         const client = await pool.connect();
-        const result = await client.query('SELECT * FROM tickets ORDER BY dataApertura DESC');
+        const result = await client.query('SELECT * FROM tickets ORDER BY dataapertura DESC');
         res.json(result.rows);
         client.release();
     } catch (err) {
-        console.error('Errore nel prendere i ticket', err);
+        console.error('Errore nel prendere i ticket:', err);
         res.status(500).json({ error: 'Errore interno del server' });
     }
 });
 
-// NUOVO ENDPOINT: Crea un nuovo ticket nel database
+// ENDPOINT: Crea un nuovo ticket nel database
 app.post('/api/tickets', async (req, res) => {
-    // Prende i dati inviati dal frontend
-    const { clienteId, titolo, descrizione, stato, priorita, nomeRichiedente } = req.body;
-
-    // Genera un numero di ticket (logica semplificata)
+    const { clienteid, titolo, descrizione, stato, priorita, nomerichiedente } = req.body;
     const numero = `TKT-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
-
     try {
         const client = await pool.connect();
         const query = `
-            INSERT INTO tickets (numero, clienteId, titolo, descrizione, stato, priorita, nomeRichiedente) 
+            INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente) 
             VALUES ($1, $2, $3, $4, $5, $6, $7) 
             RETURNING *;
         `;
-        const values = [numero, clienteId, titolo, descrizione, stato, priorita, nomeRichiedente];
+        const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente];
         const result = await client.query(query, values);
-        
-        res.status(201).json(result.rows[0]); // Risponde con il ticket appena creato
+        res.status(201).json(result.rows[0]);
         client.release();
     } catch (err) {
-        console.error('Errore nella creazione del ticket', err);
+        console.error('Errore nella creazione del ticket:', err);
         res.status(500).json({ error: 'Errore interno del server' });
     }
 });
+
 
 // --- AVVIO DEL SERVER ---
 const startServer = async () => {
@@ -89,3 +97,4 @@ const startServer = async () => {
 };
 
 startServer();
+
