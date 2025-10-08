@@ -39,6 +39,23 @@ app.get('/api/db-test', async (req, res) => {
     }
 });
 
+const [tickets, setTickets] = useState([]); // Ora lo stato iniziale è un array vuoto
+
+useEffect(() => {
+    // Questa funzione viene eseguita appena l'app si carica
+    const fetchTickets = async () => {
+        try {
+            // Chiama il backend per avere la lista dei ticket
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`);
+            const data = await response.json();
+            setTickets(data); // Aggiorna lo stato con i dati veri dal database
+        } catch (error) {
+            console.error("Errore nel caricare i ticket:", error);
+        }
+    };
+
+    fetchTickets();
+}, []); // L'array vuoto significa "esegui questa funzione solo una volta all'avvio"
 
 // --- AVVIO DEL SERVER ---
 // Funzione asincrona per avviare il server
