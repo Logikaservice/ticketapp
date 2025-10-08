@@ -1,0 +1,19 @@
+# Dipendenze
+node_modules/
+
+# File di build (produzione)
+build/
+dist/
+
+# Log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# File di ambiente (contengono dati sensibili)
+.env
+.env.local
+
+# File del sistema operativo
+.DS_Store
+Thumbs.db
