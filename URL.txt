@@ -1,1 +1,1 @@
-https://ticketapp-4eqb.onrender.com
+https://ticketapp-frontend-ton5.onrender.com

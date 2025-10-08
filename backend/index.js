@@ -1,78 +1,65 @@
 // Importa i pacchetti necessari
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg'); // Importa il gestore di connessioni di PostgreSQL
+const { Pool } = require('pg');
 
-// Inizializza l'applicazione Express
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 // --- CONFIGURAZIONE DATABASE ---
-// Crea un nuovo "pool" di connessioni usando l'URL dal file di ambiente
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false // Necessario per le connessioni su Render
+    rejectUnauthorized: false
   }
 });
 
 // --- MIDDLEWARE ---
-app.use(cors()); // Abilita CORS per tutte le richieste
+app.use(cors());
 app.use(express.json());
 
-
-// --- ROUTES (i tuoi futuri endpoint API) ---
+// --- ROUTES ---
 app.get('/api', (req, res) => {
-  res.json({ message: "Ciao! L'API del sistema di ticketing è funzionante." });
+  res.json({ message: "API del sistema di ticketing funzionante." });
 });
 
-// Endpoint di test per verificare la connessione al database
 app.get('/api/db-test', async (req, res) => {
     try {
         const client = await pool.connect();
-        const result = await client.query('SELECT NOW()'); // Esegue una semplice query
+        const result = await client.query('SELECT NOW()');
         res.json({ success: true, time: result.rows[0] });
-        client.release(); // Rilascia il client al pool
+        client.release();
     } catch (err) {
         console.error('Errore connessione DB', err);
         res.status(500).json({ success: false, error: 'Impossibile connettersi al database.' });
     }
 });
 
-const [tickets, setTickets] = useState([]); // Ora lo stato iniziale è un array vuoto
-
-useEffect(() => {
-    // Questa funzione viene eseguita appena l'app si carica
-    const fetchTickets = async () => {
-        try {
-            // Chiama il backend per avere la lista dei ticket
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`);
-            const data = await response.json();
-            setTickets(data); // Aggiorna lo stato con i dati veri dal database
-        } catch (error) {
-            console.error("Errore nel caricare i ticket:", error);
-        }
-    };
-
-    fetchTickets();
-}, []); // L'array vuoto significa "esegui questa funzione solo una volta all'avvio"
+// ENDPOINT: Prende tutti i ticket dal database
+app.get('/api/tickets', async (req, res) => {
+    try {
+        const client = await pool.connect();
+        const result = await client.query('SELECT * FROM tickets ORDER BY dataApertura DESC');
+        res.json(result.rows);
+        client.release();
+    } catch (err) {
+        console.error('Errore nel prendere i ticket', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
 
 // --- AVVIO DEL SERVER ---
-// Funzione asincrona per avviare il server
 const startServer = async () => {
   try {
-    // Prova a connetterti al database prima di avviare il server
     await pool.connect();
     console.log("✅ Connessione al database riuscita!");
-
     app.listen(PORT, () => {
       console.log(`🚀 Server backend in ascolto sulla porta ${PORT}`);
     });
-
   } catch (err) {
     console.error("❌ Errore critico - Impossibile connettersi al database:", err);
-    process.exit(1); // Esce dal processo se la connessione al DB fallisce
+    process.exit(1);
   }
 };
 
-startServer(); // Avvia la funzione
+startServer();

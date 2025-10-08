@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Aggiungi , useEffectimport { Plus, MessageSquare, X, Check, Clock, Euro, FileText, AlertCircle, LogOut, User, Settings, Users, AlertTriangle, Info, Zap, Copy, Calendar, Trash2, CornerDownLeft } from 'lucide-react';
 import { Plus, MessageSquare, X, Check, Clock, Euro, FileText, AlertCircle, LogOut, User, Settings, Users, AlertTriangle, Info, Zap, Copy, Calendar, Trash2, CornerDownLeft } from 'lucide-react';
 
 const initialUsers = [
@@ -99,7 +99,33 @@ export default function TicketApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [users, setUsers] = useState(initialUsers);
-  const [tickets, setTickets] = useState(initialTickets);
+  const [tickets, setTickets] = useState([]); // Lo stato ora parte con una lista VUOTA
+
+useEffect(() => {
+    // Questa funzione viene eseguita in automatico quando l'app si carica
+    const fetchTickets = async () => {
+        // Controlliamo se l'URL del backend esiste prima di fare la chiamata
+        if (!process.env.REACT_APP_API_URL) {
+            console.error("URL dell'API non configurato!");
+            return;
+        }
+        try {
+            // Chiama il backend per avere la lista dei ticket
+            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`);
+            const data = await response.json();
+            setTickets(data); // Aggiorna la lista con i dati VERI presi dal database
+        } catch (error) {
+            console.error("Errore nel caricare i ticket:", error);
+            // In caso di errore, potresti voler mostrare una notifica
+            // showNotification("Impossibile caricare i dati dal server.", "error");
+        }
+    };
+
+    // Carichiamo i ticket solo se l'utente è loggato
+    if (isLoggedIn) {
+        fetchTickets();
+    }
+}, [isLoggedIn]); // Questa riga dice a React di eseguire il codice ogni volta che l'utente fa il login
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
