@@ -1,13 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, MessageSquare, X, Check, Clock, Euro, FileText, AlertCircle, LogOut, User, Settings, Users, AlertTriangle, Info, Zap, Copy, Calendar, Trash2, CornerDownLeft } from 'lucide-react';
 
-// NOTA: Questi utenti sono usati solo per la visualizzazione del tecnico. 
-// Il login ora è REALE e usa il database.
-const initialUsers = [
-  { id: 1, email: 'cliente@example.com', password: 'cliente123', ruolo: 'cliente', nome: 'Mario', cognome: 'Rossi', telefono: '333-1234567', azienda: 'Rossi SRL' },
-  { id: 2, email: 'tecnico@example.com', password: 'tecnico123', ruolo: 'tecnico', nome: 'Alessandro', cognome: 'Bianchi', telefono: '333-7654321', azienda: 'IT Support' }
-];
-
 // --- FUNZIONI DI UTILITÀ ---
 const getStatoColor = (stato) => ({aperto:'bg-blue-100 text-blue-800',in_lavorazione:'bg-yellow-100 text-yellow-800',risolto:'bg-green-100 text-green-800',chiuso:'bg-gray-100 text-gray-800',inviato:'bg-gray-300 text-gray-800 font-bold',fatturato:'bg-indigo-100 text-indigo-800'})[stato]||'bg-gray-100 text-gray-800';
 const getPrioritaColor = (priorita) => ({bassa:'text-gray-600',media:'text-blue-600',alta:'text-orange-600',urgente:'text-red-600'})[priorita]||'text-gray-600';
@@ -21,7 +14,6 @@ const getInitialMaterial = () => ({id:Date.now()+Math.random(),nome:'',quantita:
 const getInitialTimeLog = () => ({id:Date.now(),data:new Date().toISOString().substring(0,10),oraInizio:'09:00',oraFine:'10:00',descrizione:'',modalita:'Telefonica',materials:[getInitialMaterial()],oreIntervento:1.0,costoUnitario:50.00,sconto:0,});
 
 // --- COMPONENTI FIGLIO ---
-
 const Notification = ({ notification, setNotification }) => {
   if (!notification || !notification.show) return null;
   const typeStyles = { success: 'bg-green-600', error: 'bg-red-600', info: 'bg-blue-600' };
@@ -48,31 +40,31 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, handleAutoFillLogin
 const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessage, handleChangeStatus }) => {
     const [newMessage, setNewMessage] = useState('');
     const onSendMessage = (isReclamo = false) => { handleSendMessage(ticket.id, newMessage, isReclamo); setNewMessage(''); };
-    return (<div className="bg-white rounded-xl shadow-lg border-t"><div className="p-4 border-b flex items-center justify-between bg-blue-50 rounded-t-xl"><h3 className="font-bold text-lg">Conversazione Ticket {ticket.numero}</h3><button onClick={()=>setSelectedTicket(null)} className="text-gray-500 hover:text-gray-700"><X size={20}/></button></div><div className="p-4 max-h-[50vh] overflow-y-auto space-y-3">{ticket.timeLogs?.length>0&&(<div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg mt-4 space-y-3"><h4 className="font-bold text-sm text-blue-800 flex items-center gap-2"><Clock size={16}/>Log Interventi</h4><div className="space-y-3">{ticket.timeLogs.map((log,index)=>{let d='--';if(log.oraInizio&&log.oraFine){const s=new Date(`2000/01/01 ${log.oraInizio}`);const e=new Date(`2000/01/01 ${log.oraFine}`);const m=Math.round((e-s)/6e4);const h=Math.floor(m/60);d=`${h}h ${m%60}m`}const tmc=log.materials?.reduce((s,m)=>s+(m.quantita*m.costo),0)||0;const o=parseFloat(log.oreIntervento)||0;const c=parseFloat(log.costoUnitario)||0;const s=parseFloat(log.sconto)||0;const tic=(c*(1-(s/100)))*o;return(<div key={index} className="bg-white p-3 rounded-lg border"><div className="flex justify-between items-center text-sm mb-2 pb-1 border-b"><span className="font-bold text-blue-600 flex items-center gap-1"><Calendar size={14}/>{formatTimeLogDate(log.data)}</span><div className="flex items-center gap-2"><span className="font-bold bg-gray-100 px-2 py-1 rounded-full text-sm">{log.oraInizio}-{log.oraFine}</span><span className="font-bold bg-gray-100 px-2 py-1 rounded-full text-sm">Durata:{d}</span></div></div><div className="text-sm mb-2">{log.descrizione||"Nessuna descrizione."}</div><div className="mt-3 pt-3 border-t text-xs space-y-1">{log.materials?.some(m=>m.nome)&&(<> <div className="font-bold">Materiali:</div>{log.materials.map((m,i)=>(<div key={i} className="flex justify-between pl-2"><span>-{m.nome}(x{m.quantita})</span><span>{(m.quantita*m.costo).toFixed(2)}€</span></div>))}</>)}<div className="flex justify-between"><span className="font-bold">Manodopera({o.toFixed(2)}h):</span><span>{tic.toFixed(2)}€</span></div><div className="flex justify-between text-sm font-bold pt-1 mt-1 border-t"><span className="text-blue-800">Totale:</span><span className="text-blue-800">{(tmc+tic).toFixed(2)}€</span></div></div></div>)})}</div></div>)}{ticket.messaggi?.map(m=>(<React.Fragment key={m.id}>{m.reclamo&&(m.autore===ticket.nomeRichiedente||m.autore==='Cliente')&&(<div className="text-center my-2"><span className="inline-flex items-center gap-2 px-3 py-1 text-xs font-bold text-red-800 bg-red-100 rounded-full border"><AlertTriangle size={14}/>RECLAMO</span></div>)}<div className={m.autore===ticket.nomeRichiedente||m.autore==='Cliente'?'text-left':'text-right'}><div className={`inline-block max-w-[80%] rounded-xl shadow p-3 ${m.reclamo?'bg-red-50 border-2 border-red-500':m.autore===ticket.nomeRichiedente||m.autore==='Cliente'?'bg-gray-100':'bg-blue-600 text-white'}`}><div className={`flex items-center gap-1 text-xs mb-1 ${m.autore===ticket.nomeRichiedente||m.autore==='Cliente'?'text-gray-600':'text-white/80'}`}><span className={m.reclamo?'text-red-700 font-bold':'font-medium'}>{m.reclamo?'⚠️ RECLAMO - ':''}{m.autore}</span></div><div className={`text-sm whitespace-pre-wrap ${m.reclamo?'text-red-900 font-medium':''}`}>{m.contenuto}</div><div className={`text-xs opacity-75 mt-1 ${m.reclamo?'text-red-700':m.autore===ticket.nomeRichiedente||m.autore==='Cliente'?'text-gray-500':'text-white/60'}`}>{formatDate(m.data)}</div></div></div></React.Fragment>))}</div>{!['chiuso','fatturato','inviato'].includes(ticket.stato)&&(<div className="p-4 border-t">{currentUser.ruolo==='cliente'&&ticket.stato==='risolto'?(<div className="space-y-3"><div className="bg-yellow-50 border p-3 text-sm"><p className="font-medium">L'intervento è risolto.</p><p className="mt-1">Puoi **Accettare** o inviare un **Reclamo**.</p></div><button onClick={()=>handleChangeStatus(ticket.id,'chiuso')} className="w-full px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"><Check size={18}/>Accetta e Chiudi</button><div className="relative"><textarea value={newMessage} onChange={(e)=>setNewMessage(e.target.value)} placeholder="Motivo del reclamo..." rows={3} className="w-full px-3 py-2 border-2 border-red-500 bg-red-50 rounded-lg placeholder-red-400"/><div className="absolute top-2 right-2 bg-red-100 px-2 py-1 text-xs font-bold text-red-700 flex items-center gap-1"><AlertTriangle size={12}/>RECLAMO</div></div><button onClick={()=>onSendMessage(true)} disabled={!newMessage.trim()} className="w-full px-4 py-2 bg-red-600 text-white rounded-lg disabled:opacity-50 font-medium flex items-center justify-center gap-2"><AlertTriangle size={18}/>Invia Reclamo</button></div>):(<><div className="flex gap-2"><input type="text" value={newMessage} onChange={(e)=>setNewMessage(e.target.value)} onKeyPress={(e)=>e.key==='Enter'&&onSendMessage()} placeholder="Scrivi messaggio..." className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/><button onClick={()=>onSendMessage()} disabled={!newMessage.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"><MessageSquare size={18}/></button></div>{currentUser.ruolo==='tecnico'&&(<div className="flex gap-2 mt-3">{ticket.stato==='aperto'&&(<button onClick={()=>handleChangeStatus(ticket.id,'in_lavorazione')} className="flex-1 px-3 py-2 bg-yellow-600 text-white rounded-lg text-sm">Prendi in carico</button>)}{ticket.stato==='in_lavorazione'&&(<button onClick={()=>handleChangeStatus(ticket.id,'risolto')} className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg text-sm">Segna come risolto</button>)}</div>)}</>)}</div>)}{['chiuso','fatturato','inviato'].includes(ticket.stato)&&(<div className="p-4 border-t bg-gray-50 text-center text-gray-600 font-medium rounded-b-xl">{ticket.stato==='chiuso'&&<span>Ticket **chiuso** il {formatDate(ticket.dataChiusura)}.</span>}{ticket.stato==='inviato'&&<span>Ticket **inviato per fatturazione** il {formatDate(ticket.dataChiusura)}.</span>}{ticket.stato==='fatturato'&&<span>Ticket **FATTURATO** il {formatDate(ticket.dataChiusura)}.</span>}</div>)}</div>)
+    return (<div className="bg-white rounded-xl shadow-lg border-t"><div className="p-4 border-b flex items-center justify-between bg-blue-50 rounded-t-xl"><h3 className="font-bold text-lg">Conversazione Ticket {ticket.numero}</h3><button onClick={()=>setSelectedTicket(null)} className="text-gray-500 hover:text-gray-700"><X size={20}/></button></div><div className="p-4 max-h-[50vh] overflow-y-auto space-y-3">{ticket.timeLogs?.length>0&&(<div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg mt-4 space-y-3"><h4 className="font-bold text-sm text-blue-800 flex items-center gap-2"><Clock size={16}/>Log Interventi</h4><div className="space-y-3">{ticket.timeLogs.map((log,index)=>{let d='--';if(log.oraInizio&&log.oraFine){const s=new Date(`2000/01/01 ${log.oraInizio}`);const e=new Date(`2000/01/01 ${log.oraFine}`);const m=Math.round((e-s)/6e4);const h=Math.floor(m/60);d=`${h}h ${m%60}m`}const tmc=log.materials?.reduce((s,m)=>s+(m.quantita*m.costo),0)||0;const o=parseFloat(log.oreIntervento)||0;const c=parseFloat(log.costoUnitario)||0;const s=parseFloat(log.sconto)||0;const tic=(c*(1-(s/100)))*o;return(<div key={index} className="bg-white p-3 rounded-lg border"><div className="flex justify-between items-center text-sm mb-2 pb-1 border-b"><span className="font-bold text-blue-600 flex items-center gap-1"><Calendar size={14}/>{formatTimeLogDate(log.data)}</span><div className="flex items-center gap-2"><span className="font-bold bg-gray-100 px-2 py-1 rounded-full text-sm">{log.oraInizio}-{log.oraFine}</span><span className="font-bold bg-gray-100 px-2 py-1 rounded-full text-sm">Durata:{d}</span></div></div><div className="text-sm mb-2">{log.descrizione||"Nessuna descrizione."}</div><div className="mt-3 pt-3 border-t text-xs space-y-1">{log.materials?.some(m=>m.nome)&&(<> <div className="font-bold">Materiali:</div>{log.materials.map((m,i)=>(<div key={i} className="flex justify-between pl-2"><span>-{m.nome}(x{m.quantita})</span><span>{(m.quantita*m.costo).toFixed(2)}€</span></div>))}</>)}<div className="flex justify-between"><span className="font-bold">Manodopera({o.toFixed(2)}h):</span><span>{tic.toFixed(2)}€</span></div><div className="flex justify-between text-sm font-bold pt-1 mt-1 border-t"><span className="text-blue-800">Totale:</span><span className="text-blue-800">{(tmc+tic).toFixed(2)}€</span></div></div></div>)})}</div></div>)}{ticket.messaggi?.map(m=>(<React.Fragment key={m.id}>{m.reclamo&&(m.autore===ticket.nomerichiedente||m.autore==='Cliente')&&(<div className="text-center my-2"><span className="inline-flex items-center gap-2 px-3 py-1 text-xs font-bold text-red-800 bg-red-100 rounded-full border"><AlertTriangle size={14}/>RECLAMO</span></div>)}<div className={m.autore===ticket.nomerichiedente||m.autore==='Cliente'?'text-left':'text-right'}><div className={`inline-block max-w-[80%] rounded-xl shadow p-3 ${m.reclamo?'bg-red-50 border-2 border-red-500':m.autore===ticket.nomerichiedente||m.autore==='Cliente'?'bg-gray-100':'bg-blue-600 text-white'}`}><div className={`flex items-center gap-1 text-xs mb-1 ${m.autore===ticket.nomerichiedente||m.autore==='Cliente'?'text-gray-600':'text-white/80'}`}><span className={m.reclamo?'text-red-700 font-bold':'font-medium'}>{m.reclamo?'⚠️ RECLAMO - ':''}{m.autore}</span></div><div className={`text-sm whitespace-pre-wrap ${m.reclamo?'text-red-900 font-medium':''}`}>{m.contenuto}</div><div className={`text-xs opacity-75 mt-1 ${m.reclamo?'text-red-700':m.autore===ticket.nomerichiedente||m.autore==='Cliente'?'text-gray-500':'text-white/60'}`}>{formatDate(m.data)}</div></div></div></React.Fragment>))}</div>{!['chiuso','fatturato','inviato'].includes(ticket.stato)&&(<div className="p-4 border-t">{currentUser.ruolo==='cliente'&&ticket.stato==='risolto'?(<div className="space-y-3"><div className="bg-yellow-50 border p-3 text-sm"><p className="font-medium">L'intervento è risolto.</p><p className="mt-1">Puoi **Accettare** o inviare un **Reclamo**.</p></div><button onClick={()=>handleChangeStatus(ticket.id,'chiuso')} className="w-full px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"><Check size={18}/>Accetta e Chiudi</button><div className="relative"><textarea value={newMessage} onChange={(e)=>setNewMessage(e.target.value)} placeholder="Motivo del reclamo..." rows={3} className="w-full px-3 py-2 border-2 border-red-500 bg-red-50 rounded-lg placeholder-red-400"/><div className="absolute top-2 right-2 bg-red-100 px-2 py-1 text-xs font-bold text-red-700 flex items-center gap-1"><AlertTriangle size={12}/>RECLAMO</div></div><button onClick={()=>onSendMessage(true)} disabled={!newMessage.trim()} className="w-full px-4 py-2 bg-red-600 text-white rounded-lg disabled:opacity-50 font-medium flex items-center justify-center gap-2"><AlertTriangle size={18}/>Invia Reclamo</button></div>):(<><div className="flex gap-2"><input type="text" value={newMessage} onChange={(e)=>setNewMessage(e.target.value)} onKeyPress={(e)=>e.key==='Enter'&&onSendMessage()} placeholder="Scrivi messaggio..." className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"/><button onClick={()=>onSendMessage()} disabled={!newMessage.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"><MessageSquare size={18}/></button></div>{currentUser.ruolo==='tecnico'&&(<div className="flex gap-2 mt-3">{ticket.stato==='aperto'&&(<button onClick={()=>handleChangeStatus(ticket.id,'in_lavorazione')} className="flex-1 px-3 py-2 bg-yellow-600 text-white rounded-lg text-sm">Prendi in carico</button>)}{ticket.stato==='in_lavorazione'&&(<button onClick={()=>handleChangeStatus(ticket.id,'risolto')} className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg text-sm">Segna come risolto</button>)}</div>)}</>)}</div>)}{['chiuso','fatturato','inviato'].includes(ticket.stato)&&(<div className="p-4 border-t bg-gray-50 text-center text-gray-600 font-medium rounded-b-xl">{ticket.stato==='chiuso'&&<span>Ticket **chiuso** il {formatDate(ticket.datachiusura)}.</span>}{ticket.stato==='inviato'&&<span>Ticket **inviato per fatturazione** il {formatDate(ticket.datachiusura)}.</span>}{ticket.stato==='fatturato'&&<span>Ticket **FATTURATO** il {formatDate(ticket.datachiusura)}.</span>}</div>)}</div>)
 };
 
 const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, ...handlers }) => {
     const { handleSelectTicket,handleOpenEditModal,handleOpenTimeLogger,handleReopenInLavorazione,handleChangeStatus,handleReopenAsRisolto,handleSetInviato,handleArchiveTicket,handleInvoiceTicket,handleDeleteTicket,handleSendMessage,showNotification } = handlers;
     const isTicketOpen=ticket.stato==='aperto'; const canDelete=currentUser.ruolo==='tecnico'||(currentUser.ruolo==='cliente'&&isTicketOpen);
-    return (<React.Fragment><div onClick={()=>handleSelectTicket(ticket)} className={`cursor-pointer hover:bg-gray-50 border-b relative overflow-hidden ${selectedTicket?.id===ticket.id?'bg-blue-50':'bg-white'} ${ticket.isNew?`${getPrioritaBgClass(ticket.priorita)} animate-pulse shadow-md`:''} p-4 pl-5`}><div className={`absolute top-0 left-0 h-full w-1 ${getPrioritySolidBgClass(ticket.priorita)}`}></div><div className="flex items-start justify-between"><div className="flex-1"><div className="flex items-center gap-2 mb-1 flex-wrap"><span className="text-sm font-mono text-gray-500 font-semibold">{ticket.numero}</span>{currentUser.ruolo==='tecnico'&&cliente&&(<span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800 flex items-center gap-1"><User size={12}/>{cliente.azienda}</span>)}<span className={`px-2 py-0.5 text-xs rounded-full font-medium ${getStatoColor(ticket.stato)}`}>{ticket.stato.replace('_',' ')}</span></div><h3 className="text-lg font-bold">{ticket.titolo}</h3><p className="text-sm text-gray-600 mt-1 line-clamp-2">Richiedente:<span className="font-semibold">{ticket.nomeRichiedente}</span> - {ticket.descrizione}</p><div className="flex items-center gap-3 mt-2 text-xs text-gray-500 flex-wrap"><span className={`flex items-center gap-1 font-medium ${getPrioritaColor(ticket.priorita)}`}><AlertCircle size={14}/>{ticket.priorita.toUpperCase()}</span><span>{ticket.categoria}</span>{['risolto','chiuso','inviato','fatturato'].includes(ticket.stato)&&ticket.timeLogs?.[0]?.modalita&&(<span className="px-2 py-0.5 text-xs rounded-full bg-green-50 text-green-700 font-bold flex items-center gap-1"><Zap size={12}/>{ticket.timeLogs[0].modalita}</span>)}<span className="flex items-center gap-1"><Clock size={14}/>{formatDate(ticket.dataApertura)}</span>{ticket.dataChiusura&&(<span className="text-green-600 flex items-center gap-1 font-medium"><Check size={14}/>Chiuso:{formatDate(ticket.dataChiusura)}</span>)}</div></div><div className="flex gap-1">{currentUser.ruolo==='tecnico'&&(<>{(currentUser.ruolo==='tecnico')&&(<button onClick={(e)=>{e.stopPropagation();handleOpenEditModal(ticket);}} title="Modifica ticket" className="p-1 rounded-full text-blue-500 hover:bg-blue-100"><Settings size={18}/></button>)}{currentUser.ruolo==='tecnico'&&ticket.timeLogs?.length>0&&['risolto','chiuso','inviato'].includes(ticket.stato)&&(<button onClick={(e)=>{e.stopPropagation();handleOpenTimeLogger(ticket);}} title="Modifica interventi" className="p-1 rounded-full text-gray-500 hover:bg-gray-100"><Clock size={18}/></button>)}{currentUser.ruolo==='tecnico'&&ticket.stato==='risolto'&&(<button onClick={(e)=>{e.stopPropagation();handleReopenInLavorazione(ticket.id);}} title="Riapri" className="p-1 rounded-full text-yellow-500 hover:bg-yellow-100"><CornerDownLeft size={18}/></button>)}{currentUser.ruolo==='tecnico'&&ticket.stato==='risolto'&&(<button onClick={(e)=>{e.stopPropagation();handleChangeStatus(ticket.id,'chiuso');}} title="Chiudi" className="p-1 rounded-full text-green-500 hover:bg-green-100"><Check size={18}/></button>)}{currentUser.ruolo==='tecnico'&&ticket.stato==='chiuso'&&(<button onClick={(e)=>{e.stopPropagation();handleReopenAsRisolto(ticket.id);}} title="Sposta in Risolto" className="p-1 rounded-full text-yellow-500 hover:bg-yellow-100"><CornerDownLeft size={18}/></button>)}{currentUser.ruolo==='tecnico'&&ticket.stato==='chiuso'&&(<button onClick={(e)=>{e.stopPropagation();handleSetInviato(ticket.id);}} title="Invia" className="p-1 rounded-full text-green-500 hover:bg-green-100"><Check size={18}/></button>)}{currentUser.ruolo==='tecnico'&&ticket.stato==='inviato'&&(<button onClick={(e)=>{e.stopPropagation();handleArchiveTicket(ticket.id);}} title="Archivia" className="p-1 rounded-full text-yellow-500 hover:bg-yellow-100"><CornerDownLeft size={18}/></button>)}{currentUser.ruolo==='tecnico'&&['chiuso','inviato'].includes(ticket.stato)&&(<button onClick={(e)=>{e.stopPropagation();handleInvoiceTicket(ticket.id);}} title="Fattura" className="p-1 rounded-full text-indigo-500 hover:bg-indigo-100"><Euro size={18}/></button>)}</>)}{canDelete&&(<button onClick={(e)=>{e.stopPropagation();if(canDelete){handleDeleteTicket(ticket.id);}else{showNotification('Non puoi eliminare un ticket in lavorazione.','info');}}} title={!canDelete&&currentUser.ruolo==='cliente'?'Non eliminabile':'Elimina'} className={`p-1 rounded-full ${canDelete?'text-red-500 hover:bg-red-100':'text-gray-400 cursor-not-allowed'}`}><Trash2 size={18}/></button>)}</div></div></div>{selectedTicket?.id===ticket.id&&(<div className="bg-gray-50"><ChatInterface ticket={ticket} currentUser={currentUser} setSelectedTicket={handleSelectTicket} handleSendMessage={handleSendMessage} handleChangeStatus={handleChangeStatus}/></div>)}</React.Fragment>);
+    return (<React.Fragment><div onClick={()=>handleSelectTicket(ticket)} className={`cursor-pointer hover:bg-gray-50 border-b relative overflow-hidden ${selectedTicket?.id===ticket.id?'bg-blue-50':'bg-white'} ${ticket.isNew?`${getPrioritaBgClass(ticket.priorita)} animate-pulse shadow-md`:''} p-4 pl-5`}><div className={`absolute top-0 left-0 h-full w-1 ${getPrioritySolidBgClass(ticket.priorita)}`}></div><div className="flex items-start justify-between"><div className="flex-1"><div className="flex items-center gap-2 mb-1 flex-wrap"><span className="text-sm font-mono text-gray-500 font-semibold">{ticket.numero}</span>{currentUser.ruolo==='tecnico'&&cliente&&(<span className="px-2 py-0.5 text-xs rounded-full bg-purple-100 text-purple-800 flex items-center gap-1"><User size={12}/>{cliente.azienda}</span>)}<span className={`px-2 py-0.5 text-xs rounded-full font-medium ${getStatoColor(ticket.stato)}`}>{ticket.stato.replace('_',' ')}</span></div><h3 className="text-lg font-bold">{ticket.titolo}</h3><p className="text-sm text-gray-600 mt-1 line-clamp-2">Richiedente:<span className="font-semibold">{ticket.nomerichiedente}</span> - {ticket.descrizione}</p><div className="flex items-center gap-3 mt-2 text-xs text-gray-500 flex-wrap"><span className={`flex items-center gap-1 font-medium ${getPrioritaColor(ticket.priorita)}`}><AlertCircle size={14}/>{ticket.priorita.toUpperCase()}</span><span>{ticket.categoria}</span>{['risolto','chiuso','inviato','fatturato'].includes(ticket.stato)&&ticket.timeLogs?.[0]?.modalita&&(<span className="px-2 py-0.5 text-xs rounded-full bg-green-50 text-green-700 font-bold flex items-center gap-1"><Zap size={12}/>{ticket.timeLogs[0].modalita}</span>)}<span className="flex items-center gap-1"><Clock size={14}/>{formatDate(ticket.dataapertura)}</span>{ticket.datachiusura&&(<span className="text-green-600 flex items-center gap-1 font-medium"><Check size={14}/>Chiuso:{formatDate(ticket.datachiusura)}</span>)}</div></div><div className="flex gap-1">{currentUser.ruolo==='tecnico'&&(<>{(currentUser.ruolo==='tecnico')&&(<button onClick={(e)=>{e.stopPropagation();handleOpenEditModal(ticket);}} title="Modifica ticket" className="p-1 rounded-full text-blue-500 hover:bg-blue-100"><Settings size={18}/></button>)}{currentUser.ruolo==='tecnico'&&ticket.timeLogs?.length>0&&['risolto','chiuso','inviato'].includes(ticket.stato)&&(<button onClick={(e)=>{e.stopPropagation();handleOpenTimeLogger(ticket);}} title="Modifica interventi" className="p-1 rounded-full text-gray-500 hover:bg-gray-100"><Clock size={18}/></button>)}{currentUser.ruolo==='tecnico'&&ticket.stato==='risolto'&&(<button onClick={(e)=>{e.stopPropagation();handleReopenInLavorazione(ticket.id);}} title="Riapri" className="p-1 rounded-full text-yellow-500 hover:bg-yellow-100"><CornerDownLeft size={18}/></button>)}{currentUser.ruolo==='tecnico'&&ticket.stato==='risolto'&&(<button onClick={(e)=>{e.stopPropagation();handleChangeStatus(ticket.id,'chiuso');}} title="Chiudi" className="p-1 rounded-full text-green-500 hover:bg-green-100"><Check size={18}/></button>)}{currentUser.ruolo==='tecnico'&&ticket.stato==='chiuso'&&(<button onClick={(e)=>{e.stopPropagation();handleReopenAsRisolto(ticket.id);}} title="Sposta in Risolto" className="p-1 rounded-full text-yellow-500 hover:bg-yellow-100"><CornerDownLeft size={18}/></button>)}{currentUser.ruolo==='tecnico'&&ticket.stato==='chiuso'&&(<button onClick={(e)=>{e.stopPropagation();handleSetInviato(ticket.id);}} title="Invia" className="p-1 rounded-full text-green-500 hover:bg-green-100"><Check size={18}/></button>)}{currentUser.ruolo==='tecnico'&&ticket.stato==='inviato'&&(<button onClick={(e)=>{e.stopPropagation();handleArchiveTicket(ticket.id);}} title="Archivia" className="p-1 rounded-full text-yellow-500 hover:bg-yellow-100"><CornerDownLeft size={18}/></button>)}{currentUser.ruolo==='tecnico'&&['chiuso','inviato'].includes(ticket.stato)&&(<button onClick={(e)=>{e.stopPropagation();handleInvoiceTicket(ticket.id);}} title="Fattura" className="p-1 rounded-full text-indigo-500 hover:bg-indigo-100"><Euro size={18}/></button>)}</>)}{canDelete&&(<button onClick={(e)=>{e.stopPropagation();if(canDelete){handleDeleteTicket(ticket.id);}else{showNotification('Non puoi eliminare un ticket in lavorazione.','info');}}} title={!canDelete&&currentUser.ruolo==='cliente'?'Non eliminabile':'Elimina'} className={`p-1 rounded-full ${canDelete?'text-red-500 hover:bg-red-100':'text-gray-400 cursor-not-allowed'}`}><Trash2 size={18}/></button>)}</div></div></div>{selectedTicket?.id===ticket.id&&(<div className="bg-gray-50"><ChatInterface ticket={ticket} currentUser={currentUser} setSelectedTicket={handleSelectTicket} handleSendMessage={handleSendMessage} handleChangeStatus={handleChangeStatus}/></div>)}</React.Fragment>);
 };
 
-const TicketListContainer = ({ currentUser, tickets, users, clientiAttivi, selectedTicket, ...handlers }) => {
+const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, ...handlers }) => {
     const [clientViewState, setClientViewState] = useState('aperto');
     const [technicianViewState, setTechnicianViewState] = useState('tutti');
     const [selectedClientFilter, setSelectedClientFilter] = useState('all');
     let displayTickets;
     if (currentUser.ruolo === 'cliente') {
-        // Filtra i ticket per cliente e stato
         displayTickets = tickets.filter(t => t.clienteid === currentUser.id && t.stato === clientViewState);
     } else {
-        // Filtra per cliente (se selezionato) e poi per stato
         let filtered = selectedClientFilter === 'all' ? tickets : tickets.filter(t => t.clienteid === parseInt(selectedClientFilter));
         displayTickets = technicianViewState === 'tutti' ? filtered : filtered.filter(t => t.stato === technicianViewState);
     }
     const counts = (arr) => ({aperto:arr.filter(t=>t.stato==='aperto').length,in_lavorazione:arr.filter(t=>t.stato==='in_lavorazione').length,risolto:arr.filter(t=>t.stato==='risolto').length,chiuso:arr.filter(t=>t.stato==='chiuso').length,inviato:arr.filter(t=>t.stato==='inviato').length,fatturato:arr.filter(t=>t.stato==='fatturato').length});
     const clientTicketCounts = counts(tickets.filter(t => t.clienteid === currentUser.id));
     const technicianTicketCounts = {...counts(tickets), tutti: tickets.length};
+    const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
+
     return (<div className="bg-white rounded-xl shadow-lg"><div className="p-4 border-b"><h2 className="text-xl font-semibold mb-3">{currentUser.ruolo==='cliente'?'I Miei Interventi':'Lista Ticket'}</h2>{currentUser.ruolo==='tecnico'&&(<> <div className="flex gap-2 p-1 bg-gray-100 rounded-lg mb-4">{Object.keys(technicianTicketCounts).map(s=>(<button key={s} onClick={()=>setTechnicianViewState(s)} className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg capitalize ${technicianViewState===s?'bg-blue-600 text-white shadow':'text-gray-700 hover:bg-gray-200'}`}>{s.replace('_',' ')} ({technicianTicketCounts[s]})</button>))}</div>{technicianViewState==='inviato'&&(<button onClick={()=>handlers.handleGenerateSentReport(displayTickets)} className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg mb-3"><FileText size={18}/>Genera Report</button>)}{technicianViewState==='fatturato'&&(<button onClick={()=>handlers.handleGenerateInvoiceReport(displayTickets)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg mb-3"><FileText size={18}/>Genera Lista Fatture</button>)}<div className="mb-3"><label className="block text-sm font-medium mb-2">Filtra per cliente</label><select value={selectedClientFilter} onChange={(e)=>setSelectedClientFilter(e.target.value)} className="w-full px-3 py-2 border rounded-lg"><option value="all">Tutti i clienti</option>{clientiAttivi.map(c=>(<option key={c.id} value={c.id}>{c.azienda} ({tickets.filter(t=>t.clienteid===c.id).length})</option>))}</select></div></>)}{currentUser.ruolo==='cliente'&&(
     <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">{Object.keys(clientTicketCounts).map(s=>(<button key={s} onClick={()=>setClientViewState(s)} className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg capitalize ${clientViewState===s?'bg-blue-600 text-white shadow':'text-gray-700 hover:bg-gray-200'}`}>{s.replace('_',' ')} ({clientTicketCounts[s]})</button>))}</div>)}</div><div className="divide-y">{displayTickets.length===0?(<div className="p-8 text-center text-gray-500"><FileText size={48} className="mx-auto mb-3 opacity-30"/><p>Nessun intervento con lo stato selezionato.</p></div>):(displayTickets.sort((a,b)=>new Date(b.dataapertura)-new Date(a.dataapertura)).map(t=>(<TicketItem key={t.id} ticket={t} cliente={users.find(u=>u.id===t.clienteid)} currentUser={currentUser} selectedTicket={selectedTicket} {...handlers}/>)))}</div></div>)
 };
@@ -102,48 +94,67 @@ const AllModals = ({ modalState, closeModal, ...handlers }) => {
 export default function TicketApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [users, setUsers] = useState(initialUsers);
+  const [users, setUsers] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [modalState, setModalState] = useState({ type: null, data: null });
-  const [newTicketData, setNewTicketData] = useState({ titolo: '', descrizione: '', categoria: 'assistenza', priorita: 'media', nomeRichiedente: '' });
+  const [newTicketData, setNewTicketData] = useState({ titolo: '', descrizione: '', categoria: 'assistenza', priorita: 'media', nomerichiedente: '' });
   const [settingsData, setSettingsData] = useState({ nome: '', email: '', vecchiaPassword: '', nuovaPassword: '', confermaNuovaPassword: '' });
   const [newClientData, setNewClientData] = useState({ email: '', password: '', telefono: '', azienda: '' });
   const [timeLogs, setTimeLogs] = useState([]);
   const [isEditingTicket, setIsEditingTicket] = useState(null);
   const [selectedClientForNewTicket, setSelectedClientForNewTicket] = useState('');
   
-  const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
-
   useEffect(() => {
-    const fetchTickets = async () => {
-        if (!process.env.REACT_APP_API_URL) {
-            console.error("URL dell'API non configurato!");
-            return;
-        }
+    const fetchData = async () => {
+        if (!process.env.REACT_APP_API_URL || !currentUser) return;
+
         try {
-            const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`);
-            const data = await response.json();
-            setTickets(data);
+            // Esegue le chiamate per ticket e utenti in parallelo per più velocità
+            const [ticketsRes, usersRes] = await Promise.all([
+                fetch(`${process.env.REACT_APP_API_URL}/api/tickets`),
+                currentUser.ruolo === 'tecnico' ? fetch(`${process.env.REACT_APP_API_URL}/api/users`) : Promise.resolve({ ok: true, json: () => Promise.resolve([])})
+            ]);
+
+            if (!ticketsRes.ok) throw new Error("Errore nel caricare i ticket");
+            const ticketsData = await ticketsRes.json();
+            setTickets(ticketsData);
+
+            // Carica gli utenti solo se la chiamata è stata fatta e ha avuto successo
+            if (usersRes && usersRes.ok) {
+                const usersData = await usersRes.json();
+                setUsers(usersData);
+            } else if (usersRes && !usersRes.ok) {
+                throw new Error("Errore nel caricare gli utenti");
+            }
         } catch (error) {
-            console.error("Errore nel caricare i ticket:", error);
-            showNotification("Impossibile caricare i dati dal server.", "error");
+            console.error("Errore nel caricare i dati:", error);
+            showNotification(error.message, "error");
         }
     };
 
     if (isLoggedIn) {
-        fetchTickets();
+        fetchData();
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, currentUser]);
 
   const showNotification=(m,t='success')=>{setNotification({show:true,message:m,type:t});setTimeout(()=>setNotification(p=>({...p,show:false})),4000);};
   const closeModal=()=>{if(modalState.type==='newTicket'){resetNewTicketData();setSelectedClientForNewTicket('');setIsEditingTicket(null);}setModalState({type:null,data:null});};
-  const resetNewTicketData=()=>setNewTicketData({titolo:'',descrizione:'',categoria:'assistenza',priorita:'media',nomeRichiedente:currentUser?`${currentUser.nome} ${currentUser.cognome||''}`.trim():''});
+  const resetNewTicketData=()=>setNewTicketData({titolo:'',descrizione:'',categoria:'assistenza',priorita:'media',nomerichiedente:currentUser?`${currentUser.nome} ${currentUser.cognome||''}`.trim():''});
 
-  const openNewTicketModal=()=>{if(currentUser.ruolo==='tecnico'&&clientiAttivi.length>0)setSelectedClientForNewTicket(clientiAttivi[0].id.toString());else setSelectedClientForNewTicket('');resetNewTicketData();setModalState({type:'newTicket',data:null});};
-  const handleOpenEditModal=(t)=>{setNewTicketData({titolo:t.titolo,descrizione:t.descrizione,categoria:t.categoria,priorita:t.priorita,nomeRichiedente:t.nomeRichiedente});setIsEditingTicket(t.id);setSelectedClientForNewTicket(t.clienteId.toString());setModalState({type:'newTicket',data:t});};
+  const openNewTicketModal=()=>{
+    const clienti = users.filter(u => u.ruolo === 'cliente');
+    if(currentUser.ruolo === 'tecnico' && clienti.length > 0) {
+      setSelectedClientForNewTicket(clienti[0].id.toString());
+    } else {
+      setSelectedClientForNewTicket('');
+    }
+    resetNewTicketData();
+    setModalState({type:'newTicket',data:null});
+  };
+  const handleOpenEditModal=(t)=>{setNewTicketData({titolo:t.titolo,descrizione:t.descrizione,categoria:t.categoria,priorita:t.priorita,nomerichiedente:t.nomerichiedente});setIsEditingTicket(t.id);setSelectedClientForNewTicket(t.clienteid.toString());setModalState({type:'newTicket',data:t});};
   const openSettings=()=>{setSettingsData({nome:currentUser.nome,email:currentUser.email,vecchiaPassword:'',nuovaPassword:'',confermaNuovaPassword:''});setModalState({type:'settings',data:null});};
   const handleOpenTimeLogger=(t)=>{setSelectedTicket(t);const l=Array.isArray(t.timeLogs)?t.timeLogs:[];const i=l.length>0?l.map(lg=>({...lg,id:Date.now()+Math.random(),materials:Array.isArray(lg.materials)?lg.materials.map(m=>({...m,id:Date.now()+Math.random()})):[getInitialMaterial()]})):[getInitialTimeLog()];setTimeLogs(i);setModalState({type:'timeLogger',data:t});};
   
@@ -159,7 +170,8 @@ export default function TicketApp() {
         });
 
         if (!response.ok) {
-            throw new Error('Credenziali non valide');
+            const errorData = await response.json().catch(() => ({ error: 'Credenziali non valide' }));
+            throw new Error(errorData.error);
         }
 
         const user = await response.json();
@@ -169,15 +181,17 @@ export default function TicketApp() {
         showNotification(`Benvenuto ${user.nome}!`, 'success');
 
     } catch (error) {
-        showNotification('Credenziali non valide.', 'error');
+        console.error("Errore durante il login:", error);
+        showNotification(error.message || 'Credenziali non valide o errore di rete.', 'error');
     }
   };
 
-  const handleLogout=()=>{setIsLoggedIn(false);setCurrentUser(null);setSelectedTicket(null);setTickets([]);closeModal();showNotification('Disconnessione effettuata.','info');};
-  const handleAutoFillLogin=(r)=>{
-    const user = initialUsers.find(u => u.ruolo === r);
-    if(user) {
-      setLoginData({email:user.email,password:user.password});
+  const handleLogout=()=>{setIsLoggedIn(false);setCurrentUser(null);setSelectedTicket(null);setTickets([]);setUsers([]);closeModal();showNotification('Disconnessione effettuata.','info');};
+  const handleAutoFillLogin=(ruolo)=>{
+    if (ruolo === 'cliente') {
+        setLoginData({email:'cliente@example.com',password:'cliente123'});
+    } else if (ruolo === 'tecnico') {
+        setLoginData({email:'tecnico@example.com',password:'tecnico123'});
     }
   };
 
@@ -186,7 +200,7 @@ export default function TicketApp() {
   const handleCreateTicket=()=>{if(isEditingTicket){handleUpdateTicket();return}if(!newTicketData.titolo||!newTicketData.descrizione||!newTicketData.nomeRichiedente){showNotification('Compila i campi obbligatori.','error');return}if(currentUser.ruolo==='tecnico'&&!selectedClientForNewTicket){showNotification('Seleziona un cliente.','error');return}if(newTicketData.priorita==='urgente'&&currentUser.ruolo==='cliente'){setModalState({type:'urgentConfirm',data:null});return}handleConfirmUrgentCreation();};
   
   const handleConfirmUrgentCreation = async () => {
-    if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomeRichiedente) {
+    if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
         showNotification('Campi obbligatori mancanti.', 'error');
         closeModal();
         return;
@@ -197,6 +211,7 @@ export default function TicketApp() {
     const ticketDaInviare = {
         ...newTicketData,
         clienteid: clienteId,
+        nomerichiedente: newTicketData.nomerichiedente,
         stato: 'aperto',
     };
 
@@ -226,11 +241,48 @@ export default function TicketApp() {
     }
   };
 
-  const handleUpdateTicket=()=>{if(!newTicketData.titolo||!newTicketData.descrizione||!newTicketData.nomeRichiedente){showNotification('Compila i campi obbligatori.','error');return}const o=tickets.find(t=>t.id===isEditingTicket);const cId=currentUser.ruolo==='tecnico'?(selectedClientForNewTicket?parseInt(selectedClientForNewTicket):o.clienteid):o.clienteid;const u={...o,...newTicketData,clienteid:cId};setTickets(p=>p.map(t=>t.id===isEditingTicket?u:t));if(selectedTicket?.id===isEditingTicket)setSelectedTicket(u);showNotification('Ticket aggiornato!','success');closeModal();};
+  const handleUpdateTicket=()=>{if(!newTicketData.titolo||!newTicketData.descrizione||!newTicketData.nomerichiedente){showNotification('Compila i campi obbligatori.','error');return}const o=tickets.find(t=>t.id===isEditingTicket);const cId=currentUser.ruolo==='tecnico'?(selectedClientForNewTicket?parseInt(selectedClientForNewTicket):o.clienteid):o.clienteid;const u={...o,...newTicketData,clienteid:cId, nomerichiedente: newTicketData.nomerichiedente};setTickets(p=>p.map(t=>t.id===isEditingTicket?u:t));if(selectedTicket?.id===isEditingTicket)setSelectedTicket(u);showNotification('Ticket aggiornato!','success');closeModal();};
   const handleDeleteTicket=(id)=>{if(selectedTicket?.id===id)setSelectedTicket(null);setTickets(p=>p.filter(t=>t.id!==id));showNotification('Ticket eliminato.','error');};
-  const handleSendMessage=(id,msg,isR=false)=>{if(!msg.trim())return;setTickets(p=>p.map(t=>{if(t.id===id){const a=currentUser.ruolo==='cliente'?t.nomeRichiedente:'Tecnico';const u={...t,messaggi:[...(t.messaggi||[]),{id:(t.messaggi?.length||0)+1,autore:a,contenuto:msg,data:new Date().toISOString(),reclamo:isR}],stato:isR?'in_lavorazione':(currentUser.ruolo==='tecnico'&&t.stato==='risolto'?'in_lavorazione':t.stato)};if(selectedTicket?.id===id)setSelectedTicket(u);return u}return t;}));if(isR)showNotification('Reclamo inviato! Ticket riaperto.','error');};
-  const handleChangeStatus=(id,s)=>{const t=tickets.find(tk=>tk.id===id);if(!t)return;if(s==='risolto'&&currentUser.ruolo==='tecnico'){handleOpenTimeLogger(t);return}setTickets(p=>p.map(tk=>{if(tk.id===id){const u={...tk,stato:s,dataChiusura:['chiuso','inviato'].includes(s)?new Date().toISOString():tk.dataChiusura};if(s==='risolto'&&currentUser.ruolo==='tecnico')setSelectedTicket(null);if(s==='chiuso'&&currentUser.ruolo==='cliente')setSelectedTicket(null);if(selectedTicket?.id===id&&!['risolto','chiuso','inviato'].includes(s))setSelectedTicket(u);return u}return tk;}));};
-  
+  const handleSendMessage=(id,msg,isR=false)=>{if(!msg.trim())return;setTickets(p=>p.map(t=>{if(t.id===id){const a=currentUser.ruolo==='cliente'?t.nomerichiedente:'Tecnico';const u={...t,messaggi:[...(t.messaggi||[]),{id:(t.messaggi?.length||0)+1,autore:a,contenuto:msg,data:new Date().toISOString(),reclamo:isR}],stato:isR?'in_lavorazione':(currentUser.ruolo==='tecnico'&&t.stato==='risolto'?'in_lavorazione':t.stato)};if(selectedTicket?.id===id)setSelectedTicket(u);return u}return t;}));if(isR)showNotification('Reclamo inviato! Ticket riaperto.','error');};
+  
+  const handleChangeStatus = async (id, status) => {
+    if (status === 'risolto' && currentUser.ruolo === 'tecnico') {
+        const ticket = tickets.find(tk => tk.id === id);
+        if (ticket) {
+            handleOpenTimeLogger(ticket);
+        }
+        return;
+    }
+
+    try {
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: status })
+        });
+
+        if (!response.ok) {
+            throw new Error('Errore nell\'aggiornamento dello stato');
+        }
+
+        const updatedTicket = await response.json();
+
+        setTickets(prevTickets =>
+            prevTickets.map(t => (t.id === id ? updatedTicket : t))
+        );
+
+        showNotification('Stato del ticket aggiornato!', 'success');
+        
+        if (status === 'chiuso' || (status === 'risolto' && currentUser.ruolo === 'tecnico')) {
+            setSelectedTicket(null);
+        }
+
+    } catch (error) {
+        console.error('Errore handleChangeStatus:', error);
+        showNotification('Impossibile aggiornare lo stato.', 'error');
+    }
+  };
+
   const handleTimeLogChange=(id,f,v)=>{setTimeLogs(p=>p.map(l=>l.id===id?{...l,[f]:v}:l));};
   const handleAddTimeLog=()=>{setTimeLogs(p=>[...p,getInitialTimeLog()]);};
   const handleDuplicateTimeLog=(l)=>{setTimeLogs(p=>[...p,{...l,id:Date.now()}]);};
@@ -238,20 +290,20 @@ export default function TicketApp() {
   const handleMaterialChange=(lId,mId,f,v)=>{setTimeLogs(pL=>pL.map(l=>l.id===lId?{...l,materials:l.materials.map(m=>m.id===mId?{...m,[f]:['quantita','costo'].includes(f)?parseFloat(v)||0:v}:m)}:l))};
   const handleAddMaterial=(lId)=>{setTimeLogs(pL=>pL.map(l=>l.id===lId?{...l,materials:[...(l.materials||[]),getInitialMaterial()]}:l))};
   const handleRemoveMaterial=(lId,mId)=>{setTimeLogs(pL=>pL.map(l=>l.id===lId?{...l,materials:l.materials.filter(m=>m.id!==mId)}:l))};
-  const handleConfirmTimeLogs=()=>{if(!timeLogs.length){showNotification('Registra almeno un intervento.','error');return}const v=timeLogs.map(l=>{if(l.data&&l.oraInizio&&l.oraFine){const{id,...c}=l;const m=c.materials?.map(({id,...mat})=>mat).filter(mat=>mat.nome&&mat.quantita>0)||[];return{...c,materials:m};}return null}).filter(Boolean);if(!v.length){showNotification('Nessun intervento valido.','error');return}setTickets(p=>p.map(t=>t.id===selectedTicket.id?{...t,stato:selectedTicket.stato==='in_lavorazione'?'risolto':selectedTicket.stato,timeLogs:v}:t));showNotification(`Interventi registrati per ${selectedTicket.numero}.`,'success');closeModal();setSelectedTicket(null);};
+  const handleConfirmTimeLogs=()=>{if(!timeLogs.length){showNotification('Registra almeno un intervento.','error');return}const v=timeLogs.map(l=>{if(l.data&&l.oraInizio&&l.oraFine){const{id,...c}=l;const m=c.materials?.map(({id,...mat})=>mat).filter(mat=>mat.nome&&mat.quantita>0)||[];return{...c,materials:m};}return null}).filter(Boolean);if(!v.length){showNotification('Nessun intervento valido.','error');return}setTickets(p=>p.map(t=>t.id===selectedTicket.id?{...t,stato:selectedTicket.stato==='in_lavorazione'?'risolto':selectedTicket.stato,timeLogs:v}));showNotification(`Interventi registrati per ${selectedTicket.numero}.`,'success');closeModal();setSelectedTicket(null);};
   
-  const handleSetInviato=(id)=>{setTickets(p=>p.map(t=>(t.id===id&&t.stato==='chiuso'?{...t,stato:'inviato',dataChiusura:new Date().toISOString()}:t)));showNotification('Ticket spostato in INVIATO.','info');setSelectedTicket(null);};
-  const handleReopenInLavorazione=(id)=>{setTickets(p=>p.map(t=>(t.id===id&&t.stato==='risolto'?{...t,stato:'in_lavorazione',dataChiusura:undefined}:t)));showNotification('Ticket riaperto.','info');setSelectedTicket(null);};
-  const handleReopenAsRisolto=(id)=>{setTickets(p=>p.map(t=>(t.id===id&&t.stato==='chiuso'?{...t,stato:'risolto',dataChiusura:undefined}:t)));showNotification('Ticket riaperto.','info');setSelectedTicket(null);};
-  const handleArchiveTicket=(id)=>{setTickets(p=>p.map(t=>(t.id===id&&t.stato==='inviato'?{...t,stato:'chiuso'}:t)));showNotification('Ticket archiviato.','success');setSelectedTicket(null);};
-  const handleInvoiceTicket=(id)=>{setTickets(p=>p.map(t=>(t.id===id?{...t,stato:'fatturato'}:t)));showNotification('Ticket fatturato!','success');};
+  const handleSetInviato=(id)=>{handleChangeStatus(id, 'inviato')};
+  const handleReopenInLavorazione=(id)=>{handleChangeStatus(id, 'in_lavorazione')};
+  const handleReopenAsRisolto=(id)=>{handleChangeStatus(id, 'risolto')};
+  const handleArchiveTicket=(id)=>{handleChangeStatus(id, 'chiuso')};
+  const handleInvoiceTicket=(id)=>{handleChangeStatus(id, 'fatturato')};
   const handleSelectTicket=(t)=>{if(t.isNew&&currentUser.ruolo==='tecnico')setTickets(p=>p.map(tk=>tk.id===t.id?{...tk,isNew:false}:tk));setSelectedTicket(selectedTicket?.id===t.id?null:t);};
   
   const handleGenerateSentReport=(f)=>{if(!f.length){showNotification('Nessun ticket da includere.','info');return}const g = f.reduce((acc, t) => {
     (acc[t.clienteid] = acc[t.clienteid] || []).push(t);
     return acc;
 }, {});let r=Object.keys(g).map(cId=>{const tks=g[cId];const c=users.find(u=>u.id==parseInt(cId));let cR=`Report per ${c?.azienda||'Sconosciuto'}\n---\n`;cR+=tks.map(t=>{let lS=t.timeLogs?.length?t.timeLogs.map(l=>` - ${formatReportDate(l.data)} (${l.oraInizio}-${l.oraFine}): ${l.descrizione||'N/D'}`).join('\n'):'Nessun log.';let mS='Nessun materiale.';if(t.timeLogs){const m=t.timeLogs.flatMap((l,i)=>l.materials?.filter(mt=>mt.nome).map(mt=>` - [Log ${i+1}] ${mt.nome}(x${mt.quantita})`)??[]);if(m.length)mS=m.join('\n')}return`${t.numero}-${t.titolo}\nLog:\n${lS}\nMateriali:\n${mS}`}).join('\n---\n');return cR}).join('\n\n\n');setModalState({type:'sentReport',data:{title:'Report Interventi Inviati',content:r.trim(),color:'text-gray-700'}});};
-  const handleGenerateInvoiceReport=(f)=>{if(!f.length){showNotification('Nessun ticket da includere.','info');return}let rB=f.map(t=>{const c=users.find(u=>u.id===t.clienteid);let lS=t.timeLogs?.length?t.timeLogs.map(l=>` - ${l.data} (${l.oraInizio}-${l.oraFine}): ${l.descrizione}`).join('\n'):'Nessun log.';let mS='Nessun materiale.';if(t.timeLogs){const m=t.timeLogs.flatMap((l,i)=>l.materials?.map(mt=>` - [Log ${i+1}] ${mt.nome}(x${mt.quantita})`)??[]);if(m.length)mS=m.join('\n')}return`TICKET:${t.numero}\nCLIENTE:${c?.azienda||'Sconosciuto'}\nCHIUSURA:${formatDate(t.dataChiusura)}\nTITOLO:${t.titolo}\n\nLOG:\n${lS}\n\nMATERIALI:\n${mS}`}).join('\n---\n');setModalState({type:'invoiceReport',data:{title:'Lista Interventi Fatturati',content:`Report Fatturati\n---\n${rB.trim()}`,color:'text-indigo-700'}});};
+  const handleGenerateInvoiceReport=(f)=>{if(!f.length){showNotification('Nessun ticket da includere.','info');return}let rB=f.map(t=>{const c=users.find(u=>u.id===t.clienteid);let lS=t.timeLogs?.length?t.timeLogs.map(l=>` - ${l.data} (${l.oraInizio}-${l.oraFine}): ${l.descrizione}`).join('\n'):'Nessun log.';let mS='Nessun materiale.';if(t.timeLogs){const m=t.timeLogs.flatMap((l,i)=>l.materials?.map(mt=>` - [Log ${i+1}] ${mt.nome}(x${mt.quantita})`)??[]);if(m.length)mS=m.join('\n')}return`TICKET:${t.numero}\nCLIENTE:${c?.azienda||'Sconosciuto'}\nCHIUSURA:${formatDate(t.datachiusura)}\nTITOLO:${t.titolo}\n\nLOG:\n${lS}\n\nMATERIALI:\n${mS}`}).join('\n---\n');setModalState({type:'invoiceReport',data:{title:'Lista Interventi Fatturati',content:`Report Fatturati\n---\n${rB.trim()}`,color:'text-indigo-700'}});};
 
   if (!isLoggedIn) {
     return (<><Notification notification={notification} setNotification={setNotification}/><LoginScreen loginData={loginData} setLoginData={setLoginData} handleLogin={handleLogin} handleAutoFillLogin={handleAutoFillLogin}/></>);
@@ -262,9 +314,9 @@ export default function TicketApp() {
       <Notification notification={notification} setNotification={setNotification}/>
       <Header currentUser={currentUser} handleLogout={handleLogout} openNewTicketModal={openNewTicketModal} openNewClientModal={()=>setModalState({type:'newClient'})} openSettings={openSettings}/>
       <main className="max-w-7xl mx-auto px-4 py-6">
-        <TicketListContainer currentUser={currentUser} tickets={tickets} users={users} clientiAttivi={clientiAttivi} selectedTicket={selectedTicket} handleSelectTicket={handleSelectTicket} handleOpenEditModal={handleOpenEditModal} handleOpenTimeLogger={handleOpenTimeLogger} handleReopenInLavorazione={handleReopenInLavorazione} handleChangeStatus={handleChangeStatus} handleReopenAsRisolto={handleReopenAsRisolto} handleSetInviato={handleSetInviato} handleArchiveTicket={handleArchiveTicket} handleInvoiceTicket={handleInvoiceTicket} handleDeleteTicket={handleDeleteTicket} showNotification={showNotification} handleSendMessage={handleSendMessage} handleGenerateSentReport={handleGenerateSentReport} handleGenerateInvoiceReport={handleGenerateInvoiceReport}/>
+        <TicketListContainer currentUser={currentUser} tickets={tickets} users={users} selectedTicket={selectedTicket} handlers={{handleSelectTicket, handleOpenEditModal, handleOpenTimeLogger, handleReopenInLavorazione, handleChangeStatus, handleReopenAsRisolto, handleSetInviato, handleArchiveTicket, handleInvoiceTicket, handleDeleteTicket, showNotification, handleSendMessage, handleGenerateSentReport, handleGenerateInvoiceReport}}/>
       </main>
-      <AllModals modalState={modalState} closeModal={closeModal} newTicketData={newTicketData} setNewTicketData={setNewTicketData} handleCreateTicket={handleCreateTicket} isEditingTicket={isEditingTicket} currentUser={currentUser} clientiAttivi={clientiAttivi} selectedClientForNewTicket={selectedClientForNewTicket} setSelectedClientForNewTicket={setSelectedClientForNewTicket} resetNewTicketData={resetNewTicketData} timeLogs={timeLogs} setTimeLogs={setTimeLogs} handleTimeLogChange={handleTimeLogChange} handleAddTimeLog={handleAddTimeLog} handleRemoveTimeLog={handleRemoveTimeLog} handleDuplicateTimeLog={handleDuplicateTimeLog} handleMaterialChange={handleMaterialChange} handleAddMaterial={handleAddMaterial} handleRemoveMaterial={handleRemoveMaterial} handleConfirmTimeLogs={handleConfirmTimeLogs} settingsData={settingsData} setSettingsData={setSettingsData} handleUpdateSettings={handleUpdateSettings} newClientData={newClientData} setNewClientData={setNewClientData} handleCreateClient={handleCreateClient} handleConfirmUrgentCreation={handleConfirmUrgentCreation} showNotification={showNotification} calculateDurationHours={calculateDurationHours}/>
+      <AllModals modalState={modalState} closeModal={closeModal} newTicketData={newTicketData} setNewTicketData={setNewTicketData} handleCreateTicket={handleCreateTicket} isEditingTicket={isEditingTicket} currentUser={currentUser} clientiAttivi={users.filter(u => u.ruolo === 'cliente')} selectedClientForNewTicket={selectedClientForNewTicket} setSelectedClientForNewTicket={setSelectedClientForNewTicket} resetNewTicketData={resetNewTicketData} timeLogs={timeLogs} setTimeLogs={setTimeLogs} handleTimeLogChange={handleTimeLogChange} handleAddTimeLog={handleAddTimeLog} handleRemoveTimeLog={handleRemoveTimeLog} handleDuplicateTimeLog={handleDuplicateTimeLog} handleMaterialChange={handleAddMaterial} handleAddMaterial={handleAddMaterial} handleRemoveMaterial={handleRemoveMaterial} handleConfirmTimeLogs={handleConfirmTimeLogs} settingsData={settingsData} setSettingsData={setSettingsData} handleUpdateSettings={handleUpdateSettings} newClientData={newClientData} setNewClientData={setNewClientData} handleCreateClient={handleCreateClient} handleConfirmUrgentCreation={handleConfirmUrgentCreation} showNotification={showNotification} calculateDurationHours={calculateDurationHours}/>
     </div>
   );
 }
