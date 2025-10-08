@@ -330,13 +330,16 @@ export default function TicketApp() {
     closeModal();
   };
 
-  const handleDeleteTicket = (id) => {
-    if (selectedTicket && selectedTicket.id === id) {
-      setSelectedTicket(null);
-    }
-    setTickets(prev => prev.filter(t => t.id !== id));
-    showNotification('Ticket eliminato.', 'error');
-  };
+  const handleDeleteTicket = async (id) => {
+  try {
+    const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + id, {
+      method: 'DELETE'
+    });
+    // ... resto del codice nell'artifact
+  } catch (error) {
+    // ... gestione errore
+  }
+};
 
   const handleSendMessage = (id, msg, isReclamo) => {
     if (!isReclamo) isReclamo = false;
