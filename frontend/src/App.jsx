@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import Notification from './components/Notification';
 import LoginScreen from './components/LoginScreen';
+import Header from './components/Header';
+import TicketListContainer from './components/TicketListContainer';
+import AllModals from './components/Modals/AllModals';
+import { getInitialMaterial, getInitialTimeLog } from './utils/helpers';
+import { formatReportDate } from './utils/formatters';
 
 export default function TicketApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -69,6 +74,26 @@ export default function TicketApp() {
     setTimeout(() => setNotification(p => ({ ...p, show: false })), 4000);
   };
 
+  const closeModal = () => {
+    if (modalState.type === 'newTicket') {
+      resetNewTicketData();
+      setSelectedClientForNewTicket('');
+      setIsEditingTicket(null);
+    }
+    setModalState({ type: null, data: null });
+  };
+
+  const resetNewTicketData = () => {
+    const nomeCognome = currentUser ? (currentUser.nome + ' ' + (currentUser.cognome || '')).trim() : '';
+    setNewTicketData({
+      titolo: '',
+      descrizione: '',
+      categoria: 'assistenza',
+      priorita: 'media',
+      nomerichiedente: nomeCognome
+    });
+  };
+
   const handleLogin = async () => {
     if (!loginData.email || !loginData.password) {
       return showNotification('Inserisci email e password.', 'error');
@@ -104,7 +129,7 @@ export default function TicketApp() {
     setSelectedTicket(null);
     setTickets([]);
     setUsers([]);
-    setModalState({ type: null, data: null });
+    closeModal();
     showNotification('Disconnessione effettuata.', 'info');
   };
 
@@ -114,6 +139,203 @@ export default function TicketApp() {
     } else if (ruolo === 'tecnico') {
       setLoginData({ email: 'tecnico@example.com', password: 'tecnico123' });
     }
+  };
+
+  const openNewTicketModal = () => {
+    const clienti = users.filter(u => u.ruolo === 'cliente');
+    if (currentUser.ruolo === 'tecnico' && clienti.length > 0) {
+      setSelectedClientForNewTicket(clienti[0].id.toString());
+    } else {
+      setSelectedClientForNewTicket('');
+    }
+    resetNewTicketData();
+    setModalState({ type: 'newTicket', data: null });
+  };
+
+  const handleOpenEditModal = (t) => {
+    setNewTicketData({
+      titolo: t.titolo,
+      descrizione: t.descrizione,
+      categoria: t.categoria,
+      priorita: t.priorita,
+      nomerichiedente: t.nomerichiedente
+    });
+    setIsEditingTicket(t.id);
+    setSelectedClientForNewTicket(t.clienteid.toString());
+    setModalState({ type: 'newTicket', data: t });
+  };
+
+  const openSettings = () => {
+    setSettingsData({
+      nome: currentUser.nome,
+      email: currentUser.email,
+      vecchiaPassword: '',
+      nuovaPassword: '',
+      confermaNuovaPassword: ''
+    });
+    setModalState({ type: 'settings', data: null });
+  };
+
+  const handleOpenTimeLogger = (t) => {
+    setSelectedTicket(t);
+    const logs = Array.isArray(t.timeLogs) ? t.timeLogs : [];
+    const initialLogs = logs.length > 0
+      ? logs.map(lg => ({
+          ...lg,
+          id: Date.now() + Math.random(),
+          materials: Array.isArray(lg.materials)
+            ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() }))
+            : [getInitialMaterial()]
+        }))
+      : [getInitialTimeLog()];
+    setTimeLogs(initialLogs);
+    setModalState({ type: 'timeLogger', data: t });
+  };
+
+  const handleUpdateSettings = () => {
+    if (!settingsData.nome || !settingsData.email) {
+      showNotification('Nome ed email obbligatori.', 'error');
+      return;
+    }
+    if (settingsData.nuovaPassword) {
+      if (settingsData.nuovaPassword !== settingsData.confermaNuovaPassword) {
+        showNotification('Le password non coincidono.', 'error');
+        return;
+      }
+      if (currentUser.password !== settingsData.vecchiaPassword) {
+        showNotification('Vecchia password errata.', 'error');
+        return;
+      }
+    }
+    const updatedUsers = users.map(us =>
+      us.id === currentUser.id
+        ? {
+            ...us,
+            nome: settingsData.nome,
+            email: settingsData.email,
+            password: settingsData.nuovaPassword || us.password
+          }
+        : us
+    );
+    setUsers(updatedUsers);
+    setCurrentUser(updatedUsers.find(us => us.id === currentUser.id));
+    closeModal();
+    showNotification('Impostazioni aggiornate!', 'success');
+  };
+
+  const handleCreateClient = () => {
+    if (!newClientData.email || !newClientData.password || !newClientData.azienda) {
+      showNotification('Email, password e azienda sono obbligatori.', 'error');
+      return;
+    }
+    if (users.some(u => u.email === newClientData.email)) {
+      showNotification('Email già registrata.', 'error');
+      return;
+    }
+    const newClient = {
+      id: users.length + 1,
+      ...newClientData,
+      ruolo: 'cliente',
+      nome: 'Non Specificato',
+      cognome: ''
+    };
+    setUsers(prev => [...prev, newClient]);
+    closeModal();
+    setNewClientData({ email: '', password: '', telefono: '', azienda: '' });
+    showNotification('Cliente creato!', 'success');
+  };
+
+  const handleCreateTicket = () => {
+    if (isEditingTicket) {
+      handleUpdateTicket();
+      return;
+    }
+    if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
+      showNotification('Compila i campi obbligatori.', 'error');
+      return;
+    }
+    if (currentUser.ruolo === 'tecnico' && !selectedClientForNewTicket) {
+      showNotification('Seleziona un cliente.', 'error');
+      return;
+    }
+    if (newTicketData.priorita === 'urgente' && currentUser.ruolo === 'cliente') {
+      setModalState({ type: 'urgentConfirm', data: null });
+      return;
+    }
+    handleConfirmUrgentCreation();
+  };
+
+  const handleConfirmUrgentCreation = async () => {
+    if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
+      showNotification('Campi obbligatori mancanti.', 'error');
+      closeModal();
+      return;
+    }
+
+    let clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
+
+    const ticketDaInviare = {
+      ...newTicketData,
+      clienteid: clienteId,
+      nomerichiedente: newTicketData.nomerichiedente,
+      stato: 'aperto'
+    };
+
+    try {
+      const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ticketDaInviare)
+      });
+
+      if (!response.ok) {
+        throw new Error('La risposta del server non è stata positiva');
+      }
+
+      const nuovoTicketSalvato = await response.json();
+      setTickets(prevTickets => [nuovoTicketSalvato, ...prevTickets]);
+
+      closeModal();
+      showNotification('Ticket creato con successo!', 'success');
+      if (currentUser.ruolo === 'cliente') {
+        setSelectedTicket(nuovoTicketSalvato);
+      }
+
+    } catch (error) {
+      console.error("Errore nella creazione del ticket:", error);
+      showNotification('Impossibile creare il ticket.', 'error');
+    }
+  };
+
+  const handleUpdateTicket = () => {
+    if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
+      showNotification('Compila i campi obbligatori.', 'error');
+      return;
+    }
+    const oldTicket = tickets.find(t => t.id === isEditingTicket);
+    const clienteId = currentUser.ruolo === 'tecnico'
+      ? (selectedClientForNewTicket ? parseInt(selectedClientForNewTicket) : oldTicket.clienteid)
+      : oldTicket.clienteid;
+    const updatedTicket = {
+      ...oldTicket,
+      ...newTicketData,
+      clienteid: clienteId,
+      nomerichiedente: newTicketData.nomerichiedente
+    };
+    setTickets(prev => prev.map(t => (t.id === isEditingTicket ? updatedTicket : t)));
+    if (selectedTicket && selectedTicket.id === isEditingTicket) {
+      setSelectedTicket(updatedTicket);
+    }
+    showNotification('Ticket aggiornato!', 'success');
+    closeModal();
+  };
+
+  const handleDeleteTicket = (id) => {
+    if (selectedTicket && selectedTicket.id === id) {
+      setSelectedTicket(null);
+    }
+    setTickets(prev => prev.filter(t => t.id !== id));
+    showNotification('Ticket eliminato.', 'error');
   };
 
   const handleSendMessage = (id, msg, isReclamo) => {
@@ -128,15 +350,15 @@ export default function TicketApp() {
           messaggi: [
             ...(t.messaggi || []),
             {
-              id: (t.messaggi?.length || 0) + 1,
+              id: (t.messaggi ? t.messaggi.length : 0) + 1,
               autore: autore,
               contenuto: msg,
               data: new Date().toISOString(),
               reclamo: isReclamo
             }
           ],
-          stato: isReclamo 
-            ? 'in_lavorazione' 
+          stato: isReclamo
+            ? 'in_lavorazione'
             : (currentUser.ruolo === 'tecnico' && t.stato === 'risolto' ? 'in_lavorazione' : t.stato)
         };
 
@@ -155,6 +377,14 @@ export default function TicketApp() {
   };
 
   const handleChangeStatus = async (id, status) => {
+    if (status === 'risolto' && currentUser.ruolo === 'tecnico') {
+      const ticket = tickets.find(tk => tk.id === id);
+      if (ticket) {
+        handleOpenTimeLogger(ticket);
+      }
+      return;
+    }
+
     try {
       const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + id + '/status', {
         method: 'PATCH',
@@ -163,7 +393,7 @@ export default function TicketApp() {
       });
 
       if (!response.ok) {
-        throw new Error('Errore nell aggiornamento dello stato');
+        throw new Error('Errore aggiornamento stato');
       }
 
       const updatedTicket = await response.json();
@@ -184,23 +414,227 @@ export default function TicketApp() {
     }
   };
 
-  const handleDeleteTicket = (id) => {
-    if (selectedTicket && selectedTicket.id === id) {
-      setSelectedTicket(null);
+  const handleTimeLogChange = (id, field, value) => {
+    setTimeLogs(prev => prev.map(l => (l.id === id ? { ...l, [field]: value } : l)));
+  };
+
+  const handleAddTimeLog = () => {
+    setTimeLogs(prev => [...prev, getInitialTimeLog()]);
+  };
+
+  const handleDuplicateTimeLog = (log) => {
+    setTimeLogs(prev => [...prev, { ...log, id: Date.now() }]);
+  };
+
+  const handleRemoveTimeLog = (id) => {
+    setTimeLogs(prev => prev.filter(l => l.id !== id));
+  };
+
+  const handleMaterialChange = (logId, matId, field, value) => {
+    setTimeLogs(prevLogs =>
+      prevLogs.map(l =>
+        l.id === logId
+          ? {
+              ...l,
+              materials: l.materials.map(m =>
+                m.id === matId
+                  ? {
+                      ...m,
+                      [field]: ['quantita', 'costo'].includes(field) ? parseFloat(value) || 0 : value
+                    }
+                  : m
+              )
+            }
+          : l
+      )
+    );
+  };
+
+  const handleAddMaterial = (logId) => {
+    setTimeLogs(prevLogs =>
+      prevLogs.map(l =>
+        l.id === logId ? { ...l, materials: [...(l.materials || []), getInitialMaterial()] } : l
+      )
+    );
+  };
+
+  const handleRemoveMaterial = (logId, matId) => {
+    setTimeLogs(prevLogs =>
+      prevLogs.map(l =>
+        l.id === logId ? { ...l, materials: l.materials.filter(m => m.id !== matId) } : l
+      )
+    );
+  };
+
+  const handleConfirmTimeLogs = () => {
+    if (!timeLogs.length) {
+      showNotification('Registra almeno un intervento.', 'error');
+      return;
     }
-    setTickets(prevTickets => prevTickets.filter(t => t.id !== id));
-    showNotification('Ticket eliminato.', 'error');
+
+    const validLogs = timeLogs
+      .map(l => {
+        if (l.data && l.oraInizio && l.oraFine) {
+          const cleanLog = { ...l };
+          delete cleanLog.id;
+          const materials = cleanLog.materials
+            ? cleanLog.materials
+                .map(mat => {
+                  const cleanMat = { ...mat };
+                  delete cleanMat.id;
+                  return cleanMat;
+                })
+                .filter(mat => mat.nome && mat.quantita > 0)
+            : [];
+          return { ...cleanLog, materials: materials };
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    if (!validLogs.length) {
+      showNotification('Nessun intervento valido.', 'error');
+      return;
+    }
+
+    setTickets(prev =>
+      prev.map(t =>
+        t.id === selectedTicket.id
+          ? {
+              ...t,
+              stato: selectedTicket.stato === 'in_lavorazione' ? 'risolto' : selectedTicket.stato,
+              timeLogs: validLogs
+            }
+          : t
+      )
+    );
+
+    showNotification('Interventi registrati per ' + selectedTicket.numero + '.', 'success');
+    closeModal();
+    setSelectedTicket(null);
+  };
+
+  const handleSetInviato = (id) => {
+    handleChangeStatus(id, 'inviato');
+  };
+
+  const handleReopenInLavorazione = (id) => {
+    handleChangeStatus(id, 'in_lavorazione');
+  };
+
+  const handleReopenAsRisolto = (id) => {
+    handleChangeStatus(id, 'risolto');
+  };
+
+  const handleArchiveTicket = (id) => {
+    handleChangeStatus(id, 'chiuso');
+  };
+
+  const handleInvoiceTicket = (id) => {
+    handleChangeStatus(id, 'fatturato');
+  };
+
+  const handleSelectTicket = (t) => {
+    if (t.isNew && currentUser.ruolo === 'tecnico') {
+      setTickets(prev => prev.map(tk => (tk.id === t.id ? { ...tk, isNew: false } : tk)));
+    }
+    setSelectedTicket(selectedTicket && selectedTicket.id === t.id ? null : t);
+  };
+
+  const handleGenerateSentReport = (filteredTickets) => {
+    if (!filteredTickets.length) {
+      showNotification('Nessun ticket da includere.', 'info');
+      return;
+    }
+
+    const grouped = filteredTickets.reduce((acc, t) => {
+      if (!acc[t.clienteid]) acc[t.clienteid] = [];
+      acc[t.clienteid].push(t);
+      return acc;
+    }, {});
+
+    let report = Object.keys(grouped)
+      .map(cId => {
+        const ticketsForClient = grouped[cId];
+        const cliente = users.find(u => u.id === parseInt(cId));
+        let clientReport = 'Report per ' + (cliente ? cliente.azienda : 'Sconosciuto') + '\n---\n';
+
+        clientReport += ticketsForClient
+          .map(t => {
+            let logsStr = t.timeLogs && t.timeLogs.length
+              ? t.timeLogs.map(l => ' - ' + formatReportDate(l.data) + ' (' + l.oraInizio + '-' + l.oraFine + '): ' + (l.descrizione || 'N/D')).join('\n')
+              : 'Nessun log.';
+
+            let matsStr = 'Nessun materiale.';
+            if (t.timeLogs) {
+              const mats = t.timeLogs.flatMap((l, i) =>
+                l.materials && l.materials.filter(mt => mt.nome).map(mt => ' - [Log ' + (i + 1) + '] ' + mt.nome + '(x' + mt.quantita + ')')
+              );
+              if (mats && mats.length) matsStr = mats.join('\n');
+            }
+
+            return t.numero + '-' + t.titolo + '\nLog:\n' + logsStr + '\nMateriali:\n' + matsStr;
+          })
+          .join('\n---\n');
+
+        return clientReport;
+      })
+      .join('\n\n\n');
+
+    setModalState({
+      type: 'sentReport',
+      data: {
+        title: 'Report Interventi Inviati',
+        content: report.trim(),
+        color: 'text-gray-700'
+      }
+    });
+  };
+
+  const handleGenerateInvoiceReport = (filteredTickets) => {
+    if (!filteredTickets.length) {
+      showNotification('Nessun ticket da includere.', 'info');
+      return;
+    }
+
+    let reportBody = filteredTickets
+      .map(t => {
+        const cliente = users.find(u => u.id === t.clienteid);
+        let logsStr = t.timeLogs && t.timeLogs.length
+          ? t.timeLogs.map(l => ' - ' + l.data + ' (' + l.oraInizio + '-' + l.oraFine + '): ' + l.descrizione).join('\n')
+          : 'Nessun log.';
+
+        let matsStr = 'Nessun materiale.';
+        if (t.timeLogs) {
+          const mats = t.timeLogs.flatMap((l, i) =>
+            l.materials && l.materials.map(mt => ' - [Log ' + (i + 1) + '] ' + mt.nome + '(x' + mt.quantita + ')')
+          );
+          if (mats && mats.length) matsStr = mats.join('\n');
+        }
+
+        return 'TICKET:' + t.numero + '\nCLIENTE:' + (cliente ? cliente.azienda : 'Sconosciuto') + '\nCHIUSURA:' + (t.datachiusura || '') + '\nTITOLO:' + t.titolo + '\n\nLOG:\n' + logsStr + '\n\nMATERIALI:\n' + matsStr;
+      })
+      .join('\n---\n');
+
+    setModalState({
+      type: 'invoiceReport',
+      data: {
+        title: 'Lista Interventi Fatturati',
+        content: 'Report Fatturati\n---\n' + reportBody.trim(),
+        color: 'text-indigo-700'
+      }
+    });
   };
 
   if (!isLoggedIn) {
     return (
       <>
         <Notification notification={notification} setNotification={setNotification} />
-        <LoginScreen 
-          loginData={loginData} 
-          setLoginData={setLoginData} 
-          handleLogin={handleLogin} 
-          handleAutoFillLogin={handleAutoFillLogin} 
+        <LoginScreen
+          loginData={loginData}
+          setLoginData={setLoginData}
+          handleLogin={handleLogin}
+          handleAutoFillLogin={handleAutoFillLogin}
         />
       </>
     );
@@ -209,51 +643,70 @@ export default function TicketApp() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Notification notification={notification} setNotification={setNotification} />
-      
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Sistema Gestione Ticket</h1>
-              <p className="text-sm text-gray-600 mt-1">
-                <span className={'px-2 py-0.5 rounded text-xs font-medium ' + (currentUser.ruolo === 'cliente' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800')}>
-                  {currentUser.ruolo.toUpperCase()}
-                </span>
-                <span className="ml-2">{currentUser.nome} - {currentUser.azienda}</span>
-              </p>
-            </div>
-            <button onClick={handleLogout} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+      <Header
+        currentUser={currentUser}
+        handleLogout={handleLogout}
+        openNewTicketModal={openNewTicketModal}
+        openNewClientModal={() => setModalState({ type: 'newClient' })}
+        openSettings={openSettings}
+      />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Dashboard</h2>
-          <p className="text-gray-600 mb-4">Benvenuto nel sistema di gestione ticket!</p>
-          
-          {tickets.length > 0 && (
-            <div className="mt-4">
-              <h3 className="font-bold mb-2">Tickets: {tickets.length}</h3>
-              <div className="space-y-2">
-                {tickets.slice(0, 5).map(ticket => (
-                  <div key={ticket.id} className="p-3 bg-gray-50 rounded border">
-                    <p className="font-semibold">{ticket.numero} - {ticket.titolo}</p>
-                    <p className="text-sm text-gray-600">Stato: {ticket.stato}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-800 font-semibold">Sistema Funzionante</p>
-            <p className="text-sm text-blue-600 mt-1">Connessione al backend stabilita. UI completa in arrivo.</p>
-          </div>
-        </div>
+        <TicketListContainer
+          currentUser={currentUser}
+          tickets={tickets}
+          users={users}
+          selectedTicket={selectedTicket}
+          handlers={{
+            handleSelectTicket,
+            handleOpenEditModal,
+            handleOpenTimeLogger,
+            handleReopenInLavorazione,
+            handleChangeStatus,
+            handleReopenAsRisolto,
+            handleSetInviato,
+            handleArchiveTicket,
+            handleInvoiceTicket,
+            handleDeleteTicket,
+            showNotification,
+            handleSendMessage,
+            handleGenerateSentReport,
+            handleGenerateInvoiceReport
+          }}
+        />
       </main>
+
+      <AllModals
+        modalState={modalState}
+        closeModal={closeModal}
+        newTicketData={newTicketData}
+        setNewTicketData={setNewTicketData}
+        handleCreateTicket={handleCreateTicket}
+        isEditingTicket={isEditingTicket}
+        currentUser={currentUser}
+        clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
+        selectedClientForNewTicket={selectedClientForNewTicket}
+        setSelectedClientForNewTicket={setSelectedClientForNewTicket}
+        resetNewTicketData={resetNewTicketData}
+        timeLogs={timeLogs}
+        setTimeLogs={setTimeLogs}
+        handleTimeLogChange={handleTimeLogChange}
+        handleAddTimeLog={handleAddTimeLog}
+        handleRemoveTimeLog={handleRemoveTimeLog}
+        handleDuplicateTimeLog={handleDuplicateTimeLog}
+        handleMaterialChange={handleMaterialChange}
+        handleAddMaterial={handleAddMaterial}
+        handleRemoveMaterial={handleRemoveMaterial}
+        handleConfirmTimeLogs={handleConfirmTimeLogs}
+        settingsData={settingsData}
+        setSettingsData={setSettingsData}
+        handleUpdateSettings={handleUpdateSettings}
+        newClientData={newClientData}
+        setNewClientData={setNewClientData}
+        handleCreateClient={handleCreateClient}
+        handleConfirmUrgentCreation={handleConfirmUrgentCreation}
+        showNotification={showNotification}
+      />
     </div>
   );
 }
