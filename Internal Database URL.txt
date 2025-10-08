@@ -1,0 +1,1 @@
+postgresql://ticketapp_ab_user:QFvmOoFkTiX6bAV4Zq3gmr3BUK7no6A6@dpg-d3j7o7t6ubrc73a4125g-a/ticketapp_ab
