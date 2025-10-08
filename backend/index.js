@@ -48,6 +48,32 @@ app.get('/api/tickets', async (req, res) => {
     }
 });
 
+// NUOVO ENDPOINT: Crea un nuovo ticket nel database
+app.post('/api/tickets', async (req, res) => {
+    // Prende i dati inviati dal frontend
+    const { clienteId, titolo, descrizione, stato, priorita, nomeRichiedente } = req.body;
+
+    // Genera un numero di ticket (logica semplificata)
+    const numero = `TKT-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+
+    try {
+        const client = await pool.connect();
+        const query = `
+            INSERT INTO tickets (numero, clienteId, titolo, descrizione, stato, priorita, nomeRichiedente) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7) 
+            RETURNING *;
+        `;
+        const values = [numero, clienteId, titolo, descrizione, stato, priorita, nomeRichiedente];
+        const result = await client.query(query, values);
+        
+        res.status(201).json(result.rows[0]); // Risponde con il ticket appena creato
+        client.release();
+    } catch (err) {
+        console.error('Errore nella creazione del ticket', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
 // --- AVVIO DEL SERVER ---
 const startServer = async () => {
   try {
