@@ -90,4 +90,26 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
   
   const { displayTickets, ticketCounts, usersMap } = useMemo(() => {
-    const usersMap = Object
+    // --- INIZIO DELLA CORREZIONE ---
+    // La riga era incompleta, ora è corretta.
+    const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
+    // --- FINE DELLA CORREZIONE ---
+
+    const filterTickets = () => {
+      if (currentUser.ruolo === 'cliente') {
+        return tickets.filter(t => t.clienteid === currentUser.id && t.stato === viewState);
+      }
+      const clientFiltered = selectedClientFilter === 'all'
+        ? tickets
+        : tickets.filter(t => t.clienteid === parseInt(selectedClientFilter));
+      
+      return viewState === 'tutti'
+        ? clientFiltered
+        : clientFiltered.filter(t => t.stato === viewState);
+    };
+
+    const countTickets = (arr) => ({
+      aperto: arr.filter(t => t.stato === 'aperto').length,
+      in_lavorazione: arr.filter(t => t.stato === 'in_lavorazione').length,
+      risolto: arr.filter(t => t.stato === 'risolto').length,
+      chiuso: arr.filter(t
