@@ -1,5 +1,8 @@
 import { useState } from 'react';
 
+// AGGIUNTO PER IL DEBUG: Stampa il valore della variabile d'ambiente appena il file viene caricato.
+console.log('API URL in uso:', process.env.REACT_APP_API_URL);
+
 export function useAuth(showNotification) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
