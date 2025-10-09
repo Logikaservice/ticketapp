@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react'; // Aggiunto useEffect
 import AppNotification from './components/AppNotification';
 import LoginScreen from './components/LoginScreen';
 import Header from './components/Header';
@@ -7,10 +7,6 @@ import AllModals from './components/Modals/AllModals';
 import { useAuth } from './hooks/useAuth';
 import { useTickets } from './hooks/useTickets';
 
-// =================================================================
-// CORREZIONE: Ho spostato la funzione useNotification qui, FUORI dal componente.
-// Ora è stabile e non verrà ricreata a ogni render.
-// =================================================================
 function useNotification() {
   const [notification, setNotification] = React.useState({ show: false, message: '', type: 'success' });
   const showNotification = (message, type = 'success') => {
@@ -20,7 +16,6 @@ function useNotification() {
   return { notification, setNotification, showNotification };
 }
 
-
 export default function TicketApp() {
   const { notification, setNotification, showNotification } = useNotification();
   const { isLoggedIn, currentUser, login, logout } = useAuth(showNotification);
@@ -29,6 +24,28 @@ export default function TicketApp() {
   const [users, setUsers] = React.useState([]);
   const [modalState, setModalState] = React.useState({ type: null, data: null });
   const [loginData, setLoginData] = React.useState({ email: '', password: '' });
+
+  // ===== INIZIO DELLA CORREZIONE =====
+  // Questo useEffect carica la lista degli utenti quando l'utente fa il login.
+  // Era la logica mancante.
+  useEffect(() => {
+    const fetchUsers = async () => {
+      // Carichiamo gli utenti solo se l'utente è loggato ed è un tecnico
+      if (currentUser && currentUser.ruolo === 'tecnico') {
+        try {
+          const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users`);
+          if (!response.ok) throw new Error('Errore di rete');
+          const data = await response.json();
+          setUsers(data);
+        } catch (error) {
+          showNotification('Impossibile caricare la lista utenti.', 'error');
+        }
+      }
+    };
+
+    fetchUsers();
+  }, [currentUser, showNotification]); // Si attiva quando 'currentUser' cambia
+  // ===== FINE DELLA CORREZIONE =====
 
   const openNewTicketModal = () => {
     setModalState({ type: 'newTicket', data: null });
@@ -97,6 +114,8 @@ export default function TicketApp() {
         modalState={modalState}
         closeModal={() => setModalState({ type: null, data: null })}
         currentUser={currentUser}
+        clientiAttivi={users.filter(u => u.ruolo === 'cliente')} // Passiamo anche i clienti attivi ai modali
+        // ... altre props
       />
     </div>
   );
