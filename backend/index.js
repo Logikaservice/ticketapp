@@ -23,6 +23,22 @@ app.get('/api', (req, res) => {
   res.json({ message: "API del sistema di ticketing funzionante." });
 });
 
+// ENDPOINT: Keepalive per Supabase (previene la pausa dopo 7 giorni)
+app.get('/api/keepalive', async (req, res) => {
+  try {
+    const client = await pool.connect();
+    await client.query('SELECT 1');
+    client.release();
+    res.json({ 
+      status: 'Database attivo', 
+      timestamp: new Date().toISOString() 
+    });
+  } catch (err) {
+    console.error('Errore keepalive:', err);
+    res.status(500).json({ error: 'Errore keepalive' });
+  }
+});
+
 // ENDPOINT: Login utente
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
@@ -113,7 +129,7 @@ app.patch('/api/tickets/:id/status', async (req, res) => {
     }
 });
 
-// ⬇️⬇️⬇️ NUOVA ROUTE: ELIMINA TICKET ⬇️⬇️⬇️
+// ENDPOINT: Elimina un ticket
 app.delete('/api/tickets/:id', async (req, res) => {
     const { id } = req.params;
 
