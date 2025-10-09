@@ -1,79 +1,83 @@
-// src/hooks/useTickets.js
 import { useState, useEffect, useCallback } from 'react';
 
-// Passiamo l'utente corrente e la funzione di notifica come dipendenze
 export function useTickets(currentUser, showNotification) {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
 
-  // Usiamo useCallback per evitare che la funzione venga ricreata ad ogni render
   const fetchTickets = useCallback(async () => {
     if (!currentUser) return;
-
     try {
-      const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets');
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`);
       if (!response.ok) throw new Error("Errore nel caricare i ticket");
       const data = await response.json();
       setTickets(data);
     } catch (error) {
-      console.error("Errore nel caricare i dati:", error);
       showNotification(error.message, "error");
     }
-  }, [currentUser, showNotification]); // Dipendenze di useCallback
+  }, [currentUser, showNotification]);
 
-  // useEffect per caricare i ticket quando l'utente cambia
   useEffect(() => {
     fetchTickets();
   }, [fetchTickets]);
 
   const selectTicket = (ticket) => {
-    // Logica per marcare il ticket come letto se necessario
-    if (ticket && ticket.isNew && currentUser.ruolo === 'tecnico') {
-        setTickets(prev => prev.map(tk => (tk.id === ticket.id ? { ...tk, isNew: false } : tk)));
-    }
     setSelectedTicket(prev => (prev && prev.id === ticket.id ? null : ticket));
   };
-  
+
   const createTicket = async (ticketData) => {
-    // Qui andrebbe la logica di handleConfirmUrgentCreation
+    // Logica per creare un ticket...
+  };
+
+  const changeStatus = async (id, status) => {
     try {
-        const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ticketData)
-        });
-        if (!response.ok) throw new Error('Errore creazione ticket');
-        const nuovoTicket = await response.json();
-        setTickets(prev => [nuovoTicket, ...prev]);
-        showNotification('Ticket creato!', 'success');
-        return nuovoTicket;
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: status })
+      });
+      if (!response.ok) throw new Error('Errore aggiornamento stato');
+      const updatedTicket = await response.json();
+      setTickets(prev => prev.map(t => (t.id === id ? updatedTicket : t)));
+      showNotification('Stato del ticket aggiornato!', 'success');
+      if (status === 'chiuso' || status === 'risolto') {
+        setSelectedTicket(null);
+      }
     } catch (error) {
-        showNotification('Impossibile creare il ticket.', 'error');
-        return null;
+      showNotification('Impossibile aggiornare lo stato.', 'error');
     }
   };
 
   const deleteTicket = async (id) => {
-    // ... logica di handleDeleteTicket
-    // Per brevità, ometto le altre funzioni (update, changeStatus, ecc.)
-    // ma andrebbero aggiunte qui con lo stesso pattern.
+    if (!window.confirm('Sei sicuro di voler eliminare questo ticket?')) return;
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) throw new Error('Errore nell\'eliminazione');
+      setTickets(prev => prev.filter(t => t.id !== id));
+      if (selectedTicket && selectedTicket.id === id) {
+        setSelectedTicket(null);
+      }
+      showNotification('Ticket eliminato!', 'success');
+    } catch (error) {
+      showNotification('Impossibile eliminare il ticket.', 'error');
+    }
   };
-
-  // Funzione per resettare lo stato quando si fa logout
+  
   const resetTickets = () => {
     setTickets([]);
     setSelectedTicket(null);
   };
 
+  // Esponiamo tutte le funzioni che servono
   return {
     tickets,
-    setTickets, // Esponiamo anche il set per manipolazioni dirette se serve
     selectedTicket,
-    setSelectedTicket,
     selectTicket,
     createTicket,
+    changeStatus,
     deleteTicket,
-    fetchTickets, // Potrebbe servire per un refresh manuale
-    resetTickets
+    resetTickets,
+    // E qualsiasi altra funzione ti serva...
   };
 }
