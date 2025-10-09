@@ -3,8 +3,7 @@ import { FileText } from 'lucide-react';
 import TicketItem from './TicketItem';
 
 // ====================================================================
-// 1. COMPONENTE ESTRATTO PER I FILTRI
-// Questo componente ora gestisce la visualizzazione di tutti i controlli (pulsanti, select).
+// COMPONENTE ESTRATTO PER I FILTRI
 // ====================================================================
 const FilterControls = ({ 
   currentUser, 
@@ -84,15 +83,12 @@ const FilterControls = ({
 };
 
 // ====================================================================
-// 2. COMPONENTE PRINCIPALE PIÙ PULITO
-// Ora si occupa solo di gestire la logica principale e di visualizzare la lista.
+// COMPONENTE PRINCIPALE
 // ====================================================================
 const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, handlers }) => {
   const [viewState, setViewState] = useState(currentUser.ruolo === 'cliente' ? 'aperto' : 'tutti');
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
   
-  // --- OTTIMIZZAZIONE CON useMemo ---
-  // Tutta la logica di filtraggio e conteggio viene eseguita solo quando necessario.
   const { displayTickets, ticketCounts, usersMap } = useMemo(() => {
     const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
 
@@ -100,7 +96,6 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
       if (currentUser.ruolo === 'cliente') {
         return tickets.filter(t => t.clienteid === currentUser.id && t.stato === viewState);
       }
-      // Logica per il tecnico
       const clientFiltered = selectedClientFilter === 'all'
         ? tickets
         : tickets.filter(t => t.clienteid === parseInt(selectedClientFilter));
@@ -110,6 +105,28 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
         : clientFiltered.filter(t => t.stato === viewState);
     };
 
+    // --- INIZIO DELLA CORREZIONE ---
     const countTickets = (arr) => ({
       aperto: arr.filter(t => t.stato === 'aperto').length,
-      in_lavorazione: arr.filter(t => t.stato === 'in
+      // Questa riga era incompleta, ora è corretta.
+      in_lavorazione: arr.filter(t => t.stato === 'in_lavorazione').length,
+      risolto: arr.filter(t => t.stato === 'risolto').length,
+      chiuso: arr.filter(t => t.stato === 'chiuso').length,
+      inviato: arr.filter(t => t.stato === 'inviato').length,
+      fatturato: arr.filter(t => t.stato === 'fatturato').length
+    });
+    // --- FINE DELLA CORREZIONE ---
+
+    const relevantTicketsForCounts = currentUser.ruolo === 'cliente'
+      ? tickets.filter(t => t.clienteid === currentUser.id)
+      : tickets;
+
+    const counts = countTickets(relevantTicketsForCounts);
+    if (currentUser.ruolo === 'tecnico') {
+      counts.tutti = relevantTicketsForCounts.length;
+    }
+
+    return { displayTickets: filterTickets(), ticketCounts: counts, usersMap };
+  }, [tickets, users, currentUser, viewState, selectedClientFilter]);
+  
+  const clientiAttivi = users
