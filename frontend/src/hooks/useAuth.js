@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-// AGGIUNTO PER IL DEBUG: Stampa il valore della variabile d'ambiente appena il file viene caricato.
+// Questo console.log ci serve ancora per il debug
 console.log('API URL in uso:', process.env.REACT_APP_API_URL);
 
 export function useAuth(showNotification) {
@@ -8,7 +8,6 @@ export function useAuth(showNotification) {
   const [currentUser, setCurrentUser] = useState(null);
 
   const login = async (loginData) => {
-    // PUNTO DI CONTROLLO 2: Vediamo se la funzione viene chiamata e con quali dati.
     console.log('2. Funzione "login" nell\'hook ricevuta con:', loginData);
 
     if (!loginData || !loginData.email || !loginData.password) {
@@ -17,7 +16,13 @@ export function useAuth(showNotification) {
     }
 
     try {
-      const response = await fetch(process.env.REACT_APP_API_URL + '/api/login', {
+      // ======================= MODIFICA QUESTA RIGA =======================
+      // Sostituisci la stringa 'INCOLLA_QUI_L_URL_DEL_TUO_BACKEND' con l'URL che hai copiato al Passo 1.
+      // ESEMPIO: const apiUrl = 'https://ticketapp-backend-xxxx.onrender.com';
+      const apiUrl = 'https://ticketapp-4eqb.onrender.com';
+      // ===================================================================
+
+      const response = await fetch(apiUrl + '/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginData)
@@ -43,7 +48,6 @@ export function useAuth(showNotification) {
   const logout = () => {
     setIsLoggedIn(false);
     setCurrentUser(null);
-    // Potresti voler aggiungere una notifica anche qui
   };
 
   return {
