@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'; // Aggiunto useEffect
+import React, { useEffect, useCallback } from 'react'; // 1. Importa useCallback
 import AppNotification from './components/AppNotification';
 import LoginScreen from './components/LoginScreen';
 import Header from './components/Header';
@@ -9,10 +9,14 @@ import { useTickets } from './hooks/useTickets';
 
 function useNotification() {
   const [notification, setNotification] = React.useState({ show: false, message: '', type: 'success' });
-  const showNotification = (message, type = 'success') => {
+
+  // 2. "Avvolgiamo" showNotification in useCallback.
+  // In questo modo, la funzione non verrà ricreata a ogni render, ma solo una volta.
+  const showNotification = useCallback((message, type = 'success') => {
     setNotification({ show: true, message, type });
     setTimeout(() => setNotification(p => ({ ...p, show: false })), 4000);
-  };
+  }, []); // L'array vuoto [] significa che la funzione non ha dipendenze e non deve mai cambiare.
+
   return { notification, setNotification, showNotification };
 }
 
@@ -25,12 +29,8 @@ export default function TicketApp() {
   const [modalState, setModalState] = React.useState({ type: null, data: null });
   const [loginData, setLoginData] = React.useState({ email: '', password: '' });
 
-  // ===== INIZIO DELLA CORREZIONE =====
-  // Questo useEffect carica la lista degli utenti quando l'utente fa il login.
-  // Era la logica mancante.
   useEffect(() => {
     const fetchUsers = async () => {
-      // Carichiamo gli utenti solo se l'utente è loggato ed è un tecnico
       if (currentUser && currentUser.ruolo === 'tecnico') {
         try {
           const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users`);
@@ -42,10 +42,8 @@ export default function TicketApp() {
         }
       }
     };
-
     fetchUsers();
-  }, [currentUser, showNotification]); // Si attiva quando 'currentUser' cambia
-  // ===== FINE DELLA CORREZIONE =====
+  }, [currentUser, showNotification]);
 
   const openNewTicketModal = () => {
     setModalState({ type: 'newTicket', data: null });
@@ -114,8 +112,7 @@ export default function TicketApp() {
         modalState={modalState}
         closeModal={() => setModalState({ type: null, data: null })}
         currentUser={currentUser}
-        clientiAttivi={users.filter(u => u.ruolo === 'cliente')} // Passiamo anche i clienti attivi ai modali
-        // ... altre props
+        clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
       />
     </div>
   );
