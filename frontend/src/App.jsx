@@ -331,15 +331,35 @@ export default function TicketApp() {
   };
 
   const handleDeleteTicket = async (id) => {
-  try {
-    const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + id, {
-      method: 'DELETE'
-    });
-    // ... resto del codice nell'artifact
-  } catch (error) {
-    // ... gestione errore
-  }
-};
+    // Chiedi conferma prima di eliminare
+    if (!window.confirm('Sei sicuro di voler eliminare questo ticket?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + id, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore nell\'eliminazione del ticket');
+      }
+
+      // Rimuovi il ticket dallo stato locale
+      setTickets(prevTickets => prevTickets.filter(t => t.id !== id));
+      
+      // Se il ticket eliminato era quello selezionato, chiudi la vista dettaglio
+      if (selectedTicket && selectedTicket.id === id) {
+        setSelectedTicket(null);
+      }
+
+      showNotification('Ticket eliminato con successo!', 'success');
+
+    } catch (error) {
+      console.error('Errore nell\'eliminazione del ticket:', error);
+      showNotification('Impossibile eliminare il ticket. Riprova.', 'error');
+    }
+  };
 
   const handleSendMessage = (id, msg, isReclamo) => {
     if (!isReclamo) isReclamo = false;
