@@ -18,7 +18,8 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, handleAutoFillLogin
           <input
             type="email"
             value={loginData.email}
-            onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+            // CORREZIONE: Usiamo la forma funzionale per aggiornare lo stato in modo sicuro
+            onChange={(e) => setLoginData(prevData => ({ ...prevData, email: e.target.value }))}
             onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
             className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="email@example.com"
@@ -30,7 +31,8 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, handleAutoFillLogin
           <input
             type="password"
             value={loginData.password}
-            onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+            // CORREZIONE: Usiamo la forma funzionale anche qui
+            onChange={(e) => setLoginData(prevData => ({ ...prevData, password: e.target.value }))}
             onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
             className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="••••••••"
