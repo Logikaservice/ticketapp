@@ -105,17 +105,14 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
         : clientFiltered.filter(t => t.stato === viewState);
     };
 
-    // --- INIZIO DELLA CORREZIONE ---
     const countTickets = (arr) => ({
       aperto: arr.filter(t => t.stato === 'aperto').length,
-      // Questa riga era incompleta, ora è corretta.
       in_lavorazione: arr.filter(t => t.stato === 'in_lavorazione').length,
       risolto: arr.filter(t => t.stato === 'risolto').length,
       chiuso: arr.filter(t => t.stato === 'chiuso').length,
       inviato: arr.filter(t => t.stato === 'inviato').length,
       fatturato: arr.filter(t => t.stato === 'fatturato').length
     });
-    // --- FINE DELLA CORREZIONE ---
 
     const relevantTicketsForCounts = currentUser.ruolo === 'cliente'
       ? tickets.filter(t => t.clienteid === currentUser.id)
@@ -129,4 +126,51 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
     return { displayTickets: filterTickets(), ticketCounts: counts, usersMap };
   }, [tickets, users, currentUser, viewState, selectedClientFilter]);
   
-  const clientiAttivi = users
+  // --- INIZIO DELLA CORREZIONE ---
+  // La riga era incompleta, ora è corretta.
+  const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
+  // --- FINE DELLA CORREZIONE ---
+  
+  const handleGenerateReport = () => {
+    if (!handlers) return;
+    if (viewState === 'inviato' && handlers.handleGenerateSentReport) {
+      handlers.handleGenerateSentReport(displayTickets);
+    } else if (viewState === 'fatturato' && handlers.handleGenerateInvoiceReport) {
+      handlers.handleGenerateInvoiceReport(displayTickets);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-lg">
+      <div className="p-4 border-b">
+        <h2 className="text-xl font-semibold mb-3">
+          {currentUser.ruolo === 'cliente' ? 'I Miei Interventi' : 'Lista Ticket'}
+        </h2>
+        
+        <FilterControls
+          currentUser={currentUser}
+          counts={ticketCounts}
+          viewState={viewState}
+          setViewState={setViewState}
+          clientiAttivi={clientiAttivi}
+          selectedClient={selectedClientFilter}
+          setSelectedClient={setSelectedClientFilter}
+          onGenerateReport={handleGenerateReport}
+          tickets={tickets}
+        />
+      </div>
+
+      <div className="divide-y">
+        {displayTickets.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            <FileText size={48} className="mx-auto mb-3 opacity-30" />
+            <p>Nessun intervento con lo stato selezionato.</p>
+          </div>
+        ) : (
+          displayTickets
+            .sort((a, b) => new Date(b.dataapertura) - new Date(a.dataapertura))
+            .map(t => (
+              <TicketItem
+                key={t.id}
+                ticket={t}
+                cliente
