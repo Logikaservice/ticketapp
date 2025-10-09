@@ -12,7 +12,7 @@ export function useTickets(currentUser, showNotification) {
       const data = await response.json();
       setTickets(data);
     } catch (error) {
-      showNotification(error.message, "error");
+      showNotification(error?.message || 'Errore di rete', "error");
     }
   }, [currentUser, showNotification]);
 
@@ -22,10 +22,6 @@ export function useTickets(currentUser, showNotification) {
 
   const selectTicket = (ticket) => {
     setSelectedTicket(prev => (prev && prev.id === ticket.id ? null : ticket));
-  };
-
-  const createTicket = async (ticketData) => {
-    // Logica per creare un ticket...
   };
 
   const changeStatus = async (id, status) => {
@@ -39,7 +35,7 @@ export function useTickets(currentUser, showNotification) {
       const updatedTicket = await response.json();
       setTickets(prev => prev.map(t => (t.id === id ? updatedTicket : t)));
       showNotification('Stato del ticket aggiornato!', 'success');
-      if (status === 'chiuso' || status === 'risolto') {
+      if (['chiuso', 'risolto', 'fatturato'].includes(status)) {
         setSelectedTicket(null);
       }
     } catch (error) {
@@ -50,10 +46,7 @@ export function useTickets(currentUser, showNotification) {
   const deleteTicket = async (id) => {
     if (!window.confirm('Sei sicuro di voler eliminare questo ticket?')) return;
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}`, {
-        method: 'DELETE'
-      });
-      if (!response.ok) throw new Error('Errore nell\'eliminazione');
+      await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}`, { method: 'DELETE' });
       setTickets(prev => prev.filter(t => t.id !== id));
       if (selectedTicket && selectedTicket.id === id) {
         setSelectedTicket(null);
@@ -69,15 +62,12 @@ export function useTickets(currentUser, showNotification) {
     setSelectedTicket(null);
   };
 
-  // Esponiamo tutte le funzioni che servono
   return {
     tickets,
     selectedTicket,
     selectTicket,
-    createTicket,
     changeStatus,
     deleteTicket,
     resetTickets,
-    // E qualsiasi altra funzione ti serva...
   };
 }
