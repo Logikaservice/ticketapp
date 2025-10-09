@@ -18,7 +18,6 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, handleAutoFillLogin
           <input
             type="email"
             value={loginData.email}
-            // CORREZIONE: Usiamo la forma funzionale per aggiornare lo stato in modo sicuro
             onChange={(e) => setLoginData(prevData => ({ ...prevData, email: e.target.value }))}
             onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
             className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -31,7 +30,6 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, handleAutoFillLogin
           <input
             type="password"
             value={loginData.password}
-            // CORREZIONE: Usiamo la forma funzionale anche qui
             onChange={(e) => setLoginData(prevData => ({ ...prevData, password: e.target.value }))}
             onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
             className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -47,6 +45,7 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, handleAutoFillLogin
         </button>
       </div>
       
+      {/* ===== CORREZIONE: Ora questa sezione funzionerà ===== */}
       <div className="mt-8 p-4 bg-gray-50 rounded-lg">
         <p className="text-xs font-semibold mb-2">Account di prova (dal DB):</p>
         <div className="space-y-2 text-xs">

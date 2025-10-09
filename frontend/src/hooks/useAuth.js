@@ -1,4 +1,3 @@
-// src/hooks/useAuth.js
 import { useState } from 'react';
 
 export function useAuth(showNotification) {
@@ -6,8 +5,12 @@ export function useAuth(showNotification) {
   const [currentUser, setCurrentUser] = useState(null);
 
   const login = async (loginData) => {
-    if (!loginData.email || !loginData.password) {
-      return showNotification('Inserisci email e password.', 'error');
+    // PUNTO DI CONTROLLO 2: Vediamo se la funzione viene chiamata e con quali dati.
+    console.log('2. Funzione "login" nell\'hook ricevuta con:', loginData);
+
+    if (!loginData || !loginData.email || !loginData.password) {
+      showNotification('Inserisci email e password.', 'error');
+      return false;
     }
 
     try {
@@ -19,28 +22,27 @@ export function useAuth(showNotification) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Credenziali non valide' }));
-        throw new Error(errorData.error);
+        throw new Error(errorData.error || 'Errore del server');
       }
 
       const user = await response.json();
       setCurrentUser(user);
       setIsLoggedIn(true);
       showNotification('Benvenuto ' + user.nome + '!', 'success');
-      return true; // Ritorna true in caso di successo
+      return true;
     } catch (error) {
       console.error("Errore durante il login:", error);
-      showNotification(error.message || 'Credenziali non valide o errore di rete.', 'error');
-      return false; // Ritorna false in caso di fallimento
+      showNotification(error.message, 'error');
+      return false;
     }
   };
 
   const logout = () => {
     setIsLoggedIn(false);
     setCurrentUser(null);
-    showNotification('Disconnessione effettuata.', 'info');
+    // Potresti voler aggiungere una notifica anche qui
   };
 
-  // Esponiamo solo lo stato e le funzioni necessarie all'esterno
   return {
     isLoggedIn,
     currentUser,
