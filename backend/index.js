@@ -91,10 +91,10 @@ app.post('/api/tickets', async (req, res) => {
     }
 });
 
-// NUOVO ENDPOINT: Aggiorna lo stato di un ticket
+// ENDPOINT: Aggiorna lo stato di un ticket
 app.patch('/api/tickets/:id/status', async (req, res) => {
-    const { id } = req.params; // L'ID del ticket dall'URL
-    const { status } = req.body; // Il nuovo stato dal corpo della richiesta
+    const { id } = req.params;
+    const { status } = req.body;
 
     try {
         const client = await pool.connect();
@@ -103,12 +103,37 @@ app.patch('/api/tickets/:id/status', async (req, res) => {
         client.release();
 
         if (result.rows.length > 0) {
-            res.json(result.rows[0]); // Risponde con il ticket aggiornato
+            res.json(result.rows[0]);
         } else {
             res.status(404).json({ error: 'Ticket non trovato' });
         }
     } catch (err) {
         console.error(`Errore nell'aggiornare il ticket ${id}`, err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
+// ⬇️⬇️⬇️ NUOVA ROUTE: ELIMINA TICKET ⬇️⬇️⬇️
+app.delete('/api/tickets/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const client = await pool.connect();
+        const query = 'DELETE FROM tickets WHERE id = $1 RETURNING *;';
+        const result = await client.query(query, [id]);
+        client.release();
+
+        if (result.rows.length > 0) {
+            console.log('✅ Ticket eliminato:', id);
+            res.status(200).json({ 
+                message: 'Ticket eliminato con successo',
+                ticket: result.rows[0]
+            });
+        } else {
+            res.status(404).json({ error: 'Ticket non trovato' });
+        }
+    } catch (err) {
+        console.error('❌ Errore nell\'eliminazione del ticket:', err);
         res.status(500).json({ error: 'Errore interno del server' });
     }
 });
@@ -129,4 +154,3 @@ const startServer = async () => {
 };
 
 startServer();
-
