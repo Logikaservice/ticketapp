@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 // ... altri import di componenti
 import { useAuth } from './hooks/useAuth';
 import { useTickets } from './hooks/useTickets';
+import LoginScreen from './components/LoginScreen';
 // Potresti creare anche un useUsers, useModals, ecc.
 
 export default function TicketApp() {
