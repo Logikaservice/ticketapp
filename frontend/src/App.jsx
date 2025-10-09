@@ -1,5 +1,5 @@
 // App.jsx (versione corretta e completa)
-import React, 'react';
+import React from 'react';
 
 // HO AGGIUNTO GLI IMPORT MANCANTI E CORRETTO QUELLO DELLA NOTIFICA
 import AppNotification from './components/AppNotification';
@@ -52,7 +52,6 @@ export default function TicketApp() {
   if (!isLoggedIn) {
     return (
       <>
-        {/* CORRETTO: Uso di AppNotification */}
         <AppNotification notification={notification} setNotification={setNotification} />
         <LoginScreen 
           loginData={loginData}
@@ -66,7 +65,6 @@ export default function TicketApp() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* CORRETTO: Uso di AppNotification */}
       <AppNotification notification={notification} setNotification={setNotification} />
       
       {/* Assicurati che dentro a Header.jsx tu usi currentUser?.nome per evitare errori */}
