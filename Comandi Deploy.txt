@@ -1,5 +1,8 @@
+https://dashboard.render.com/
+
+
 git add .
 
-git commit -m "Fix: Ricreata la cartella public e il file index.html mancanti"
+git commit -m "Deploy"
 
 git push
