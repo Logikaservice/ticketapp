@@ -323,7 +323,7 @@ export default function TicketApp() {
       closeModal();
       showNotification('Ticket creato con successo!', 'success');
       if (currentUser.ruolo === 'cliente') {
-        setSelectedTicket(nuovoTicketSalvato);
+        setSelectedTicket(ticketConFlag);
       }
 
     } catch (error) {
