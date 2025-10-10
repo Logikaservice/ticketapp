@@ -37,7 +37,7 @@ export const getPrioritaColor = (priorita) => {
 export const getPrioritaBgClass = (priorita) => {
   const colors = {
     bassa: 'bg-gray-100',
-    media: 'bg-blue-600',  // Modificato per essere più visibile con animate-pulse
+    media: 'bg-blue-200',  // Modificato per essere più visibile con animate-pulse
     alta: 'bg-orange-100',
     urgente: 'bg-red-100'
   };
