@@ -63,7 +63,6 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// ===== INIZIO DELLA CORREZIONE =====
 // ENDPOINT: Prende tutti gli utenti (per il tecnico)
 app.get('/api/users', async (req, res) => {
     try {
@@ -72,12 +71,10 @@ app.get('/api/users', async (req, res) => {
         client.release();
         res.json(result.rows);
     } catch (err) {
-        // Il blocco catch era incompleto, ora è stato sistemato.
         console.error('Errore nel prendere gli utenti', err);
         res.status(500).json({ error: 'Errore interno del server' });
     }
 });
-// ===== FINE DELLA CORREZIONE =====
 
 // ENDPOINT: Prende tutti i ticket
 app.get('/api/tickets', async (req, res) => {
@@ -130,6 +127,50 @@ app.patch('/api/tickets/:id/status', async (req, res) => {
         }
     } catch (err) {
         console.error(`Errore nell'aggiornare il ticket ${id}`, err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
+// ENDPOINT: Aggiungi un messaggio a un ticket
+app.post('/api/tickets/:id/messages', async (req, res) => {
+    const { id } = req.params;
+    const { autore, contenuto, reclamo } = req.body;
+    
+    try {
+        const client = await pool.connect();
+        
+        // Prendi il ticket attuale
+        const ticketResult = await client.query('SELECT messaggi FROM tickets WHERE id = $1', [id]);
+        
+        if (ticketResult.rows.length === 0) {
+            client.release();
+            return res.status(404).json({ error: 'Ticket non trovato' });
+        }
+        
+        // Prepara i messaggi attuali
+        let messaggi = ticketResult.rows[0].messaggi || [];
+        
+        // Crea il nuovo messaggio
+        const newMessage = {
+            id: messaggi.length + 1,
+            autore: autore,
+            contenuto: contenuto,
+            data: new Date().toISOString(),
+            reclamo: reclamo || false
+        };
+        
+        // Aggiungi il nuovo messaggio
+        messaggi.push(newMessage);
+        
+        // Aggiorna il ticket con i nuovi messaggi
+        const updateQuery = 'UPDATE tickets SET messaggi = $1 WHERE id = $2 RETURNING messaggi;';
+        const updateResult = await client.query(updateQuery, [JSON.stringify(messaggi), id]);
+        
+        client.release();
+        
+        res.status(201).json(newMessage);
+    } catch (err) {
+        console.error('Errore nel salvare il messaggio:', err);
         res.status(500).json({ error: 'Errore interno del server' });
     }
 });
