@@ -1,35 +1,38 @@
 import React from 'react';
-import { X, Check, AlertCircle, Info } from 'lucide-react';
+import { X, CheckCircle, XCircle, Info, AlertTriangle } from 'lucide-react';
 
-// Rinominato da "Notification" a "AppNotification"
-const AppNotification = ({ notification, setNotification }) => {
-  if (!notification || !notification.show) return null;
+const AppNotification = ({ notification, handleClose }) => {
+  if (!notification || !notification.show) {
+    return null;
+  }
 
+  // Definisce stili e icone per ogni tipo di notifica
   const typeStyles = {
-    success: 'bg-green-600',
-    error: 'bg-red-600',
-    info: 'bg-blue-600'
+    success: { bg: 'bg-green-600', icon: <CheckCircle /> },
+    error: { bg: 'bg-red-600', icon: <XCircle /> },
+    info: { bg: 'bg-blue-600', icon: <Info /> },
+    warning: { bg: 'bg-yellow-500', icon: <AlertTriangle /> }
   };
 
-  const Icon = notification.type === 'success' 
-    ? Check 
-    : (notification.type === 'error' ? AlertCircle : Info);
+  const style = typeStyles[notification.type] || typeStyles.info;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100]">
-      <div className={`flex items-center p-4 rounded-xl shadow-2xl text-white ${typeStyles[notification.type]}`}>
-        <Icon size={24} className="mr-3" />
-        <span>{notification.message}</span>
-        <button 
-          onClick={() => setNotification(p => ({ ...p, show: false }))} 
-          className="ml-4 p-1 rounded-full hover:bg-white/20"
-        >
-          <X size={16} />
-        </button>
+    <div className={`fixed bottom-5 right-5 z-[100] flex items-center gap-4 p-4 rounded-xl shadow-2xl text-white max-w-sm ${style.bg}`}>
+      <div className="flex-shrink-0">
+        {style.icon}
       </div>
+      <div className="flex-1">
+        <span>{notification.message}</span>
+      </div>
+      <button 
+        onClick={handleClose} 
+        className="ml-4 p-1 rounded-full hover:bg-white/20 transition-colors"
+        aria-label="Chiudi notifica"
+      >
+        <X size={20} />
+      </button>
     </div>
   );
 };
 
-// Esportato come "AppNotification"
 export default AppNotification;
