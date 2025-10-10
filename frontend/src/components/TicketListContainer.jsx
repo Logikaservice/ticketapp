@@ -24,17 +24,19 @@ const FilterControls = ({
     chiuso: <Archive size={14} />,
     inviato: <Send size={14} />,
     fatturato: <FileCheck2 size={14} />,
-    tutti: <FileText size={14} /> // Lasciamo l'icona qui per sicurezza, non verrà usata
   };
 
-  // Definisce l'ordine esatto dei pulsanti (SENZA 'tutti')
-  const TASTI_TECNICO = ['aperto', 'in_lavorazione', 'risolto', 'inviato', 'fatturato', 'chiuso'];
+  // Definisce l'ordine esatto dei pulsanti come richiesto
+  const TASTI_TECNICO = ['aperto', 'in_lavorazione', 'risolto', 'chiuso', 'inviato', 'fatturato'];
 
   // Logica per il Cliente
   if (currentUser.ruolo === 'cliente') {
+    // Per il cliente, usiamo un ordine fisso che ha senso per lui
+    const TASTI_CLIENTE = ['aperto', 'in_lavorazione', 'risolto', 'chiuso'];
     return (
       <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
-        {Object.keys(counts).map(status => {
+        {TASTI_CLIENTE.map(status => {
+          if (counts[status] === undefined) return null;
           const unreadCount = unreadCounts[status] || 0;
           return (
             <button
@@ -115,7 +117,6 @@ const FilterControls = ({
 // COMPONENTE PRINCIPALE
 // ====================================================================
 const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, handlers, getUnreadCount }) => {
-  // Stato iniziale modificato: ora parte sempre da 'aperto'
   const [viewState, setViewState] = useState('aperto');
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
   
@@ -123,17 +124,14 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
     const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
 
     const filterTickets = () => {
-      // Se il ruolo è cliente, filtra solo i suoi ticket per lo stato selezionato
       if (currentUser.ruolo === 'cliente') {
         return tickets.filter(t => t.clienteid === currentUser.id && t.stato === viewState);
       }
       
-      // Logica per il tecnico
       const clientFiltered = selectedClientFilter === 'all'
         ? tickets
         : tickets.filter(t => t.clienteid === parseInt(selectedClientFilter));
       
-      // Filtra per stato (non c'è più il caso 'tutti')
       return clientFiltered.filter(t => t.stato === viewState);
     };
 
