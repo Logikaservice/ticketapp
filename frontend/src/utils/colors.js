@@ -17,7 +17,7 @@ export const getPrioritaColor = (priorita) => {
     alta: 'text-orange-600',
     urgente: 'text-red-600'
   };
-  return colors[priorita] || 'text-gray-600';
+  return colors[priorita.toLowerCase()] || 'text-gray-600';
 };
 
 export const getPrioritaBgClass = (priorita) => {
@@ -27,7 +27,7 @@ export const getPrioritaBgClass = (priorita) => {
     alta: 'bg-orange-100',
     urgente: 'bg-red-100'
   };
-  return colors[priorita] || 'bg-gray-100';
+  return colors[priorita.toLowerCase()] || 'bg-gray-100';
 };
 
 export const getPrioritySolidBgClass = (priorita) => {
@@ -37,5 +37,5 @@ export const getPrioritySolidBgClass = (priorita) => {
     alta: 'bg-orange-500',
     urgente: 'bg-red-600'
   };
-  return colors[priorita] || 'bg-gray-500';
+  return colors[priorita.toLowerCase()] || 'bg-gray-500';
 };
