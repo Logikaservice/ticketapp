@@ -1,7 +1,0 @@
-PGPASSWORD=QFvmOoFkTiX6bAV4Zq3gmr3BUK7no6A6 psql -h dpg-d3j7o7t6ubrc73a4125g-a.frankfurt-postgres.render.com -U ticketapp_ab_user ticketapp_ab
-
-
-psql -h dpg-d3j7o7t6ubrc73a4125g-a.frankfurt-postgres.render.com -U ticketapp_ab_user ticketapp_ab
-
-Password:
-QFvmOoFkTiX6bAV4Zq3gmr3BUK7no6A6
