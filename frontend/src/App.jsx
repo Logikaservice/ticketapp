@@ -39,6 +39,21 @@ export default function TicketApp() {
   const [timeLogs, setTimeLogs] = useState([]);
   const [isEditingTicket, setIsEditingTicket] = useState(null);
   const [selectedClientForNewTicket, setSelectedClientForNewTicket] = useState('');
+  const [hasShownUnreadNotification, setHasShownUnreadNotification] = useState(false);
+
+  // Funzione per calcolare messaggi non letti
+  const getUnreadCount = (ticket) => {
+    if (!ticket.messaggi || ticket.messaggi.length === 0) return 0;
+    
+    const lastRead = currentUser.ruolo === 'cliente' 
+      ? ticket.last_read_by_client 
+      : ticket.last_read_by_tecnico;
+    
+    if (!lastRead) return ticket.messaggi.length;
+    
+    const lastReadDate = new Date(lastRead);
+    return ticket.messaggi.filter(m => new Date(m.data) > lastReadDate).length;
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,7 +71,6 @@ export default function TicketApp() {
           
           const ticketsWithNewFlag = ticketsData.map(ticket => {
             const ticketDate = new Date(ticket.dataapertura);
-            // Marca come nuovo se creato negli ultimi 5 minuti e non è stato ancora visto
             const isRecent = ticketDate > fiveMinutesAgo;
             return {
               ...ticket,
@@ -76,6 +90,37 @@ export default function TicketApp() {
             setUsers(usersData);
           }
         }
+
+        // Notifica messaggi non letti al primo accesso
+        if (!hasShownUnreadNotification && ticketsData.length > 0) {
+          const unreadTickets = ticketsData.filter(t => {
+            if (!t.messaggi || t.messaggi.length === 0) return false;
+            const lastRead = currentUser.ruolo === 'cliente' 
+              ? t.last_read_by_client 
+              : t.last_read_by_tecnico;
+            if (!lastRead) return t.messaggi.length > 0;
+            const lastReadDate = new Date(lastRead);
+            return t.messaggi.some(m => new Date(m.data) > lastReadDate);
+          });
+
+          if (unreadTickets.length > 0) {
+            const totalUnread = unreadTickets.reduce((sum, t) => {
+              const lastRead = currentUser.ruolo === 'cliente' 
+                ? t.last_read_by_client 
+                : t.last_read_by_tecnico;
+              if (!lastRead) return sum + (t.messaggi?.length || 0);
+              const lastReadDate = new Date(lastRead);
+              return sum + t.messaggi.filter(m => new Date(m.data) > lastReadDate).length;
+            }, 0);
+            
+            showNotification(
+              `Hai ${totalUnread} nuov${totalUnread === 1 ? 'o messaggio' : 'i messaggi'} in ${unreadTickets.length} ticket!`, 
+              'info'
+            );
+          }
+          setHasShownUnreadNotification(true);
+        }
+
       } catch (error) {
         console.error("Errore nel caricare i dati:", error);
         showNotification(error.message, "error");
@@ -160,6 +205,7 @@ export default function TicketApp() {
     setSelectedTicket(null);
     setTickets([]);
     setUsers([]);
+    setHasShownUnreadNotification(false);
     closeModal();
     showNotification('Disconnessione effettuata.', 'info');
   };
@@ -415,7 +461,6 @@ export default function TicketApp() {
     };
 
     try {
-      // SALVA IL MESSAGGIO NEL DATABASE
       const messageResponse = await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + id + '/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -428,7 +473,6 @@ export default function TicketApp() {
 
       const savedMessage = await messageResponse.json();
 
-      // Determina il nuovo stato
       let newStatus = ticket.stato;
       if (isReclamo) {
         newStatus = 'in_lavorazione';
@@ -436,7 +480,6 @@ export default function TicketApp() {
         newStatus = 'in_lavorazione';
       }
 
-      // Se lo stato cambia, salvalo nel database
       if (newStatus !== ticket.stato) {
         const statusResponse = await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + id + '/status', {
           method: 'PATCH',
@@ -449,7 +492,6 @@ export default function TicketApp() {
         }
       }
 
-      // Aggiorna il frontend
       setTickets(prevTickets => prevTickets.map(t => {
         if (t.id === id) {
           const updatedTicket = {
@@ -653,7 +695,34 @@ export default function TicketApp() {
     handleChangeStatus(id, 'fatturato');
   };
 
-  const handleSelectTicket = (t) => {
+  const handleSelectTicket = async (t) => {
+    // Marca come letto quando si apre il ticket
+    if (t && (!selectedTicket || selectedTicket.id !== t.id)) {
+      try {
+        await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + t.id + '/mark-read', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ruolo: currentUser.ruolo })
+        });
+
+        // Aggiorna il ticket localmente
+        setTickets(prev => prev.map(tk => {
+          if (tk.id === t.id) {
+            const updated = { ...tk };
+            if (currentUser.ruolo === 'cliente') {
+              updated.last_read_by_client = new Date().toISOString();
+            } else {
+              updated.last_read_by_tecnico = new Date().toISOString();
+            }
+            return updated;
+          }
+          return tk;
+        }));
+      } catch (error) {
+        console.error('Errore nel marcare come letto:', error);
+      }
+    }
+
     if (t.isNew && currentUser.ruolo === 'tecnico') {
       setTickets(prev => prev.map(tk => (tk.id === t.id ? { ...tk, isNew: false } : tk)));
     }
@@ -776,6 +845,7 @@ export default function TicketApp() {
           tickets={tickets}
           users={users}
           selectedTicket={selectedTicket}
+          getUnreadCount={getUnreadCount}
           handlers={{
             handleSelectTicket,
             handleOpenEditModal,
