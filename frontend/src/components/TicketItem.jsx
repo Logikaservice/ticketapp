@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, Settings, Clock, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon } from 'lucide-react';
-import { getStatoColor, getPrioritaColor, getPrioritaBgClass, getPrioritySolidBgClass } from '../utils/colors';
+import { getStatoColor, getPrioritaColor, getPrioritaBgClass, getPrioritySolidBgClass, getStatoIcon } from '../utils/colors';
 import { formatDate } from '../utils/formatters';
 import ChatInterface from './ChatInterface';
 
@@ -45,7 +45,8 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers }) 
                 </span>
               )}
               
-              <span className={'px-2 py-0.5 text-xs rounded-full font-medium ' + getStatoColor(ticket.stato)}>
+              <span className={'px-2 py-0.5 text-xs rounded-full font-medium flex items-center gap-1 ' + getStatoColor(ticket.stato)}>
+                {getStatoIcon(ticket.stato, 12)}
                 {ticket.stato.replace('_', ' ')}
               </span>
             </div>
