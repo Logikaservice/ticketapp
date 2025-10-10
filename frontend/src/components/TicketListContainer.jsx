@@ -3,7 +3,7 @@ import { FileText, PlayCircle, CheckCircle, Send, FileCheck2, Archive } from 'lu
 import TicketItem from './TicketItem';
 
 // ====================================================================
-// COMPONENTE ESTRATTO PER I FILTRI (CON ICONE E ORDINE CORRETTO)
+// COMPONENTE ESTRATTO PER I FILTRI
 // ====================================================================
 const FilterControls = ({ 
   currentUser, 
@@ -17,7 +17,6 @@ const FilterControls = ({
   tickets,
   unreadCounts
 }) => {
-  // Mappa ogni stato con la sua icona corrispondente
   const statusIcons = {
     aperto: <FileText size={14} />,
     in_lavorazione: <PlayCircle size={14} />,
@@ -25,11 +24,11 @@ const FilterControls = ({
     chiuso: <Archive size={14} />,
     inviato: <Send size={14} />,
     fatturato: <FileCheck2 size={14} />,
-    tutti: <FileText size={14} />
+    tutti: <FileText size={14} /> // Lasciamo l'icona qui per sicurezza, non verrà usata
   };
 
-  // Definisce l'ordine esatto dei pulsanti per il tecnico
-  const TASTI_TECNICO = ['tutti', 'aperto', 'in_lavorazione', 'risolto', 'inviato', 'fatturato', 'chiuso'];
+  // Definisce l'ordine esatto dei pulsanti (SENZA 'tutti')
+  const TASTI_TECNICO = ['aperto', 'in_lavorazione', 'risolto', 'inviato', 'fatturato', 'chiuso'];
 
   // Logica per il Cliente
   if (currentUser.ruolo === 'cliente') {
@@ -60,9 +59,9 @@ const FilterControls = ({
     <>
       <div className="flex gap-2 p-1 bg-gray-100 rounded-lg mb-4">
         {TASTI_TECNICO.map(status => {
-          if (counts[status] === undefined && status !== 'tutti') return null;
+          if (counts[status] === undefined) return null;
           
-          const count = status === 'tutti' ? counts.tutti : counts[status];
+          const count = counts[status];
           const unreadCount = unreadCounts[status] || 0;
 
           return (
@@ -116,23 +115,26 @@ const FilterControls = ({
 // COMPONENTE PRINCIPALE
 // ====================================================================
 const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, handlers, getUnreadCount }) => {
-  const [viewState, setViewState] = useState(currentUser.ruolo === 'cliente' ? 'aperto' : 'tutti');
+  // Stato iniziale modificato: ora parte sempre da 'aperto'
+  const [viewState, setViewState] = useState('aperto');
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
   
   const { displayTickets, ticketCounts, usersMap, unreadCounts } = useMemo(() => {
     const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
 
     const filterTickets = () => {
+      // Se il ruolo è cliente, filtra solo i suoi ticket per lo stato selezionato
       if (currentUser.ruolo === 'cliente') {
         return tickets.filter(t => t.clienteid === currentUser.id && t.stato === viewState);
       }
+      
+      // Logica per il tecnico
       const clientFiltered = selectedClientFilter === 'all'
         ? tickets
         : tickets.filter(t => t.clienteid === parseInt(selectedClientFilter));
       
-      return viewState === 'tutti'
-        ? clientFiltered
-        : clientFiltered.filter(t => t.stato === viewState);
+      // Filtra per stato (non c'è più il caso 'tutti')
+      return clientFiltered.filter(t => t.stato === viewState);
     };
 
     const countTickets = (arr) => ({
@@ -145,26 +147,13 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
     });
 
     const countUnreadByStatus = (arr) => {
-      const counts = {
-        aperto: 0,
-        in_lavorazione: 0,
-        risolto: 0,
-        chiuso: 0,
-        inviato: 0,
-        fatturato: 0,
-        tutti: 0
-      };
-
+      const counts = {};
       if (!getUnreadCount) return counts;
-
       arr.forEach(ticket => {
-        const unread = getUnreadCount(ticket);
-        if (unread > 0) {
+        if (getUnreadCount(ticket) > 0) {
           counts[ticket.stato] = (counts[ticket.stato] || 0) + 1;
-          counts.tutti++;
         }
       });
-
       return counts;
     };
 
@@ -173,10 +162,6 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
       : tickets;
 
     const counts = countTickets(relevantTicketsForCounts);
-    if (currentUser.ruolo === 'tecnico') {
-      counts.tutti = relevantTicketsForCounts.length;
-    }
-
     const unreadCounts = countUnreadByStatus(relevantTicketsForCounts);
 
     return { 
