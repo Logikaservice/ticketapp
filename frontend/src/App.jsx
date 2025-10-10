@@ -113,8 +113,6 @@ export default function TicketApp() {
       });
       return;
     }
-    // Se è un cliente, auto-compila con il suo nome
-    // Se è un tecnico, lascia vuoto da compilare manualmente
     const nomeCognome = currentUser.ruolo === 'cliente' 
       ? (currentUser.nome + ' ' + (currentUser.cognome || '')).trim()
       : '';
@@ -331,7 +329,6 @@ export default function TicketApp() {
 
       const nuovoTicketSalvato = await response.json();
       
-      // Aggiungi il flag isNew per l'animazione pulsante
       const ticketConFlag = {
         ...nuovoTicketSalvato,
         isNew: true
@@ -375,7 +372,6 @@ export default function TicketApp() {
   };
 
   const handleDeleteTicket = async (id) => {
-    // Chiedi conferma prima di eliminare
     if (!window.confirm('Sei sicuro di voler eliminare questo ticket?')) {
       return;
     }
@@ -389,10 +385,8 @@ export default function TicketApp() {
         throw new Error('Errore nell\'eliminazione del ticket');
       }
 
-      // Rimuovi il ticket dallo stato locale
       setTickets(prevTickets => prevTickets.filter(t => t.id !== id));
       
-      // Se il ticket eliminato era quello selezionato, chiudi la vista dettaglio
       if (selectedTicket && selectedTicket.id === id) {
         setSelectedTicket(null);
       }
@@ -533,7 +527,7 @@ export default function TicketApp() {
     );
   };
 
-  const handleConfirmTimeLogs = () => {
+  const handleConfirmTimeLogs = async () => {
     if (!timeLogs.length) {
       showNotification('Registra almeno un intervento.', 'error');
       return;
@@ -564,21 +558,39 @@ export default function TicketApp() {
       return;
     }
 
-    setTickets(prev =>
-      prev.map(t =>
-        t.id === selectedTicket.id
-          ? {
-              ...t,
-              stato: selectedTicket.stato === 'in_lavorazione' ? 'risolto' : selectedTicket.stato,
-              timeLogs: validLogs
-            }
-          : t
-      )
-    );
+    try {
+      const newStatus = selectedTicket.stato === 'in_lavorazione' ? 'risolto' : selectedTicket.stato;
+      
+      const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + selectedTicket.id + '/status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
 
-    showNotification('Interventi registrati per ' + selectedTicket.numero + '.', 'success');
-    closeModal();
-    setSelectedTicket(null);
+      if (!response.ok) {
+        throw new Error('Errore nel salvare lo stato');
+      }
+
+      setTickets(prev =>
+        prev.map(t =>
+          t.id === selectedTicket.id
+            ? {
+                ...t,
+                stato: newStatus,
+                timeLogs: validLogs
+              }
+            : t
+        )
+      );
+
+      showNotification('Interventi registrati per ' + selectedTicket.numero + '.', 'success');
+      closeModal();
+      setSelectedTicket(null);
+
+    } catch (error) {
+      console.error('Errore nel salvare i timeLogs:', error);
+      showNotification('Errore nel salvare lo stato del ticket.', 'error');
+    }
   };
 
   const handleSetInviato = (id) => {
