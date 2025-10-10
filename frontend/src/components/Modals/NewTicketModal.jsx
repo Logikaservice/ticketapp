@@ -80,10 +80,10 @@ const NewTicketModal = ({
               onChange={(e) => setNewTicketData({ ...newTicketData, categoria: e.target.value })}
               className="w-full px-3 py-2 border rounded-lg"
             >
-              <option>Assistenza</option>
-              <option>Manutenzione</option>
-              <option>Installazione</option>
-              <option>Altro</option>
+              <option value="assistenza">Assistenza</option>
+              <option value="manutenzione">Manutenzione</option>
+              <option value="installazione">Installazione</option>
+              <option value="altro">Altro</option>
             </select>
           </div>
 
@@ -94,10 +94,10 @@ const NewTicketModal = ({
               onChange={(e) => setNewTicketData({ ...newTicketData, priorita: e.target.value })}
               className="w-full px-3 py-2 border rounded-lg"
             >
-              <option>Bassa</option>
-              <option>Media</option>
-              <option>Alta</option>
-              <option>Urgente</option>
+              <option value="bassa">Bassa</option>
+              <option value="media">Media</option>
+              <option value="alta">Alta</option>
+              <option value="urgente">Urgente</option>
             </select>
           </div>
         </div>
