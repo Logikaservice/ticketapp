@@ -96,8 +96,8 @@ app.post('/api/tickets', async (req, res) => {
     try {
         const client = await pool.connect();
         const query = `
-            INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7) 
+            INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, last_read_by_client, last_read_by_tecnico) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) 
             RETURNING *;
         `;
         const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente];
@@ -171,6 +171,31 @@ app.post('/api/tickets/:id/messages', async (req, res) => {
         res.status(201).json(newMessage);
     } catch (err) {
         console.error('Errore nel salvare il messaggio:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
+// ENDPOINT: Marca i messaggi come letti
+app.patch('/api/tickets/:id/mark-read', async (req, res) => {
+    const { id } = req.params;
+    const { ruolo } = req.body;
+    
+    try {
+        const client = await pool.connect();
+        
+        const column = ruolo === 'cliente' ? 'last_read_by_client' : 'last_read_by_tecnico';
+        const query = `UPDATE tickets SET ${column} = NOW() WHERE id = $1 RETURNING *;`;
+        const result = await client.query(query, [id]);
+        
+        client.release();
+        
+        if (result.rows.length > 0) {
+            res.json(result.rows[0]);
+        } else {
+            res.status(404).json({ error: 'Ticket non trovato' });
+        }
+    } catch (err) {
+        console.error('Errore nel marcare come letto:', err);
         res.status(500).json({ error: 'Errore interno del server' });
     }
 });
