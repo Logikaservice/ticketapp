@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Notification from './components/Notification';
+import Notification from './components/AppNotification';
 import LoginScreen from './components/LoginScreen';
 import Header from './components/Header';
 import TicketListContainer from './components/TicketListContainer';
