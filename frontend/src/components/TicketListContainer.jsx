@@ -14,22 +14,27 @@ const FilterControls = ({
   selectedClient, 
   setSelectedClient,
   onGenerateReport,
-  tickets
+  tickets,
+  unreadCounts
 }) => {
   if (currentUser.ruolo === 'cliente') {
     return (
       <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
-        {Object.keys(counts).map(status => (
-          <button
-            key={status}
-            onClick={() => setViewState(status)}
-            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
-              viewState === status ? 'bg-blue-600 text-white shadow' : 'text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {status.replace('_', ' ')} ({counts[status]})
-          </button>
-        ))}
+        {Object.keys(counts).map(status => {
+          const unreadCount = unreadCounts[status] || 0;
+          return (
+            <button
+              key={status}
+              onClick={() => setViewState(status)}
+              className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
+                viewState === status ? 'bg-blue-600 text-white shadow' : 'text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {status.replace('_', ' ')} ({counts[status]})
+              {unreadCount > 0 && <span className="ml-1">💬</span>}
+            </button>
+          );
+        })}
       </div>
     );
   }
@@ -38,17 +43,21 @@ const FilterControls = ({
   return (
     <>
       <div className="flex gap-2 p-1 bg-gray-100 rounded-lg mb-4">
-        {Object.keys(counts).map(status => (
-          <button
-            key={status}
-            onClick={() => setViewState(status)}
-            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
-              viewState === status ? 'bg-blue-600 text-white shadow' : 'text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            {status.replace('_', ' ')} ({counts[status]})
-          </button>
-        ))}
+        {Object.keys(counts).map(status => {
+          const unreadCount = unreadCounts[status] || 0;
+          return (
+            <button
+              key={status}
+              onClick={() => setViewState(status)}
+              className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
+                viewState === status ? 'bg-blue-600 text-white shadow' : 'text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {status.replace('_', ' ')} ({counts[status]})
+              {unreadCount > 0 && <span className="ml-1">💬</span>}
+            </button>
+          );
+        })}
       </div>
 
       {['inviato', 'fatturato'].includes(viewState) && (
@@ -85,11 +94,11 @@ const FilterControls = ({
 // ====================================================================
 // COMPONENTE PRINCIPALE
 // ====================================================================
-const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, handlers }) => {
+const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, handlers, getUnreadCount }) => {
   const [viewState, setViewState] = useState(currentUser.ruolo === 'cliente' ? 'aperto' : 'tutti');
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
   
-  const { displayTickets, ticketCounts, usersMap } = useMemo(() => {
+  const { displayTickets, ticketCounts, usersMap, unreadCounts } = useMemo(() => {
     const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
 
     const filterTickets = () => {
@@ -114,6 +123,31 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
       fatturato: arr.filter(t => t.stato === 'fatturato').length
     });
 
+    // Conta messaggi non letti per stato
+    const countUnreadByStatus = (arr) => {
+      const counts = {
+        aperto: 0,
+        in_lavorazione: 0,
+        risolto: 0,
+        chiuso: 0,
+        inviato: 0,
+        fatturato: 0,
+        tutti: 0
+      };
+
+      if (!getUnreadCount) return counts;
+
+      arr.forEach(ticket => {
+        const unread = getUnreadCount(ticket);
+        if (unread > 0) {
+          counts[ticket.stato] = (counts[ticket.stato] || 0) + 1;
+          counts.tutti++;
+        }
+      });
+
+      return counts;
+    };
+
     const relevantTicketsForCounts = currentUser.ruolo === 'cliente'
       ? tickets.filter(t => t.clienteid === currentUser.id)
       : tickets;
@@ -123,8 +157,15 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
       counts.tutti = relevantTicketsForCounts.length;
     }
 
-    return { displayTickets: filterTickets(), ticketCounts: counts, usersMap };
-  }, [tickets, users, currentUser, viewState, selectedClientFilter]);
+    const unreadCounts = countUnreadByStatus(relevantTicketsForCounts);
+
+    return { 
+      displayTickets: filterTickets(), 
+      ticketCounts: counts, 
+      usersMap,
+      unreadCounts
+    };
+  }, [tickets, users, currentUser, viewState, selectedClientFilter, getUnreadCount]);
   
   const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
   
@@ -154,6 +195,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
           setSelectedClient={setSelectedClientFilter}
           onGenerateReport={handleGenerateReport}
           tickets={tickets}
+          unreadCounts={unreadCounts}
         />
       </div>
 
@@ -174,6 +216,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
                 currentUser={currentUser}
                 selectedTicket={selectedTicket}
                 handlers={handlers}
+                getUnreadCount={getUnreadCount}
               />
             ))
         )}
