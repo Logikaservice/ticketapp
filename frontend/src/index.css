@@ -1,3 +1,19 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Animazione personalizzata per messaggi non letti */
+@keyframes pulse-slow {
+  0%, 100% {
+    border-color: rgb(250, 204, 21);
+    background-color: rgb(254, 249, 195);
+  }
+  50% {
+    border-color: rgb(234, 179, 8);
+    background-color: rgb(254, 243, 199);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
