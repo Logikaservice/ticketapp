@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { FileText } from 'lucide-react';
+import { FileText, PlayCircle, CheckCircle, Send, FileCheck2, Archive } from 'lucide-react';
 import TicketItem from './TicketItem';
 
 // ====================================================================
-// COMPONENTE ESTRATTO PER I FILTRI
+// COMPONENTE ESTRATTO PER I FILTRI (CON ICONE E ORDINE CORRETTO)
 // ====================================================================
 const FilterControls = ({ 
   currentUser, 
@@ -17,6 +17,21 @@ const FilterControls = ({
   tickets,
   unreadCounts
 }) => {
+  // Mappa ogni stato con la sua icona corrispondente
+  const statusIcons = {
+    aperto: <FileText size={14} />,
+    in_lavorazione: <PlayCircle size={14} />,
+    risolto: <CheckCircle size={14} />,
+    chiuso: <Archive size={14} />,
+    inviato: <Send size={14} />,
+    fatturato: <FileCheck2 size={14} />,
+    tutti: <FileText size={14} />
+  };
+
+  // Definisce l'ordine esatto dei pulsanti per il tecnico
+  const TASTI_TECNICO = ['tutti', 'aperto', 'in_lavorazione', 'risolto', 'inviato', 'fatturato', 'chiuso'];
+
+  // Logica per il Cliente
   if (currentUser.ruolo === 'cliente') {
     return (
       <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
@@ -26,11 +41,12 @@ const FilterControls = ({
             <button
               key={status}
               onClick={() => setViewState(status)}
-              className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
+              className={`flex flex-1 items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
                 viewState === status ? 'bg-blue-600 text-white shadow' : 'text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {status.replace('_', ' ')} ({counts[status]})
+              {statusIcons[status]}
+              <span>{status.replace('_', ' ')} ({counts[status]})</span>
               {unreadCount > 0 && <span className="ml-1">💬</span>}
             </button>
           );
@@ -39,21 +55,26 @@ const FilterControls = ({
     );
   }
 
-  // Controlli per il Tecnico
+  // Logica per il Tecnico
   return (
     <>
       <div className="flex gap-2 p-1 bg-gray-100 rounded-lg mb-4">
-        {Object.keys(counts).map(status => {
+        {TASTI_TECNICO.map(status => {
+          if (counts[status] === undefined && status !== 'tutti') return null;
+          
+          const count = status === 'tutti' ? counts.tutti : counts[status];
           const unreadCount = unreadCounts[status] || 0;
+
           return (
             <button
               key={status}
               onClick={() => setViewState(status)}
-              className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
+              className={`flex flex-1 items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
                 viewState === status ? 'bg-blue-600 text-white shadow' : 'text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {status.replace('_', ' ')} ({counts[status]})
+              {statusIcons[status]}
+              <span>{status.replace('_', ' ')} ({count})</span>
               {unreadCount > 0 && <span className="ml-1">💬</span>}
             </button>
           );
@@ -123,7 +144,6 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
       fatturato: arr.filter(t => t.stato === 'fatturato').length
     });
 
-    // Conta messaggi non letti per stato
     const countUnreadByStatus = (arr) => {
       const counts = {
         aperto: 0,
