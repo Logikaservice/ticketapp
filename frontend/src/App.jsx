@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Notification from './components/AppNotification';
+import Notification from './components/AppNotification'; // Assicurati che il nome del file sia corretto
 import LoginScreen from './components/LoginScreen';
 import Header from './components/Header';
 import TicketListContainer from './components/TicketListContainer';
@@ -14,7 +14,34 @@ export default function TicketApp() {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
+  
+  // --- NUOVA LOGICA PER LE NOTIFICHE ---
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+  const [notificationTimeout, setNotificationTimeout] = useState(null);
+
+  // Funzione per chiudere la notifica (chiamata dal pulsante X o dal timer)
+  const handleCloseNotification = () => {
+    if (notificationTimeout) {
+      clearTimeout(notificationTimeout); // Annulla il timer se si chiude manualmente
+    }
+    setNotification(p => ({ ...p, show: false }));
+  };
+
+  // Funzione per mostrare la notifica con durata personalizzabile
+  const showNotification = (message, type = 'success', duration = 5000) => {
+    if (notificationTimeout) {
+      clearTimeout(notificationTimeout); // Cancella il timer precedente se c'è
+    }
+    setNotification({ show: true, message: message, type: type });
+    
+    // Imposta un nuovo timer per la chiusura automatica
+    const newTimeout = setTimeout(() => {
+      setNotification(p => ({ ...p, show: false }));
+    }, duration);
+    setNotificationTimeout(newTimeout);
+  };
+  // --- FINE NUOVA LOGICA ---
+
   const [modalState, setModalState] = useState({ type: null, data: null });
   const [newTicketData, setNewTicketData] = useState({ 
     titolo: '', 
@@ -41,6 +68,8 @@ export default function TicketApp() {
   const [selectedClientForNewTicket, setSelectedClientForNewTicket] = useState('');
   const [hasShownUnreadNotification, setHasShownUnreadNotification] = useState(false);
 
+  // (Il resto del file App.jsx rimane identico a prima)
+  
   // Funzione per calcolare messaggi non letti
   const getUnreadCount = (ticket) => {
     if (!ticket.messaggi || ticket.messaggi.length === 0) return 0;
@@ -64,7 +93,6 @@ export default function TicketApp() {
         if (!ticketsResponse.ok) throw new Error("Errore nel caricare i ticket");
         const ticketsData = await ticketsResponse.json();
         
-        // Se è un tecnico, marca come "nuovi" i ticket creati negli ultimi 5 minuti
         if (currentUser.ruolo === 'tecnico') {
           const now = new Date();
           const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
@@ -91,7 +119,6 @@ export default function TicketApp() {
           }
         }
 
-        // Notifica messaggi non letti al primo accesso
         if (!hasShownUnreadNotification && ticketsData.length > 0) {
           const unreadTickets = ticketsData.filter(t => {
             if (!t.messaggi || t.messaggi.length === 0) return false;
@@ -115,7 +142,8 @@ export default function TicketApp() {
             
             showNotification(
               `Hai ${totalUnread} nuov${totalUnread === 1 ? 'o messaggio' : 'i messaggi'} in ${unreadTickets.length} ticket!`, 
-              'info'
+              'info',
+              8000 // Esempio: questa notifica dura 8 secondi
             );
           }
           setHasShownUnreadNotification(true);
@@ -131,12 +159,6 @@ export default function TicketApp() {
       fetchData();
     }
   }, [isLoggedIn, currentUser]);
-
-  const showNotification = (message, type) => {
-    if (!type) type = 'success';
-    setNotification({ show: true, message: message, type: type });
-    setTimeout(() => setNotification(p => ({ ...p, show: false })), 4000);
-  };
 
   const closeModal = () => {
     if (modalState.type === 'newTicket') {
@@ -696,7 +718,6 @@ export default function TicketApp() {
   };
 
   const handleSelectTicket = async (t) => {
-    // Marca come letto quando si apre il ticket
     if (t && (!selectedTicket || selectedTicket.id !== t.id)) {
       try {
         await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + t.id + '/mark-read', {
@@ -705,7 +726,6 @@ export default function TicketApp() {
           body: JSON.stringify({ ruolo: currentUser.ruolo })
         });
 
-        // Aggiorna il ticket localmente
         setTickets(prev => prev.map(tk => {
           if (tk.id === t.id) {
             const updated = { ...tk };
@@ -817,7 +837,10 @@ export default function TicketApp() {
   if (!isLoggedIn) {
     return (
       <>
-        <Notification notification={notification} setNotification={setNotification} />
+        <Notification 
+          notification={notification} 
+          handleClose={handleCloseNotification} 
+        />
         <LoginScreen
           loginData={loginData}
           setLoginData={setLoginData}
@@ -830,7 +853,10 @@ export default function TicketApp() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Notification notification={notification} setNotification={setNotification} />
+      <Notification 
+        notification={notification} 
+        handleClose={handleCloseNotification} 
+      />
       <Header
         currentUser={currentUser}
         handleLogout={handleLogout}
