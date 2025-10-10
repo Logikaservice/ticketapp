@@ -407,60 +407,73 @@ export default function TicketApp() {
     if (!ticket) return;
 
     const autore = currentUser.ruolo === 'cliente' ? ticket.nomerichiedente : 'Tecnico';
-    const newMessage = {
-      id: (ticket.messaggi ? ticket.messaggi.length : 0) + 1,
+    
+    const messageData = {
       autore: autore,
       contenuto: msg,
-      data: new Date().toISOString(),
       reclamo: isReclamo
     };
 
-    // Determina il nuovo stato
-    let newStatus = ticket.stato;
-    if (isReclamo) {
-      newStatus = 'in_lavorazione';
-    } else if (currentUser.ruolo === 'tecnico' && ticket.stato === 'risolto') {
-      newStatus = 'in_lavorazione';
-    }
+    try {
+      // SALVA IL MESSAGGIO NEL DATABASE
+      const messageResponse = await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + id + '/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(messageData)
+      });
 
-    // Se lo stato cambia, salvalo nel database
-    if (newStatus !== ticket.stato) {
-      try {
-        const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + id + '/status', {
+      if (!messageResponse.ok) {
+        throw new Error('Errore nel salvare il messaggio');
+      }
+
+      const savedMessage = await messageResponse.json();
+
+      // Determina il nuovo stato
+      let newStatus = ticket.stato;
+      if (isReclamo) {
+        newStatus = 'in_lavorazione';
+      } else if (currentUser.ruolo === 'tecnico' && ticket.stato === 'risolto') {
+        newStatus = 'in_lavorazione';
+      }
+
+      // Se lo stato cambia, salvalo nel database
+      if (newStatus !== ticket.stato) {
+        const statusResponse = await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + id + '/status', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: newStatus })
         });
 
-        if (!response.ok) {
+        if (!statusResponse.ok) {
           throw new Error('Errore nel salvare lo stato');
         }
-      } catch (error) {
-        console.error('Errore nel salvare lo stato del reclamo:', error);
-        showNotification('Messaggio inviato ma errore nel cambiare stato.', 'warning');
       }
-    }
 
-    // Aggiorna il frontend
-    setTickets(prevTickets => prevTickets.map(t => {
-      if (t.id === id) {
-        const updatedTicket = {
-          ...t,
-          messaggi: [...(t.messaggi || []), newMessage],
-          stato: newStatus
-        };
+      // Aggiorna il frontend
+      setTickets(prevTickets => prevTickets.map(t => {
+        if (t.id === id) {
+          const updatedTicket = {
+            ...t,
+            messaggi: [...(t.messaggi || []), savedMessage],
+            stato: newStatus
+          };
 
-        if (selectedTicket && selectedTicket.id === id) {
-          setSelectedTicket(updatedTicket);
+          if (selectedTicket && selectedTicket.id === id) {
+            setSelectedTicket(updatedTicket);
+          }
+
+          return updatedTicket;
         }
+        return t;
+      }));
 
-        return updatedTicket;
+      if (isReclamo) {
+        showNotification('Reclamo inviato! Ticket riaperto.', 'error');
       }
-      return t;
-    }));
 
-    if (isReclamo) {
-      showNotification('Reclamo inviato! Ticket riaperto.', 'error');
+    } catch (error) {
+      console.error('Errore nell\'invio del messaggio:', error);
+      showNotification('Errore nell\'invio del messaggio.', 'error');
     }
   };
 
