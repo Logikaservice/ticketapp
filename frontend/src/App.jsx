@@ -48,7 +48,26 @@ export default function TicketApp() {
         const ticketsResponse = await fetch(process.env.REACT_APP_API_URL + '/api/tickets');
         if (!ticketsResponse.ok) throw new Error("Errore nel caricare i ticket");
         const ticketsData = await ticketsResponse.json();
-        setTickets(ticketsData);
+        
+        // Se è un tecnico, marca come "nuovi" i ticket creati negli ultimi 5 minuti
+        if (currentUser.ruolo === 'tecnico') {
+          const now = new Date();
+          const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+          
+          const ticketsWithNewFlag = ticketsData.map(ticket => {
+            const ticketDate = new Date(ticket.dataapertura);
+            // Marca come nuovo se creato negli ultimi 5 minuti e non è stato ancora visto
+            const isRecent = ticketDate > fiveMinutesAgo;
+            return {
+              ...ticket,
+              isNew: isRecent && ticket.stato === 'aperto'
+            };
+          });
+          
+          setTickets(ticketsWithNewFlag);
+        } else {
+          setTickets(ticketsData);
+        }
 
         if (currentUser.ruolo === 'tecnico') {
           const usersResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users');
