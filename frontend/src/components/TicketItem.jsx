@@ -4,7 +4,7 @@ import { getStatoColor, getPrioritaColor, getPrioritaBgClass, getPrioritySolidBg
 import { formatDate } from '../utils/formatters';
 import ChatInterface from './ChatInterface';
 
-const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers }) => {
+const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, getUnreadCount }) => {
   const {
     handleSelectTicket,
     handleOpenEditModal,
@@ -22,14 +22,19 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers }) 
 
   const isTicketOpen = ticket.stato === 'aperto';
   const canDelete = currentUser.ruolo === 'tecnico' || (currentUser.ruolo === 'cliente' && isTicketOpen);
+  
+  // Calcola messaggi non letti
+  const unreadCount = getUnreadCount ? getUnreadCount(ticket) : 0;
+  const hasUnread = unreadCount > 0;
 
   return (
     <>
       <div
         onClick={() => handleSelectTicket(ticket)}
-        className={'cursor-pointer hover:bg-gray-50 border-b relative overflow-hidden p-4 pl-5 ' + 
+        className={'cursor-pointer hover:bg-gray-50 border-b relative overflow-hidden p-4 pl-5 transition-all ' + 
   (ticket.isNew ? getPrioritaBgClass(ticket.priorita) + ' animate-pulse shadow-md' : 
-   selectedTicket && selectedTicket.id === ticket.id ? 'bg-blue-50' : 'bg-white')}
+   selectedTicket && selectedTicket.id === ticket.id ? 'bg-blue-50' : 'bg-white') + ' ' +
+  (hasUnread && (!selectedTicket || selectedTicket.id !== ticket.id) ? 'border-l-4 border-yellow-400 shadow-lg animate-pulse-slow bg-yellow-50' : '')}
       >
         <div className={'absolute top-0 left-0 h-full w-1 ' + getPrioritySolidBgClass(ticket.priorita)}></div>
 
@@ -49,6 +54,12 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers }) 
                 {getStatoIcon(ticket.stato, 12)}
                 {ticket.stato.replace('_', ' ')}
               </span>
+
+              {hasUnread && (
+                <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-500 text-white font-bold flex items-center gap-1 animate-bounce">
+                  💬 {unreadCount}
+                </span>
+              )}
             </div>
 
             <h3 className="text-lg font-bold">{ticket.titolo}</h3>
