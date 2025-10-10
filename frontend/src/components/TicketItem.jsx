@@ -28,8 +28,8 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers }) 
       <div
         onClick={() => handleSelectTicket(ticket)}
         className={'cursor-pointer hover:bg-gray-50 border-b relative overflow-hidden p-4 pl-5 ' + 
-          (selectedTicket && selectedTicket.id === ticket.id ? 'bg-blue-50' : 'bg-white') + ' ' +
-          (ticket.isNew ? getPrioritaBgClass(ticket.priorita) + ' animate-pulse shadow-md' : '')}
+  (selectedTicket && selectedTicket.id === ticket.id ? 'bg-blue-50' : 'bg-white') + ' ' +
+  (ticket.isNew ? getPrioritaBgClass(ticket.priorita) + ' animate-pulse shadow-md' : '')}
       >
         <div className={'absolute top-0 left-0 h-full w-1 ' + getPrioritySolidBgClass(ticket.priorita)}></div>
 
