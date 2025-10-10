@@ -94,7 +94,11 @@ export default function TicketApp() {
       });
       return;
     }
-    const nomeCognome = (currentUser.nome + ' ' + (currentUser.cognome || '')).trim();
+    // Se è un cliente, auto-compila con il suo nome
+    // Se è un tecnico, lascia vuoto da compilare manualmente
+    const nomeCognome = currentUser.ruolo === 'cliente' 
+      ? (currentUser.nome + ' ' + (currentUser.cognome || '')).trim()
+      : '';
     setNewTicketData({
       titolo: '',
       descrizione: '',
