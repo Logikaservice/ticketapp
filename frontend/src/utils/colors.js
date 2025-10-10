@@ -1,3 +1,17 @@
+import { Circle, Clock, CheckCircle, Archive, Send, Euro } from 'lucide-react';
+
+export const getStatoIcon = (stato, size = 14) => {
+  const icons = {
+    aperto: <Circle size={size} className="text-blue-600" />,
+    in_lavorazione: <Clock size={size} className="text-yellow-600" />,
+    risolto: <CheckCircle size={size} className="text-green-600" />,
+    chiuso: <Archive size={size} className="text-gray-600" />,
+    inviato: <Send size={size} className="text-gray-700" />,
+    fatturato: <Euro size={size} className="text-indigo-600" />
+  };
+  return icons[stato] || <Circle size={size} className="text-gray-500" />;
+};
+
 export const getStatoColor = (stato) => {
   const colors = {
     aperto: 'bg-blue-100 text-blue-800',
@@ -23,7 +37,7 @@ export const getPrioritaColor = (priorita) => {
 export const getPrioritaBgClass = (priorita) => {
   const colors = {
     bassa: 'bg-gray-100',
-    media: 'bg-blue-300',
+    media: 'bg-blue-400',  // Modificato per essere più visibile con animate-pulse
     alta: 'bg-orange-100',
     urgente: 'bg-red-100'
   };
