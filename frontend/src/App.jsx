@@ -399,28 +399,55 @@ export default function TicketApp() {
     }
   };
 
-  const handleSendMessage = (id, msg, isReclamo) => {
+  const handleSendMessage = async (id, msg, isReclamo) => {
     if (!isReclamo) isReclamo = false;
     if (!msg.trim()) return;
 
+    const ticket = tickets.find(t => t.id === id);
+    if (!ticket) return;
+
+    const autore = currentUser.ruolo === 'cliente' ? ticket.nomerichiedente : 'Tecnico';
+    const newMessage = {
+      id: (ticket.messaggi ? ticket.messaggi.length : 0) + 1,
+      autore: autore,
+      contenuto: msg,
+      data: new Date().toISOString(),
+      reclamo: isReclamo
+    };
+
+    // Determina il nuovo stato
+    let newStatus = ticket.stato;
+    if (isReclamo) {
+      newStatus = 'in_lavorazione';
+    } else if (currentUser.ruolo === 'tecnico' && ticket.stato === 'risolto') {
+      newStatus = 'in_lavorazione';
+    }
+
+    // Se lo stato cambia, salvalo nel database
+    if (newStatus !== ticket.stato) {
+      try {
+        const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + id + '/status', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        });
+
+        if (!response.ok) {
+          throw new Error('Errore nel salvare lo stato');
+        }
+      } catch (error) {
+        console.error('Errore nel salvare lo stato del reclamo:', error);
+        showNotification('Messaggio inviato ma errore nel cambiare stato.', 'warning');
+      }
+    }
+
+    // Aggiorna il frontend
     setTickets(prevTickets => prevTickets.map(t => {
       if (t.id === id) {
-        const autore = currentUser.ruolo === 'cliente' ? t.nomerichiedente : 'Tecnico';
         const updatedTicket = {
           ...t,
-          messaggi: [
-            ...(t.messaggi || []),
-            {
-              id: (t.messaggi ? t.messaggi.length : 0) + 1,
-              autore: autore,
-              contenuto: msg,
-              data: new Date().toISOString(),
-              reclamo: isReclamo
-            }
-          ],
-          stato: isReclamo
-            ? 'in_lavorazione'
-            : (currentUser.ruolo === 'tecnico' && t.stato === 'risolto' ? 'in_lavorazione' : t.stato)
+          messaggi: [...(t.messaggi || []), newMessage],
+          stato: newStatus
         };
 
         if (selectedTicket && selectedTicket.id === id) {
