@@ -311,7 +311,14 @@ export default function TicketApp() {
       }
 
       const nuovoTicketSalvato = await response.json();
-      setTickets(prevTickets => [nuovoTicketSalvato, ...prevTickets]);
+      
+      // Aggiungi il flag isNew per l'animazione pulsante
+      const ticketConFlag = {
+        ...nuovoTicketSalvato,
+        isNew: true
+      };
+      
+      setTickets(prevTickets => [ticketConFlag, ...prevTickets]);
 
       closeModal();
       showNotification('Ticket creato con successo!', 'success');
