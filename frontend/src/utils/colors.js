@@ -23,7 +23,7 @@ export const getPrioritaColor = (priorita) => {
 export const getPrioritaBgClass = (priorita) => {
   const colors = {
     bassa: 'bg-gray-100',
-    media: 'bg-blue-200',
+    media: 'bg-blue-300',
     alta: 'bg-orange-100',
     urgente: 'bg-red-100'
   };
