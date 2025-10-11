@@ -76,15 +76,10 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
-// ====================================================================
-// --- ENDPOINT MANCANTE AGGIUNTO QUI ---
-// ====================================================================
 // ENDPOINT: Crea un nuovo cliente (utente)
 app.post('/api/users', async (req, res) => {
-    // Estrae i dati inviati dal frontend
     const { email, password, telefono, azienda, ruolo } = req.body;
 
-    // Controlli di base per assicurarsi che i dati essenziali ci siano
     if (!email || !password || !azienda) {
         return res.status(400).json({ error: 'Email, password e azienda sono obbligatori' });
     }
@@ -96,22 +91,44 @@ app.post('/api/users', async (req, res) => {
             VALUES ($1, $2, $3, $4, $5, $6, $7) 
             RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
         `;
-        // Imposta valori di default per nome e cognome se non forniti
         const values = [email, password, telefono || null, azienda, ruolo || 'cliente', 'Non', 'Specificato'];
         const result = await client.query(query, values);
         client.release();
         
-        // Invia una risposta di successo con i dati del cliente appena creato
         res.status(201).json(result.rows[0]);
 
     } catch (err) {
-        // Se c'è un errore, lo scrive nel log di Render e invia una risposta di errore
         console.error('ERRORE NELLA CREAZIONE DEL CLIENTE:', err);
         res.status(500).json({ error: 'Errore interno del server durante la creazione del cliente' });
     }
 });
-// ====================================================================
 
+// ====================================================================
+// 🆕 ENDPOINT: Elimina un utente/cliente
+// ====================================================================
+app.delete('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const client = await pool.connect();
+        const result = await client.query('DELETE FROM users WHERE id = $1 RETURNING *', [id]);
+        client.release();
+
+        if (result.rowCount > 0) {
+            console.log(`✅ Cliente eliminato: ID ${id}`);
+            res.status(200).json({ 
+                message: 'Cliente eliminato con successo', 
+                user: result.rows[0] 
+            });
+        } else {
+            res.status(404).json({ error: 'Cliente non trovato' });
+        }
+    } catch (err) {
+        console.error('❌ Errore nell\'eliminazione del cliente:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+// ====================================================================
 
 // ENDPOINT: Prende tutti i ticket
 app.get('/api/tickets', async (req, res) => {
