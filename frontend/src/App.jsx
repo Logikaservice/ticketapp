@@ -6,6 +6,7 @@ import TicketListContainer from './components/TicketListContainer';
 import AllModals from './components/Modals/AllModals';
 import { getInitialMaterial, getInitialTimeLog } from './utils/helpers';
 import { formatReportDate } from './utils/formatters';
+import ManageClientsModal from './components/ManageClientsModal';
 
 export default function TicketApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -279,6 +280,30 @@ export default function TicketApp() {
     setModalState({ type: 'settings', data: null });
   };
 
+const handleUpdateClient = (id, updatedData) => {
+  const updatedUsers = users.map(u => 
+    u.id === id ? { ...u, ...updatedData } : u
+  );
+  setUsers(updatedUsers);
+  showNotification('Cliente aggiornato con successo!', 'success');
+};
+
+const handleDeleteClient = (id) => {
+  // Controlla se il cliente ha ticket associati
+  const hasTickets = tickets.some(t => t.clienteid === id);
+  if (hasTickets) {
+    showNotification('Impossibile eliminare: il cliente ha ticket associati.', 'error');
+    return;
+  }
+  
+  setUsers(users.filter(u => u.id !== id));
+  showNotification('Cliente eliminato con successo!', 'success');
+};
+
+const openManageClientsModal = () => {
+  setModalState({ type: 'manageClients', data: null });
+};
+  
   const handleOpenTimeLogger = (t) => {
     setSelectedTicket(t);
     const logs = Array.isArray(t.timeLogs) ? t.timeLogs : [];
