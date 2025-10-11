@@ -9,6 +9,7 @@ import AllModals from './components/Modals/AllModals';
 import { getInitialMaterial, getInitialTimeLog } from './utils/helpers';
 import { formatReportDate } from './utils/formatters';
 import ManageClientsModal from './components/ManageClientsModal';
+import NewClientModal from './components/NewClientModal';
 
 export default function TicketApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -132,94 +133,4 @@ export default function TicketApp() {
     showNotification('Disconnessione effettuata.', 'info');
   };
 
-  const handleAutoFillLogin = (ruolo) => setLoginData(ruolo === 'cliente' ? { email: 'cliente@example.com', password: 'cliente123' } : { email: 'tecnico@example.com', password: 'tecnico123' });
-
-  const openNewTicketModal = () => {
-    resetNewTicketData();
-    setModalState({ type: 'newTicket' });
-  };
-
-  const openSettings = () => {
-    setSettingsData({ nome: currentUser.nome, email: currentUser.email, vecchiaPassword: '', nuovaPassword: '', confermaNuovaPassword: '' });
-    setModalState({ type: 'settings' });
-  };
-
-  // --- FUNZIONI AGGIUNTE ---
-  const handleUpdateClient = (id, updatedData) => {
-    setUsers(users.map(u => u.id === id ? { ...u, ...updatedData } : u));
-    showNotification('Cliente aggiornato con successo!', 'success');
-  };
-
-  const handleDeleteClient = (id) => {
-    if (tickets.some(t => t.clienteid === id)) {
-      return showNotification('Impossibile eliminare: il cliente ha ticket associati.', 'error');
-    }
-    setUsers(users.filter(u => u.id !== id));
-    showNotification('Cliente eliminato con successo!', 'success');
-  };
-
-  const openManageClientsModal = () => {
-    setModalState({ type: 'manageClients' });
-  };
-  // --- FINE FUNZIONI AGGIUNTE ---
-
-  const handleCreateClient = () => {
-    if (!newClientData.email || !newClientData.password || !newClientData.azienda) return showNotification('Email, password e azienda sono obbligatori.', 'error');
-    if (users.some(u => u.email === newClientData.email)) return showNotification('Email già registrata.', 'error');
-    const newClient = { id: Date.now(), ...newClientData, ruolo: 'cliente' };
-    setUsers(prev => [...prev, newClient]);
-    closeModal();
-    setNewClientData({ email: '', password: '', telefono: '', azienda: '' });
-    showNotification('Cliente creato!', 'success');
-  };
-
-  // ... (tutte le altre tue funzioni rimangono uguali)
-
-  if (!isLoggedIn) {
-    return (
-      <>
-        <Notification notification={notification} handleClose={handleCloseNotification} />
-        <LoginScreen {...{ loginData, setLoginData, handleLogin, handleAutoFillLogin }} />
-      </>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Notification notification={notification} handleClose={handleCloseNotification} />
-      <Header
-        {...{ currentUser, handleLogout, openNewTicketModal, openSettings }}
-        openNewClientModal={() => setModalState({ type: 'newClient' })}
-        openManageClientsModal={openManageClientsModal}
-      />
-
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        <TicketListContainer
-          {...{ currentUser, tickets, users, selectedTicket, getUnreadCount }}
-          handlers={{
-            // ... metti qui gli altri handlers ...
-          }}
-        />
-      </main>
-
-      <AllModals
-        {...{ modalState, closeModal, newTicketData, setNewTicketData, handleCreateTicket, isEditingTicket, currentUser, settingsData, setSettingsData }}
-        // ... (altre props necessarie per AllModals)
-        clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
-        newClientData={newClientData}
-        setNewClientData={setNewClientData}
-        handleCreateClient={handleCreateClient}
-      />
-      
-      {/* --- BLOCCO AGGIUNTO PER MOSTRARE LA FINESTRA --- */}
-      {modalState.type === 'manageClients' && (
-        <ManageClientsModal
-          clienti={users.filter(u => u.ruolo === 'cliente')}
-          onClose={closeModal}
-          onUpdateClient={handleUpdateClient}
-          onDeleteClient={handleDeleteClient}
-        />
-      )}
-    </div>
-  );
-}
+  const
