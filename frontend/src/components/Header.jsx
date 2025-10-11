@@ -1,6 +1,6 @@
 // src/components/Header.jsx
 
-import React, 'useState', useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Plus, LogOut, Settings, Users, UserPlus, List } from 'lucide-react';
 
 const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal }) => {
