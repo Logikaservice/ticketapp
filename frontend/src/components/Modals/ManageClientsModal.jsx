@@ -27,11 +27,13 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
     setEditData({});
   };
 
+  // ====================================================================
+  // 🔧 FIX: Rimossa la conferma da qui - ora c'è solo in App.jsx
+  // ====================================================================
   const handleDelete = (cliente) => {
-    if (window.confirm(`Sei sicuro di voler eliminare il cliente "${cliente.azienda}"?`)) {
-      onDeleteClient(cliente.id);
-    }
+    onDeleteClient(cliente.id);
   };
+  // ====================================================================
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
