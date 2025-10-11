@@ -19,6 +19,12 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Versione sicura per visualizzare il ruolo
+  const userRole = (currentUser?.ruolo || '').toUpperCase();
+  const roleClasses = currentUser?.ruolo === 'cliente' 
+    ? 'bg-blue-100 text-blue-800' 
+    : 'bg-green-100 text-green-800';
+
   return (
     <div className="bg-white border-b">
       <div className="max-w-7xl mx-auto px-4 py-4">
@@ -26,15 +32,17 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
           <div>
             <h1 className="text-2xl font-bold">Sistema Gestione Ticket</h1>
             <p className="text-sm text-gray-600 mt-1">
-              <span className={'px-2 py-0.5 rounded text-xs font-medium ' + (currentUser.ruolo === 'cliente' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800')}>
-                {currentUser.ruolo.toUpperCase()}
+              {/* --- CODICE CORRETTO --- */}
+              <span className={`px-2 py-0.5 rounded text-xs font-medium ${roleClasses}`}>
+                {userRole}
               </span>
-              <span className="ml-2">{currentUser.nome} - {currentUser.azienda}</span>
+              {/* Controlla che currentUser esista prima di accedere alle sue proprietà */}
+              <span className="ml-2">{currentUser?.nome} - {currentUser?.azienda}</span>
             </p>
           </div>
           
           <div className="flex items-center gap-2">
-            {currentUser.ruolo === 'cliente' && (
+            {currentUser?.ruolo === 'cliente' && (
               <button 
                 onClick={openNewTicketModal} 
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -44,7 +52,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
               </button>
             )}
             
-            {currentUser.ruolo === 'tecnico' && (
+            {currentUser?.ruolo === 'tecnico' && (
               <>
                 <button 
                   onClick={openNewTicketModal} 
