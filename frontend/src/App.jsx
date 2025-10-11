@@ -7,7 +7,6 @@ import Header from './components/Header';
 import TicketListContainer from './components/TicketListContainer';
 import AllModals from './components/Modals/AllModals';
 import { getInitialMaterial, getInitialTimeLog } from './utils/helpers';
-// Importa le nuove finestre dalla cartella Modals
 import ManageClientsModal from './components/Modals/ManageClientsModal';
 import NewClientModal from './components/Modals/NewClientModal';
 
@@ -22,6 +21,31 @@ export default function TicketApp() {
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [notificationTimeout, setNotificationTimeout] = useState(null);
 
+  const [modalState, setModalState] = useState({ type: null, data: null });
+  const [newTicketData, setNewTicketData] = useState({ 
+    titolo: '', 
+    descrizione: '', 
+    categoria: 'assistenza', 
+    priorita: 'media', 
+    nomerichiedente: '' 
+  });
+  const [settingsData, setSettingsData] = useState({ 
+    nome: '', 
+    email: '', 
+    vecchiaPassword: '', 
+    nuovaPassword: '', 
+    confermaNuovaPassword: '' 
+  });
+  const [newClientData, setNewClientData] = useState({ 
+    email: '', 
+    password: '', 
+    telefono: '', 
+    azienda: '' 
+  });
+  const [timeLogs, setTimeLogs] = useState([]);
+  const [isEditingTicket, setIsEditingTicket] = useState(null);
+  const [selectedClientForNewTicket, setSelectedClientForNewTicket] = useState('');
+  
   const handleCloseNotification = () => {
     if (notificationTimeout) clearTimeout(notificationTimeout);
     setNotification(p => ({ ...p, show: false }));
@@ -35,18 +59,7 @@ export default function TicketApp() {
     }, duration);
     setNotificationTimeout(newTimeout);
   };
-
-  const [modalState, setModalState] = useState({ type: null, data: null });
-  const [newTicketData, setNewTicketData] = useState({ /* ... */ });
-  const [settingsData, setSettingsData] = useState({ /* ... */ });
-  const [newClientData, setNewClientData] = useState({ 
-    email: '', 
-    password: '', 
-    telefono: '', 
-    azienda: '' 
-  });
-  // ... (altri stati)
-
+  
   const closeModal = () => {
     setModalState({ type: null, data: null });
   };
@@ -101,7 +114,15 @@ export default function TicketApp() {
     showNotification('Cliente creato!', 'success');
   };
   
-  const handleCreateTicket = () => { /* ... la tua logica per creare un ticket ... */ };
+  const handleCreateTicket = () => { /* ... la tua logica per creare un ticket ... */ 
+    console.log("Creazione ticket:", newTicketData);
+    showNotification("Ticket creato!", "success");
+    closeModal();
+  };
+  
+  const handleConfirmUrgentCreation = () => { /* ... la tua logica ... */ };
+  const resetNewTicketData = () => { /* ... la tua logica ... */ };
+  const handleUpdateSettings = () => { /* ... la tua logica ... */ };
 
   if (!isLoggedIn) {
     return (
@@ -134,15 +155,31 @@ export default function TicketApp() {
         />
       </main>
 
-      {/* AllModals ora gestisce solo le finestre definite al suo interno */}
+      {/* AllModals ora riceve di nuovo tutte le props necessarie */}
       <AllModals
         modalState={modalState}
         closeModal={closeModal}
+        newTicketData={newTicketData}
+        setNewTicketData={setNewTicketData}
         handleCreateTicket={handleCreateTicket}
-        // ... passa solo le altre props necessarie a AllModals
+        isEditingTicket={isEditingTicket}
+        currentUser={currentUser}
+        clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
+        selectedClientForNewTicket={selectedClientForNewTicket}
+        setSelectedClientForNewTicket={setSelectedClientForNewTicket}
+        resetNewTicketData={resetNewTicketData}
+        timeLogs={timeLogs}
+        setTimeLogs={setTimeLogs}
+        settingsData={settingsData}
+        setSettingsData={setSettingsData}
+        handleUpdateSettings={handleUpdateSettings}
+        newClientData={newClientData}
+        setNewClientData={setNewClientData}
+        handleCreateClient={handleCreateClient}
+        handleConfirmUrgentCreation={handleConfirmUrgentCreation}
+        showNotification={showNotification}
       />
       
-      {/* Le nuove finestre vengono gestite separatamente qui */}
       {modalState.type === 'manageClients' && (
         <ManageClientsModal
           clienti={users.filter(u => u.ruolo === 'cliente')}
