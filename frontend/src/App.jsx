@@ -8,8 +8,9 @@ import TicketListContainer from './components/TicketListContainer';
 import AllModals from './components/Modals/AllModals';
 import { getInitialMaterial, getInitialTimeLog } from './utils/helpers';
 import { formatReportDate } from './utils/formatters';
-import ManageClientsModal from './components/ManageClientsModal';
-import NewClientModal from './components/NewClientModal';
+// --- PERCORSI CORRETTI ---
+import ManageClientsModal from './components/Modals/ManageClientsModal';
+import NewClientModal from './components/Modals/NewClientModal';
 
 export default function TicketApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -271,7 +272,8 @@ export default function TicketApp() {
         <TicketListContainer
           {...{ currentUser, tickets, users, selectedTicket, getUnreadCount }}
           handlers={{
-            // Aggiungi qui gli altri handlers che servono a TicketListContainer
+            handleOpenEditModal,
+            // ... (altri handlers)
           }}
         />
       </main>
@@ -281,7 +283,7 @@ export default function TicketApp() {
         closeModal={closeModal}
         newTicketData={newTicketData}
         setNewTicketData={setNewTicketData}
-        handleCreateTicket={handleCreateTicket} // Passa la funzione corretta
+        handleCreateTicket={handleCreateTicket}
         isEditingTicket={isEditingTicket}
         currentUser={currentUser}
         clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
@@ -290,7 +292,7 @@ export default function TicketApp() {
         resetNewTicketData={resetNewTicketData}
         settingsData={settingsData}
         setSettingsData={setSettingsData}
-        // ...altre props...
+        // ... (altre props)
       />
       
       {modalState.type === 'manageClients' && (
