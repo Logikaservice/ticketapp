@@ -76,6 +76,43 @@ app.get('/api/users', async (req, res) => {
     }
 });
 
+// ====================================================================
+// --- ENDPOINT MANCANTE AGGIUNTO QUI ---
+// ====================================================================
+// ENDPOINT: Crea un nuovo cliente (utente)
+app.post('/api/users', async (req, res) => {
+    // Estrae i dati inviati dal frontend
+    const { email, password, telefono, azienda, ruolo } = req.body;
+
+    // Controlli di base per assicurarsi che i dati essenziali ci siano
+    if (!email || !password || !azienda) {
+        return res.status(400).json({ error: 'Email, password e azienda sono obbligatori' });
+    }
+
+    try {
+        const client = await pool.connect();
+        const query = `
+            INSERT INTO users (email, password, telefono, azienda, ruolo, nome, cognome) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7) 
+            RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
+        `;
+        // Imposta valori di default per nome e cognome se non forniti
+        const values = [email, password, telefono || null, azienda, ruolo || 'cliente', 'Non', 'Specificato'];
+        const result = await client.query(query, values);
+        client.release();
+        
+        // Invia una risposta di successo con i dati del cliente appena creato
+        res.status(201).json(result.rows[0]);
+
+    } catch (err) {
+        // Se c'è un errore, lo scrive nel log di Render e invia una risposta di errore
+        console.error('ERRORE NELLA CREAZIONE DEL CLIENTE:', err);
+        res.status(500).json({ error: 'Errore interno del server durante la creazione del cliente' });
+    }
+});
+// ====================================================================
+
+
 // ENDPOINT: Prende tutti i ticket
 app.get('/api/tickets', async (req, res) => {
     try {
@@ -138,8 +175,6 @@ app.post('/api/tickets/:id/messages', async (req, res) => {
     
     try {
         const client = await pool.connect();
-        
-        // Prendi il ticket attuale
         const ticketResult = await client.query('SELECT messaggi FROM tickets WHERE id = $1', [id]);
         
         if (ticketResult.rows.length === 0) {
@@ -147,25 +182,17 @@ app.post('/api/tickets/:id/messages', async (req, res) => {
             return res.status(404).json({ error: 'Ticket non trovato' });
         }
         
-        // Prepara i messaggi attuali
         let messaggi = ticketResult.rows[0].messaggi || [];
-        
-        // Crea il nuovo messaggio
         const newMessage = {
             id: messaggi.length + 1,
-            autore: autore,
-            contenuto: contenuto,
+            autore,
+            contenuto,
             data: new Date().toISOString(),
             reclamo: reclamo || false
         };
-        
-        // Aggiungi il nuovo messaggio
         messaggi.push(newMessage);
         
-        // Aggiorna il ticket con i nuovi messaggi
-        const updateQuery = 'UPDATE tickets SET messaggi = $1 WHERE id = $2 RETURNING messaggi;';
-        const updateResult = await client.query(updateQuery, [JSON.stringify(messaggi), id]);
-        
+        await client.query('UPDATE tickets SET messaggi = $1 WHERE id = $2', [JSON.stringify(messaggi), id]);
         client.release();
         
         res.status(201).json(newMessage);
@@ -182,11 +209,9 @@ app.patch('/api/tickets/:id/mark-read', async (req, res) => {
     
     try {
         const client = await pool.connect();
-        
         const column = ruolo === 'cliente' ? 'last_read_by_client' : 'last_read_by_tecnico';
         const query = `UPDATE tickets SET ${column} = NOW() WHERE id = $1 RETURNING *;`;
         const result = await client.query(query, [id]);
-        
         client.release();
         
         if (result.rows.length > 0) {
@@ -205,11 +230,10 @@ app.delete('/api/tickets/:id', async (req, res) => {
     const { id } = req.params;
     try {
         const client = await pool.connect();
-        const query = 'DELETE FROM tickets WHERE id = $1 RETURNING *;';
-        const result = await client.query(query, [id]);
+        const result = await client.query('DELETE FROM tickets WHERE id = $1', [id]);
         client.release();
 
-        if (result.rows.length > 0) {
+        if (result.rowCount > 0) {
             res.status(200).json({ message: 'Ticket eliminato con successo' });
         } else {
             res.status(404).json({ error: 'Ticket non trovato' });
