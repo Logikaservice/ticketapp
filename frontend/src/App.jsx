@@ -40,6 +40,46 @@ export default function TicketApp() {
   const [isEditingTicket, setIsEditingTicket] = useState(null);
   const [selectedClientForNewTicket, setSelectedClientForNewTicket] = useState('');
   
+  // ====================================================================
+  // 🆕 CARICA DATI DAL DATABASE DOPO IL LOGIN
+  // ====================================================================
+  useEffect(() => {
+    if (isLoggedIn && currentUser) {
+      loadInitialData();
+    }
+  }, [isLoggedIn, currentUser]);
+
+  const loadInitialData = async () => {
+    try {
+      console.log('📥 Caricamento dati dal database...');
+
+      // Carica tutti gli utenti
+      const usersResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/users`);
+      if (usersResponse.ok) {
+        const usersData = await usersResponse.json();
+        setUsers(usersData);
+        console.log('✅ Utenti caricati:', usersData.length);
+      } else {
+        console.error('❌ Errore nel caricamento utenti');
+      }
+
+      // Carica tutti i ticket
+      const ticketsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`);
+      if (ticketsResponse.ok) {
+        const ticketsData = await ticketsResponse.json();
+        setTickets(ticketsData);
+        console.log('✅ Ticket caricati:', ticketsData.length);
+      } else {
+        console.error('❌ Errore nel caricamento ticket');
+      }
+      
+    } catch (error) {
+      console.error('💥 Errore nel caricamento dei dati:', error);
+      showNotification('Errore nel caricamento dei dati dal server.', 'error');
+    }
+  };
+  // ====================================================================
+
   const showNotification = (message, type = 'success', duration = 5000) => {
     if (notificationTimeout) clearTimeout(notificationTimeout);
     setNotification({ show: true, message, type });
@@ -94,6 +134,8 @@ export default function TicketApp() {
   const handleLogout = () => {
     setIsLoggedIn(false);
     setCurrentUser(null);
+    setUsers([]); // Reset dati
+    setTickets([]); // Reset dati
     showNotification('Disconnessione effettuata.', 'info');
   };
 
@@ -107,7 +149,6 @@ export default function TicketApp() {
   const openSettings = () => setModalState({ type: 'settings' });
   const openManageClientsModal = () => setModalState({ type: 'manageClients' });
 
-  // --- FUNZIONE CORRETTA PER SALVARE IL CLIENTE NEL DATABASE ---
   const handleCreateClient = async () => {
     if (!newClientData.email || !newClientData.password || !newClientData.azienda) {
       return showNotification('Email, password e azienda sono obbligatori.', 'error');
@@ -129,7 +170,7 @@ export default function TicketApp() {
       }
 
       const savedClient = await response.json();
-      setUsers(prev => [...prev, savedClient]); // Aggiunge il cliente salvato alla lista
+      setUsers(prev => [...prev, savedClient]); // Aggiunge il cliente allo stato
       closeModal();
       setNewClientData({ email: '', password: '', telefono: '', azienda: '' });
       showNotification('Cliente creato con successo!', 'success');
