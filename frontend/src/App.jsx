@@ -774,6 +774,15 @@ const openManageClientsModal = () => {
     setSelectedTicket(selectedTicket && selectedTicket.id === t.id ? null : t);
   };
 
+{modalState.type === 'manageClients' && (
+  <ManageClientsModal
+    clienti={users.filter(u => u.ruolo === 'cliente')}
+    onClose={closeModal}
+    onUpdateClient={handleUpdateClient}
+    onDeleteClient={handleDeleteClient}
+  />
+)}
+  
   const handleGenerateSentReport = (filteredTickets) => {
     if (!filteredTickets.length) {
       showNotification('Nessun ticket da includere.', 'info');
@@ -888,6 +897,7 @@ const openManageClientsModal = () => {
         openNewTicketModal={openNewTicketModal}
         openNewClientModal={() => setModalState({ type: 'newClient' })}
         openSettings={openSettings}
+        openManageClientsModal={openManageClientsModal}
       />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
