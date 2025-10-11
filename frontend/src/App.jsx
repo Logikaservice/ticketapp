@@ -1,3 +1,5 @@
+// src/App.jsx
+
 import React, { useState, useEffect } from 'react';
 import Notification from './components/AppNotification'; // Assicurati che il nome del file sia corretto
 import LoginScreen from './components/LoginScreen';
@@ -16,32 +18,27 @@ export default function TicketApp() {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   
-  // --- NUOVA LOGICA PER LE NOTIFICHE ---
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [notificationTimeout, setNotificationTimeout] = useState(null);
 
-  // Funzione per chiudere la notifica (chiamata dal pulsante X o dal timer)
   const handleCloseNotification = () => {
     if (notificationTimeout) {
-      clearTimeout(notificationTimeout); // Annulla il timer se si chiude manualmente
+      clearTimeout(notificationTimeout);
     }
     setNotification(p => ({ ...p, show: false }));
   };
 
-  // Funzione per mostrare la notifica con durata personalizzabile
   const showNotification = (message, type = 'success', duration = 5000) => {
     if (notificationTimeout) {
-      clearTimeout(notificationTimeout); // Cancella il timer precedente se c'è
+      clearTimeout(notificationTimeout);
     }
     setNotification({ show: true, message: message, type: type });
     
-    // Imposta un nuovo timer per la chiusura automatica
     const newTimeout = setTimeout(() => {
       setNotification(p => ({ ...p, show: false }));
     }, duration);
     setNotificationTimeout(newTimeout);
   };
-  // --- FINE NUOVA LOGICA ---
 
   const [modalState, setModalState] = useState({ type: null, data: null });
   const [newTicketData, setNewTicketData] = useState({ 
@@ -69,9 +66,6 @@ export default function TicketApp() {
   const [selectedClientForNewTicket, setSelectedClientForNewTicket] = useState('');
   const [hasShownUnreadNotification, setHasShownUnreadNotification] = useState(false);
 
-  // (Il resto del file App.jsx rimane identico a prima)
-  
-  // Funzione per calcolare messaggi non letti
   const getUnreadCount = (ticket) => {
     if (!ticket.messaggi || ticket.messaggi.length === 0) return 0;
     
@@ -144,7 +138,7 @@ export default function TicketApp() {
             showNotification(
               `Hai ${totalUnread} nuov${totalUnread === 1 ? 'o messaggio' : 'i messaggi'} in ${unreadTickets.length} ticket!`, 
               'info',
-              8000 // Esempio: questa notifica dura 8 secondi
+              8000
             );
           }
           setHasShownUnreadNotification(true);
@@ -280,29 +274,28 @@ export default function TicketApp() {
     setModalState({ type: 'settings', data: null });
   };
 
-const handleUpdateClient = (id, updatedData) => {
-  const updatedUsers = users.map(u => 
-    u.id === id ? { ...u, ...updatedData } : u
-  );
-  setUsers(updatedUsers);
-  showNotification('Cliente aggiornato con successo!', 'success');
-};
+  const handleUpdateClient = (id, updatedData) => {
+    const updatedUsers = users.map(u => 
+      u.id === id ? { ...u, ...updatedData } : u
+    );
+    setUsers(updatedUsers);
+    showNotification('Cliente aggiornato con successo!', 'success');
+  };
 
-const handleDeleteClient = (id) => {
-  // Controlla se il cliente ha ticket associati
-  const hasTickets = tickets.some(t => t.clienteid === id);
-  if (hasTickets) {
-    showNotification('Impossibile eliminare: il cliente ha ticket associati.', 'error');
-    return;
-  }
-  
-  setUsers(users.filter(u => u.id !== id));
-  showNotification('Cliente eliminato con successo!', 'success');
-};
+  const handleDeleteClient = (id) => {
+    const hasTickets = tickets.some(t => t.clienteid === id);
+    if (hasTickets) {
+      showNotification('Impossibile eliminare: il cliente ha ticket associati.', 'error');
+      return;
+    }
+    
+    setUsers(users.filter(u => u.id !== id));
+    showNotification('Cliente eliminato con successo!', 'success');
+  };
 
-const openManageClientsModal = () => {
-  setModalState({ type: 'manageClients', data: null });
-};
+  const openManageClientsModal = () => {
+    setModalState({ type: 'manageClients', data: null });
+  };
   
   const handleOpenTimeLogger = (t) => {
     setSelectedTicket(t);
@@ -773,15 +766,6 @@ const openManageClientsModal = () => {
     }
     setSelectedTicket(selectedTicket && selectedTicket.id === t.id ? null : t);
   };
-
-{modalState.type === 'manageClients' && (
-  <ManageClientsModal
-    clienti={users.filter(u => u.ruolo === 'cliente')}
-    onClose={closeModal}
-    onUpdateClient={handleUpdateClient}
-    onDeleteClient={handleDeleteClient}
-  />
-)}
   
   const handleGenerateSentReport = (filteredTickets) => {
     if (!filteredTickets.length) {
@@ -957,6 +941,16 @@ const openManageClientsModal = () => {
         handleConfirmUrgentCreation={handleConfirmUrgentCreation}
         showNotification={showNotification}
       />
+      
+      {/* --- HO SPOSTATO QUI LA FINESTRA GESTIONE CLIENTI --- */}
+      {modalState.type === 'manageClients' && (
+        <ManageClientsModal
+          clienti={users.filter(u => u.ruolo === 'cliente')}
+          onClose={closeModal}
+          onUpdateClient={handleUpdateClient}
+          onDeleteClient={handleDeleteClient}
+        />
+      )}
     </div>
   );
 }
