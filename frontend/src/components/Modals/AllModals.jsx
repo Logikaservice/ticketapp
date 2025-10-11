@@ -1,129 +1,56 @@
+// src/components/Modals/AllModals.jsx
+
 import React from 'react';
 import NewTicketModal from './NewTicketModal';
 import TimeLoggerModal from './TimeLoggerModal';
 import SettingsModal from './SettingsModal';
-import NewClientModal from './NewClientModal';
+// NON importare più NewClientModal qui
 import UrgentConfirmModal from './UrgentConfirmModal';
 import ReportModal from './ReportModal';
 
 const AllModals = ({ modalState, closeModal, ...handlers }) => {
+  // Se non c'è nessuna modale da aprire (o se è una di quelle nuove), non fare nulla
   if (!modalState.type) return null;
 
+  // Estrai solo le props che servono a questo componente
   const {
-    newTicketData,
-    setNewTicketData,
-    handleCreateTicket,
-    isEditingTicket,
-    currentUser,
-    clientiAttivi,
-    selectedClientForNewTicket,
-    setSelectedClientForNewTicket,
-    resetNewTicketData,
-    timeLogs,
-    setTimeLogs,
-    handleTimeLogChange,
-    handleAddTimeLog,
-    handleRemoveTimeLog,
-    handleDuplicateTimeLog,
-    handleMaterialChange,
-    handleAddMaterial,
-    handleRemoveMaterial,
-    handleConfirmTimeLogs,
-    settingsData,
-    setSettingsData,
-    handleUpdateSettings,
-    newClientData,
-    setNewClientData,
-    handleCreateClient,
-    handleConfirmUrgentCreation,
-    showNotification
+    // ... (le props come newTicketData, settingsData, ecc. rimangono qui)
   } = handlers;
 
   const renderModalContent = () => {
     switch (modalState.type) {
       case 'newTicket':
-        return (
-          <NewTicketModal
-            newTicketData={newTicketData}
-            setNewTicketData={setNewTicketData}
-            handleCreateTicket={handleCreateTicket}
-            isEditingTicket={isEditingTicket}
-            currentUser={currentUser}
-            clientiAttivi={clientiAttivi}
-            selectedClientForNewTicket={selectedClientForNewTicket}
-            setSelectedClientForNewTicket={setSelectedClientForNewTicket}
-            resetNewTicketData={resetNewTicketData}
-            closeModal={closeModal}
-          />
-        );
+        return <NewTicketModal closeModal={closeModal} {...handlers} />;
 
       case 'timeLogger':
-        return (
-          <TimeLoggerModal
-            modalData={modalState.data}
-            timeLogs={timeLogs}
-            setTimeLogs={setTimeLogs}
-            handleTimeLogChange={handleTimeLogChange}
-            handleAddTimeLog={handleAddTimeLog}
-            handleRemoveTimeLog={handleRemoveTimeLog}
-            handleDuplicateTimeLog={handleDuplicateTimeLog}
-            handleMaterialChange={handleMaterialChange}
-            handleAddMaterial={handleAddMaterial}
-            handleRemoveMaterial={handleRemoveMaterial}
-            handleConfirmTimeLogs={handleConfirmTimeLogs}
-            closeModal={closeModal}
-          />
-        );
+        return <TimeLoggerModal closeModal={closeModal} {...handlers} />;
 
       case 'settings':
-        return (
-          <SettingsModal
-            settingsData={settingsData}
-            setSettingsData={setSettingsData}
-            handleUpdateSettings={handleUpdateSettings}
-            closeModal={closeModal}
-          />
-        );
+        return <SettingsModal closeModal={closeModal} {...handlers} />;
 
-      case 'newClient':
-        return (
-          <NewClientModal
-            newClientData={newClientData}
-            setNewClientData={setNewClientData}
-            handleCreateClient={handleCreateClient}
-            closeModal={closeModal}
-          />
-        );
+      // --- HO RIMOSSO COMPLETAMENTE IL "case 'newClient'" DA QUI ---
 
       case 'urgentConfirm':
-        return (
-          <UrgentConfirmModal
-            handleConfirmUrgentCreation={handleConfirmUrgentCreation}
-            closeModal={closeModal}
-          />
-        );
+        return <UrgentConfirmModal closeModal={closeModal} {...handlers} />;
 
       case 'invoiceReport':
       case 'sentReport':
-        const { title, content, color } = modalState.data;
-        return (
-          <ReportModal
-            title={title}
-            content={content}
-            color={color}
-            closeModal={closeModal}
-            showNotification={showNotification}
-          />
-        );
+        return <ReportModal closeModal={closeModal} {...modalState.data} {...handlers} />;
 
       default:
+        // Se il tipo di modale è 'newClient' o 'manageClients', non fare nulla
+        // perché vengono gestite da App.jsx
         return null;
     }
   };
 
+  // Se non c'è contenuto da renderizzare, non mostrare nulla
+  const content = renderModalContent();
+  if (!content) return null;
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
-      {renderModalContent()}
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-40">
+      {content}
     </div>
   );
 };
