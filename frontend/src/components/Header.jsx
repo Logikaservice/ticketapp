@@ -1,3 +1,5 @@
+// src/components/Header.jsx
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, LogOut, Settings, Users, UserPlus, List } from 'lucide-react';
 
@@ -85,7 +87,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                         onClick={() => {
                           openManageClientsModal();
                           setShowClientMenu(false);
-                          alert('Funzione "Gestisci Clienti" da implementare');
+                          // --- HO RIMOSSO L'ALERT DA QUESTA RIGA ---
                         }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-blue-50 transition"
                       >
