@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, LogOut, Settings, Users, UserPlus, List } from 'lucide-react';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const menuRef = useRef(null);
 
@@ -83,8 +83,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                       
                       <button
                         onClick={() => {
-                          // Qui puoi aggiungere la funzione per gestire i clienti
-                          // Per ora chiudo solo il menu
+                          openManageClientsModal();
                           setShowClientMenu(false);
                           alert('Funzione "Gestisci Clienti" da implementare');
                         }}
