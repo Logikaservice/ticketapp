@@ -1,261 +1,278 @@
-// src/App.jsx
+// Importa i pacchetti necessari
+const express = require('express');
+const cors = require('cors');
+const { Pool } = require('pg');
 
-import React, { useState, useEffect } from 'react';
-import Notification from './components/AppNotification';
-import LoginScreen from './components/LoginScreen';
-import Header from './components/Header';
-import TicketListContainer from './components/TicketListContainer';
-import AllModals from './components/Modals/AllModals';
-import { getInitialMaterial, getInitialTimeLog } from './utils/helpers';
-import ManageClientsModal from './components/Modals/ManageClientsModal';
-import NewClientModal from './components/Modals/NewClientModal';
-import NewTicketModal from './components/Modals/NewTicketModal';
+const app = express();
+const PORT = process.env.PORT || 3001;
 
-export default function TicketApp() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [tickets, setTickets] = useState([]);
-  const [selectedTicket, setSelectedTicket] = useState(null);
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
-  
-  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
-  const [notificationTimeout, setNotificationTimeout] = useState(null);
-
-  const [modalState, setModalState] = useState({ type: null, data: null });
-  const [newTicketData, setNewTicketData] = useState({ 
-    titolo: '', 
-    descrizione: '', 
-    categoria: 'assistenza', 
-    priorita: 'media', 
-    nomerichiedente: '' 
-  });
-  const [settingsData, setSettingsData] = useState({});
-  const [newClientData, setNewClientData] = useState({
-    email: '', 
-    password: '', 
-    telefono: '', 
-    azienda: '' 
-  });
-  const [isEditingTicket, setIsEditingTicket] = useState(null);
-  const [selectedClientForNewTicket, setSelectedClientForNewTicket] = useState('');
-  
-  // ====================================================================
-  // 🆕 CARICA DATI DAL DATABASE DOPO IL LOGIN
-  // ====================================================================
-  useEffect(() => {
-    if (isLoggedIn && currentUser) {
-      loadInitialData();
-    }
-  }, [isLoggedIn, currentUser]);
-
-  const loadInitialData = async () => {
-    try {
-      console.log('📥 Caricamento dati dal database...');
-
-      // Carica tutti gli utenti
-      const usersResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/users`);
-      if (usersResponse.ok) {
-        const usersData = await usersResponse.json();
-        setUsers(usersData);
-        console.log('✅ Utenti caricati:', usersData.length);
-      } else {
-        console.error('❌ Errore nel caricamento utenti');
-      }
-
-      // Carica tutti i ticket
-      const ticketsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`);
-      if (ticketsResponse.ok) {
-        const ticketsData = await ticketsResponse.json();
-        setTickets(ticketsData);
-        console.log('✅ Ticket caricati:', ticketsData.length);
-      } else {
-        console.error('❌ Errore nel caricamento ticket');
-      }
-      
-    } catch (error) {
-      console.error('💥 Errore nel caricamento dei dati:', error);
-      showNotification('Errore nel caricamento dei dati dal server.', 'error');
-    }
-  };
-  // ====================================================================
-
-  const showNotification = (message, type = 'success', duration = 5000) => {
-    if (notificationTimeout) clearTimeout(notificationTimeout);
-    setNotification({ show: true, message, type });
-    const newTimeout = setTimeout(() => setNotification(p => ({ ...p, show: false })), duration);
-    setNotificationTimeout(newTimeout);
-  };
-
-  const handleCloseNotification = () => {
-    if (notificationTimeout) clearTimeout(notificationTimeout);
-    setNotification(p => ({ ...p, show: false }));
-  };
-  
-  const resetNewTicketData = () => {
-    const nomeRichiedente = currentUser?.ruolo === 'cliente' ? `${currentUser.nome} ${currentUser.cognome || ''}`.trim() : '';
-    setNewTicketData({
-      titolo: '',
-      descrizione: '',
-      categoria: 'assistenza',
-      priorita: 'media',
-      nomerichiedente: nomeRichiedente
-    });
-    setIsEditingTicket(null);
-    setSelectedClientForNewTicket('');
-  };
-
-  const closeModal = () => {
-    if (modalState.type === 'newTicket') {
-      resetNewTicketData();
-    }
-    setModalState({ type: null, data: null });
-  };
-
-  const handleLogin = async () => {
-    if (!loginData.email || !loginData.password) return showNotification('Inserisci email e password.', 'error');
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/login`, {
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(loginData)
-      });
-      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Credenziali non valide');
-      const user = await response.json();
-      setCurrentUser(user);
-      setIsLoggedIn(true);
-      setLoginData({ email: '', password: '' });
-      showNotification(`Benvenuto ${user.nome}!`, 'success');
-    } catch (error) {
-      showNotification(error.message, 'error');
-    }
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setCurrentUser(null);
-    setUsers([]); // Reset dati
-    setTickets([]); // Reset dati
-    showNotification('Disconnessione effettuata.', 'info');
-  };
-
-  const handleAutoFillLogin = (ruolo) => setLoginData(ruolo === 'cliente' ? { email: 'cliente@example.com', password: 'cliente123' } : { email: 'tecnico@example.com', password: 'tecnico123' });
-  
-  const openNewTicketModal = () => {
-    resetNewTicketData();
-    setModalState({ type: 'newTicket' });
-  };
-
-  const openSettings = () => setModalState({ type: 'settings' });
-  const openManageClientsModal = () => setModalState({ type: 'manageClients' });
-
-  const handleCreateClient = async () => {
-    if (!newClientData.email || !newClientData.password || !newClientData.azienda) {
-      return showNotification('Email, password e azienda sono obbligatori.', 'error');
-    }
-
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newClientData,
-          ruolo: 'cliente'
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Errore del server.');
-      }
-
-      const savedClient = await response.json();
-      setUsers(prev => [...prev, savedClient]); // Aggiunge il cliente allo stato
-      closeModal();
-      setNewClientData({ email: '', password: '', telefono: '', azienda: '' });
-      showNotification('Cliente creato con successo!', 'success');
-
-    } catch (error) {
-      showNotification(error.message, 'error');
-    }
-  };
-  
-  const handleUpdateClient = async (id, updatedData) => { /* ... */ };
-  const handleDeleteClient = async (id) => { /* ... */ };
-  const handleCreateTicket = async () => { /* ... */ };
-  const handleConfirmUrgentCreation = () => { /* ... */ };
-  const handleUpdateSettings = () => { /* ... */ };
-
-  if (!isLoggedIn) {
-    return (
-      <>
-        <Notification notification={notification} handleClose={handleCloseNotification} />
-        <LoginScreen {...{ loginData, setLoginData, handleLogin, handleAutoFillLogin }} />
-      </>
-    );
+// --- CONFIGURAZIONE DATABASE ---
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
   }
+});
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Notification notification={notification} handleClose={handleCloseNotification} />
-      <Header
-        currentUser={currentUser}
-        handleLogout={handleLogout}
-        openNewTicketModal={openNewTicketModal}
-        openNewClientModal={() => setModalState({ type: 'newClient' })}
-        openSettings={openSettings}
-        openManageClientsModal={openManageClientsModal}
-      />
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        <TicketListContainer
-          currentUser={currentUser}
-          tickets={tickets}
-          users={users}
-          selectedTicket={selectedTicket}
-          handlers={{}}
-        />
-      </main>
+// --- MIDDLEWARE ---
+const corsOptions = {
+  origin: 'https://ticketapp-frontend-ton5.onrender.com'
+};
+app.use(cors(corsOptions));
+app.use(express.json());
 
-      <AllModals
-        modalState={modalState}
-        closeModal={closeModal}
-        handleUpdateSettings={handleUpdateSettings}
-        handleConfirmUrgentCreation={handleConfirmUrgentCreation}
-        settingsData={settingsData}
-        setSettingsData={setSettingsData}
-      />
-      
-      {modalState.type === 'manageClients' && (
-        <ManageClientsModal
-          clienti={users.filter(u => u.ruolo === 'cliente')}
-          onClose={closeModal}
-          onUpdateClient={handleUpdateClient}
-          onDeleteClient={handleDeleteClient}
-        />
-      )}
-      
-      {modalState.type === 'newClient' && (
-        <NewClientModal
-          newClientData={newClientData}
-          setNewClientData={setNewClientData}
-          onClose={closeModal}
-          onSave={handleCreateClient}
-        />
-      )}
-      
-      {modalState.type === 'newTicket' && (
-        <NewTicketModal
-          onClose={closeModal}
-          onSave={handleCreateTicket}
-          newTicketData={newTicketData}
-          setNewTicketData={setNewTicketData}
-          isEditingTicket={isEditingTicket}
-          currentUser={currentUser}
-          clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
-          selectedClientForNewTicket={selectedClientForNewTicket}
-          setSelectedClientForNewTicket={setSelectedClientForNewTicket}
-        />
-      )}
-    </div>
-  );
-}
+// --- ROUTES ---
+app.get('/api', (req, res) => {
+  res.json({ message: "API del sistema di ticketing funzionante." });
+});
+
+// ENDPOINT: Keepalive per Supabase
+app.get('/api/keepalive', async (req, res) => {
+  try {
+    const client = await pool.connect();
+    await client.query('SELECT 1');
+    client.release();
+    res.json({ 
+      status: 'Database attivo', 
+      timestamp: new Date().toISOString() 
+    });
+  } catch (err) {
+    console.error('Errore keepalive:', err);
+    res.status(500).json({ error: 'Errore keepalive' });
+  }
+});
+
+// ENDPOINT: Login utente
+app.post('/api/login', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const client = await pool.connect();
+        const result = await client.query('SELECT * FROM users WHERE email = $1 AND password = $2', [email, password]);
+        client.release();
+
+        if (result.rows.length > 0) {
+            const user = result.rows[0];
+            delete user.password;
+            res.json(user);
+        } else {
+            res.status(401).json({ error: 'Credenziali non valide' });
+        }
+    } catch (err) {
+        console.error('Errore durante il login:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
+// ENDPOINT: Prende tutti gli utenti (per il tecnico)
+app.get('/api/users', async (req, res) => {
+    try {
+        const client = await pool.connect();
+        const result = await client.query('SELECT id, email, ruolo, nome, cognome, telefono, azienda FROM users');
+        client.release();
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Errore nel prendere gli utenti', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
+// ENDPOINT: Crea un nuovo cliente (utente)
+app.post('/api/users', async (req, res) => {
+    const { email, password, telefono, azienda, ruolo } = req.body;
+
+    if (!email || !password || !azienda) {
+        return res.status(400).json({ error: 'Email, password e azienda sono obbligatori' });
+    }
+
+    try {
+        const client = await pool.connect();
+        const query = `
+            INSERT INTO users (email, password, telefono, azienda, ruolo, nome, cognome) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7) 
+            RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
+        `;
+        const values = [email, password, telefono || null, azienda, ruolo || 'cliente', 'Non', 'Specificato'];
+        const result = await client.query(query, values);
+        client.release();
+        
+        res.status(201).json(result.rows[0]);
+
+    } catch (err) {
+        console.error('ERRORE NELLA CREAZIONE DEL CLIENTE:', err);
+        res.status(500).json({ error: 'Errore interno del server durante la creazione del cliente' });
+    }
+});
+
+// ====================================================================
+// 🆕 ENDPOINT: Elimina un utente/cliente
+// ====================================================================
+app.delete('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const client = await pool.connect();
+        const result = await client.query('DELETE FROM users WHERE id = $1 RETURNING *', [id]);
+        client.release();
+
+        if (result.rowCount > 0) {
+            console.log(`✅ Cliente eliminato: ID ${id}`);
+            res.status(200).json({ 
+                message: 'Cliente eliminato con successo', 
+                user: result.rows[0] 
+            });
+        } else {
+            res.status(404).json({ error: 'Cliente non trovato' });
+        }
+    } catch (err) {
+        console.error('❌ Errore nell\'eliminazione del cliente:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+// ====================================================================
+
+// ENDPOINT: Prende tutti i ticket
+app.get('/api/tickets', async (req, res) => {
+    try {
+        const client = await pool.connect();
+        const result = await client.query('SELECT * FROM tickets ORDER BY dataapertura DESC');
+        client.release();
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Errore nel prendere i ticket:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
+// ENDPOINT: Crea un nuovo ticket
+app.post('/api/tickets', async (req, res) => {
+    const { clienteid, titolo, descrizione, stato, priorita, nomerichiedente } = req.body;
+    const numero = `TKT-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+    try {
+        const client = await pool.connect();
+        const query = `
+            INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, last_read_by_client, last_read_by_tecnico) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) 
+            RETURNING *;
+        `;
+        const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente];
+        const result = await client.query(query, values);
+        client.release();
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error('Errore nella creazione del ticket:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
+// ENDPOINT: Aggiorna lo stato di un ticket
+app.patch('/api/tickets/:id/status', async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    try {
+        const client = await pool.connect();
+        const query = 'UPDATE tickets SET stato = $1 WHERE id = $2 RETURNING *;';
+        const result = await client.query(query, [status, id]);
+        client.release();
+
+        if (result.rows.length > 0) {
+            res.json(result.rows[0]);
+        } else {
+            res.status(404).json({ error: 'Ticket non trovato' });
+        }
+    } catch (err) {
+        console.error(`Errore nell'aggiornare il ticket ${id}`, err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
+// ENDPOINT: Aggiungi un messaggio a un ticket
+app.post('/api/tickets/:id/messages', async (req, res) => {
+    const { id } = req.params;
+    const { autore, contenuto, reclamo } = req.body;
+    
+    try {
+        const client = await pool.connect();
+        const ticketResult = await client.query('SELECT messaggi FROM tickets WHERE id = $1', [id]);
+        
+        if (ticketResult.rows.length === 0) {
+            client.release();
+            return res.status(404).json({ error: 'Ticket non trovato' });
+        }
+        
+        let messaggi = ticketResult.rows[0].messaggi || [];
+        const newMessage = {
+            id: messaggi.length + 1,
+            autore,
+            contenuto,
+            data: new Date().toISOString(),
+            reclamo: reclamo || false
+        };
+        messaggi.push(newMessage);
+        
+        await client.query('UPDATE tickets SET messaggi = $1 WHERE id = $2', [JSON.stringify(messaggi), id]);
+        client.release();
+        
+        res.status(201).json(newMessage);
+    } catch (err) {
+        console.error('Errore nel salvare il messaggio:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
+// ENDPOINT: Marca i messaggi come letti
+app.patch('/api/tickets/:id/mark-read', async (req, res) => {
+    const { id } = req.params;
+    const { ruolo } = req.body;
+    
+    try {
+        const client = await pool.connect();
+        const column = ruolo === 'cliente' ? 'last_read_by_client' : 'last_read_by_tecnico';
+        const query = `UPDATE tickets SET ${column} = NOW() WHERE id = $1 RETURNING *;`;
+        const result = await client.query(query, [id]);
+        client.release();
+        
+        if (result.rows.length > 0) {
+            res.json(result.rows[0]);
+        } else {
+            res.status(404).json({ error: 'Ticket non trovato' });
+        }
+    } catch (err) {
+        console.error('Errore nel marcare come letto:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
+// ENDPOINT: Elimina un ticket
+app.delete('/api/tickets/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        const client = await pool.connect();
+        const result = await client.query('DELETE FROM tickets WHERE id = $1', [id]);
+        client.release();
+
+        if (result.rowCount > 0) {
+            res.status(200).json({ message: 'Ticket eliminato con successo' });
+        } else {
+            res.status(404).json({ error: 'Ticket non trovato' });
+        }
+    } catch (err) {
+        console.error('Errore nell\'eliminazione del ticket:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
+// --- AVVIO DEL SERVER ---
+const startServer = async () => {
+  try {
+    await pool.connect();
+    console.log("✅ Connessione al database riuscita!");
+    app.listen(PORT, () => {
+      console.log(`🚀 Server backend in ascolto sulla porta ${PORT}`);
+    });
+  } catch (err) {
+    console.error("❌ Errore critico - Impossibile connettersi al database:", err);
+    process.exit(1);
+  }
+};
+
+startServer();
