@@ -213,7 +213,39 @@ export default function TicketApp() {
   // ====================================================================
   // GESTIONE TICKET
   // ====================================================================
-  const handleCreateTicket = async () => { /* ... la tua logica ... */ };
+  const handleCreateTicket = async () => {
+    if (isEditingTicket) {
+      handleUpdateTicket();
+      return;
+    }
+    if (!newTicketData.titolo || !newTicketData.descrizione) {
+      return showNotification('Titolo e descrizione sono obbligatori.', 'error');
+    }
+    const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
+    if (currentUser.ruolo === 'tecnico' && !clienteId) {
+        return showNotification('Devi selezionare un cliente.', 'error');
+    }
+    const ticketDaInviare = {
+      ...newTicketData,
+      clienteid: clienteId,
+      stato: 'aperto',
+      nomerichiedente: newTicketData.nomerichiedente || (currentUser.ruolo === 'cliente' ? `${currentUser.nome} ${currentUser.cognome || ''}`.trim() : 'Tecnico')
+    };
+    try {
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ticketDaInviare)
+        });
+        if (!response.ok) throw new Error('Errore del server.');
+        const savedTicket = await response.json();
+        setTickets(prev => [savedTicket, ...prev]);
+        closeModal();
+        showNotification('Ticket creato con successo!', 'success');
+    } catch (error) {
+        showNotification(error.message || 'Impossibile creare il ticket.', 'error');
+    }
+  };
   const handleUpdateTicket = () => { /* ... la tua logica ... */ };
   const handleConfirmUrgentCreation = async () => { /* ... la tua logica ... */ };
   const handleDeleteTicket = async (id) => { /* ... la tua logica ... */ };
@@ -362,7 +394,6 @@ export default function TicketApp() {
         />
       </main>
 
-      {/* --- ECCO LA CORREZIONE: Passiamo a AllModals tutte le props che gli servono --- */}
       <AllModals
         modalState={modalState}
         closeModal={closeModal}
