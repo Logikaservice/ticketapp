@@ -31,8 +31,12 @@ const FilterControls = ({
 
   // Logica per il Cliente
   if (currentUser.ruolo === 'cliente') {
-    // Per il cliente, usiamo un ordine fisso che ha senso per lui
-    const TASTI_CLIENTE = ['aperto', 'in_lavorazione', 'risolto', 'chiuso'];
+    // ====================================================================
+    // 🆕 AGGIORNATO: Cliente vede anche inviato e fatturato
+    // ====================================================================
+    const TASTI_CLIENTE = ['aperto', 'in_lavorazione', 'risolto', 'chiuso', 'inviato', 'fatturato'];
+    // ====================================================================
+    
     return (
       <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
         {TASTI_CLIENTE.map(status => {
