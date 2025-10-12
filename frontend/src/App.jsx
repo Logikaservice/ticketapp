@@ -595,7 +595,10 @@ export default function TicketApp() {
           const updatedTicket = {
             ...t,
             messaggi: [...(t.messaggi || []), savedMessage],
-            stato: newStatus
+            stato: newStatus,
+            // Aggiorna il timestamp di lettura per chi scrive
+            last_read_by_client: currentUser.ruolo === 'cliente' ? new Date().toISOString() : t.last_read_by_client,
+            last_read_by_tecnico: currentUser.ruolo === 'tecnico' ? new Date().toISOString() : t.last_read_by_tecnico
           };
 
           if (selectedTicket && selectedTicket.id === id) {
