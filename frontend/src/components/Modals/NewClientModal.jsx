@@ -1,23 +1,26 @@
-// src/components/NewClientModal.jsx
-
 import React from 'react';
-import { X, Save, UserPlus, Mail, Phone, Building } from 'lucide-react';
+import { X, UserPlus } from 'lucide-react';
 
 const NewClientModal = ({ newClientData, setNewClientData, onClose, onSave }) => {
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave();
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
         
-        {/* Header con lo stile verde sfumato */}
+        {/* Header */}
         <div className="p-6 border-b bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-2xl">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold flex items-center gap-2">
                 <UserPlus size={28} />
-                Crea Nuovo Cliente
+                Nuovo Cliente
               </h2>
               <p className="text-green-100 text-sm mt-1">
-                Inserisci i dati per registrare un nuovo account.
+                Compila i dati per creare un nuovo cliente
               </p>
             </div>
             <button
@@ -29,80 +32,98 @@ const NewClientModal = ({ newClientData, setNewClientData, onClose, onSave }) =>
           </div>
         </div>
 
-        {/* Form per l'inserimento dei dati */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="col-span-1 md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Azienda *</label>
-              <div className="relative">
-                <Building size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Nome Azienda"
-                  value={newClientData.azienda}
-                  onChange={(e) => setNewClientData({ ...newClientData, azienda: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
-               <div className="relative">
-                <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="tel"
-                  placeholder="Numero di telefono"
-                  value={newClientData.telefono}
-                  onChange={(e) => setNewClientData({ ...newClientData, telefono: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-              <div className="relative">
-                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="space-y-4">
+            
+            {/* Email e Password sulla stessa riga */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email <span className="text-red-500">*</span>
+                </label>
                 <input
                   type="email"
-                  placeholder="email@esempio.com"
                   value={newClientData.email}
                   onChange={(e) => setNewClientData({ ...newClientData, email: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="cliente@esempio.com"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newClientData.password}
+                  onChange={(e) => setNewClientData({ ...newClientData, password: e.target.value })}
+                  placeholder="Password visibile"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
+                  required
                 />
               </div>
             </div>
-            <div className="col-span-1 md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+
+            {/* Azienda */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Azienda <span className="text-red-500">*</span>
+              </label>
               <input
-                type="password"
-                placeholder="Imposta una password temporanea"
-                value={newClientData.password}
-                onChange={(e) => setNewClientData({ ...newClientData, password: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                type="text"
+                value={newClientData.azienda}
+                onChange={(e) => setNewClientData({ ...newClientData, azienda: e.target.value })}
+                placeholder="Nome dell'azienda"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                required
               />
             </div>
-          </div>
-          <p className="text-xs text-gray-500 mt-4">* Campi obbligatori</p>
-        </div>
 
-        {/* Footer con i pulsanti */}
-        <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
-          <div className="flex justify-end gap-2">
+            {/* Telefono (opzionale) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Telefono <span className="text-gray-400 text-xs">(opzionale)</span>
+              </label>
+              <input
+                type="tel"
+                value={newClientData.telefono}
+                onChange={(e) => setNewClientData({ ...newClientData, telefono: e.target.value })}
+                placeholder="+39 123 456 7890"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+            </div>
+
+          </div>
+
+          {/* Info */}
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Nota:</strong> I campi contrassegnati con <span className="text-red-500">*</span> sono obbligatori.
+              La password sarà visibile in chiaro per facilitare la registrazione.
+            </p>
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3 justify-end mt-6">
             <button
+              type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition"
+              className="px-6 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition font-medium"
             >
               Annulla
             </button>
             <button
-              onClick={onSave}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+              type="submit"
+              className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
             >
-              <Save size={18} />
+              <UserPlus size={18} />
               Crea Cliente
             </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
