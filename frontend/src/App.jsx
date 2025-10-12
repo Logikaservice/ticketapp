@@ -184,7 +184,7 @@ export default function TicketApp() {
   };
 
   // ====================================================================
-  // ELIMINA CLIENTE
+  // 🆕 ELIMINA CLIENTE
   // ====================================================================
   const handleDeleteClient = async (id) => {
     if (!window.confirm('Sei sicuro di voler eliminare questo cliente? Questa azione è irreversibile.')) {
@@ -211,15 +211,81 @@ export default function TicketApp() {
   };
   // ====================================================================
   
+  // ====================================================================
+  // AGGIORNA CLIENTE
+  // ====================================================================
   const handleUpdateClient = async (id, updatedData) => { 
-    // TODO: Implementare aggiornamento cliente
-    console.log('Aggiorna cliente:', id, updatedData);
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Errore durante l\'aggiornamento.');
+      }
+
+      const updatedClient = await response.json();
+      setUsers(prev => prev.map(user => user.id === id ? updatedClient : user));
+      showNotification('Cliente aggiornato con successo!', 'success');
+
+    } catch (error) {
+      showNotification(error.message, 'error');
+    }
   };
+  // ====================================================================
   
-  const handleCreateTicket = async () => { 
-    // TODO: Implementare creazione ticket
-    console.log('Crea ticket');
+  // ====================================================================
+  // CREA NUOVO TICKET
+  // ====================================================================
+  const handleCreateTicket = async () => {
+    // Validazione dati
+    if (!newTicketData.titolo || !newTicketData.descrizione) {
+      return showNotification('Titolo e descrizione sono obbligatori.', 'error');
+    }
+
+    // Per il tecnico: deve selezionare un cliente
+    if (currentUser.ruolo === 'tecnico' && !selectedClientForNewTicket) {
+      return showNotification('Seleziona un cliente per il ticket.', 'error');
+    }
+
+    // Determina il clienteid
+    const clienteid = currentUser.ruolo === 'cliente' 
+      ? currentUser.id 
+      : parseInt(selectedClientForNewTicket);
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clienteid,
+          titolo: newTicketData.titolo,
+          descrizione: newTicketData.descrizione,
+          stato: 'aperto',
+          priorita: newTicketData.priorita,
+          nomerichiedente: newTicketData.nomerichiedente
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Errore del server.');
+      }
+
+      const savedTicket = await response.json();
+      setTickets(prev => [savedTicket, ...prev]); // Aggiunge il ticket in cima alla lista
+      closeModal();
+      resetNewTicketData();
+      showNotification('Ticket creato con successo!', 'success');
+
+    } catch (error) {
+      showNotification(error.message, 'error');
+    }
   };
+  // ====================================================================
   
   const handleConfirmUrgentCreation = () => { 
     // TODO: Implementare conferma creazione urgente
