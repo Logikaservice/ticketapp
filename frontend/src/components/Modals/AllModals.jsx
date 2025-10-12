@@ -1,7 +1,6 @@
 // src/components/Modals/AllModals.jsx
 
 import React from 'react';
-// Rimuovi l'import di NewTicketModal
 import TimeLoggerModal from './TimeLoggerModal';
 import SettingsModal from './SettingsModal';
 import UrgentConfirmModal from './UrgentConfirmModal';
@@ -12,17 +11,26 @@ const AllModals = ({ modalState, closeModal, ...handlers }) => {
 
   const renderModalContent = () => {
     switch (modalState.type) {
-      // --- CASE 'newTicket' RIMOSSO DA QUI ---
-
       case 'timeLogger':
-        return <TimeLoggerModal closeModal={closeModal} {...handlers} />;
+        // ✅ Passa selectedTicket dal modalState.data
+        return (
+          <TimeLoggerModal 
+            closeModal={closeModal} 
+            selectedTicket={modalState.data}
+            {...handlers} 
+          />
+        );
+        
       case 'settings':
         return <SettingsModal closeModal={closeModal} {...handlers} />;
+        
       case 'urgentConfirm':
         return <UrgentConfirmModal closeModal={closeModal} {...handlers} />;
+        
       case 'invoiceReport':
       case 'sentReport':
         return <ReportModal closeModal={closeModal} {...modalState.data} {...handlers} />;
+        
       default:
         return null;
     }
