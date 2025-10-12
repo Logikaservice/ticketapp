@@ -104,8 +104,38 @@ app.post('/api/users', async (req, res) => {
 });
 
 // ====================================================================
-// 🆕 ENDPOINT: Elimina un utente/cliente
+// 🆕 ENDPOINT: Aggiorna un utente/cliente
 // ====================================================================
+app.patch('/api/users/:id', async (req, res) => {
+    const { id } = req.params;
+    const { nome, cognome, email, telefono, azienda } = req.body;
+    
+    try {
+        const client = await pool.connect();
+        const query = `
+            UPDATE users 
+            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5 
+            WHERE id = $6 
+            RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
+        `;
+        const values = [nome, cognome, email, telefono, azienda, id];
+        const result = await client.query(query, values);
+        client.release();
+        
+        if (result.rows.length > 0) {
+            console.log(`✅ Cliente aggiornato: ID ${id}`);
+            res.json(result.rows[0]);
+        } else {
+            res.status(404).json({ error: 'Cliente non trovato' });
+        }
+    } catch (err) {
+        console.error('❌ Errore nell\'aggiornamento del cliente:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+// ====================================================================
+
+// ENDPOINT: Elimina un utente/cliente
 app.delete('/api/users/:id', async (req, res) => {
     const { id } = req.params;
     
@@ -128,7 +158,6 @@ app.delete('/api/users/:id', async (req, res) => {
         res.status(500).json({ error: 'Errore interno del server' });
     }
 });
-// ====================================================================
 
 // ENDPOINT: Prende tutti i ticket
 app.get('/api/tickets', async (req, res) => {
