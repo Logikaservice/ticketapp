@@ -185,6 +185,18 @@ export default function TicketApp() {
     setTimeLogs(initialLogs);
     setModalState({ type: 'timeLogger', data: ticket });
   };
+  const handleOpenEditModal = (ticket) => {
+    setNewTicketData({
+      titolo: ticket.titolo,
+      descrizione: ticket.descrizione,
+      categoria: ticket.categoria,
+      priorita: ticket.priorita,
+      nomerichiedente: ticket.nomerichiedente
+    });
+    setIsEditingTicket(ticket.id);
+    setSelectedClientForNewTicket(ticket.clienteid.toString());
+    setModalState({ type: 'newTicket', data: ticket });
+  };
 
   // ====================================================================
   // GESTIONE SETTINGS
@@ -206,7 +218,6 @@ export default function TicketApp() {
   const handleConfirmUrgentCreation = async () => { /* ... la tua logica ... */ };
   const handleDeleteTicket = async (id) => { /* ... la tua logica ... */ };
   
-  // --- FUNZIONI CHAT RIPRISTINATE ---
   const handleSelectTicket = async (ticket) => {
     if (ticket && (!selectedTicket || selectedTicket.id !== ticket.id)) {
       try {
@@ -293,8 +304,7 @@ export default function TicketApp() {
       showNotification('Impossibile aggiornare lo stato.', 'error');
     }
   };
-
-  const handleOpenEditModal = (ticket) => { /* ... */ };
+  
   const handleReopenInLavorazione = (id) => handleChangeStatus(id, 'in_lavorazione');
   const handleReopenAsRisolto = (id) => handleChangeStatus(id, 'risolto');
   const handleSetInviato = (id) => handleChangeStatus(id, 'inviato');
@@ -302,7 +312,15 @@ export default function TicketApp() {
   const handleInvoiceTicket = (id) => handleChangeStatus(id, 'fatturato');
   const handleGenerateSentReport = () => {};
   const handleGenerateInvoiceReport = () => {};
-
+  const handleTimeLogChange = () => {};
+  const handleAddTimeLog = () => {};
+  const handleDuplicateTimeLog = () => {};
+  const handleRemoveTimeLog = () => {};
+  const handleMaterialChange = () => {};
+  const handleAddMaterial = () => {};
+  const handleRemoveMaterial = () => {};
+  const handleConfirmTimeLogs = () => {};
+  
   // ====================================================================
   // RENDER
   // ====================================================================
@@ -344,6 +362,7 @@ export default function TicketApp() {
         />
       </main>
 
+      {/* --- ECCO LA CORREZIONE: Passiamo a AllModals tutte le props che gli servono --- */}
       <AllModals
         modalState={modalState}
         closeModal={closeModal}
@@ -351,6 +370,16 @@ export default function TicketApp() {
         handleConfirmUrgentCreation={handleConfirmUrgentCreation}
         settingsData={settingsData}
         setSettingsData={setSettingsData}
+        timeLogs={timeLogs}
+        setTimeLogs={setTimeLogs}
+        handleTimeLogChange={handleTimeLogChange}
+        handleAddTimeLog={handleAddTimeLog}
+        handleRemoveTimeLog={handleRemoveTimeLog}
+        handleDuplicateTimeLog={handleDuplicateTimeLog}
+        handleMaterialChange={handleMaterialChange}
+        handleAddMaterial={handleAddMaterial}
+        handleRemoveMaterial={handleRemoveMaterial}
+        handleConfirmTimeLogs={handleConfirmTimeLogs}
       />
 
       {modalState.type === 'manageClients' && (
