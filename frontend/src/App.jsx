@@ -591,11 +591,20 @@ export default function TicketApp() {
       }
 
       // Aggiorna il timestamp di lettura per chi ha scritto il messaggio
-      await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + id + '/mark-read', {
+      const markReadResponse = await fetch(process.env.REACT_APP_API_URL + '/api/tickets/' + id + '/mark-read', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ruolo: currentUser.ruolo })
       });
+
+      let updatedTimestamps = {};
+      if (markReadResponse.ok) {
+        const updatedTicketFromServer = await markReadResponse.json();
+        updatedTimestamps = {
+          last_read_by_client: updatedTicketFromServer.last_read_by_client,
+          last_read_by_tecnico: updatedTicketFromServer.last_read_by_tecnico
+        };
+      }
 
       setTickets(prevTickets => prevTickets.map(t => {
         if (t.id === id) {
@@ -603,9 +612,9 @@ export default function TicketApp() {
             ...t,
             messaggi: [...(t.messaggi || []), savedMessage],
             stato: newStatus,
-            // Aggiorna il timestamp di lettura localmente
-            last_read_by_client: currentUser.ruolo === 'cliente' ? new Date().toISOString() : t.last_read_by_client,
-            last_read_by_tecnico: currentUser.ruolo === 'tecnico' ? new Date().toISOString() : t.last_read_by_tecnico
+            // Usa i timestamp dal server se disponibili, altrimenti usa Date.now()
+            last_read_by_client: updatedTimestamps.last_read_by_client || t.last_read_by_client,
+            last_read_by_tecnico: updatedTimestamps.last_read_by_tecnico || t.last_read_by_tecnico
           };
 
           if (selectedTicket && selectedTicket.id === id) {
