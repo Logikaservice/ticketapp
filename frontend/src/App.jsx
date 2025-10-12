@@ -248,7 +248,19 @@ export default function TicketApp() {
   };
   const handleUpdateTicket = () => { /* ... la tua logica ... */ };
   const handleConfirmUrgentCreation = async () => { /* ... la tua logica ... */ };
-  const handleDeleteTicket = async (id) => { /* ... la tua logica ... */ };
+  
+  const handleDeleteTicket = async (id) => {
+    if (!window.confirm('Sei sicuro di voler eliminare questo ticket?')) return;
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Errore durante l\'eliminazione');
+      setTickets(prev => prev.filter(t => t.id !== id));
+      if (selectedTicket?.id === id) setSelectedTicket(null);
+      showNotification('Ticket eliminato con successo!', 'success');
+    } catch(error) {
+      showNotification(error.message, 'error');
+    }
+  };
   
   const handleSelectTicket = async (ticket) => {
     if (ticket && (!selectedTicket || selectedTicket.id !== ticket.id)) {
