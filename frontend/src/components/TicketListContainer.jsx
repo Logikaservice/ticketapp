@@ -19,9 +19,8 @@ const FilterControls = ({
   tickets,
   unreadCounts
 }) => {
-  // ... (Tutto il codice di questo componente rimane esattamente come prima)
+    // ... (Tutto il codice di questo componente rimane esattamente come prima)
 };
-
 
 // ====================================================================
 // COMPONENTE PRINCIPALE
@@ -30,7 +29,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
   
   // --- UNICA MODIFICA: Aggiunto questo controllo di sicurezza ---
   if (!currentUser) {
-    // Se i dati dell'utente non sono ancora pronti, non mostrare nulla per evitare errori
+    // Se i dati dell'utente non sono ancora pronti, non mostrare nulla per evitare errori.
     return null;
   }
   // --- FINE DELLA MODIFICA ---
@@ -43,38 +42,38 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
 
     const filterTickets = () => {
       if (currentUser.ruolo === 'cliente') {
-        return tickets.filter(t => t.clienteid === currentUser.id && t.stato === viewState);
+        return tickets.filter(t => t && t.clienteid === currentUser.id && t.stato === viewState);
       }
       
-      const clientFiltered = selectedClientFilter === 'all'
+      let clientFiltered = selectedClientFilter === 'all'
         ? tickets
-        : tickets.filter(t => t.clienteid === parseInt(selectedClientFilter));
+        : tickets.filter(t => t && t.clienteid === parseInt(selectedClientFilter));
       
-      return clientFiltered.filter(t => t.stato === viewState);
+      return clientFiltered.filter(t => t && t.stato === viewState);
     };
 
     const countTickets = (arr) => ({
-      aperto: arr.filter(t => t.stato === 'aperto').length,
-      in_lavorazione: arr.filter(t => t.stato === 'in_lavorazione').length,
-      risolto: arr.filter(t => t.stato === 'risolto').length,
-      chiuso: arr.filter(t => t.stato === 'chiuso').length,
-      inviato: arr.filter(t => t.stato === 'inviato').length,
-      fatturato: arr.filter(t => t.stato === 'fatturato').length
+      aperto: arr.filter(t => t && t.stato === 'aperto').length,
+      in_lavorazione: arr.filter(t => t && t.stato === 'in_lavorazione').length,
+      risolto: arr.filter(t => t && t.stato === 'risolto').length,
+      chiuso: arr.filter(t => t && t.stato === 'chiuso').length,
+      inviato: arr.filter(t => t && t.stato === 'inviato').length,
+      fatturato: arr.filter(t => t && t.stato === 'fatturato').length
     });
 
     const countUnreadByStatus = (arr) => {
-      const counts = {};
-      if (!getUnreadCount) return counts;
-      arr.forEach(ticket => {
-        if (getUnreadCount(ticket) > 0) {
-          counts[ticket.stato] = (counts[ticket.stato] || 0) + 1;
-        }
-      });
-      return counts;
+        const counts = {};
+        if (!getUnreadCount) return counts;
+        arr.forEach(ticket => {
+            if (ticket && getUnreadCount(ticket) > 0) {
+                counts[ticket.stato] = (counts[ticket.stato] || 0) + 1;
+            }
+        });
+        return counts;
     };
 
     const relevantTicketsForCounts = currentUser.ruolo === 'cliente'
-      ? tickets.filter(t => t.clienteid === currentUser.id)
+      ? tickets.filter(t => t && t.clienteid === currentUser.id)
       : tickets;
 
     const counts = countTickets(relevantTicketsForCounts);
@@ -88,7 +87,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
     };
   }, [tickets, users, currentUser, viewState, selectedClientFilter, getUnreadCount]);
   
-  const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
+  const clientiAttivi = users.filter(u => u && u.ruolo === 'cliente');
   
   const handleGenerateReport = () => {
     if (!handlers) return;
@@ -128,6 +127,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
           </div>
         ) : (
           displayTickets
+            .filter(t => t && t.id)
             .sort((a, b) => new Date(b.dataapertura) - new Date(a.dataapertura))
             .map(t => (
               <TicketItem
