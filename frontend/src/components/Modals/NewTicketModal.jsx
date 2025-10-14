@@ -90,6 +90,7 @@ const NewTicketModal = ({
                 <option value="assistenza">Assistenza</option>
                 <option value="manutenzione">Manutenzione</option>
                 <option value="installazione">Installazione</option>
+                <option value="teleassistenza">Teleassistenza</option>
               </select>
             </div>
             <div>
