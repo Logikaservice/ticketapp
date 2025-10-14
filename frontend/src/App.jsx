@@ -204,11 +204,103 @@ export default function TicketApp() {
   const handleUpdateSettings = () => { /* ... la tua logica ... */ };
 
   // ====================================================================
-  // GESTIONE CLIENTI (con API)
+  // GESTIONE CLIENTI (con API) - ✅ IMPLEMENTATE
   // ====================================================================
-  const handleCreateClient = async () => { /* ... la tua logica ... */ };
-  const handleUpdateClient = async (id, updatedData) => { /* ... la tua logica ... */ };
-  const handleDeleteClient = async (id) => { /* ... la tua logica ... */ };
+  const handleCreateClient = async () => {
+    // Validazione dati
+    if (!newClientData.email || !newClientData.password) {
+      return showNotification('Email e password sono obbligatori.', 'error');
+    }
+    if (!newClientData.azienda) {
+      return showNotification('Il nome dell\'azienda è obbligatorio.', 'error');
+    }
+    
+    // Prepara i dati del cliente
+    const clienteDaCreare = {
+      ...newClientData,
+      ruolo: 'cliente',
+      nome: newClientData.azienda
+    };
+    
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(clienteDaCreare)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Errore nella creazione del cliente');
+      }
+      
+      const nuovoCliente = await response.json();
+      
+      // Aggiorna la lista degli utenti
+      setUsers(prev => [...prev, nuovoCliente]);
+      
+      // Reset form e chiudi modale
+      setNewClientData({ email: '', password: '', telefono: '', azienda: '' });
+      closeModal();
+      
+      showNotification('Cliente creato con successo!', 'success');
+    } catch (error) {
+      showNotification(error.message || 'Impossibile creare il cliente.', 'error');
+    }
+  };
+
+  const handleUpdateClient = async (id, updatedData) => {
+    if (!id) return showNotification('ID cliente non valido.', 'error');
+    
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Errore nell\'aggiornamento del cliente');
+      }
+      
+      const clienteAggiornato = await response.json();
+      
+      // Aggiorna la lista degli utenti
+      setUsers(prev => prev.map(u => u.id === id ? clienteAggiornato : u));
+      
+      showNotification('Cliente aggiornato con successo!', 'success');
+    } catch (error) {
+      showNotification(error.message || 'Impossibile aggiornare il cliente.', 'error');
+    }
+  };
+
+  const handleDeleteClient = async (id) => {
+    if (!window.confirm('Sei sicuro di voler eliminare questo cliente? Tutti i suoi ticket verranno eliminati!')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${id}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Errore nell\'eliminazione del cliente');
+      }
+      
+      // Rimuovi il cliente dalla lista
+      setUsers(prev => prev.filter(u => u.id !== id));
+      
+      // Rimuovi anche tutti i ticket del cliente
+      setTickets(prev => prev.filter(t => t.clienteid !== id));
+      
+      showNotification('Cliente eliminato con successo!', 'success');
+    } catch (error) {
+      showNotification(error.message || 'Impossibile eliminare il cliente.', 'error');
+    }
+  };
 
   // ====================================================================
   // GESTIONE TICKET
@@ -246,6 +338,7 @@ export default function TicketApp() {
         showNotification(error.message || 'Impossibile creare il ticket.', 'error');
     }
   };
+  
   const handleUpdateTicket = () => { /* ... la tua logica ... */ };
   const handleConfirmUrgentCreation = async () => { /* ... la tua logica ... */ };
   
