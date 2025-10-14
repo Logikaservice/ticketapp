@@ -311,7 +311,7 @@ export default function TicketApp() {
       return;
     }
     if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
-      return showNotification('Titolo e descrizione sono obbligatori.', 'error');
+      return showNotification('Titolo, descrizione e richiedente sono obbligatori.', 'error');
     }
     const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
     if (currentUser.ruolo === 'tecnico' && !clienteId) {
@@ -346,7 +346,7 @@ export default function TicketApp() {
     console.log('👤 Cliente selezionato:', selectedClientForNewTicket);
     
     if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
-      return showNotification('Titolo e descrizione sono obbligatori.', 'error');
+      return showNotification('Titolo, descrizione e richiedente sono obbligatori.', 'error');
     }
     
     const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
