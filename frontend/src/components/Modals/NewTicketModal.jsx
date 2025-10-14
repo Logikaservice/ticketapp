@@ -108,13 +108,14 @@ const NewTicketModal = ({
             </div>
           </div>
            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Richiedente</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Richiedente <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 value={newTicketData.nomerichiedente}
                 onChange={(e) => setNewTicketData({ ...newTicketData, nomerichiedente: e.target.value })}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                readOnly={currentUser.ruolo === 'cliente'} // Il cliente non può cambiare il suo nome
+                placeholder="Nome del richiedente"
+                required
               />
             </div>
         </div>
