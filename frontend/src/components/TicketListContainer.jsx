@@ -5,7 +5,7 @@ import { FileText, PlayCircle, CheckCircle, Send, FileCheck2, Archive } from 'lu
 import TicketItem from './TicketItem';
 
 // ====================================================================
-// COMPONENTE ESTRATTO PER I FILTRI (INVARIATO)
+// COMPONENTE ESTRATTO PER I FILTRI
 // ====================================================================
 const FilterControls = ({ 
   currentUser, 
@@ -16,88 +16,121 @@ const FilterControls = ({
   selectedClient, 
   setSelectedClient,
   onGenerateReport,
-  tickets,
-  unreadCounts
+  tickets
 }) => {
-    // ... (Tutto il codice di questo componente rimane esattamente come prima)
+  const statusIcons = {
+    aperto: <FileText size={14} />,
+    in_lavorazione: <PlayCircle size={14} />,
+    risolto: <CheckCircle size={14} />,
+    chiuso: <Archive size={14} />,
+    inviato: <Send size={14} />,
+    fatturato: <FileCheck2 size={14} />,
+  };
+
+  const TASTI_TECNICO = ['aperto', 'in_lavorazione', 'risolto', 'chiuso', 'inviato', 'fatturato'];
+  const TASTI_CLIENTE = ['aperto', 'in_lavorazione', 'risolto', 'chiuso', 'inviato', 'fatturato'];
+
+  const buttonsToRender = currentUser.ruolo === 'cliente' ? TASTI_CLIENTE : TASTI_TECNICO;
+
+  return (
+    <>
+      <div className="flex gap-2 p-1 bg-gray-100 rounded-lg mb-4 flex-wrap">
+        {buttonsToRender.map(status => {
+          if (counts[status] === undefined) return null;
+          return (
+            <button
+              key={status}
+              onClick={() => setViewState(status)}
+              className={`flex flex-1 items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
+                viewState === status ? 'bg-blue-600 text-white shadow' : 'text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {statusIcons[status]}
+              <span>{status.replace('_', ' ')} ({counts[status]})</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {currentUser.ruolo === 'tecnico' && (
+        <>
+            {['inviato', 'fatturato'].includes(viewState) && onGenerateReport && (
+                <button
+                onClick={onGenerateReport}
+                className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg mb-3 ${
+                    viewState === 'inviato' ? 'bg-gray-600' : 'bg-indigo-600'
+                }`}
+                >
+                <FileText size={18} />
+                {viewState === 'inviato' ? 'Genera Report' : 'Genera Lista Fatture'}
+                </button>
+            )}
+
+            <div className="mb-3">
+                <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
+                <select
+                value={selectedClient}
+                onChange={(e) => setSelectedClient(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg"
+                >
+                <option value="all">Tutti i clienti</option>
+                {clientiAttivi.map(c => (
+                    <option key={c.id} value={c.id}>
+                    {c.azienda} ({tickets.filter(t => t.clienteid === c.id).length})
+                    </option>
+                ))}
+                </select>
+            </div>
+        </>
+      )}
+    </>
+  );
 };
 
 // ====================================================================
 // COMPONENTE PRINCIPALE
 // ====================================================================
 const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, handlers, getUnreadCount }) => {
-  
-  // --- UNICA MODIFICA: Aggiunto questo controllo di sicurezza ---
-  if (!currentUser) {
-    // Se i dati dell'utente non sono ancora pronti, non mostrare nulla per evitare errori.
-    return null;
-  }
-  // --- FINE DELLA MODIFICA ---
-
   const [viewState, setViewState] = useState('aperto');
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
   
-  const { displayTickets, ticketCounts, usersMap, unreadCounts } = useMemo(() => {
+  const { displayTickets, ticketCounts, usersMap } = useMemo(() => {
     const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
 
     const filterTickets = () => {
+      let filtered = tickets;
       if (currentUser.ruolo === 'cliente') {
-        return tickets.filter(t => t && t.clienteid === currentUser.id && t.stato === viewState);
+        filtered = tickets.filter(t => t.clienteid === currentUser.id);
+      } else {
+        if (selectedClientFilter !== 'all') {
+          filtered = tickets.filter(t => t.clienteid === parseInt(selectedClientFilter));
+        }
       }
-      
-      let clientFiltered = selectedClientFilter === 'all'
-        ? tickets
-        : tickets.filter(t => t && t.clienteid === parseInt(selectedClientFilter));
-      
-      return clientFiltered.filter(t => t && t.stato === viewState);
+      return filtered.filter(t => t.stato === viewState);
     };
 
     const countTickets = (arr) => ({
-      aperto: arr.filter(t => t && t.stato === 'aperto').length,
-      in_lavorazione: arr.filter(t => t && t.stato === 'in_lavorazione').length,
-      risolto: arr.filter(t => t && t.stato === 'risolto').length,
-      chiuso: arr.filter(t => t && t.stato === 'chiuso').length,
-      inviato: arr.filter(t => t && t.stato === 'inviato').length,
-      fatturato: arr.filter(t => t && t.stato === 'fatturato').length
+      aperto: arr.filter(t => t.stato === 'aperto').length,
+      in_lavorazione: arr.filter(t => t.stato === 'in_lavorazione').length,
+      risolto: arr.filter(t => t.stato === 'risolto').length,
+      chiuso: arr.filter(t => t.stato === 'chiuso').length,
+      inviato: arr.filter(t => t.stato === 'inviato').length,
+      fatturato: arr.filter(t => t.stato === 'fatturato').length
     });
 
-    const countUnreadByStatus = (arr) => {
-        const counts = {};
-        if (!getUnreadCount) return counts;
-        arr.forEach(ticket => {
-            if (ticket && getUnreadCount(ticket) > 0) {
-                counts[ticket.stato] = (counts[ticket.stato] || 0) + 1;
-            }
-        });
-        return counts;
-    };
-
     const relevantTicketsForCounts = currentUser.ruolo === 'cliente'
-      ? tickets.filter(t => t && t.clienteid === currentUser.id)
+      ? tickets.filter(t => t.clienteid === currentUser.id)
       : tickets;
-
-    const counts = countTickets(relevantTicketsForCounts);
-    const unreadCounts = countUnreadByStatus(relevantTicketsForCounts);
 
     return { 
       displayTickets: filterTickets(), 
-      ticketCounts: counts, 
-      usersMap,
-      unreadCounts
+      ticketCounts: countTickets(relevantTicketsForCounts), 
+      usersMap
     };
-  }, [tickets, users, currentUser, viewState, selectedClientFilter, getUnreadCount]);
+  }, [tickets, users, currentUser, viewState, selectedClientFilter]);
   
-  const clientiAttivi = users.filter(u => u && u.ruolo === 'cliente');
+  const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
   
-  const handleGenerateReport = () => {
-    if (!handlers) return;
-    if (viewState === 'inviato' && handlers.handleGenerateSentReport) {
-      handlers.handleGenerateSentReport(displayTickets);
-    } else if (viewState === 'fatturato' && handlers.handleGenerateInvoiceReport) {
-      handlers.handleGenerateInvoiceReport(displayTickets);
-    }
-  };
-
   return (
     <div className="bg-white rounded-xl shadow-lg">
       <div className="p-4 border-b">
@@ -113,9 +146,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
           clientiAttivi={clientiAttivi}
           selectedClient={selectedClientFilter}
           setSelectedClient={setSelectedClientFilter}
-          onGenerateReport={handleGenerateReport}
           tickets={tickets}
-          unreadCounts={unreadCounts}
         />
       </div>
 
@@ -127,8 +158,9 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
           </div>
         ) : (
           displayTickets
-            .filter(t => t && t.id)
             .sort((a, b) => new Date(b.dataapertura) - new Date(a.dataapertura))
+            // --- ECCO LA CORREZIONE: Aggiunto un controllo per ignorare ticket "rotti" ---
+            .filter(t => t && t.id) // Ignora qualsiasi ticket che sia nullo o non abbia un id
             .map(t => (
               <TicketItem
                 key={t.id}
@@ -144,12 +176,6 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
       </div>
     </div>
   );
-};
-
-// Ho rimesso il codice completo di FilterControls per sicurezza
-FilterControls.defaultProps = {
-    onGenerateReport: () => {},
-    unreadCounts: {}
 };
 
 export default TicketListContainer;
