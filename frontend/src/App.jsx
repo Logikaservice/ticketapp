@@ -340,6 +340,11 @@ export default function TicketApp() {
   };
   
   const handleUpdateTicket = async () => {
+    console.log('🔧 handleUpdateTicket chiamata!');
+    console.log('📝 ID ticket da modificare:', isEditingTicket);
+    console.log('📋 Dati ticket:', newTicketData);
+    console.log('👤 Cliente selezionato:', selectedClientForNewTicket);
+    
     if (!newTicketData.titolo || !newTicketData.descrizione) {
       return showNotification('Titolo e descrizione sono obbligatori.', 'error');
     }
@@ -358,6 +363,9 @@ export default function TicketApp() {
       clienteid: clienteId
     };
     
+    console.log('📤 Invio al backend:', ticketAggiornato);
+    console.log('🌐 URL:', `${process.env.REACT_APP_API_URL}/api/tickets/${isEditingTicket}`);
+    
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${isEditingTicket}`, {
         method: 'PATCH',
@@ -365,12 +373,16 @@ export default function TicketApp() {
         body: JSON.stringify(ticketAggiornato)
       });
       
+      console.log('📥 Risposta backend status:', response.status);
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Errore dal backend:', errorData);
         throw new Error(errorData.error || 'Errore nell\'aggiornamento del ticket');
       }
       
       const ticketSalvato = await response.json();
+      console.log('✅ Ticket salvato dal backend:', ticketSalvato);
       
       // Aggiorna la lista dei ticket
       setTickets(prev => prev.map(t => t.id === isEditingTicket ? ticketSalvato : t));
@@ -383,6 +395,7 @@ export default function TicketApp() {
       closeModal();
       showNotification('Ticket aggiornato con successo!', 'success');
     } catch (error) {
+      console.error('💥 Errore catch:', error);
       showNotification(error.message || 'Impossibile aggiornare il ticket.', 'error');
     }
   };
