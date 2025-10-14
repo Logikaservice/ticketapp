@@ -103,9 +103,7 @@ app.post('/api/users', async (req, res) => {
     }
 });
 
-// ====================================================================
-// 🆕 ENDPOINT: Aggiorna un utente/cliente
-// ====================================================================
+// ENDPOINT: Aggiorna un utente/cliente
 app.patch('/api/users/:id', async (req, res) => {
     const { id } = req.params;
     const { nome, cognome, email, telefono, azienda } = req.body;
@@ -133,7 +131,6 @@ app.patch('/api/users/:id', async (req, res) => {
         res.status(500).json({ error: 'Errore interno del server' });
     }
 });
-// ====================================================================
 
 // ENDPOINT: Elimina un utente/cliente
 app.delete('/api/users/:id', async (req, res) => {
@@ -174,16 +171,16 @@ app.get('/api/tickets', async (req, res) => {
 
 // ENDPOINT: Crea un nuovo ticket
 app.post('/api/tickets', async (req, res) => {
-    const { clienteid, titolo, descrizione, stato, priorita, nomerichiedente } = req.body;
+    const { clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria } = req.body;
     const numero = `TKT-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
     try {
         const client = await pool.connect();
         const query = `
-            INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, last_read_by_client, last_read_by_tecnico) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) 
+            INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, last_read_by_client, last_read_by_tecnico) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()) 
             RETURNING *;
         `;
-        const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente];
+        const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza'];
         const result = await client.query(query, values);
         client.release();
         res.status(201).json(result.rows[0]);
@@ -192,6 +189,38 @@ app.post('/api/tickets', async (req, res) => {
         res.status(500).json({ error: 'Errore interno del server' });
     }
 });
+
+// ====================================================================
+// 🆕 ENDPOINT: Modifica un ticket completo
+// ====================================================================
+app.put('/api/tickets/:id', async (req, res) => {
+    const { id } = req.params;
+    const { titolo, descrizione, categoria, priorita, nomerichiedente, clienteid } = req.body;
+    
+    try {
+        const client = await pool.connect();
+        const query = `
+            UPDATE tickets 
+            SET titolo = $1, descrizione = $2, categoria = $3, priorita = $4, nomerichiedente = $5, clienteid = $6
+            WHERE id = $7 
+            RETURNING *;
+        `;
+        const values = [titolo, descrizione, categoria, priorita, nomerichiedente, clienteid, id];
+        const result = await client.query(query, values);
+        client.release();
+
+        if (result.rows.length > 0) {
+            console.log(`✅ Ticket aggiornato: ID ${id}`);
+            res.json(result.rows[0]);
+        } else {
+            res.status(404).json({ error: 'Ticket non trovato' });
+        }
+    } catch (err) {
+        console.error('❌ Errore nell\'aggiornamento del ticket:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+// ====================================================================
 
 // ENDPOINT: Aggiorna lo stato di un ticket
 app.patch('/api/tickets/:id/status', async (req, res) => {
