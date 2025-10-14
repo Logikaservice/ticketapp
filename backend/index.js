@@ -1,5 +1,4 @@
-// index.js (backend)
-
+// Importa i pacchetti necessari
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -104,44 +103,31 @@ app.post('/api/users', async (req, res) => {
     }
 });
 
-// ENDPOINT: Aggiorna un utente/cliente (per le impostazioni)
+// ENDPOINT: Aggiorna un utente/cliente
 app.patch('/api/users/:id', async (req, res) => {
     const { id } = req.params;
-    const { nome, email, password, cognome, telefono, azienda } = req.body;
-
-    const fields = [];
-    const values = [];
-    let queryIndex = 1;
-
-    if (nome !== undefined) { fields.push(`nome = $${queryIndex++}`); values.push(nome); }
-    if (email !== undefined) { fields.push(`email = $${queryIndex++}`); values.push(email); }
-    if (password !== undefined && password !== '') { fields.push(`password = $${queryIndex++}`); values.push(password); }
-    if (cognome !== undefined) { fields.push(`cognome = $${queryIndex++}`); values.push(cognome); }
-    if (telefono !== undefined) { fields.push(`telefono = $${queryIndex++}`); values.push(telefono); }
-    if (azienda !== undefined) { fields.push(`azienda = $${queryIndex++}`); values.push(azienda); }
-
-    if (fields.length === 0) {
-        return res.status(400).json({ error: 'Nessun campo da aggiornare' });
-    }
-
-    values.push(id);
-    const query = `
-        UPDATE users SET ${fields.join(', ')} WHERE id = $${queryIndex} 
-        RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
-    `;
-
+    const { nome, cognome, email, telefono, azienda } = req.body;
+    
     try {
         const client = await pool.connect();
+        const query = `
+            UPDATE users 
+            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5 
+            WHERE id = $6 
+            RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
+        `;
+        const values = [nome, cognome, email, telefono, azienda, id];
         const result = await client.query(query, values);
         client.release();
+        
         if (result.rows.length > 0) {
-            console.log(`✅ Utente aggiornato: ID ${id}`);
+            console.log(`✅ Cliente aggiornato: ID ${id}`);
             res.json(result.rows[0]);
         } else {
-            res.status(404).json({ error: 'Utente non trovato' });
+            res.status(404).json({ error: 'Cliente non trovato' });
         }
     } catch (err) {
-        console.error(`❌ Errore aggiornamento utente ${id}:`, err);
+        console.error('❌ Errore nell\'aggiornamento del cliente:', err);
         res.status(500).json({ error: 'Errore interno del server' });
     }
 });
@@ -204,34 +190,22 @@ app.post('/api/tickets', async (req, res) => {
     }
 });
 
-// ENDPOINT: Modifica un ticket completo
-app.patch('/api/tickets/:id', async (req, res) => {
+// ====================================================================
+// 🆕 ENDPOINT: Modifica un ticket completo
+// ====================================================================
+app.put('/api/tickets/:id', async (req, res) => {
     const { id } = req.params;
     const { titolo, descrizione, categoria, priorita, nomerichiedente, clienteid } = req.body;
     
-    const fields = [];
-    const values = [];
-    let queryIndex = 1;
-
-    if (titolo !== undefined) { fields.push(`titolo = $${queryIndex++}`); values.push(titolo); }
-    if (descrizione !== undefined) { fields.push(`descrizione = $${queryIndex++}`); values.push(descrizione); }
-    if (categoria !== undefined) { fields.push(`categoria = $${queryIndex++}`); values.push(categoria); }
-    if (priorita !== undefined) { fields.push(`priorita = $${queryIndex++}`); values.push(priorita); }
-    if (nomerichiedente !== undefined) { fields.push(`nomerichiedente = $${queryIndex++}`); values.push(nomerichiedente); }
-    if (clienteid !== undefined) { fields.push(`clienteid = $${queryIndex++}`); values.push(clienteid); }
-
-    if (fields.length === 0) {
-        return res.status(400).json({ error: 'Nessun campo da aggiornare' });
-    }
-
-    values.push(id);
-    const query = `
-        UPDATE tickets SET ${fields.join(', ')} WHERE id = $${queryIndex} 
-        RETURNING *;
-    `;
-    
     try {
         const client = await pool.connect();
+        const query = `
+            UPDATE tickets 
+            SET titolo = $1, descrizione = $2, categoria = $3, priorita = $4, nomerichiedente = $5, clienteid = $6
+            WHERE id = $7 
+            RETURNING *;
+        `;
+        const values = [titolo, descrizione, categoria, priorita, nomerichiedente, clienteid, id];
         const result = await client.query(query, values);
         client.release();
 
@@ -242,10 +216,11 @@ app.patch('/api/tickets/:id', async (req, res) => {
             res.status(404).json({ error: 'Ticket non trovato' });
         }
     } catch (err) {
-        console.error(`❌ Errore nell\'aggiornamento del ticket: ${id}`, err);
+        console.error('❌ Errore nell\'aggiornamento del ticket:', err);
         res.status(500).json({ error: 'Errore interno del server' });
     }
 });
+// ====================================================================
 
 // ENDPOINT: Aggiorna lo stato di un ticket
 app.patch('/api/tickets/:id/status', async (req, res) => {
