@@ -4,28 +4,24 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Plus, LogOut, Settings, Users, UserPlus, List } from 'lucide-react';
 
 const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal }) => {
-  // --- UNICA MODIFICA: Aggiunto questo controllo di sicurezza ---
-  if (!currentUser) {
-    // Se i dati dell'utente non sono ancora pronti, non mostrare nulla per evitare errori.
-    return null;
-  }
-  // --- FINE DELLA MODIFICA ---
-
   const [showClientMenu, setShowClientMenu] = useState(false);
   const menuRef = useRef(null);
 
+  // Chiudi il menu quando si clicca fuori
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setShowClientMenu(false);
       }
     };
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const userRole = (currentUser.ruolo || '').toUpperCase();
-  const roleClasses = currentUser.ruolo === 'cliente' 
+  // Versione sicura per visualizzare il ruolo
+  const userRole = (currentUser?.ruolo || '').toUpperCase();
+  const roleClasses = currentUser?.ruolo === 'cliente' 
     ? 'bg-blue-100 text-blue-800' 
     : 'bg-green-100 text-green-800';
 
@@ -36,15 +32,17 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
           <div>
             <h1 className="text-2xl font-bold">Sistema Gestione Ticket</h1>
             <p className="text-sm text-gray-600 mt-1">
+              {/* --- CODICE CORRETTO --- */}
               <span className={`px-2 py-0.5 rounded text-xs font-medium ${roleClasses}`}>
                 {userRole}
               </span>
-              <span className="ml-2">{currentUser.nome} - {currentUser.azienda}</span>
+              {/* Controlla che currentUser esista prima di accedere alle sue proprietà */}
+              <span className="ml-2">{currentUser?.nome} - {currentUser?.azienda}</span>
             </p>
           </div>
           
           <div className="flex items-center gap-2">
-            {currentUser.ruolo === 'cliente' && (
+            {currentUser?.ruolo === 'cliente' && (
               <button 
                 onClick={openNewTicketModal} 
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -54,7 +52,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
               </button>
             )}
             
-            {currentUser.ruolo === 'tecnico' && (
+            {currentUser?.ruolo === 'tecnico' && (
               <>
                 <button 
                   onClick={openNewTicketModal} 
@@ -64,6 +62,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                   Nuovo Ticket
                 </button>
                 
+                {/* Menu Dropdown Clienti */}
                 <div className="relative" ref={menuRef}>
                   <button 
                     onClick={() => setShowClientMenu(!showClientMenu)}
@@ -73,10 +72,14 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                     <Users size={18} />
                   </button>
                   
+                  {/* Dropdown Menu */}
                   {showClientMenu && (
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                       <button
-                        onClick={() => { openNewClientModal(); setShowClientMenu(false); }}
+                        onClick={() => {
+                          openNewClientModal();
+                          setShowClientMenu(false);
+                        }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-green-50 transition"
                       >
                         <UserPlus size={18} className="text-green-600" />
@@ -89,7 +92,10 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                       <div className="border-t border-gray-200 my-1"></div>
                       
                       <button
-                        onClick={() => { openManageClientsModal(); setShowClientMenu(false); }}
+                        onClick={() => {
+                          openManageClientsModal();
+                          setShowClientMenu(false);
+                        }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-blue-50 transition"
                       >
                         <List size={18} className="text-blue-600" />
