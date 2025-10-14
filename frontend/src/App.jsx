@@ -339,7 +339,53 @@ export default function TicketApp() {
     }
   };
   
-  const handleUpdateTicket = () => { /* ... la tua logica ... */ };
+  const handleUpdateTicket = async () => {
+    if (!newTicketData.titolo || !newTicketData.descrizione) {
+      return showNotification('Titolo e descrizione sono obbligatori.', 'error');
+    }
+    
+    const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
+    if (currentUser.ruolo === 'tecnico' && !clienteId) {
+      return showNotification('Devi selezionare un cliente.', 'error');
+    }
+    
+    const ticketAggiornato = {
+      titolo: newTicketData.titolo,
+      descrizione: newTicketData.descrizione,
+      categoria: newTicketData.categoria,
+      priorita: newTicketData.priorita,
+      nomerichiedente: newTicketData.nomerichiedente,
+      clienteid: clienteId
+    };
+    
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${isEditingTicket}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ticketAggiornato)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Errore nell\'aggiornamento del ticket');
+      }
+      
+      const ticketSalvato = await response.json();
+      
+      // Aggiorna la lista dei ticket
+      setTickets(prev => prev.map(t => t.id === isEditingTicket ? ticketSalvato : t));
+      
+      // Se il ticket modificato è quello selezionato, aggiorna anche selectedTicket
+      if (selectedTicket?.id === isEditingTicket) {
+        setSelectedTicket(ticketSalvato);
+      }
+      
+      closeModal();
+      showNotification('Ticket aggiornato con successo!', 'success');
+    } catch (error) {
+      showNotification(error.message || 'Impossibile aggiornare il ticket.', 'error');
+    }
+  };
   const handleConfirmUrgentCreation = async () => { /* ... la tua logica ... */ };
   
   const handleDeleteTicket = async (id) => {
