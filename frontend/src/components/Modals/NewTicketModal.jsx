@@ -1,5 +1,4 @@
-<div className="grid grid-cols-2 gap-4">
-      // src/components/Modals/NewTicketModal.jsx
+// src/components/Modals/NewTicketModal.jsx
 
 import React from 'react';
 import { X, Save, FilePlus } from 'lucide-react';
@@ -59,7 +58,7 @@ const NewTicketModal = ({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Titolo *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Titolo <span className="text-red-500">*</span></label>
             <input
               type="text"
               placeholder="Es: Problema stampante ufficio"
@@ -70,7 +69,7 @@ const NewTicketModal = ({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrizione *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrizione <span className="text-red-500">*</span></label>
             <textarea
               rows="4"
               placeholder="Descrivi il problema in dettaglio..."
@@ -82,7 +81,7 @@ const NewTicketModal = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
               <select
                 value={newTicketData.categoria}
                 onChange={(e) => setNewTicketData({ ...newTicketData, categoria: e.target.value })}
@@ -95,7 +94,7 @@ const NewTicketModal = ({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Priorità <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priorità</label>
               <select
                 value={newTicketData.priorita}
                 onChange={(e) => setNewTicketData({ ...newTicketData, priorita: e.target.value })}
@@ -108,17 +107,18 @@ const NewTicketModal = ({
               </select>
             </div>
           </div>
-           <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Richiedente <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                value={newTicketData.nomerichiedente}
-                onChange={(e) => setNewTicketData({ ...newTicketData, nomerichiedente: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Nome del richiedente"
-                required
-              />
-            </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Richiedente <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={newTicketData.nomerichiedente}
+              onChange={(e) => setNewTicketData({ ...newTicketData, nomerichiedente: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Nome del richiedente"
+              required
+            />
+          </div>
         </div>
 
         {/* Footer con i pulsanti */}
