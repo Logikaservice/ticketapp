@@ -310,7 +310,7 @@ export default function TicketApp() {
       handleUpdateTicket();
       return;
     }
-    if (!newTicketData.titolo || !newTicketData.descrizione) {
+    if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
       return showNotification('Titolo e descrizione sono obbligatori.', 'error');
     }
     const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
@@ -345,7 +345,7 @@ export default function TicketApp() {
     console.log('📋 Dati ticket:', newTicketData);
     console.log('👤 Cliente selezionato:', selectedClientForNewTicket);
     
-    if (!newTicketData.titolo || !newTicketData.descrizione) {
+    if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
       return showNotification('Titolo e descrizione sono obbligatori.', 'error');
     }
     
