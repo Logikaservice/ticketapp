@@ -1,4 +1,5 @@
-// src/components/Modals/NewTicketModal.jsx
+<div className="grid grid-cols-2 gap-4">
+      // src/components/Modals/NewTicketModal.jsx
 
 import React from 'react';
 import { X, Save, FilePlus } from 'lucide-react';
@@ -43,7 +44,7 @@ const NewTicketModal = ({
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {currentUser.ruolo === 'tecnico' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Cliente *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
               <select
                 value={selectedClientForNewTicket}
                 onChange={(e) => setSelectedClientForNewTicket(e.target.value)}
@@ -81,7 +82,7 @@ const NewTicketModal = ({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria <span className="text-red-500">*</span></label>
               <select
                 value={newTicketData.categoria}
                 onChange={(e) => setNewTicketData({ ...newTicketData, categoria: e.target.value })}
@@ -94,7 +95,7 @@ const NewTicketModal = ({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Priorità</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priorità <span className="text-red-500">*</span></label>
               <select
                 value={newTicketData.priorita}
                 onChange={(e) => setNewTicketData({ ...newTicketData, priorita: e.target.value })}
