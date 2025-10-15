@@ -232,7 +232,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
       // Rimuovi l'indicatore dopo 1 secondo
       setTimeout(() => {
         setRecentCountChanges({});
-      }, 5000);
+      }, 10000);
     }
   }, [ticketCounts]);
 
