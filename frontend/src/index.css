@@ -39,7 +39,7 @@
   font-size: 0.7rem;
   font-weight: bold;
   margin-left: 4px;
-  animation: badge-fade-slide 1s ease-out forwards;
+  animation: badge-fade-slide 5s ease-out forwards;
 }
 
 .badge-increase {
