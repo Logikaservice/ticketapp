@@ -39,6 +39,8 @@ export default function TicketApp() {
     confermaNuovaPassword: '' 
   });
   const [newClientData, setNewClientData] = useState({ 
+    nome: '',
+    cognome: '',
     email: '', 
     password: '', 
     telefono: '', 
@@ -210,14 +212,16 @@ export default function TicketApp() {
     if (!newClientData.email || !newClientData.password) {
       return showNotification('Email e password sono obbligatori.', 'error');
     }
+    if (!newClientData.nome || !newClientData.cognome) {
+      return showNotification('Nome e cognome sono obbligatori.', 'error');
+    }
     if (!newClientData.azienda) {
       return showNotification('Il nome dell\'azienda è obbligatorio.', 'error');
     }
     
     const clienteDaCreare = {
       ...newClientData,
-      ruolo: 'cliente',
-      nome: newClientData.azienda
+      ruolo: 'cliente'
     };
     
     try {
@@ -234,7 +238,7 @@ export default function TicketApp() {
       
       const nuovoCliente = await response.json();
       setUsers(prev => [...prev, nuovoCliente]);
-      setNewClientData({ email: '', password: '', telefono: '', azienda: '' });
+      setNewClientData({ nome: '', cognome: '', email: '', password: '', telefono: '', azienda: '' });
       closeModal();
       
       showNotification('Cliente creato con successo!', 'success');
