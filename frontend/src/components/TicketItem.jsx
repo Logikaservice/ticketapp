@@ -158,16 +158,35 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                 )}
 
                 {ticket.stato === 'inviato' && (
+                  <>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleArchiveTicket(ticket.id); }}
+                      title="Archivia"
+                      className="p-1 rounded-full text-yellow-500 hover:bg-yellow-100"
+                    >
+                      <CornerDownLeft size={18} />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleInvoiceTicket(ticket.id); }}
+                      title="Fattura"
+                      className="p-1 rounded-full text-indigo-500 hover:bg-indigo-100"
+                    >
+                      <Euro size={18} />
+                    </button>
+                  </>
+                )}
+
+                {ticket.stato === 'fatturato' && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleArchiveTicket(ticket.id); }}
-                    title="Archivia"
+                    onClick={(e) => { e.stopPropagation(); handleSetInviato(ticket.id); }}
+                    title="Riporta a Inviato"
                     className="p-1 rounded-full text-yellow-500 hover:bg-yellow-100"
                   >
                     <CornerDownLeft size={18} />
                   </button>
                 )}
 
-                {['chiuso', 'inviato'].includes(ticket.stato) && (
+                {ticket.stato === 'chiuso' && (
                   <button
                     onClick={(e) => { e.stopPropagation(); handleInvoiceTicket(ticket.id); }}
                     title="Fattura"
