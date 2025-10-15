@@ -207,7 +207,6 @@ export default function TicketApp() {
   // GESTIONE CLIENTI (con API) - ✅ IMPLEMENTATE
   // ====================================================================
   const handleCreateClient = async () => {
-    // Validazione dati
     if (!newClientData.email || !newClientData.password) {
       return showNotification('Email e password sono obbligatori.', 'error');
     }
@@ -215,7 +214,6 @@ export default function TicketApp() {
       return showNotification('Il nome dell\'azienda è obbligatorio.', 'error');
     }
     
-    // Prepara i dati del cliente
     const clienteDaCreare = {
       ...newClientData,
       ruolo: 'cliente',
@@ -235,11 +233,7 @@ export default function TicketApp() {
       }
       
       const nuovoCliente = await response.json();
-      
-      // Aggiorna la lista degli utenti
       setUsers(prev => [...prev, nuovoCliente]);
-      
-      // Reset form e chiudi modale
       setNewClientData({ email: '', password: '', telefono: '', azienda: '' });
       closeModal();
       
@@ -265,8 +259,6 @@ export default function TicketApp() {
       }
       
       const clienteAggiornato = await response.json();
-      
-      // Aggiorna la lista degli utenti
       setUsers(prev => prev.map(u => u.id === id ? clienteAggiornato : u));
       
       showNotification('Cliente aggiornato con successo!', 'success');
@@ -290,10 +282,7 @@ export default function TicketApp() {
         throw new Error(errorData.error || 'Errore nell\'eliminazione del cliente');
       }
       
-      // Rimuovi il cliente dalla lista
       setUsers(prev => prev.filter(u => u.id !== id));
-      
-      // Rimuovi anche tutti i ticket del cliente
       setTickets(prev => prev.filter(t => t.clienteid !== id));
       
       showNotification('Cliente eliminato con successo!', 'success');
@@ -340,11 +329,6 @@ export default function TicketApp() {
   };
   
   const handleUpdateTicket = async () => {
-    console.log('🔧 handleUpdateTicket chiamata!');
-    console.log('📝 ID ticket da modificare:', isEditingTicket);
-    console.log('📋 Dati ticket:', newTicketData);
-    console.log('👤 Cliente selezionato:', selectedClientForNewTicket);
-    
     if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
       return showNotification('Titolo, descrizione e richiedente sono obbligatori.', 'error');
     }
@@ -363,31 +347,22 @@ export default function TicketApp() {
       clienteid: clienteId
     };
     
-    console.log('📤 Invio al backend:', ticketAggiornato);
-    console.log('🌐 URL:', `${process.env.REACT_APP_API_URL}/api/tickets/${isEditingTicket}`);
-    
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${isEditingTicket}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(ticketAggiornato)
       });
       
-      console.log('📥 Risposta backend status:', response.status);
-      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Errore dal backend:', errorData);
         throw new Error(errorData.error || 'Errore nell\'aggiornamento del ticket');
       }
       
       const ticketSalvato = await response.json();
-      console.log('✅ Ticket salvato dal backend:', ticketSalvato);
       
-      // Aggiorna la lista dei ticket
       setTickets(prev => prev.map(t => t.id === isEditingTicket ? ticketSalvato : t));
       
-      // Se il ticket modificato è quello selezionato, aggiorna anche selectedTicket
       if (selectedTicket?.id === isEditingTicket) {
         setSelectedTicket(ticketSalvato);
       }
@@ -395,10 +370,10 @@ export default function TicketApp() {
       closeModal();
       showNotification('Ticket aggiornato con successo!', 'success');
     } catch (error) {
-      console.error('💥 Errore catch:', error);
       showNotification(error.message || 'Impossibile aggiornare il ticket.', 'error');
     }
   };
+  
   const handleConfirmUrgentCreation = async () => { /* ... la tua logica ... */ };
   
   const handleDeleteTicket = async (id) => {
