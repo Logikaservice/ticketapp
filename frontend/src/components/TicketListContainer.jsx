@@ -17,7 +17,8 @@ const FilterControls = ({
   selectedClient, 
   setSelectedClient,
   onGenerateReport,
-  tickets
+  tickets,
+  recentChanges
 }) => {
   const statusIcons = {
     aperto: <FileText size={14} />,
@@ -38,16 +39,25 @@ const FilterControls = ({
       <div className="flex gap-2 p-1 bg-gray-100 rounded-lg mb-4 flex-wrap">
         {buttonsToRender.map(status => {
           if (counts[status] === undefined) return null;
+          const change = recentChanges[status];
+          
           return (
             <button
               key={status}
               onClick={() => setViewState(status)}
-              className={`flex flex-1 items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
+              className={`flex flex-1 items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg capitalize relative ${
                 viewState === status ? 'bg-blue-600 text-white shadow' : 'text-gray-700 hover:bg-gray-200'
               }`}
             >
               {statusIcons[status]}
-              <span>{status.replace('_', ' ')} ({counts[status]})</span>
+              <span className="flex items-center gap-1">
+                {status.replace('_', ' ')} ({counts[status]})
+                {change && (
+                  <span className={`badge-change ${change > 0 ? 'badge-increase' : 'badge-decrease'}`}>
+                    {change > 0 ? '+' : ''}{change}
+                  </span>
+                )}
+              </span>
             </button>
           );
         })}
@@ -101,6 +111,8 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
     return saved ? JSON.parse(saved) : [];
   });
   const [hasShownSnoozedOnMount, setHasShownSnoozedOnMount] = useState(false);
+  const [previousTicketCounts, setPreviousTicketCounts] = useState({});
+  const [recentCountChanges, setRecentCountChanges] = useState({});
 
   // Carica notifiche posticipate al mount (solo una volta)
   useEffect(() => {
@@ -198,6 +210,32 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
     };
   }, [tickets, users, currentUser, viewState, selectedClientFilter]);
 
+  // Monitora cambiamenti nei contatori
+  useEffect(() => {
+    const changes = {};
+    let hasChanges = false;
+
+    Object.keys(ticketCounts).forEach(status => {
+      const previous = previousTicketCounts[status] || 0;
+      const current = ticketCounts[status];
+      
+      if (previous !== current) {
+        changes[status] = current - previous;
+        hasChanges = true;
+      }
+    });
+
+    if (hasChanges) {
+      setRecentCountChanges(changes);
+      setPreviousTicketCounts(ticketCounts);
+
+      // Rimuovi l'indicatore dopo 1 secondo
+      setTimeout(() => {
+        setRecentCountChanges({});
+      }, 1000);
+    }
+  }, [ticketCounts]);
+
   const handleOpenTicketFromNotification = (ticketId) => {
     const ticket = tickets.find(t => t.id === ticketId);
     if (ticket) {
@@ -240,6 +278,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
             selectedClient={selectedClientFilter}
             setSelectedClient={setSelectedClientFilter}
             tickets={tickets}
+            recentChanges={recentCountChanges}
           />
         </div>
 
