@@ -67,7 +67,6 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/users', async (req, res) => {
     try {
         const client = await pool.connect();
-        // INCLUSO password per permettere al tecnico di vederla/modificarla
         const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda FROM users');
         client.release();
         res.json(result.rows);
@@ -116,7 +115,6 @@ app.patch('/api/users/:id', async (req, res) => {
     try {
         const client = await pool.connect();
         
-        // Se password è presente, aggiornala, altrimenti non toccarla
         let query, values;
         if (password && password.trim() !== '') {
             query = `
@@ -209,9 +207,7 @@ app.post('/api/tickets', async (req, res) => {
     }
 });
 
-// ====================================================================
-// 🆕 ENDPOINT: Modifica un ticket completo
-// ====================================================================
+// ENDPOINT: Modifica un ticket completo
 app.put('/api/tickets/:id', async (req, res) => {
     const { id } = req.params;
     const { titolo, descrizione, categoria, priorita, nomerichiedente, clienteid } = req.body;
@@ -239,7 +235,6 @@ app.put('/api/tickets/:id', async (req, res) => {
         res.status(500).json({ error: 'Errore interno del server' });
     }
 });
-// ====================================================================
 
 // ENDPOINT: Aggiorna lo stato di un ticket
 app.patch('/api/tickets/:id/status', async (req, res) => {
@@ -338,6 +333,29 @@ app.delete('/api/tickets/:id', async (req, res) => {
     }
 });
 
+// 🆕 ENDPOINT: Salva i timelogs in un ticket
+app.post('/api/tickets/:id/timelogs', async (req, res) => {
+    const { id } = req.params;
+    const { timeLogs } = req.body;
+    
+    try {
+        const client = await pool.connect();
+        const query = 'UPDATE tickets SET timelogs = $1 WHERE id = $2 RETURNING *;';
+        const result = await client.query(query, [JSON.stringify(timeLogs), id]);
+        client.release();
+
+        if (result.rows.length > 0) {
+            console.log(`✅ Timelogs salvati per ticket ID ${id}`);
+            res.json(result.rows[0]);
+        } else {
+            res.status(404).json({ error: 'Ticket non trovato' });
+        }
+    } catch (err) {
+        console.error('❌ Errore nel salvare i timelogs:', err);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
 // --- AVVIO DEL SERVER ---
 const startServer = async () => {
   try {
@@ -345,7 +363,7 @@ const startServer = async () => {
     console.log("✅ Connessione al database riuscita!");
     app.listen(PORT, () => {
       console.log(`🚀 Server backend AGGIORNATO in ascolto sulla porta ${PORT}`);
-      console.log(`✨ Endpoint PUT /api/tickets/:id attivo!`);
+      console.log(`✨ Endpoint POST /api/tickets/:id/timelogs attivo!`);
     });
   } catch (err) {
     console.error("❌ Errore critico - Impossibile connettersi al database:", err);
