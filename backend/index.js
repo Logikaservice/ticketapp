@@ -67,7 +67,8 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/users', async (req, res) => {
     try {
         const client = await pool.connect();
-        const result = await client.query('SELECT id, email, ruolo, nome, cognome, telefono, azienda FROM users');
+        // INCLUSO password per permettere al tecnico di vederla/modificarla
+        const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda FROM users');
         client.release();
         res.json(result.rows);
     } catch (err) {
@@ -78,10 +79,14 @@ app.get('/api/users', async (req, res) => {
 
 // ENDPOINT: Crea un nuovo cliente (utente)
 app.post('/api/users', async (req, res) => {
-    const { email, password, telefono, azienda, ruolo } = req.body;
+    const { email, password, telefono, azienda, ruolo, nome, cognome } = req.body;
 
     if (!email || !password || !azienda) {
         return res.status(400).json({ error: 'Email, password e azienda sono obbligatori' });
+    }
+
+    if (!nome || !cognome) {
+        return res.status(400).json({ error: 'Nome e cognome sono obbligatori' });
     }
 
     try {
@@ -91,7 +96,7 @@ app.post('/api/users', async (req, res) => {
             VALUES ($1, $2, $3, $4, $5, $6, $7) 
             RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
         `;
-        const values = [email, password, telefono || null, azienda, ruolo || 'cliente', 'Non', 'Specificato'];
+        const values = [email, password, telefono || null, azienda, ruolo || 'cliente', nome, cognome];
         const result = await client.query(query, values);
         client.release();
         
