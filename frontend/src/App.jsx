@@ -55,21 +55,21 @@ export default function TicketApp() {
   // PERSISTENZA STATO TICKET CHIUSI AL RELOAD
   // ====================================================================
   useEffect(() => {
-  // Quando l'utente fa login, forza tutti i ticket chiusi
-  if (isLoggedIn) {
-    setSelectedTicket(null);
-    localStorage.setItem('openTicketId', 'null');
-  }
-}, [isLoggedIn]); // Esegue ogni volta che isLoggedIn cambia
+    // Quando l'utente fa login, forza tutti i ticket chiusi
+    if (isLoggedIn) {
+      setSelectedTicket(null);
+      localStorage.setItem('openTicketId', 'null');
+    }
+  }, [isLoggedIn]);
 
-useEffect(() => {
-  // Salva lo stato quando cambia selectedTicket
-  if (selectedTicket) {
-    localStorage.setItem('openTicketId', selectedTicket.id);
-  } else {
-    localStorage.setItem('openTicketId', 'null');
-  }
-}, [selectedTicket]);
+  useEffect(() => {
+    // Salva lo stato quando cambia selectedTicket
+    if (selectedTicket?.id) {
+      localStorage.setItem('openTicketId', selectedTicket.id);
+    } else {
+      localStorage.setItem('openTicketId', 'null');
+    }
+  }, [selectedTicket]);
 
   // ====================================================================
   // NOTIFICHE
@@ -526,14 +526,83 @@ useEffect(() => {
   const handleInvoiceTicket = (id) => handleChangeStatus(id, 'fatturato');
   const handleGenerateSentReport = () => {};
   const handleGenerateInvoiceReport = () => {};
-  const handleTimeLogChange = () => {};
-  const handleAddTimeLog = () => {};
-  const handleDuplicateTimeLog = () => {};
-  const handleRemoveTimeLog = () => {};
-  const handleMaterialChange = () => {};
-  const handleAddMaterial = () => {};
-  const handleRemoveMaterial = () => {};
-  const handleConfirmTimeLogs = () => {};
+  const handleTimeLogChange = (logId, field, value) => {
+    setTimeLogs(prev => prev.map(log => log.id === logId ? { ...log, [field]: value } : log));
+  };
+  const handleAddTimeLog = () => {
+    setTimeLogs(prev => [...prev, getInitialTimeLog()]);
+  };
+  const handleDuplicateTimeLog = (log) => {
+    const newLog = { ...log, id: Date.now() + Math.random() };
+    setTimeLogs(prev => [...prev, newLog]);
+  };
+  const handleRemoveTimeLog = (logId) => {
+    setTimeLogs(prev => prev.filter(log => log.id !== logId));
+  };
+  const handleMaterialChange = (logId, materialId, field, value) => {
+    setTimeLogs(prev => prev.map(log => {
+      if (log.id === logId) {
+        return {
+          ...log,
+          materials: log.materials.map(m => m.id === materialId ? { ...m, [field]: parseFloat(value) || 0 } : m)
+        };
+      }
+      return log;
+    }));
+  };
+  const handleAddMaterial = (logId) => {
+    setTimeLogs(prev => prev.map(log => log.id === logId ? { ...log, materials: [...log.materials, getInitialMaterial()] } : log));
+  };
+  const handleRemoveMaterial = (logId, materialId) => {
+    setTimeLogs(prev => prev.map(log => log.id === logId ? { ...log, materials: log.materials.filter(m => m.id !== materialId) } : log));
+  };
+  
+  const handleConfirmTimeLogs = async () => {
+    if (!selectedTicket) return;
+    
+    try {
+      const logsToSave = timeLogs.map(log => ({
+        modalita: log.modalita,
+        data: log.data,
+        oraInizio: log.oraInizio,
+        oraFine: log.oraFine,
+        descrizione: log.descrizione,
+        oreIntervento: parseFloat(log.oreIntervento) || 0,
+        costoUnitario: parseFloat(log.costoUnitario) || 0,
+        sconto: parseFloat(log.sconto) || 0,
+        materials: log.materials.map(m => ({
+          nome: m.nome,
+          quantita: parseInt(m.quantita) || 1,
+          costo: parseFloat(m.costo) || 0
+        }))
+      }));
+
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/timelogs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeLogs: logsToSave })
+      });
+
+      if (!response.ok) throw new Error('Errore nel salvare i log');
+
+      const statusResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'risolto' })
+      });
+
+      if (!statusResponse.ok) throw new Error('Errore nell\'aggiornamento dello stato');
+
+      const updatedTicket = await statusResponse.json();
+      
+      setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
+      setSelectedTicket(null);
+      closeModal();
+      showNotification('Ticket risolto con successo!', 'success');
+    } catch (error) {
+      showNotification(error.message || 'Errore nel confermare i log.', 'error');
+    }
+  };
   
   // ====================================================================
   // RENDER
