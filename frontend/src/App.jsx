@@ -55,19 +55,21 @@ export default function TicketApp() {
   // PERSISTENZA STATO TICKET CHIUSI AL RELOAD
   // ====================================================================
   useEffect(() => {
-    // Al mount, FORZA tutti i ticket chiusi
+  // Quando l'utente fa login, forza tutti i ticket chiusi
+  if (isLoggedIn) {
     setSelectedTicket(null);
     localStorage.setItem('openTicketId', 'null');
-  }, []); // Esegue solo al mount iniziale
+  }
+}, [isLoggedIn]); // Esegue ogni volta che isLoggedIn cambia
 
-  useEffect(() => {
-    // Salva lo stato quando cambia selectedTicket
-    if (selectedTicket) {
-      localStorage.setItem('openTicketId', selectedTicket.id);
-    } else {
-      localStorage.setItem('openTicketId', 'null');
-    }
-  }, [selectedTicket]);
+useEffect(() => {
+  // Salva lo stato quando cambia selectedTicket
+  if (selectedTicket) {
+    localStorage.setItem('openTicketId', selectedTicket.id);
+  } else {
+    localStorage.setItem('openTicketId', 'null');
+  }
+}, [selectedTicket]);
 
   // ====================================================================
   // NOTIFICHE
