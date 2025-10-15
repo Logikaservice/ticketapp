@@ -1,9 +1,9 @@
 // src/components/NotificationModal.jsx
 
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, Clock } from 'lucide-react';
 
-export default function NotificationModal({ ticket, onClose, onOpenTicket }) {
+export default function NotificationModal({ ticket, onClose, onOpenTicket, onSnooze }) {
   if (!ticket) return null;
 
   return (
@@ -26,7 +26,7 @@ export default function NotificationModal({ ticket, onClose, onOpenTicket }) {
             onOpenTicket(ticket.id);
             onClose();
           }}
-          className="w-full text-left p-4 bg-yellow-50 hover:bg-yellow-100 rounded-lg border-2 border-yellow-400 transition-all hover:shadow-md"
+          className="w-full text-left p-4 bg-yellow-50 hover:bg-yellow-100 rounded-lg border-2 border-yellow-400 transition-all hover:shadow-md mb-3"
         >
           <div className="flex items-center justify-between">
             <div className="flex-1">
@@ -39,6 +39,17 @@ export default function NotificationModal({ ticket, onClose, onOpenTicket }) {
               {ticket.unreadCount}
             </div>
           </div>
+        </button>
+
+        <button
+          onClick={() => {
+            onSnooze(ticket.id);
+            onClose();
+          }}
+          className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors flex items-center justify-center gap-2"
+        >
+          <Clock size={16} />
+          Ricordamelo dopo
         </button>
       </div>
     </div>
