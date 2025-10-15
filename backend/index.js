@@ -325,7 +325,8 @@ const startServer = async () => {
     await pool.connect();
     console.log("✅ Connessione al database riuscita!");
     app.listen(PORT, () => {
-      console.log(`🚀 Server backend in ascolto sulla porta ${PORT}`);
+      console.log(`🚀 Server backend AGGIORNATO in ascolto sulla porta ${PORT}`);
+      console.log(`✨ Endpoint PUT /api/tickets/:id attivo!`);
     });
   } catch (err) {
     console.error("❌ Errore critico - Impossibile connettersi al database:", err);
