@@ -55,12 +55,10 @@ export default function TicketApp() {
   // PERSISTENZA STATO TICKET CHIUSI AL RELOAD
   // ====================================================================
   useEffect(() => {
-    // Al mount, assicurati che tutti i ticket siano chiusi
-    const saved = localStorage.getItem('openTicketId');
-    if (!saved || saved === 'null') {
-      setSelectedTicket(null);
-    }
-  }, []);
+    // Al mount, FORZA tutti i ticket chiusi
+    setSelectedTicket(null);
+    localStorage.setItem('openTicketId', 'null');
+  }, []); // Esegue solo al mount iniziale
 
   useEffect(() => {
     // Salva lo stato quando cambia selectedTicket
