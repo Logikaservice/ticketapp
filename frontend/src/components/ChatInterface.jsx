@@ -1,9 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, MessageSquare, Check, AlertTriangle, Clock, Calendar } from 'lucide-react';
 import { formatDate, formatTimeLogDate } from '../utils/formatters';
 
 const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessage, handleChangeStatus }) => {
   const [newMessage, setNewMessage] = useState('');
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [ticket.messaggi]);
 
   const onSendMessage = (isReclamo) => {
     if (!isReclamo) isReclamo = false;
@@ -143,6 +152,8 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
             </div>
           </React.Fragment>
         ))}
+        
+        <div ref={messagesEndRef} />
       </div>
 
       {!['chiuso', 'fatturato', 'inviato'].includes(ticket.stato) && (
