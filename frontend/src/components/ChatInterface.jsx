@@ -16,7 +16,10 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
       <div className="p-4 border-b flex items-center justify-between bg-blue-50 rounded-t-xl">
         <h3 className="font-bold text-lg">Conversazione Ticket {ticket.numero}</h3>
         <button 
-          onClick={() => setSelectedTicket(null)} 
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedTicket(null);
+          }} 
           className="text-gray-500 hover:text-gray-700"
         >
           <X size={20} />
