@@ -36,6 +36,37 @@ const NewClientModal = ({ newClientData, setNewClientData, onClose, onSave }) =>
         <form onSubmit={handleSubmit} className="p-6">
           <div className="space-y-4">
             
+            {/* Nome e Cognome sulla stessa riga */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newClientData.nome}
+                  onChange={(e) => setNewClientData({ ...newClientData, nome: e.target.value })}
+                  placeholder="Mario"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cognome <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newClientData.cognome}
+                  onChange={(e) => setNewClientData({ ...newClientData, cognome: e.target.value })}
+                  placeholder="Rossi"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  required
+                />
+              </div>
+            </div>
+
             {/* Email e Password sulla stessa riga */}
             <div className="grid grid-cols-2 gap-4">
               <div>
