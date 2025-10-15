@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Edit2, Save, Trash2, Mail, Phone, Building } from 'lucide-react';
+import { X, Edit2, Save, Trash2, Mail, Phone, Building, Lock } from 'lucide-react';
 
 const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }) => {
   const [editingId, setEditingId] = useState(null);
@@ -12,12 +12,19 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
       cognome: cliente.cognome || '',
       email: cliente.email || '',
       telefono: cliente.telefono || '',
-      azienda: cliente.azienda || ''
+      azienda: cliente.azienda || '',
+      password: cliente.password || '' // Pre-compila con password esistente
     });
   };
 
   const handleSave = (id) => {
-    onUpdateClient(id, editData);
+    // Se password è vuota, rimuovila dall'oggetto per non modificarla
+    const dataToSend = { ...editData };
+    if (!dataToSend.password || dataToSend.password.trim() === '') {
+      delete dataToSend.password;
+    }
+    
+    onUpdateClient(id, dataToSend);
     setEditingId(null);
     setEditData({});
   };
@@ -27,13 +34,9 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
     setEditData({});
   };
 
-  // ====================================================================
-  // 🔧 FIX: Rimossa la conferma da qui - ora c'è solo in App.jsx
-  // ====================================================================
   const handleDelete = (cliente) => {
     onDeleteClient(cliente.id);
   };
-  // ====================================================================
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -122,7 +125,7 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Azienda
                           </label>
@@ -133,6 +136,26 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                           />
                         </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
+                            <Lock size={16} />
+                            Nuova Password <span className="text-gray-400 text-xs">(opzionale)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={editData.password}
+                            onChange={(e) => setEditData({ ...editData, password: e.target.value })}
+                            placeholder="Lascia vuoto per non modificare"
+                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Info Password */}
+                      <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-xs text-yellow-800">
+                          <strong>Nota:</strong> Se lasci il campo password vuoto, la password attuale non verrà modificata.
+                        </p>
                       </div>
                       
                       <div className="flex gap-2 justify-end">
