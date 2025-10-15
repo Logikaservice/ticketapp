@@ -1,8 +1,9 @@
 // src/components/TicketListContainer.jsx
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { FileText, PlayCircle, CheckCircle, Send, FileCheck2, Archive } from 'lucide-react';
 import TicketItem from './TicketItem';
+import NotificationModal from './NotificationModal';
 
 // ====================================================================
 // COMPONENTE ESTRATTO PER I FILTRI
@@ -90,9 +91,34 @@ const FilterControls = ({
 // ====================================================================
 // COMPONENTE PRINCIPALE
 // ====================================================================
-const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, handlers, getUnreadCount }) => {
+const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount }) => {
   const [viewState, setViewState] = useState('aperto');
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
+  const [notificationTicket, setNotificationTicket] = useState(null);
+  const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
+
+  useEffect(() => {
+    tickets.forEach(ticket => {
+      const previousCount = previousUnreadCounts[ticket.id] || 0;
+      const currentCount = getUnreadCount(ticket);
+      
+      if (currentCount > previousCount && currentCount > 0) {
+        const cliente = users.find(u => u.id === ticket.clienteid);
+        setNotificationTicket({
+          id: ticket.id,
+          titolo: ticket.titolo,
+          clientName: cliente ? cliente.azienda : ticket.nomerichiedente,
+          unreadCount: currentCount
+        });
+      }
+    });
+    
+    const newCounts = {};
+    tickets.forEach(t => {
+      newCounts[t.id] = getUnreadCount(t);
+    });
+    setPreviousUnreadCounts(newCounts);
+  }, [tickets, getUnreadCount, users, previousUnreadCounts]);
   
   const { displayTickets, ticketCounts, usersMap } = useMemo(() => {
     const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
@@ -128,53 +154,67 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, hand
       usersMap
     };
   }, [tickets, users, currentUser, viewState, selectedClientFilter]);
+
+  const handleOpenTicketFromNotification = (ticketId) => {
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (ticket) {
+      handlers.handleSelectTicket(ticket);
+    }
+  };
   
   const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
   
   return (
-    <div className="bg-white rounded-xl shadow-lg">
-      <div className="p-4 border-b">
-        <h2 className="text-xl font-semibold mb-3">
-          {currentUser.ruolo === 'cliente' ? 'I Miei Interventi' : 'Lista Ticket'}
-        </h2>
-        
-        <FilterControls
-          currentUser={currentUser}
-          counts={ticketCounts}
-          viewState={viewState}
-          setViewState={setViewState}
-          clientiAttivi={clientiAttivi}
-          selectedClient={selectedClientFilter}
-          setSelectedClient={setSelectedClientFilter}
-          tickets={tickets}
-        />
-      </div>
+    <>
+      <NotificationModal
+        ticket={notificationTicket}
+        onClose={() => setNotificationTicket(null)}
+        onOpenTicket={handleOpenTicketFromNotification}
+      />
 
-      <div className="divide-y">
-        {displayTickets.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            <FileText size={48} className="mx-auto mb-3 opacity-30" />
-            <p>Nessun intervento con lo stato selezionato.</p>
-          </div>
-        ) : (
-          displayTickets
-            .sort((a, b) => new Date(b.dataapertura) - new Date(a.dataapertura))
-            // --- ECCO LA CORREZIONE: Aggiunto un controllo per ignorare ticket "rotti" ---
-            .filter(t => t && t.id) // Ignora qualsiasi ticket che sia nullo o non abbia un id
-            .map(t => (
-              <TicketItem
-                key={t.id}
-                ticket={t}
-                cliente={usersMap[t.clienteid]}
-                currentUser={currentUser}
-                selectedTicket={selectedTicket}
-                handlers={handlers}
-                getUnreadCount={getUnreadCount}
-              />
-            ))
-        )}
+      <div className="bg-white rounded-xl shadow-lg">
+        <div className="p-4 border-b">
+          <h2 className="text-xl font-semibold mb-3">
+            {currentUser.ruolo === 'cliente' ? 'I Miei Interventi' : 'Lista Ticket'}
+          </h2>
+          
+          <FilterControls
+            currentUser={currentUser}
+            counts={ticketCounts}
+            viewState={viewState}
+            setViewState={setViewState}
+            clientiAttivi={clientiAttivi}
+            selectedClient={selectedClientFilter}
+            setSelectedClient={setSelectedClientFilter}
+            tickets={tickets}
+          />
+        </div>
+
+        <div className="divide-y">
+          {displayTickets.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <FileText size={48} className="mx-auto mb-3 opacity-30" />
+              <p>Nessun intervento con lo stato selezionato.</p>
+            </div>
+          ) : (
+            displayTickets
+              .sort((a, b) => new Date(b.dataapertura) - new Date(a.dataapertura))
+              .filter(t => t && t.id)
+              .map(t => (
+                <TicketItem
+                  key={t.id}
+                  ticket={t}
+                  cliente={usersMap[t.clienteid]}
+                  currentUser={currentUser}
+                  selectedTicket={selectedTicket}
+                  handlers={handlers}
+                  getUnreadCount={getUnreadCount}
+                />
+              ))
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
