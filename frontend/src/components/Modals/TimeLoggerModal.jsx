@@ -3,7 +3,7 @@ import { X, Clock, Check, Plus, Copy, Trash2, Users } from 'lucide-react';
 import { calculateDurationHours } from '../../utils/helpers';
 
 const TimeLoggerModal = ({
-  modalData,
+  selectedTicket,
   timeLogs,
   setTimeLogs,
   handleTimeLogChange,
@@ -30,7 +30,7 @@ const TimeLoggerModal = ({
 
       <div className="space-y-6">
         <div className="bg-blue-50 p-3 rounded-lg text-sm">
-          Ticket: {modalData.numero} - {modalData.titolo}
+          Ticket: {selectedTicket.numero} - {selectedTicket.titolo}
         </div>
 
         {timeLogs.map((log, index) => {
