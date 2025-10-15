@@ -1,4 +1,4 @@
-className={'cursor-pointer hover:bimport React from 'react';
+import React from 'react';
 import { User, Settings, Clock, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon } from 'lucide-react';
 import { getStatoColor, getPrioritaColor, getPrioritaBgClass, getPrioritySolidBgClass, getStatoIcon } from '../utils/colors';
 import { formatDate } from '../utils/formatters';
@@ -23,7 +23,6 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
   const isTicketOpen = ticket.stato === 'aperto';
   const canDelete = currentUser.ruolo === 'tecnico' || (currentUser.ruolo === 'cliente' && isTicketOpen);
   
-  // Calcola messaggi non letti
   const unreadCount = getUnreadCount ? getUnreadCount(ticket) : 0;
   const hasUnread = unreadCount > 0;
 
@@ -208,7 +207,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
             setSelectedTicket={handleSelectTicket}
             handleSendMessage={handleSendMessage}
             handleChangeStatus={handleChangeStatus}
-           />
+          />
         </div>
       )}
     </>
