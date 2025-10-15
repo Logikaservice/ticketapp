@@ -200,7 +200,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
         </div>
       </div>
 
-      {selectedTicket && selectedTicket.id === ticket.id && (
+      {selectedTicket?.id === ticket.id && (
         <div className="bg-gray-50">
           <ChatInterface
             ticket={ticket}
@@ -208,7 +208,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
             setSelectedTicket={handleSelectTicket}
             handleSendMessage={handleSendMessage}
             handleChangeStatus={handleChangeStatus}
-          />
+           />
         </div>
       )}
     </>
