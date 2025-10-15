@@ -106,17 +106,31 @@ app.post('/api/users', async (req, res) => {
 // ENDPOINT: Aggiorna un utente/cliente
 app.patch('/api/users/:id', async (req, res) => {
     const { id } = req.params;
-    const { nome, cognome, email, telefono, azienda } = req.body;
+    const { nome, cognome, email, telefono, azienda, password } = req.body;
     
     try {
         const client = await pool.connect();
-        const query = `
-            UPDATE users 
-            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5 
-            WHERE id = $6 
-            RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
-        `;
-        const values = [nome, cognome, email, telefono, azienda, id];
+        
+        // Se password è presente, aggiornala, altrimenti non toccarla
+        let query, values;
+        if (password && password.trim() !== '') {
+            query = `
+                UPDATE users 
+                SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, password = $6
+                WHERE id = $7 
+                RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
+            `;
+            values = [nome, cognome, email, telefono, azienda, password, id];
+        } else {
+            query = `
+                UPDATE users 
+                SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5 
+                WHERE id = $6 
+                RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
+            `;
+            values = [nome, cognome, email, telefono, azienda, id];
+        }
+        
         const result = await client.query(query, values);
         client.release();
         
