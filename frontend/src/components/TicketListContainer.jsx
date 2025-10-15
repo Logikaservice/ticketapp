@@ -100,10 +100,11 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
     const saved = localStorage.getItem('snoozedNotifications');
     return saved ? JSON.parse(saved) : [];
   });
+  const [hasShownSnoozedOnMount, setHasShownSnoozedOnMount] = useState(false);
 
-  // Carica notifiche posticipate al mount
+  // Carica notifiche posticipate al mount (solo una volta)
   useEffect(() => {
-    if (snoozedNotifications.length > 0 && tickets.length > 0) {
+    if (!hasShownSnoozedOnMount && snoozedNotifications.length > 0 && tickets.length > 0) {
       const ticketToShow = snoozedNotifications[0];
       const ticket = tickets.find(t => t.id === ticketToShow);
       
@@ -121,16 +122,22 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
         setSnoozedNotifications(newSnoozed);
         localStorage.setItem('snoozedNotifications', JSON.stringify(newSnoozed));
       }
+      setHasShownSnoozedOnMount(true);
     }
-  }, [tickets, users, getUnreadCount, snoozedNotifications]);
+  }, [hasShownSnoozedOnMount, tickets, users, getUnreadCount, snoozedNotifications]);
 
+  // Monitora nuovi messaggi
   useEffect(() => {
     tickets.forEach(ticket => {
       const previousCount = previousUnreadCounts[ticket.id] || 0;
       const currentCount = getUnreadCount(ticket);
       
-      // Non mostrare se è già in snoozed
-      if (currentCount > previousCount && currentCount > 0 && !snoozedNotifications.includes(ticket.id)) {
+      // Mostra notifica SOLO se:
+      // 1. Il conteggio è aumentato
+      // 2. Ci sono messaggi non letti
+      // 3. Il ticket NON è in snoozed
+      // 4. Non c'è già una notifica in mostra
+      if (currentCount > previousCount && currentCount > 0 && !snoozedNotifications.includes(ticket.id) && !notificationTicket) {
         const cliente = users.find(u => u.id === ticket.clienteid);
         setNotificationTicket({
           id: ticket.id,
@@ -148,12 +155,13 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
       }
     });
     
+    // Aggiorna contatori
     const newCounts = {};
     tickets.forEach(t => {
       newCounts[t.id] = getUnreadCount(t);
     });
     setPreviousUnreadCounts(newCounts);
-  }, [tickets, getUnreadCount, users, previousUnreadCounts, snoozedNotifications]);
+  }, [tickets, getUnreadCount, users]);
   
   const { displayTickets, ticketCounts, usersMap } = useMemo(() => {
     const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
@@ -193,6 +201,9 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
   const handleOpenTicketFromNotification = (ticketId) => {
     const ticket = tickets.find(t => t.id === ticketId);
     if (ticket) {
+      // Cambia la vista al stato del ticket
+      setViewState(ticket.stato);
+      // Apri il ticket
       handlers.handleSelectTicket(ticket);
     }
   };
