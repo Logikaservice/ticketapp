@@ -7,18 +7,17 @@ import Header from './components/Header';
 import TicketListContainer from './components/TicketListContainer';
 import AllModals from './components/Modals/AllModals';
 import { getInitialMaterial, getInitialTimeLog } from './utils/helpers';
-import { formatReportDate } from './utils/formatters';
 import ManageClientsModal from './components/Modals/ManageClientsModal';
 import NewClientModal from './components/Modals/NewClientModal';
 import NewTicketModal from './components/Modals/NewTicketModal';
+import { useAuth } from './hooks/useAuth';
+import { useClients } from './hooks/useClients';
+import { useTickets } from './hooks/useTickets';
 
 export default function TicketApp() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
   const [users, setUsers] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
   
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [notificationTimeout, setNotificationTimeout] = useState(null);
@@ -52,26 +51,6 @@ export default function TicketApp() {
   const [hasShownUnreadNotification, setHasShownUnreadNotification] = useState(false);
 
   // ====================================================================
-  // PERSISTENZA STATO TICKET CHIUSI AL RELOAD
-  // ====================================================================
-  useEffect(() => {
-    // Quando l'utente fa login, forza tutti i ticket chiusi
-    if (isLoggedIn) {
-      setSelectedTicket(null);
-      localStorage.setItem('openTicketId', 'null');
-    }
-  }, [isLoggedIn]);
-
-  useEffect(() => {
-    // Salva lo stato quando cambia selectedTicket
-    if (selectedTicket?.id) {
-      localStorage.setItem('openTicketId', selectedTicket.id);
-    } else {
-      localStorage.setItem('openTicketId', 'null');
-    }
-  }, [selectedTicket]);
-
-  // ====================================================================
   // NOTIFICHE
   // ====================================================================
   const showNotification = (message, type = 'success', duration = 5000) => {
@@ -85,6 +64,68 @@ export default function TicketApp() {
     if (notificationTimeout) clearTimeout(notificationTimeout);
     setNotification(p => ({ ...p, show: false }));
   };
+
+  // ====================================================================
+  // HOOKS PERSONALIZZATI
+  // ====================================================================
+  const {
+    isLoggedIn,
+    currentUser,
+    loginData,
+    setLoginData,
+    handleLogin,
+    handleLogout,
+    handleAutoFillLogin
+  } = useAuth(showNotification);
+
+  const {
+    handleCreateClient,
+    handleUpdateClient,
+    handleDeleteClient
+  } = useClients(showNotification, setUsers, setTickets);
+
+  const closeModal = () => {
+    if (modalState.type === 'newTicket') {
+      resetNewTicketData();
+    }
+    setModalState({ type: null, data: null });
+  };
+
+  const {
+    handleCreateTicket: createTicket,
+    handleUpdateTicket: updateTicket,
+    handleDeleteTicket,
+    handleSelectTicket,
+    handleSendMessage,
+    handleChangeStatus: changeStatus,
+    handleConfirmTimeLogs
+  } = useTickets(
+    showNotification,
+    setTickets,
+    selectedTicket,
+    setSelectedTicket,
+    currentUser,
+    tickets,
+    closeModal
+  );
+
+  // ====================================================================
+  // PERSISTENZA STATO TICKET CHIUSI AL RELOAD
+  // ====================================================================
+  useEffect(() => {
+    if (isLoggedIn) {
+      setSelectedTicket(null);
+      localStorage.setItem('openTicketId', 'null');
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (selectedTicket?.id) {
+      localStorage.setItem('openTicketId', selectedTicket.id);
+    } else {
+      localStorage.setItem('openTicketId', 'null');
+    }
+  }, [selectedTicket]);
 
   // ====================================================================
   // CALCOLA MESSAGGI NON LETTI
@@ -152,13 +193,6 @@ export default function TicketApp() {
   // ====================================================================
   // MODALI
   // ====================================================================
-  const closeModal = () => {
-    if (modalState.type === 'newTicket') {
-      resetNewTicketData();
-    }
-    setModalState({ type: null, data: null });
-  };
-
   const resetNewTicketData = () => {
     const nomeRichiedente = currentUser?.ruolo === 'cliente' ? `${currentUser.nome} ${currentUser.cognome || ''}`.trim() : '';
     setNewTicketData({
@@ -170,43 +204,6 @@ export default function TicketApp() {
     });
     setIsEditingTicket(null);
     setSelectedClientForNewTicket('');
-  };
-
-  // ====================================================================
-  // LOGIN / LOGOUT
-  // ====================================================================
-  const handleLogin = async () => {
-    if (!loginData.email || !loginData.password) return showNotification('Inserisci email e password.', 'error');
-    try {
-      const response = await fetch(process.env.REACT_APP_API_URL + '/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginData)
-      });
-      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Credenziali non valide');
-      const user = await response.json();
-      setCurrentUser(user);
-      setIsLoggedIn(true);
-      setLoginData({ email: '', password: '' });
-      showNotification(`Benvenuto ${user.nome}!`, 'success');
-    } catch (error) {
-      showNotification(error.message, 'error');
-    }
-  };
-
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setCurrentUser(null);
-    localStorage.removeItem('openTicketId');
-    showNotification('Disconnessione effettuata.', 'info');
-  };
-
-  const handleAutoFillLogin = (ruolo) => {
-    if (ruolo === 'cliente') {
-      setLoginData({ email: 'cliente@example.com', password: 'cliente123' });
-    } else if (ruolo === 'tecnico') {
-      setLoginData({ email: 'tecnico@example.com', password: 'tecnico123' });
-    }
   };
 
   // ====================================================================
@@ -240,285 +237,30 @@ export default function TicketApp() {
   };
 
   // ====================================================================
-  // GESTIONE SETTINGS
+  // WRAPPER FUNZIONI
   // ====================================================================
   const handleUpdateSettings = () => { /* ... la tua logica ... */ };
+  const handleConfirmUrgentCreation = async () => { /* ... la tua logica ... */ };
 
-  // ====================================================================
-  // GESTIONE CLIENTI
-  // ====================================================================
-  const handleCreateClient = async () => {
-    if (!newClientData.email || !newClientData.password) {
-      return showNotification('Email e password sono obbligatori.', 'error');
-    }
-    if (!newClientData.nome || !newClientData.cognome) {
-      return showNotification('Nome e cognome sono obbligatori.', 'error');
-    }
-    if (!newClientData.azienda) {
-      return showNotification('Il nome dell\'azienda è obbligatorio.', 'error');
-    }
-    
-    const clienteDaCreare = {
-      ...newClientData,
-      ruolo: 'cliente'
-    };
-    
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(clienteDaCreare)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Errore nella creazione del cliente');
-      }
-      
-      const nuovoCliente = await response.json();
-      setUsers(prev => [...prev, nuovoCliente]);
+  const wrappedHandleCreateTicket = () => {
+    createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket);
+  };
+
+  const wrappedHandleUpdateTicket = () => {
+    updateTicket(newTicketData, isEditingTicket, selectedClientForNewTicket);
+  };
+
+  const wrappedHandleCreateClient = () => {
+    handleCreateClient(newClientData, () => {
       setNewClientData({ nome: '', cognome: '', email: '', password: '', telefono: '', azienda: '' });
       closeModal();
-      
-      showNotification('Cliente creato con successo!', 'success');
-    } catch (error) {
-      showNotification(error.message || 'Impossibile creare il cliente.', 'error');
-    }
+    });
   };
 
-  const handleUpdateClient = async (id, updatedData) => {
-    if (!id) return showNotification('ID cliente non valido.', 'error');
-    
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedData)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Errore nell\'aggiornamento del cliente');
-      }
-      
-      const clienteAggiornato = await response.json();
-      setUsers(prev => prev.map(u => u.id === id ? clienteAggiornato : u));
-      
-      showNotification('Cliente aggiornato con successo!', 'success');
-    } catch (error) {
-      showNotification(error.message || 'Impossibile aggiornare il cliente.', 'error');
-    }
+  const handleChangeStatus = (id, status) => {
+    changeStatus(id, status, handleOpenTimeLogger);
   };
 
-  const handleDeleteClient = async (id) => {
-    if (!window.confirm('Sei sicuro di voler eliminare questo cliente? Tutti i suoi ticket verranno eliminati!')) {
-      return;
-    }
-    
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${id}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Errore nell\'eliminazione del cliente');
-      }
-      
-      setUsers(prev => prev.filter(u => u.id !== id));
-      setTickets(prev => prev.filter(t => t.clienteid !== id));
-      
-      showNotification('Cliente eliminato con successo!', 'success');
-    } catch (error) {
-      showNotification(error.message || 'Impossibile eliminare il cliente.', 'error');
-    }
-  };
-
-  // ====================================================================
-  // GESTIONE TICKET
-  // ====================================================================
-  const handleCreateTicket = async () => {
-    if (isEditingTicket) {
-      handleUpdateTicket();
-      return;
-    }
-    if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
-      return showNotification('Titolo, descrizione e richiedente sono obbligatori.', 'error');
-    }
-    const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
-    if (currentUser.ruolo === 'tecnico' && !clienteId) {
-        return showNotification('Devi selezionare un cliente.', 'error');
-    }
-    const ticketDaInviare = {
-      ...newTicketData,
-      clienteid: clienteId,
-      stato: 'aperto',
-      nomerichiedente: newTicketData.nomerichiedente || (currentUser.ruolo === 'cliente' ? `${currentUser.nome} ${currentUser.cognome || ''}`.trim() : 'Tecnico')
-    };
-    try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ticketDaInviare)
-        });
-        if (!response.ok) throw new Error('Errore del server.');
-        const savedTicket = await response.json();
-        setTickets(prev => [savedTicket, ...prev]);
-        closeModal();
-        showNotification('Ticket creato con successo!', 'success');
-    } catch (error) {
-        showNotification(error.message || 'Impossibile creare il ticket.', 'error');
-    }
-  };
-  
-  const handleUpdateTicket = async () => {
-    if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
-      return showNotification('Titolo, descrizione e richiedente sono obbligatori.', 'error');
-    }
-    
-    const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
-    if (currentUser.ruolo === 'tecnico' && !clienteId) {
-      return showNotification('Devi selezionare un cliente.', 'error');
-    }
-    
-    const ticketAggiornato = {
-      titolo: newTicketData.titolo,
-      descrizione: newTicketData.descrizione,
-      categoria: newTicketData.categoria,
-      priorita: newTicketData.priorita,
-      nomerichiedente: newTicketData.nomerichiedente,
-      clienteid: clienteId
-    };
-    
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${isEditingTicket}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(ticketAggiornato)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Errore nell\'aggiornamento del ticket');
-      }
-      
-      const ticketSalvato = await response.json();
-      
-      setTickets(prev => prev.map(t => t.id === isEditingTicket ? ticketSalvato : t));
-      
-      if (selectedTicket?.id === isEditingTicket) {
-        setSelectedTicket(ticketSalvato);
-      }
-      
-      closeModal();
-      showNotification('Ticket aggiornato con successo!', 'success');
-    } catch (error) {
-      showNotification(error.message || 'Impossibile aggiornare il ticket.', 'error');
-    }
-  };
-  
-  const handleConfirmUrgentCreation = async () => { /* ... la tua logica ... */ };
-  
-  const handleDeleteTicket = async (id) => {
-    if (!window.confirm('Sei sicuro di voler eliminare questo ticket?')) return;
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}`, { method: 'DELETE' });
-      if (!response.ok) throw new Error('Errore durante l\'eliminazione');
-      setTickets(prev => prev.filter(t => t.id !== id));
-      if (selectedTicket?.id === id) setSelectedTicket(null);
-      showNotification('Ticket eliminato con successo!', 'success');
-    } catch(error) {
-      showNotification(error.message, 'error');
-    }
-  };
-  
-  const handleSelectTicket = async (ticket) => {
-    if (ticket && (!selectedTicket || selectedTicket.id !== ticket.id)) {
-      try {
-        await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/mark-read`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ruolo: currentUser.ruolo })
-        });
-        setTickets(prev => prev.map(tk => {
-          if (tk.id === ticket.id) {
-            const updated = { ...tk };
-            if (currentUser.ruolo === 'cliente') updated.last_read_by_client = new Date().toISOString();
-            else updated.last_read_by_tecnico = new Date().toISOString();
-            return updated;
-          }
-          return tk;
-        }));
-      } catch (error) {
-        console.error('Errore nel marcare come letto:', error);
-      }
-    }
-    setSelectedTicket(prev => (prev?.id === ticket.id ? null : ticket));
-  };
-  
-  const handleSendMessage = async (id, msg, isReclamo = false) => {
-    if (!msg.trim()) return;
-    const ticket = tickets.find(t => t.id === id);
-    if (!ticket) return;
-    const autore = currentUser.ruolo === 'cliente' ? ticket.nomerichiedente : 'Tecnico';
-    const messageData = { autore, contenuto: msg, reclamo: isReclamo };
-    try {
-      const messageResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(messageData)
-      });
-      if (!messageResponse.ok) throw new Error('Errore nel salvare il messaggio');
-      const savedMessage = await messageResponse.json();
-      let newStatus = ticket.stato;
-      if (isReclamo || (currentUser.ruolo === 'tecnico' && ticket.stato === 'risolto')) {
-        newStatus = 'in_lavorazione';
-      }
-      if (newStatus !== ticket.stato) {
-        await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}/status`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus })
-        });
-      }
-      setTickets(prevTickets => prevTickets.map(t => {
-        if (t.id === id) {
-          const updatedTicket = { ...t, messaggi: [...(t.messaggi || []), savedMessage], stato: newStatus };
-          if (selectedTicket?.id === id) setSelectedTicket(updatedTicket);
-          return updatedTicket;
-        }
-        return t;
-      }));
-      if (isReclamo) showNotification('Reclamo inviato! Ticket riaperto.', 'error');
-    } catch (error) {
-      showNotification('Errore nell\'invio del messaggio.', 'error');
-    }
-  };
-  
-  const handleChangeStatus = async (id, status) => {
-    if (status === 'risolto' && currentUser.ruolo === 'tecnico') {
-      const ticket = tickets.find(tk => tk.id === id);
-      if (ticket) handleOpenTimeLogger(ticket);
-      return;
-    }
-    try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-      if (!response.ok) throw new Error('Errore aggiornamento stato');
-      const updatedTicket = await response.json();
-      setTickets(prevTickets => prevTickets.map(t => (t.id === id ? updatedTicket : t)));
-      showNotification('Stato del ticket aggiornato!', 'success');
-      if (status === 'chiuso' || (status === 'risolto' && currentUser.ruolo === 'tecnico')) {
-        setSelectedTicket(null);
-      }
-    } catch (error) {
-      showNotification('Impossibile aggiornare lo stato.', 'error');
-    }
-  };
-  
   const handleReopenInLavorazione = (id) => handleChangeStatus(id, 'in_lavorazione');
   const handleReopenAsRisolto = (id) => handleChangeStatus(id, 'risolto');
   const handleSetInviato = (id) => handleChangeStatus(id, 'inviato');
@@ -526,6 +268,7 @@ export default function TicketApp() {
   const handleInvoiceTicket = (id) => handleChangeStatus(id, 'fatturato');
   const handleGenerateSentReport = () => {};
   const handleGenerateInvoiceReport = () => {};
+  
   const handleTimeLogChange = (logId, field, value) => {
     setTimeLogs(prev => prev.map(log => log.id === logId ? { ...log, [field]: value } : log));
   };
@@ -556,52 +299,9 @@ export default function TicketApp() {
   const handleRemoveMaterial = (logId, materialId) => {
     setTimeLogs(prev => prev.map(log => log.id === logId ? { ...log, materials: log.materials.filter(m => m.id !== materialId) } : log));
   };
-  
-  const handleConfirmTimeLogs = async () => {
-    if (!selectedTicket) return;
-    
-    try {
-      const logsToSave = timeLogs.map(log => ({
-        modalita: log.modalita,
-        data: log.data,
-        oraInizio: log.oraInizio,
-        oraFine: log.oraFine,
-        descrizione: log.descrizione,
-        oreIntervento: parseFloat(log.oreIntervento) || 0,
-        costoUnitario: parseFloat(log.costoUnitario) || 0,
-        sconto: parseFloat(log.sconto) || 0,
-        materials: log.materials.map(m => ({
-          nome: m.nome,
-          quantita: parseInt(m.quantita) || 1,
-          costo: parseFloat(m.costo) || 0
-        }))
-      }));
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/timelogs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timeLogs: logsToSave })
-      });
-
-      if (!response.ok) throw new Error('Errore nel salvare i log');
-
-      const statusResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'risolto' })
-      });
-
-      if (!statusResponse.ok) throw new Error('Errore nell\'aggiornamento dello stato');
-
-      const updatedTicket = await statusResponse.json();
-      
-      setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
-      setSelectedTicket(null);
-      closeModal();
-      showNotification('Ticket risolto con successo!', 'success');
-    } catch (error) {
-      showNotification(error.message || 'Errore nel confermare i log.', 'error');
-    }
+  const wrappedHandleConfirmTimeLogs = () => {
+    handleConfirmTimeLogs(timeLogs);
   };
   
   // ====================================================================
@@ -662,7 +362,7 @@ export default function TicketApp() {
         handleMaterialChange={handleMaterialChange}
         handleAddMaterial={handleAddMaterial}
         handleRemoveMaterial={handleRemoveMaterial}
-        handleConfirmTimeLogs={handleConfirmTimeLogs}
+        handleConfirmTimeLogs={wrappedHandleConfirmTimeLogs}
       />
 
       {modalState.type === 'manageClients' && (
@@ -679,14 +379,14 @@ export default function TicketApp() {
           newClientData={newClientData}
           setNewClientData={setNewClientData}
           onClose={closeModal}
-          onSave={handleCreateClient}
+          onSave={wrappedHandleCreateClient}
         />
       )}
       
       {modalState.type === 'newTicket' && (
         <NewTicketModal
           onClose={closeModal}
-          onSave={handleCreateTicket}
+          onSave={wrappedHandleCreateTicket}
           newTicketData={newTicketData}
           setNewTicketData={setNewTicketData}
           isEditingTicket={isEditingTicket}
