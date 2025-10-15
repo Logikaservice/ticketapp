@@ -34,37 +34,8 @@
   animation: fade-in 0.3s ease-out;
 }
 
-/* Animazione badge +/- */
-.badge-change {
-  font-size: 0.7rem;
-  font-weight: bold;
-  margin-left: 4px;
-  animation: badge-fade-slide 10s ease-out forwards;
-}
-
-.badge-increase {
-  color: #10b981;
-}
-
-.badge-decrease {
-  color: #ef4444;
-}
-
-@keyframes badge-fade-slide {
-  0% {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  20% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  80% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(5px);
-  }
+/* Numero badge cambiato */
+.count-badge-changed {
+  color: #2563eb;
+  font-weight: 900;
 }
