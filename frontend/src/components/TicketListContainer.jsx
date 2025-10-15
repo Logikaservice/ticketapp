@@ -1,181 +1,152 @@
 // src/components/TicketListContainer.jsx
 
-import React, { useState, useMemo } from 'react';
-import { FileText, PlayCircle, CheckCircle, Send, FileCheck2, Archive } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import TicketItem from './TicketItem';
+import NotificationModal from './NotificationModal';
 
-// ====================================================================
-// COMPONENTE ESTRATTO PER I FILTRI
-// ====================================================================
-const FilterControls = ({ 
+export default function TicketListContainer({ 
   currentUser, 
-  counts, 
-  viewState, 
-  setViewState, 
-  clientiAttivi, 
-  selectedClient, 
-  setSelectedClient,
-  onGenerateReport,
-  tickets
-}) => {
-  const statusIcons = {
-    aperto: <FileText size={14} />,
-    in_lavorazione: <PlayCircle size={14} />,
-    risolto: <CheckCircle size={14} />,
-    chiuso: <Archive size={14} />,
-    inviato: <Send size={14} />,
-    fatturato: <FileCheck2 size={14} />,
+  tickets, 
+  users, 
+  selectedTicket, 
+  setSelectedTicket,
+  getUnreadCount, 
+  handlers 
+}) {
+  const [filter, setFilter] = useState('tutti');
+  const [notificationTicket, setNotificationTicket] = useState(null);
+  const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
+
+  // Monitora i cambiamenti nei messaggi non letti
+  useEffect(() => {
+    tickets.forEach(ticket => {
+      const previousCount = previousUnreadCounts[ticket.id] || 0;
+      const currentCount = getUnreadCount(ticket);
+      
+      // Mostra notifica solo se aumentano i messaggi non letti
+      if (currentCount > previousCount && currentCount > 0) {
+        const cliente = users.find(u => u.id === ticket.clienteid);
+        setNotificationTicket({
+          id: ticket.id,
+          titolo: ticket.titolo,
+          clientName: cliente ? cliente.azienda : ticket.nomerichiedente,
+          unreadCount: currentCount
+        });
+      }
+    });
+    
+    // Aggiorna il contatore precedente
+    const newCounts = {};
+    tickets.forEach(t => {
+      newCounts[t.id] = getUnreadCount(t);
+    });
+    setPreviousUnreadCounts(newCounts);
+  }, [tickets, getUnreadCount, users, previousUnreadCounts]);
+
+  const handleOpenTicketFromNotification = (ticketId) => {
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (ticket) {
+      handlers.handleSelectTicket(ticket);
+    }
   };
 
-  const TASTI_TECNICO = ['aperto', 'in_lavorazione', 'risolto', 'chiuso', 'inviato', 'fatturato'];
-  const TASTI_CLIENTE = ['aperto', 'in_lavorazione', 'risolto', 'chiuso', 'inviato', 'fatturato'];
+  // Filtra i ticket in base al ruolo e al filtro selezionato
+  const getFilteredTickets = () => {
+    let filtered = tickets;
+    
+    if (currentUser.ruolo === 'cliente') {
+      filtered = tickets.filter(t => t.clienteid === currentUser.id);
+    }
+    
+    switch (filter) {
+      case 'aperti':
+        return filtered.filter(t => ['aperto', 'in_lavorazione'].includes(t.stato));
+      case 'risolti':
+        return filtered.filter(t => t.stato === 'risolto');
+      case 'chiusi':
+        return filtered.filter(t => ['chiuso', 'inviato', 'fatturato'].includes(t.stato));
+      default:
+        return filtered;
+    }
+  };
 
-  const buttonsToRender = currentUser.ruolo === 'cliente' ? TASTI_CLIENTE : TASTI_TECNICO;
+  const filteredTickets = getFilteredTickets();
 
   return (
     <>
-      <div className="flex gap-2 p-1 bg-gray-100 rounded-lg mb-4 flex-wrap">
-        {buttonsToRender.map(status => {
-          if (counts[status] === undefined) return null;
-          return (
-            <button
-              key={status}
-              onClick={() => setViewState(status)}
-              className={`flex flex-1 items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
-                viewState === status ? 'bg-blue-600 text-white shadow' : 'text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {statusIcons[status]}
-              <span>{status.replace('_', ' ')} ({counts[status]})</span>
-            </button>
-          );
-        })}
+      <NotificationModal
+        ticket={notificationTicket}
+        onClose={() => setNotificationTicket(null)}
+        onOpenTicket={handleOpenTicketFromNotification}
+      />
+
+      <div className="mb-6">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => setFilter('tutti')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              filter === 'tutti'
+                ? 'bg-blue-500 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Tutti ({tickets.filter(t => currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id).length})
+          </button>
+          <button
+            onClick={() => setFilter('aperti')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              filter === 'aperti'
+                ? 'bg-blue-500 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Aperti ({tickets.filter(t => (currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id) && ['aperto', 'in_lavorazione'].includes(t.stato)).length})
+          </button>
+          <button
+            onClick={() => setFilter('risolti')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              filter === 'risolti'
+                ? 'bg-blue-500 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Risolti ({tickets.filter(t => (currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id) && t.stato === 'risolto').length})
+          </button>
+          <button
+            onClick={() => setFilter('chiusi')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              filter === 'chiusi'
+                ? 'bg-blue-500 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Chiusi ({tickets.filter(t => (currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id) && ['chiuso', 'inviato', 'fatturato'].includes(t.stato)).length})
+          </button>
+        </div>
       </div>
 
-      {currentUser.ruolo === 'tecnico' && (
-        <>
-            {['inviato', 'fatturato'].includes(viewState) && onGenerateReport && (
-                <button
-                onClick={onGenerateReport}
-                className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg mb-3 ${
-                    viewState === 'inviato' ? 'bg-gray-600' : 'bg-indigo-600'
-                }`}
-                >
-                <FileText size={18} />
-                {viewState === 'inviato' ? 'Genera Report' : 'Genera Lista Fatture'}
-                </button>
-            )}
-
-            <div className="mb-3">
-                <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
-                <select
-                value={selectedClient}
-                onChange={(e) => setSelectedClient(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
-                >
-                <option value="all">Tutti i clienti</option>
-                {clientiAttivi.map(c => (
-                    <option key={c.id} value={c.id}>
-                    {c.azienda} ({tickets.filter(t => t.clienteid === c.id).length})
-                    </option>
-                ))}
-                </select>
-            </div>
-        </>
-      )}
-    </>
-  );
-};
-
-// ====================================================================
-// COMPONENTE PRINCIPALE
-// ====================================================================
-const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, handlers, getUnreadCount }) => {
-  const [viewState, setViewState] = useState('aperto');
-  const [selectedClientFilter, setSelectedClientFilter] = useState('all');
-  
-  const { displayTickets, ticketCounts, usersMap } = useMemo(() => {
-    const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
-
-    const filterTickets = () => {
-      let filtered = tickets;
-      if (currentUser.ruolo === 'cliente') {
-        filtered = tickets.filter(t => t.clienteid === currentUser.id);
-      } else {
-        if (selectedClientFilter !== 'all') {
-          filtered = tickets.filter(t => t.clienteid === parseInt(selectedClientFilter));
-        }
-      }
-      return filtered.filter(t => t.stato === viewState);
-    };
-
-    const countTickets = (arr) => ({
-      aperto: arr.filter(t => t.stato === 'aperto').length,
-      in_lavorazione: arr.filter(t => t.stato === 'in_lavorazione').length,
-      risolto: arr.filter(t => t.stato === 'risolto').length,
-      chiuso: arr.filter(t => t.stato === 'chiuso').length,
-      inviato: arr.filter(t => t.stato === 'inviato').length,
-      fatturato: arr.filter(t => t.stato === 'fatturato').length
-    });
-
-    const relevantTicketsForCounts = currentUser.ruolo === 'cliente'
-      ? tickets.filter(t => t.clienteid === currentUser.id)
-      : tickets;
-
-    return { 
-      displayTickets: filterTickets(), 
-      ticketCounts: countTickets(relevantTicketsForCounts), 
-      usersMap
-    };
-  }, [tickets, users, currentUser, viewState, selectedClientFilter]);
-  
-  const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
-  
-  return (
-    <div className="bg-white rounded-xl shadow-lg">
-      <div className="p-4 border-b">
-        <h2 className="text-xl font-semibold mb-3">
-          {currentUser.ruolo === 'cliente' ? 'I Miei Interventi' : 'Lista Ticket'}
-        </h2>
-        
-        <FilterControls
-          currentUser={currentUser}
-          counts={ticketCounts}
-          viewState={viewState}
-          setViewState={setViewState}
-          clientiAttivi={clientiAttivi}
-          selectedClient={selectedClientFilter}
-          setSelectedClient={setSelectedClientFilter}
-          tickets={tickets}
-        />
-      </div>
-
-      <div className="divide-y">
-        {displayTickets.length === 0 ? (
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        {filteredTickets.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            <FileText size={48} className="mx-auto mb-3 opacity-30" />
-            <p>Nessun intervento con lo stato selezionato.</p>
+            Nessun ticket trovato
           </div>
         ) : (
-          displayTickets
-            .sort((a, b) => new Date(b.dataapertura) - new Date(a.dataapertura))
-            // --- ECCO LA CORREZIONE: Aggiunto un controllo per ignorare ticket "rotti" ---
-            .filter(t => t && t.id) // Ignora qualsiasi ticket che sia nullo o non abbia un id
-            .map(t => (
+          filteredTickets.map(ticket => {
+            const cliente = users.find(u => u.id === ticket.clienteid);
+            return (
               <TicketItem
-                key={t.id}
-                ticket={t}
-                cliente={usersMap[t.clienteid]}
+                key={ticket.id}
+                ticket={ticket}
+                cliente={cliente}
                 currentUser={currentUser}
                 selectedTicket={selectedTicket}
                 handlers={handlers}
                 getUnreadCount={getUnreadCount}
               />
-            ))
+            );
+          })
         )}
       </div>
-    </div>
+    </>
   );
-};
-
-export default TicketListContainer;
+}
