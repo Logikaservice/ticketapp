@@ -71,12 +71,36 @@ export default function TicketApp() {
   // ====================================================================
   const getUnreadCount = (ticket) => {
     if (!currentUser || !ticket.messaggi || ticket.messaggi.length === 0) return 0;
+    
     const lastRead = currentUser.ruolo === 'cliente' 
       ? ticket.last_read_by_client 
       : ticket.last_read_by_tecnico;
-    if (!lastRead) return ticket.messaggi.length;
+    
+    if (!lastRead) {
+      // Se non hai mai letto, conta solo i messaggi dell'ALTRA parte
+      if (currentUser.ruolo === 'cliente') {
+        // Cliente: conta solo messaggi del Tecnico
+        return ticket.messaggi.filter(m => m.autore === 'Tecnico').length;
+      } else {
+        // Tecnico: conta solo messaggi del Cliente (non 'Tecnico')
+        return ticket.messaggi.filter(m => m.autore !== 'Tecnico').length;
+      }
+    }
+    
     const lastReadDate = new Date(lastRead);
-    return ticket.messaggi.filter(m => new Date(m.data) > lastReadDate).length;
+    
+    // Conta solo i messaggi dell'ALTRA parte dopo last_read
+    if (currentUser.ruolo === 'cliente') {
+      // Cliente: conta solo messaggi del Tecnico
+      return ticket.messaggi.filter(m => 
+        new Date(m.data) > lastReadDate && m.autore === 'Tecnico'
+      ).length;
+    } else {
+      // Tecnico: conta solo messaggi del Cliente (non 'Tecnico')
+      return ticket.messaggi.filter(m => 
+        new Date(m.data) > lastReadDate && m.autore !== 'Tecnico'
+      ).length;
+    }
   };
 
   // ====================================================================
