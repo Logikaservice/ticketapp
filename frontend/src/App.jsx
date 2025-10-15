@@ -52,6 +52,26 @@ export default function TicketApp() {
   const [hasShownUnreadNotification, setHasShownUnreadNotification] = useState(false);
 
   // ====================================================================
+  // PERSISTENZA STATO TICKET CHIUSI AL RELOAD
+  // ====================================================================
+  useEffect(() => {
+    // Al mount, assicurati che tutti i ticket siano chiusi
+    const saved = localStorage.getItem('openTicketId');
+    if (!saved || saved === 'null') {
+      setSelectedTicket(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Salva lo stato quando cambia selectedTicket
+    if (selectedTicket) {
+      localStorage.setItem('openTicketId', selectedTicket.id);
+    } else {
+      localStorage.setItem('openTicketId', 'null');
+    }
+  }, [selectedTicket]);
+
+  // ====================================================================
   // NOTIFICHE
   // ====================================================================
   const showNotification = (message, type = 'success', duration = 5000) => {
@@ -77,26 +97,20 @@ export default function TicketApp() {
       : ticket.last_read_by_tecnico;
     
     if (!lastRead) {
-      // Se non hai mai letto, conta solo i messaggi dell'ALTRA parte
       if (currentUser.ruolo === 'cliente') {
-        // Cliente: conta solo messaggi del Tecnico
         return ticket.messaggi.filter(m => m.autore === 'Tecnico').length;
       } else {
-        // Tecnico: conta solo messaggi del Cliente (non 'Tecnico')
         return ticket.messaggi.filter(m => m.autore !== 'Tecnico').length;
       }
     }
     
     const lastReadDate = new Date(lastRead);
     
-    // Conta solo i messaggi dell'ALTRA parte dopo last_read
     if (currentUser.ruolo === 'cliente') {
-      // Cliente: conta solo messaggi del Tecnico
       return ticket.messaggi.filter(m => 
         new Date(m.data) > lastReadDate && m.autore === 'Tecnico'
       ).length;
     } else {
-      // Tecnico: conta solo messaggi del Cliente (non 'Tecnico')
       return ticket.messaggi.filter(m => 
         new Date(m.data) > lastReadDate && m.autore !== 'Tecnico'
       ).length;
@@ -183,6 +197,7 @@ export default function TicketApp() {
   const handleLogout = () => {
     setIsLoggedIn(false);
     setCurrentUser(null);
+    localStorage.removeItem('openTicketId');
     showNotification('Disconnessione effettuata.', 'info');
   };
 
@@ -230,7 +245,7 @@ export default function TicketApp() {
   const handleUpdateSettings = () => { /* ... la tua logica ... */ };
 
   // ====================================================================
-  // GESTIONE CLIENTI (con API) - ✅ IMPLEMENTATE
+  // GESTIONE CLIENTI
   // ====================================================================
   const handleCreateClient = async () => {
     if (!newClientData.email || !newClientData.password) {
@@ -542,6 +557,7 @@ export default function TicketApp() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         <TicketListContainer
           {...{ currentUser, tickets, users, selectedTicket, getUnreadCount }}
+          setSelectedTicket={setSelectedTicket}
           handlers={{
             handleSelectTicket,
             handleOpenEditModal,
