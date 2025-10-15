@@ -1,4 +1,4 @@
-import React from 'react';
+className={'cursor-pointer hover:bimport React from 'react';
 import { User, Settings, Clock, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon } from 'lucide-react';
 import { getStatoColor, getPrioritaColor, getPrioritaBgClass, getPrioritySolidBgClass, getStatoIcon } from '../utils/colors';
 import { formatDate } from '../utils/formatters';
@@ -33,8 +33,8 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
         onClick={() => handleSelectTicket(ticket)}
         className={'cursor-pointer hover:bg-gray-50 border-b relative overflow-hidden p-4 pl-5 transition-all ' + 
   (ticket.isNew ? getPrioritaBgClass(ticket.priorita) + ' animate-pulse shadow-md' : 
-   selectedTicket && selectedTicket.id === ticket.id ? 'bg-blue-50' : 'bg-white') + ' ' +
-  (hasUnread && (!selectedTicket || selectedTicket.id !== ticket.id) ? 'border-l-4 border-yellow-400 shadow-lg animate-pulse-slow bg-yellow-50' : '')}
+   selectedTicket?.id === ticket.id ? 'bg-blue-50' : 'bg-white') + ' ' +
+  (hasUnread && selectedTicket?.id !== ticket.id ? 'border-l-4 border-yellow-400 shadow-lg animate-pulse-slow bg-yellow-50' : '')}
       >
         <div className={'absolute top-0 left-0 h-full w-1 ' + getPrioritySolidBgClass(ticket.priorita)}></div>
 
