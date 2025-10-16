@@ -20,6 +20,17 @@ const AllModals = ({ modalState, closeModal, ...handlers }) => {
             {...handlers} 
           />
         );
+      
+      case 'viewTimeLogger':
+        // ✅ Modal TimeLogger in modalità SOLA LETTURA
+        return (
+          <TimeLoggerModal 
+            closeModal={closeModal} 
+            selectedTicket={modalState.data}
+            readOnly={true}
+            {...handlers} 
+          />
+        );
         
       case 'settings':
         return <SettingsModal closeModal={closeModal} {...handlers} />;
