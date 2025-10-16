@@ -6,7 +6,7 @@ import ChatInterface from './ChatInterface';
 
 const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, getUnreadCount }) => {
   // 👇 DEBUG: Controlla i timeLogs
-  console.log('🎫', ticket.numero, 'Stato:', ticket.stato, 'TimeLogs:', ticket.timeLogs);
+  console.log('🎫', ticket.numero, 'Stato:', ticket.stato, 'timelogs:', ticket.timelogs);
   
   const {
     handleSelectTicket,
@@ -81,10 +81,10 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
               <span>{ticket.categoria}</span>
               
               {['risolto', 'chiuso', 'inviato', 'fatturato'].includes(ticket.stato) && 
-               ticket.timeLogs && ticket.timeLogs[0] && ticket.timeLogs[0].modalita && (
+               ticket.timelogs && ticket.timelogs[0] && ticket.timelogs[0].modalita && (
                 <span className="px-2 py-0.5 text-xs rounded-full bg-green-50 text-green-700 font-bold flex items-center gap-1">
                   <Zap size={12} />
-                  {ticket.timeLogs[0].modalita}
+                  {ticket.timelogs[0].modalita}
                 </span>
               )}
               
@@ -113,7 +113,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                   <Settings size={18} />
                 </button>
 
-                {/* TEST: Pulsante Visualizza Intervento - SENZA CONTROLLO TIMELOGS */}
+                {/* Pulsante Visualizza Intervento - SEMPRE VISIBILE */}
                 {['risolto', 'chiuso', 'inviato', 'fatturato'].includes(ticket.stato) && (
                   <button
                     onClick={(e) => { e.stopPropagation(); handleViewTimeLog(ticket); }}
@@ -124,7 +124,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                   </button>
                 )}
 
-                {ticket.timeLogs && ticket.timeLogs.length > 0 && 
+                {ticket.timelogs && ticket.timelogs.length > 0 && 
                  ['risolto', 'chiuso', 'inviato'].includes(ticket.stato) && (
                   <button
                     onClick={(e) => { e.stopPropagation(); handleOpenTimeLogger(ticket); }}
