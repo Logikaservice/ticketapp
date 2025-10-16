@@ -431,6 +431,7 @@ export default function TicketApp() {
           ticket={fornitureModalTicket}
           onClose={() => setFornitureModalTicket(null)}
           onFornitureCountChange={handleFornitureCountChange}
+          currentUser={currentUser}
         />
       )}
     </div>
