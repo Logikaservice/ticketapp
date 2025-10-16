@@ -110,6 +110,18 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                   <Settings size={18} />
                 </button>
 
+                {/* Pulsante Visualizza Intervento - SUBITO DOPO SETTINGS */}
+                {['risolto', 'chiuso', 'inviato', 'fatturato'].includes(ticket.stato) && 
+                 ticket.timeLogs && ticket.timeLogs.length > 0 && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleViewTimeLog(ticket); }}
+                    title="Visualizza Intervento"
+                    className="p-1 rounded-full text-green-500 hover:bg-green-100"
+                  >
+                    <Eye size={18} />
+                  </button>
+                )}
+
                 {ticket.timeLogs && ticket.timeLogs.length > 0 && 
                  ['risolto', 'chiuso', 'inviato'].includes(ticket.stato) && (
                   <button
@@ -200,8 +212,9 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
               </>
             )}
 
-            {/* Pulsante Visualizza Intervento - Visibile a TUTTI */}
-            {['risolto', 'chiuso', 'inviato', 'fatturato'].includes(ticket.stato) && 
+            {/* CLIENTE - Pulsante Visualizza Intervento */}
+            {currentUser.ruolo === 'cliente' && 
+             ['risolto', 'chiuso', 'inviato', 'fatturato'].includes(ticket.stato) && 
              ticket.timeLogs && ticket.timeLogs.length > 0 && (
               <button
                 onClick={(e) => { e.stopPropagation(); handleViewTimeLog(ticket); }}
