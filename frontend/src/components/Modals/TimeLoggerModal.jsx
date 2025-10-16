@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Clock, Check, Plus, Copy, Trash2, Users } from 'lucide-react';
+import { X, Clock, Check, Plus, Copy, Trash2, Users, Eye } from 'lucide-react';
 import { calculateDurationHours } from '../../utils/helpers';
 
 const TimeLoggerModal = ({
@@ -14,14 +14,15 @@ const TimeLoggerModal = ({
   handleAddMaterial,
   handleRemoveMaterial,
   handleConfirmTimeLogs,
-  closeModal
+  closeModal,
+  readOnly = false
 }) => {
   return (
     <div className="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
       <div className="flex items-center justify-between mb-6 border-b pb-3">
         <h2 className="text-2xl font-bold text-blue-700 flex items-center gap-2">
-          <Clock size={24} />
-          Registra Intervento
+          {readOnly ? <Eye size={24} /> : <Clock size={24} />}
+          {readOnly ? 'Visualizza Intervento' : 'Registra Intervento'}
         </h2>
         <button onClick={closeModal} className="text-gray-400">
           <X size={24} />
@@ -43,22 +44,24 @@ const TimeLoggerModal = ({
             <div key={log.id} className="p-4 border rounded-lg bg-white relative">
               <h3 className="mb-3 flex justify-between">
                 Intervento #{index + 1}
-                <div className="flex gap-2">
-                  {timeLogs.length > 1 && (
+                {!readOnly && (
+                  <div className="flex gap-2">
+                    {timeLogs.length > 1 && (
+                      <button
+                        onClick={() => handleRemoveTimeLog(log.id)}
+                        className="text-red-500 p-1"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    )}
                     <button
-                      onClick={() => handleRemoveTimeLog(log.id)}
-                      className="text-red-500 p-1"
+                      onClick={() => handleDuplicateTimeLog(log)}
+                      className="text-blue-500 p-1"
                     >
-                      <Trash2 size={18} />
+                      <Copy size={18} />
                     </button>
-                  )}
-                  <button
-                    onClick={() => handleDuplicateTimeLog(log)}
-                    className="text-blue-500 p-1"
-                  >
-                    <Copy size={18} />
-                  </button>
-                </div>
+                  </div>
+                )}
               </h3>
 
               <div className="grid md:grid-cols-4 gap-4 mb-4">
@@ -67,7 +70,8 @@ const TimeLoggerModal = ({
                   <select
                     value={log.modalita}
                     onChange={(e) => handleTimeLogChange(log.id, 'modalita', e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                    disabled={readOnly}
+                    className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
                     <option>Telefonica</option>
                     <option>Teleassistenza</option>
@@ -82,7 +86,8 @@ const TimeLoggerModal = ({
                     type="date"
                     value={log.data}
                     onChange={(e) => handleTimeLogChange(log.id, 'data', e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                    disabled={readOnly}
+                    className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -97,7 +102,8 @@ const TimeLoggerModal = ({
                       const duration = calculateDurationHours(start, log.oraFine);
                       setTimeLogs(p => p.map(l => l.id === log.id ? { ...l, oraInizio: start, oreIntervento: duration.toFixed(2) } : l));
                     }}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                    disabled={readOnly}
+                    className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -112,7 +118,8 @@ const TimeLoggerModal = ({
                       const duration = calculateDurationHours(log.oraInizio, end);
                       setTimeLogs(p => p.map(l => l.id === log.id ? { ...l, oraFine: end, oreIntervento: duration.toFixed(2) } : l));
                     }}
-                    className="w-full px-3 py-2 border rounded-lg text-sm"
+                    disabled={readOnly}
+                    className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -122,7 +129,8 @@ const TimeLoggerModal = ({
                 value={log.descrizione}
                 onChange={(e) => handleTimeLogChange(log.id, 'descrizione', e.target.value)}
                 placeholder="Descrizione"
-                className="w-full px-3 py-2 border rounded-lg text-sm"
+                disabled={readOnly}
+                className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
 
               <div className="mt-5 border-t pt-4">
@@ -135,7 +143,8 @@ const TimeLoggerModal = ({
                       step="0.25"
                       value={log.oreIntervento}
                       onChange={(e) => handleTimeLogChange(log.id, 'oreIntervento', e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      disabled={readOnly}
+                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
                   </div>
 
@@ -146,7 +155,8 @@ const TimeLoggerModal = ({
                       step="0.01"
                       value={log.costoUnitario}
                       onChange={(e) => handleTimeLogChange(log.id, 'costoUnitario', e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      disabled={readOnly}
+                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
                   </div>
 
@@ -156,7 +166,8 @@ const TimeLoggerModal = ({
                       type="number"
                       value={log.sconto}
                       onChange={(e) => handleTimeLogChange(log.id, 'sconto', e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg text-sm"
+                      disabled={readOnly}
+                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                     />
                   </div>
 
@@ -190,7 +201,8 @@ const TimeLoggerModal = ({
                           type="text"
                           value={m.nome}
                           onChange={(e) => handleMaterialChange(log.id, m.id, 'nome', e.target.value)}
-                          className="w-full px-2 py-1 border rounded-lg text-sm"
+                          disabled={readOnly}
+                          className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                         />
                       </div>
 
@@ -201,7 +213,8 @@ const TimeLoggerModal = ({
                           min="1"
                           value={m.quantita}
                           onChange={(e) => handleMaterialChange(log.id, m.id, 'quantita', e.target.value)}
-                          className="w-full px-2 py-1 border rounded-lg text-sm"
+                          disabled={readOnly}
+                          className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                         />
                       </div>
 
@@ -212,12 +225,13 @@ const TimeLoggerModal = ({
                           step="0.01"
                           value={m.costo.toFixed(2)}
                           onChange={(e) => handleMaterialChange(log.id, m.id, 'costo', e.target.value)}
-                          className="w-full px-2 py-1 border rounded-lg text-sm"
+                          disabled={readOnly}
+                          className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                         />
                       </div>
 
                       <div className="col-span-1 pt-4 text-right">
-                        {log.materials.length > 1 && (
+                        {!readOnly && log.materials.length > 1 && (
                           <button
                             onClick={() => handleRemoveMaterial(log.id, m.id)}
                             className="text-red-500 p-1"
@@ -229,38 +243,44 @@ const TimeLoggerModal = ({
                     </div>
                   ))}
 
-                  <button
-                    onClick={() => handleAddMaterial(log.id)}
-                    className="w-full text-blue-500 text-xs font-medium flex items-center justify-center gap-1 mt-2 p-1"
-                  >
-                    <Plus size={14} />
-                    Aggiungi Materiale
-                  </button>
+                  {!readOnly && (
+                    <button
+                      onClick={() => handleAddMaterial(log.id)}
+                      className="w-full text-blue-500 text-xs font-medium flex items-center justify-center gap-1 mt-2 p-1"
+                    >
+                      <Plus size={14} />
+                      Aggiungi Materiale
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           );
         })}
 
-        <button
-          onClick={handleAddTimeLog}
-          className="w-full px-4 py-2 border border-blue-500 text-blue-600 rounded-lg flex items-center justify-center gap-2"
-        >
-          <Plus size={18} />
-          Aggiungi Intervallo
-        </button>
+        {!readOnly && (
+          <button
+            onClick={handleAddTimeLog}
+            className="w-full px-4 py-2 border border-blue-500 text-blue-600 rounded-lg flex items-center justify-center gap-2"
+          >
+            <Plus size={18} />
+            Aggiungi Intervallo
+          </button>
+        )}
 
         <div className="flex gap-3 pt-4 border-t">
           <button onClick={closeModal} className="flex-1 px-4 py-3 border rounded-lg">
-            Annulla
+            {readOnly ? 'Chiudi' : 'Annulla'}
           </button>
-          <button
-            onClick={handleConfirmTimeLogs}
-            className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
-          >
-            <Check size={18} />
-            Conferma e Risolvi
-          </button>
+          {!readOnly && (
+            <button
+              onClick={handleConfirmTimeLogs}
+              className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
+            >
+              <Check size={18} />
+              Conferma e Risolvi
+            </button>
+          )}
         </div>
       </div>
     </div>
