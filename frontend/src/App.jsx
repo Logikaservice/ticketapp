@@ -7,6 +7,7 @@ import Header from './components/Header';
 import TicketListContainer from './components/TicketListContainer';
 import AllModals from './components/Modals/AllModals';
 import { getInitialMaterial, getInitialTimeLog } from './utils/helpers';
+import { formatDate } from './utils/formatters';
 import ManageClientsModal from './components/Modals/ManageClientsModal';
 import NewClientModal from './components/Modals/NewClientModal';
 import NewTicketModal from './components/Modals/NewTicketModal';
@@ -343,6 +344,138 @@ export default function TicketApp() {
   };
 
   // ====================================================================
+  // GENERAZIONE REPORT
+  // ====================================================================
+  const handleGenerateSentReport = () => {
+    const sentTickets = tickets.filter(t => t.stato === 'inviato');
+    
+    if (sentTickets.length === 0) {
+      showNotification('Nessun ticket inviato da mostrare.', 'info');
+      return;
+    }
+
+    let reportContent = `REPORT TICKET INVIATI\n`;
+    reportContent += `Data generazione: ${new Date().toLocaleDateString('it-IT')}\n`;
+    reportContent += `Totale ticket: ${sentTickets.length}\n`;
+    reportContent += `\n${'='.repeat(80)}\n\n`;
+
+    sentTickets.forEach((ticket, index) => {
+      const cliente = users.find(u => u.id === ticket.clienteid);
+      reportContent += `${index + 1}. TICKET ${ticket.numero}\n`;
+      reportContent += `   Cliente: ${cliente ? cliente.azienda : 'N/A'}\n`;
+      reportContent += `   Titolo: ${ticket.titolo}\n`;
+      reportContent += `   Richiedente: ${ticket.nomerichiedente}\n`;
+      reportContent += `   Data apertura: ${formatDate(ticket.dataapertura)}\n`;
+      reportContent += `   Data chiusura: ${ticket.datachiusura ? formatDate(ticket.datachiusura) : 'N/A'}\n`;
+      
+      if (ticket.timelogs && ticket.timelogs.length > 0) {
+        reportContent += `\n   INTERVENTI:\n`;
+        let totaleCosto = 0;
+        
+        ticket.timelogs.forEach((log, logIndex) => {
+          const costoManodopera = (parseFloat(log.costoUnitario) || 0) * (1 - (parseFloat(log.sconto) || 0) / 100) * (parseFloat(log.oreIntervento) || 0);
+          const costoMateriali = (log.materials || []).reduce((sum, m) => sum + (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1), 0);
+          const totaleIntervento = costoManodopera + costoMateriali;
+          totaleCosto += totaleIntervento;
+          
+          reportContent += `   ${logIndex + 1}. ${log.modalita} - ${log.data}\n`;
+          reportContent += `      Ore: ${log.oreIntervento}h | Costo/h: €${log.costoUnitario} | Sconto: ${log.sconto}%\n`;
+          reportContent += `      Descrizione: ${log.descrizione || 'N/A'}\n`;
+          
+          if (log.materials && log.materials.length > 0) {
+            reportContent += `      Materiali:\n`;
+            log.materials.forEach(m => {
+              reportContent += `        - ${m.nome} (${m.quantita}x) €${m.costo.toFixed(2)}\n`;
+            });
+          }
+          
+          reportContent += `      Totale intervento: €${totaleIntervento.toFixed(2)}\n`;
+        });
+        
+        reportContent += `\n   TOTALE TICKET: €${totaleCosto.toFixed(2)}\n`;
+      } else {
+        reportContent += `   Nessun intervento registrato\n`;
+      }
+      
+      reportContent += `\n${'-'.repeat(80)}\n\n`;
+    });
+
+    const totaleCostoGenerale = sentTickets.reduce((sum, ticket) => {
+      if (!ticket.timelogs) return sum;
+      return sum + ticket.timelogs.reduce((ticketSum, log) => {
+        const costoManodopera = (parseFloat(log.costoUnitario) || 0) * (1 - (parseFloat(log.sconto) || 0) / 100) * (parseFloat(log.oreIntervento) || 0);
+        const costoMateriali = (log.materials || []).reduce((matSum, m) => matSum + (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1), 0);
+        return ticketSum + costoManodopera + costoMateriali;
+      }, 0);
+    }, 0);
+
+    reportContent += `\nTOTALE GENERALE: €${totaleCostoGenerale.toFixed(2)}\n`;
+
+    setModalState({
+      type: 'sentReport',
+      data: {
+        title: 'Report Ticket Inviati',
+        content: reportContent,
+        color: 'text-gray-700'
+      }
+    });
+  };
+
+  const handleGenerateInvoiceReport = () => {
+    const invoicedTickets = tickets.filter(t => t.stato === 'fatturato');
+    
+    if (invoicedTickets.length === 0) {
+      showNotification('Nessun ticket fatturato da mostrare.', 'info');
+      return;
+    }
+
+    let reportContent = `LISTA FATTURE\n`;
+    reportContent += `Data generazione: ${new Date().toLocaleDateString('it-IT')}\n`;
+    reportContent += `Totale fatture: ${invoicedTickets.length}\n`;
+    reportContent += `\n${'='.repeat(80)}\n\n`;
+
+    invoicedTickets.forEach((ticket, index) => {
+      const cliente = users.find(u => u.id === ticket.clienteid);
+      let totaleCosto = 0;
+      
+      if (ticket.timelogs && ticket.timelogs.length > 0) {
+        totaleCosto = ticket.timelogs.reduce((sum, log) => {
+          const costoManodopera = (parseFloat(log.costoUnitario) || 0) * (1 - (parseFloat(log.sconto) || 0) / 100) * (parseFloat(log.oreIntervento) || 0);
+          const costoMateriali = (log.materials || []).reduce((matSum, m) => matSum + (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1), 0);
+          return sum + costoManodopera + costoMateriali;
+        }, 0);
+      }
+
+      reportContent += `${index + 1}. FATTURA ${ticket.numero}\n`;
+      reportContent += `   Cliente: ${cliente ? cliente.azienda : 'N/A'}\n`;
+      reportContent += `   Titolo: ${ticket.titolo}\n`;
+      reportContent += `   Data: ${ticket.datachiusura ? formatDate(ticket.datachiusura) : formatDate(ticket.dataapertura)}\n`;
+      reportContent += `   Importo: €${totaleCosto.toFixed(2)}\n`;
+      reportContent += `\n${'-'.repeat(80)}\n\n`;
+    });
+
+    const totaleGenerale = invoicedTickets.reduce((sum, ticket) => {
+      if (!ticket.timelogs) return sum;
+      return sum + ticket.timelogs.reduce((ticketSum, log) => {
+        const costoManodopera = (parseFloat(log.costoUnitario) || 0) * (1 - (parseFloat(log.sconto) || 0) / 100) * (parseFloat(log.oreIntervento) || 0);
+        const costoMateriali = (log.materials || []).reduce((matSum, m) => matSum + (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1), 0);
+        return ticketSum + costoManodopera + costoMateriali;
+      }, 0);
+    }, 0);
+
+    reportContent += `\nTOTALE FATTURE: €${totaleGenerale.toFixed(2)}\n`;
+
+    setModalState({
+      type: 'invoiceReport',
+      data: {
+        title: 'Lista Fatture',
+        content: reportContent,
+        color: 'text-indigo-700'
+      }
+    });
+  };
+
+  // ====================================================================
   // WRAPPER FUNZIONI
   // ====================================================================
   const handleUpdateSettings = () => { /* ... la tua logica ... */ };
@@ -372,8 +505,6 @@ export default function TicketApp() {
   const handleSetInviato = (id) => handleChangeStatus(id, 'inviato');
   const handleArchiveTicket = (id) => handleChangeStatus(id, 'chiuso');
   const handleInvoiceTicket = (id) => handleChangeStatus(id, 'fatturato');
-  const handleGenerateSentReport = () => {};
-  const handleGenerateInvoiceReport = () => {};
   
   const handleTimeLogChange = (logId, field, value) => {
     setTimeLogs(prev => prev.map(log => log.id === logId ? { ...log, [field]: value } : log));
@@ -473,6 +604,7 @@ export default function TicketApp() {
         handleConfirmTimeLogs={wrappedHandleConfirmTimeLogs}
         handleSaveTimeLogs={handleSaveTimeLogs}
         currentUser={currentUser}
+        showNotification={showNotification}
       />
 
       {modalState.type === 'manageClients' && (
