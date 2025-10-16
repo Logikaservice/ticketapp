@@ -5,6 +5,9 @@ import { formatDate } from '../utils/formatters';
 import ChatInterface from './ChatInterface';
 
 const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, getUnreadCount }) => {
+  // 👇 DEBUG: Controlla i timeLogs
+  console.log('🎫', ticket.numero, 'Stato:', ticket.stato, 'TimeLogs:', ticket.timeLogs);
+  
   const {
     handleSelectTicket,
     handleOpenEditModal,
@@ -110,9 +113,8 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                   <Settings size={18} />
                 </button>
 
-                {/* Pulsante Visualizza Intervento - SUBITO DOPO SETTINGS */}
-                {['risolto', 'chiuso', 'inviato', 'fatturato'].includes(ticket.stato) && 
-                 ticket.timeLogs && ticket.timeLogs.length > 0 && (
+                {/* TEST: Pulsante Visualizza Intervento - SENZA CONTROLLO TIMELOGS */}
+                {['risolto', 'chiuso', 'inviato', 'fatturato'].includes(ticket.stato) && (
                   <button
                     onClick={(e) => { e.stopPropagation(); handleViewTimeLog(ticket); }}
                     title="Visualizza Intervento"
@@ -214,8 +216,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
 
             {/* CLIENTE - Pulsante Visualizza Intervento */}
             {currentUser.ruolo === 'cliente' && 
-             ['risolto', 'chiuso', 'inviato', 'fatturato'].includes(ticket.stato) && 
-             ticket.timeLogs && ticket.timeLogs.length > 0 && (
+             ['risolto', 'chiuso', 'inviato', 'fatturato'].includes(ticket.stato) && (
               <button
                 onClick={(e) => { e.stopPropagation(); handleViewTimeLog(ticket); }}
                 title="Visualizza Intervento"
