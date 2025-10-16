@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Package, Plus, Trash2 } from 'lucide-react';
 
-const FornitureModal = ({ ticket, onClose, onFornitureCountChange }) => {
+const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser }) => {
   const [forniture, setForniture] = useState([]);
   const [nuovoMateriale, setNuovoMateriale] = useState('');
   const [nuovaQuantita, setNuovaQuantita] = useState(1);
@@ -78,6 +78,8 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange }) => {
     }
   };
 
+  const isTecnico = currentUser?.ruolo === 'tecnico';
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -95,34 +97,36 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange }) => {
           Ticket: {ticket.numero} - {ticket.titolo}
         </div>
 
-        {/* Form Aggiungi */}
-        <div className="mb-6 p-4 border rounded-lg bg-gray-50">
-          <h3 className="font-bold mb-3">Aggiungi Fornitura</h3>
-          <div className="flex gap-3">
-            <input
-              type="text"
-              value={nuovoMateriale}
-              onChange={(e) => setNuovoMateriale(e.target.value)}
-              placeholder="Nome materiale"
-              className="flex-1 px-3 py-2 border rounded-lg"
-              onKeyPress={(e) => e.key === 'Enter' && handleAggiungi()}
-            />
-            <input
-              type="number"
-              min="1"
-              value={nuovaQuantita}
-              onChange={(e) => setNuovaQuantita(parseInt(e.target.value) || 1)}
-              className="w-24 px-3 py-2 border rounded-lg"
-            />
-            <button
-              onClick={handleAggiungi}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700"
-            >
-              <Plus size={18} />
-              Aggiungi
-            </button>
+        {/* Form Aggiungi - SOLO PER TECNICO */}
+        {isTecnico && (
+          <div className="mb-6 p-4 border rounded-lg bg-gray-50">
+            <h3 className="font-bold mb-3">Aggiungi Fornitura</h3>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={nuovoMateriale}
+                onChange={(e) => setNuovoMateriale(e.target.value)}
+                placeholder="Nome materiale"
+                className="flex-1 px-3 py-2 border rounded-lg"
+                onKeyPress={(e) => e.key === 'Enter' && handleAggiungi()}
+              />
+              <input
+                type="number"
+                min="1"
+                value={nuovaQuantita}
+                onChange={(e) => setNuovaQuantita(parseInt(e.target.value) || 1)}
+                className="w-24 px-3 py-2 border rounded-lg"
+              />
+              <button
+                onClick={handleAggiungi}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700"
+              >
+                <Plus size={18} />
+                Aggiungi
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Lista Forniture */}
         <div className="space-y-3">
@@ -144,13 +148,15 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange }) => {
                     Quantità: {f.quantita} - Prestito: {new Date(f.data_prestito).toLocaleDateString('it-IT')}
                   </div>
                 </div>
-                <button
-                  onClick={() => handleRestituisci(f.id)}
-                  className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-1 text-sm"
-                >
-                  <Trash2 size={16} />
-                  Restituito
-                </button>
+                {isTecnico && (
+                  <button
+                    onClick={() => handleRestituisci(f.id)}
+                    className="px-3 py-1 text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-1 text-sm"
+                  >
+                    <Trash2 size={16} />
+                    Restituito
+                  </button>
+                )}
               </div>
             ))
           )}
