@@ -10,6 +10,7 @@ import { getInitialMaterial, getInitialTimeLog } from './utils/helpers';
 import ManageClientsModal from './components/Modals/ManageClientsModal';
 import NewClientModal from './components/Modals/NewClientModal';
 import NewTicketModal from './components/Modals/NewTicketModal';
+import FornitureModal from './components/Modals/FornitureModal';
 import { useAuth } from './hooks/useAuth';
 import { useClients } from './hooks/useClients';
 import { useTickets } from './hooks/useTickets';
@@ -49,6 +50,7 @@ export default function TicketApp() {
   const [isEditingTicket, setIsEditingTicket] = useState(null);
   const [selectedClientForNewTicket, setSelectedClientForNewTicket] = useState('');
   const [hasShownUnreadNotification, setHasShownUnreadNotification] = useState(false);
+  const [fornitureModalTicket, setFornitureModalTicket] = useState(null);
 
   // ====================================================================
   // NOTIFICHE
@@ -168,7 +170,24 @@ export default function TicketApp() {
         const ticketsResponse = await fetch(process.env.REACT_APP_API_URL + '/api/tickets');
         if (!ticketsResponse.ok) throw new Error("Errore nel caricare i ticket");
         const ticketsData = await ticketsResponse.json();
-        setTickets(ticketsData);
+        
+        // Carica il conteggio forniture per ogni ticket
+        const ticketsWithForniture = await Promise.all(
+          ticketsData.map(async (ticket) => {
+            try {
+              const fornitureResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`);
+              if (fornitureResponse.ok) {
+                const forniture = await fornitureResponse.json();
+                return { ...ticket, fornitureCount: forniture.length };
+              }
+            } catch (err) {
+              console.error(`Errore nel caricare forniture per ticket ${ticket.id}:`, err);
+            }
+            return { ...ticket, fornitureCount: 0 };
+          })
+        );
+        
+        setTickets(ticketsWithForniture);
 
         if (currentUser.ruolo === 'tecnico') {
           const usersResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users');
@@ -176,7 +195,7 @@ export default function TicketApp() {
         }
         
         if (!hasShownUnreadNotification) {
-            const unreadTickets = ticketsData.filter(t => getUnreadCount(t) > 0);
+            const unreadTickets = ticketsWithForniture.filter(t => getUnreadCount(t) > 0);
             if (unreadTickets.length > 0) {
                 const totalUnread = unreadTickets.reduce((sum, t) => sum + getUnreadCount(t), 0);
                 showNotification(`Hai ${totalUnread} nuov${totalUnread === 1 ? 'o messaggio' : 'i messaggi'}!`, 'info');
@@ -234,6 +253,9 @@ export default function TicketApp() {
     setIsEditingTicket(ticket.id);
     setSelectedClientForNewTicket(ticket.clienteid.toString());
     setModalState({ type: 'newTicket', data: ticket });
+  };
+  const handleOpenForniture = (ticket) => {
+    setFornitureModalTicket(ticket);
   };
 
   // ====================================================================
@@ -331,6 +353,7 @@ export default function TicketApp() {
             handleSelectTicket,
             handleOpenEditModal,
             handleOpenTimeLogger,
+            handleOpenForniture,
             handleReopenInLavorazione,
             handleChangeStatus,
             handleReopenAsRisolto,
@@ -394,6 +417,13 @@ export default function TicketApp() {
           clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
           selectedClientForNewTicket={selectedClientForNewTicket}
           setSelectedClientForNewTicket={setSelectedClientForNewTicket}
+        />
+      )}
+
+      {fornitureModalTicket && (
+        <FornitureModal
+          ticket={fornitureModalTicket}
+          onClose={() => setFornitureModalTicket(null)}
         />
       )}
     </div>
