@@ -17,6 +17,12 @@ const TimeLoggerModal = ({
   closeModal,
   readOnly = false
 }) => {
+  // 👇 DEBUG
+  console.log('📋 TimeLoggerModal - selectedTicket:', selectedTicket);
+  console.log('📋 TimeLoggerModal - timeLogs ricevuti:', timeLogs);
+  console.log('📋 TimeLoggerModal - readOnly:', readOnly);
+  console.log('📋 TimeLoggerModal - timeLogs.length:', timeLogs?.length);
+  
   return (
     <div className="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
       <div className="flex items-center justify-between mb-6 border-b pb-3">
