@@ -258,6 +258,18 @@ export default function TicketApp() {
     setFornitureModalTicket(ticket);
   };
   
+  const handleViewTimeLog = (ticket) => {
+    setSelectedTicket(ticket);
+    const logs = Array.isArray(ticket.timeLogs) ? ticket.timeLogs : [];
+    const initialLogs = logs.length > 0 ? logs.map(lg => ({ 
+      ...lg, 
+      id: Date.now() + Math.random(), 
+      materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()] 
+    })) : [];
+    setTimeLogs(initialLogs);
+    setModalState({ type: 'viewTimeLogger', data: ticket });
+  };
+  
   const handleFornitureCountChange = (ticketId, newCount) => {
     setTickets(prev => prev.map(t => 
       t.id === ticketId ? { ...t, fornitureCount: newCount } : t
@@ -359,6 +371,7 @@ export default function TicketApp() {
             handleSelectTicket,
             handleOpenEditModal,
             handleOpenTimeLogger,
+            handleViewTimeLog,
             handleOpenForniture,
             handleReopenInLavorazione,
             handleChangeStatus,
