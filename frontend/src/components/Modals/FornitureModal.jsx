@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Package, Plus, Trash2 } from 'lucide-react';
 
-const FornitureModal = ({ ticket, onClose }) => {
+const FornitureModal = ({ ticket, onClose, onFornitureCountChange }) => {
   const [forniture, setForniture] = useState([]);
   const [nuovoMateriale, setNuovoMateriale] = useState('');
   const [nuovaQuantita, setNuovaQuantita] = useState(1);
@@ -17,6 +17,10 @@ const FornitureModal = ({ ticket, onClose }) => {
       if (response.ok) {
         const data = await response.json();
         setForniture(data);
+        // Aggiorna il conteggio in tempo reale
+        if (onFornitureCountChange) {
+          onFornitureCountChange(ticket.id, data.length);
+        }
       }
     } catch (err) {
       console.error('Errore nel caricare le forniture:', err);
@@ -37,9 +41,15 @@ const FornitureModal = ({ ticket, onClose }) => {
 
       if (response.ok) {
         const newFornitura = await response.json();
-        setForniture(prev => [newFornitura, ...prev]);
+        const updatedForniture = [newFornitura, ...forniture];
+        setForniture(updatedForniture);
         setNuovoMateriale('');
         setNuovaQuantita(1);
+        
+        // Aggiorna il badge immediatamente
+        if (onFornitureCountChange) {
+          onFornitureCountChange(ticket.id, updatedForniture.length);
+        }
       }
     } catch (err) {
       console.error('Errore nell\'aggiungere la fornitura:', err);
@@ -55,7 +65,13 @@ const FornitureModal = ({ ticket, onClose }) => {
       });
 
       if (response.ok) {
-        setForniture(prev => prev.filter(f => f.id !== fornituraId));
+        const updatedForniture = forniture.filter(f => f.id !== fornituraId);
+        setForniture(updatedForniture);
+        
+        // Aggiorna il badge immediatamente
+        if (onFornitureCountChange) {
+          onFornitureCountChange(ticket.id, updatedForniture.length);
+        }
       }
     } catch (err) {
       console.error('Errore nella restituzione:', err);
