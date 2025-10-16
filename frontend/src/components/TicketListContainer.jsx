@@ -232,7 +232,6 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
   // Auto-switch quando lo stato corrente ha 0 ticket
   useEffect(() => {
     if (ticketCounts[viewState] === 0) {
-      // Trova il primo stato con ticket > 0
       const availableStates = Object.keys(ticketCounts).filter(s => ticketCounts[s] > 0);
       if (availableStates.length > 0) {
         setViewState(availableStates[0]);
@@ -292,6 +291,13 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
             tickets={tickets}
             changedStates={changedStates}
             markAsViewed={markAsViewed}
+            onGenerateReport={
+              viewState === 'inviato' 
+                ? handlers.handleGenerateSentReport 
+                : viewState === 'fatturato' 
+                  ? handlers.handleGenerateInvoiceReport 
+                  : null
+            }
           />
         </div>
 
