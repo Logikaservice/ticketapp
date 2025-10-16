@@ -41,16 +41,24 @@ const FilterControls = ({
         {buttonsToRender.map(status => {
           if (counts[status] === undefined) return null;
           const hasChanged = changedStates.includes(status);
+          const hasTickets = counts[status] > 0;
           
           return (
             <button
               key={status}
               onClick={() => {
-                setViewState(status);
-                markAsViewed(status);
+                if (hasTickets) {
+                  setViewState(status);
+                  markAsViewed(status);
+                }
               }}
+              disabled={!hasTickets}
               className={`flex flex-1 items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
-                viewState === status ? 'bg-blue-600 text-white shadow' : 'text-gray-700 hover:bg-gray-200'
+                viewState === status && hasTickets
+                  ? 'bg-blue-600 text-white shadow' 
+                  : hasTickets 
+                    ? 'text-gray-700 hover:bg-gray-200 cursor-pointer'
+                    : 'text-gray-400 cursor-not-allowed bg-gray-50'
               }`}
             >
               {statusIcons[status]}
@@ -220,6 +228,17 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
     });
     setChangedStates(changed);
   }, [ticketCounts, lastSeenCounts]);
+
+  // Auto-switch quando lo stato corrente ha 0 ticket
+  useEffect(() => {
+    if (ticketCounts[viewState] === 0) {
+      // Trova il primo stato con ticket > 0
+      const availableStates = Object.keys(ticketCounts).filter(s => ticketCounts[s] > 0);
+      if (availableStates.length > 0) {
+        setViewState(availableStates[0]);
+      }
+    }
+  }, [ticketCounts, viewState]);
 
   const markAsViewed = (status) => {
     const newLastSeen = {
