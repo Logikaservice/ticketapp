@@ -1,17 +1,15 @@
 import React from 'react';
-import { User, Settings, Clock, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon, Package, Eye } from 'lucide-react';
+import { User, Settings, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon, Package, Eye } from 'lucide-react';
 import { getStatoColor, getPrioritaColor, getPrioritaBgClass, getPrioritySolidBgClass, getStatoIcon } from '../utils/colors';
 import { formatDate } from '../utils/formatters';
 import ChatInterface from './ChatInterface';
 
 const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, getUnreadCount }) => {
-  // DEBUG
   console.log('🎫', ticket.numero, 'Stato:', ticket.stato, 'timelogs:', ticket.timelogs);
   
   const {
     handleSelectTicket,
     handleOpenEditModal,
-    handleOpenTimeLogger,
     handleViewTimeLog,
     handleOpenForniture,
     handleReopenInLavorazione,
@@ -114,16 +112,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                     <Settings size={18} />
                   </button>
 
-                  {ticket.timelogs && ticket.timelogs.length > 0 && 
-                   ['risolto', 'chiuso', 'inviato'].includes(ticket.stato) && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleOpenTimeLogger(ticket); }}
-                      title="Modifica interventi"
-                      className="p-1 rounded-full text-gray-500 hover:bg-gray-100"
-                    >
-                      <Clock size={18} />
-                    </button>
-                  )}
+                  {/* ❌ RIMOSSO: Pulsante Clock "Modifica interventi" */}
 
                   {ticket.stato === 'risolto' && (
                     <>
@@ -245,7 +234,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
           </button>
         </div>
 
-        {/* 🎨 BANNER GIALLO VISUALIZZA INTERVENTO */}
+        {/* Banner Visualizza Intervento */}
         {['risolto', 'chiuso', 'inviato', 'fatturato'].includes(ticket.stato) && (
           <button
             onClick={(e) => {
