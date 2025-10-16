@@ -235,13 +235,16 @@ export default function TicketApp() {
   };
   const openManageClientsModal = () => setModalState({ type: 'manageClients' });
   const openNewClientModal = () => setModalState({ type: 'newClient' });
+  
   const handleOpenTimeLogger = (ticket) => {
     setSelectedTicket(ticket);
-    const logs = Array.isArray(ticket.timeLogs) ? ticket.timeLogs : [];
+    // 👇 CORRETTO: timelogs minuscolo
+    const logs = Array.isArray(ticket.timelogs) ? ticket.timelogs : [];
     const initialLogs = logs.length > 0 ? logs.map(lg => ({ ...lg, id: Date.now() + Math.random(), materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()] })) : [getInitialTimeLog()];
     setTimeLogs(initialLogs);
     setModalState({ type: 'timeLogger', data: ticket });
   };
+  
   const handleOpenEditModal = (ticket) => {
     setNewTicketData({
       titolo: ticket.titolo,
@@ -254,18 +257,28 @@ export default function TicketApp() {
     setSelectedClientForNewTicket(ticket.clienteid.toString());
     setModalState({ type: 'newTicket', data: ticket });
   };
+  
   const handleOpenForniture = (ticket) => {
     setFornitureModalTicket(ticket);
   };
   
   const handleViewTimeLog = (ticket) => {
+    console.log('👁️ handleViewTimeLog chiamato');
+    console.log('👁️ Ticket:', ticket);
+    console.log('👁️ Ticket.timelogs:', ticket.timelogs);
+    
     setSelectedTicket(ticket);
-    const logs = Array.isArray(ticket.timeLogs) ? ticket.timeLogs : [];
+    // 👇 CORRETTO: timelogs minuscolo
+    const logs = Array.isArray(ticket.timelogs) ? ticket.timelogs : [];
+    console.log('👁️ Logs estratti:', logs);
+    
     const initialLogs = logs.length > 0 ? logs.map(lg => ({ 
       ...lg, 
       id: Date.now() + Math.random(), 
       materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()] 
     })) : [];
+    
+    console.log('👁️ InitialLogs preparati:', initialLogs);
     setTimeLogs(initialLogs);
     setModalState({ type: 'viewTimeLogger', data: ticket });
   };
