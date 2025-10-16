@@ -187,5 +187,78 @@ module.exports = (pool) => {
     }
   });
 
+  // ====================================================================
+  // ENDPOINTS FORNITURE TEMPORANEE
+  // ====================================================================
+
+  // ENDPOINT: Prende forniture temporanee di un ticket
+  router.get('/:id/forniture', async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+      const client = await pool.connect();
+      const result = await client.query(
+        'SELECT * FROM forniture_temporanee WHERE ticket_id = $1 ORDER BY data_prestito DESC',
+        [id]
+      );
+      client.release();
+      res.json(result.rows);
+    } catch (err) {
+      console.error('Errore nel recuperare le forniture:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // ENDPOINT: Aggiungi fornitura temporanea
+  router.post('/:id/forniture', async (req, res) => {
+    const { id } = req.params;
+    const { materiale, quantita } = req.body;
+    
+    if (!materiale || !quantita) {
+      return res.status(400).json({ error: 'Materiale e quantità sono obbligatori' });
+    }
+    
+    try {
+      const client = await pool.connect();
+      const query = `
+        INSERT INTO forniture_temporanee (ticket_id, materiale, quantita) 
+        VALUES ($1, $2, $3) 
+        RETURNING *;
+      `;
+      const result = await client.query(query, [id, materiale, parseInt(quantita)]);
+      client.release();
+      
+      console.log(`✅ Fornitura aggiunta al ticket ${id}`);
+      res.status(201).json(result.rows[0]);
+    } catch (err) {
+      console.error('Errore nell\'aggiungere la fornitura:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // ENDPOINT: Elimina fornitura temporanea (restituita)
+  router.delete('/forniture/:fornituraId', async (req, res) => {
+    const { fornituraId } = req.params;
+    
+    try {
+      const client = await pool.connect();
+      const result = await client.query(
+        'DELETE FROM forniture_temporanee WHERE id = $1 RETURNING *',
+        [fornituraId]
+      );
+      client.release();
+      
+      if (result.rowCount > 0) {
+        console.log(`✅ Fornitura ${fornituraId} restituita`);
+        res.json({ message: 'Fornitura restituita con successo' });
+      } else {
+        res.status(404).json({ error: 'Fornitura non trovata' });
+      }
+    } catch (err) {
+      console.error('Errore nell\'eliminare la fornitura:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   return router;
 };
