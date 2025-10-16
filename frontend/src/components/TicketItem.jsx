@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Settings, Clock, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon, Package } from 'lucide-react';
+import { User, Settings, Clock, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon, Package, Eye } from 'lucide-react';
 import { getStatoColor, getPrioritaColor, getPrioritaBgClass, getPrioritySolidBgClass, getStatoIcon } from '../utils/colors';
 import { formatDate } from '../utils/formatters';
 import ChatInterface from './ChatInterface';
@@ -9,6 +9,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
     handleSelectTicket,
     handleOpenEditModal,
     handleOpenTimeLogger,
+    handleViewTimeLog,
     handleOpenForniture,
     handleReopenInLavorazione,
     handleChangeStatus,
@@ -197,6 +198,18 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                   </button>
                 )}
               </>
+            )}
+
+            {/* Pulsante Visualizza Intervento - Visibile a TUTTI */}
+            {['risolto', 'chiuso', 'inviato', 'fatturato'].includes(ticket.stato) && 
+             ticket.timeLogs && ticket.timeLogs.length > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleViewTimeLog(ticket); }}
+                title="Visualizza Intervento"
+                className="p-1 rounded-full text-green-500 hover:bg-green-100"
+              >
+                <Eye size={18} />
+              </button>
             )}
 
             {canDelete && (
