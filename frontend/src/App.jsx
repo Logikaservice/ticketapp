@@ -355,68 +355,318 @@ export default function TicketApp() {
     }
 
     let reportContent = `REPORT TICKET INVIATI\n`;
-    reportContent += `Data generazione: ${new Date().toLocaleDateString('it-IT')}\n`;
-    reportContent += `Totale ticket: ${sentTickets.length}\n`;
-    reportContent += `\n${'='.repeat(80)}\n\n`;
-
-    sentTickets.forEach((ticket, index) => {
-      const cliente = users.find(u => u.id === ticket.clienteid);
-      reportContent += `${index + 1}. TICKET ${ticket.numero}\n`;
-      reportContent += `   Cliente: ${cliente ? cliente.azienda : 'N/A'}\n`;
-      reportContent += `   Titolo: ${ticket.titolo}\n`;
-      reportContent += `   Richiedente: ${ticket.nomerichiedente}\n`;
-      reportContent += `   Data apertura: ${formatDate(ticket.dataapertura)}\n`;
-      reportContent += `   Data chiusura: ${ticket.datachiusura ? formatDate(ticket.datachiusura) : 'N/A'}\n`;
-      
+    // ====================================================================
+  // GENERAZIONE REPORT HTML
+  // ====================================================================
+  const generateReportHTML = (tickets, reportTitle, reportType) => {
+    const isInvoice = reportType === 'invoice';
+    
+    // Calcola totali
+    let totalServizi = 0;
+    let totalMateriali = 0;
+    
+    tickets.forEach(ticket => {
       if (ticket.timelogs && ticket.timelogs.length > 0) {
-        reportContent += `\n   INTERVENTI:\n`;
-        let totaleCosto = 0;
-        
+        ticket.timelogs.forEach(log => {
+          const costoManodopera = (parseFloat(log.costoUnitario) || 0) * (1 - (parseFloat(log.sconto) || 0) / 100) * (parseFloat(log.oreIntervento) || 0);
+          totalServizi += costoManodopera;
+          
+          if (log.materials && log.materials.length > 0) {
+            log.materials.forEach(m => {
+              totalMateriali += (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1);
+            });
+          }
+        });
+      }
+    });
+    
+    const totalGenerale = totalServizi + totalMateriali;
+
+    // Genera HTML
+    let html = `
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${reportTitle}</title>
+    <style>
+        @page { margin: 20mm; }
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 11pt;
+            line-height: 1.3;
+            color: #000;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 15px;
+            background-color: #fff;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #000;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 20pt;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        .ticket-block {
+            border-bottom: 1px solid #ccc;
+            padding: 10px 0;
+            margin-bottom: 10px;
+            page-break-inside: avoid;
+        }
+        .ticket-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .ticket-number {
+            font-weight: bold;
+            font-size: 12pt;
+        }
+        .ticket-dates {
+            text-align: right;
+            font-size: 10pt;
+        }
+        .ticket-title {
+            font-weight: bold;
+            font-size: 11pt;
+            margin-bottom: 3px;
+        }
+        .ticket-requester {
+            text-align: right;
+            font-size: 10pt;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0;
+        }
+        table thead {
+            background-color: #f5f5f5;
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
+        }
+        table th {
+            padding: 6px;
+            text-align: left;
+            font-weight: bold;
+            font-size: 10pt;
+        }
+        table td {
+            padding: 6px;
+            border-bottom: 1px solid #ddd;
+            font-size: 10pt;
+        }
+        table th:last-child, table td:last-child {
+            text-align: right;
+        }
+        .description {
+            margin: 8px 0;
+            padding: 6px;
+            background-color: #fafafa;
+            border-left: 3px solid #4a90e2;
+        }
+        .materials {
+            margin: 8px 0;
+            padding: 6px;
+            background-color: #fff9e6;
+            border-left: 3px solid #f39c12;
+        }
+        .ticket-total {
+            text-align: right;
+            font-size: 12pt;
+            font-weight: bold;
+            margin-top: 8px;
+            padding: 6px;
+            background-color: #e8f4f8;
+        }
+        .summary {
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 3px double #000;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 11pt;
+        }
+        .summary-row.grand-total {
+            font-size: 14pt;
+            font-weight: bold;
+            padding: 10px 0;
+            border-top: 2px solid #000;
+            border-bottom: 3px double #000;
+        }
+        .footer {
+            margin-top: 15px;
+            padding-top: 8px;
+            border-top: 1px solid #ccc;
+            display: flex;
+            justify-content: space-between;
+            font-size: 9pt;
+            color: #666;
+        }
+        @media print {
+            body { padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>${reportTitle.toUpperCase()}</h1>
+    </div>
+`;
+
+    // Aggiungi ogni ticket
+    tickets.forEach((ticket, index) => {
+      const cliente = users.find(u => u.id === ticket.clienteid);
+      const dataApertura = formatDate(ticket.dataapertura);
+      const dataChiusura = ticket.datachiusura ? formatDate(ticket.datachiusura) : 'N/A';
+      
+      let totaleTicket = 0;
+
+      html += `
+    <div class="ticket-block">
+        <div class="ticket-header">
+            <span class="ticket-number">Ticket: ${ticket.numero}</span>
+            <span class="ticket-dates">Apertura: ${dataApertura} &nbsp;&nbsp; Chiusura: ${dataChiusura}</span>
+        </div>
+        <div class="ticket-title">Titolo: ${ticket.titolo}</div>
+        <div class="ticket-requester">Richiedente: ${ticket.nomerichiedente}</div>
+`;
+
+      if (ticket.timelogs && ticket.timelogs.length > 0) {
+        html += `
+        <table>
+            <thead>
+                <tr>
+                    <th>Servizio / Data</th>
+                    <th style="text-align: center; width: 60px;">Ore</th>
+                    <th style="text-align: center; width: 80px;">Prezzo/h</th>
+                    <th style="text-align: center; width: 50px;">Sc.</th>
+                    <th style="width: 100px;">Importo</th>
+                </tr>
+            </thead>
+            <tbody>
+`;
+
         ticket.timelogs.forEach((log, logIndex) => {
           const costoManodopera = (parseFloat(log.costoUnitario) || 0) * (1 - (parseFloat(log.sconto) || 0) / 100) * (parseFloat(log.oreIntervento) || 0);
           const costoMateriali = (log.materials || []).reduce((sum, m) => sum + (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1), 0);
-          const totaleIntervento = costoManodopera + costoMateriali;
-          totaleCosto += totaleIntervento;
-          
-          reportContent += `   ${logIndex + 1}. ${log.modalita} - ${log.data}\n`;
-          reportContent += `      Ore: ${log.oreIntervento}h | Costo/h: €${log.costoUnitario} | Sconto: ${log.sconto}%\n`;
-          reportContent += `      Descrizione: ${log.descrizione || 'N/A'}\n`;
-          
-          if (log.materials && log.materials.length > 0) {
-            reportContent += `      Materiali:\n`;
-            log.materials.forEach(m => {
-              reportContent += `        - ${m.nome} (${m.quantita}x) €${m.costo.toFixed(2)}\n`;
-            });
-          }
-          
-          reportContent += `      Totale intervento: €${totaleIntervento.toFixed(2)}\n`;
+          totaleTicket += costoManodopera + costoMateriali;
+
+          html += `
+                <tr>
+                    <td>${logIndex + 1}. ${log.modalita} - ${log.data}</td>
+                    <td style="text-align: center;">${log.oreIntervento}h</td>
+                    <td style="text-align: center;">€${parseFloat(log.costoUnitario).toFixed(0)}</td>
+                    <td style="text-align: center;">${parseFloat(log.sconto).toFixed(0)}%</td>
+                    <td style="text-align: right;">€${costoManodopera.toFixed(2)}</td>
+                </tr>
+`;
         });
-        
-        reportContent += `\n   TOTALE TICKET: €${totaleCosto.toFixed(2)}\n`;
-      } else {
-        reportContent += `   Nessun intervento registrato\n`;
+
+        html += `
+            </tbody>
+        </table>
+`;
+
+        // Descrizione (prendo quella del primo log)
+        const descrizione = ticket.timelogs[0].descrizione || 'N/A';
+        html += `
+        <div class="description">
+            <strong>Descrizione Dettagliata:</strong> ${descrizione}
+        </div>
+`;
+
+        // Materiali
+        const hasMaterials = ticket.timelogs.some(log => log.materials && log.materials.length > 0);
+        if (hasMaterials) {
+          let materialsText = '';
+          ticket.timelogs.forEach(log => {
+            if (log.materials && log.materials.length > 0) {
+              log.materials.forEach(m => {
+                materialsText += `${m.nome} (${m.quantita}x) €${parseFloat(m.costo).toFixed(2)}, `;
+              });
+            }
+          });
+          materialsText = materialsText.slice(0, -2); // Rimuovi ultima virgola
+          
+          html += `
+        <div class="materials">
+            <strong>Materiali:</strong> ${materialsText}
+        </div>
+`;
+        } else {
+          html += `
+        <div class="materials">
+            <strong>Materiali:</strong> N/A
+        </div>
+`;
+        }
       }
-      
-      reportContent += `\n${'-'.repeat(80)}\n\n`;
+
+      html += `
+        <div class="ticket-total">
+            TOTALE TICKET: (${ticket.numero}) €${totaleTicket.toFixed(2)}
+        </div>
+    </div>
+`;
     });
 
-    const totaleCostoGenerale = sentTickets.reduce((sum, ticket) => {
-      if (!ticket.timelogs) return sum;
-      return sum + ticket.timelogs.reduce((ticketSum, log) => {
-        const costoManodopera = (parseFloat(log.costoUnitario) || 0) * (1 - (parseFloat(log.sconto) || 0) / 100) * (parseFloat(log.oreIntervento) || 0);
-        const costoMateriali = (log.materials || []).reduce((matSum, m) => matSum + (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1), 0);
-        return ticketSum + costoManodopera + costoMateriali;
-      }, 0);
-    }, 0);
+    // Summary
+    html += `
+    <div class="summary">
+        <div class="summary-row">
+            <span>TOTALE COMPLESSIVO SERVIZI:</span>
+            <span>€${totalServizi.toFixed(2)}</span>
+        </div>
+        <div class="summary-row">
+            <span>TOTALE MATERIALI:</span>
+            <span>€${totalMateriali.toFixed(2)}</span>
+        </div>
+        <div class="summary-row grand-total">
+            <span>TOTALE GENERALE DOCUMENTO:</span>
+            <span>€${totalGenerale.toFixed(2)}</span>
+        </div>
+    </div>
 
-    reportContent += `\nTOTALE GENERALE: €${totaleCostoGenerale.toFixed(2)}\n`;
+    <div class="footer">
+        <span>Totale ticket: ${tickets.length}</span>
+        <span>Data generazione: ${new Date().toLocaleDateString('it-IT')} | Pagina 1</span>
+    </div>
+
+</body>
+</html>
+`;
+
+    return html;
+  };
+
+  const handleGenerateSentReport = () => {
+    const sentTickets = tickets.filter(t => t.stato === 'inviato');
+    
+    if (sentTickets.length === 0) {
+      showNotification('Nessun ticket inviato da mostrare.', 'info');
+      return;
+    }
+
+    const htmlContent = generateReportHTML(sentTickets, 'Report Ticket Inviati', 'sent');
 
     setModalState({
-      type: 'sentReport',
+      type: 'reportHTML',
       data: {
         title: 'Report Ticket Inviati',
-        content: reportContent,
-        color: 'text-gray-700'
+        htmlContent: htmlContent
       }
     });
   };
@@ -429,40 +679,16 @@ export default function TicketApp() {
       return;
     }
 
-    let reportContent = `LISTA FATTURE\n`;
-    reportContent += `Data generazione: ${new Date().toLocaleDateString('it-IT')}\n`;
-    reportContent += `Totale fatture: ${invoicedTickets.length}\n`;
-    reportContent += `\n${'='.repeat(80)}\n\n`;
+    const htmlContent = generateReportHTML(invoicedTickets, 'Lista Fatture', 'invoice');
 
-    invoicedTickets.forEach((ticket, index) => {
-      const cliente = users.find(u => u.id === ticket.clienteid);
-      let totaleCosto = 0;
-      
-      if (ticket.timelogs && ticket.timelogs.length > 0) {
-        totaleCosto = ticket.timelogs.reduce((sum, log) => {
-          const costoManodopera = (parseFloat(log.costoUnitario) || 0) * (1 - (parseFloat(log.sconto) || 0) / 100) * (parseFloat(log.oreIntervento) || 0);
-          const costoMateriali = (log.materials || []).reduce((matSum, m) => matSum + (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1), 0);
-          return sum + costoManodopera + costoMateriali;
-        }, 0);
+    setModalState({
+      type: 'reportHTML',
+      data: {
+        title: 'Lista Fatture',
+        htmlContent: htmlContent
       }
-
-      reportContent += `${index + 1}. FATTURA ${ticket.numero}\n`;
-      reportContent += `   Cliente: ${cliente ? cliente.azienda : 'N/A'}\n`;
-      reportContent += `   Titolo: ${ticket.titolo}\n`;
-      reportContent += `   Data: ${ticket.datachiusura ? formatDate(ticket.datachiusura) : formatDate(ticket.dataapertura)}\n`;
-      reportContent += `   Importo: €${totaleCosto.toFixed(2)}\n`;
-      reportContent += `\n${'-'.repeat(80)}\n\n`;
     });
-
-    const totaleGenerale = invoicedTickets.reduce((sum, ticket) => {
-      if (!ticket.timelogs) return sum;
-      return sum + ticket.timelogs.reduce((ticketSum, log) => {
-        const costoManodopera = (parseFloat(log.costoUnitario) || 0) * (1 - (parseFloat(log.sconto) || 0) / 100) * (parseFloat(log.oreIntervento) || 0);
-        const costoMateriali = (log.materials || []).reduce((matSum, m) => matSum + (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1), 0);
-        return ticketSum + costoManodopera + costoMateriali;
-      }, 0);
-    }, 0);
-
+  };
     reportContent += `\nTOTALE FATTURE: €${totaleGenerale.toFixed(2)}\n`;
 
     setModalState({
