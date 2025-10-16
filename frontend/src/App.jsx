@@ -238,7 +238,6 @@ export default function TicketApp() {
   
   const handleOpenTimeLogger = (ticket) => {
     setSelectedTicket(ticket);
-    // 👇 CORRETTO: timelogs minuscolo
     const logs = Array.isArray(ticket.timelogs) ? ticket.timelogs : [];
     const initialLogs = logs.length > 0 ? logs.map(lg => ({ ...lg, id: Date.now() + Math.random(), materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()] })) : [getInitialTimeLog()];
     setTimeLogs(initialLogs);
@@ -268,7 +267,6 @@ export default function TicketApp() {
     console.log('👁️ Ticket.timelogs:', ticket.timelogs);
     
     setSelectedTicket(ticket);
-    // 👇 CORRETTO: timelogs minuscolo
     const logs = Array.isArray(ticket.timelogs) ? ticket.timelogs : [];
     console.log('👁️ Logs estratti:', logs);
     
@@ -281,6 +279,61 @@ export default function TicketApp() {
     console.log('👁️ InitialLogs preparati:', initialLogs);
     setTimeLogs(initialLogs);
     setModalState({ type: 'viewTimeLogger', data: ticket });
+  };
+
+  const handleSaveTimeLogs = async () => {
+    if (!selectedTicket) return;
+    
+    try {
+      const logsToSave = timeLogs.map(log => ({
+        modalita: log.modalita,
+        data: log.data,
+        oraInizio: log.oraInizio,
+        oraFine: log.oraFine,
+        descrizione: log.descrizione,
+        oreIntervento: parseFloat(log.oreIntervento) || 0,
+        costoUnitario: parseFloat(log.costoUnitario) || 0,
+        sconto: parseFloat(log.sconto) || 0,
+        materials: log.materials.map(m => ({
+          nome: m.nome,
+          quantita: parseInt(m.quantita) || 1,
+          costo: parseFloat(m.costo) || 0
+        }))
+      }));
+
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/timelogs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeLogs: logsToSave })
+      });
+
+      if (!response.ok) throw new Error('Errore nel salvare le modifiche');
+
+      // Ricarica il ticket aggiornato
+      const ticketResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`);
+      if (ticketResponse.ok) {
+        const allTickets = await ticketResponse.json();
+        const updatedTicket = allTickets.find(t => t.id === selectedTicket.id);
+        
+        if (updatedTicket) {
+          setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
+          setSelectedTicket(updatedTicket);
+          
+          // Aggiorna i timeLogs nel modal
+          const updatedLogs = Array.isArray(updatedTicket.timelogs) ? updatedTicket.timelogs : [];
+          const refreshedLogs = updatedLogs.length > 0 ? updatedLogs.map(lg => ({ 
+            ...lg, 
+            id: Date.now() + Math.random(), 
+            materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()] 
+          })) : [];
+          setTimeLogs(refreshedLogs);
+        }
+      }
+      
+      showNotification('Modifiche salvate con successo!', 'success');
+    } catch (error) {
+      showNotification(error.message || 'Errore nel salvare le modifiche.', 'error');
+    }
   };
   
   const handleFornitureCountChange = (ticketId, newCount) => {
@@ -418,6 +471,8 @@ export default function TicketApp() {
         handleAddMaterial={handleAddMaterial}
         handleRemoveMaterial={handleRemoveMaterial}
         handleConfirmTimeLogs={wrappedHandleConfirmTimeLogs}
+        handleSaveTimeLogs={handleSaveTimeLogs}
+        currentUser={currentUser}
       />
 
       {modalState.type === 'manageClients' && (
