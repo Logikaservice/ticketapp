@@ -1,0 +1,161 @@
+// src/hooks/useTimeLogs.js
+
+import { useState } from 'react';
+import { getInitialMaterial, getInitialTimeLog } from '../utils/helpers';
+
+export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showNotification) => {
+  const [timeLogs, setTimeLogs] = useState([]);
+
+  // Inizializza timeLogs da un ticket
+  const initializeTimeLogs = (ticket) => {
+    const logs = Array.isArray(ticket.timelogs) ? ticket.timelogs : [];
+    const initialLogs = logs.length > 0 
+      ? logs.map(lg => ({ 
+          ...lg, 
+          id: Date.now() + Math.random(), 
+          materials: Array.isArray(lg.materials) 
+            ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) 
+            : [getInitialMaterial()] 
+        })) 
+      : [getInitialTimeLog()];
+    setTimeLogs(initialLogs);
+  };
+
+  // Inizializza timeLogs per visualizzazione (senza default se vuoto)
+  const initializeTimeLogsForView = (ticket) => {
+    const logs = Array.isArray(ticket.timelogs) ? ticket.timelogs : [];
+    const initialLogs = logs.length > 0 
+      ? logs.map(lg => ({ 
+          ...lg, 
+          id: Date.now() + Math.random(), 
+          materials: Array.isArray(lg.materials) 
+            ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) 
+            : [getInitialMaterial()] 
+        })) 
+      : [];
+    setTimeLogs(initialLogs);
+  };
+
+  // Modifica un campo di un timelog
+  const handleTimeLogChange = (logId, field, value) => {
+    setTimeLogs(prev => prev.map(log => 
+      log.id === logId ? { ...log, [field]: value } : log
+    ));
+  };
+
+  // Aggiungi un nuovo timelog
+  const handleAddTimeLog = () => {
+    setTimeLogs(prev => [...prev, getInitialTimeLog()]);
+  };
+
+  // Duplica un timelog
+  const handleDuplicateTimeLog = (log) => {
+    const newLog = { ...log, id: Date.now() + Math.random() };
+    setTimeLogs(prev => [...prev, newLog]);
+  };
+
+  // Rimuovi un timelog
+  const handleRemoveTimeLog = (logId) => {
+    setTimeLogs(prev => prev.filter(log => log.id !== logId));
+  };
+
+  // Modifica un materiale
+  const handleMaterialChange = (logId, materialId, field, value) => {
+    setTimeLogs(prev => prev.map(log => {
+      if (log.id === logId) {
+        return {
+          ...log,
+          materials: log.materials.map(m => 
+            m.id === materialId ? { ...m, [field]: parseFloat(value) || 0 } : m
+          )
+        };
+      }
+      return log;
+    }));
+  };
+
+  // Aggiungi un materiale
+  const handleAddMaterial = (logId) => {
+    setTimeLogs(prev => prev.map(log => 
+      log.id === logId ? { ...log, materials: [...log.materials, getInitialMaterial()] } : log
+    ));
+  };
+
+  // Rimuovi un materiale
+  const handleRemoveMaterial = (logId, materialId) => {
+    setTimeLogs(prev => prev.map(log => 
+      log.id === logId ? { ...log, materials: log.materials.filter(m => m.id !== materialId) } : log
+    ));
+  };
+
+  // Salva le modifiche ai timeLogs
+  const handleSaveTimeLogs = async () => {
+    if (!selectedTicket) return;
+    
+    try {
+      const logsToSave = timeLogs.map(log => ({
+        modalita: log.modalita,
+        data: log.data,
+        oraInizio: log.oraInizio,
+        oraFine: log.oraFine,
+        descrizione: log.descrizione,
+        oreIntervento: parseFloat(log.oreIntervento) || 0,
+        costoUnitario: parseFloat(log.costoUnitario) || 0,
+        sconto: parseFloat(log.sconto) || 0,
+        materials: log.materials.map(m => ({
+          nome: m.nome,
+          quantita: parseInt(m.quantita) || 1,
+          costo: parseFloat(m.costo) || 0
+        }))
+      }));
+
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/timelogs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeLogs: logsToSave })
+      });
+
+      if (!response.ok) throw new Error('Errore nel salvare le modifiche');
+
+      // Ricarica il ticket aggiornato
+      const ticketResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`);
+      if (ticketResponse.ok) {
+        const allTickets = await ticketResponse.json();
+        const updatedTicket = allTickets.find(t => t.id === selectedTicket.id);
+        
+        if (updatedTicket) {
+          setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
+          setSelectedTicket(updatedTicket);
+          
+          // Aggiorna i timeLogs nel modal
+          const updatedLogs = Array.isArray(updatedTicket.timelogs) ? updatedTicket.timelogs : [];
+          const refreshedLogs = updatedLogs.length > 0 ? updatedLogs.map(lg => ({ 
+            ...lg, 
+            id: Date.now() + Math.random(), 
+            materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()] 
+          })) : [];
+          setTimeLogs(refreshedLogs);
+        }
+      }
+      
+      showNotification('Modifiche salvate con successo!', 'success');
+    } catch (error) {
+      showNotification(error.message || 'Errore nel salvare le modifiche.', 'error');
+    }
+  };
+
+  return {
+    timeLogs,
+    setTimeLogs,
+    initializeTimeLogs,
+    initializeTimeLogsForView,
+    handleTimeLogChange,
+    handleAddTimeLog,
+    handleDuplicateTimeLog,
+    handleRemoveTimeLog,
+    handleMaterialChange,
+    handleAddMaterial,
+    handleRemoveMaterial,
+    handleSaveTimeLogs
+  };
+};
