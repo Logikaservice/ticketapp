@@ -216,14 +216,16 @@ export const useTickets = (
         }))
       }));
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/timelogs`, {
+      // 1. Salva i timeLogs
+      const timelogsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/timelogs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ timeLogs: logsToSave })
       });
 
-      if (!response.ok) throw new Error('Errore nel salvare i log');
+      if (!timelogsResponse.ok) throw new Error('Errore nel salvare i log');
 
+      // 2. Aggiorna lo stato a risolto
       const statusResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -232,9 +234,18 @@ export const useTickets = (
 
       if (!statusResponse.ok) throw new Error('Errore nell\'aggiornamento dello stato');
 
-      const updatedTicket = await statusResponse.json();
+      // 3. Ricarica il ticket completo con i timeLogs
+      const ticketResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`);
+      if (ticketResponse.ok) {
+        const allTickets = await ticketResponse.json();
+        const updatedTicket = allTickets.find(t => t.id === selectedTicket.id);
+        
+        if (updatedTicket) {
+          console.log('✅ Ticket aggiornato con timeLogs:', updatedTicket.timelogs);
+          setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
+        }
+      }
       
-      setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
       setSelectedTicket(null);
       closeModal();
       showNotification('Ticket risolto con successo!', 'success');
