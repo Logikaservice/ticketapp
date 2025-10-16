@@ -354,8 +354,7 @@ export default function TicketApp() {
       return;
     }
 
-    let reportContent = `REPORT TICKET INVIATI\n`;
-    // ====================================================================
+  // ====================================================================
   // GENERAZIONE REPORT HTML
   // ====================================================================
   const generateReportHTML = (tickets, reportTitle, reportType) => {
