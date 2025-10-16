@@ -346,6 +346,15 @@ export default function TicketApp() {
   // ====================================================================
   // GENERAZIONE REPORT HTML
   // ====================================================================
+  const formatDateItalian = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   const generateReportHTML = (tickets, reportTitle, reportType) => {
     const isInvoice = reportType === 'invoice';
     
@@ -361,7 +370,10 @@ export default function TicketApp() {
           
           if (log.materials && log.materials.length > 0) {
             log.materials.forEach(m => {
-              totalMateriali += (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1);
+              const nomeMateriale = (m.nome || '').trim();
+              if (nomeMateriale && nomeMateriale !== '0' && nomeMateriale !== '') {
+                totalMateriali += (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1);
+              }
             });
           }
         });
@@ -549,12 +561,23 @@ export default function TicketApp() {
 
         ticket.timelogs.forEach((log, logIndex) => {
           const costoManodopera = (parseFloat(log.costoUnitario) || 0) * (1 - (parseFloat(log.sconto) || 0) / 100) * (parseFloat(log.oreIntervento) || 0);
-          const costoMateriali = (log.materials || []).reduce((sum, m) => sum + (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1), 0);
-          totaleTicket += costoManodopera + costoMateriali;
+          
+          // Calcola costo materiali per questo log specifico
+          const costoMaterialiLog = (log.materials || []).reduce((sum, m) => {
+            const nomeMateriale = (m.nome || '').trim();
+            if (nomeMateriale && nomeMateriale !== '0' && nomeMateriale !== '') {
+              return sum + (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1);
+            }
+            return sum;
+          }, 0);
+          
+          totaleTicket += costoManodopera + costoMaterialiLog;
+
+          const dataItaliana = formatDateItalian(log.data);
 
           html += `
                 <tr>
-                    <td>${logIndex + 1}. ${log.modalita} - ${log.data}</td>
+                    <td>${logIndex + 1}. ${log.modalita} - ${dataItaliana}</td>
                     <td style="text-align: center;">${log.oreIntervento}h</td>
                     <td style="text-align: center;">€${parseFloat(log.costoUnitario).toFixed(0)}</td>
                     <td style="text-align: center;">${parseFloat(log.sconto).toFixed(0)}%</td>
@@ -568,30 +591,37 @@ export default function TicketApp() {
         </table>
 `;
 
-        // Descrizione (prendo quella del primo log)
-        const descrizione = ticket.timelogs[0].descrizione || 'N/A';
-        html += `
+        // DESCRIZIONI - Una per ogni timelog
+        ticket.timelogs.forEach((log, logIndex) => {
+          const descrizione = log.descrizione || 'N/A';
+          html += `
         <div class="description">
-            <strong>Descrizione Dettagliata:</strong> ${descrizione}
+            <strong>Descrizione Dettagliata ${logIndex + 1}:</strong> ${descrizione}
         </div>
 `;
+        });
 
-        // Materiali
-        const hasMaterials = ticket.timelogs.some(log => log.materials && log.materials.length > 0);
+        // MATERIALI - Raccogli tutti i materiali validi
+        let allMaterialsText = '';
+        let hasMaterials = false;
+        
+        ticket.timelogs.forEach(log => {
+          if (log.materials && log.materials.length > 0) {
+            log.materials.forEach(m => {
+              const nomeMateriale = (m.nome || '').trim();
+              if (nomeMateriale && nomeMateriale !== '0' && nomeMateriale !== '') {
+                hasMaterials = true;
+                allMaterialsText += `${nomeMateriale} (${m.quantita}x) €${parseFloat(m.costo).toFixed(2)}, `;
+              }
+            });
+          }
+        });
+        
         if (hasMaterials) {
-          let materialsText = '';
-          ticket.timelogs.forEach(log => {
-            if (log.materials && log.materials.length > 0) {
-              log.materials.forEach(m => {
-                materialsText += `${m.nome} (${m.quantita}x) €${parseFloat(m.costo).toFixed(2)}, `;
-              });
-            }
-          });
-          materialsText = materialsText.slice(0, -2); // Rimuovi ultima virgola
-          
+          allMaterialsText = allMaterialsText.slice(0, -2); // Rimuovi ultima virgola
           html += `
         <div class="materials">
-            <strong>Materiali:</strong> ${materialsText}
+            <strong>Materiali:</strong> ${allMaterialsText}
         </div>
 `;
         } else {
