@@ -218,28 +218,26 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
           </div>
         </div>
 
-        {/* Badge Forniture Temporanee - SOLO PER TECNICO */}
-        {currentUser.ruolo === 'tecnico' && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenForniture(ticket);
-            }}
-            className={`absolute bottom-2 right-2 p-2 rounded-full shadow-lg transition-all ${
-              ticket.fornitureCount > 0
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
-            }`}
-            title="Forniture Temporanee"
-          >
-            <Package size={18} />
-            {ticket.fornitureCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                {ticket.fornitureCount}
-              </span>
-            )}
-          </button>
-        )}
+        {/* Badge Forniture Temporanee */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleOpenForniture(ticket);
+          }}
+          className={`absolute bottom-2 right-2 p-2 rounded-full shadow-lg transition-all ${
+            ticket.fornitureCount > 0
+              ? 'bg-blue-600 text-white hover:bg-blue-700'
+              : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
+          }`}
+          title="Forniture Temporanee"
+        >
+          <Package size={18} />
+          {ticket.fornitureCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+              {ticket.fornitureCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {selectedTicket?.id === ticket.id && (
