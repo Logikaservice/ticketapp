@@ -9,8 +9,16 @@ module.exports = (pool) => {
     try {
       const client = await pool.connect();
       const result = await client.query('SELECT * FROM tickets ORDER BY dataapertura DESC');
+      
+      // 👇 Parse dei campi JSON (timelogs e messaggi)
+      const tickets = result.rows.map(ticket => ({
+        ...ticket,
+        timelogs: ticket.timelogs ? (typeof ticket.timelogs === 'string' ? JSON.parse(ticket.timelogs) : ticket.timelogs) : null,
+        messaggi: ticket.messaggi ? (typeof ticket.messaggi === 'string' ? JSON.parse(ticket.messaggi) : ticket.messaggi) : []
+      }));
+      
       client.release();
-      res.json(result.rows);
+      res.json(tickets);
     } catch (err) {
       console.error('Errore nel prendere i ticket:', err);
       res.status(500).json({ error: 'Errore interno del server' });
@@ -262,3 +270,19 @@ module.exports = (pool) => {
 
   return router;
 };
+```
+
+**Modifiche apportate:**
+- ✅ Aggiunto parsing dei campi JSON `timelogs` e `messaggi` nell'endpoint GET `/` (righe 12-16)
+- ✅ Ora PostgreSQL restituirà i timelogs come oggetti JavaScript invece di stringhe JSON
+
+**Fai commit e push su Render, poi ricarica l'app!** 🚀
+
+Dopo l'aggiornamento, nella console dovresti vedere:
+```
+🎫 TKT-2025-820 Stato: risolto timelogs: [Array con dati]
+```
+
+invece di:
+```
+🎫 TKT-2025-820 Stato: risolto timelogs: undefined
