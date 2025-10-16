@@ -39,9 +39,14 @@ const AllModals = ({ modalState, closeModal, ...handlers }) => {
       case 'urgentConfirm':
         return <UrgentConfirmModal closeModal={closeModal} {...handlers} />;
         
-      case 'invoiceReport':
-      case 'sentReport':
-        return <ReportModal closeModal={closeModal} {...modalState.data} {...handlers} />;
+      case 'reportHTML':
+        return (
+          <ReportModal 
+            closeModal={closeModal} 
+            title={modalState.data.title}
+            htmlContent={modalState.data.htmlContent}
+          />
+        );
         
       default:
         return null;
