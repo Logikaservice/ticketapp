@@ -12,22 +12,23 @@ const AllModals = ({ modalState, closeModal, ...handlers }) => {
   const renderModalContent = () => {
     switch (modalState.type) {
       case 'timeLogger':
-        // ✅ Passa selectedTicket dal modalState.data
         return (
           <TimeLoggerModal 
             closeModal={closeModal} 
             selectedTicket={modalState.data}
+            currentUser={handlers.currentUser}
             {...handlers} 
           />
         );
       
       case 'viewTimeLogger':
-        // ✅ Modal TimeLogger in modalità SOLA LETTURA
         return (
           <TimeLoggerModal 
             closeModal={closeModal} 
             selectedTicket={modalState.data}
             readOnly={true}
+            currentUser={handlers.currentUser}
+            handleSaveTimeLogs={handlers.handleSaveTimeLogs}
             {...handlers} 
           />
         );
