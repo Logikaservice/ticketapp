@@ -344,17 +344,6 @@ export default function TicketApp() {
   };
 
   // ====================================================================
-  // GENERAZIONE REPORT
-  // ====================================================================
-  const handleGenerateSentReport = () => {
-    const sentTickets = tickets.filter(t => t.stato === 'inviato');
-    
-    if (sentTickets.length === 0) {
-      showNotification('Nessun ticket inviato da mostrare.', 'info');
-      return;
-    }
-
-  // ====================================================================
   // GENERAZIONE REPORT HTML
   // ====================================================================
   const generateReportHTML = (tickets, reportTitle, reportType) => {
@@ -685,17 +674,6 @@ export default function TicketApp() {
       data: {
         title: 'Lista Fatture',
         htmlContent: htmlContent
-      }
-    });
-  };
-    reportContent += `\nTOTALE FATTURE: €${totaleGenerale.toFixed(2)}\n`;
-
-    setModalState({
-      type: 'invoiceReport',
-      data: {
-        title: 'Lista Fatture',
-        content: reportContent,
-        color: 'text-indigo-700'
       }
     });
   };
