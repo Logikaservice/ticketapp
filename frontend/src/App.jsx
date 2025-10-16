@@ -257,6 +257,12 @@ export default function TicketApp() {
   const handleOpenForniture = (ticket) => {
     setFornitureModalTicket(ticket);
   };
+  
+  const handleFornitureCountChange = (ticketId, newCount) => {
+    setTickets(prev => prev.map(t => 
+      t.id === ticketId ? { ...t, fornitureCount: newCount } : t
+    ));
+  };
 
   // ====================================================================
   // WRAPPER FUNZIONI
@@ -424,6 +430,7 @@ export default function TicketApp() {
         <FornitureModal
           ticket={fornitureModalTicket}
           onClose={() => setFornitureModalTicket(null)}
+          onFornitureCountChange={handleFornitureCountChange}
         />
       )}
     </div>
