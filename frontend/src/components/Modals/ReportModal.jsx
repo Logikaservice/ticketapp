@@ -1,83 +1,51 @@
-import React from 'react';
-import { X, FileText, Copy, Printer } from 'lucide-react';
+// src/components/Modals/ReportModal.jsx
 
-const ReportModal = ({ title, content, color, closeModal, showNotification }) => {
+import React from 'react';
+import { X, Printer } from 'lucide-react';
+
+const ReportModal = ({ closeModal, htmlContent, title }) => {
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${title}</title>
-          <style>
-            body {
-              font-family: 'Courier New', monospace;
-              padding: 20px;
-              max-width: 800px;
-              margin: 0 auto;
-            }
-            pre {
-              white-space: pre-wrap;
-              word-wrap: break-word;
-              font-size: 12px;
-              line-height: 1.5;
-            }
-            @media print {
-              body {
-                padding: 10px;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <pre>${content}</pre>
-        </body>
-      </html>
-    `);
+    printWindow.document.write(htmlContent);
     printWindow.document.close();
     printWindow.focus();
     setTimeout(() => {
       printWindow.print();
-      printWindow.close();
     }, 250);
   };
 
   return (
-    <div className="bg-white rounded-xl max-w-3xl w-full p-6 max-h-[90vh] overflow-y-auto">
-      <div className="flex items-center justify-between mb-6 border-b pb-3">
-        <h2 className={'text-2xl font-bold flex items-center gap-2 ' + color}>
-          <FileText size={24} />
+    <div className="bg-white rounded-xl max-w-5xl w-full max-h-[90vh] flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between p-6 border-b">
+        <h2 className="text-2xl font-bold text-gray-700 flex items-center gap-2">
           {title}
         </h2>
-        <button onClick={closeModal} className="text-gray-400">
+        <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
           <X size={24} />
         </button>
       </div>
 
-      <div className="mb-4">
-        <textarea
-          readOnly
-          value={content}
-          rows={20}
-          className="w-full p-4 border rounded-lg font-mono text-xs bg-gray-50"
+      {/* Preview */}
+      <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+        <div 
+          className="bg-white shadow-lg"
+          dangerouslySetInnerHTML={{ __html: htmlContent }}
         />
       </div>
 
-      <div className="flex gap-3">
+      {/* Footer con pulsanti */}
+      <div className="flex gap-3 p-6 border-t bg-gray-50">
         <button
-          onClick={() => {
-            navigator.clipboard.writeText(content);
-            showNotification('Copiato!', 'success');
-          }}
-          className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
+          onClick={closeModal}
+          className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-bold hover:bg-gray-100"
         >
-          <Copy size={18} />
-          Copia
+          Chiudi
         </button>
         
         <button
           onClick={handlePrint}
-          className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2"
+          className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-green-700"
         >
           <Printer size={18} />
           Stampa
