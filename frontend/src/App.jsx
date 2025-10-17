@@ -1,7 +1,7 @@
 // src/App.jsx
-// VERSIONE SICURA - SENZA THEME (per far ripartire il deploy)
 
 import React, { useState, useEffect } from 'react';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Notification from './components/AppNotification';
 import LoginScreen from './components/LoginScreen';
 import Header from './components/Header';
@@ -19,7 +19,7 @@ import { useTimeLogs } from './hooks/useTimeLogs';
 import { useReports } from './hooks/useReports';
 import { useModals } from './hooks/useModals';
 
-export default function TicketApp() {
+function TicketAppContent() {
   const [users, setUsers] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -396,7 +396,7 @@ export default function TicketApp() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 transition-colors duration-300">
       <Notification {...{ notification, handleCloseNotification }} />
       <Header
         {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal }}
@@ -499,5 +499,14 @@ export default function TicketApp() {
         />
       )}
     </div>
+  );
+}
+
+// Export con ThemeProvider wrapper
+export default function TicketApp() {
+  return (
+    <ThemeProvider>
+      <TicketAppContent />
+    </ThemeProvider>
   );
 }
