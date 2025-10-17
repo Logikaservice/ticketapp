@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, MessageCircle, AlertCircle } from 'lucide-react';
+import { X, MessageCircle, AlertCircle, AlertTriangle } from 'lucide-react';
 
 const UnreadMessagesModal = ({ tickets, getUnreadCount, onClose, onOpenTicket }) => {
   // Filtra solo i ticket con messaggi non letti
@@ -8,6 +8,28 @@ const UnreadMessagesModal = ({ tickets, getUnreadCount, onClose, onOpenTicket })
   if (unreadTickets.length === 0) return null;
 
   const totalUnread = unreadTickets.reduce((sum, t) => sum + getUnreadCount(t), 0);
+
+  // Controlla se c'è un reclamo tra i messaggi non letti
+  const hasUnreadReclamo = (ticket) => {
+    if (!ticket.messaggi || ticket.messaggi.length === 0) return false;
+    
+    // Trova l'ultimo messaggio non letto
+    const lastReadDate = ticket.last_read_by_tecnico 
+      ? new Date(ticket.last_read_by_tecnico) 
+      : null;
+    
+    if (!lastReadDate) {
+      // Se non c'è data di lettura, controlla tutti i messaggi del cliente
+      return ticket.messaggi.some(m => m.reclamo && m.autore !== 'Tecnico');
+    }
+    
+    // Controlla i messaggi dopo l'ultima lettura
+    const unreadMessages = ticket.messaggi.filter(m => 
+      new Date(m.data) > lastReadDate && m.autore !== 'Tecnico'
+    );
+    
+    return unreadMessages.some(m => m.reclamo);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fadeIn">
@@ -39,6 +61,8 @@ const UnreadMessagesModal = ({ tickets, getUnreadCount, onClose, onOpenTicket })
           <div className="space-y-3">
             {unreadTickets.map((ticket) => {
               const count = getUnreadCount(ticket);
+              const isReclamo = hasUnreadReclamo(ticket);
+              
               return (
                 <button
                   key={ticket.id}
@@ -46,20 +70,35 @@ const UnreadMessagesModal = ({ tickets, getUnreadCount, onClose, onOpenTicket })
                     onOpenTicket(ticket);
                     onClose();
                   }}
-                  className="w-full text-left p-4 bg-yellow-50 border-2 border-yellow-300 rounded-xl hover:bg-yellow-100 hover:border-yellow-400 transition-all group"
+                  className={`w-full text-left p-4 border-2 rounded-xl transition-all group ${
+                    isReclamo
+                      ? 'bg-red-50 border-red-400 hover:bg-red-100 hover:border-red-500'
+                      : 'bg-yellow-50 border-yellow-300 hover:bg-yellow-100 hover:border-yellow-400'
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="px-2 py-1 bg-yellow-500 text-white text-xs font-bold rounded-full flex items-center gap-1">
-                          💬 {count}
+                        <span className={`px-2 py-1 text-white text-xs font-bold rounded-full flex items-center gap-1 ${
+                          isReclamo ? 'bg-red-600' : 'bg-yellow-500'
+                        }`}>
+                          {isReclamo ? '⚠️' : '💬'} {count}
                         </span>
                         <span className="text-xs font-mono text-gray-600 font-semibold">
                           {ticket.numero}
                         </span>
+                        {isReclamo && (
+                          <span className="px-2 py-0.5 bg-red-600 text-white text-xs font-bold rounded-full">
+                            RECLAMO
+                          </span>
+                        )}
                       </div>
                       
-                      <h3 className="font-bold text-gray-800 mb-1 group-hover:text-yellow-700 transition">
+                      <h3 className={`font-bold mb-1 transition ${
+                        isReclamo 
+                          ? 'text-red-800 group-hover:text-red-900' 
+                          : 'text-gray-800 group-hover:text-yellow-700'
+                      }`}>
                         {ticket.titolo}
                       </h3>
                       
@@ -68,7 +107,11 @@ const UnreadMessagesModal = ({ tickets, getUnreadCount, onClose, onOpenTicket })
                       </p>
                     </div>
                     
-                    <AlertCircle className="text-yellow-600 group-hover:scale-110 transition-transform flex-shrink-0" size={24} />
+                    {isReclamo ? (
+                      <AlertTriangle className="text-red-600 group-hover:scale-110 transition-transform flex-shrink-0 animate-pulse" size={24} />
+                    ) : (
+                      <AlertCircle className="text-yellow-600 group-hover:scale-110 transition-transform flex-shrink-0" size={24} />
+                    )}
                   </div>
                 </button>
               );
