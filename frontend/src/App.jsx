@@ -313,7 +313,7 @@ export default function TicketApp() {
   };
 
   const handleOpenTicketFromModal = (ticket) => {
-    setSelectedTicket(ticket);
+    handleSelectTicket(ticket);
     setShowUnreadModal(false);
   };
   
