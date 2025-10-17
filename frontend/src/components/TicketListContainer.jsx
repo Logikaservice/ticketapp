@@ -3,7 +3,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { FileText, PlayCircle, CheckCircle, Send, FileCheck2, Archive } from 'lucide-react';
 import TicketItem from './TicketItem';
-import NotificationModal from './NotificationModal';
 
 // ====================================================================
 // COMPONENTE ESTRATTO PER I FILTRI
@@ -114,72 +113,12 @@ const FilterControls = ({
 const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount }) => {
   const [viewState, setViewState] = useState('aperto');
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
-  const [notificationTicket, setNotificationTicket] = useState(null);
-  const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
-  const [snoozedNotifications, setSnoozedNotifications] = useState(() => {
-    const saved = localStorage.getItem('snoozedNotifications');
-    return saved ? JSON.parse(saved) : [];
-  });
-  const [hasShownSnoozedOnMount, setHasShownSnoozedOnMount] = useState(false);
   const [lastSeenCounts, setLastSeenCounts] = useState(() => {
     const saved = localStorage.getItem(`lastSeenCounts_${currentUser.id}`);
     return saved ? JSON.parse(saved) : {};
   });
   const [changedStates, setChangedStates] = useState([]);
 
-  // Carica notifiche posticipate al mount (solo una volta)
-  useEffect(() => {
-    if (!hasShownSnoozedOnMount && snoozedNotifications.length > 0 && tickets.length > 0) {
-      const ticketToShow = snoozedNotifications[0];
-      const ticket = tickets.find(t => t.id === ticketToShow);
-      
-      if (ticket && getUnreadCount(ticket) > 0) {
-        const cliente = users.find(u => u.id === ticket.clienteid);
-        setNotificationTicket({
-          id: ticket.id,
-          titolo: ticket.titolo,
-          clientName: cliente ? cliente.azienda : ticket.nomerichiedente,
-          unreadCount: getUnreadCount(ticket)
-        });
-        
-        const newSnoozed = snoozedNotifications.filter(id => id !== ticketToShow);
-        setSnoozedNotifications(newSnoozed);
-        localStorage.setItem('snoozedNotifications', JSON.stringify(newSnoozed));
-      }
-      setHasShownSnoozedOnMount(true);
-    }
-  }, [hasShownSnoozedOnMount, tickets, users, getUnreadCount, snoozedNotifications]);
-
-  // Monitora nuovi messaggi
-  useEffect(() => {
-    tickets.forEach(ticket => {
-      const previousCount = previousUnreadCounts[ticket.id] || 0;
-      const currentCount = getUnreadCount(ticket);
-      
-      if (currentCount > previousCount && currentCount > 0 && !snoozedNotifications.includes(ticket.id) && !notificationTicket) {
-        const cliente = users.find(u => u.id === ticket.clienteid);
-        setNotificationTicket({
-          id: ticket.id,
-          titolo: ticket.titolo,
-          clientName: cliente ? cliente.azienda : ticket.nomerichiedente,
-          unreadCount: currentCount
-        });
-      }
-      
-      if (currentCount === 0 && snoozedNotifications.includes(ticket.id)) {
-        const newSnoozed = snoozedNotifications.filter(id => id !== ticket.id);
-        setSnoozedNotifications(newSnoozed);
-        localStorage.setItem('snoozedNotifications', JSON.stringify(newSnoozed));
-      }
-    });
-    
-    const newCounts = {};
-    tickets.forEach(t => {
-      newCounts[t.id] = getUnreadCount(t);
-    });
-    setPreviousUnreadCounts(newCounts);
-  }, [tickets, getUnreadCount, users]);
-  
   const { displayTickets, ticketCounts, usersMap } = useMemo(() => {
     const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
 
@@ -249,31 +188,10 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
     setChangedStates(prev => prev.filter(s => s !== status));
   };
 
-  const handleOpenTicketFromNotification = (ticketId) => {
-    const ticket = tickets.find(t => t.id === ticketId);
-    if (ticket) {
-      setViewState(ticket.stato);
-      handlers.handleSelectTicket(ticket);
-    }
-  };
-
-  const handleSnoozeNotification = (ticketId) => {
-    const newSnoozed = [...snoozedNotifications, ticketId];
-    setSnoozedNotifications(newSnoozed);
-    localStorage.setItem('snoozedNotifications', JSON.stringify(newSnoozed));
-  };
-  
   const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
   
   return (
     <>
-      <NotificationModal
-        ticket={notificationTicket}
-        onClose={() => setNotificationTicket(null)}
-        onOpenTicket={handleOpenTicketFromNotification}
-        onSnooze={handleSnoozeNotification}
-      />
-
       <div className="bg-white rounded-xl shadow-lg">
         <div className="p-4 border-b">
           <h2 className="text-xl font-semibold mb-3">
