@@ -1,75 +1,32 @@
+/* src/index.css */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Animazione personalizzata per messaggi non letti */
-@keyframes pulse-slow {
-  0%, 100% {
-    border-color: rgb(250, 204, 21);
-    background-color: rgb(254, 249, 195);
-  }
-  50% {
-    border-color: rgb(234, 179, 8);
-    background-color: rgb(254, 243, 199);
+/* Importa le animazioni */
+@import './styles/animations.css';
+
+/* Stili base personalizzati */
+@layer base {
+  body {
+    @apply transition-colors duration-300;
   }
 }
 
-.animate-pulse-slow {
-  animation: pulse-slow 2s ease-in-out infinite;
-}
-
-/* Animazione fade-in per modal notifica */
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
+/* Utility custom */
+@layer utilities {
+  /* Scrollbar personalizzata */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
   }
-  to {
-    opacity: 1;
-    transform: scale(1);
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800 rounded-lg;
   }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
-}
-
-/* Numero badge cambiato */
-.count-badge-changed {
-  color: #1d4ed8 !important;
-  font-weight: 900 !important;
-}
-
-/* ========================================== */
-/* AGGIUNTE PER MODALE MESSAGGI NON LETTI */
-/* ========================================== */
-
-/* Animazione fade-in per overlay modale */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-600 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500;
   }
-  to {
-    opacity: 1;
-  }
-}
-
-.animate-fadeIn {
-  animation: fadeIn 0.3s ease-out;
-}
-
-/* Animazione slide-in per contenuto modale */
-@keyframes slideIn {
-  from {
-    transform: translateY(-50px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.animate-slideIn {
-  animation: slideIn 0.4s ease-out;
 }
