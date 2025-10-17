@@ -148,7 +148,7 @@ export const useTickets = (
       if (!messageResponse.ok) throw new Error('Errore nel salvare il messaggio');
       const savedMessage = await messageResponse.json();
       let newStatus = ticket.stato;
-      if (isReclamo || (currentUser.ruolo === 'tecnico' && ticket.stato === 'risolto')) {
+      if (isReclamo) {
         newStatus = 'in_lavorazione';
       }
       if (newStatus !== ticket.stato) {
