@@ -2,11 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ============================================ */
-/* ANIMAZIONI PER TICKET CON MESSAGGI NON LETTI */
-/* ============================================ */
-
-/* Animazione pulsante lento per ticket non letti */
+/* Animazione personalizzata per messaggi non letti */
 @keyframes pulse-slow {
   0%, 100% {
     border-color: rgb(250, 204, 21);
@@ -22,9 +18,31 @@
   animation: pulse-slow 2s ease-in-out infinite;
 }
 
-/* ============================================ */
-/* ANIMAZIONI PER MODALE MESSAGGI NON LETTI */
-/* ============================================ */
+/* Animazione fade-in per modal notifica */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Numero badge cambiato */
+.count-badge-changed {
+  color: #1d4ed8 !important;
+  font-weight: 900 !important;
+}
+
+/* ========================================== */
+/* AGGIUNTE PER MODALE MESSAGGI NON LETTI */
+/* ========================================== */
 
 /* Animazione fade-in per overlay modale */
 @keyframes fadeIn {
@@ -54,49 +72,4 @@
 
 .animate-slideIn {
   animation: slideIn 0.4s ease-out;
-}
-
-/* Animazione fade-in con scala (già presente, mantenuta) */
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
-}
-
-/* ============================================ */
-/* BADGE E CONTATORI */
-/* ============================================ */
-
-/* Numero badge cambiato */
-.count-badge-changed {
-  color: #1d4ed8 !important;
-  font-weight: 900 !important;
-}
-
-/* ============================================ */
-/* UTILITY CLASSES AGGIUNTIVE */
-/* ============================================ */
-
-/* Smooth transition per hover effects */
-.transition-smooth {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Shadow glow per elementi importanti */
-.shadow-glow-yellow {
-  box-shadow: 0 0 20px rgba(250, 204, 21, 0.5);
-}
-
-/* Backdrop blur per overlay modale */
-.backdrop-blur-strong {
-  backdrop-filter: blur(8px);
 }
