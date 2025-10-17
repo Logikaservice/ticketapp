@@ -13,12 +13,11 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
       email: cliente.email || '',
       telefono: cliente.telefono || '',
       azienda: cliente.azienda || '',
-      password: cliente.password || '' // Pre-compila con password esistente
+      password: cliente.password || ''
     });
   };
 
   const handleSave = (id) => {
-    // Se password è vuota, rimuovila dall'oggetto per non modificarla
     const dataToSend = { ...editData };
     if (!dataToSend.password || dataToSend.password.trim() === '') {
       delete dataToSend.password;
@@ -78,8 +77,29 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                   className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition"
                 >
                   {editingId === cliente.id ? (
-                    // Modalità Modifica
+                    // Modalità Modifica - CON INTESTAZIONE VISIBILE
                     <div className="p-6">
+                      {/* INTESTAZIONE CLIENTE (sempre visibile) */}
+                      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
+                        <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white text-2xl font-bold shadow-md">
+                          {cliente.azienda ? cliente.azienda.charAt(0).toUpperCase() : '?'}
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-gray-800">
+                            {cliente.azienda || 'Azienda non specificata'}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            Stai modificando: {cliente.nome} {cliente.cognome}
+                          </p>
+                        </div>
+                        <div className="ml-auto">
+                          <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                            In modifica
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* FORM DI MODIFICA */}
                       <div className="grid grid-cols-2 gap-4 mb-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
