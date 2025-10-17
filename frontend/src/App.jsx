@@ -6,9 +6,6 @@ import LoginScreen from './components/LoginScreen';
 import Header from './components/Header';
 import TicketListContainer from './components/TicketListContainer';
 import AllModals from './components/Modals/AllModals';
-import { getInitialMaterial, getInitialTimeLog } from './utils/helpers';
-import { formatDate } from './utils/formatters';
-import { generateReportHTML } from './utils/reportGenerator';
 import ManageClientsModal from './components/Modals/ManageClientsModal';
 import NewClientModal from './components/Modals/NewClientModal';
 import NewTicketModal from './components/Modals/NewTicketModal';
@@ -16,6 +13,9 @@ import FornitureModal from './components/Modals/FornitureModal';
 import { useAuth } from './hooks/useAuth';
 import { useClients } from './hooks/useClients';
 import { useTickets } from './hooks/useTickets';
+import { useTimeLogs } from './hooks/useTimeLogs';
+import { useReports } from './hooks/useReports';
+import { useModals } from './hooks/useModals';
 
 export default function TicketApp() {
   const [users, setUsers] = useState([]);
@@ -48,7 +48,6 @@ export default function TicketApp() {
     telefono: '', 
     azienda: '' 
   });
-  const [timeLogs, setTimeLogs] = useState([]);
   const [isEditingTicket, setIsEditingTicket] = useState(null);
   const [selectedClientForNewTicket, setSelectedClientForNewTicket] = useState('');
   const [hasShownUnreadNotification, setHasShownUnreadNotification] = useState(false);
@@ -111,6 +110,42 @@ export default function TicketApp() {
     currentUser,
     tickets,
     closeModal
+  );
+
+  const {
+    timeLogs,
+    setTimeLogs,
+    initializeTimeLogs,
+    initializeTimeLogsForView,
+    handleTimeLogChange,
+    handleAddTimeLog,
+    handleDuplicateTimeLog,
+    handleRemoveTimeLog,
+    handleMaterialChange,
+    handleAddMaterial,
+    handleRemoveMaterial,
+    handleSaveTimeLogs
+  } = useTimeLogs(selectedTicket, setTickets, setSelectedTicket, showNotification);
+
+  const {
+    handleGenerateSentReport,
+    handleGenerateInvoiceReport
+  } = useReports(tickets, users, setModalState, showNotification);
+
+  const {
+    handleOpenTimeLogger,
+    handleOpenEditModal,
+    handleOpenForniture,
+    handleViewTimeLog
+  } = useModals(
+    setSelectedTicket,
+    setModalState,
+    initializeTimeLogs,
+    initializeTimeLogsForView,
+    setNewTicketData,
+    setIsEditingTicket,
+    setSelectedClientForNewTicket,
+    setFornitureModalTicket
   );
 
   // ====================================================================
@@ -237,152 +272,11 @@ export default function TicketApp() {
   };
   const openManageClientsModal = () => setModalState({ type: 'manageClients' });
   const openNewClientModal = () => setModalState({ type: 'newClient' });
-  
-  const handleOpenTimeLogger = (ticket) => {
-    setSelectedTicket(ticket);
-    const logs = Array.isArray(ticket.timelogs) ? ticket.timelogs : [];
-    const initialLogs = logs.length > 0 ? logs.map(lg => ({ ...lg, id: Date.now() + Math.random(), materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()] })) : [getInitialTimeLog()];
-    setTimeLogs(initialLogs);
-    setModalState({ type: 'timeLogger', data: ticket });
-  };
-  
-  const handleOpenEditModal = (ticket) => {
-    setNewTicketData({
-      titolo: ticket.titolo,
-      descrizione: ticket.descrizione,
-      categoria: ticket.categoria,
-      priorita: ticket.priorita,
-      nomerichiedente: ticket.nomerichiedente
-    });
-    setIsEditingTicket(ticket.id);
-    setSelectedClientForNewTicket(ticket.clienteid.toString());
-    setModalState({ type: 'newTicket', data: ticket });
-  };
-  
-  const handleOpenForniture = (ticket) => {
-    setFornitureModalTicket(ticket);
-  };
-  
-  const handleViewTimeLog = (ticket) => {
-    console.log('👁️ handleViewTimeLog chiamato');
-    console.log('👁️ Ticket:', ticket);
-    console.log('👁️ Ticket.timelogs:', ticket.timelogs);
-    
-    setSelectedTicket(ticket);
-    const logs = Array.isArray(ticket.timelogs) ? ticket.timelogs : [];
-    console.log('👁️ Logs estratti:', logs);
-    
-    const initialLogs = logs.length > 0 ? logs.map(lg => ({ 
-      ...lg, 
-      id: Date.now() + Math.random(), 
-      materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()] 
-    })) : [];
-    
-    console.log('👁️ InitialLogs preparati:', initialLogs);
-    setTimeLogs(initialLogs);
-    setModalState({ type: 'viewTimeLogger', data: ticket });
-  };
 
-  const handleSaveTimeLogs = async () => {
-    if (!selectedTicket) return;
-    
-    try {
-      const logsToSave = timeLogs.map(log => ({
-        modalita: log.modalita,
-        data: log.data,
-        oraInizio: log.oraInizio,
-        oraFine: log.oraFine,
-        descrizione: log.descrizione,
-        oreIntervento: parseFloat(log.oreIntervento) || 0,
-        costoUnitario: parseFloat(log.costoUnitario) || 0,
-        sconto: parseFloat(log.sconto) || 0,
-        materials: log.materials.map(m => ({
-          nome: m.nome,
-          quantita: parseInt(m.quantita) || 1,
-          costo: parseFloat(m.costo) || 0
-        }))
-      }));
-
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/timelogs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timeLogs: logsToSave })
-      });
-
-      if (!response.ok) throw new Error('Errore nel salvare le modifiche');
-
-      // Ricarica il ticket aggiornato
-      const ticketResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`);
-      if (ticketResponse.ok) {
-        const allTickets = await ticketResponse.json();
-        const updatedTicket = allTickets.find(t => t.id === selectedTicket.id);
-        
-        if (updatedTicket) {
-          setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
-          setSelectedTicket(updatedTicket);
-          
-          // Aggiorna i timeLogs nel modal
-          const updatedLogs = Array.isArray(updatedTicket.timelogs) ? updatedTicket.timelogs : [];
-          const refreshedLogs = updatedLogs.length > 0 ? updatedLogs.map(lg => ({ 
-            ...lg, 
-            id: Date.now() + Math.random(), 
-            materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()] 
-          })) : [];
-          setTimeLogs(refreshedLogs);
-        }
-      }
-      
-      showNotification('Modifiche salvate con successo!', 'success');
-    } catch (error) {
-      showNotification(error.message || 'Errore nel salvare le modifiche.', 'error');
-    }
-  };
-  
   const handleFornitureCountChange = (ticketId, newCount) => {
     setTickets(prev => prev.map(t => 
       t.id === ticketId ? { ...t, fornitureCount: newCount } : t
     ));
-  };
-
-  // ====================================================================
-  // GENERAZIONE REPORT
-  // ====================================================================
-  const handleGenerateSentReport = () => {
-    const sentTickets = tickets.filter(t => t.stato === 'inviato');
-    
-    if (sentTickets.length === 0) {
-      showNotification('Nessun ticket inviato da mostrare.', 'info');
-      return;
-    }
-
-    const htmlContent = generateReportHTML(sentTickets, 'Report Ticket Inviati', 'sent', users);
-
-    setModalState({
-      type: 'reportHTML',
-      data: {
-        title: 'Report Ticket Inviati',
-        htmlContent: htmlContent
-      }
-    });
-  };
-
-  const handleGenerateInvoiceReport = () => {
-    const invoicedTickets = tickets.filter(t => t.stato === 'fatturato');
-    
-    if (invoicedTickets.length === 0) {
-      showNotification('Nessun ticket fatturato da mostrare.', 'info');
-      return;
-    }
-
-    const htmlContent = generateReportHTML(invoicedTickets, 'Lista Fatture', 'invoice', users);
-
-    setModalState({
-      type: 'reportHTML',
-      data: {
-        title: 'Lista Fatture',
-        htmlContent: htmlContent
-      }
-    });
   };
 
   // ====================================================================
@@ -415,37 +309,6 @@ export default function TicketApp() {
   const handleSetInviato = (id) => handleChangeStatus(id, 'inviato');
   const handleArchiveTicket = (id) => handleChangeStatus(id, 'chiuso');
   const handleInvoiceTicket = (id) => handleChangeStatus(id, 'fatturato');
-  
-  const handleTimeLogChange = (logId, field, value) => {
-    setTimeLogs(prev => prev.map(log => log.id === logId ? { ...log, [field]: value } : log));
-  };
-  const handleAddTimeLog = () => {
-    setTimeLogs(prev => [...prev, getInitialTimeLog()]);
-  };
-  const handleDuplicateTimeLog = (log) => {
-    const newLog = { ...log, id: Date.now() + Math.random() };
-    setTimeLogs(prev => [...prev, newLog]);
-  };
-  const handleRemoveTimeLog = (logId) => {
-    setTimeLogs(prev => prev.filter(log => log.id !== logId));
-  };
-  const handleMaterialChange = (logId, materialId, field, value) => {
-    setTimeLogs(prev => prev.map(log => {
-      if (log.id === logId) {
-        return {
-          ...log,
-          materials: log.materials.map(m => m.id === materialId ? { ...m, [field]: parseFloat(value) || 0 } : m)
-        };
-      }
-      return log;
-    }));
-  };
-  const handleAddMaterial = (logId) => {
-    setTimeLogs(prev => prev.map(log => log.id === logId ? { ...log, materials: [...log.materials, getInitialMaterial()] } : log));
-  };
-  const handleRemoveMaterial = (logId, materialId) => {
-    setTimeLogs(prev => prev.map(log => log.id === logId ? { ...log, materials: log.materials.filter(m => m.id !== materialId) } : log));
-  };
 
   const wrappedHandleConfirmTimeLogs = () => {
     handleConfirmTimeLogs(timeLogs);
