@@ -2,7 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Animazione personalizzata per messaggi non letti */
+/* ============================================ */
+/* ANIMAZIONI PER TICKET CON MESSAGGI NON LETTI */
+/* ============================================ */
+
+/* Animazione pulsante lento per ticket non letti */
 @keyframes pulse-slow {
   0%, 100% {
     border-color: rgb(250, 204, 21);
@@ -18,7 +22,41 @@
   animation: pulse-slow 2s ease-in-out infinite;
 }
 
-/* Animazione fade-in per modal notifica */
+/* ============================================ */
+/* ANIMAZIONI PER MODALE MESSAGGI NON LETTI */
+/* ============================================ */
+
+/* Animazione fade-in per overlay modale */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Animazione slide-in per contenuto modale */
+@keyframes slideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.4s ease-out;
+}
+
+/* Animazione fade-in con scala (già presente, mantenuta) */
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -34,8 +72,31 @@
   animation: fade-in 0.3s ease-out;
 }
 
+/* ============================================ */
+/* BADGE E CONTATORI */
+/* ============================================ */
+
 /* Numero badge cambiato */
 .count-badge-changed {
   color: #1d4ed8 !important;
   font-weight: 900 !important;
+}
+
+/* ============================================ */
+/* UTILITY CLASSES AGGIUNTIVE */
+/* ============================================ */
+
+/* Smooth transition per hover effects */
+.transition-smooth {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Shadow glow per elementi importanti */
+.shadow-glow-yellow {
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.5);
+}
+
+/* Backdrop blur per overlay modale */
+.backdrop-blur-strong {
+  backdrop-filter: blur(8px);
 }
