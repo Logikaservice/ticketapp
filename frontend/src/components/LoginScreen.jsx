@@ -2,7 +2,7 @@ import React from 'react';
 import { User } from 'lucide-react';
 
 const LoginScreen = ({ loginData, setLoginData, handleLogin, handleAutoFillLogin }) => (
-  <div className="min-h-screen bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center p-4">
+  <div className="min-h-screen bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center p-4">
     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
       <div className="text-center mb-8">
         <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -39,25 +39,25 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, handleAutoFillLogin
         
         <button
           onClick={handleLogin}
-          className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700"
+          className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition"
         >
           Accedi
         </button>
       </div>
       
-      {/* ===== CORREZIONE: Ora questa sezione funzionerà ===== */}
+      {/* Account di prova */}
       <div className="mt-8 p-4 bg-gray-50 rounded-lg">
         <p className="text-xs font-semibold mb-2">Account di prova (dal DB):</p>
         <div className="space-y-2 text-xs">
           <button
             onClick={() => handleAutoFillLogin('cliente')}
-            className="w-full text-left p-1 rounded-md hover:bg-gray-100"
+            className="w-full text-left p-1 rounded-md hover:bg-gray-100 transition"
           >
             Cliente: cliente@example.com / cliente123
           </button>
           <button
             onClick={() => handleAutoFillLogin('tecnico')}
-            className="w-full text-left p-1 rounded-md hover:bg-gray-100"
+            className="w-full text-left p-1 rounded-md hover:bg-gray-100 transition"
           >
             Tecnico: tecnico@example.com / tecnico123
           </button>
