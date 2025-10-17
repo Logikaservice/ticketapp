@@ -64,7 +64,7 @@ const FilterControls = ({
               {statusIcons[status]}
               <span>
                 {status.replace('_', ' ')}{' '}
-                <span className={`${hasChanged ? 'count-badge-changed' : ''} ${hasTickets ? 'font-bold text-blue-600' : ''}`}>
+                <span className={hasChanged ? 'count-badge-changed' : ''}>
                   ({counts[status]})
                 </span>
               </span>
