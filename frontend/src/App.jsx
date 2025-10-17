@@ -1,4 +1,5 @@
 // src/App.jsx
+// VERSIONE SICURA - SENZA THEME (per far ripartire il deploy)
 
 import React, { useState, useEffect } from 'react';
 import Notification from './components/AppNotification';
@@ -229,46 +230,40 @@ export default function TicketApp() {
         setTickets(ticketsWithForniture);
 
         if (currentUser.ruolo === 'tecnico') {
-          const usersResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users');
-          if (usersResponse.ok) setUsers(await usersResponse.json());
+          const clientsResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users?role=cliente');
+          if (clientsResponse.ok) {
+            const clientsData = await clientsResponse.json();
+            setUsers(clientsData);
+          }
         }
-        
-        // Mostra modale se ci sono messaggi non letti
-        const unreadTickets = ticketsWithForniture.filter(t => getUnreadCount(t) > 0);
-        if (unreadTickets.length > 0 && !showUnreadModal) {
-          setShowUnreadModal(true);
+
+        const storedId = localStorage.getItem('openTicketId');
+        if (storedId && storedId !== 'null') {
+          const found = ticketsWithForniture.find(t => t.id === storedId);
+          if (found) setSelectedTicket(found);
         }
       } catch (error) {
-        showNotification(error.message, "error");
+        console.error('Errore nel caricare i dati:', error);
       }
     };
-    if (isLoggedIn) fetchData();
+
+    fetchData();
   }, [isLoggedIn, currentUser]);
 
   // ====================================================================
-  // MONITORAGGIO NUOVI MESSAGGI
+  // POLLING PER AGGIORNAMENTI
   // ====================================================================
   useEffect(() => {
-    if (!isLoggedIn || tickets.length === 0) return;
-
-    // Salva i conteggi iniziali
-    const initialCounts = {};
-    tickets.forEach(t => {
-      initialCounts[t.id] = getUnreadCount(t);
-    });
-    setPreviousUnreadCounts(initialCounts);
-
-    // Polling ogni 10 secondi
+    if (!isLoggedIn || !currentUser) return;
+    
     const interval = setInterval(async () => {
       try {
         const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets');
         if (!response.ok) return;
+        const ticketsData = await response.json();
         
-        const updatedTickets = await response.json();
-        
-        // Carica forniture
         const ticketsWithForniture = await Promise.all(
-          updatedTickets.map(async (ticket) => {
+          ticketsData.map(async (ticket) => {
             try {
               const fornitureResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`);
               if (fornitureResponse.ok) {
