@@ -10,6 +10,7 @@ import ManageClientsModal from './components/Modals/ManageClientsModal';
 import NewClientModal from './components/Modals/NewClientModal';
 import NewTicketModal from './components/Modals/NewTicketModal';
 import FornitureModal from './components/Modals/FornitureModal';
+import UnreadMessagesModal from './components/UnreadMessagesModal';
 import { useAuth } from './hooks/useAuth';
 import { useClients } from './hooks/useClients';
 import { useTickets } from './hooks/useTickets';
@@ -50,7 +51,7 @@ export default function TicketApp() {
   });
   const [isEditingTicket, setIsEditingTicket] = useState(null);
   const [selectedClientForNewTicket, setSelectedClientForNewTicket] = useState('');
-  const [hasShownUnreadNotification, setHasShownUnreadNotification] = useState(false);
+  const [showUnreadModal, setShowUnreadModal] = useState(false);
   const [fornitureModalTicket, setFornitureModalTicket] = useState(null);
 
   // ====================================================================
@@ -231,13 +232,10 @@ export default function TicketApp() {
           if (usersResponse.ok) setUsers(await usersResponse.json());
         }
         
-        if (!hasShownUnreadNotification) {
-            const unreadTickets = ticketsWithForniture.filter(t => getUnreadCount(t) > 0);
-            if (unreadTickets.length > 0) {
-                const totalUnread = unreadTickets.reduce((sum, t) => sum + getUnreadCount(t), 0);
-                showNotification(`Hai ${totalUnread} nuov${totalUnread === 1 ? 'o messaggio' : 'i messaggi'}!`, 'info');
-            }
-            setHasShownUnreadNotification(true);
+        // Mostra modale se ci sono messaggi non letti
+        const unreadTickets = ticketsWithForniture.filter(t => getUnreadCount(t) > 0);
+        if (unreadTickets.length > 0 && !showUnreadModal) {
+          setShowUnreadModal(true);
         }
       } catch (error) {
         showNotification(error.message, "error");
@@ -312,6 +310,11 @@ export default function TicketApp() {
 
   const wrappedHandleConfirmTimeLogs = () => {
     handleConfirmTimeLogs(timeLogs);
+  };
+
+  const handleOpenTicketFromModal = (ticket) => {
+    setSelectedTicket(ticket);
+    setShowUnreadModal(false);
   };
   
   // ====================================================================
@@ -418,6 +421,15 @@ export default function TicketApp() {
           onClose={() => setFornitureModalTicket(null)}
           onFornitureCountChange={handleFornitureCountChange}
           currentUser={currentUser}
+        />
+      )}
+
+      {showUnreadModal && (
+        <UnreadMessagesModal
+          tickets={tickets}
+          getUnreadCount={getUnreadCount}
+          onClose={() => setShowUnreadModal(false)}
+          onOpenTicket={handleOpenTicketFromModal}
         />
       )}
     </div>
