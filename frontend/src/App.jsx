@@ -53,6 +53,7 @@ export default function TicketApp() {
   const [selectedClientForNewTicket, setSelectedClientForNewTicket] = useState('');
   const [showUnreadModal, setShowUnreadModal] = useState(false);
   const [fornitureModalTicket, setFornitureModalTicket] = useState(null);
+  const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
 
   // ====================================================================
   // NOTIFICHE
@@ -243,6 +244,76 @@ export default function TicketApp() {
     };
     if (isLoggedIn) fetchData();
   }, [isLoggedIn, currentUser]);
+
+  // ====================================================================
+  // MONITORAGGIO NUOVI MESSAGGI
+  // ====================================================================
+  useEffect(() => {
+    if (!isLoggedIn || tickets.length === 0) return;
+
+    // Salva i conteggi iniziali
+    const initialCounts = {};
+    tickets.forEach(t => {
+      initialCounts[t.id] = getUnreadCount(t);
+    });
+    setPreviousUnreadCounts(initialCounts);
+
+    // Polling ogni 10 secondi
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets');
+        if (!response.ok) return;
+        
+        const updatedTickets = await response.json();
+        
+        // Carica forniture
+        const ticketsWithForniture = await Promise.all(
+          updatedTickets.map(async (ticket) => {
+            try {
+              const fornitureResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`);
+              if (fornitureResponse.ok) {
+                const forniture = await fornitureResponse.json();
+                return { ...ticket, fornitureCount: forniture.length };
+              }
+            } catch (err) {
+              console.error(`Errore forniture ticket ${ticket.id}:`, err);
+            }
+            return { ...ticket, fornitureCount: 0 };
+          })
+        );
+        
+        setTickets(ticketsWithForniture);
+        
+        // Controlla se ci sono nuovi messaggi
+        let hasNewMessages = false;
+        ticketsWithForniture.forEach(ticket => {
+          const previousCount = previousUnreadCounts[ticket.id] || 0;
+          const currentCount = getUnreadCount(ticket);
+          
+          if (currentCount > previousCount) {
+            hasNewMessages = true;
+          }
+        });
+        
+        // Mostra modale se ci sono nuovi messaggi
+        if (hasNewMessages && !showUnreadModal) {
+          setShowUnreadModal(true);
+        }
+        
+        // Aggiorna conteggi
+        const newCounts = {};
+        ticketsWithForniture.forEach(t => {
+          newCounts[t.id] = getUnreadCount(t);
+        });
+        setPreviousUnreadCounts(newCounts);
+        
+      } catch (error) {
+        console.error('Errore polling:', error);
+      }
+    }, 10000); // 10 secondi
+
+    return () => clearInterval(interval);
+  }, [isLoggedIn, tickets, showUnreadModal, currentUser, previousUnreadCounts]);
 
   // ====================================================================
   // MODALI
