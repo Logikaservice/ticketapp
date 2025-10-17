@@ -1,0 +1,295 @@
+/* src/styles/animations.css */
+
+/* ====================================================================
+   TEMA SCURO - Variabili e stili globali
+   ==================================================================== */
+
+:root {
+  --neon-blue: #00d4ff;
+  --neon-purple: #7b2ff7;
+  --neon-pink: #ff0080;
+}
+
+/* Background principale dark mode */
+.dark {
+  color-scheme: dark;
+}
+
+.dark body,
+.dark .min-h-screen {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+/* Card e contenitori in dark mode */
+.dark .bg-white {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: #334155;
+}
+
+.dark .bg-gray-50 {
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.dark .bg-gray-100 {
+  background: rgba(30, 41, 59, 0.9);
+}
+
+.dark .text-gray-900 {
+  color: #e2e8f0;
+}
+
+.dark .text-gray-700 {
+  color: #cbd5e1;
+}
+
+.dark .text-gray-600 {
+  color: #94a3b8;
+}
+
+.dark .text-gray-500 {
+  color: #64748b;
+}
+
+/* Bordi in dark mode */
+.dark .border-gray-200,
+.dark .border-gray-300 {
+  border-color: #334155;
+}
+
+/* Hover states dark mode */
+.dark .hover\:bg-gray-50:hover {
+  background: rgba(51, 65, 85, 0.5);
+}
+
+.dark .hover\:bg-gray-100:hover {
+  background: rgba(51, 65, 85, 0.7);
+}
+
+/* ====================================================================
+   ANIMAZIONE GLOW + NEON (Animazione 3)
+   ==================================================================== */
+
+/* Classe principale per card con effetto glow */
+.glow-card {
+  position: relative;
+  border: 2px solid var(--neon-blue);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+/* Animazione glow pulsante */
+@keyframes card-glow {
+  0%, 100% {
+    box-shadow: 
+      0 0 20px rgba(0, 212, 255, 0.4),
+      0 0 40px rgba(0, 212, 255, 0.2),
+      0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 0 40px rgba(0, 212, 255, 0.6),
+      0 0 80px rgba(0, 212, 255, 0.4),
+      0 0 120px rgba(0, 212, 255, 0.2),
+      0 10px 30px rgba(0, 0, 0, 0.3);
+  }
+}
+
+.glow-card:hover {
+  animation: card-glow 2s ease-in-out infinite;
+  transform: translateY(-2px);
+}
+
+/* Badge con effetto neon */
+.neon-badge {
+  background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 100%);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.8);
+  }
+}
+
+/* Frecce rotanti con glow */
+.rotating-arrow {
+  display: inline-block;
+  color: var(--neon-blue);
+  animation: rotate-arrow 3s linear infinite;
+  filter: drop-shadow(0 0 5px rgba(0, 212, 255, 0.3));
+}
+
+@keyframes rotate-arrow {
+  0% {
+    transform: rotate(0deg) scale(1);
+    opacity: 0.4;
+  }
+  50% {
+    transform: rotate(180deg) scale(1.2);
+    opacity: 1;
+    filter: drop-shadow(0 0 15px rgba(0, 212, 255, 0.8));
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+    opacity: 0.4;
+  }
+}
+
+/* Numero con effetto glow */
+.glow-number {
+  background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 15px rgba(0, 212, 255, 0.6));
+  animation: number-glow 2s ease-in-out infinite;
+}
+
+@keyframes number-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 15px rgba(0, 212, 255, 0.6));
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 35px rgba(0, 212, 255, 1));
+    transform: scale(1.05);
+  }
+}
+
+/* ====================================================================
+   ANIMAZIONI AGGIUNTIVE
+   ==================================================================== */
+
+/* Pulse semplice */
+.pulse-animation {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+/* Slide in from bottom */
+.slide-in-bottom {
+  animation: slideInBottom 0.3s ease-out;
+}
+
+@keyframes slideInBottom {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Fade in */
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Bordo gradiente animato (Animazione 1) */
+.gradient-border-card {
+  position: relative;
+  border-radius: 12px;
+  padding: 2px;
+  background: linear-gradient(45deg, #ff0080, #ff8c00, #40e0d0, #ff0080);
+  background-size: 400%;
+  animation: rotate-gradient 3s linear infinite;
+}
+
+@keyframes rotate-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.gradient-border-card > div {
+  background: white;
+  border-radius: 10px;
+}
+
+.dark .gradient-border-card > div {
+  background: rgba(30, 41, 59, 0.95);
+}
+
+/* Particelle (Animazione 2) */
+.particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: particle-float 3s ease-out infinite;
+}
+
+@keyframes particle-float {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx, 50px), var(--ty, -50px)) scale(0);
+    opacity: 0;
+  }
+}
+
+/* ====================================================================
+   UTILITY CLASSES
+   ==================================================================== */
+
+/* Smooth transitions */
+.smooth-transition {
+  transition: all 0.3s ease;
+}
+
+/* Hover lift effect */
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+.dark .hover-lift:hover {
+  box-shadow: 0 12px 24px rgba(0, 212, 255, 0.2);
+}
+
+/* Glow on hover */
+.glow-on-hover:hover {
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+}
+
+/* Rotate animation for theme toggle */
+.rotate-animation {
+  animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
