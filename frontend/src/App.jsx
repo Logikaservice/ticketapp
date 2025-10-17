@@ -1,7 +1,6 @@
 // src/App.jsx
 
 import React, { useState, useEffect } from 'react';
-import { ThemeProvider } from './contexts/ThemeContext';
 import Notification from './components/AppNotification';
 import LoginScreen from './components/LoginScreen';
 import Header from './components/Header';
@@ -19,7 +18,7 @@ import { useTimeLogs } from './hooks/useTimeLogs';
 import { useReports } from './hooks/useReports';
 import { useModals } from './hooks/useModals';
 
-function TicketAppContent() {
+export default function TicketApp() {
   const [users, setUsers] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -230,40 +229,46 @@ function TicketAppContent() {
         setTickets(ticketsWithForniture);
 
         if (currentUser.ruolo === 'tecnico') {
-          const clientsResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users?role=cliente');
-          if (clientsResponse.ok) {
-            const clientsData = await clientsResponse.json();
-            setUsers(clientsData);
-          }
+          const usersResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users');
+          if (usersResponse.ok) setUsers(await usersResponse.json());
         }
-
-        const storedId = localStorage.getItem('openTicketId');
-        if (storedId && storedId !== 'null') {
-          const found = ticketsWithForniture.find(t => t.id === storedId);
-          if (found) setSelectedTicket(found);
+        
+        // Mostra modale se ci sono messaggi non letti
+        const unreadTickets = ticketsWithForniture.filter(t => getUnreadCount(t) > 0);
+        if (unreadTickets.length > 0 && !showUnreadModal) {
+          setShowUnreadModal(true);
         }
       } catch (error) {
-        console.error('Errore nel caricare i dati:', error);
+        showNotification(error.message, "error");
       }
     };
-
-    fetchData();
+    if (isLoggedIn) fetchData();
   }, [isLoggedIn, currentUser]);
 
   // ====================================================================
-  // POLLING PER AGGIORNAMENTI
+  // MONITORAGGIO NUOVI MESSAGGI
   // ====================================================================
   useEffect(() => {
-    if (!isLoggedIn || !currentUser) return;
-    
+    if (!isLoggedIn || tickets.length === 0) return;
+
+    // Salva i conteggi iniziali
+    const initialCounts = {};
+    tickets.forEach(t => {
+      initialCounts[t.id] = getUnreadCount(t);
+    });
+    setPreviousUnreadCounts(initialCounts);
+
+    // Polling ogni 10 secondi
     const interval = setInterval(async () => {
       try {
         const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets');
         if (!response.ok) return;
-        const ticketsData = await response.json();
         
+        const updatedTickets = await response.json();
+        
+        // Carica forniture
         const ticketsWithForniture = await Promise.all(
-          ticketsData.map(async (ticket) => {
+          updatedTickets.map(async (ticket) => {
             try {
               const fornitureResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`);
               if (fornitureResponse.ok) {
@@ -396,7 +401,7 @@ function TicketAppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 transition-colors duration-300">
+    <div className="min-h-screen bg-gray-50">
       <Notification {...{ notification, handleCloseNotification }} />
       <Header
         {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal }}
@@ -499,14 +504,5 @@ function TicketAppContent() {
         />
       )}
     </div>
-  );
-}
-
-// Export con ThemeProvider wrapper
-export default function TicketApp() {
-  return (
-    <ThemeProvider>
-      <TicketAppContent />
-    </ThemeProvider>
   );
 }
