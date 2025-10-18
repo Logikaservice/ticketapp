@@ -216,7 +216,15 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                     disabled={disabled}
                     className={`p-4 rounded-xl border text-center ${disabled ? 'opacity-50 cursor-not-allowed bg-white' : active ? 'bg-blue-50 border-blue-300' : 'bg-white hover:bg-gray-50'}`}
                   >
-                    <div className="text-sm text-gray-500 mb-1 capitalize">{status.replace('_',' ')}</div>
+                    <div className="text-sm text-gray-500 mb-1 capitalize flex items-center justify-center gap-2">
+                      {status === 'aperto' && <FileText size={14} />}
+                      {status === 'in_lavorazione' && <PlayCircle size={14} />}
+                      {status === 'risolto' && <CheckCircle size={14} />}
+                      {status === 'chiuso' && <Archive size={14} />}
+                      {status === 'inviato' && <Send size={14} />}
+                      {status === 'fatturato' && <FileCheck2 size={14} />}
+                      <span>{status.replace('_',' ')}</span>
+                    </div>
                     <div className="text-3xl font-extrabold gradient-text">{count}</div>
                   </button>
                 );
