@@ -5,7 +5,7 @@ import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCh
 import TicketListContainer from './TicketListContainer';
 import { formatDate } from '../utils/formatters';
 
-const StatCard = ({ title, value, icon, highlight = null, onClick, disabled }) => {
+const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, badge = null }) => {
   const ringClass = highlight
     ? highlight.type === 'up'
       ? 'ring-pulse-green'
@@ -16,6 +16,11 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled }) =
   return (
     <button onClick={onClick} disabled={disabled} className={`text-center w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
       <div className={`p-4 rounded-xl border bg-white relative ${ringClass}`}>
+        {badge && (
+          <span className="absolute -top-2 -right-2 text-[10px] font-bold bg-green-600 text-white px-2 py-[2px] rounded-full shadow-sm animate-new-float">
+            {badge}
+          </span>
+        )}
         <div className="text-sm text-gray-500 mb-1 flex items-center justify-center gap-2">{icon}<span>{title}</span></div>
         <div className="text-5xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
         {/* Frecce rimosse su richiesta */}
@@ -25,9 +30,7 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled }) =
         {highlight && highlight.type === 'down' && (
           <div className={`absolute left-4 right-4 -bottom-1 h-2 rounded-full bg-red-400 blur-md opacity-80`}></div>
         )}
-        {highlight && highlight.type === 'new' && (
-          <span className="absolute top-2 left-2 text-xs font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">NEW</span>
-        )}
+        {/* badge NEW ora gestito via prop 'badge' */}
       </div>
     </button>
   );
@@ -143,18 +146,11 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
             value={sc.value}
             highlight={activeHighlights[sc.key]}
             disabled={sc.value === 0}
+            badge={showNewBadge && sc.key === 'aperto' ? 'NEW' : null}
             onClick={() => sc.value > 0 && onOpenState && onOpenState(sc.key)}
           />
         ))}
       </div>
-
-      {showNewBadge && (
-        <div className="flex items-center justify-center mb-4">
-          <span className="px-3 py-1 text-xs font-bold text-green-700 bg-green-100 rounded-full animate-pulse">
-            NEW ticket su Aperti
-          </span>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
