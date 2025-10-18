@@ -58,7 +58,6 @@ export default function TicketApp() {
   const [showDashboard, setShowDashboard] = useState(true);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
-  const [dashboardHighlights, setDashboardHighlights] = useState({});
 
   // ====================================================================
   // NOTIFICHE
