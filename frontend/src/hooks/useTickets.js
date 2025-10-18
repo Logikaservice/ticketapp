@@ -41,8 +41,7 @@ export const useTickets = (
       setTickets(prev => [savedTicket, ...prev]);
       closeModal();
       try {
-        // Glow verde e focus
-        window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'aperto', type: 'up' } }));
+        // Solo focus su Aperti (niente glow su nuova creazione)
         window.dispatchEvent(new CustomEvent('dashboard-focus', { detail: { state: 'aperto' } }));
       } catch (_) {}
       showNotification('Ticket creato con successo!', 'success');
@@ -193,7 +192,15 @@ export const useTickets = (
       const updatedTicket = await response.json();
       setTickets(prevTickets => prevTickets.map(t => (t.id === id ? updatedTicket : t)));
       showNotification('Stato del ticket aggiornato!', 'success');
-      // Frecce rimosse: nessuna emissione highlight qui
+      // Glow immediato (senza frecce): stato precedente diminuisce, nuovo aumenta
+      try {
+        const prev = tickets.find(t => t.id === id)?.stato;
+        const cur = updatedTicket.stato;
+        if (prev && cur && prev !== cur) {
+          window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: prev, type: 'down' } }));
+          window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: cur, type: 'up' } }));
+        }
+      } catch (_) {}
       if (status === 'chiuso' || (status === 'risolto' && currentUser.ruolo === 'tecnico')) {
         setSelectedTicket(null);
       }
@@ -249,7 +256,11 @@ export const useTickets = (
         if (updatedTicket) {
           console.log('✅ Ticket aggiornato con timeLogs:', updatedTicket.timelogs);
           setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
-          // Frecce rimosse: nessuna emissione highlight qui
+          // Glow immediato per in_lavorazione -> risolto
+          try {
+            window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'in_lavorazione', type: 'down' } }));
+            window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'risolto', type: 'up' } }));
+          } catch (_) {}
         }
       }
       
