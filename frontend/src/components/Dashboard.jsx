@@ -18,23 +18,27 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled }) =
       <div className={`p-4 rounded-xl border bg-white relative ${ringClass}`}>
         <div className="text-sm text-gray-500 mb-1 flex items-center justify-center gap-2">{icon}<span>{title}</span></div>
         <div className="text-5xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
-        {highlight && highlight.type !== 'new' && (
-          <div className={`absolute bottom-2 right-2 flex items-center gap-1 ${highlight.type === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+        {highlight && highlight.type === 'up' && (
+          <div className={`absolute bottom-2 right-2 flex items-center gap-1 text-green-600`}>
             {highlight.type === 'up' ? (
               <>
                 <span className="animate-arrow-slide"><ChevronsRight size={18} /></span>
                 <span className="animate-arrow-slide" style={{ animationDelay: '0.2s' }}><ChevronsRight size={18} /></span>
               </>
-            ) : (
-              <>
-                <span className="animate-arrow-slide"><ChevronsLeft size={18} /></span>
-                <span className="animate-arrow-slide" style={{ animationDelay: '0.2s' }}><ChevronsLeft size={18} /></span>
-              </>
             )}
           </div>
         )}
-        {highlight && highlight.type !== 'new' && (
-          <div className={`absolute left-4 right-4 -bottom-1 h-2 rounded-full ${highlight.type === 'up' ? 'bg-green-400' : 'bg-red-400'} blur-md opacity-80`}></div>
+        {highlight && highlight.type === 'down' && (
+          <div className={`absolute bottom-2 left-2 flex items-center gap-1 text-red-600`}>
+            <span className="animate-arrow-slide" style={{ transform: 'scaleX(-1)' }}><ChevronsRight size={18} /></span>
+            <span className="animate-arrow-slide" style={{ animationDelay: '0.2s', transform: 'scaleX(-1)' }}><ChevronsRight size={18} /></span>
+          </div>
+        )}
+        {highlight && highlight.type === 'up' && (
+          <div className={`absolute left-4 right-4 -bottom-1 h-2 rounded-full bg-green-400 blur-md opacity-80`}></div>
+        )}
+        {highlight && highlight.type === 'down' && (
+          <div className={`absolute left-4 right-4 -bottom-1 h-2 rounded-full bg-red-400 blur-md opacity-80`}></div>
         )}
         {highlight && highlight.type === 'new' && (
           <span className="absolute top-2 left-2 text-xs font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">NEW</span>
