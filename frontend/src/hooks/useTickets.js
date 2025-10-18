@@ -41,7 +41,14 @@ export const useTickets = (
       setTickets(prev => [savedTicket, ...prev]);
       closeModal();
       try {
-        // Focus su Aperti e badge NEW elegante in Dashboard
+        // Marca subito come non visto per l'utente corrente (evidenza gialla immediata senza refresh)
+        const key = `unseenNewTicketIds_${currentUser.id}`;
+        const arr = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!arr.includes(savedTicket.id)) {
+          arr.push(savedTicket.id);
+          localStorage.setItem(key, JSON.stringify(arr));
+        }
+        // Badge NEW in dashboard
         window.dispatchEvent(new CustomEvent('dashboard-new', { detail: { state: 'aperto' } }));
         window.dispatchEvent(new CustomEvent('dashboard-focus', { detail: { state: 'aperto' } }));
       } catch (_) {}

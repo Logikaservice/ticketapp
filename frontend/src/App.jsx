@@ -60,7 +60,7 @@ export default function TicketApp() {
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
 
-  // Helpers per localStorage (ticket conosciuti e nuovi già visti)
+  // Helpers per localStorage (nuovi ticket non ancora aperti dall'utente)
   const getSetFromStorage = (key) => {
     try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); } catch { return new Set(); }
   };
@@ -240,21 +240,22 @@ export default function TicketApp() {
           })
         );
         
-        // Evidenzia nuovi ticket (resta finché non si apre) anche dopo reload, usando localStorage
+        // Evidenzia nuovi ticket (persistente finché non aperto) - baseline al primo login
         let withNewFlag = ticketsWithForniture;
-        const knownKey = currentUser ? `knownTicketIds_${currentUser.id}` : null;
-        const seenKey = currentUser ? `seenNewTicketIds_${currentUser.id}` : null;
-        const knownIds = knownKey ? getSetFromStorage(knownKey) : new Set();
-        const seenIds = seenKey ? getSetFromStorage(seenKey) : new Set();
+        const unseenKey = currentUser ? `unseenNewTicketIds_${currentUser.id}` : null;
+        const bootKey = currentUser ? `newTicketsBootstrapped_${currentUser.id}` : null;
+        const unseen = unseenKey ? getSetFromStorage(unseenKey) : new Set();
         if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
+          // Al primo caricamento non aggiungiamo nuovi, solo mostriamo quelli già in unseen
+          if (bootKey && !localStorage.getItem(bootKey)) {
+            localStorage.setItem(bootKey, '1');
+          } else {
+            // Dopo il bootstrap, aggiungeremo tramite polling
+          }
           withNewFlag = ticketsWithForniture.map(t => {
             const appliesToUser = currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id;
-            const isNew = appliesToUser && t.stato === 'aperto' && !knownIds.has(t.id) && !seenIds.has(t.id);
-            return { ...t, isNew };
+            return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseen.has(t.id) };
           });
-          // Aggiorna "known" per non rimarcare dopo reload
-          withNewFlag.forEach(t => knownIds.add(t.id));
-          if (knownKey) saveSetToStorage(knownKey, knownIds);
         }
         setTickets(withNewFlag);
         // Inizializza mappa stati per highlights reali
@@ -322,7 +323,7 @@ export default function TicketApp() {
     setPreviousUnreadCounts(initialCounts);
 
     // Polling ogni 10 secondi
-    const interval = setInterval(async () => {
+    const doPoll = async () => {
       try {
         const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets');
         if (!response.ok) return;
@@ -347,18 +348,22 @@ export default function TicketApp() {
         
         // Evidenzia nuovi ticket rispetto al polling precedente (cliente e tecnico) - persiste finché non aperto
         let polled = ticketsWithForniture;
-        const knownKeyP = currentUser ? `knownTicketIds_${currentUser.id}` : null;
-        const seenKeyP = currentUser ? `seenNewTicketIds_${currentUser.id}` : null;
-        const knownIdsP = knownKeyP ? getSetFromStorage(knownKeyP) : new Set();
-        const seenIdsP = seenKeyP ? getSetFromStorage(seenKeyP) : new Set();
+        const unseenKeyP = currentUser ? `unseenNewTicketIds_${currentUser.id}` : null;
+        const unseenP = unseenKeyP ? getSetFromStorage(unseenKeyP) : new Set();
         if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
+          // Aggiungi nuovi ID non presenti nello stato precedente
+          const prevIds = new Set(tickets.map(t => t.id));
+          ticketsWithForniture.forEach(t => {
+            const appliesToUser = currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id;
+            if (appliesToUser && t.stato === 'aperto' && !prevIds.has(t.id)) {
+              unseenP.add(t.id);
+            }
+          });
+          if (unseenKeyP) saveSetToStorage(unseenKeyP, unseenP);
           polled = ticketsWithForniture.map(t => {
             const appliesToUser = currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id;
-            const isNew = appliesToUser && t.stato === 'aperto' && !knownIdsP.has(t.id) && !seenIdsP.has(t.id);
-            return { ...t, isNew };
+            return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseenP.has(t.id) };
           });
-          polled.forEach(t => knownIdsP.add(t.id));
-          if (knownKeyP) saveSetToStorage(knownKeyP, knownIdsP);
         }
         setTickets(polled);
         // Toast a scomparsa per ciascun nuovo ticket
@@ -417,9 +422,11 @@ export default function TicketApp() {
       } catch (error) {
         console.error('Errore polling:', error);
       }
-    }, 3000); // polling più rapido per notifiche quasi immediate
-
-    return () => clearInterval(interval);
+    };
+    const interval = setInterval(doPoll, 3000);
+    const localNewHandler = () => { doPoll(); };
+    window.addEventListener('new-ticket-local', localNewHandler);
+    return () => { clearInterval(interval); window.removeEventListener('new-ticket-local', localNewHandler); };
   }, [isLoggedIn, tickets, showUnreadModal, currentUser, previousUnreadCounts]);
 
   // ====================================================================
