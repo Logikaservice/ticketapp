@@ -260,8 +260,8 @@ export default function TicketApp() {
     const handler = (e) => {
       const { state, type } = e.detail || {};
       if (!state || !type) return;
-      // Frecce rimosse: non impostiamo più indicatori direzionali
-      setDashboardHighlights((prev) => ({ ...prev, [state]: null }));
+      // Ripristina highlight (glow) per 10s, senza simboli freccia
+      setDashboardHighlights((prev) => ({ ...prev, [state]: { type } }));
       setTimeout(() => {
         setDashboardHighlights((prev) => ({ ...prev, [state]: null }));
       }, 10000);

@@ -41,7 +41,7 @@ export const useTickets = (
       setTickets(prev => [savedTicket, ...prev]);
       closeModal();
       try {
-        // Solo highlight verde e focus, senza badge NEW
+        // Glow verde e focus
         window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'aperto', type: 'up' } }));
         window.dispatchEvent(new CustomEvent('dashboard-focus', { detail: { state: 'aperto' } }));
       } catch (_) {}
