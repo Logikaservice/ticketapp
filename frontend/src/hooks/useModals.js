@@ -12,6 +12,8 @@ export const useModals = (
 ) => {
   
   const handleOpenTimeLogger = (ticket) => {
+    // Seleziona il ticket per consentire il salvataggio dei timelog e dello stato
+    setSelectedTicket(ticket);
     initializeTimeLogs(ticket);
     setModalState({ type: 'timeLogger', data: ticket });
   };
