@@ -58,6 +58,7 @@ export default function TicketApp() {
   const [showDashboard, setShowDashboard] = useState(true);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
+  const [prevTicketStates, setPrevTicketStates] = useState({});
 
   // ====================================================================
   // NOTIFICHE
@@ -232,6 +233,10 @@ export default function TicketApp() {
         );
         
         setTickets(ticketsWithForniture);
+        // Inizializza mappa stati per highlights reali
+        const initMap = {};
+        ticketsWithForniture.forEach(t => { if (t && t.id) initMap[t.id] = t.stato; });
+        setPrevTicketStates(initMap);
 
         if (currentUser.ruolo === 'tecnico') {
           const usersResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users');
@@ -264,6 +269,17 @@ export default function TicketApp() {
     };
     window.addEventListener('dashboard-highlight', handler);
     return () => window.removeEventListener('dashboard-highlight', handler);
+  }, []);
+
+  useEffect(() => {
+    const focusHandler = (e) => {
+      const { state } = e.detail || {};
+      if (!state) return;
+      setShowDashboard(true);
+      setDashboardTargetState(state);
+    };
+    window.addEventListener('dashboard-focus', focusHandler);
+    return () => window.removeEventListener('dashboard-focus', focusHandler);
   }, []);
 
   // ====================================================================
@@ -304,6 +320,25 @@ export default function TicketApp() {
         );
         
         setTickets(ticketsWithForniture);
+        // Highlights reali: confronta stati precedenti vs attuali
+        const nextMap = {};
+        ticketsWithForniture.forEach(t => { if (t && t.id) nextMap[t.id] = t.stato; });
+        try {
+          Object.keys(nextMap).forEach(id => {
+            const prevState = prevTicketStates[id];
+            const curState = nextMap[id];
+            if (!prevState && curState) {
+              const evtUp = new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up' } });
+              window.dispatchEvent(evtUp);
+            } else if (prevState && prevState !== curState) {
+              const evtDown = new CustomEvent('dashboard-highlight', { detail: { state: prevState, type: 'down' } });
+              const evtUp = new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up' } });
+              window.dispatchEvent(evtDown);
+              window.dispatchEvent(evtUp);
+            }
+          });
+        } catch (_) {}
+        setPrevTicketStates(nextMap);
         
         // Controlla se ci sono nuovi messaggi
         let hasNewMessages = false;

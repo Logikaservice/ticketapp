@@ -43,6 +43,9 @@ export const useTickets = (
       try {
         const evt = new CustomEvent('dashboard-highlight', { detail: { state: 'aperto', type: 'up' } });
         window.dispatchEvent(evt);
+        // Forza vista Dashboard su "Aperti"
+        const focusEvt = new CustomEvent('dashboard-focus', { detail: { state: 'aperto' } });
+        window.dispatchEvent(focusEvt);
       } catch (_) {}
       showNotification('Ticket creato con successo!', 'success');
     } catch (error) {
