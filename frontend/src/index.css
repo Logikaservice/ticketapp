@@ -127,3 +127,10 @@
 
 .ring-pulse-green { animation: ringPulseGreen 1.4s ease-in-out 4; }
 .ring-pulse-red { animation: ringPulseRed 1.4s ease-in-out 4; }
+
+/* Slide out left animation for dashboard hide */
+@keyframes slideOutLeft {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-24px); }
+}
+.animate-slideOutLeft { animation: slideOutLeft 0.35s ease forwards; }

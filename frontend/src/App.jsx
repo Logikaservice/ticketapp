@@ -55,6 +55,8 @@ export default function TicketApp() {
   const [showUnreadModal, setShowUnreadModal] = useState(false);
   const [fornitureModalTicket, setFornitureModalTicket] = useState(null);
   const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
+  const [showDashboard, setShowDashboard] = useState(true);
+  const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
 
   // ====================================================================
   // NOTIFICHE
@@ -409,38 +411,38 @@ export default function TicketApp() {
       />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        <Dashboard
-          currentUser={currentUser}
-          tickets={tickets}
-          users={users}
-          selectedTicket={selectedTicket}
-          setSelectedTicket={setSelectedTicket}
-          handlers={{
-            handleSelectTicket,
-            handleOpenEditModal,
-            handleOpenTimeLogger,
-            handleViewTimeLog,
-            handleOpenForniture,
-            handleReopenInLavorazione,
-            handleChangeStatus,
-            handleReopenAsRisolto,
-            handleSetInviato,
-            handleArchiveTicket,
-            handleInvoiceTicket,
-            handleDeleteTicket,
-            showNotification,
-            handleSendMessage,
-            handleGenerateSentReport,
-            handleGenerateInvoiceReport
-          }}
-          getUnreadCount={getUnreadCount}
-          onOpenState={(state) => {
-            // Effetto a slittamento: nascondi dashboard e mostra solo lista filtrata
-            const anchor = document.getElementById('tickets-anchor');
-            if (anchor) anchor.scrollIntoView({ behavior: 'smooth' });
-          }}
-        />
-        <div id="tickets-anchor" className="mt-8">
+        {showDashboard ? (
+          <Dashboard
+            currentUser={currentUser}
+            tickets={tickets}
+            users={users}
+            selectedTicket={selectedTicket}
+            setSelectedTicket={setSelectedTicket}
+            handlers={{
+              handleSelectTicket,
+              handleOpenEditModal,
+              handleOpenTimeLogger,
+              handleViewTimeLog,
+              handleOpenForniture,
+              handleReopenInLavorazione,
+              handleChangeStatus,
+              handleReopenAsRisolto,
+              handleSetInviato,
+              handleArchiveTicket,
+              handleInvoiceTicket,
+              handleDeleteTicket,
+              showNotification,
+              handleSendMessage,
+              handleGenerateSentReport,
+              handleGenerateInvoiceReport
+            }}
+            getUnreadCount={getUnreadCount}
+            onOpenState={(state) => {
+              setDashboardTargetState(state || 'aperto');
+              setShowDashboard(false);
+            }}
+          />
+        ) : (
           <TicketListContainer
             {...{ currentUser, tickets, users, selectedTicket, getUnreadCount }}
             setSelectedTicket={setSelectedTicket}
@@ -462,8 +464,10 @@ export default function TicketApp() {
               handleGenerateSentReport,
               handleGenerateInvoiceReport
             }}
+            showFilters={true}
+            externalViewState={dashboardTargetState}
           />
-        </div>
+        )}
       </main>
 
       <AllModals

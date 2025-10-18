@@ -11,11 +11,20 @@ const StatCard = ({ title, value, highlight = null, onClick }) => {
     <button onClick={onClick} className={`text-center w-full`}>
       <div className={`p-4 rounded-xl border bg-white relative ${ringClass}`}>
         <div className="text-sm text-gray-500 mb-1">{title}</div>
-        <div className="text-5xl font-extrabold text-gray-900 leading-none">{value}</div>
+        <div className="text-5xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
         {highlight && (
           <div className={`absolute bottom-2 right-2 flex items-center gap-1 ${highlight.type === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-            <span className="animate-arrow-slide"><ChevronsRight size={18} /></span>
-            <span className="animate-arrow-slide" style={{ animationDelay: '0.2s' }}><ChevronsRight size={18} /></span>
+            {highlight.type === 'up' ? (
+              <>
+                <span className="animate-arrow-slide"><ChevronsRight size={18} /></span>
+                <span className="animate-arrow-slide" style={{ animationDelay: '0.2s' }}><ChevronsRight size={18} /></span>
+              </>
+            ) : (
+              <>
+                <span className="animate-arrow-slide"><ChevronsLeft size={18} /></span>
+                <span className="animate-arrow-slide" style={{ animationDelay: '0.2s' }}><ChevronsLeft size={18} /></span>
+              </>
+            )}
           </div>
         )}
         {highlight && (
