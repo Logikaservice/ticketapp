@@ -6,14 +6,16 @@ import TicketListContainer from './TicketListContainer';
 import { formatDate } from '../utils/formatters';
 
 const StatCard = ({ title, value, colorClass = 'bg-white', highlight = null }) => (
-  <div className={`flex-1 min-w-[140px] p-4 rounded-xl border ${colorClass} relative overflow-hidden`}> 
-    <div className="text-sm text-gray-500 mb-1">{title}</div>
-    <div className="text-3xl font-extrabold">{value}</div>
-    {highlight && (
-      <div className={`absolute top-2 right-2 animate-pulse ${highlight.type === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-        {highlight.type === 'up' ? <ArrowBigUpDash /> : <ArrowBigDownDash />}
-      </div>
-    )}
+  <div className="gradient-border">
+    <div className={`flex-1 min-w-[140px] p-4 rounded-xl border bg-white relative overflow-hidden`}> 
+      <div className="text-sm text-gray-500 mb-1">{title}</div>
+      <div className="text-3xl font-extrabold gradient-text animate-pulse-strong">{value}</div>
+      {highlight && (
+        <div className={`absolute top-2 right-2 ${highlight.type === 'up' ? 'text-green-600' : 'text-red-600'} animate-arrow-slide`}>
+          {highlight.type === 'up' ? <ArrowBigUpDash /> : <ArrowBigDownDash />}
+        </div>
+      )}
+    </div>
   </div>
 );
 

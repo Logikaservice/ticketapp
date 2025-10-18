@@ -73,3 +73,43 @@
 .animate-slideIn {
   animation: slideIn 0.4s ease-out;
 }
+
+/* ================================ */
+/*  Dashboard - Effetti Eleganti    */
+/* ================================ */
+@keyframes gradient-move {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.gradient-border {
+  background: linear-gradient(45deg, #ff0080, #ff8c00, #40e0d0, #7c3aed, #ff0080);
+  background-size: 400% 400%;
+  animation: gradient-move 6s linear infinite;
+  border-radius: 1rem; /* 16px */
+  padding: 2px;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes pulse-strong {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+.animate-pulse-strong {
+  animation: pulse-strong 2s ease-in-out infinite;
+}
+
+@keyframes arrow-slide {
+  0%, 100% { transform: translateX(0); opacity: .5; }
+  50% { transform: translateX(6px); opacity: 1; }
+}
+
+.animate-arrow-slide { animation: arrow-slide 1.2s ease-in-out infinite; }
