@@ -41,11 +41,8 @@ export const useTickets = (
       setTickets(prev => [savedTicket, ...prev]);
       closeModal();
       try {
-        // Badge NEW su Aperti
-        window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'aperto', type: 'new' } }));
-        // Glow verde su Aperti
-        window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'aperto', type: 'up', direction: 'forward' } }));
-        // Focalizza dashboard su Aperti
+        // Solo highlight verde e focus, senza badge NEW
+        window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'aperto', type: 'up' } }));
         window.dispatchEvent(new CustomEvent('dashboard-focus', { detail: { state: 'aperto' } }));
       } catch (_) {}
       showNotification('Ticket creato con successo!', 'success');

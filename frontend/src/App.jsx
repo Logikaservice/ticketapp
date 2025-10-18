@@ -477,7 +477,10 @@ export default function TicketApp() {
       />
 
       {!showDashboard && (
-        <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-center text-sm py-1 cursor-pointer" onClick={() => setShowDashboard(true)}>
+        <div
+          className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
+          onClick={() => setShowDashboard(true)}
+        >
           Torna alla Dashboard
         </div>
       )}
@@ -519,14 +522,6 @@ export default function TicketApp() {
           </div>
         ) : (
           <div className="animate-slideInRight">
-          <div className="mb-3">
-            <button
-              onClick={() => setShowDashboard(true)}
-              className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
-            >
-              Torna alla Dashboard
-            </button>
-          </div>
           <TicketListContainer
             {...{ currentUser, tickets, users, selectedTicket, getUnreadCount }}
             setSelectedTicket={setSelectedTicket}
