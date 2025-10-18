@@ -137,7 +137,16 @@ export const useTickets = (
     }
     // Aprendo il ticket, rimuovi l'evidenza "isNew"
     setSelectedTicket(prev => (prev?.id === ticket.id ? null : ticket));
+    // Segna come visto: rimuove evidenza e registra in localStorage
     setTickets(prev => prev.map(t => t.id === ticket.id ? { ...t, isNew: false } : t));
+    try {
+      const key = `seenNewTicketIds_${currentUser.id}`;
+      const arr = JSON.parse(localStorage.getItem(key) || '[]');
+      if (!arr.includes(ticket.id)) {
+        arr.push(ticket.id);
+        localStorage.setItem(key, JSON.stringify(arr));
+      }
+    } catch {}
   };
 
   const handleSendMessage = async (id, msg, isReclamo = false) => {
