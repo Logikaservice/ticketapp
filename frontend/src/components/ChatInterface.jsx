@@ -216,24 +216,14 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                 </button>
               </div>
 
-              {currentUser.ruolo === 'tecnico' && (
+              {currentUser.ruolo === 'tecnico' && ticket.stato === 'aperto' && (
                 <div className="flex gap-2 mt-3">
-                  {ticket.stato === 'aperto' && (
-                    <button
-                      onClick={() => handleChangeStatus(ticket.id, 'in_lavorazione')}
-                      className="flex-1 px-3 py-2 bg-yellow-600 text-white rounded-lg text-sm"
-                    >
-                      Prendi in carico
-                    </button>
-                  )}
-                  {ticket.stato === 'in_lavorazione' && (
-                    <button
-                      onClick={() => handleChangeStatus(ticket.id, 'risolto')}
-                      className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg text-sm"
-                    >
-                      Segna come risolto
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleChangeStatus(ticket.id, 'in_lavorazione')}
+                    className="flex-1 px-3 py-2 bg-yellow-600 text-white rounded-lg text-sm"
+                  >
+                    Prendi in carico
+                  </button>
                 </div>
               )}
             </>
