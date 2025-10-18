@@ -1,7 +1,7 @@
 // src/components/Dashboard.jsx
 
 import React, { useMemo, useEffect } from 'react';
-import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, ChevronsRight, ChevronsLeft } from 'lucide-react';
+import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, ChevronsRight, ChevronsLeft, ChevronUp } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import { formatDate } from '../utils/formatters';
 
@@ -19,15 +19,17 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled }) =
         <div className="text-sm text-gray-500 mb-1 flex items-center justify-center gap-2">{icon}<span>{title}</span></div>
         <div className="text-5xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
         {highlight && highlight.type === 'up' && (
-          <div className={`absolute bottom-2 right-2 flex items-center gap-1 text-green-600`}>
-            <span className="animate-arrow-slide"><ChevronsRight size={18} /></span>
-            <span className="animate-arrow-slide" style={{ animationDelay: '0.2s' }}><ChevronsRight size={18} /></span>
-          </div>
+          <>
+            {/* freccia orizzontale rossa sullo stato di PARTENZA sarà resa sull'altra card via evento 'down' */}
+            <div className={`absolute bottom-2 left-2 text-green-600`}>
+              <ChevronUp className="animate-arrow-up" size={18} />
+            </div>
+          </>
         )}
         {highlight && highlight.type === 'down' && (
-          <div className={`absolute bottom-2 left-2 flex items-center gap-1 text-red-600`}>
-            <span className="animate-arrow-slide" style={{ transform: 'scaleX(-1)' }}><ChevronsRight size={18} /></span>
-            <span className="animate-arrow-slide" style={{ animationDelay: '0.2s', transform: 'scaleX(-1)' }}><ChevronsRight size={18} /></span>
+          <div className={`absolute bottom-2 right-2 flex items-center gap-1 text-red-600`}>
+            <ChevronsRight size={18} className="animate-arrow-slide" />
+            <ChevronsRight size={18} className="animate-arrow-slide" style={{ animationDelay: '0.2s' }} />
           </div>
         )}
         {highlight && highlight.type === 'up' && (

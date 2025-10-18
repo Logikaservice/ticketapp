@@ -332,10 +332,22 @@ export default function TicketApp() {
               const evtUp = new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up' } });
               window.dispatchEvent(evtUp);
             } else if (prevState && prevState !== curState) {
-              const evtDown = new CustomEvent('dashboard-highlight', { detail: { state: prevState, type: 'down' } });
-              const evtUp = new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up' } });
-              window.dispatchEvent(evtDown);
-              window.dispatchEvent(evtUp);
+              // Avanti: orizzontale rossa sulla card di partenza (destra) + verticale verde su arrivo (sinistra)
+              const forwardOrder = ['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'];
+              const backwardOrder = ['fatturato','inviato','chiuso','risolto','in_lavorazione','aperto'];
+              const isForward = forwardOrder.indexOf(prevState) > -1 && forwardOrder.indexOf(curState) === forwardOrder.indexOf(prevState) + 1;
+              const isBackward = backwardOrder.indexOf(prevState) > -1 && backwardOrder.indexOf(curState) === backwardOrder.indexOf(prevState) + 1;
+              if (isForward) {
+                window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: prevState, type: 'down' } }));
+                window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up' } }));
+              } else if (isBackward) {
+                window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: prevState, type: 'down' } }));
+                window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up' } }));
+              } else {
+                // fallback: segnala cambio generico
+                window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: prevState, type: 'down' } }));
+                window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up' } }));
+              }
             }
           });
         } catch (_) {}
