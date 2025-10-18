@@ -62,15 +62,21 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
   // Modifica un materiale
   const handleMaterialChange = (logId, materialId, field, value) => {
     setTimeLogs(prev => prev.map(log => {
-      if (log.id === logId) {
-        return {
-          ...log,
-          materials: log.materials.map(m => 
-            m.id === materialId ? { ...m, [field]: parseFloat(value) || 0 } : m
-          )
-        };
-      }
-      return log;
+      if (log.id !== logId) return log;
+
+      const coerceValue = (fieldName, raw) => {
+        if (fieldName === 'nome') return raw; // testo libero
+        if (fieldName === 'quantita') return parseInt(raw) || 0;
+        if (fieldName === 'costo') return parseFloat(raw) || 0;
+        return raw;
+      };
+
+      return {
+        ...log,
+        materials: log.materials.map(m =>
+          m.id === materialId ? { ...m, [field]: coerceValue(field, value) } : m
+        )
+      };
     }));
   };
 
