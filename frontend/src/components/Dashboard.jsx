@@ -5,12 +5,12 @@ import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCh
 import TicketListContainer from './TicketListContainer';
 import { formatDate } from '../utils/formatters';
 
-const StatCard = ({ title, value, highlight = null, onClick }) => {
+const StatCard = ({ title, value, icon, highlight = null, onClick, disabled }) => {
   const ringClass = highlight ? (highlight.type === 'up' ? 'ring-pulse-green' : 'ring-pulse-red') : '';
   return (
-    <button onClick={onClick} className={`text-center w-full`}>
+    <button onClick={onClick} disabled={disabled} className={`text-center w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
       <div className={`p-4 rounded-xl border bg-white relative ${ringClass}`}>
-        <div className="text-sm text-gray-500 mb-1">{title}</div>
+        <div className="text-sm text-gray-500 mb-1 flex items-center justify-center gap-2">{icon}<span>{title}</span></div>
         <div className="text-5xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
         {highlight && (
           <div className={`absolute bottom-2 right-2 flex items-center gap-1 ${highlight.type === 'up' ? 'text-green-600' : 'text-red-600'}`}>
@@ -92,7 +92,7 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
 
   // Evidenzia spostamenti tra stati (approssimazione: confronta conteggi consecutivi)
   const prevCountsRef = useRef(counts);
-  useEffect(() => { prevCountsRef.current = counts; }, [counts]);
+  const [activeHighlights, setActiveHighlights] = React.useState({});
   const prev = prevCountsRef.current;
   const order = ['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'];
   const deltas = Object.fromEntries(order.map(k => [k, (counts[k] || 0) - (prev[k] || 0)]));
@@ -105,15 +105,29 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
     if (d < 0 && nextKey && deltas[nextKey] > 0) highlights[k] = { type: 'down' };
   });
 
+  useEffect(() => {
+    const newActive = { ...activeHighlights };
+    order.forEach(k => {
+      if (highlights[k]) {
+        newActive[k] = highlights[k];
+        setTimeout(() => {
+          setActiveHighlights(prevAH => ({ ...prevAH, [k]: null }));
+        }, 10000); // 10 secondi
+      }
+    });
+    setActiveHighlights(newActive);
+    prevCountsRef.current = counts;
+  }, [counts]);
+
   const roleLabel = currentUser?.ruolo === 'tecnico' ? 'Tecnico' : 'Cliente';
 
   const statCards = [
-    { key: 'aperto', title: 'Aperti', value: counts.aperto },
-    { key: 'in_lavorazione', title: 'In lavorazione', value: counts.in_lavorazione },
-    { key: 'risolto', title: 'Risolti', value: counts.risolto },
-    { key: 'chiuso', title: 'Chiusi', value: counts.chiuso },
-    { key: 'inviato', title: 'Inviati', value: counts.inviato },
-    { key: 'fatturato', title: 'Fatturati', value: counts.fatturato }
+    { key: 'aperto', title: 'Aperti', value: counts.aperto, icon: <FileText size={14} /> },
+    { key: 'in_lavorazione', title: 'In lavorazione', value: counts.in_lavorazione, icon: <PlayCircle size={14} /> },
+    { key: 'risolto', title: 'Risolti', value: counts.risolto, icon: <CheckCircle size={14} /> },
+    { key: 'chiuso', title: 'Chiusi', value: counts.chiuso, icon: <Archive size={14} /> },
+    { key: 'inviato', title: 'Inviati', value: counts.inviato, icon: <Send size={14} /> },
+    { key: 'fatturato', title: 'Fatturati', value: counts.fatturato, icon: <FileCheck2 size={14} /> }
   ];
 
   return (
@@ -129,9 +143,11 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
           <StatCard
             key={sc.key}
             title={sc.title}
+            icon={sc.icon}
             value={sc.value}
-            highlight={highlights[sc.key]}
-            onClick={() => onOpenState && onOpenState(sc.key)}
+            highlight={activeHighlights[sc.key]}
+            disabled={sc.value === 0}
+            onClick={() => sc.value > 0 && onOpenState && onOpenState(sc.key)}
           />
         ))}
       </div>

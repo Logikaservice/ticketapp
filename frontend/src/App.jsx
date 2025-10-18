@@ -412,6 +412,7 @@ export default function TicketApp() {
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         {showDashboard ? (
+          <div className="animate-slideInRight">
           <Dashboard
             currentUser={currentUser}
             tickets={tickets}
@@ -442,8 +443,9 @@ export default function TicketApp() {
               setShowDashboard(false);
             }}
           />
+          </div>
         ) : (
-          <>
+          <div className="animate-slideInRight">
           <div className="mb-3">
             <button
               onClick={() => setShowDashboard(true)}
@@ -476,7 +478,7 @@ export default function TicketApp() {
             showFilters={true}
             externalViewState={dashboardTargetState}
           />
-          </>
+          </div>
         )}
       </main>
 

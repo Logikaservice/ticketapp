@@ -208,12 +208,13 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
               {['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'].map(status => {
                 const count = ticketCounts[status] || 0;
                 const disabled = count === 0;
+                const active = viewState === status;
                 return (
                   <button
                     key={status}
                     onClick={() => !disabled && setViewState(status)}
                     disabled={disabled}
-                    className={`p-4 rounded-xl border bg-white text-center ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                    className={`p-4 rounded-xl border text-center ${disabled ? 'opacity-50 cursor-not-allowed bg-white' : active ? 'bg-blue-50 border-blue-300' : 'bg-white hover:bg-gray-50'}`}
                   >
                     <div className="text-sm text-gray-500 mb-1 capitalize">{status.replace('_',' ')}</div>
                     <div className="text-3xl font-extrabold gradient-text">{count}</div>
