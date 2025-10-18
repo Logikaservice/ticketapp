@@ -232,7 +232,7 @@ export default function TicketApp() {
           })
         );
         
-        // Evidenzia nuovi ticket per 10s (solo per il cliente destinatario)
+        // Evidenzia nuovi ticket (resta finché non si apre il ticket)
         let withNewFlag = ticketsWithForniture;
         if (currentUser.ruolo === 'cliente') {
           const prevIds = new Set(tickets.map(t => t.id));
@@ -240,12 +240,6 @@ export default function TicketApp() {
             ...t,
             isNew: !prevIds.has(t.id) && t.stato === 'aperto' && t.clienteid === currentUser.id
           }));
-          // Rimuovi il flag dopo 10s
-          if (withNewFlag.some(t => t.isNew)) {
-            setTimeout(() => {
-              setTickets(prev => prev.map(x => ({ ...x, isNew: false })));
-            }, 10000);
-          }
         }
         setTickets(withNewFlag);
         // Inizializza mappa stati per highlights reali
@@ -336,7 +330,7 @@ export default function TicketApp() {
           })
         );
         
-        // Evidenzia nuovi ticket rispetto al polling precedente (cliente e tecnico)
+        // Evidenzia nuovi ticket rispetto al polling precedente (cliente e tecnico) - resta finché non viene aperto
         let polled = ticketsWithForniture;
         const prevIds = new Set(tickets.map(t => t.id));
         if (currentUser.ruolo === 'cliente') {
@@ -349,11 +343,6 @@ export default function TicketApp() {
             ...t,
             isNew: !prevIds.has(t.id) && t.stato === 'aperto'
           }));
-        }
-        if (polled.some(t => t.isNew)) {
-          setTimeout(() => {
-            setTickets(prev => prev.map(x => ({ ...x, isNew: false })));
-          }, 10000);
         }
         setTickets(polled);
         // Toast a scomparsa per ciascun nuovo ticket

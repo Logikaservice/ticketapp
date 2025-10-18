@@ -135,7 +135,9 @@ export const useTickets = (
         console.error('Errore nel marcare come letto:', error);
       }
     }
+    // Aprendo il ticket, rimuovi l'evidenza "isNew"
     setSelectedTicket(prev => (prev?.id === ticket.id ? null : ticket));
+    setTickets(prev => prev.map(t => t.id === ticket.id ? { ...t, isNew: false } : t));
   };
 
   const handleSendMessage = async (id, msg, isReclamo = false) => {
