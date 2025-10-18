@@ -14,6 +14,12 @@ const NewTicketModal = ({
   selectedClientForNewTicket,
   setSelectedClientForNewTicket
 }) => {
+  // Ordina alfabeticamente i clienti per nome azienda (case-insensitive, locale IT)
+  const sortedClienti = (clientiAttivi || []).slice().sort((a, b) => {
+    const aName = a.azienda || '';
+    const bName = b.azienda || '';
+    return aName.localeCompare(bName, 'it', { sensitivity: 'base' });
+  });
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
@@ -50,7 +56,7 @@ const NewTicketModal = ({
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="" disabled>Seleziona un cliente</option>
-                {clientiAttivi.map(c => (
+                {sortedClienti.map(c => (
                   <option key={c.id} value={c.id}>{c.azienda}</option>
                 ))}
               </select>
