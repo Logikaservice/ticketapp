@@ -1,9 +1,9 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, LayoutDashboard } from 'lucide-react';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, showDashboardToggle }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const menuRef = useRef(null);
 
@@ -42,6 +42,15 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
           </div>
           
           <div className="flex items-center gap-2">
+            {showDashboardToggle && (
+              <button
+                onClick={showDashboardToggle}
+                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                title="Vai alla Dashboard"
+              >
+                <LayoutDashboard size={18} />
+              </button>
+            )}
             {currentUser?.ruolo === 'cliente' && (
               <button 
                 onClick={openNewTicketModal} 

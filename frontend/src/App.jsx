@@ -57,6 +57,8 @@ export default function TicketApp() {
   const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
   const [showDashboard, setShowDashboard] = useState(true);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
+  const [dashboardHighlights, setDashboardHighlights] = useState({});
+  const [dashboardHighlights, setDashboardHighlights] = useState({});
 
   // ====================================================================
   // NOTIFICHE
@@ -159,6 +161,7 @@ export default function TicketApp() {
   useEffect(() => {
     if (isLoggedIn) {
       setSelectedTicket(null);
+      setShowDashboard(true); // all'accesso parte dalla dashboard
       localStorage.setItem('openTicketId', 'null');
     }
   }, [isLoggedIn]);
@@ -247,6 +250,22 @@ export default function TicketApp() {
     };
     if (isLoggedIn) fetchData();
   }, [isLoggedIn, currentUser]);
+
+  // Riceve eventi per glow/frecce della dashboard
+  useEffect(() => {
+    const handler = (e) => {
+      const { state, type } = e.detail || {};
+      if (!state || !type) return;
+      setDashboardHighlights((prev) => ({ ...prev, [state]: { type } }));
+      setTimeout(() => {
+        setDashboardHighlights((prev) => ({ ...prev, [state]: null }));
+      }, 10000);
+      setShowDashboard(true);
+      setDashboardTargetState(state);
+    };
+    window.addEventListener('dashboard-highlight', handler);
+    return () => window.removeEventListener('dashboard-highlight', handler);
+  }, []);
 
   // ====================================================================
   // MONITORAGGIO NUOVI MESSAGGI
@@ -408,6 +427,7 @@ export default function TicketApp() {
       <Notification {...{ notification, handleCloseNotification }} />
       <Header
         {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal }}
+        showDashboardToggle={() => setShowDashboard(true)}
       />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
@@ -438,6 +458,7 @@ export default function TicketApp() {
               handleGenerateInvoiceReport
             }}
             getUnreadCount={getUnreadCount}
+            externalHighlights={dashboardHighlights}
             onOpenState={(state) => {
               setDashboardTargetState(state || 'aperto');
               setShowDashboard(false);

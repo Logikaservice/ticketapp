@@ -40,6 +40,10 @@ export const useTickets = (
       const savedTicket = await response.json();
       setTickets(prev => [savedTicket, ...prev]);
       closeModal();
+      try {
+        const evt = new CustomEvent('dashboard-highlight', { detail: { state: 'aperto', type: 'up' } });
+        window.dispatchEvent(evt);
+      } catch (_) {}
       showNotification('Ticket creato con successo!', 'success');
     } catch (error) {
       showNotification(error.message || 'Impossibile creare il ticket.', 'error');
