@@ -12,7 +12,6 @@ export const useModals = (
 ) => {
   
   const handleOpenTimeLogger = (ticket) => {
-    setSelectedTicket(ticket);
     initializeTimeLogs(ticket);
     setModalState({ type: 'timeLogger', data: ticket });
   };
@@ -39,7 +38,6 @@ export const useModals = (
     console.log('👁️ Ticket:', ticket);
     console.log('👁️ Ticket.timelogs:', ticket.timelogs);
     
-    setSelectedTicket(ticket);
     initializeTimeLogsForView(ticket);
     setModalState({ type: 'viewTimeLogger', data: ticket });
   };
