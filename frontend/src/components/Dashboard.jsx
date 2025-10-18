@@ -20,12 +20,8 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled }) =
         <div className="text-5xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
         {highlight && highlight.type === 'up' && (
           <div className={`absolute bottom-2 right-2 flex items-center gap-1 text-green-600`}>
-            {highlight.type === 'up' ? (
-              <>
-                <span className="animate-arrow-slide"><ChevronsRight size={18} /></span>
-                <span className="animate-arrow-slide" style={{ animationDelay: '0.2s' }}><ChevronsRight size={18} /></span>
-              </>
-            )}
+            <span className="animate-arrow-slide"><ChevronsRight size={18} /></span>
+            <span className="animate-arrow-slide" style={{ animationDelay: '0.2s' }}><ChevronsRight size={18} /></span>
           </div>
         )}
         {highlight && highlight.type === 'down' && (
@@ -94,14 +90,21 @@ const AlertsPanel = ({ onOpenTicket }) => (
 );
 
 const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount, onOpenState, externalHighlights }) => {
+  const visibleTickets = useMemo(() => {
+    if (currentUser?.ruolo === 'cliente') {
+      return tickets.filter(t => t.clienteid === currentUser.id);
+    }
+    return tickets;
+  }, [tickets, currentUser]);
+
   const counts = useMemo(() => ({
-    aperto: tickets.filter(t => t.stato === 'aperto').length,
-    in_lavorazione: tickets.filter(t => t.stato === 'in_lavorazione').length,
-    risolto: tickets.filter(t => t.stato === 'risolto').length,
-    chiuso: tickets.filter(t => t.stato === 'chiuso').length,
-    inviato: tickets.filter(t => t.stato === 'inviato').length,
-    fatturato: tickets.filter(t => t.stato === 'fatturato').length
-  }), [tickets]);
+    aperto: visibleTickets.filter(t => t.stato === 'aperto').length,
+    in_lavorazione: visibleTickets.filter(t => t.stato === 'in_lavorazione').length,
+    risolto: visibleTickets.filter(t => t.stato === 'risolto').length,
+    chiuso: visibleTickets.filter(t => t.stato === 'chiuso').length,
+    inviato: visibleTickets.filter(t => t.stato === 'inviato').length,
+    fatturato: visibleTickets.filter(t => t.stato === 'fatturato').length
+  }), [visibleTickets]);
   // Evidenzia spostamenti basati su segnali esterni (eventi dal polling/azioni)
   const [activeHighlights, setActiveHighlights] = React.useState({});
   useEffect(() => {
