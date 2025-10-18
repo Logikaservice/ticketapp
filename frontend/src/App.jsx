@@ -476,6 +476,12 @@ export default function TicketApp() {
         {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal }}
       />
 
+      {!showDashboard && (
+        <div className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-center text-sm py-1 cursor-pointer" onClick={() => setShowDashboard(true)}>
+          Torna alla Dashboard
+        </div>
+      )}
+
       <main className="max-w-7xl mx-auto px-4 py-6">
         {showDashboard ? (
           <div className="animate-slideInRight">

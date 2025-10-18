@@ -131,8 +131,8 @@
   50% { box-shadow: 0 0 0 18px rgba(239, 68, 68, 0.28); }
 }
 
-.ring-pulse-green { animation: ringPulseGreen 1.4s ease-in-out 4; }
-.ring-pulse-red { animation: ringPulseRed 1.4s ease-in-out 4; }
+.ring-pulse-green { }
+.ring-pulse-red { }
 
 /* Slide out left animation for dashboard hide */
 @keyframes slideOutLeft {

@@ -41,11 +41,12 @@ export const useTickets = (
       setTickets(prev => [savedTicket, ...prev]);
       closeModal();
       try {
-        const evt = new CustomEvent('dashboard-highlight', { detail: { state: 'aperto', type: 'up' } });
-        window.dispatchEvent(evt);
-        // Forza vista Dashboard su "Aperti"
-        const focusEvt = new CustomEvent('dashboard-focus', { detail: { state: 'aperto' } });
-        window.dispatchEvent(focusEvt);
+        // Badge NEW su Aperti
+        window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'aperto', type: 'new' } }));
+        // Glow verde su Aperti
+        window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'aperto', type: 'up', direction: 'forward' } }));
+        // Focalizza dashboard su Aperti
+        window.dispatchEvent(new CustomEvent('dashboard-focus', { detail: { state: 'aperto' } }));
       } catch (_) {}
       showNotification('Ticket creato con successo!', 'success');
     } catch (error) {
