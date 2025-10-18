@@ -260,6 +260,11 @@ export const useTickets = (
         if (updatedTicket) {
           console.log('✅ Ticket aggiornato con timeLogs:', updatedTicket.timelogs);
           setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
+          // Emissione immediata highlight per passaggio in_lavorazione -> risolto
+          try {
+            window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'in_lavorazione', type: 'down' } }));
+            window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'risolto', type: 'up' } }));
+          } catch (_) {}
         }
       }
       
