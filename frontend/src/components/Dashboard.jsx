@@ -1,7 +1,7 @@
 // src/components/Dashboard.jsx
 
 import React, { useMemo, useEffect, useRef } from 'react';
-import { AlertTriangle, Users, Clock, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, ArrowBigUpDash, ArrowBigDownDash } from 'lucide-react';
+import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, ChevronsRight, ChevronsLeft } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import { formatDate } from '../utils/formatters';
 
@@ -9,13 +9,17 @@ const StatCard = ({ title, value, highlight = null, onClick }) => {
   const ringClass = highlight ? (highlight.type === 'up' ? 'ring-pulse-green' : 'ring-pulse-red') : '';
   return (
     <button onClick={onClick} className={`text-center w-full`}>
-      <div className={`p-4 rounded-xl border bg-white relative overflow-hidden ${ringClass}`}>
+      <div className={`p-4 rounded-xl border bg-white relative ${ringClass}`}>
         <div className="text-sm text-gray-500 mb-1">{title}</div>
-        <div className="text-4xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
+        <div className="text-5xl font-extrabold text-gray-900 leading-none">{value}</div>
         {highlight && (
-          <div className={`absolute top-2 right-2 ${highlight.type === 'up' ? 'text-green-600' : 'text-red-600'} animate-arrow-slide`}>
-            {highlight.type === 'up' ? <ArrowBigUpDash /> : <ArrowBigDownDash />}
+          <div className={`absolute bottom-2 right-2 flex items-center gap-1 ${highlight.type === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+            <span className="animate-arrow-slide"><ChevronsRight size={18} /></span>
+            <span className="animate-arrow-slide" style={{ animationDelay: '0.2s' }}><ChevronsRight size={18} /></span>
           </div>
+        )}
+        {highlight && (
+          <div className={`absolute left-4 right-4 -bottom-1 h-2 rounded-full ${highlight.type === 'up' ? 'bg-green-400' : 'bg-red-400'} blur-md opacity-80`}></div>
         )}
       </div>
     </button>
