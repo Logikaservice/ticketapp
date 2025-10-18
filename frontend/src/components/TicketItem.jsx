@@ -247,6 +247,20 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
             Visualizza Registro Intervento
           </button>
         )}
+
+        {/* Banner Segna come risolto (solo tecnico, in lavorazione) */}
+        {currentUser?.ruolo === 'tecnico' && ticket.stato === 'in_lavorazione' && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleChangeStatus(ticket.id, 'risolto');
+            }}
+            className="w-full py-3 px-4 bg-gradient-to-r from-green-100 via-green-50 to-green-100 hover:from-green-200 hover:via-green-100 hover:to-green-200 border-t border-green-200 flex items-center justify-center gap-2 text-green-800 font-semibold text-sm transition-all duration-200 hover:shadow-md"
+          >
+            <Check size={18} />
+            Segna come risolto
+          </button>
+        )}
       </div>
 
       {selectedTicket?.id === ticket.id && (
