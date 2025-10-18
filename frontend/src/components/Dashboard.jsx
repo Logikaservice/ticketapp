@@ -1,23 +1,26 @@
 // src/components/Dashboard.jsx
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { AlertTriangle, Users, Clock, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, ArrowBigUpDash, ArrowBigDownDash } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import { formatDate } from '../utils/formatters';
 
-const StatCard = ({ title, value, colorClass = 'bg-white', highlight = null }) => (
-  <div className="gradient-border">
-    <div className={`flex-1 min-w-[140px] p-4 rounded-xl border bg-white relative overflow-hidden`}> 
-      <div className="text-sm text-gray-500 mb-1">{title}</div>
-      <div className="text-3xl font-extrabold gradient-text animate-pulse-strong">{value}</div>
-      {highlight && (
-        <div className={`absolute top-2 right-2 ${highlight.type === 'up' ? 'text-green-600' : 'text-red-600'} animate-arrow-slide`}>
-          {highlight.type === 'up' ? <ArrowBigUpDash /> : <ArrowBigDownDash />}
-        </div>
-      )}
-    </div>
-  </div>
-);
+const StatCard = ({ title, value, highlight = null, onClick }) => {
+  const ringClass = highlight ? (highlight.type === 'up' ? 'ring-pulse-green' : 'ring-pulse-red') : '';
+  return (
+    <button onClick={onClick} className={`text-center w-full`}>
+      <div className={`p-4 rounded-xl border bg-white relative overflow-hidden ${ringClass}`}>
+        <div className="text-sm text-gray-500 mb-1">{title}</div>
+        <div className="text-4xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
+        {highlight && (
+          <div className={`absolute top-2 right-2 ${highlight.type === 'up' ? 'text-green-600' : 'text-red-600'} animate-arrow-slide`}>
+            {highlight.type === 'up' ? <ArrowBigUpDash /> : <ArrowBigDownDash />}
+          </div>
+        )}
+      </div>
+    </button>
+  );
+};
 
 const CalendarStub = () => (
   <div className="bg-white rounded-xl border p-4">
@@ -64,7 +67,7 @@ const AlertsPanel = ({ onOpenTicket }) => (
   </div>
 );
 
-const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount }) => {
+const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount, onOpenState }) => {
   const counts = useMemo(() => ({
     aperto: tickets.filter(t => t.stato === 'aperto').length,
     in_lavorazione: tickets.filter(t => t.stato === 'in_lavorazione').length,
@@ -74,15 +77,30 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
     fatturato: tickets.filter(t => t.stato === 'fatturato').length
   }), [tickets]);
 
+  // Evidenzia spostamenti tra stati (approssimazione: confronta conteggi consecutivi)
+  const prevCountsRef = useRef(counts);
+  useEffect(() => { prevCountsRef.current = counts; }, [counts]);
+  const prev = prevCountsRef.current;
+  const order = ['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'];
+  const deltas = Object.fromEntries(order.map(k => [k, (counts[k] || 0) - (prev[k] || 0)]));
+  const highlights = Object.fromEntries(order.map(k => [k, null]));
+  order.forEach((k, idx) => {
+    const d = deltas[k];
+    const prevKey = order[idx - 1];
+    const nextKey = order[idx + 1];
+    if (d > 0 && prevKey && deltas[prevKey] < 0) highlights[k] = { type: 'up' };
+    if (d < 0 && nextKey && deltas[nextKey] > 0) highlights[k] = { type: 'down' };
+  });
+
   const roleLabel = currentUser?.ruolo === 'tecnico' ? 'Tecnico' : 'Cliente';
 
   const statCards = [
-    { key: 'aperto', title: 'Aperti', value: counts.aperto, icon: <FileText size={16} /> },
-    { key: 'in_lavorazione', title: 'In lavorazione', value: counts.in_lavorazione, icon: <PlayCircle size={16} /> },
-    { key: 'risolto', title: 'Risolti', value: counts.risolto, icon: <CheckCircle size={16} /> },
-    { key: 'chiuso', title: 'Chiusi', value: counts.chiuso, icon: <Archive size={16} /> },
-    { key: 'inviato', title: 'Inviati', value: counts.inviato, icon: <Send size={16} /> },
-    { key: 'fatturato', title: 'Fatturati', value: counts.fatturato, icon: <FileCheck2 size={16} /> }
+    { key: 'aperto', title: 'Aperti', value: counts.aperto },
+    { key: 'in_lavorazione', title: 'In lavorazione', value: counts.in_lavorazione },
+    { key: 'risolto', title: 'Risolti', value: counts.risolto },
+    { key: 'chiuso', title: 'Chiusi', value: counts.chiuso },
+    { key: 'inviato', title: 'Inviati', value: counts.inviato },
+    { key: 'fatturato', title: 'Fatturati', value: counts.fatturato }
   ];
 
   return (
@@ -95,9 +113,13 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
       {/* Stat menu style */}
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-6">
         {statCards.map(sc => (
-          <button key={sc.key} className="text-left" onClick={() => window.scrollTo({ top: 99999, behavior: 'smooth' })}>
-            <StatCard title={sc.title} value={sc.value} />
-          </button>
+          <StatCard
+            key={sc.key}
+            title={sc.title}
+            value={sc.value}
+            highlight={highlights[sc.key]}
+            onClick={() => onOpenState && onOpenState(sc.key)}
+          />
         ))}
       </div>
 
@@ -108,19 +130,7 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
             // Collegabile al ticket: per ora esempio
             // Potremmo usare handlers.handleSelectTicket quando disponibile
           }} />
-          <div className="mt-6">
-            <TicketListContainer
-              currentUser={currentUser}
-              tickets={tickets}
-              users={users}
-              selectedTicket={selectedTicket}
-              setSelectedTicket={setSelectedTicket}
-              handlers={handlers}
-              getUnreadCount={getUnreadCount}
-              showFilters={false}
-              externalViewState={'risolto'}
-            />
-          </div>
+          {/* Qui possiamo aggiungere altri contenuti; la lista completa è nella vista Ticket */}
         </div>
         <div>
           <CalendarStub />

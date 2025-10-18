@@ -431,22 +431,43 @@ export default function TicketApp() {
             showNotification,
             handleSendMessage,
             handleGenerateSentReport,
-            handleGenerateInvoiceReport,
-            timeLogs,
-            setTimeLogs,
-            initializeTimeLogs,
-            initializeTimeLogsForView,
-            handleTimeLogChange,
-            handleAddTimeLog,
-            handleDuplicateTimeLog,
-            handleRemoveTimeLog,
-            handleMaterialChange,
-            handleAddMaterial,
-            handleRemoveMaterial,
-            handleSaveTimeLogs
+            handleGenerateInvoiceReport
           }}
           getUnreadCount={getUnreadCount}
+          onOpenState={(state) => {
+            // Clic su una stat: mostra la vista ticket per quello stato
+            setModalState({ type: null, data: null });
+            // Riproduciamo la vista TicketListContainer classica sostituendo la dashboard
+            // Semplice approccio: scroll in basso dove c'è la lista
+            // Qui invece apriamo un modal notifica per guidarti: clicca "Vai ai Ticket"
+            setShowUnreadModal(false);
+            // Usa l'header: nessuna azione speciale, la lista è sotto nella vista Ticket
+          }}
         />
+        <div className="mt-8">
+          <TicketListContainer
+            {...{ currentUser, tickets, users, selectedTicket, getUnreadCount }}
+            setSelectedTicket={setSelectedTicket}
+            handlers={{
+              handleSelectTicket,
+              handleOpenEditModal,
+              handleOpenTimeLogger,
+              handleViewTimeLog,
+              handleOpenForniture,
+              handleReopenInLavorazione,
+              handleChangeStatus,
+              handleReopenAsRisolto,
+              handleSetInviato,
+              handleArchiveTicket,
+              handleInvoiceTicket,
+              handleDeleteTicket,
+              showNotification,
+              handleSendMessage,
+              handleGenerateSentReport,
+              handleGenerateInvoiceReport
+            }}
+          />
+        </div>
       </main>
 
       <AllModals
