@@ -336,23 +336,28 @@ export default function TicketApp() {
           })
         );
         
-        // Evidenzia nuovi ticket rispetto al polling precedente
+        // Evidenzia nuovi ticket rispetto al polling precedente (cliente e tecnico)
         let polled = ticketsWithForniture;
+        const prevIds = new Set(tickets.map(t => t.id));
         if (currentUser.ruolo === 'cliente') {
-          const prevIds = new Set(tickets.map(t => t.id));
           polled = ticketsWithForniture.map(t => ({
             ...t,
             isNew: !prevIds.has(t.id) && t.stato === 'aperto' && t.clienteid === currentUser.id
           }));
-          if (polled.some(t => t.isNew)) {
-            setTimeout(() => {
-              setTickets(prev => prev.map(x => ({ ...x, isNew: false })));
-            }, 10000);
-          }
+        } else if (currentUser.ruolo === 'tecnico') {
+          polled = ticketsWithForniture.map(t => ({
+            ...t,
+            isNew: !prevIds.has(t.id) && t.stato === 'aperto'
+          }));
+        }
+        if (polled.some(t => t.isNew)) {
+          setTimeout(() => {
+            setTickets(prev => prev.map(x => ({ ...x, isNew: false })));
+          }, 10000);
         }
         setTickets(polled);
         // Toast a scomparsa per ciascun nuovo ticket
-        if (currentUser.ruolo === 'cliente') {
+        if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
           polled.filter(t => t.isNew).forEach(t => {
             showNotification(`Nuovo ticket ${t.numero}: ${t.titolo}`, 'success', 6000);
           });
