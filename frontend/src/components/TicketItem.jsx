@@ -38,7 +38,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
    selectedTicket?.id === ticket.id ? 'bg-blue-50' : 'bg-white') + ' ' +
   (hasUnread && selectedTicket?.id !== ticket.id ? 'border-l-4 border-yellow-400 shadow-lg animate-pulse-slow bg-yellow-50' : '')}
       >
-        <div className="p-4 pl-5">
+        <div className="p-4 pl-5 relative">
           <div className={'absolute top-0 left-0 h-full w-1 ' + getPrioritySolidBgClass(ticket.priorita)}></div>
 
           <div className="flex items-start justify-between">
@@ -212,33 +212,35 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
             </div>
           </div>
 
-          {/* Badge Forniture Temporanee */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleOpenForniture(ticket);
-            }}
-            className={`absolute bottom-2 right-2 p-2 rounded-full shadow-lg transition-all ${
-              ticket.fornitureCount > 0
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
-            }`}
-            title="Forniture Temporanee"
-          >
-            <Package size={18} />
-            {ticket.fornitureCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                {ticket.fornitureCount}
-              </span>
-            )}
-          </button>
+          {/* Badge Forniture Temporanee (non mostrare su "Aperto") */}
+          {ticket.stato !== 'aperto' && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenForniture(ticket);
+              }}
+              className={`absolute bottom-2 right-2 p-2 rounded-full shadow-lg transition-all ${
+                ticket.fornitureCount > 0
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-300 text-gray-600 hover:bg-gray-400'
+              }`}
+              title="Forniture Temporanee"
+            >
+              <Package size={18} />
+              {ticket.fornitureCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                  {ticket.fornitureCount}
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Banner Visualizza Intervento */}
         {['risolto', 'chiuso', 'inviato', 'fatturato'].includes(ticket.stato) && (
           <button
             onClick={(e) => {
-              e.stopPropagation();
+              e.stopPropagation(); // non aprire/chiudere la chat
               handleViewTimeLog(ticket);
             }}
             className="w-full py-3 px-4 bg-gradient-to-r from-yellow-100 via-yellow-50 to-yellow-100 hover:from-yellow-200 hover:via-yellow-100 hover:to-yellow-200 border-t border-yellow-200 flex items-center justify-center gap-2 text-yellow-800 font-semibold text-sm transition-all duration-200 hover:shadow-md"
@@ -252,7 +254,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
         {currentUser?.ruolo === 'tecnico' && ticket.stato === 'in_lavorazione' && (
           <button
             onClick={(e) => {
-              e.stopPropagation();
+              e.stopPropagation(); // non aprire/chiudere la chat
               handleChangeStatus(ticket.id, 'risolto');
             }}
             className="w-full py-3 px-4 bg-gradient-to-r from-green-100 via-green-50 to-green-100 hover:from-green-200 hover:via-green-100 hover:to-green-200 border-t border-green-200 flex items-center justify-center gap-2 text-green-800 font-semibold text-sm transition-all duration-200 hover:shadow-md"
