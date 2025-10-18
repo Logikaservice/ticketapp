@@ -204,25 +204,24 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           </h2>
           
           {showFilters && (
-          <FilterControls
-            currentUser={currentUser}
-            counts={ticketCounts}
-            viewState={viewState}
-            setViewState={setViewState}
-            clientiAttivi={clientiAttivi}
-            selectedClient={selectedClientFilter}
-            setSelectedClient={setSelectedClientFilter}
-            tickets={tickets}
-            changedStates={changedStates}
-            markAsViewed={markAsViewed}
-            onGenerateReport={
-              viewState === 'inviato' 
-                ? handlers.handleGenerateSentReport 
-                : viewState === 'fatturato' 
-                  ? handlers.handleGenerateInvoiceReport 
-                  : null
-            }
-          />)}
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+              {['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'].map(status => {
+                const count = ticketCounts[status] || 0;
+                const disabled = count === 0;
+                return (
+                  <button
+                    key={status}
+                    onClick={() => !disabled && setViewState(status)}
+                    disabled={disabled}
+                    className={`p-4 rounded-xl border bg-white text-center ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                  >
+                    <div className="text-sm text-gray-500 mb-1 capitalize">{status.replace('_',' ')}</div>
+                    <div className="text-3xl font-extrabold gradient-text">{count}</div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="divide-y">

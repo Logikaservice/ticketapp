@@ -443,6 +443,15 @@ export default function TicketApp() {
             }}
           />
         ) : (
+          <>
+          <div className="mb-3">
+            <button
+              onClick={() => setShowDashboard(true)}
+              className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg"
+            >
+              Torna alla Dashboard
+            </button>
+          </div>
           <TicketListContainer
             {...{ currentUser, tickets, users, selectedTicket, getUnreadCount }}
             setSelectedTicket={setSelectedTicket}
@@ -467,6 +476,7 @@ export default function TicketApp() {
             showFilters={true}
             externalViewState={dashboardTargetState}
           />
+          </>
         )}
       </main>
 
