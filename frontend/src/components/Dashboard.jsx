@@ -18,15 +18,26 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled }) =
       <div className={`p-4 rounded-xl border bg-white relative ${ringClass}`}>
         <div className="text-sm text-gray-500 mb-1 flex items-center justify-center gap-2">{icon}<span>{title}</span></div>
         <div className="text-5xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
-        {highlight && highlight.type === 'up' && (
+        {highlight && highlight.type === 'up' && highlight.direction === 'forward' && (
           <div className={`absolute bottom-2 left-2 text-green-600`}>
             <ChevronUp className="animate-arrow-up" size={18} />
           </div>
         )}
-        {highlight && highlight.type === 'down' && (
+        {highlight && highlight.type === 'down' && highlight.direction === 'forward' && (
           <div className={`absolute bottom-2 right-2 flex items-center gap-1 text-red-600`}>
             <ChevronsRight size={18} className="animate-arrow-slide" />
             <ChevronsRight size={18} className="animate-arrow-slide" style={{ animationDelay: '0.2s' }} />
+          </div>
+        )}
+        {highlight && highlight.type === 'down' && highlight.direction === 'backward' && (
+          <div className={`absolute bottom-2 left-2 flex items-center gap-1 text-red-600`}>
+            <ChevronsRight size={18} className="animate-arrow-slide" style={{ transform: 'scaleX(-1)' }} />
+            <ChevronsRight size={18} className="animate-arrow-slide" style={{ animationDelay: '0.2s', transform: 'scaleX(-1)' }} />
+          </div>
+        )}
+        {highlight && highlight.type === 'up' && highlight.direction === 'backward' && (
+          <div className={`absolute bottom-2 right-2 text-green-600`}>
+            <ChevronUp className="animate-arrow-up" size={18} />
           </div>
         )}
         {highlight && highlight.type === 'up' && (

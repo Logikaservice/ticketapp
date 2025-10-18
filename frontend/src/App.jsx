@@ -329,25 +329,17 @@ export default function TicketApp() {
             const prevState = prevTicketStates[id];
             const curState = nextMap[id];
             if (!prevState && curState) {
-              const evtUp = new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up' } });
+              const evtUp = new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up', direction: 'forward' } });
               window.dispatchEvent(evtUp);
             } else if (prevState && prevState !== curState) {
-              // Avanti: orizzontale rossa sulla card di partenza (destra) + verticale verde su arrivo (sinistra)
+              // Avanzamento/regresso: emetti direzione per posizionare le frecce correttamente
               const forwardOrder = ['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'];
               const backwardOrder = ['fatturato','inviato','chiuso','risolto','in_lavorazione','aperto'];
               const isForward = forwardOrder.indexOf(prevState) > -1 && forwardOrder.indexOf(curState) === forwardOrder.indexOf(prevState) + 1;
               const isBackward = backwardOrder.indexOf(prevState) > -1 && backwardOrder.indexOf(curState) === backwardOrder.indexOf(prevState) + 1;
-              if (isForward) {
-                window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: prevState, type: 'down' } }));
-                window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up' } }));
-              } else if (isBackward) {
-                window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: prevState, type: 'down' } }));
-                window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up' } }));
-              } else {
-                // fallback: segnala cambio generico
-                window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: prevState, type: 'down' } }));
-                window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up' } }));
-              }
+              const direction = isBackward ? 'backward' : 'forward';
+              window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: prevState, type: 'down', direction } }));
+              window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up', direction } }));
             }
           });
         } catch (_) {}
