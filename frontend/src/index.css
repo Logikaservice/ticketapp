@@ -114,11 +114,7 @@
 
 .animate-arrow-slide { animation: arrow-slide 1.2s ease-in-out infinite; }
 
-@keyframes arrow-up {
-  0%, 100% { transform: translateY(0); opacity: .5; }
-  50% { transform: translateY(-6px); opacity: 1; }
-}
-.animate-arrow-up { animation: arrow-up 1.2s ease-in-out infinite; }
+/* Frecce rimosse */
 
 /* Soft ring pulse around cards */
 @keyframes ringPulseGreen {
