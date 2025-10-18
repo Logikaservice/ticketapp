@@ -1,6 +1,6 @@
 // src/components/Dashboard.jsx
 
-import React, { useMemo, useEffect, useRef } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, ChevronsRight, ChevronsLeft } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import { formatDate } from '../utils/formatters';
@@ -80,7 +80,7 @@ const AlertsPanel = ({ onOpenTicket }) => (
   </div>
 );
 
-const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount, onOpenState }) => {
+const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount, onOpenState, externalHighlights }) => {
   const counts = useMemo(() => ({
     aperto: tickets.filter(t => t.stato === 'aperto').length,
     in_lavorazione: tickets.filter(t => t.stato === 'in_lavorazione').length,
@@ -89,35 +89,12 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
     inviato: tickets.filter(t => t.stato === 'inviato').length,
     fatturato: tickets.filter(t => t.stato === 'fatturato').length
   }), [tickets]);
-
-  // Evidenzia spostamenti tra stati (approssimazione: confronta conteggi consecutivi)
-  const prevCountsRef = useRef(counts);
+  // Evidenzia spostamenti basati su segnali esterni (eventi dal polling/azioni)
   const [activeHighlights, setActiveHighlights] = React.useState({});
-  const prev = prevCountsRef.current;
-  const order = ['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'];
-  const deltas = Object.fromEntries(order.map(k => [k, (counts[k] || 0) - (prev[k] || 0)]));
-  const highlights = Object.fromEntries(order.map(k => [k, null]));
-  order.forEach((k, idx) => {
-    const d = deltas[k];
-    const prevKey = order[idx - 1];
-    const nextKey = order[idx + 1];
-    if (d > 0 && prevKey && deltas[prevKey] < 0) highlights[k] = { type: 'up' };
-    if (d < 0 && nextKey && deltas[nextKey] > 0) highlights[k] = { type: 'down' };
-  });
-
   useEffect(() => {
-    const newActive = { ...activeHighlights };
-    order.forEach(k => {
-      if (highlights[k]) {
-        newActive[k] = highlights[k];
-        setTimeout(() => {
-          setActiveHighlights(prevAH => ({ ...prevAH, [k]: null }));
-        }, 10000); // 10 secondi
-      }
-    });
-    setActiveHighlights(newActive);
-    prevCountsRef.current = counts;
-  }, [counts]);
+    if (!externalHighlights) return;
+    setActiveHighlights(externalHighlights);
+  }, [externalHighlights]);
 
   const roleLabel = currentUser?.ruolo === 'tecnico' ? 'Tecnico' : 'Cliente';
 

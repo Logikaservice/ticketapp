@@ -426,7 +426,6 @@ export default function TicketApp() {
       <Notification {...{ notification, handleCloseNotification }} />
       <Header
         {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal }}
-        showDashboardToggle={() => setShowDashboard(true)}
       />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
