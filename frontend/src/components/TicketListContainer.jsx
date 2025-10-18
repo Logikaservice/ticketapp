@@ -110,8 +110,13 @@ const FilterControls = ({
 // ====================================================================
 // COMPONENTE PRINCIPALE
 // ====================================================================
-const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount }) => {
-  const [viewState, setViewState] = useState('aperto');
+const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount, showFilters = true, externalViewState }) => {
+  const [viewState, setViewState] = useState(externalViewState || 'aperto');
+  useEffect(() => {
+    if (externalViewState && externalViewState !== viewState) {
+      setViewState(externalViewState);
+    }
+  }, [externalViewState]);
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
   const [lastSeenCounts, setLastSeenCounts] = useState(() => {
     const saved = localStorage.getItem(`lastSeenCounts_${currentUser.id}`);
@@ -198,6 +203,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
             {currentUser.ruolo === 'cliente' ? 'I Miei Interventi' : 'Lista Ticket'}
           </h2>
           
+          {showFilters && (
           <FilterControls
             currentUser={currentUser}
             counts={ticketCounts}
@@ -216,7 +222,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                   ? handlers.handleGenerateInvoiceReport 
                   : null
             }
-          />
+          />)}
         </div>
 
         <div className="divide-y">

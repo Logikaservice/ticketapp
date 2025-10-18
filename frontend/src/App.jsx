@@ -5,6 +5,7 @@ import Notification from './components/AppNotification';
 import LoginScreen from './components/LoginScreen';
 import Header from './components/Header';
 import TicketListContainer from './components/TicketListContainer';
+import Dashboard from './components/Dashboard';
 import AllModals from './components/Modals/AllModals';
 import ManageClientsModal from './components/Modals/ManageClientsModal';
 import NewClientModal from './components/Modals/NewClientModal';
@@ -408,8 +409,11 @@ export default function TicketApp() {
       />
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        <TicketListContainer
-          {...{ currentUser, tickets, users, selectedTicket, getUnreadCount }}
+        <Dashboard
+          currentUser={currentUser}
+          tickets={tickets}
+          users={users}
+          selectedTicket={selectedTicket}
           setSelectedTicket={setSelectedTicket}
           handlers={{
             handleSelectTicket,
@@ -427,8 +431,21 @@ export default function TicketApp() {
             showNotification,
             handleSendMessage,
             handleGenerateSentReport,
-            handleGenerateInvoiceReport
+            handleGenerateInvoiceReport,
+            timeLogs,
+            setTimeLogs,
+            initializeTimeLogs,
+            initializeTimeLogsForView,
+            handleTimeLogChange,
+            handleAddTimeLog,
+            handleDuplicateTimeLog,
+            handleRemoveTimeLog,
+            handleMaterialChange,
+            handleAddMaterial,
+            handleRemoveMaterial,
+            handleSaveTimeLogs
           }}
+          getUnreadCount={getUnreadCount}
         />
       </main>
 
