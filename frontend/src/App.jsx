@@ -232,7 +232,22 @@ export default function TicketApp() {
           })
         );
         
-        setTickets(ticketsWithForniture);
+        // Evidenzia nuovi ticket per 10s (solo per il cliente destinatario)
+        let withNewFlag = ticketsWithForniture;
+        if (currentUser.ruolo === 'cliente') {
+          const prevIds = new Set(tickets.map(t => t.id));
+          withNewFlag = ticketsWithForniture.map(t => ({
+            ...t,
+            isNew: !prevIds.has(t.id) && t.stato === 'aperto' && t.clienteid === currentUser.id
+          }));
+          // Rimuovi il flag dopo 10s
+          if (withNewFlag.some(t => t.isNew)) {
+            setTimeout(() => {
+              setTickets(prev => prev.map(x => ({ ...x, isNew: false })));
+            }, 10000);
+          }
+        }
+        setTickets(withNewFlag);
         // Inizializza mappa stati per highlights reali
         const initMap = {};
         ticketsWithForniture.forEach(t => { if (t && t.id) initMap[t.id] = t.stato; });
@@ -321,7 +336,27 @@ export default function TicketApp() {
           })
         );
         
-        setTickets(ticketsWithForniture);
+        // Evidenzia nuovi ticket rispetto al polling precedente
+        let polled = ticketsWithForniture;
+        if (currentUser.ruolo === 'cliente') {
+          const prevIds = new Set(tickets.map(t => t.id));
+          polled = ticketsWithForniture.map(t => ({
+            ...t,
+            isNew: !prevIds.has(t.id) && t.stato === 'aperto' && t.clienteid === currentUser.id
+          }));
+          if (polled.some(t => t.isNew)) {
+            setTimeout(() => {
+              setTickets(prev => prev.map(x => ({ ...x, isNew: false })));
+            }, 10000);
+          }
+        }
+        setTickets(polled);
+        // Toast a scomparsa per ciascun nuovo ticket
+        if (currentUser.ruolo === 'cliente') {
+          polled.filter(t => t.isNew).forEach(t => {
+            showNotification(`Nuovo ticket ${t.numero}: ${t.titolo}`, 'success', 6000);
+          });
+        }
         // Highlights reali: confronta stati precedenti vs attuali
         const nextMap = {};
         ticketsWithForniture.forEach(t => { if (t && t.id) nextMap[t.id] = t.stato; });
