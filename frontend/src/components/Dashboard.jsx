@@ -6,13 +6,19 @@ import TicketListContainer from './TicketListContainer';
 import { formatDate } from '../utils/formatters';
 
 const StatCard = ({ title, value, icon, highlight = null, onClick, disabled }) => {
-  const ringClass = highlight ? (highlight.type === 'up' ? 'ring-pulse-green' : 'ring-pulse-red') : '';
+  const ringClass = highlight
+    ? highlight.type === 'up'
+      ? 'ring-pulse-green'
+      : highlight.type === 'down'
+        ? 'ring-pulse-red'
+        : 'ring-pulse-green'
+    : '';
   return (
     <button onClick={onClick} disabled={disabled} className={`text-center w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
       <div className={`p-4 rounded-xl border bg-white relative ${ringClass}`}>
         <div className="text-sm text-gray-500 mb-1 flex items-center justify-center gap-2">{icon}<span>{title}</span></div>
         <div className="text-5xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
-        {highlight && (
+        {highlight && highlight.type !== 'new' && (
           <div className={`absolute bottom-2 right-2 flex items-center gap-1 ${highlight.type === 'up' ? 'text-green-600' : 'text-red-600'}`}>
             {highlight.type === 'up' ? (
               <>
@@ -27,8 +33,11 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled }) =
             )}
           </div>
         )}
-        {highlight && (
+        {highlight && highlight.type !== 'new' && (
           <div className={`absolute left-4 right-4 -bottom-1 h-2 rounded-full ${highlight.type === 'up' ? 'bg-green-400' : 'bg-red-400'} blur-md opacity-80`}></div>
+        )}
+        {highlight && highlight.type === 'new' && (
+          <span className="absolute top-2 left-2 text-xs font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">NEW</span>
         )}
       </div>
     </button>

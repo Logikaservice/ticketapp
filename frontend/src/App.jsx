@@ -264,6 +264,7 @@ export default function TicketApp() {
       setTimeout(() => {
         setDashboardHighlights((prev) => ({ ...prev, [state]: null }));
       }, 10000);
+      // Vai in dashboard e focalizza lo stato relativo
       setShowDashboard(true);
       setDashboardTargetState(state);
     };

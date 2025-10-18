@@ -195,6 +195,18 @@ export const useTickets = (
       const updatedTicket = await response.json();
       setTickets(prevTickets => prevTickets.map(t => (t.id === id ? updatedTicket : t)));
       showNotification('Stato del ticket aggiornato!', 'success');
+      // Emissione immediata degli highlights (senza attendere il polling)
+      try {
+        const transitions = ['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'];
+        const prev = tickets.find(t => t.id === id)?.stato;
+        const cur = updatedTicket.stato;
+        if (prev && cur && prev !== cur) {
+          const downEvt = new CustomEvent('dashboard-highlight', { detail: { state: prev, type: 'down' } });
+          const upEvt = new CustomEvent('dashboard-highlight', { detail: { state: cur, type: 'up' } });
+          window.dispatchEvent(downEvt);
+          window.dispatchEvent(upEvt);
+        }
+      } catch (_) {}
       if (status === 'chiuso' || (status === 'risolto' && currentUser.ruolo === 'tecnico')) {
         setSelectedTicket(null);
       }
