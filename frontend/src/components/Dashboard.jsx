@@ -101,6 +101,20 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
     setActiveHighlights(externalHighlights);
   }, [externalHighlights]);
 
+  // Badge NEW elegante su 'Aperti' quando arriva evento 'dashboard-new'
+  const [showNewBadge, setShowNewBadge] = React.useState(false);
+  useEffect(() => {
+    const handler = (e) => {
+      const { state } = e.detail || {};
+      if (state === 'aperto') {
+        setShowNewBadge(true);
+        setTimeout(() => setShowNewBadge(false), 4000);
+      }
+    };
+    window.addEventListener('dashboard-new', handler);
+    return () => window.removeEventListener('dashboard-new', handler);
+  }, []);
+
   const roleLabel = currentUser?.ruolo === 'tecnico' ? 'Tecnico' : 'Cliente';
 
   const statCards = [
@@ -133,6 +147,14 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
           />
         ))}
       </div>
+
+      {showNewBadge && (
+        <div className="flex items-center justify-center mb-4">
+          <span className="px-3 py-1 text-xs font-bold text-green-700 bg-green-100 rounded-full animate-pulse">
+            NEW ticket su Aperti
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">

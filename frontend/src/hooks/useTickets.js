@@ -41,7 +41,8 @@ export const useTickets = (
       setTickets(prev => [savedTicket, ...prev]);
       closeModal();
       try {
-        // Solo focus su Aperti (niente glow su nuova creazione)
+        // Focus su Aperti e badge NEW elegante in Dashboard
+        window.dispatchEvent(new CustomEvent('dashboard-new', { detail: { state: 'aperto' } }));
         window.dispatchEvent(new CustomEvent('dashboard-focus', { detail: { state: 'aperto' } }));
       } catch (_) {}
       showNotification('Ticket creato con successo!', 'success');
