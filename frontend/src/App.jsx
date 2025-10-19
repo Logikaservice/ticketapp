@@ -313,7 +313,7 @@ export default function TicketApp() {
   // MONITORAGGIO NUOVI MESSAGGI
   // ====================================================================
   useEffect(() => {
-    if (!isLoggedIn || tickets.length === 0) return;
+    if (!isLoggedIn) return;
 
     // Salva i conteggi iniziali
     const initialCounts = {};
@@ -423,7 +423,7 @@ export default function TicketApp() {
         console.error('Errore polling:', error);
       }
     };
-    const interval = setInterval(doPoll, 3000);
+    const interval = setInterval(doPoll, 1000);
     const localNewHandler = () => { doPoll(); };
     window.addEventListener('new-ticket-local', localNewHandler);
     return () => { clearInterval(interval); window.removeEventListener('new-ticket-local', localNewHandler); };
