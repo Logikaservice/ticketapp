@@ -233,7 +233,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           )}
         </div>
 
-        <div className="divide-y">
+        <div className="divide-y" style={{ scrollBehavior: 'auto' }}>
           {displayTickets.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <FileText size={48} className="mx-auto mb-3 opacity-30" />

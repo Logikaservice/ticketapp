@@ -73,9 +73,9 @@ export default function TicketApp() {
   // ====================================================================
   // NOTIFICHE
   // ====================================================================
-  const showNotification = (message, type = 'success', duration = 5000) => {
+  const showNotification = (message, type = 'success', duration = 5000, onClick) => {
     if (notificationTimeout) clearTimeout(notificationTimeout);
-    setNotification({ show: true, message, type });
+    setNotification({ show: true, message, type, onClick });
     const newTimeout = setTimeout(() => setNotification(p => ({ ...p, show: false })), duration);
     setNotificationTimeout(newTimeout);
   };
@@ -379,17 +379,12 @@ export default function TicketApp() {
         if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
           polled.filter(t => t.isNew).forEach(t => {
             dbg('Mostro toast per ticket', t.id);
-            showNotification(`Nuovo ticket ${t.numero}: ${t.titolo} — clicca per aprire`, 'success', 6000);
-            // Rendi il toast cliccabile: intercetto click globale una sola volta per questa notifica
-            const clickHandler = () => {
-              dbg('Toast cliccato per ticket', t.id);
-              handleSelectTicket(t);
-              setShowUnreadModal(false);
-              window.removeEventListener('click', clickHandler);
-            };
-            // Attacco per 6s finché è visibile
-            window.addEventListener('click', clickHandler, { once: true });
-            setTimeout(() => window.removeEventListener('click', clickHandler), 6000);
+            showNotification(
+              `Nuovo ticket ${t.numero}: ${t.titolo} — clicca per aprire`,
+              'success',
+              6000,
+              () => { dbg('Toast cliccato per ticket', t.id); /* apre solo se clicchi espressamente il toast */ handleSelectTicket(t); setShowUnreadModal(false); }
+            );
           });
         }
         // Highlights reali: confronta stati precedenti vs attuali
