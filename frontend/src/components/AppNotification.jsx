@@ -18,6 +18,7 @@ const AppNotification = ({ notification, handleClose }) => {
 
   const handleClick = () => {
     if (notification && notification.ticketId) {
+      try { console.log('[TOAST-DEBUG] toast click for ticket', notification.ticketId); } catch {}
       try { window.dispatchEvent(new CustomEvent('toast-open-ticket', { detail: notification.ticketId })); } catch {}
       handleClose();
     }

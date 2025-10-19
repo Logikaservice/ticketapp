@@ -444,8 +444,10 @@ export default function TicketApp() {
   useEffect(() => {
     const openFromToast = (e) => {
       const ticketId = e.detail;
+      try { console.log('[TOAST-DEBUG] openFromToast received id', ticketId); } catch {}
       const t = tickets.find(x => x.id === ticketId);
       if (t) {
+        try { console.log('[TOAST-DEBUG] found ticket in state', t); } catch {}
         handleSelectTicket(t);
         setShowUnreadModal(false);
       }
