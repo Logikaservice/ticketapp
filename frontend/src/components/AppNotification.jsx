@@ -17,19 +17,19 @@ const AppNotification = ({ notification, handleClose }) => {
   const style = typeStyles[notification.type] || typeStyles.info;
 
   const handleClick = () => {
-    if (typeof notification.onClick === 'function') {
-      try { notification.onClick(); } catch {}
+    if (notification && notification.ticketId) {
+      try { window.dispatchEvent(new CustomEvent('toast-open-ticket', { detail: notification.ticketId })); } catch {}
     }
     handleClose();
   };
 
   return (
     <div
-      className={`fixed bottom-5 right-5 z-[100] flex items-center gap-4 p-4 rounded-xl shadow-2xl text-white max-w-sm ${style.bg} ${notification.onClick ? 'cursor-pointer' : ''}`}
-      onClick={notification.onClick ? handleClick : undefined}
-      role={notification.onClick ? 'button' : undefined}
-      tabIndex={notification.onClick ? 0 : undefined}
-      onKeyDown={notification.onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(); } : undefined}
+      className={`fixed bottom-5 right-5 z-[100] flex items-center gap-4 p-4 rounded-xl shadow-2xl text-white max-w-sm ${style.bg} ${notification.ticketId ? 'cursor-pointer' : ''}`}
+      onClick={notification.ticketId ? handleClick : undefined}
+      role={notification.ticketId ? 'button' : undefined}
+      tabIndex={notification.ticketId ? 0 : undefined}
+      onKeyDown={notification.ticketId ? (e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(); } : undefined}
     >
       <div className="flex-shrink-0">
         {style.icon}

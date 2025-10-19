@@ -73,9 +73,9 @@ export default function TicketApp() {
   // ====================================================================
   // NOTIFICHE
   // ====================================================================
-  const showNotification = (message, type = 'success', duration = 5000, onClick) => {
+  const showNotification = (message, type = 'success', duration = 5000, ticketId = null) => {
     if (notificationTimeout) clearTimeout(notificationTimeout);
-    setNotification({ show: true, message, type, onClick });
+    setNotification({ show: true, message, type, ticketId });
     const newTimeout = setTimeout(() => setNotification(p => ({ ...p, show: false })), duration);
     setNotificationTimeout(newTimeout);
   };
@@ -379,12 +379,7 @@ export default function TicketApp() {
         if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
           polled.filter(t => t.isNew).forEach(t => {
             dbg('Mostro toast per ticket', t.id);
-            showNotification(
-              `Nuovo ticket ${t.numero}: ${t.titolo} — clicca per aprire`,
-              'success',
-              6000,
-              () => { dbg('Toast cliccato per ticket', t.id); /* apre solo se clicchi espressamente il toast */ handleSelectTicket(t); setShowUnreadModal(false); }
-            );
+            showNotification(`Nuovo ticket ${t.numero}: ${t.titolo} — clicca per aprire`, 'success', 6000, t.id);
           });
         }
         // Highlights reali: confronta stati precedenti vs attuali
@@ -443,6 +438,20 @@ export default function TicketApp() {
     window.addEventListener('new-ticket-local', localNewHandler);
     return () => { clearInterval(interval); window.removeEventListener('new-ticket-local', localNewHandler); };
   }, [isLoggedIn, tickets, showUnreadModal, currentUser, previousUnreadCounts]);
+
+  // Listener per apertura ticket da toast
+  useEffect(() => {
+    const openFromToast = (e) => {
+      const ticketId = e.detail;
+      const t = tickets.find(x => x.id === ticketId);
+      if (t) {
+        handleSelectTicket(t);
+        setShowUnreadModal(false);
+      }
+    };
+    window.addEventListener('toast-open-ticket', openFromToast);
+    return () => window.removeEventListener('toast-open-ticket', openFromToast);
+  }, [tickets]);
 
   // ====================================================================
   // MODALI
