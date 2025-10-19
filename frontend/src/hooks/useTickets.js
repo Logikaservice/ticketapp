@@ -126,6 +126,8 @@ export const useTickets = (
   };
 
   const handleSelectTicket = async (ticket) => {
+    // Opzione A: non far scorrere la pagina quando si apre/chiude la chat
+    const savedScrollY = typeof window !== 'undefined' ? (window.scrollY || window.pageYOffset || 0) : 0;
     if (ticket && (!selectedTicket || selectedTicket.id !== ticket.id)) {
       try {
         await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/mark-read`, {
@@ -156,6 +158,10 @@ export const useTickets = (
       const filtered = Array.isArray(arr) ? arr.filter((tid) => tid !== ticket.id) : [];
       localStorage.setItem(key, JSON.stringify(filtered));
     } catch {}
+    // Ripristina la posizione dello scroll dopo il render della chat
+    setTimeout(() => {
+      try { window.scrollTo(0, savedScrollY); } catch {}
+    }, 0);
   };
 
   const handleSendMessage = async (id, msg, isReclamo = false) => {
