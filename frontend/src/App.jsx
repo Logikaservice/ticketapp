@@ -67,6 +67,8 @@ export default function TicketApp() {
   const saveSetToStorage = (key, set) => {
     try { localStorage.setItem(key, JSON.stringify(Array.from(set))); } catch {}
   };
+  const debugNewTickets = () => localStorage.getItem('debugNewTickets') === '1';
+  const dbg = (...args) => { if (debugNewTickets()) { console.log('[NEW-TICKETS]', ...args); } };
 
   // ====================================================================
   // NOTIFICHE
@@ -353,25 +355,34 @@ export default function TicketApp() {
         if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
           // Aggiungi nuovi ID non presenti nello stato precedente
           const prevIds = new Set(tickets.map(t => t.id));
+          const newlyDetected = [];
           ticketsWithForniture.forEach(t => {
             const appliesToUser = currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id;
             if (appliesToUser && t.stato === 'aperto' && !prevIds.has(t.id)) {
               unseenP.add(t.id);
+              newlyDetected.push(t.id);
             }
           });
+          if (newlyDetected.length > 0) dbg('Rilevati nuovi ticket per', currentUser.ruolo, 'IDs:', newlyDetected);
           if (unseenKeyP) saveSetToStorage(unseenKeyP, unseenP);
           polled = ticketsWithForniture.map(t => {
             const appliesToUser = currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id;
             return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseenP.has(t.id) };
           });
+          if (debugNewTickets()) {
+            const flagged = polled.filter(t => t.isNew).map(t => t.id);
+            if (flagged.length > 0) dbg('Flag giallo per IDs:', flagged);
+          }
         }
         setTickets(polled);
         // Toast a scomparsa per ciascun nuovo ticket (cliccabile per aprire)
         if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
           polled.filter(t => t.isNew).forEach(t => {
+            dbg('Mostro toast per ticket', t.id);
             showNotification(`Nuovo ticket ${t.numero}: ${t.titolo} — clicca per aprire`, 'success', 6000);
             // Rendi il toast cliccabile: intercetto click globale una sola volta per questa notifica
             const clickHandler = () => {
+              dbg('Toast cliccato per ticket', t.id);
               handleSelectTicket(t);
               setShowUnreadModal(false);
               window.removeEventListener('click', clickHandler);
