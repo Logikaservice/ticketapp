@@ -24,8 +24,7 @@ export default function TicketApp() {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   
-  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
-  const [notificationTimeout, setNotificationTimeout] = useState(null);
+  const [notifications, setNotifications] = useState([]);
 
   const [modalState, setModalState] = useState({ type: null, data: null });
   const [newTicketData, setNewTicketData] = useState({ 
@@ -74,15 +73,16 @@ export default function TicketApp() {
   // NOTIFICHE
   // ====================================================================
   const showNotification = (message, type = 'success', duration = 5000, ticketId = null) => {
-    if (notificationTimeout) clearTimeout(notificationTimeout);
-    setNotification({ show: true, message, type, ticketId });
-    const newTimeout = setTimeout(() => setNotification(p => ({ ...p, show: false })), duration);
-    setNotificationTimeout(newTimeout);
+    const id = Date.now() + Math.random();
+    const newNotif = { id, show: true, message, type, ticketId };
+    setNotifications(prev => [...prev, newNotif]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, duration);
   };
 
-  const handleCloseNotification = () => {
-    if (notificationTimeout) clearTimeout(notificationTimeout);
-    setNotification(p => ({ ...p, show: false }));
+  const handleCloseNotification = (id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   // ====================================================================
@@ -552,7 +552,11 @@ export default function TicketApp() {
   if (!isLoggedIn) {
     return (
       <>
-        <Notification {...{ notification, handleCloseNotification }} />
+        <div className="fixed bottom-5 right-5 z-[100] flex flex-col-reverse gap-2">
+          {notifications.map((notif) => (
+            <Notification key={notif.id} notification={notif} handleClose={() => handleCloseNotification(notif.id)} />
+          ))}
+        </div>
         <LoginScreen {...{ loginData, setLoginData, handleLogin, handleAutoFillLogin }} />
       </>
     );
@@ -560,7 +564,11 @@ export default function TicketApp() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Notification {...{ notification, handleCloseNotification }} />
+      <div className="fixed bottom-5 right-5 z-[100] flex flex-col-reverse gap-2">
+        {notifications.map((notif) => (
+          <Notification key={notif.id} notification={notif} handleClose={() => handleCloseNotification(notif.id)} />
+        ))}
+      </div>
       <Header
         {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal }}
       />

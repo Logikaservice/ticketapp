@@ -26,7 +26,7 @@ const AppNotification = ({ notification, handleClose }) => {
 
   return (
     <div
-      className={`fixed bottom-5 right-5 z-[100] flex items-center gap-4 p-4 rounded-xl shadow-2xl text-white max-w-sm ${style.bg} ${notification.ticketId ? 'cursor-pointer' : ''}`}
+      className={`flex items-center gap-4 p-4 rounded-xl shadow-2xl text-white max-w-sm ${style.bg} ${notification.ticketId ? 'cursor-pointer' : ''}`}
       onClick={notification.ticketId ? handleClick : undefined}
     >
       <div className="flex-shrink-0">
