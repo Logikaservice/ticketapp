@@ -38,7 +38,9 @@ export const useTickets = (
       });
       if (!response.ok) throw new Error('Errore del server.');
       const savedTicket = await response.json();
-      setTickets(prev => [savedTicket, ...prev]);
+      // Marca subito come nuovo nella UI corrente
+      const savedTicketWithNew = { ...savedTicket, isNew: true };
+      setTickets(prev => [savedTicketWithNew, ...prev]);
       closeModal();
       try {
         // Marca subito come non visto per l'utente corrente (evidenza gialla immediata senza refresh)
@@ -51,6 +53,8 @@ export const useTickets = (
         // Badge NEW in dashboard
         window.dispatchEvent(new CustomEvent('dashboard-new', { detail: { state: 'aperto' } }));
         window.dispatchEvent(new CustomEvent('dashboard-focus', { detail: { state: 'aperto' } }));
+        // Forza un polling immediato
+        window.dispatchEvent(new Event('new-ticket-local'));
       } catch (_) {}
       showNotification('Ticket creato con successo!', 'success');
     } catch (error) {
