@@ -379,7 +379,8 @@ export default function TicketApp() {
         if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
           polled.filter(t => t.isNew).forEach(t => {
             dbg('Mostro toast per ticket', t.id);
-            showNotification(`Nuovo ticket ${t.numero}: ${t.titolo} — clicca per aprire`, 'success', 6000, t.id);
+            // Mostra di nuovo se c'è già un toast? Sovrascrive la notifica precedente
+            showNotification(`Nuovo ticket ${t.numero}: ${t.titolo}`, 'success', 8000, t.id);
           });
         }
         // Highlights reali: confronta stati precedenti vs attuali

@@ -19,24 +19,27 @@ const AppNotification = ({ notification, handleClose }) => {
   const handleClick = () => {
     if (notification && notification.ticketId) {
       try { window.dispatchEvent(new CustomEvent('toast-open-ticket', { detail: notification.ticketId })); } catch {}
+      handleClose();
     }
-    handleClose();
   };
 
   return (
-    <div
-      className={`fixed bottom-5 right-5 z-[100] flex items-center gap-4 p-4 rounded-xl shadow-2xl text-white max-w-sm ${style.bg} ${notification.ticketId ? 'cursor-pointer' : ''}`}
-      onClick={notification.ticketId ? handleClick : undefined}
-      role={notification.ticketId ? 'button' : undefined}
-      tabIndex={notification.ticketId ? 0 : undefined}
-      onKeyDown={notification.ticketId ? (e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(); } : undefined}
-    >
+    <div className={`fixed bottom-5 right-5 z-[100] flex items-center gap-4 p-4 rounded-xl shadow-2xl text-white max-w-sm ${style.bg}`}>
       <div className="flex-shrink-0">
         {style.icon}
       </div>
       <div className="flex-1">
         <span>{notification.message}</span>
       </div>
+      {notification.ticketId && (
+        <button
+          onClick={handleClick}
+          className="ml-2 px-2 py-1 bg-white/20 hover:bg-white/30 rounded text-xs"
+          aria-label="Apri ticket"
+        >
+          Apri
+        </button>
+      )}
       <button 
         onClick={handleClose} 
         className="ml-4 p-1 rounded-full hover:bg-white/20 transition-colors"
