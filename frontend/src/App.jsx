@@ -366,10 +366,19 @@ export default function TicketApp() {
           });
         }
         setTickets(polled);
-        // Toast a scomparsa per ciascun nuovo ticket
+        // Toast a scomparsa per ciascun nuovo ticket (cliccabile per aprire)
         if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
           polled.filter(t => t.isNew).forEach(t => {
-            showNotification(`Nuovo ticket ${t.numero}: ${t.titolo}`, 'success', 6000);
+            showNotification(`Nuovo ticket ${t.numero}: ${t.titolo} — clicca per aprire`, 'success', 6000);
+            // Rendi il toast cliccabile: intercetto click globale una sola volta per questa notifica
+            const clickHandler = () => {
+              handleSelectTicket(t);
+              setShowUnreadModal(false);
+              window.removeEventListener('click', clickHandler);
+            };
+            // Attacco per 6s finché è visibile
+            window.addEventListener('click', clickHandler, { once: true });
+            setTimeout(() => window.removeEventListener('click', clickHandler), 6000);
           });
         }
         // Highlights reali: confronta stati precedenti vs attuali
