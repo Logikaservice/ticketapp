@@ -448,8 +448,14 @@ export default function TicketApp() {
       const t = tickets.find(x => x.id === ticketId);
       if (t) {
         try { console.log('[TOAST-DEBUG] found ticket in state', t); } catch {}
-        handleSelectTicket(t);
+        // Passa alla vista lista (Aperti) e poi seleziona il ticket
+        setDashboardTargetState('aperto');
+        setShowDashboard(false);
         setShowUnreadModal(false);
+        // Selezione dopo il render della lista
+        setTimeout(() => {
+          try { handleSelectTicket(t); } catch {}
+        }, 50);
       }
     };
     window.addEventListener('toast-open-ticket', openFromToast);
