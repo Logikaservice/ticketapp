@@ -5,7 +5,7 @@ import { formatDate } from '../utils/formatters';
 import ChatInterface from './ChatInterface';
 
 const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, getUnreadCount }) => {
-  console.log('🎫', ticket.numero, 'Stato:', ticket.stato, 'timelogs:', ticket.timelogs);
+  // console.log debug rimosso
   
   const {
     handleSelectTicket,

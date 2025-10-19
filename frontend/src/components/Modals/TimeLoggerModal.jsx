@@ -22,10 +22,7 @@ const TimeLoggerModal = ({
   // Stato locale per gestire la modalità editing
   const [isEditing, setIsEditing] = useState(false);
   
-  console.log('📋 TimeLoggerModal - selectedTicket:', selectedTicket);
-  console.log('📋 TimeLoggerModal - timeLogs ricevuti:', timeLogs);
-  console.log('📋 TimeLoggerModal - readOnly:', readOnly);
-  console.log('📋 TimeLoggerModal - isEditing:', isEditing);
+  // console.debug: rimosso per evitare rumore in console
   
   // Determina se i campi sono modificabili
   const fieldsDisabled = readOnly && !isEditing;

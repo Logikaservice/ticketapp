@@ -36,10 +36,6 @@ export const useModals = (
   };
   
   const handleViewTimeLog = (ticket) => {
-    console.log('👁️ handleViewTimeLog chiamato');
-    console.log('👁️ Ticket:', ticket);
-    console.log('👁️ Ticket.timelogs:', ticket.timelogs);
-    
     initializeTimeLogsForView(ticket);
     setModalState({ type: 'viewTimeLogger', data: ticket });
   };
