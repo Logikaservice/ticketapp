@@ -466,9 +466,20 @@ export default function TicketApp() {
   // WRAPPER FUNZIONI
   // ====================================================================
   const handleUpdateSettings = () => { /* ... la tua logica ... */ };
-  const handleConfirmUrgentCreation = async () => { /* ... la tua logica ... */ };
+  const handleConfirmUrgentCreation = async () => {
+    // Conferma creazione URGENTE: procede alla normale creazione e chiude le modali
+    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket);
+    // Resetta form e chiudi qualsiasi modale residua
+    resetNewTicketData();
+    setModalState({ type: null, data: null });
+  };
 
   const wrappedHandleCreateTicket = () => {
+    // Se priorità URGENTE e stiamo creando (non edit), mostra conferma
+    if (!isEditingTicket && newTicketData.priorita === 'urgente') {
+      setModalState({ type: 'urgentConfirm' });
+      return;
+    }
     createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket);
   };
 
