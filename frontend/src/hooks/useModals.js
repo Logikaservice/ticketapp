@@ -36,6 +36,7 @@ export const useModals = (
   };
   
   const handleViewTimeLog = (ticket) => {
+    setSelectedTicket(ticket); // Necessario per permettere il salvataggio delle modifiche
     initializeTimeLogsForView(ticket);
     setModalState({ type: 'viewTimeLogger', data: ticket });
   };
