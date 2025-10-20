@@ -507,7 +507,24 @@ export default function TicketApp() {
     setModalState({ type: null, data: null });
   };
 
+  const handleConfirmEmptyDescription = async () => {
+    // L'utente ha confermato di voler procedere senza descrizione
+    // Controlla se è anche URGENTE
+    if (!isEditingTicket && newTicketData.priorita === 'urgente') {
+      setModalState({ type: 'urgentConfirm' });
+      return;
+    }
+    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket);
+    resetNewTicketData();
+    setModalState({ type: null, data: null });
+  };
+
   const wrappedHandleCreateTicket = () => {
+    // Se descrizione vuota, chiedi conferma
+    if (!newTicketData.descrizione || newTicketData.descrizione.trim() === '') {
+      setModalState({ type: 'emptyDescriptionConfirm' });
+      return;
+    }
     // Se priorità URGENTE e stiamo creando (non edit), mostra conferma
     if (!isEditingTicket && newTicketData.priorita === 'urgente') {
       setModalState({ type: 'urgentConfirm' });
@@ -652,6 +669,7 @@ export default function TicketApp() {
         closeModal={closeModal}
         handleUpdateSettings={handleUpdateSettings}
         handleConfirmUrgentCreation={handleConfirmUrgentCreation}
+        handleConfirmEmptyDescription={handleConfirmEmptyDescription}
         settingsData={settingsData}
         setSettingsData={setSettingsData}
         timeLogs={timeLogs}

@@ -75,7 +75,7 @@ const NewTicketModal = ({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrizione <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
             <textarea
               rows="4"
               placeholder="Descrivi il problema in dettaglio..."
