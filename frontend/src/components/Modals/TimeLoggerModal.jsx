@@ -237,7 +237,7 @@ const TimeLoggerModal = ({
                         <input
                           type="number"
                           step="0.01"
-                          value={m.costo.toFixed(2)}
+                          value={m.costo}
                           onChange={(e) => handleMaterialChange(log.id, m.id, 'costo', e.target.value)}
                           disabled={fieldsDisabled}
                           className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
