@@ -131,20 +131,19 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
 
   const roleLabel = currentUser?.ruolo === 'tecnico' ? 'Tecnico' : 'Cliente';
 
-  // Avvisi: storage locale semplice per prima versione
-  const [alerts, setAlerts] = React.useState(() => {
+  // Avvisi: ora da API backend
+  const [alerts, setAlerts] = React.useState([]);
+  const apiBase = process.env.REACT_APP_API_URL;
+  const fetchAlerts = async () => {
     try {
-      const raw = localStorage.getItem('dashboard_alerts');
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
+      const res = await fetch(`${apiBase}/api/alerts`);
+      if (!res.ok) throw new Error('Errore caricamento avvisi');
+      setAlerts(await res.json());
+    } catch (e) {
+      console.error(e);
     }
-  });
-
-  useEffect(() => {
-    localStorage.setItem('dashboard_alerts', JSON.stringify(alerts));
-  }, [alerts]);
+  };
+  useEffect(() => { fetchAlerts(); }, []);
 
   const [newAlert, setNewAlert] = React.useState({ title: '', body: '', level: 'warning' });
   const levelToColor = (level) => {
@@ -152,16 +151,32 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
     if (level === 'info') return 'border-blue-300 bg-blue-50 text-blue-800';
     return 'border-yellow-300 bg-yellow-50 text-yellow-800';
   };
-  const addAlert = () => {
+  const addAlert = async () => {
     if (!newAlert.title || !newAlert.body) return;
-    setAlerts(prev => [
-      { id: Date.now(), title: newAlert.title, body: newAlert.body, color: levelToColor(newAlert.level) },
-      ...prev
-    ]);
-    setNewAlert({ title: '', body: '', level: 'warning' });
+    try {
+      const res = await fetch(`${apiBase}/api/alerts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-user-role': 'tecnico' },
+        body: JSON.stringify({ title: newAlert.title, body: newAlert.body, level: newAlert.level })
+      });
+      if (!res.ok) throw new Error('Errore creazione avviso');
+      setNewAlert({ title: '', body: '', level: 'warning' });
+      fetchAlerts();
+    } catch (e) {
+      console.error(e);
+    }
   };
-  const deleteAlert = (id) => {
-    setAlerts(prev => prev.filter(a => a.id !== id));
+  const deleteAlert = async (id) => {
+    try {
+      const res = await fetch(`${apiBase}/api/alerts/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-user-role': 'tecnico' }
+      });
+      if (!res.ok) throw new Error('Errore eliminazione avviso');
+      fetchAlerts();
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const statCards = [
