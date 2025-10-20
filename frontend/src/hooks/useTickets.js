@@ -17,8 +17,8 @@ export const useTickets = (
       handleUpdateTicket();
       return;
     }
-    if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
-      return showNotification('Titolo, descrizione e richiedente sono obbligatori.', 'error');
+    if (!newTicketData.titolo || !newTicketData.nomerichiedente) {
+      return showNotification('Titolo e richiedente sono obbligatori.', 'error');
     }
     const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
     if (currentUser.ruolo === 'tecnico' && !clienteId) {
@@ -67,8 +67,8 @@ export const useTickets = (
     isEditingTicket,
     selectedClientForNewTicket
   ) => {
-    if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
-      return showNotification('Titolo, descrizione e richiedente sono obbligatori.', 'error');
+    if (!newTicketData.titolo || !newTicketData.nomerichiedente) {
+      return showNotification('Titolo e richiedente sono obbligatori.', 'error');
     }
     
     const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
