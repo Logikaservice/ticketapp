@@ -142,19 +142,63 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
             </div>
           )}
 
-          {/* Pulsante Genera Report (Cliente: solo Inviato) */}
+          {/* Pulsante Genera Report + Filtri (Cliente: solo Inviato) */}
           {currentUser.ruolo === 'cliente' && viewState === 'inviato' && handlers.handleGenerateSentReport && (
-            <button
-              onClick={handlers.handleGenerateSentReport}
-              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg mt-3 bg-gray-600 hover:bg-gray-700 whitespace-nowrap"
-            >
-              <FileText size={18} />
-              Genera Report
-            </button>
+            <div className="mt-3 flex gap-3 items-end">
+              <button
+                onClick={handlers.handleGenerateSentReport}
+                className="flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-gray-600 hover:bg-gray-700 whitespace-nowrap"
+              >
+                <FileText size={18} />
+                Genera Report
+              </button>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Mese</label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti i mesi</option>
+                  <option value="1">Gennaio</option>
+                  <option value="2">Febbraio</option>
+                  <option value="3">Marzo</option>
+                  <option value="4">Aprile</option>
+                  <option value="5">Maggio</option>
+                  <option value="6">Giugno</option>
+                  <option value="7">Luglio</option>
+                  <option value="8">Agosto</option>
+                  <option value="9">Settembre</option>
+                  <option value="10">Ottobre</option>
+                  <option value="11">Novembre</option>
+                  <option value="12">Dicembre</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Anno</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti gli anni</option>
+                  {(() => {
+                    const currentYear = new Date().getFullYear();
+                    const years = [];
+                    for (let year = currentYear; year >= currentYear - 5; year--) {
+                      years.push(year);
+                    }
+                    return years.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ));
+                  })()}
+                </select>
+              </div>
+            </div>
           )}
 
-          {/* Filtri per cliente (tutti gli stati) */}
-          {currentUser.ruolo === 'cliente' && (
+          {/* Filtri per cliente (altri stati) */}
+          {currentUser.ruolo === 'cliente' && viewState !== 'inviato' && (
             <div className="mt-3 flex flex-col md:flex-row md:items-end md:gap-4">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-2">Mese</label>
