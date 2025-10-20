@@ -195,7 +195,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
     <div class="ticket-block">
         <div class="ticket-header">
             <span class="ticket-number">Ticket: ${ticket.numero}</span>
-            <span class="ticket-dates">Apertura: ${dataApertura} &nbsp;&nbsp; Chiusura: ${dataChiusura}</span>
+            <span class="ticket-dates">Data creazione: ${dataApertura}</span>
         </div>
         <div class="ticket-title">Titolo: ${ticket.titolo}</div>
         <div class="ticket-requester">Richiedente: ${ticket.nomerichiedente}</div>
@@ -231,10 +231,12 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
         totaleTicket += costoManodopera + costoMaterialiLog;
 
         const dataItaliana = formatDateItalian(log.data);
+        const oraInizio = log.oraInizio || 'N/A';
+        const oraFine = log.oraFine || 'N/A';
 
         html += `
                 <tr>
-                    <td>${logIndex + 1}. ${log.modalita} - ${dataItaliana}</td>
+                    <td>${logIndex + 1}. ${log.modalita} - ${dataItaliana} ${oraInizio}-${oraFine}</td>
                     <td style="text-align: center;">${log.oreIntervento}h</td>
                     <td style="text-align: center;">€${parseFloat(log.costoUnitario).toFixed(0)}</td>
                     <td style="text-align: center;">${parseFloat(log.sconto).toFixed(0)}%</td>
