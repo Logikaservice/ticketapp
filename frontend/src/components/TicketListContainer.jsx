@@ -129,28 +129,54 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
             </div>
           )}
 
-          {/* Pulsante Genera Report / Lista Fatture */}
-          {currentUser.ruolo === 'tecnico' && viewState === 'inviato' && handlers.handleGenerateSentReport && (
-            <button
-              onClick={handlers.handleGenerateSentReport}
-              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg mt-3 bg-gray-600 hover:bg-gray-700"
-            >
-              <FileText size={18} />
-              Genera Report
-            </button>
-          )}
-          {currentUser.ruolo === 'tecnico' && viewState === 'fatturato' && handlers.handleGenerateInvoiceReport && (
-            <button
-              onClick={handlers.handleGenerateInvoiceReport}
-              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg mt-3 bg-indigo-600 hover:bg-indigo-700"
-            >
-              <FileText size={18} />
-              Genera Lista Fatture
-            </button>
+          {/* Pulsante Genera Report / Lista Fatture + Filtro Cliente (sulla stessa riga) */}
+          {currentUser.ruolo === 'tecnico' && ['inviato', 'fatturato'].includes(viewState) && (
+            <div className="mt-3 flex gap-3 items-end">
+              {viewState === 'inviato' && handlers.handleGenerateSentReport && (
+                <button
+                  onClick={handlers.handleGenerateSentReport}
+                  className="flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-gray-600 hover:bg-gray-700 whitespace-nowrap"
+                >
+                  <FileText size={18} />
+                  Genera Report
+                </button>
+              )}
+              {viewState === 'fatturato' && handlers.handleGenerateInvoiceReport && (
+                <button
+                  onClick={handlers.handleGenerateInvoiceReport}
+                  className="flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap"
+                >
+                  <FileText size={18} />
+                  Genera Lista Fatture
+                </button>
+              )}
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
+                <select
+                  value={selectedClientFilter}
+                  onChange={(e) => setSelectedClientFilter(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti i clienti</option>
+                  {clientiAttivi
+                    .slice()
+                    .sort((a, b) => (a.azienda || '').localeCompare(b.azienda || '', 'it', { sensitivity: 'base' }))
+                    .map(c => {
+                      const ticketsForThisClient = displayTickets.filter(t => t.clienteid === c.id).length;
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {c.azienda} ({ticketsForThisClient})
+                        </option>
+                      );
+                    })
+                  }
+                </select>
+              </div>
+            </div>
           )}
 
-          {/* Filtro per cliente (solo tecnico) */}
-          {currentUser.ruolo === 'tecnico' && (
+          {/* Filtro per cliente (solo tecnico, negli altri stati) */}
+          {currentUser.ruolo === 'tecnico' && !['inviato', 'fatturato'].includes(viewState) && (
             <div className="mt-3">
               <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
               <select
@@ -159,11 +185,18 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                 className="w-full px-3 py-2 border rounded-lg"
               >
                 <option value="all">Tutti i clienti</option>
-                {clientiAttivi.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.azienda} ({tickets.filter(t => t.clienteid === c.id).length})
-                  </option>
-                ))}
+                {clientiAttivi
+                  .slice()
+                  .sort((a, b) => (a.azienda || '').localeCompare(b.azienda || '', 'it', { sensitivity: 'base' }))
+                  .map(c => {
+                    const ticketsForThisClient = displayTickets.filter(t => t.clienteid === c.id).length;
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {c.azienda} ({ticketsForThisClient})
+                      </option>
+                    );
+                  })
+                }
               </select>
             </div>
           )}
