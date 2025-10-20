@@ -24,7 +24,8 @@ export const useModals = (
       descrizione: ticket.descrizione,
       categoria: ticket.categoria,
       priorita: ticket.priorita,
-      nomerichiedente: ticket.nomerichiedente
+      nomerichiedente: ticket.nomerichiedente,
+      dataapertura: ticket.dataapertura
     });
     setIsEditingTicket(ticket.id);
     setSelectedClientForNewTicket(ticket.clienteid.toString());

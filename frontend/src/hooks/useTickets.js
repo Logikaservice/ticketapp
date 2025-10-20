@@ -82,7 +82,8 @@ export const useTickets = (
       categoria: newTicketData.categoria,
       priorita: newTicketData.priorita,
       nomerichiedente: newTicketData.nomerichiedente,
-      clienteid: clienteId
+      clienteid: clienteId,
+      dataapertura: newTicketData.dataapertura
     };
     
     try {
