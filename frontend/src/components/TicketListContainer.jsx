@@ -129,7 +129,18 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
             </div>
           )}
 
-          {/* Pulsante Genera Report / Lista Fatture + Filtro Cliente (sulla stessa riga) */}
+          {/* Pulsante Genera Report (Cliente: solo Inviato) */}
+          {currentUser.ruolo === 'cliente' && viewState === 'inviato' && handlers.handleGenerateSentReport && (
+            <button
+              onClick={handlers.handleGenerateSentReport}
+              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg mt-3 bg-gray-600 hover:bg-gray-700 whitespace-nowrap"
+            >
+              <FileText size={18} />
+              Genera Report
+            </button>
+          )}
+
+          {/* Pulsante Genera Report / Lista Fatture + Filtro Cliente (Tecnico: Inviato/Fatturato) */}
           {currentUser.ruolo === 'tecnico' && ['inviato', 'fatturato'].includes(viewState) && (
             <div className="mt-3 flex gap-3 items-end">
               {viewState === 'inviato' && handlers.handleGenerateSentReport && (
