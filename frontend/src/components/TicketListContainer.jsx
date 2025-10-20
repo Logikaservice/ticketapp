@@ -7,7 +7,7 @@ import TicketItem from './TicketItem';
 // ====================================================================
 // COMPONENTE PRINCIPALE
 // ====================================================================
-const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount, showFilters = true, externalViewState, onGenerateReport }) => {
+const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount, showFilters = true, externalViewState }) => {
   const [viewState, setViewState] = useState(externalViewState || 'aperto');
   useEffect(() => {
     if (externalViewState && externalViewState !== viewState) {
@@ -130,15 +130,22 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           )}
 
           {/* Pulsante Genera Report / Lista Fatture */}
-          {currentUser.ruolo === 'tecnico' && ['inviato', 'fatturato'].includes(viewState) && onGenerateReport && (
+          {currentUser.ruolo === 'tecnico' && viewState === 'inviato' && handlers.handleGenerateSentReport && (
             <button
-              onClick={onGenerateReport}
-              className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg mt-3 ${
-                viewState === 'inviato' ? 'bg-gray-600 hover:bg-gray-700' : 'bg-indigo-600 hover:bg-indigo-700'
-              }`}
+              onClick={handlers.handleGenerateSentReport}
+              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg mt-3 bg-gray-600 hover:bg-gray-700"
             >
               <FileText size={18} />
-              {viewState === 'inviato' ? 'Genera Report' : 'Genera Lista Fatture'}
+              Genera Report
+            </button>
+          )}
+          {currentUser.ruolo === 'tecnico' && viewState === 'fatturato' && handlers.handleGenerateInvoiceReport && (
+            <button
+              onClick={handlers.handleGenerateInvoiceReport}
+              className="flex items-center gap-2 px-4 py-2 text-white rounded-lg mt-3 bg-indigo-600 hover:bg-indigo-700"
+            >
+              <FileText size={18} />
+              Genera Lista Fatture
             </button>
           )}
 
