@@ -57,25 +57,36 @@ const CalendarStub = () => (
   </div>
 );
 
-const AlertsPanel = ({ onOpenTicket }) => (
+const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable }) => (
   <div className="bg-white rounded-xl border">
     <div className="p-4 border-b flex items-center justify-between">
       <h3 className="font-semibold">Avvisi Importanti</h3>
       <span className="inline-flex items-center gap-1 text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full text-xs font-bold">⚠ Avvisi</span>
     </div>
     <div className="p-4 space-y-3">
-      {[ 
-        { id: 1, title: 'Sospensione Backup!', body: 'Servizio sospeso per manutenzione urgente. Ritorno previsto: 19/10/2025.', color: 'border-red-300 bg-red-50 text-red-800' },
-        { id: 2, title: 'Anomalia Server Riscontrata', body: 'Picco I/O su server principale. Monitorare CPU prossime 2 ore.', color: 'border-yellow-300 bg-yellow-50 text-yellow-800' },
-        { id: 3, title: 'Nuova Minaccia Zero-Day', body: 'Rilasciata patch urgente di sicurezza. Collegarsi al sito per scaricare.', color: 'border-blue-300 bg-blue-50 text-blue-800' }
-      ].map(avv => (
-        <button key={avv.id} onClick={() => onOpenTicket && onOpenTicket({ id: avv.id })} className={`w-full text-left p-3 rounded-lg border ${avv.color}`}>
-          <div className="font-bold flex items-center gap-2">
-            <AlertTriangle size={16} />
-            {avv.title}
+      {alerts.length === 0 && (
+        <div className="text-sm text-gray-500">Nessun avviso presente.</div>
+      )}
+      {alerts.map(avv => (
+        <div key={avv.id} className={`w-full p-3 rounded-lg border ${avv.color || 'border-yellow-300 bg-yellow-50 text-yellow-800'}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <div className="font-bold flex items-center gap-2">
+                <AlertTriangle size={16} />
+                {avv.title}
+              </div>
+              <div className="text-sm mt-1">{avv.body}</div>
+            </div>
+            {isEditable && (
+              <button onClick={() => onDelete && onDelete(avv.id)} className="text-xs text-red-600 hover:underline">Rimuovi</button>
+            )}
           </div>
-          <div className="text-sm mt-1">{avv.body}</div>
-        </button>
+          {avv.ticketId && (
+            <div className="mt-2">
+              <button onClick={() => onOpenTicket && onOpenTicket({ id: avv.ticketId })} className="text-xs text-blue-700 hover:underline">Apri ticket collegato</button>
+            </div>
+          )}
+        </div>
       ))}
     </div>
   </div>
@@ -120,6 +131,39 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
 
   const roleLabel = currentUser?.ruolo === 'tecnico' ? 'Tecnico' : 'Cliente';
 
+  // Avvisi: storage locale semplice per prima versione
+  const [alerts, setAlerts] = React.useState(() => {
+    try {
+      const raw = localStorage.getItem('dashboard_alerts');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('dashboard_alerts', JSON.stringify(alerts));
+  }, [alerts]);
+
+  const [newAlert, setNewAlert] = React.useState({ title: '', body: '', level: 'warning' });
+  const levelToColor = (level) => {
+    if (level === 'danger') return 'border-red-300 bg-red-50 text-red-800';
+    if (level === 'info') return 'border-blue-300 bg-blue-50 text-blue-800';
+    return 'border-yellow-300 bg-yellow-50 text-yellow-800';
+  };
+  const addAlert = () => {
+    if (!newAlert.title || !newAlert.body) return;
+    setAlerts(prev => [
+      { id: Date.now(), title: newAlert.title, body: newAlert.body, color: levelToColor(newAlert.level) },
+      ...prev
+    ]);
+    setNewAlert({ title: '', body: '', level: 'warning' });
+  };
+  const deleteAlert = (id) => {
+    setAlerts(prev => prev.filter(a => a.id !== id));
+  };
+
   const statCards = [
     { key: 'aperto', title: 'Aperti', value: counts.aperto, icon: <FileText size={14} /> },
     { key: 'in_lavorazione', title: 'In lavorazione', value: counts.in_lavorazione, icon: <PlayCircle size={14} /> },
@@ -153,12 +197,51 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <AlertsPanel onOpenTicket={(t) => {
-            if (!t || !t.id) return;
-            // Collegabile al ticket: per ora esempio
-            // Potremmo usare handlers.handleSelectTicket quando disponibile
-          }} />
+        <div className="lg:col-span-2 space-y-4">
+          {currentUser?.ruolo === 'tecnico' && (
+            <div className="bg-white rounded-xl border p-4">
+              <h3 className="font-semibold mb-3">Gestione Avvisi</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <input
+                  type="text"
+                  placeholder="Titolo avviso"
+                  value={newAlert.title}
+                  onChange={(e) => setNewAlert({ ...newAlert, title: e.target.value })}
+                  className="px-3 py-2 border rounded-lg"
+                />
+                <input
+                  type="text"
+                  placeholder="Dettaglio avviso"
+                  value={newAlert.body}
+                  onChange={(e) => setNewAlert({ ...newAlert, body: e.target.value })}
+                  className="px-3 py-2 border rounded-lg md:col-span-2"
+                />
+                <select
+                  value={newAlert.level}
+                  onChange={(e) => setNewAlert({ ...newAlert, level: e.target.value })}
+                  className="px-3 py-2 border rounded-lg"
+                >
+                  <option value="warning">Avviso</option>
+                  <option value="danger">Critico</option>
+                  <option value="info">Info</option>
+                </select>
+              </div>
+              <div className="mt-3">
+                <button onClick={addAlert} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Aggiungi Avviso</button>
+              </div>
+            </div>
+          )}
+
+          <AlertsPanel 
+            alerts={alerts}
+            onDelete={currentUser?.ruolo === 'tecnico' ? deleteAlert : undefined}
+            isEditable={currentUser?.ruolo === 'tecnico'}
+            onOpenTicket={(t) => {
+              if (!t || !t.id) return;
+              // Integrazione futura: handlers.handleSelectTicket
+            }}
+          />
+
           {/* Qui possiamo aggiungere altri contenuti; la lista completa è nella vista Ticket */}
         </div>
         <div>
