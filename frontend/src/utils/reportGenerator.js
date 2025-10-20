@@ -236,7 +236,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
 
         html += `
                 <tr>
-                    <td>${logIndex + 1}. ${log.modalita} - ${dataItaliana} ${oraInizio}-${oraFine}</td>
+                    <td>${logIndex + 1}. ${log.modalita} - ${dataItaliana} ${oraInizio} - ${dataItaliana} ${oraFine}</td>
                     <td style="text-align: center;">${log.oreIntervento}h</td>
                     <td style="text-align: center;">€${parseFloat(log.costoUnitario).toFixed(0)}</td>
                     <td style="text-align: center;">${parseFloat(log.sconto).toFixed(0)}%</td>
