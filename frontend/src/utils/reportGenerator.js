@@ -90,16 +90,19 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
             text-align: right;
             font-size: 10pt;
         }
+        .ticket-title-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
         .ticket-title {
             font-weight: bold;
             font-size: 11pt;
-            margin-bottom: 3px;
         }
         .ticket-requester {
             text-align: right;
             font-size: 10pt;
             color: #333;
-            margin-bottom: 10px;
         }
         table {
             width: 100%;
@@ -197,8 +200,10 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
             <span class="ticket-number">Ticket: ${ticket.numero}</span>
             <span class="ticket-dates">Data creazione: ${dataApertura}</span>
         </div>
-        <div class="ticket-title">Titolo: ${ticket.titolo}</div>
-        <div class="ticket-requester">Richiedente: ${ticket.nomerichiedente}</div>
+        <div class="ticket-title-row">
+            <div class="ticket-title">Titolo: ${ticket.titolo}</div>
+            <div class="ticket-requester">Richiedente: ${ticket.nomerichiedente}</div>
+        </div>
 `;
 
     // Descrizione del ticket (se presente)
