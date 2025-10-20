@@ -5,112 +5,9 @@ import { FileText, PlayCircle, CheckCircle, Send, FileCheck2, Archive } from 'lu
 import TicketItem from './TicketItem';
 
 // ====================================================================
-// COMPONENTE ESTRATTO PER I FILTRI
-// ====================================================================
-const FilterControls = ({ 
-  currentUser, 
-  counts, 
-  viewState, 
-  setViewState, 
-  clientiAttivi, 
-  selectedClient, 
-  setSelectedClient,
-  onGenerateReport,
-  tickets,
-  changedStates,
-  markAsViewed
-}) => {
-  const statusIcons = {
-    aperto: <FileText size={14} />,
-    in_lavorazione: <PlayCircle size={14} />,
-    risolto: <CheckCircle size={14} />,
-    chiuso: <Archive size={14} />,
-    inviato: <Send size={14} />,
-    fatturato: <FileCheck2 size={14} />,
-  };
-
-  const TASTI_TECNICO = ['aperto', 'in_lavorazione', 'risolto', 'chiuso', 'inviato', 'fatturato'];
-  const TASTI_CLIENTE = ['aperto', 'in_lavorazione', 'risolto', 'chiuso', 'inviato', 'fatturato'];
-
-  const buttonsToRender = currentUser.ruolo === 'cliente' ? TASTI_CLIENTE : TASTI_TECNICO;
-
-  return (
-    <>
-      <div className="flex gap-2 p-1 bg-gray-100 rounded-lg mb-4 flex-wrap">
-        {buttonsToRender.map(status => {
-          if (counts[status] === undefined) return null;
-          const hasChanged = changedStates.includes(status);
-          const hasTickets = counts[status] > 0;
-          
-          return (
-            <button
-              key={status}
-              onClick={() => {
-                if (hasTickets) {
-                  setViewState(status);
-                  markAsViewed(status);
-                }
-              }}
-              disabled={!hasTickets}
-              className={`flex flex-1 items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
-                viewState === status && hasTickets
-                  ? 'bg-blue-600 text-white shadow' 
-                  : hasTickets 
-                    ? 'text-gray-700 hover:bg-gray-200 cursor-pointer'
-                    : 'text-gray-400 cursor-not-allowed bg-gray-50'
-              }`}
-            >
-              {statusIcons[status]}
-              <span>
-                {status.replace('_', ' ')}{' '}
-                <span className={hasChanged ? 'font-bold text-blue-600' : ''}>
-                  ({counts[status]})
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {currentUser.ruolo === 'tecnico' && (
-        <>
-            {['inviato', 'fatturato'].includes(viewState) && onGenerateReport && (
-                <button
-                onClick={onGenerateReport}
-                className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg mb-3 ${
-                    viewState === 'inviato' ? 'bg-gray-600' : 'bg-indigo-600'
-                }`}
-                >
-                <FileText size={18} />
-                {viewState === 'inviato' ? 'Genera Report' : 'Genera Lista Fatture'}
-                </button>
-            )}
-
-            <div className="mb-3">
-                <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
-                <select
-                value={selectedClient}
-                onChange={(e) => setSelectedClient(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
-                >
-                <option value="all">Tutti i clienti</option>
-                {clientiAttivi.map(c => (
-                    <option key={c.id} value={c.id}>
-                    {c.azienda} ({tickets.filter(t => t.clienteid === c.id).length})
-                    </option>
-                ))}
-                </select>
-            </div>
-        </>
-      )}
-    </>
-  );
-};
-
-// ====================================================================
 // COMPONENTE PRINCIPALE
 // ====================================================================
-const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount, showFilters = true, externalViewState }) => {
+const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount, showFilters = true, externalViewState, onGenerateReport }) => {
   const [viewState, setViewState] = useState(externalViewState || 'aperto');
   useEffect(() => {
     if (externalViewState && externalViewState !== viewState) {
@@ -229,6 +126,38 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                   </button>
                 );
               })}
+            </div>
+          )}
+
+          {/* Pulsante Genera Report / Lista Fatture */}
+          {currentUser.ruolo === 'tecnico' && ['inviato', 'fatturato'].includes(viewState) && onGenerateReport && (
+            <button
+              onClick={onGenerateReport}
+              className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg mt-3 ${
+                viewState === 'inviato' ? 'bg-gray-600 hover:bg-gray-700' : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
+            >
+              <FileText size={18} />
+              {viewState === 'inviato' ? 'Genera Report' : 'Genera Lista Fatture'}
+            </button>
+          )}
+
+          {/* Filtro per cliente (solo tecnico) */}
+          {currentUser.ruolo === 'tecnico' && (
+            <div className="mt-3">
+              <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
+              <select
+                value={selectedClientFilter}
+                onChange={(e) => setSelectedClientFilter(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg"
+              >
+                <option value="all">Tutti i clienti</option>
+                {clientiAttivi.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.azienda} ({tickets.filter(t => t.clienteid === c.id).length})
+                  </option>
+                ))}
+              </select>
             </div>
           )}
         </div>
