@@ -26,6 +26,6 @@ export const getInitialTimeLog = () => ({
   modalita: 'Telefonica',
   materials: [getInitialMaterial()],
   oreIntervento: 1.0,
-  costoUnitario: 50.00,
+  costoUnitario: 0,
   sconto: 0
 });
