@@ -33,9 +33,9 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
     <>
       <div
         onClick={() => handleSelectTicket(ticket)}
-        className={'cursor-pointer hover:bg-gray-50 border-b relative overflow-hidden transition-all ' + 
-  (ticket.isNew ? 'bg-yellow-50 border-yellow-300 animate-pulse-slow shadow-md' : 
-   selectedTicket?.id === ticket.id ? 'bg-blue-50' : 'bg-white') + ' ' +
+        className={'cursor-pointer border-b relative overflow-hidden transition-all ' + 
+  (ticket.isNew ? 'bg-yellow-50 border-yellow-300 animate-pulse-slow shadow-md hover:bg-yellow-100' : 
+   selectedTicket?.id === ticket.id ? 'bg-blue-100 border-blue-300' : 'bg-white hover:bg-gray-50') + ' ' +
   (hasUnread && selectedTicket?.id !== ticket.id ? 'border-l-4 border-yellow-400 shadow-lg animate-pulse-slow bg-yellow-50' : '')}
       >
         <div className="p-4 pl-5 relative">
