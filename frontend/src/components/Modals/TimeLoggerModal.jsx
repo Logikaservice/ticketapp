@@ -138,13 +138,13 @@ const TimeLoggerModal = ({
                 </div>
               </div>
 
-              <input
-                type="text"
+              <textarea
+                rows="3"
                 value={log.descrizione}
                 onChange={(e) => handleTimeLogChange(log.id, 'descrizione', e.target.value)}
                 placeholder="Descrizione"
                 disabled={fieldsDisabled}
-                className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
               />
 
               <div className="mt-5 border-t pt-4">
