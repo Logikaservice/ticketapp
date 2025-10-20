@@ -201,6 +201,18 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
         <div class="ticket-requester">Richiedente: ${ticket.nomerichiedente}</div>
 `;
 
+    // Descrizione del ticket (se presente)
+    if (ticket.descrizione && ticket.descrizione.trim()) {
+      html += `
+        <div class="description" style="margin-top: 8px;">
+            <strong>Descrizione:</strong> ${ticket.descrizione}
+        </div>
+`;
+    }
+
+    html += `
+`;
+
     if (ticket.timelogs && ticket.timelogs.length > 0) {
       html += `
         <table>
