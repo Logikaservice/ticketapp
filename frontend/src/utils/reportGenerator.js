@@ -300,12 +300,6 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
             <strong>Materiali:</strong> ${allMaterialsText}
         </div>
 `;
-      } else {
-        html += `
-        <div class="materials">
-            <strong>Materiali:</strong> N/A
-        </div>
-`;
       }
     }
 
