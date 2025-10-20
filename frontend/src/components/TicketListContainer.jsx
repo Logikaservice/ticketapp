@@ -15,6 +15,8 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
     }
   }, [externalViewState]);
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
+  const [selectedMonth, setSelectedMonth] = useState('all');
+  const [selectedYear, setSelectedYear] = useState('all');
   const [lastSeenCounts, setLastSeenCounts] = useState(() => {
     const saved = localStorage.getItem(`lastSeenCounts_${currentUser.id}`);
     return saved ? JSON.parse(saved) : {};
@@ -32,6 +34,19 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
         if (selectedClientFilter !== 'all') {
           filtered = tickets.filter(t => t.clienteid === parseInt(selectedClientFilter));
         }
+      }
+
+      // Filtro per mese e anno (solo per tecnici)
+      if (currentUser.ruolo === 'tecnico') {
+        filtered = filtered.filter(t => {
+          const openedAt = new Date(t.dataapertura);
+          if (Number.isNaN(openedAt.getTime())) return true; // se data non valida, non filtrare
+          
+          const monthMatch = selectedMonth === 'all' || openedAt.getMonth() + 1 === parseInt(selectedMonth);
+          const yearMatch = selectedYear === 'all' || openedAt.getFullYear() === parseInt(selectedYear);
+          
+          return monthMatch && yearMatch;
+        });
       }
       return filtered.filter(t => t.stato === viewState);
     };
@@ -54,7 +69,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
       ticketCounts: countTickets(relevantTicketsForCounts), 
       usersMap
     };
-  }, [tickets, users, currentUser, viewState, selectedClientFilter]);
+  }, [tickets, users, currentUser, viewState, selectedClientFilter, selectedMonth, selectedYear]);
 
   // Confronta contatori con ultima visita
   useEffect(() => {
@@ -183,32 +198,118 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                   }
                 </select>
               </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Mese</label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti i mesi</option>
+                  <option value="1">Gennaio</option>
+                  <option value="2">Febbraio</option>
+                  <option value="3">Marzo</option>
+                  <option value="4">Aprile</option>
+                  <option value="5">Maggio</option>
+                  <option value="6">Giugno</option>
+                  <option value="7">Luglio</option>
+                  <option value="8">Agosto</option>
+                  <option value="9">Settembre</option>
+                  <option value="10">Ottobre</option>
+                  <option value="11">Novembre</option>
+                  <option value="12">Dicembre</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Anno</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti gli anni</option>
+                  {(() => {
+                    const currentYear = new Date().getFullYear();
+                    const years = [];
+                    for (let year = currentYear; year >= currentYear - 5; year--) {
+                      years.push(year);
+                    }
+                    return years.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ));
+                  })()}
+                </select>
+              </div>
             </div>
           )}
 
-          {/* Filtro per cliente (solo tecnico, negli altri stati) */}
+          {/* Filtri per tecnico (negli altri stati) */}
           {currentUser.ruolo === 'tecnico' && !['inviato', 'fatturato'].includes(viewState) && (
-            <div className="mt-3">
-              <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
-              <select
-                value={selectedClientFilter}
-                onChange={(e) => setSelectedClientFilter(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
-              >
-                <option value="all">Tutti i clienti</option>
-                {clientiAttivi
-                  .slice()
-                  .sort((a, b) => (a.azienda || '').localeCompare(b.azienda || '', 'it', { sensitivity: 'base' }))
-                  .map(c => {
-                    const ticketsForThisClient = displayTickets.filter(t => t.clienteid === c.id).length;
-                    return (
-                      <option key={c.id} value={c.id}>
-                        {c.azienda} ({ticketsForThisClient})
-                      </option>
-                    );
-                  })
-                }
-              </select>
+            <div className="mt-3 flex flex-col md:flex-row md:items-end md:gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
+                <select
+                  value={selectedClientFilter}
+                  onChange={(e) => setSelectedClientFilter(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti i clienti</option>
+                  {clientiAttivi
+                    .slice()
+                    .sort((a, b) => (a.azienda || '').localeCompare(b.azienda || '', 'it', { sensitivity: 'base' }))
+                    .map(c => {
+                      const ticketsForThisClient = displayTickets.filter(t => t.clienteid === c.id).length;
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {c.azienda} ({ticketsForThisClient})
+                        </option>
+                      );
+                    })
+                  }
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Mese</label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti i mesi</option>
+                  <option value="1">Gennaio</option>
+                  <option value="2">Febbraio</option>
+                  <option value="3">Marzo</option>
+                  <option value="4">Aprile</option>
+                  <option value="5">Maggio</option>
+                  <option value="6">Giugno</option>
+                  <option value="7">Luglio</option>
+                  <option value="8">Agosto</option>
+                  <option value="9">Settembre</option>
+                  <option value="10">Ottobre</option>
+                  <option value="11">Novembre</option>
+                  <option value="12">Dicembre</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Anno</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti gli anni</option>
+                  {(() => {
+                    const currentYear = new Date().getFullYear();
+                    const years = [];
+                    for (let year = currentYear; year >= currentYear - 5; year--) {
+                      years.push(year);
+                    }
+                    return years.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ));
+                  })()}
+                </select>
+              </div>
             </div>
           )}
         </div>
