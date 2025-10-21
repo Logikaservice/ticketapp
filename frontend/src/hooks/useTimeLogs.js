@@ -96,7 +96,12 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
 
   // Salva le modifiche ai timeLogs
   const handleSaveTimeLogs = async () => {
-    if (!selectedTicket) return;
+    if (!selectedTicket) {
+      console.error('[SAVE-TIMELOGS] Nessun ticket selezionato');
+      return;
+    }
+    
+    console.log('[SAVE-TIMELOGS] Inizio salvataggio per ticket:', selectedTicket.id);
     
     try {
       const logsToSave = timeLogs.map(log => ({
@@ -115,37 +120,42 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
         }))
       }));
 
+      console.log('[SAVE-TIMELOGS] Dati da inviare:', logsToSave);
+
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/timelogs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ timeLogs: logsToSave })
       });
 
-      if (!response.ok) throw new Error('Errore nel salvare le modifiche');
+      console.log('[SAVE-TIMELOGS] Response status:', response.status);
 
-      // Ricarica il ticket aggiornato
-      const ticketResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`);
-      if (ticketResponse.ok) {
-        const allTickets = await ticketResponse.json();
-        const updatedTicket = allTickets.find(t => t.id === selectedTicket.id);
-        
-        if (updatedTicket) {
-          setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
-          setSelectedTicket(updatedTicket);
-          
-          // Aggiorna i timeLogs nel modal
-          const updatedLogs = Array.isArray(updatedTicket.timelogs) ? updatedTicket.timelogs : [];
-          const refreshedLogs = updatedLogs.length > 0 ? updatedLogs.map(lg => ({ 
-            ...lg, 
-            id: Date.now() + Math.random(), 
-            materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()] 
-          })) : [];
-          setTimeLogs(refreshedLogs);
-        }
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[SAVE-TIMELOGS] Errore dal server:', errorText);
+        throw new Error('Errore nel salvare le modifiche');
       }
+
+      const updatedTicket = await response.json();
+      console.log('[SAVE-TIMELOGS] Ticket aggiornato dal server:', updatedTicket);
+
+      // Aggiorna lo stato globale dei ticket
+      setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
+      setSelectedTicket(updatedTicket);
       
+      // Aggiorna i timeLogs nel modal
+      const updatedLogs = Array.isArray(updatedTicket.timelogs) ? updatedTicket.timelogs : [];
+      const refreshedLogs = updatedLogs.length > 0 ? updatedLogs.map(lg => ({ 
+        ...lg, 
+        id: Date.now() + Math.random(), 
+        materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()] 
+      })) : [];
+      setTimeLogs(refreshedLogs);
+      
+      console.log('[SAVE-TIMELOGS] ✅ Salvataggio completato');
       showNotification('Modifiche salvate con successo!', 'success');
     } catch (error) {
+      console.error('[SAVE-TIMELOGS] ❌ Errore:', error);
       showNotification(error.message || 'Errore nel salvare le modifiche.', 'error');
     }
   };

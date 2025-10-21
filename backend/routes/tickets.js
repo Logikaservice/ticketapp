@@ -49,17 +49,17 @@ module.exports = (pool) => {
   // ENDPOINT: Modifica un ticket completo
   router.put('/:id', async (req, res) => {
     const { id } = req.params;
-    const { titolo, descrizione, categoria, priorita, nomerichiedente, clienteid } = req.body;
+    const { titolo, descrizione, categoria, priorita, nomerichiedente, clienteid, dataapertura } = req.body;
     
     try {
       const client = await pool.connect();
       const query = `
         UPDATE tickets 
-        SET titolo = $1, descrizione = $2, categoria = $3, priorita = $4, nomerichiedente = $5, clienteid = $6
-        WHERE id = $7 
+        SET titolo = $1, descrizione = $2, categoria = $3, priorita = $4, nomerichiedente = $5, clienteid = $6, dataapertura = $7
+        WHERE id = $8 
         RETURNING *;
       `;
-      const values = [titolo, descrizione, categoria, priorita, nomerichiedente, clienteid, id];
+      const values = [titolo, descrizione, categoria, priorita, nomerichiedente, clienteid, dataapertura, id];
       const result = await client.query(query, values);
       client.release();
 

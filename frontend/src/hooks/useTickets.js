@@ -17,8 +17,8 @@ export const useTickets = (
       handleUpdateTicket();
       return;
     }
-    if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
-      return showNotification('Titolo, descrizione e richiedente sono obbligatori.', 'error');
+    if (!newTicketData.titolo || !newTicketData.nomerichiedente) {
+      return showNotification('Titolo e richiedente sono obbligatori.', 'error');
     }
     const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
     if (currentUser.ruolo === 'tecnico' && !clienteId) {
@@ -38,8 +38,24 @@ export const useTickets = (
       });
       if (!response.ok) throw new Error('Errore del server.');
       const savedTicket = await response.json();
-      setTickets(prev => [savedTicket, ...prev]);
+      // Marca subito come nuovo nella UI corrente
+      const savedTicketWithNew = { ...savedTicket, isNew: true };
+      setTickets(prev => [savedTicketWithNew, ...prev]);
       closeModal();
+      try {
+        // Marca subito come non visto per l'utente corrente (evidenza gialla immediata senza refresh)
+        const key = `unseenNewTicketIds_${currentUser.id}`;
+        const arr = JSON.parse(localStorage.getItem(key) || '[]');
+        if (!arr.includes(savedTicket.id)) {
+          arr.push(savedTicket.id);
+          localStorage.setItem(key, JSON.stringify(arr));
+        }
+        // Badge NEW in dashboard
+        window.dispatchEvent(new CustomEvent('dashboard-new', { detail: { state: 'aperto' } }));
+        window.dispatchEvent(new CustomEvent('dashboard-focus', { detail: { state: 'aperto' } }));
+        // Forza un polling immediato
+        window.dispatchEvent(new Event('new-ticket-local'));
+      } catch (_) {}
       showNotification('Ticket creato con successo!', 'success');
     } catch (error) {
       showNotification(error.message || 'Impossibile creare il ticket.', 'error');
@@ -51,8 +67,8 @@ export const useTickets = (
     isEditingTicket,
     selectedClientForNewTicket
   ) => {
-    if (!newTicketData.titolo || !newTicketData.descrizione || !newTicketData.nomerichiedente) {
-      return showNotification('Titolo, descrizione e richiedente sono obbligatori.', 'error');
+    if (!newTicketData.titolo || !newTicketData.nomerichiedente) {
+      return showNotification('Titolo e richiedente sono obbligatori.', 'error');
     }
     
     const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
@@ -66,7 +82,8 @@ export const useTickets = (
       categoria: newTicketData.categoria,
       priorita: newTicketData.priorita,
       nomerichiedente: newTicketData.nomerichiedente,
-      clienteid: clienteId
+      clienteid: clienteId,
+      dataapertura: newTicketData.dataapertura
     };
     
     try {
@@ -110,6 +127,8 @@ export const useTickets = (
   };
 
   const handleSelectTicket = async (ticket) => {
+    // Opzione A: non far scorrere la pagina quando si apre/chiude la chat
+    const savedScrollY = typeof window !== 'undefined' ? (window.scrollY || window.pageYOffset || 0) : 0;
     if (ticket && (!selectedTicket || selectedTicket.id !== ticket.id)) {
       try {
         await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/mark-read`, {
@@ -130,7 +149,20 @@ export const useTickets = (
         console.error('Errore nel marcare come letto:', error);
       }
     }
+    // Aprendo il ticket, rimuovi l'evidenza "isNew"
     setSelectedTicket(prev => (prev?.id === ticket.id ? null : ticket));
+    // Segna come visto: rimuove evidenza e rimuove l'ID dai "non visti"
+    setTickets(prev => prev.map(t => t.id === ticket.id ? { ...t, isNew: false } : t));
+    try {
+      const key = `unseenNewTicketIds_${currentUser.id}`;
+      const arr = JSON.parse(localStorage.getItem(key) || '[]');
+      const filtered = Array.isArray(arr) ? arr.filter((tid) => tid !== ticket.id) : [];
+      localStorage.setItem(key, JSON.stringify(filtered));
+    } catch {}
+    // Ripristina la posizione dello scroll dopo il render della chat
+    setTimeout(() => {
+      try { window.scrollTo(0, savedScrollY); } catch {}
+    }, 0);
   };
 
   const handleSendMessage = async (id, msg, isReclamo = false) => {
@@ -188,6 +220,15 @@ export const useTickets = (
       const updatedTicket = await response.json();
       setTickets(prevTickets => prevTickets.map(t => (t.id === id ? updatedTicket : t)));
       showNotification('Stato del ticket aggiornato!', 'success');
+      // Glow immediato (senza frecce): stato precedente diminuisce, nuovo aumenta
+      try {
+        const prev = tickets.find(t => t.id === id)?.stato;
+        const cur = updatedTicket.stato;
+        if (prev && cur && prev !== cur) {
+          window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: prev, type: 'down' } }));
+          window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: cur, type: 'up' } }));
+        }
+      } catch (_) {}
       if (status === 'chiuso' || (status === 'risolto' && currentUser.ruolo === 'tecnico')) {
         setSelectedTicket(null);
       }
@@ -243,6 +284,11 @@ export const useTickets = (
         if (updatedTicket) {
           console.log('✅ Ticket aggiornato con timeLogs:', updatedTicket.timelogs);
           setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
+          // Glow immediato per in_lavorazione -> risolto
+          try {
+            window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'in_lavorazione', type: 'down' } }));
+            window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'risolto', type: 'up' } }));
+          } catch (_) {}
         }
       }
       

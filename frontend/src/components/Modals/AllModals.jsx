@@ -4,6 +4,7 @@ import React from 'react';
 import TimeLoggerModal from './TimeLoggerModal';
 import SettingsModal from './SettingsModal';
 import UrgentConfirmModal from './UrgentConfirmModal';
+import EmptyDescriptionConfirmModal from './EmptyDescriptionConfirmModal';
 import ReportModal from './ReportModal';
 
 const AllModals = ({ modalState, closeModal, ...handlers }) => {
@@ -38,6 +39,9 @@ const AllModals = ({ modalState, closeModal, ...handlers }) => {
         
       case 'urgentConfirm':
         return <UrgentConfirmModal closeModal={closeModal} {...handlers} />;
+        
+      case 'emptyDescriptionConfirm':
+        return <EmptyDescriptionConfirmModal closeModal={closeModal} {...handlers} />;
         
       case 'reportHTML':
         return (

@@ -12,6 +12,8 @@ export const useModals = (
 ) => {
   
   const handleOpenTimeLogger = (ticket) => {
+    // Seleziona il ticket per consentire il salvataggio dei timelog e dello stato
+    setSelectedTicket(ticket);
     initializeTimeLogs(ticket);
     setModalState({ type: 'timeLogger', data: ticket });
   };
@@ -22,7 +24,8 @@ export const useModals = (
       descrizione: ticket.descrizione,
       categoria: ticket.categoria,
       priorita: ticket.priorita,
-      nomerichiedente: ticket.nomerichiedente
+      nomerichiedente: ticket.nomerichiedente,
+      dataapertura: ticket.dataapertura
     });
     setIsEditingTicket(ticket.id);
     setSelectedClientForNewTicket(ticket.clienteid.toString());
@@ -34,10 +37,7 @@ export const useModals = (
   };
   
   const handleViewTimeLog = (ticket) => {
-    console.log('👁️ handleViewTimeLog chiamato');
-    console.log('👁️ Ticket:', ticket);
-    console.log('👁️ Ticket.timelogs:', ticket.timelogs);
-    
+    setSelectedTicket(ticket); // Necessario per permettere il salvataggio delle modifiche
     initializeTimeLogsForView(ticket);
     setModalState({ type: 'viewTimeLogger', data: ticket });
   };

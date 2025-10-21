@@ -90,16 +90,19 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
             text-align: right;
             font-size: 10pt;
         }
+        .ticket-title-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
         .ticket-title {
             font-weight: bold;
             font-size: 11pt;
-            margin-bottom: 3px;
         }
         .ticket-requester {
             text-align: right;
             font-size: 10pt;
             color: #333;
-            margin-bottom: 10px;
         }
         table {
             width: 100%;
@@ -195,10 +198,24 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
     <div class="ticket-block">
         <div class="ticket-header">
             <span class="ticket-number">Ticket: ${ticket.numero}</span>
-            <span class="ticket-dates">Apertura: ${dataApertura} &nbsp;&nbsp; Chiusura: ${dataChiusura}</span>
+            <span class="ticket-dates">Data creazione: ${dataApertura}</span>
         </div>
-        <div class="ticket-title">Titolo: ${ticket.titolo}</div>
-        <div class="ticket-requester">Richiedente: ${ticket.nomerichiedente}</div>
+        <div class="ticket-title-row">
+            <div class="ticket-title">Titolo: ${ticket.titolo}</div>
+            <div class="ticket-requester">Richiedente: ${ticket.nomerichiedente}</div>
+        </div>
+`;
+
+    // Descrizione del ticket (se presente)
+    if (ticket.descrizione && ticket.descrizione.trim()) {
+      html += `
+        <div class="description" style="margin-top: 8px;">
+            <strong>Descrizione:</strong> ${ticket.descrizione}
+        </div>
+`;
+    }
+
+    html += `
 `;
 
     if (ticket.timelogs && ticket.timelogs.length > 0) {
@@ -231,10 +248,12 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
         totaleTicket += costoManodopera + costoMaterialiLog;
 
         const dataItaliana = formatDateItalian(log.data);
+        const oraInizio = log.oraInizio || 'N/A';
+        const oraFine = log.oraFine || 'N/A';
 
         html += `
                 <tr>
-                    <td>${logIndex + 1}. ${log.modalita} - ${dataItaliana}</td>
+                    <td>${logIndex + 1}. ${log.modalita} - ${dataItaliana} ${oraInizio} - ${dataItaliana} ${oraFine}</td>
                     <td style="text-align: center;">${log.oreIntervento}h</td>
                     <td style="text-align: center;">€${parseFloat(log.costoUnitario).toFixed(0)}</td>
                     <td style="text-align: center;">${parseFloat(log.sconto).toFixed(0)}%</td>
@@ -279,12 +298,6 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
         html += `
         <div class="materials">
             <strong>Materiali:</strong> ${allMaterialsText}
-        </div>
-`;
-      } else {
-        html += `
-        <div class="materials">
-            <strong>Materiali:</strong> N/A
         </div>
 `;
       }

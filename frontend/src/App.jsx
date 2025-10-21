@@ -24,8 +24,7 @@ export default function TicketApp() {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   
-  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
-  const [notificationTimeout, setNotificationTimeout] = useState(null);
+  const [notifications, setNotifications] = useState([]);
 
   const [modalState, setModalState] = useState({ type: null, data: null });
   const [newTicketData, setNewTicketData] = useState({ 
@@ -55,20 +54,35 @@ export default function TicketApp() {
   const [showUnreadModal, setShowUnreadModal] = useState(false);
   const [fornitureModalTicket, setFornitureModalTicket] = useState(null);
   const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
+  const [showDashboard, setShowDashboard] = useState(true);
+  const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
+  const [dashboardHighlights, setDashboardHighlights] = useState({});
+  const [prevTicketStates, setPrevTicketStates] = useState({});
+
+  // Helpers per localStorage (nuovi ticket non ancora aperti dall'utente)
+  const getSetFromStorage = (key) => {
+    try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); } catch { return new Set(); }
+  };
+  const saveSetToStorage = (key, set) => {
+    try { localStorage.setItem(key, JSON.stringify(Array.from(set))); } catch {}
+  };
+  const debugNewTickets = () => localStorage.getItem('debugNewTickets') === '1';
+  const dbg = (...args) => { if (debugNewTickets()) { console.log('[NEW-TICKETS]', ...args); } };
 
   // ====================================================================
   // NOTIFICHE
   // ====================================================================
-  const showNotification = (message, type = 'success', duration = 5000) => {
-    if (notificationTimeout) clearTimeout(notificationTimeout);
-    setNotification({ show: true, message, type });
-    const newTimeout = setTimeout(() => setNotification(p => ({ ...p, show: false })), duration);
-    setNotificationTimeout(newTimeout);
+  const showNotification = (message, type = 'success', duration = 5000, ticketId = null) => {
+    const id = Date.now() + Math.random();
+    const newNotif = { id, show: true, message, type, ticketId };
+    setNotifications(prev => [...prev, newNotif]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, duration);
   };
 
-  const handleCloseNotification = () => {
-    if (notificationTimeout) clearTimeout(notificationTimeout);
-    setNotification(p => ({ ...p, show: false }));
+  const handleCloseNotification = (id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   // ====================================================================
@@ -157,6 +171,7 @@ export default function TicketApp() {
   useEffect(() => {
     if (isLoggedIn) {
       setSelectedTicket(null);
+      setShowDashboard(true); // all'accesso parte dalla dashboard
       localStorage.setItem('openTicketId', 'null');
     }
   }, [isLoggedIn]);
@@ -227,7 +242,28 @@ export default function TicketApp() {
           })
         );
         
-        setTickets(ticketsWithForniture);
+        // Evidenzia nuovi ticket (persistente finché non aperto) - baseline al primo login
+        let withNewFlag = ticketsWithForniture;
+        const unseenKey = currentUser ? `unseenNewTicketIds_${currentUser.id}` : null;
+        const bootKey = currentUser ? `newTicketsBootstrapped_${currentUser.id}` : null;
+        const unseen = unseenKey ? getSetFromStorage(unseenKey) : new Set();
+        if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
+          // Al primo caricamento non aggiungiamo nuovi, solo mostriamo quelli già in unseen
+          if (bootKey && !localStorage.getItem(bootKey)) {
+            localStorage.setItem(bootKey, '1');
+          } else {
+            // Dopo il bootstrap, aggiungeremo tramite polling
+          }
+          withNewFlag = ticketsWithForniture.map(t => {
+            const appliesToUser = currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id;
+            return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseen.has(t.id) };
+          });
+        }
+        setTickets(withNewFlag);
+        // Inizializza mappa stati per highlights reali
+        const initMap = {};
+        ticketsWithForniture.forEach(t => { if (t && t.id) initMap[t.id] = t.stato; });
+        setPrevTicketStates(initMap);
 
         if (currentUser.ruolo === 'tecnico') {
           const usersResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users');
@@ -246,11 +282,40 @@ export default function TicketApp() {
     if (isLoggedIn) fetchData();
   }, [isLoggedIn, currentUser]);
 
+  // Riceve eventi per glow/frecce della dashboard
+  useEffect(() => {
+    const handler = (e) => {
+      const { state, type } = e.detail || {};
+      if (!state || !type) return;
+      // Ripristina highlight (glow) per 10s, senza simboli freccia
+      setDashboardHighlights((prev) => ({ ...prev, [state]: { type } }));
+      setTimeout(() => {
+        setDashboardHighlights((prev) => ({ ...prev, [state]: null }));
+      }, 10000);
+      // Vai in dashboard e focalizza lo stato relativo
+      setShowDashboard(true);
+      setDashboardTargetState(state);
+    };
+    window.addEventListener('dashboard-highlight', handler);
+    return () => window.removeEventListener('dashboard-highlight', handler);
+  }, []);
+
+  useEffect(() => {
+    const focusHandler = (e) => {
+      const { state } = e.detail || {};
+      if (!state) return;
+      setShowDashboard(true);
+      setDashboardTargetState(state);
+    };
+    window.addEventListener('dashboard-focus', focusHandler);
+    return () => window.removeEventListener('dashboard-focus', focusHandler);
+  }, []);
+
   // ====================================================================
   // MONITORAGGIO NUOVI MESSAGGI
   // ====================================================================
   useEffect(() => {
-    if (!isLoggedIn || tickets.length === 0) return;
+    if (!isLoggedIn) return;
 
     // Salva i conteggi iniziali
     const initialCounts = {};
@@ -260,7 +325,7 @@ export default function TicketApp() {
     setPreviousUnreadCounts(initialCounts);
 
     // Polling ogni 10 secondi
-    const interval = setInterval(async () => {
+    const doPoll = async () => {
       try {
         const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets');
         if (!response.ok) return;
@@ -283,7 +348,64 @@ export default function TicketApp() {
           })
         );
         
-        setTickets(ticketsWithForniture);
+        // Evidenzia nuovi ticket rispetto al polling precedente (cliente e tecnico) - persiste finché non aperto
+        let polled = ticketsWithForniture;
+        const unseenKeyP = currentUser ? `unseenNewTicketIds_${currentUser.id}` : null;
+        const unseenP = unseenKeyP ? getSetFromStorage(unseenKeyP) : new Set();
+        if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
+          // Aggiungi nuovi ID non presenti nello stato precedente
+          const prevIds = new Set(tickets.map(t => t.id));
+          const newlyDetected = [];
+          ticketsWithForniture.forEach(t => {
+            const appliesToUser = currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id;
+            if (appliesToUser && t.stato === 'aperto' && !prevIds.has(t.id)) {
+              unseenP.add(t.id);
+              newlyDetected.push(t.id);
+            }
+          });
+          if (newlyDetected.length > 0) dbg('Rilevati nuovi ticket per', currentUser.ruolo, 'IDs:', newlyDetected);
+          if (unseenKeyP) saveSetToStorage(unseenKeyP, unseenP);
+          polled = ticketsWithForniture.map(t => {
+            const appliesToUser = currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id;
+            return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseenP.has(t.id) };
+          });
+          if (debugNewTickets()) {
+            const flagged = polled.filter(t => t.isNew).map(t => t.id);
+            if (flagged.length > 0) dbg('Flag giallo per IDs:', flagged);
+          }
+        }
+        setTickets(polled);
+        // Toast a scomparsa per ciascun nuovo ticket (cliccabile per aprire)
+        if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
+          polled.filter(t => t.isNew).forEach(t => {
+            dbg('Mostro toast per ticket', t.id);
+            // Toast giallo (warning) per nuovo ticket, cliccabile
+            showNotification(`Nuovo ticket ${t.numero}: ${t.titolo}`, 'warning', 8000, t.id);
+          });
+        }
+        // Highlights reali: confronta stati precedenti vs attuali
+        const nextMap = {};
+        ticketsWithForniture.forEach(t => { if (t && t.id) nextMap[t.id] = t.stato; });
+        try {
+          Object.keys(nextMap).forEach(id => {
+            const prevState = prevTicketStates[id];
+            const curState = nextMap[id];
+            if (!prevState && curState) {
+              const evtUp = new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up', direction: 'forward' } });
+              window.dispatchEvent(evtUp);
+            } else if (prevState && prevState !== curState) {
+              // Avanzamento/regresso: emetti direzione per posizionare le frecce correttamente
+              const forwardOrder = ['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'];
+              const backwardOrder = ['fatturato','inviato','chiuso','risolto','in_lavorazione','aperto'];
+              const isForward = forwardOrder.indexOf(prevState) > -1 && forwardOrder.indexOf(curState) === forwardOrder.indexOf(prevState) + 1;
+              const isBackward = backwardOrder.indexOf(prevState) > -1 && backwardOrder.indexOf(curState) === backwardOrder.indexOf(prevState) + 1;
+              const direction = isBackward ? 'backward' : 'forward';
+              window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: prevState, type: 'down', direction } }));
+              window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: curState, type: 'up', direction } }));
+            }
+          });
+        } catch (_) {}
+        setPrevTicketStates(nextMap);
         
         // Controlla se ci sono nuovi messaggi
         let hasNewMessages = false;
@@ -311,10 +433,34 @@ export default function TicketApp() {
       } catch (error) {
         console.error('Errore polling:', error);
       }
-    }, 10000); // 10 secondi
-
-    return () => clearInterval(interval);
+    };
+    const interval = setInterval(doPoll, 1000);
+    const localNewHandler = () => { doPoll(); };
+    window.addEventListener('new-ticket-local', localNewHandler);
+    return () => { clearInterval(interval); window.removeEventListener('new-ticket-local', localNewHandler); };
   }, [isLoggedIn, tickets, showUnreadModal, currentUser, previousUnreadCounts]);
+
+  // Listener per apertura ticket da toast
+  useEffect(() => {
+    const openFromToast = (e) => {
+      const ticketId = e.detail;
+      try { console.log('[TOAST-DEBUG] openFromToast received id', ticketId); } catch {}
+      const t = tickets.find(x => x.id === ticketId);
+      if (t) {
+        try { console.log('[TOAST-DEBUG] found ticket in state', t); } catch {}
+        // Passa alla vista lista (Aperti) e poi seleziona il ticket
+        setDashboardTargetState('aperto');
+        setShowDashboard(false);
+        setShowUnreadModal(false);
+        // Selezione dopo il render della lista
+        setTimeout(() => {
+          try { handleSelectTicket(t); } catch {}
+        }, 50);
+      }
+    };
+    window.addEventListener('toast-open-ticket', openFromToast);
+    return () => window.removeEventListener('toast-open-ticket', openFromToast);
+  }, [tickets]);
 
   // ====================================================================
   // MODALI
@@ -353,9 +499,37 @@ export default function TicketApp() {
   // WRAPPER FUNZIONI
   // ====================================================================
   const handleUpdateSettings = () => { /* ... la tua logica ... */ };
-  const handleConfirmUrgentCreation = async () => { /* ... la tua logica ... */ };
+  const handleConfirmUrgentCreation = async () => {
+    // Conferma creazione URGENTE: procede alla normale creazione e chiude le modali
+    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket);
+    // Resetta form e chiudi qualsiasi modale residua
+    resetNewTicketData();
+    setModalState({ type: null, data: null });
+  };
+
+  const handleConfirmEmptyDescription = async () => {
+    // L'utente ha confermato di voler procedere senza descrizione
+    // Controlla se è anche URGENTE
+    if (!isEditingTicket && newTicketData.priorita === 'urgente') {
+      setModalState({ type: 'urgentConfirm' });
+      return;
+    }
+    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket);
+    resetNewTicketData();
+    setModalState({ type: null, data: null });
+  };
 
   const wrappedHandleCreateTicket = () => {
+    // Se descrizione vuota, chiedi conferma
+    if (!newTicketData.descrizione || newTicketData.descrizione.trim() === '') {
+      setModalState({ type: 'emptyDescriptionConfirm' });
+      return;
+    }
+    // Se priorità URGENTE e stiamo creando (non edit), mostra conferma
+    if (!isEditingTicket && newTicketData.priorita === 'urgente') {
+      setModalState({ type: 'urgentConfirm' });
+      return;
+    }
     createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket);
   };
 
@@ -395,7 +569,11 @@ export default function TicketApp() {
   if (!isLoggedIn) {
     return (
       <>
-        <Notification {...{ notification, handleCloseNotification }} />
+        <div className="fixed bottom-5 right-5 z-[100] flex flex-col-reverse gap-2">
+          {notifications.map((notif) => (
+            <Notification key={notif.id} notification={notif} handleClose={() => handleCloseNotification(notif.id)} />
+          ))}
+        </div>
         <LoginScreen {...{ loginData, setLoginData, handleLogin, handleAutoFillLogin }} />
       </>
     );
@@ -403,44 +581,61 @@ export default function TicketApp() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Notification {...{ notification, handleCloseNotification }} />
+      <div className="fixed bottom-5 right-5 z-[100] flex flex-col-reverse gap-2">
+        {notifications.map((notif) => (
+          <Notification key={notif.id} notification={notif} handleClose={() => handleCloseNotification(notif.id)} />
+        ))}
+      </div>
       <Header
         {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal }}
       />
 
+      {!showDashboard && (
+        <div
+          className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
+          onClick={() => setShowDashboard(true)}
+        >
+          Torna alla Dashboard
+        </div>
+      )}
+
       <main className="max-w-7xl mx-auto px-4 py-6">
-        <Dashboard
-          currentUser={currentUser}
-          tickets={tickets}
-          users={users}
-          selectedTicket={selectedTicket}
-          setSelectedTicket={setSelectedTicket}
-          handlers={{
-            handleSelectTicket,
-            handleOpenEditModal,
-            handleOpenTimeLogger,
-            handleViewTimeLog,
-            handleOpenForniture,
-            handleReopenInLavorazione,
-            handleChangeStatus,
-            handleReopenAsRisolto,
-            handleSetInviato,
-            handleArchiveTicket,
-            handleInvoiceTicket,
-            handleDeleteTicket,
-            showNotification,
-            handleSendMessage,
-            handleGenerateSentReport,
-            handleGenerateInvoiceReport
-          }}
-          getUnreadCount={getUnreadCount}
-          onOpenState={(state) => {
-            // Effetto a slittamento: nascondi dashboard e mostra solo lista filtrata
-            const anchor = document.getElementById('tickets-anchor');
-            if (anchor) anchor.scrollIntoView({ behavior: 'smooth' });
-          }}
-        />
-        <div id="tickets-anchor" className="mt-8">
+        {showDashboard ? (
+          <div className="animate-slideInRight">
+          <Dashboard
+            currentUser={currentUser}
+            tickets={tickets}
+            users={users}
+            selectedTicket={selectedTicket}
+            setSelectedTicket={setSelectedTicket}
+            handlers={{
+              handleSelectTicket,
+              handleOpenEditModal,
+              handleOpenTimeLogger,
+              handleViewTimeLog,
+              handleOpenForniture,
+              handleReopenInLavorazione,
+              handleChangeStatus,
+              handleReopenAsRisolto,
+              handleSetInviato,
+              handleArchiveTicket,
+              handleInvoiceTicket,
+              handleDeleteTicket,
+              showNotification,
+              handleSendMessage,
+              handleGenerateSentReport,
+              handleGenerateInvoiceReport
+            }}
+            getUnreadCount={getUnreadCount}
+            externalHighlights={dashboardHighlights}
+            onOpenState={(state) => {
+              setDashboardTargetState(state || 'aperto');
+              setShowDashboard(false);
+            }}
+          />
+          </div>
+        ) : (
+          <div className="animate-slideInRight">
           <TicketListContainer
             {...{ currentUser, tickets, users, selectedTicket, getUnreadCount }}
             setSelectedTicket={setSelectedTicket}
@@ -462,8 +657,11 @@ export default function TicketApp() {
               handleGenerateSentReport,
               handleGenerateInvoiceReport
             }}
+            showFilters={true}
+            externalViewState={dashboardTargetState}
           />
-        </div>
+          </div>
+        )}
       </main>
 
       <AllModals
@@ -471,6 +669,7 @@ export default function TicketApp() {
         closeModal={closeModal}
         handleUpdateSettings={handleUpdateSettings}
         handleConfirmUrgentCreation={handleConfirmUrgentCreation}
+        handleConfirmEmptyDescription={handleConfirmEmptyDescription}
         settingsData={settingsData}
         setSettingsData={setSettingsData}
         timeLogs={timeLogs}

@@ -5,109 +5,6 @@ import { FileText, PlayCircle, CheckCircle, Send, FileCheck2, Archive } from 'lu
 import TicketItem from './TicketItem';
 
 // ====================================================================
-// COMPONENTE ESTRATTO PER I FILTRI
-// ====================================================================
-const FilterControls = ({ 
-  currentUser, 
-  counts, 
-  viewState, 
-  setViewState, 
-  clientiAttivi, 
-  selectedClient, 
-  setSelectedClient,
-  onGenerateReport,
-  tickets,
-  changedStates,
-  markAsViewed
-}) => {
-  const statusIcons = {
-    aperto: <FileText size={14} />,
-    in_lavorazione: <PlayCircle size={14} />,
-    risolto: <CheckCircle size={14} />,
-    chiuso: <Archive size={14} />,
-    inviato: <Send size={14} />,
-    fatturato: <FileCheck2 size={14} />,
-  };
-
-  const TASTI_TECNICO = ['aperto', 'in_lavorazione', 'risolto', 'chiuso', 'inviato', 'fatturato'];
-  const TASTI_CLIENTE = ['aperto', 'in_lavorazione', 'risolto', 'chiuso', 'inviato', 'fatturato'];
-
-  const buttonsToRender = currentUser.ruolo === 'cliente' ? TASTI_CLIENTE : TASTI_TECNICO;
-
-  return (
-    <>
-      <div className="flex gap-2 p-1 bg-gray-100 rounded-lg mb-4 flex-wrap">
-        {buttonsToRender.map(status => {
-          if (counts[status] === undefined) return null;
-          const hasChanged = changedStates.includes(status);
-          const hasTickets = counts[status] > 0;
-          
-          return (
-            <button
-              key={status}
-              onClick={() => {
-                if (hasTickets) {
-                  setViewState(status);
-                  markAsViewed(status);
-                }
-              }}
-              disabled={!hasTickets}
-              className={`flex flex-1 items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg capitalize ${
-                viewState === status && hasTickets
-                  ? 'bg-blue-600 text-white shadow' 
-                  : hasTickets 
-                    ? 'text-gray-700 hover:bg-gray-200 cursor-pointer'
-                    : 'text-gray-400 cursor-not-allowed bg-gray-50'
-              }`}
-            >
-              {statusIcons[status]}
-              <span>
-                {status.replace('_', ' ')}{' '}
-                <span className={hasChanged ? 'font-bold text-blue-600' : ''}>
-                  ({counts[status]})
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {currentUser.ruolo === 'tecnico' && (
-        <>
-            {['inviato', 'fatturato'].includes(viewState) && onGenerateReport && (
-                <button
-                onClick={onGenerateReport}
-                className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg mb-3 ${
-                    viewState === 'inviato' ? 'bg-gray-600' : 'bg-indigo-600'
-                }`}
-                >
-                <FileText size={18} />
-                {viewState === 'inviato' ? 'Genera Report' : 'Genera Lista Fatture'}
-                </button>
-            )}
-
-            <div className="mb-3">
-                <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
-                <select
-                value={selectedClient}
-                onChange={(e) => setSelectedClient(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
-                >
-                <option value="all">Tutti i clienti</option>
-                {clientiAttivi.map(c => (
-                    <option key={c.id} value={c.id}>
-                    {c.azienda} ({tickets.filter(t => t.clienteid === c.id).length})
-                    </option>
-                ))}
-                </select>
-            </div>
-        </>
-      )}
-    </>
-  );
-};
-
-// ====================================================================
 // COMPONENTE PRINCIPALE
 // ====================================================================
 const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount, showFilters = true, externalViewState }) => {
@@ -118,6 +15,8 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
     }
   }, [externalViewState]);
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
+  const [selectedMonth, setSelectedMonth] = useState('all');
+  const [selectedYear, setSelectedYear] = useState('all');
   const [lastSeenCounts, setLastSeenCounts] = useState(() => {
     const saved = localStorage.getItem(`lastSeenCounts_${currentUser.id}`);
     return saved ? JSON.parse(saved) : {};
@@ -136,6 +35,17 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           filtered = tickets.filter(t => t.clienteid === parseInt(selectedClientFilter));
         }
       }
+
+      // Filtro per mese e anno (per tecnici e clienti)
+      filtered = filtered.filter(t => {
+        const openedAt = new Date(t.dataapertura);
+        if (Number.isNaN(openedAt.getTime())) return true; // se data non valida, non filtrare
+        
+        const monthMatch = selectedMonth === 'all' || openedAt.getMonth() + 1 === parseInt(selectedMonth);
+        const yearMatch = selectedYear === 'all' || openedAt.getFullYear() === parseInt(selectedYear);
+        
+        return monthMatch && yearMatch;
+      });
       return filtered.filter(t => t.stato === viewState);
     };
 
@@ -157,7 +67,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
       ticketCounts: countTickets(relevantTicketsForCounts), 
       usersMap
     };
-  }, [tickets, users, currentUser, viewState, selectedClientFilter]);
+  }, [tickets, users, currentUser, viewState, selectedClientFilter, selectedMonth, selectedYear]);
 
   // Confronta contatori con ultima visita
   useEffect(() => {
@@ -204,28 +114,297 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           </h2>
           
           {showFilters && (
-          <FilterControls
-            currentUser={currentUser}
-            counts={ticketCounts}
-            viewState={viewState}
-            setViewState={setViewState}
-            clientiAttivi={clientiAttivi}
-            selectedClient={selectedClientFilter}
-            setSelectedClient={setSelectedClientFilter}
-            tickets={tickets}
-            changedStates={changedStates}
-            markAsViewed={markAsViewed}
-            onGenerateReport={
-              viewState === 'inviato' 
-                ? handlers.handleGenerateSentReport 
-                : viewState === 'fatturato' 
-                  ? handlers.handleGenerateInvoiceReport 
-                  : null
-            }
-          />)}
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+              {['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'].map(status => {
+                const count = ticketCounts[status] || 0;
+                const disabled = count === 0;
+                const active = viewState === status;
+                return (
+                  <button
+                    key={status}
+                    onClick={() => !disabled && setViewState(status)}
+                    disabled={disabled}
+                    className={`p-4 rounded-xl border text-center ${disabled ? 'opacity-50 cursor-not-allowed bg-white' : active ? 'bg-blue-50 border-blue-300' : 'bg-white hover:bg-gray-50'}`}
+                  >
+                    <div className="text-sm text-gray-500 mb-1 capitalize flex items-center justify-center gap-2">
+                      {status === 'aperto' && <FileText size={14} />}
+                      {status === 'in_lavorazione' && <PlayCircle size={14} />}
+                      {status === 'risolto' && <CheckCircle size={14} />}
+                      {status === 'chiuso' && <Archive size={14} />}
+                      {status === 'inviato' && <Send size={14} />}
+                      {status === 'fatturato' && <FileCheck2 size={14} />}
+                      <span>{status.replace('_',' ')}</span>
+                    </div>
+                    <div className="text-3xl font-extrabold gradient-text">{count}</div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Pulsante Genera Report + Filtri (Cliente: solo Inviato) */}
+          {currentUser.ruolo === 'cliente' && viewState === 'inviato' && handlers.handleGenerateSentReport && (
+            <div className="mt-3 flex gap-3 items-end">
+              <button
+                onClick={handlers.handleGenerateSentReport}
+                className="flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-gray-600 hover:bg-gray-700 whitespace-nowrap"
+              >
+                <FileText size={18} />
+                Genera Report
+              </button>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Mese</label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti i mesi</option>
+                  <option value="1">Gennaio</option>
+                  <option value="2">Febbraio</option>
+                  <option value="3">Marzo</option>
+                  <option value="4">Aprile</option>
+                  <option value="5">Maggio</option>
+                  <option value="6">Giugno</option>
+                  <option value="7">Luglio</option>
+                  <option value="8">Agosto</option>
+                  <option value="9">Settembre</option>
+                  <option value="10">Ottobre</option>
+                  <option value="11">Novembre</option>
+                  <option value="12">Dicembre</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Anno</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti gli anni</option>
+                  {(() => {
+                    const currentYear = new Date().getFullYear();
+                    const years = [];
+                    for (let year = currentYear; year >= currentYear - 5; year--) {
+                      years.push(year);
+                    }
+                    return years.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ));
+                  })()}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Filtri per cliente (altri stati) */}
+          {currentUser.ruolo === 'cliente' && viewState !== 'inviato' && (
+            <div className="mt-3 flex flex-col md:flex-row md:items-end md:gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Mese</label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti i mesi</option>
+                  <option value="1">Gennaio</option>
+                  <option value="2">Febbraio</option>
+                  <option value="3">Marzo</option>
+                  <option value="4">Aprile</option>
+                  <option value="5">Maggio</option>
+                  <option value="6">Giugno</option>
+                  <option value="7">Luglio</option>
+                  <option value="8">Agosto</option>
+                  <option value="9">Settembre</option>
+                  <option value="10">Ottobre</option>
+                  <option value="11">Novembre</option>
+                  <option value="12">Dicembre</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Anno</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti gli anni</option>
+                  {(() => {
+                    const currentYear = new Date().getFullYear();
+                    const years = [];
+                    for (let year = currentYear; year >= currentYear - 5; year--) {
+                      years.push(year);
+                    }
+                    return years.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ));
+                  })()}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Pulsante Genera Report / Lista Fatture + Filtro Cliente (Tecnico: Inviato/Fatturato) */}
+          {currentUser.ruolo === 'tecnico' && ['inviato', 'fatturato'].includes(viewState) && (
+            <div className="mt-3 flex gap-3 items-end">
+              {viewState === 'inviato' && handlers.handleGenerateSentReport && (
+                <button
+                  onClick={handlers.handleGenerateSentReport}
+                  className="flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-gray-600 hover:bg-gray-700 whitespace-nowrap"
+                >
+                  <FileText size={18} />
+                  Genera Report
+                </button>
+              )}
+              {viewState === 'fatturato' && handlers.handleGenerateInvoiceReport && (
+                <button
+                  onClick={handlers.handleGenerateInvoiceReport}
+                  className="flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap"
+                >
+                  <FileText size={18} />
+                  Genera Lista Fatture
+                </button>
+              )}
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
+                <select
+                  value={selectedClientFilter}
+                  onChange={(e) => setSelectedClientFilter(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti i clienti</option>
+                  {clientiAttivi
+                    .slice()
+                    .sort((a, b) => (a.azienda || '').localeCompare(b.azienda || '', 'it', { sensitivity: 'base' }))
+                    .map(c => {
+                      const ticketsForThisClient = displayTickets.filter(t => t.clienteid === c.id).length;
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {c.azienda} ({ticketsForThisClient})
+                        </option>
+                      );
+                    })
+                  }
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Mese</label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti i mesi</option>
+                  <option value="1">Gennaio</option>
+                  <option value="2">Febbraio</option>
+                  <option value="3">Marzo</option>
+                  <option value="4">Aprile</option>
+                  <option value="5">Maggio</option>
+                  <option value="6">Giugno</option>
+                  <option value="7">Luglio</option>
+                  <option value="8">Agosto</option>
+                  <option value="9">Settembre</option>
+                  <option value="10">Ottobre</option>
+                  <option value="11">Novembre</option>
+                  <option value="12">Dicembre</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Anno</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti gli anni</option>
+                  {(() => {
+                    const currentYear = new Date().getFullYear();
+                    const years = [];
+                    for (let year = currentYear; year >= currentYear - 5; year--) {
+                      years.push(year);
+                    }
+                    return years.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ));
+                  })()}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Filtri per tecnico (negli altri stati) */}
+          {currentUser.ruolo === 'tecnico' && !['inviato', 'fatturato'].includes(viewState) && (
+            <div className="mt-3 flex flex-col md:flex-row md:items-end md:gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
+                <select
+                  value={selectedClientFilter}
+                  onChange={(e) => setSelectedClientFilter(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti i clienti</option>
+                  {clientiAttivi
+                    .slice()
+                    .sort((a, b) => (a.azienda || '').localeCompare(b.azienda || '', 'it', { sensitivity: 'base' }))
+                    .map(c => {
+                      const ticketsForThisClient = displayTickets.filter(t => t.clienteid === c.id).length;
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {c.azienda} ({ticketsForThisClient})
+                        </option>
+                      );
+                    })
+                  }
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Mese</label>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti i mesi</option>
+                  <option value="1">Gennaio</option>
+                  <option value="2">Febbraio</option>
+                  <option value="3">Marzo</option>
+                  <option value="4">Aprile</option>
+                  <option value="5">Maggio</option>
+                  <option value="6">Giugno</option>
+                  <option value="7">Luglio</option>
+                  <option value="8">Agosto</option>
+                  <option value="9">Settembre</option>
+                  <option value="10">Ottobre</option>
+                  <option value="11">Novembre</option>
+                  <option value="12">Dicembre</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-2">Anno</label>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg"
+                >
+                  <option value="all">Tutti gli anni</option>
+                  {(() => {
+                    const currentYear = new Date().getFullYear();
+                    const years = [];
+                    for (let year = currentYear; year >= currentYear - 5; year--) {
+                      years.push(year);
+                    }
+                    return years.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ));
+                  })()}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="divide-y">
+        <div className="divide-y" style={{ scrollBehavior: 'auto' }}>
           {displayTickets.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <FileText size={48} className="mx-auto mb-3 opacity-30" />

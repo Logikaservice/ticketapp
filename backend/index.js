@@ -16,10 +16,19 @@ const pool = new Pool({
 });
 
 // --- MIDDLEWARE ---
-const corsOptions = {
-  origin: 'https://ticketapp-frontend-ton5.onrender.com'
-};
-app.use(cors(corsOptions));
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.length === 0) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  }
+}));
 app.use(express.json());
 
 // --- ROUTES ---

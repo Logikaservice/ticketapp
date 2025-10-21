@@ -22,10 +22,7 @@ const TimeLoggerModal = ({
   // Stato locale per gestire la modalità editing
   const [isEditing, setIsEditing] = useState(false);
   
-  console.log('📋 TimeLoggerModal - selectedTicket:', selectedTicket);
-  console.log('📋 TimeLoggerModal - timeLogs ricevuti:', timeLogs);
-  console.log('📋 TimeLoggerModal - readOnly:', readOnly);
-  console.log('📋 TimeLoggerModal - isEditing:', isEditing);
+  // console.debug: rimosso per evitare rumore in console
   
   // Determina se i campi sono modificabili
   const fieldsDisabled = readOnly && !isEditing;
@@ -141,13 +138,13 @@ const TimeLoggerModal = ({
                 </div>
               </div>
 
-              <input
-                type="text"
+              <textarea
+                rows="3"
                 value={log.descrizione}
                 onChange={(e) => handleTimeLogChange(log.id, 'descrizione', e.target.value)}
                 placeholder="Descrizione"
                 disabled={fieldsDisabled}
-                className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
               />
 
               <div className="mt-5 border-t pt-4">
@@ -240,7 +237,7 @@ const TimeLoggerModal = ({
                         <input
                           type="number"
                           step="0.01"
-                          value={m.costo.toFixed(2)}
+                          value={m.costo}
                           onChange={(e) => handleMaterialChange(log.id, m.id, 'costo', e.target.value)}
                           disabled={fieldsDisabled}
                           className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"

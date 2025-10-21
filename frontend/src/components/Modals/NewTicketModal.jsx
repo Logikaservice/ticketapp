@@ -75,7 +75,7 @@ const NewTicketModal = ({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descrizione <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrizione</label>
             <textarea
               rows="4"
               placeholder="Descrivi il problema in dettaglio..."
@@ -124,6 +124,18 @@ const NewTicketModal = ({
               required
             />
           </div>
+
+          {isEditingTicket && currentUser.ruolo === 'tecnico' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data Apertura</label>
+              <input
+                type="date"
+                value={newTicketData.dataapertura ? new Date(newTicketData.dataapertura).toISOString().substring(0, 10) : ''}
+                onChange={(e) => setNewTicketData({ ...newTicketData, dataapertura: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          )}
         </div>
 
         {/* Footer con i pulsanti */}
