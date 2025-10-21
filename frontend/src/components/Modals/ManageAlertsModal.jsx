@@ -64,7 +64,16 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
 
   const handleClientToggle = (clientId) => {
     if (clientId === 'all') {
-      setSelectedClients(users.filter(u => u.ruolo === 'cliente').map(u => u.id));
+      // Se tutti sono selezionati, deseleziona tutti, altrimenti seleziona tutti
+      const allClients = users.filter(u => u.ruolo === 'cliente').map(u => u.id);
+      const allSelected = allClients.length === selectedClients.length && 
+                         allClients.every(id => selectedClients.includes(id));
+      
+      if (allSelected) {
+        setSelectedClients([]);
+      } else {
+        setSelectedClients(allClients);
+      }
     } else {
       setSelectedClients(prev => 
         prev.includes(clientId) 
