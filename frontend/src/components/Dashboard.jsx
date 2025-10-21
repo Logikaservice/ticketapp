@@ -1,7 +1,7 @@
 // src/components/Dashboard.jsx
 
 import React, { useMemo, useEffect } from 'react';
-import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2 } from 'lucide-react';
+import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, X } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import { formatDate } from '../utils/formatters';
 
@@ -57,11 +57,21 @@ const CalendarStub = () => (
   </div>
 );
 
-const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable }) => (
+const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManageAlerts, currentUser }) => (
   <div className="bg-white rounded-xl border">
     <div className="p-4 border-b flex items-center justify-between">
       <h3 className="font-semibold">Avvisi Importanti</h3>
-      <span className="inline-flex items-center gap-1 text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full text-xs font-bold">⚠ Avvisi</span>
+      <div className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-1 text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full text-xs font-bold">⚠ Avvisi</span>
+        {currentUser?.ruolo === 'tecnico' && (
+          <button
+            onClick={onManageAlerts}
+            className="px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors"
+          >
+            Gestione Avvisi
+          </button>
+        )}
+      </div>
     </div>
     <div className="p-4 space-y-3">
       {alerts.length === 0 && (
@@ -110,6 +120,7 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
   }), [visibleTickets]);
   // Evidenzia spostamenti basati su segnali esterni (eventi dal polling/azioni)
   const [activeHighlights, setActiveHighlights] = React.useState({});
+  const [showManageAlerts, setShowManageAlerts] = React.useState(false);
   useEffect(() => {
     if (!externalHighlights) return;
     setActiveHighlights(externalHighlights);
@@ -212,41 +223,7 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
-          {currentUser?.ruolo === 'tecnico' && (
-            <div className="bg-white rounded-xl border p-4">
-              <h3 className="font-semibold mb-3">Gestione Avvisi</h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <input
-                  type="text"
-                  placeholder="Titolo avviso"
-                  value={newAlert.title}
-                  onChange={(e) => setNewAlert({ ...newAlert, title: e.target.value })}
-                  className="px-3 py-2 border rounded-lg"
-                />
-                <input
-                  type="text"
-                  placeholder="Dettaglio avviso"
-                  value={newAlert.body}
-                  onChange={(e) => setNewAlert({ ...newAlert, body: e.target.value })}
-                  className="px-3 py-2 border rounded-lg md:col-span-2"
-                />
-                <select
-                  value={newAlert.level}
-                  onChange={(e) => setNewAlert({ ...newAlert, level: e.target.value })}
-                  className="px-3 py-2 border rounded-lg"
-                >
-                  <option value="warning">Avviso</option>
-                  <option value="danger">Critico</option>
-                  <option value="info">Info</option>
-                </select>
-              </div>
-              <div className="mt-3">
-                <button onClick={addAlert} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Aggiungi Avviso</button>
-              </div>
-            </div>
-          )}
-
+        <div className="lg:col-span-2">
           <AlertsPanel 
             alerts={alerts}
             onDelete={currentUser?.ruolo === 'tecnico' ? deleteAlert : undefined}
@@ -255,6 +232,8 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
               if (!t || !t.id) return;
               // Integrazione futura: handlers.handleSelectTicket
             }}
+            onManageAlerts={() => setShowManageAlerts(true)}
+            currentUser={currentUser}
           />
 
           {/* Qui possiamo aggiungere altri contenuti; la lista completa è nella vista Ticket */}
@@ -263,6 +242,49 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
           <CalendarStub />
         </div>
       </div>
+
+      {/* Modal Gestione Avvisi */}
+      {showManageAlerts && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <AlertTriangle className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold">Gestione Avvisi</h2>
+                  <p className="text-sm text-gray-500">Crea e gestisci gli avvisi per i clienti</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowManageAlerts(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="text-center py-8">
+                <div className="text-gray-500 mb-4">
+                  <AlertTriangle className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                  <p>Funzionalità in sviluppo</p>
+                  <p className="text-sm">Il modal di gestione avvisi sarà implementato nel prossimo step</p>
+                </div>
+                <button
+                  onClick={() => setShowManageAlerts(false)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Chiudi
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

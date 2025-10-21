@@ -6,6 +6,7 @@ import SettingsModal from './SettingsModal';
 import UrgentConfirmModal from './UrgentConfirmModal';
 import EmptyDescriptionConfirmModal from './EmptyDescriptionConfirmModal';
 import ReportModal from './ReportModal';
+import ManageAlertsModal from './ManageAlertsModal';
 
 const AllModals = ({ modalState, closeModal, ...handlers }) => {
   if (!modalState.type) return null;
@@ -49,6 +50,18 @@ const AllModals = ({ modalState, closeModal, ...handlers }) => {
             closeModal={closeModal} 
             title={modalState.data.title}
             htmlContent={modalState.data.htmlContent}
+          />
+        );
+        
+      case 'manageAlerts':
+        return (
+          <ManageAlertsModal 
+            isOpen={true}
+            onClose={closeModal}
+            users={handlers.users}
+            onSave={handlers.onSaveAlert}
+            onEdit={handlers.onEditAlert}
+            editingAlert={modalState.data}
           />
         );
         
