@@ -4,6 +4,7 @@ import React, { useMemo, useEffect } from 'react';
 import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, X } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import { formatDate } from '../utils/formatters';
+import ManageAlertsModal from './Modals/ManageAlertsModal';
 
 const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, badge = null }) => {
   const ringClass = highlight
@@ -57,7 +58,7 @@ const CalendarStub = () => (
   </div>
 );
 
-const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManageAlerts, currentUser }) => (
+const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManageAlerts, onEditAlert, currentUser }) => (
   <div className="bg-white rounded-xl border">
     <div className="p-4 border-b flex items-center justify-between">
       <h3 className="font-semibold">Avvisi Importanti</h3>
@@ -88,7 +89,20 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
               <div className="text-sm mt-1">{avv.body}</div>
             </div>
             {isEditable && (
-              <button onClick={() => onDelete && onDelete(avv.id)} className="text-xs text-red-600 hover:underline">Rimuovi</button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => onEditAlert && onEditAlert(avv)} 
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  Modifica
+                </button>
+                <button 
+                  onClick={() => onDelete && onDelete(avv.id)} 
+                  className="text-xs text-red-600 hover:underline"
+                >
+                  Rimuovi
+                </button>
+              </div>
             )}
           </div>
           {avv.ticketId && (
@@ -121,6 +135,7 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
   // Evidenzia spostamenti basati su segnali esterni (eventi dal polling/azioni)
   const [activeHighlights, setActiveHighlights] = React.useState({});
   const [showManageAlerts, setShowManageAlerts] = React.useState(false);
+  const [editingAlert, setEditingAlert] = React.useState(null);
   useEffect(() => {
     if (!externalHighlights) return;
     setActiveHighlights(externalHighlights);
@@ -190,6 +205,65 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
     }
   };
 
+  // Funzioni per gestione avvisi nel modal
+  const handleSaveAlert = async (alertData) => {
+    try {
+      const res = await fetch(`${apiBase}/api/alerts`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'x-user-role': 'tecnico',
+          'x-user-id': currentUser?.id 
+        },
+        body: JSON.stringify({
+          title: alertData.title,
+          body: alertData.description,
+          level: alertData.priority,
+          clients: alertData.clients,
+          isPermanent: alertData.isPermanent,
+          daysToExpire: alertData.daysToExpire,
+          created_by: currentUser?.nome + ' ' + currentUser?.cognome
+        })
+      });
+      if (!res.ok) throw new Error('Errore creazione avviso');
+      fetchAlerts();
+    } catch (e) {
+      console.error('Errore salvataggio avviso:', e);
+      alert('Errore nel salvare l\'avviso');
+    }
+  };
+
+  const handleEditAlert = async (alertData) => {
+    try {
+      const res = await fetch(`${apiBase}/api/alerts/${alertData.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'x-user-role': 'tecnico',
+          'x-user-id': currentUser?.id 
+        },
+        body: JSON.stringify({
+          title: alertData.title,
+          body: alertData.description,
+          level: alertData.priority,
+          clients: alertData.clients,
+          isPermanent: alertData.isPermanent,
+          daysToExpire: alertData.daysToExpire
+        })
+      });
+      if (!res.ok) throw new Error('Errore modifica avviso');
+      fetchAlerts();
+    } catch (e) {
+      console.error('Errore modifica avviso:', e);
+      alert('Errore nel modificare l\'avviso');
+    }
+  };
+
+  const handleEditAlertClick = (alert) => {
+    setEditingAlert(alert);
+    setShowManageAlerts(true);
+  };
+
   const statCards = [
     { key: 'aperto', title: 'Aperti', value: counts.aperto, icon: <FileText size={14} /> },
     { key: 'in_lavorazione', title: 'In lavorazione', value: counts.in_lavorazione, icon: <PlayCircle size={14} /> },
@@ -232,7 +306,11 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
               if (!t || !t.id) return;
               // Integrazione futura: handlers.handleSelectTicket
             }}
-            onManageAlerts={() => setShowManageAlerts(true)}
+            onManageAlerts={() => {
+              setEditingAlert(null);
+              setShowManageAlerts(true);
+            }}
+            onEditAlert={handleEditAlertClick}
             currentUser={currentUser}
           />
 
@@ -245,45 +323,17 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
 
       {/* Modal Gestione Avvisi */}
       {showManageAlerts && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <AlertTriangle className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold">Gestione Avvisi</h2>
-                  <p className="text-sm text-gray-500">Crea e gestisci gli avvisi per i clienti</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowManageAlerts(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-6">
-              <div className="text-center py-8">
-                <div className="text-gray-500 mb-4">
-                  <AlertTriangle className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                  <p>Funzionalità in sviluppo</p>
-                  <p className="text-sm">Il modal di gestione avvisi sarà implementato nel prossimo step</p>
-                </div>
-                <button
-                  onClick={() => setShowManageAlerts(false)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Chiudi
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ManageAlertsModal
+          isOpen={showManageAlerts}
+          onClose={() => {
+            setShowManageAlerts(false);
+            setEditingAlert(null);
+          }}
+          users={users}
+          onSave={handleSaveAlert}
+          onEdit={handleEditAlert}
+          editingAlert={editingAlert}
+        />
       )}
     </div>
   );
