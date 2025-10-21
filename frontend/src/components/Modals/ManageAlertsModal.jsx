@@ -95,67 +95,61 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <AlertTriangle className="w-5 h-5 text-blue-600" />
-            </div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+        
+        {/* Header con lo stile viola sfumato */}
+        <div className="p-6 border-b bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-t-2xl">
+          <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <AlertTriangle size={28} />
                 {editingAlert ? 'Modifica Avviso' : 'Nuovo Avviso'}
               </h2>
-              <p className="text-sm text-gray-500">
+              <p className="text-purple-100 text-sm mt-1">
                 {editingAlert ? 'Modifica i dettagli dell\'avviso' : 'Crea un nuovo avviso per i clienti'}
               </p>
             </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition"
+            >
+              <X size={24} />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        {/* Form per l'inserimento dei dati */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {/* Titolo */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Titolo Avviso *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Titolo Avviso <span className="text-red-500">*</span></label>
             <input
               type="text"
               value={formData.title}
               onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Inserisci il titolo dell'avviso"
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              placeholder="Es: Manutenzione server programmata"
               required
             />
           </div>
 
           {/* Descrizione */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Descrizione *
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrizione <span className="text-red-500">*</span></label>
             <textarea
+              rows="4"
               value={formData.description}
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-24 resize-none"
-              placeholder="Descrivi i dettagli dell'avviso..."
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              placeholder="Descrivi i dettagli dell'avviso in modo chiaro e completo..."
               required
             />
           </div>
 
           {/* Priorità */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Priorità
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Priorità</label>
             <div className="grid grid-cols-3 gap-3">
               {[
                 { value: 'info', label: 'Informazione', icon: '🔵' },
@@ -181,14 +175,12 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
 
           {/* Clienti */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Destinatari
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Destinatari</label>
             <div className="space-y-3">
               <button
                 type="button"
                 onClick={() => setShowClientSelector(!showClientSelector)}
-                className="w-full p-3 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-between"
+                className="w-full p-3 border rounded-lg hover:bg-gray-50 flex items-center justify-between focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               >
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4" />
@@ -254,9 +246,7 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
 
           {/* Durata */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Durata Avviso
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Durata Avviso</label>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <input
@@ -306,23 +296,28 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t">
+        </div>
+
+        {/* Footer con i pulsanti */}
+        <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
+          <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition"
             >
               Annulla
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              onClick={handleSubmit}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
             >
+              <AlertTriangle size={18} />
               {editingAlert ? 'Salva Modifiche' : 'Crea Avviso'}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
