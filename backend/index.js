@@ -82,11 +82,54 @@ app.use('/api/users', usersRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/alerts', alertsRoutes);
 
+// --- ENDPOINT PER INIZIALIZZARE IL DATABASE ---
+app.post('/api/init-db', async (req, res) => {
+  try {
+    // Crea tabella alerts se non esiste
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS alerts (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        level TEXT NOT NULL DEFAULT 'warning' CHECK (level IN ('warning', 'danger', 'info')),
+        ticket_id INTEGER,
+        created_by TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    console.log("✅ Tabella alerts creata/verificata");
+    res.json({ message: 'Database inizializzato con successo' });
+  } catch (err) {
+    console.error('❌ Errore inizializzazione database:', err);
+    res.status(500).json({ error: 'Errore nell\'inizializzazione del database' });
+  }
+});
+
 // --- AVVIO DEL SERVER ---
 const startServer = async () => {
   try {
     await pool.connect();
     console.log("✅ Connessione al database riuscita!");
+    
+    // Inizializza automaticamente il database
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS alerts (
+          id SERIAL PRIMARY KEY,
+          title TEXT NOT NULL,
+          body TEXT NOT NULL,
+          level TEXT NOT NULL DEFAULT 'warning' CHECK (level IN ('warning', 'danger', 'info')),
+          ticket_id INTEGER,
+          created_by TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Tabella alerts inizializzata automaticamente");
+    } catch (initErr) {
+      console.log("⚠️ Tabella alerts già esistente o errore:", initErr.message);
+    }
+    
     app.listen(PORT, () => {
       console.log(`🚀 Server backend OTTIMIZZATO in ascolto sulla porta ${PORT}`);
       console.log(`📁 Routes organizzate in moduli separati`);
