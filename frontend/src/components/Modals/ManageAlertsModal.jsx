@@ -203,7 +203,20 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
               </button>
 
               {showClientSelector && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl p-3 space-y-2 max-h-60 overflow-y-auto">
+                <>
+                  {/* Overlay per chiudere cliccando fuori */}
+                  <div 
+                    className="fixed inset-0 z-[55] bg-black/20" 
+                    onClick={() => setShowClientSelector(false)}
+                  />
+                  <div className="fixed z-[60] bg-white border border-gray-200 rounded-lg shadow-2xl p-3 space-y-2 max-h-60 overflow-y-auto" 
+                       style={{
+                         top: '50%',
+                         left: '50%',
+                         transform: 'translate(-50%, -50%)',
+                         width: '400px',
+                         maxWidth: '90vw'
+                       }}>
                   <button
                     type="button"
                     onClick={() => handleClientToggle('all')}
@@ -249,7 +262,8 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                       </div>
                     </button>
                   ))}
-                </div>
+                  </div>
+                </>
               )}
             </div>
           </div>
