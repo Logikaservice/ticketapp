@@ -26,7 +26,19 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
           isPermanent: editingAlert.isPermanent !== false,
           daysToExpire: editingAlert.daysToExpire || 7
         });
-        setSelectedClients(editingAlert.clients || []);
+        // Gestisci clienti come array o JSON
+        const clients = editingAlert.clients;
+        if (Array.isArray(clients)) {
+          setSelectedClients(clients);
+        } else if (typeof clients === 'string') {
+          try {
+            setSelectedClients(JSON.parse(clients));
+          } catch {
+            setSelectedClients([]);
+          }
+        } else {
+          setSelectedClients([]);
+        }
       } else {
         setFormData({
           title: '',

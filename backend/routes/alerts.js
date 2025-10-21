@@ -9,7 +9,7 @@ module.exports = function createAlertsRouter(pool) {
   router.get('/', async (req, res) => {
     try {
       const { rows } = await pool.query(
-        'SELECT id, title, body, level, ticket_id as "ticketId", created_at as "createdAt", created_by as "createdBy" FROM alerts ORDER BY created_at DESC'
+        'SELECT id, title, body, level, ticket_id as "ticketId", created_at as "createdAt", created_by as "createdBy", clients, is_permanent as "isPermanent", days_to_expire as "daysToExpire" FROM alerts ORDER BY created_at DESC'
       );
       res.json(rows);
     } catch (err) {
@@ -21,7 +21,7 @@ module.exports = function createAlertsRouter(pool) {
   // POST /api/alerts - crea avviso (solo tecnico)
   router.post('/', async (req, res) => {
     try {
-      const { title, body, level, ticketId, createdBy } = req.body || {};
+      const { title, body, level, ticketId, createdBy, clients, isPermanent, daysToExpire } = req.body || {};
       if (!title || !body) return res.status(400).json({ error: 'title e body sono obbligatori' });
 
       // Controllo ruolo semplice da body (in attesa di auth reale)
@@ -33,13 +33,38 @@ module.exports = function createAlertsRouter(pool) {
       if (role !== 'tecnico') return res.status(403).json({ error: 'Solo i tecnici possono creare avvisi' });
 
       const { rows } = await pool.query(
-        'INSERT INTO alerts (title, body, level, ticket_id, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id, title, body, level, ticket_id as "ticketId", created_at as "createdAt", created_by as "createdBy"',
-        [title, body, level || 'warning', ticketId || null, createdBy || null]
+        'INSERT INTO alerts (title, body, level, ticket_id, created_by, clients, is_permanent, days_to_expire) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, title, body, level, ticket_id as "ticketId", created_at as "createdAt", created_by as "createdBy", clients, is_permanent as "isPermanent", days_to_expire as "daysToExpire"',
+        [title, body, level || 'warning', ticketId || null, createdBy || null, JSON.stringify(clients || []), isPermanent !== false, daysToExpire || 7]
       );
       res.status(201).json(rows[0]);
     } catch (err) {
       console.error('Errore POST /alerts:', err);
       res.status(500).json({ error: 'Errore nella creazione dell\'avviso' });
+    }
+  });
+
+  // PUT /api/alerts/:id - modifica avviso (solo tecnico)
+  router.put('/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { title, body, level, ticketId, createdBy, clients, isPermanent, daysToExpire } = req.body || {};
+      
+      if (!id) return res.status(400).json({ error: 'ID mancante' });
+      if (!title || !body) return res.status(400).json({ error: 'title e body sono obbligatori' });
+
+      const role = (req.headers['x-user-role'] || req.body?.role || '').toString();
+      if (role !== 'tecnico') return res.status(403).json({ error: 'Solo i tecnici possono modificare avvisi' });
+
+      const { rows } = await pool.query(
+        'UPDATE alerts SET title = $1, body = $2, level = $3, ticket_id = $4, created_by = $5, clients = $6, is_permanent = $7, days_to_expire = $8 WHERE id = $9 RETURNING id, title, body, level, ticket_id as "ticketId", created_at as "createdAt", created_by as "createdBy", clients, is_permanent as "isPermanent", days_to_expire as "daysToExpire"',
+        [title, body, level || 'warning', ticketId || null, createdBy || null, JSON.stringify(clients || []), isPermanent !== false, daysToExpire || 7, id]
+      );
+      
+      if (rows.length === 0) return res.status(404).json({ error: 'Avviso non trovato' });
+      res.json(rows[0]);
+    } catch (err) {
+      console.error('Errore PUT /alerts/:id:', err);
+      res.status(500).json({ error: 'Errore nella modifica dell\'avviso' });
     }
   });
 

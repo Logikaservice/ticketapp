@@ -94,6 +94,9 @@ app.post('/api/init-db', async (req, res) => {
         level TEXT NOT NULL DEFAULT 'warning' CHECK (level IN ('warning', 'danger', 'info')),
         ticket_id INTEGER,
         created_by TEXT,
+        clients JSONB DEFAULT '[]',
+        is_permanent BOOLEAN DEFAULT true,
+        days_to_expire INTEGER DEFAULT 7,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -122,6 +125,9 @@ const startServer = async () => {
           level TEXT NOT NULL DEFAULT 'warning' CHECK (level IN ('warning', 'danger', 'info')),
           ticket_id INTEGER,
           created_by TEXT,
+          clients JSONB DEFAULT '[]',
+          is_permanent BOOLEAN DEFAULT true,
+          days_to_expire INTEGER DEFAULT 7,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
