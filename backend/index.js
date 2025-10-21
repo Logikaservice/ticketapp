@@ -101,6 +101,16 @@ app.post('/api/init-db', async (req, res) => {
       )
     `);
     
+    // Aggiungi colonne mancanti se la tabella esiste già
+    try {
+      await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS clients JSONB DEFAULT '[]'`);
+      await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS is_permanent BOOLEAN DEFAULT true`);
+      await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS days_to_expire INTEGER DEFAULT 7`);
+      console.log("✅ Colonne aggiunte alla tabella alerts esistente");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonne (potrebbero già esistere):", alterErr.message);
+    }
+    
     console.log("✅ Tabella alerts creata/verificata");
     res.json({ message: 'Database inizializzato con successo' });
   } catch (err) {
