@@ -95,8 +95,8 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{ paddingTop: '2rem', paddingBottom: '2rem' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
         
         {/* Header con lo stile viola sfumato */}
         <div className="p-6 border-b bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-t-2xl">
@@ -203,7 +203,7 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
               </button>
 
               {showClientSelector && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-2 max-h-40 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl p-3 space-y-2 max-h-60 overflow-y-auto">
                   <button
                     type="button"
                     onClick={() => handleClientToggle('all')}
