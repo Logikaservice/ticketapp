@@ -67,9 +67,11 @@ app.post('/api/login', async (req, res) => {
 // --- IMPORTA LE ROUTES ---
 const usersRoutes = require('./routes/users')(pool);
 const ticketsRoutes = require('./routes/tickets')(pool);
+const alertsRoutes = require('./routes/alerts')(pool);
 
 app.use('/api/users', usersRoutes);
 app.use('/api/tickets', ticketsRoutes);
+app.use('/api/alerts', alertsRoutes);
 
 // --- AVVIO DEL SERVER ---
 const startServer = async () => {

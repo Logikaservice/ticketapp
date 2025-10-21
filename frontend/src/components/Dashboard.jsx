@@ -1,6 +1,6 @@
 // src/components/Dashboard.jsx
 
-import React, { useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, ChevronsRight, ChevronsLeft } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import { formatDate } from '../utils/formatters';
@@ -47,31 +47,79 @@ const CalendarStub = () => (
   </div>
 );
 
-const AlertsPanel = ({ onOpenTicket }) => (
-  <div className="bg-white rounded-xl border">
-    <div className="p-4 border-b flex items-center justify-between">
-      <h3 className="font-semibold">Avvisi Importanti</h3>
-      <span className="inline-flex items-center gap-1 text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full text-xs font-bold">⚠ Avvisi</span>
-    </div>
-    <div className="p-4 space-y-3">
-      {[ 
-        { id: 1, title: 'Sospensione Backup!', body: 'Servizio sospeso per manutenzione urgente. Ritorno previsto: 19/10/2025.', color: 'border-red-300 bg-red-50 text-red-800' },
-        { id: 2, title: 'Anomalia Server Riscontrata', body: 'Picco I/O su server principale. Monitorare CPU prossime 2 ore.', color: 'border-yellow-300 bg-yellow-50 text-yellow-800' },
-        { id: 3, title: 'Nuova Minaccia Zero-Day', body: 'Rilasciata patch urgente di sicurezza. Collegarsi al sito per scaricare.', color: 'border-blue-300 bg-blue-50 text-blue-800' }
-      ].map(avv => (
-        <button key={avv.id} onClick={() => onOpenTicket && onOpenTicket({ id: avv.id })} className={`w-full text-left p-3 rounded-lg border ${avv.color}`}>
-          <div className="font-bold flex items-center gap-2">
-            <AlertTriangle size={16} />
-            {avv.title}
+const AlertsPanel = ({ alerts = [], loadingAlerts = false, onOpenTicket, currentUser }) => {
+  const getAlertColor = (level) => {
+    switch (level) {
+      case 'danger': return 'border-red-300 bg-red-50 text-red-800';
+      case 'warning': return 'border-yellow-300 bg-yellow-50 text-yellow-800';
+      case 'info': return 'border-blue-300 bg-blue-50 text-blue-800';
+      default: return 'border-gray-300 bg-gray-50 text-gray-800';
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-xl border">
+      <div className="p-4 border-b flex items-center justify-between">
+        <h3 className="font-semibold">Avvisi Importanti</h3>
+        <span className="inline-flex items-center gap-1 text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full text-xs font-bold">
+          ⚠ {alerts.length} Avvisi
+        </span>
+      </div>
+      <div className="p-4 space-y-3">
+        {loadingAlerts ? (
+          <div className="text-center text-gray-500 py-4">
+            Caricamento avvisi...
           </div>
-          <div className="text-sm mt-1">{avv.body}</div>
-        </button>
-      ))}
+        ) : alerts.length === 0 ? (
+          <div className="text-center text-gray-500 py-4">
+            Nessun avviso attivo
+          </div>
+        ) : (
+          alerts.map(alert => (
+            <button 
+              key={alert.id} 
+              onClick={() => onOpenTicket && onOpenTicket({ id: alert.ticket_id })} 
+              className={`w-full text-left p-3 rounded-lg border ${getAlertColor(alert.level)}`}
+            >
+              <div className="font-bold flex items-center gap-2">
+                <AlertTriangle size={16} />
+                {alert.title}
+              </div>
+              <div className="text-sm mt-1">{alert.body}</div>
+              <div className="text-xs mt-2 text-gray-600">
+                {formatDate(alert.created_at)} • {alert.created_by}
+              </div>
+            </button>
+          ))
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount, onOpenState }) => {
+  const [alerts, setAlerts] = useState([]);
+  const [loadingAlerts, setLoadingAlerts] = useState(true);
+
+  // Carica avvisi dal database
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const response = await fetch(process.env.REACT_APP_API_URL + '/api/alerts');
+        if (response.ok) {
+          const alertsData = await response.json();
+          setAlerts(alertsData);
+        }
+      } catch (error) {
+        console.error('Errore nel caricare gli avvisi:', error);
+      } finally {
+        setLoadingAlerts(false);
+      }
+    };
+
+    fetchAlerts();
+  }, []);
+
   const counts = useMemo(() => ({
     aperto: tickets.filter(t => t.stato === 'aperto').length,
     in_lavorazione: tickets.filter(t => t.stato === 'in_lavorazione').length,
@@ -129,11 +177,16 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <AlertsPanel onOpenTicket={(t) => {
-            if (!t || !t.id) return;
-            // Collegabile al ticket: per ora esempio
-            // Potremmo usare handlers.handleSelectTicket quando disponibile
-          }} />
+          <AlertsPanel 
+            alerts={alerts}
+            loadingAlerts={loadingAlerts}
+            currentUser={currentUser}
+            onOpenTicket={(t) => {
+              if (!t || !t.id) return;
+              // Collegabile al ticket: per ora esempio
+              // Potremmo usare handlers.handleSelectTicket quando disponibile
+            }} 
+          />
           {/* Qui possiamo aggiungere altri contenuti; la lista completa è nella vista Ticket */}
         </div>
         <div>
