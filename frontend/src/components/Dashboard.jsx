@@ -131,18 +131,32 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
 
   // Evidenzia spostamenti tra stati (approssimazione: confronta conteggi consecutivi)
   const prevCountsRef = useRef(counts);
-  useEffect(() => { prevCountsRef.current = counts; }, [counts]);
-  const prev = prevCountsRef.current;
-  const order = ['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'];
-  const deltas = Object.fromEntries(order.map(k => [k, (counts[k] || 0) - (prev[k] || 0)]));
-  const highlights = Object.fromEntries(order.map(k => [k, null]));
-  order.forEach((k, idx) => {
-    const d = deltas[k];
-    const prevKey = order[idx - 1];
-    const nextKey = order[idx + 1];
-    if (d > 0 && prevKey && deltas[prevKey] < 0) highlights[k] = { type: 'up' };
-    if (d < 0 && nextKey && deltas[nextKey] > 0) highlights[k] = { type: 'down' };
-  });
+  const [highlights, setHighlights] = useState({});
+  
+  useEffect(() => {
+    const prev = prevCountsRef.current;
+    const order = ['aperto','in_lavorazione','risolto','chiuso','inviato','fatturato'];
+    const deltas = Object.fromEntries(order.map(k => [k, (counts[k] || 0) - (prev[k] || 0)]));
+    const newHighlights = Object.fromEntries(order.map(k => [k, null]));
+    
+    order.forEach((k, idx) => {
+      const d = deltas[k];
+      const prevKey = order[idx - 1];
+      const nextKey = order[idx + 1];
+      if (d > 0 && prevKey && deltas[prevKey] < 0) newHighlights[k] = { type: 'up' };
+      if (d < 0 && nextKey && deltas[nextKey] > 0) newHighlights[k] = { type: 'down' };
+    });
+    
+    setHighlights(newHighlights);
+    prevCountsRef.current = counts;
+    
+    // Rimuovi highlights dopo 3 secondi
+    const timer = setTimeout(() => {
+      setHighlights({});
+    }, 3000);
+    
+    return () => clearTimeout(timer);
+  }, [counts]);
 
   const roleLabel = currentUser?.ruolo === 'tecnico' ? 'Tecnico' : 'Cliente';
 
@@ -159,7 +173,22 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">Dashboard Riepilogo ({roleLabel})</h2>
-        <div className="text-sm text-gray-500">Oggi: {formatDate(new Date().toISOString())}</div>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => {
+              // Test highlights temporaneo
+              setHighlights({
+                aperto: { type: 'up' },
+                in_lavorazione: { type: 'down' }
+              });
+              setTimeout(() => setHighlights({}), 3000);
+            }}
+            className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+          >
+            Test Effetti
+          </button>
+          <div className="text-sm text-gray-500">Oggi: {formatDate(new Date().toISOString())}</div>
+        </div>
       </div>
 
       {/* Stat menu style */}
