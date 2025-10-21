@@ -4,7 +4,6 @@ import React, { useMemo, useEffect } from 'react';
 import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, X } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import { formatDate } from '../utils/formatters';
-import ManageAlertsModal from './Modals/ManageAlertsModal';
 
 const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, badge = null }) => {
   const ringClass = highlight
@@ -116,7 +115,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
   </div>
 );
 
-const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, handlers, getUnreadCount, onOpenState, externalHighlights }) => {
+const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights }) => {
   const visibleTickets = useMemo(() => {
     if (currentUser?.ruolo === 'cliente') {
       return tickets.filter(t => t.clienteid === currentUser.id);
@@ -134,8 +133,6 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
   }), [visibleTickets]);
   // Evidenzia spostamenti basati su segnali esterni (eventi dal polling/azioni)
   const [activeHighlights, setActiveHighlights] = React.useState({});
-  const [showManageAlerts, setShowManageAlerts] = React.useState(false);
-  const [editingAlert, setEditingAlert] = React.useState(null);
   useEffect(() => {
     if (!externalHighlights) return;
     setActiveHighlights(externalHighlights);
@@ -260,8 +257,7 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
   };
 
   const handleEditAlertClick = (alert) => {
-    setEditingAlert(alert);
-    setShowManageAlerts(true);
+    setModalState({ type: 'manageAlerts', data: alert });
   };
 
   const statCards = [
@@ -306,10 +302,7 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
               if (!t || !t.id) return;
               // Integrazione futura: handlers.handleSelectTicket
             }}
-            onManageAlerts={() => {
-              setEditingAlert(null);
-              setShowManageAlerts(true);
-            }}
+            onManageAlerts={() => setModalState({ type: 'manageAlerts', data: null })}
             onEditAlert={handleEditAlertClick}
             currentUser={currentUser}
           />
@@ -321,20 +314,6 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
         </div>
       </div>
 
-      {/* Modal Gestione Avvisi */}
-      {showManageAlerts && (
-        <ManageAlertsModal
-          isOpen={showManageAlerts}
-          onClose={() => {
-            setShowManageAlerts(false);
-            setEditingAlert(null);
-          }}
-          users={users}
-          onSave={handleSaveAlert}
-          onEdit={handleEditAlert}
-          editingAlert={editingAlert}
-        />
-      )}
     </div>
   );
 };

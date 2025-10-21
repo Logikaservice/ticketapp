@@ -489,6 +489,62 @@ export default function TicketApp() {
   const openManageClientsModal = () => setModalState({ type: 'manageClients' });
   const openNewClientModal = () => setModalState({ type: 'newClient' });
 
+  // Funzioni per gestione avvisi
+  const handleSaveAlert = async (alertData) => {
+    try {
+      const apiBase = process.env.REACT_APP_API_URL || 'https://ticketapp-4eqb.onrender.com';
+      const res = await fetch(`${apiBase}/api/alerts`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'x-user-role': 'tecnico',
+          'x-user-id': currentUser?.id 
+        },
+        body: JSON.stringify({
+          title: alertData.title,
+          body: alertData.description,
+          level: alertData.priority,
+          clients: alertData.clients,
+          isPermanent: alertData.isPermanent,
+          daysToExpire: alertData.daysToExpire,
+          created_by: currentUser?.nome + ' ' + currentUser?.cognome
+        })
+      });
+      if (!res.ok) throw new Error('Errore creazione avviso');
+      showNotification('Avviso creato con successo!', 'success');
+    } catch (e) {
+      console.error('Errore salvataggio avviso:', e);
+      showNotification('Errore nel salvare l\'avviso', 'error');
+    }
+  };
+
+  const handleEditAlert = async (alertData) => {
+    try {
+      const apiBase = process.env.REACT_APP_API_URL || 'https://ticketapp-4eqb.onrender.com';
+      const res = await fetch(`${apiBase}/api/alerts/${alertData.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'x-user-role': 'tecnico',
+          'x-user-id': currentUser?.id 
+        },
+        body: JSON.stringify({
+          title: alertData.title,
+          body: alertData.description,
+          level: alertData.priority,
+          clients: alertData.clients,
+          isPermanent: alertData.isPermanent,
+          daysToExpire: alertData.daysToExpire
+        })
+      });
+      if (!res.ok) throw new Error('Errore modifica avviso');
+      showNotification('Avviso modificato con successo!', 'success');
+    } catch (e) {
+      console.error('Errore modifica avviso:', e);
+      showNotification('Errore nel modificare l\'avviso', 'error');
+    }
+  };
+
   const handleFornitureCountChange = (ticketId, newCount) => {
     setTickets(prev => prev.map(t => 
       t.id === ticketId ? { ...t, fornitureCount: newCount } : t
@@ -608,6 +664,7 @@ export default function TicketApp() {
             users={users}
             selectedTicket={selectedTicket}
             setSelectedTicket={setSelectedTicket}
+            setModalState={setModalState}
             handlers={{
               handleSelectTicket,
               handleOpenEditModal,
@@ -685,6 +742,9 @@ export default function TicketApp() {
         handleSaveTimeLogs={handleSaveTimeLogs}
         currentUser={currentUser}
         showNotification={showNotification}
+        users={users}
+        onSaveAlert={handleSaveAlert}
+        onEditAlert={handleEditAlert}
       />
 
       {modalState.type === 'manageClients' && (
