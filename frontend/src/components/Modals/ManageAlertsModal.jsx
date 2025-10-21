@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, AlertTriangle, Users, Calendar, Clock } from 'lucide-react';
+import { X, AlertTriangle, Users, Calendar, Clock, Info, AlertCircle, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
 
 const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAlert }) => {
   const [formData, setFormData] = useState({
@@ -152,22 +152,28 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
             <label className="block text-sm font-medium text-gray-700 mb-1">Priorità</label>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { value: 'info', label: 'Informazione', icon: '🔵' },
-                { value: 'warning', label: 'Avviso', icon: '🟡' },
-                { value: 'danger', label: 'Critico', icon: '🔴' }
+                { value: 'info', label: 'Informazione', icon: <Info size={20} />, color: 'text-blue-600' },
+                { value: 'warning', label: 'Avviso', icon: <AlertCircle size={20} />, color: 'text-yellow-600' },
+                { value: 'danger', label: 'Critico', icon: <AlertTriangleIcon size={20} />, color: 'text-red-600' }
               ].map(priority => (
                 <button
                   key={priority.value}
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, priority: priority.value }))}
-                  className={`p-3 rounded-lg border-2 transition-all ${
+                  className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
                     formData.priority === priority.value
                       ? getPriorityColor(priority.value)
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <div className="text-2xl mb-1">{priority.icon}</div>
-                  <div className="text-sm font-medium">{priority.label}</div>
+                  <div className={formData.priority === priority.value ? 'text-white' : priority.color}>
+                    {priority.icon}
+                  </div>
+                  <div className={`text-sm font-medium ${
+                    formData.priority === priority.value ? 'text-white' : 'text-gray-700'
+                  }`}>
+                    {priority.label}
+                  </div>
                 </button>
               ))}
             </div>
@@ -176,7 +182,7 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
           {/* Clienti */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Destinatari</label>
-            <div className="space-y-3">
+            <div className="space-y-3 relative">
               <button
                 type="button"
                 onClick={() => setShowClientSelector(!showClientSelector)}
@@ -197,7 +203,7 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
               </button>
 
               {showClientSelector && (
-                <div className="border border-gray-200 rounded-lg p-3 space-y-2 max-h-40 overflow-y-auto">
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-2 max-h-40 overflow-y-auto">
                   <button
                     type="button"
                     onClick={() => handleClientToggle('all')}
@@ -218,7 +224,11 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                     </div>
                   </button>
                   
-                  {users.filter(u => u.ruolo === 'cliente').map(client => (
+                  {users.filter(u => u.ruolo === 'cliente').sort((a, b) => {
+                    const aName = a.azienda || '';
+                    const bName = b.azienda || '';
+                    return aName.localeCompare(bName, 'it', { sensitivity: 'base' });
+                  }).map(client => (
                     <button
                       key={client.id}
                       type="button"
@@ -234,8 +244,8 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                           readOnly
                           className="rounded"
                         />
-                        <span>{client.nome} {client.cognome}</span>
-                        <span className="text-sm text-gray-500">({client.email})</span>
+                        <span className="font-medium">{client.azienda || 'Azienda non specificata'}</span>
+                        <span className="text-sm text-gray-500">({client.nome} {client.cognome})</span>
                       </div>
                     </button>
                   ))}
@@ -276,23 +286,20 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                   <Calendar className="w-4 h-4" />
                   <span>Avviso temporaneo</span>
                 </label>
-              </div>
-
-              {!formData.isPermanent && (
-                <div className="ml-7">
-                  <div className="flex items-center gap-2">
+                {!formData.isPermanent && (
+                  <div className="flex items-center gap-2 ml-4">
                     <input
                       type="number"
                       min="1"
                       max="365"
                       value={formData.daysToExpire}
                       onChange={(e) => setFormData(prev => ({ ...prev, daysToExpire: parseInt(e.target.value) || 7 }))}
-                      className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                      className="w-20 px-2 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
                     <span className="text-sm text-gray-600">giorni</span>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
