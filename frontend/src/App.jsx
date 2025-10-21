@@ -58,6 +58,7 @@ export default function TicketApp() {
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
+  const [alertsRefreshTrigger, setAlertsRefreshTrigger] = useState(0);
 
   // Helpers per localStorage (nuovi ticket non ancora aperti dall'utente)
   const getSetFromStorage = (key) => {
@@ -512,6 +513,7 @@ export default function TicketApp() {
       });
       if (!res.ok) throw new Error('Errore creazione avviso');
       showNotification('Avviso creato con successo!', 'success');
+      setAlertsRefreshTrigger(prev => prev + 1); // Trigger refresh avvisi
     } catch (e) {
       console.error('Errore salvataggio avviso:', e);
       showNotification('Errore nel salvare l\'avviso', 'error');
@@ -539,6 +541,7 @@ export default function TicketApp() {
       });
       if (!res.ok) throw new Error('Errore modifica avviso');
       showNotification('Avviso modificato con successo!', 'success');
+      setAlertsRefreshTrigger(prev => prev + 1); // Trigger refresh avvisi
     } catch (e) {
       console.error('Errore modifica avviso:', e);
       showNotification('Errore nel modificare l\'avviso', 'error');
@@ -685,6 +688,7 @@ export default function TicketApp() {
             }}
             getUnreadCount={getUnreadCount}
             externalHighlights={dashboardHighlights}
+            alertsRefreshTrigger={alertsRefreshTrigger}
             onOpenState={(state) => {
               setDashboardTargetState(state || 'aperto');
               setShowDashboard(false);

@@ -115,7 +115,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
   </div>
 );
 
-const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights }) => {
+const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger }) => {
   const visibleTickets = useMemo(() => {
     if (currentUser?.ruolo === 'cliente') {
       return tickets.filter(t => t.clienteid === currentUser.id);
@@ -167,6 +167,11 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
     }
   };
   useEffect(() => { fetchAlerts(); }, []);
+  useEffect(() => { 
+    if (alertsRefreshTrigger > 0) {
+      fetchAlerts(); 
+    }
+  }, [alertsRefreshTrigger]);
 
   const [newAlert, setNewAlert] = React.useState({ title: '', body: '', level: 'warning' });
   const levelToColor = (level) => {
