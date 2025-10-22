@@ -308,6 +308,28 @@ export const useGoogleCalendar = () => {
     return PRIORITY_COLORS[priorita?.toLowerCase()] || '1';
   };
 
+  // Sincronizza automaticamente un ticket quando viene preso in carico
+  const autoSyncTicket = async (ticket) => {
+    try {
+      if (!isAuthenticated) {
+        console.log('Google Calendar non connesso, sincronizzazione automatica saltata');
+        return false;
+      }
+
+      // Sincronizza solo se il ticket è in lavorazione
+      if (ticket.stato === 'in_lavorazione') {
+        console.log('Sincronizzazione automatica ticket #' + ticket.id);
+        await syncTicketToCalendar(ticket);
+        return true;
+      }
+      
+      return false;
+    } catch (err) {
+      console.error('Errore sincronizzazione automatica:', err);
+      return false;
+    }
+  };
+
   return {
     isAuthenticated,
     events,
@@ -318,6 +340,7 @@ export const useGoogleCalendar = () => {
     loadEvents,
     syncTicketToCalendar,
     updateCalendarEvent,
-    deleteCalendarEvent
+    deleteCalendarEvent,
+    autoSyncTicket
   };
 };

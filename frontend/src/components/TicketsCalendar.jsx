@@ -18,7 +18,8 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
     loadEvents,
     syncTicketToCalendar,
     updateCalendarEvent,
-    deleteCalendarEvent
+    deleteCalendarEvent,
+    autoSyncTicket
   } = useGoogleCalendar();
 
   // Funzione per sincronizzare tutti i ticket
@@ -84,23 +85,8 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
       grouped[dateKey][ticket.priorita].push(ticket);
     });
     
-    // Aggiungi eventi Google se abilitati
-    if (showGoogleEvents && googleEvents.length > 0) {
-      googleEvents.forEach(event => {
-        const date = new Date(event.start);
-        const dateKey = date.toISOString().split('T')[0];
-        
-        if (!grouped[dateKey]) {
-          grouped[dateKey] = {};
-        }
-        
-        if (!grouped[dateKey]['google']) {
-          grouped[dateKey]['google'] = [];
-        }
-        
-        grouped[dateKey]['google'].push(event);
-      });
-    }
+    // Eventi Google Calendar non vengono mostrati nel calendario
+    // Solo sincronizzazione ticket → Google Calendar
     
     return grouped;
   }, [relevantTickets, showGoogleEvents, googleEvents]);
@@ -184,7 +170,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Calendario Ticket</h3>
           <div className="flex items-center gap-2">
-            {/* Controlli Google Calendar */}
+            {/* Controlli Google Calendar - Solo sincronizzazione */}
             <div className="flex items-center gap-2 mr-4">
               {!isAuthenticated ? (
                 <button
@@ -193,21 +179,14 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
                   className="flex items-center gap-1 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:opacity-50"
                 >
                   <Calendar size={14} />
-                  {googleLoading ? 'Caricamento...' : 'Google Calendar'}
+                  {googleLoading ? 'Caricamento...' : 'Connetti Google'}
                 </button>
               ) : (
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowGoogleEvents(!showGoogleEvents)}
-                    className={`flex items-center gap-1 px-3 py-1 text-xs rounded ${
-                      showGoogleEvents 
-                        ? 'bg-green-500 text-white' 
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    <ExternalLink size={14} />
-                    Google {showGoogleEvents ? 'ON' : 'OFF'}
-                  </button>
+                  <div className="flex items-center gap-1 px-3 py-1 bg-green-500 text-white text-xs rounded">
+                    <Calendar size={14} />
+                    Google Connesso
+                  </div>
                   <button
                     onClick={signOut}
                     className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
@@ -258,6 +237,11 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
                 {googleError}
               </div>
             )}
+            
+            {/* Messaggio informativo */}
+            <div className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
+              📅 <strong>Sincronizzazione automatica:</strong> I ticket presi in carico vengono automaticamente sincronizzati con Google Calendar. Gli eventi Google non vengono mostrati in questo calendario.
+            </div>
       </div>
 
       <div className="p-4">
@@ -298,20 +282,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
                   />
                 ))}
                 
-                {/* Pallini per eventi Google Calendar */}
-                {showGoogleEvents && day.tickets.google && day.tickets.google.length > 0 && (
-                  <div
-                    className="w-2 h-2 rounded-full bg-green-500 cursor-pointer hover:scale-125 transition-transform"
-                    title={`Google Calendar: ${day.tickets.google.length} evento`}
-                    onClick={() => {
-                      // Mostra tooltip con lista eventi Google
-                      const eventList = day.tickets.google.map(event => 
-                        `${event.title || 'Senza titolo'} - ${new Date(event.start).toLocaleDateString('it-IT')}`
-                      ).join('\n');
-                      alert(`Eventi Google Calendar:\n${eventList}`);
-                    }}
-                  />
-                )}
+                {/* Eventi Google Calendar non vengono mostrati */}
               </div>
             </div>
           ))}
@@ -337,12 +308,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
               <div className="w-2 h-2 rounded-full bg-gray-500"></div>
               <span>Bassa</span>
             </div>
-            {showGoogleEvents && (
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                <span>Google Calendar</span>
-              </div>
-            )}
+            {/* Google Calendar non viene mostrato nel calendario */}
           </div>
         </div>
       </div>
