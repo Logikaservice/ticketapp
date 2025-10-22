@@ -233,12 +233,27 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     try {
       const res = await fetch(`${apiBase}/api/alerts`);
       if (!res.ok) throw new Error('Errore caricamento avvisi');
-      setAlerts(await res.json());
+      const allAlerts = await res.json();
+      
+      // Filtra gli avvisi in base al ruolo dell'utente
+      let filteredAlerts = allAlerts;
+      if (currentUser?.ruolo === 'cliente') {
+        filteredAlerts = allAlerts.filter(alert => {
+          // Se l'avviso non ha clienti specifici, è per tutti
+          if (!alert.clients || !Array.isArray(alert.clients) || alert.clients.length === 0) {
+            return true;
+          }
+          // Se l'avviso ha clienti specifici, controlla se include questo cliente
+          return alert.clients.includes(currentUser.id);
+        });
+      }
+      
+      setAlerts(filteredAlerts);
     } catch (e) {
       console.error(e);
     }
   };
-  useEffect(() => { fetchAlerts(); }, []);
+  useEffect(() => { fetchAlerts(); }, [currentUser]);
   useEffect(() => { 
     if (alertsRefreshTrigger > 0) {
       fetchAlerts(); 
