@@ -297,6 +297,21 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
                     }}
                   />
                 ))}
+                
+                {/* Pallini per eventi Google Calendar */}
+                {showGoogleEvents && day.tickets.google && day.tickets.google.length > 0 && (
+                  <div
+                    className="w-2 h-2 rounded-full bg-green-500 cursor-pointer hover:scale-125 transition-transform"
+                    title={`Google Calendar: ${day.tickets.google.length} evento`}
+                    onClick={() => {
+                      // Mostra tooltip con lista eventi Google
+                      const eventList = day.tickets.google.map(event => 
+                        `${event.title || 'Senza titolo'} - ${new Date(event.start).toLocaleDateString('it-IT')}`
+                      ).join('\n');
+                      alert(`Eventi Google Calendar:\n${eventList}`);
+                    }}
+                  />
+                )}
               </div>
             </div>
           ))}
