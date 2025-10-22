@@ -1,8 +1,21 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, ExternalLink } from 'lucide-react';
+import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 
 const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [showGoogleEvents, setShowGoogleEvents] = useState(false);
+  
+  // Hook per Google Calendar
+  const {
+    isAuthenticated,
+    events: googleEvents,
+    loading: googleLoading,
+    error: googleError,
+    authenticate,
+    signOut,
+    loadEvents
+  } = useGoogleCalendar();
 
   // Solo per tecnici
   if (currentUser?.ruolo !== 'tecnico') {
@@ -26,6 +39,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
   const ticketsByDate = useMemo(() => {
     const grouped = {};
     
+    // Aggiungi ticket
     relevantTickets.forEach(ticket => {
       if (!ticket.dataapertura) return;
       
@@ -43,8 +57,26 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
       grouped[dateKey][ticket.priorita].push(ticket);
     });
     
+    // Aggiungi eventi Google se abilitati
+    if (showGoogleEvents && googleEvents.length > 0) {
+      googleEvents.forEach(event => {
+        const date = new Date(event.start);
+        const dateKey = date.toISOString().split('T')[0];
+        
+        if (!grouped[dateKey]) {
+          grouped[dateKey] = {};
+        }
+        
+        if (!grouped[dateKey]['google']) {
+          grouped[dateKey]['google'] = [];
+        }
+        
+        grouped[dateKey]['google'].push(event);
+      });
+    }
+    
     return grouped;
-  }, [relevantTickets]);
+  }, [relevantTickets, showGoogleEvents, googleEvents]);
 
   // Funzione per ottenere il colore della priorità
   const getPriorityColor = (priorita) => {
@@ -53,6 +85,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
       case 'alta': return 'bg-orange-500';
       case 'media': return 'bg-blue-500';
       case 'bassa': return 'bg-gray-500';
+      case 'google': return 'bg-green-500';
       default: return 'bg-gray-500';
     }
   };
@@ -64,6 +97,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
       case 'alta': return 'Alta';
       case 'media': return 'Media';
       case 'bassa': return 'Bassa';
+      case 'google': return 'Google Calendar';
       default: return 'Sconosciuta';
     }
   };
@@ -123,23 +157,67 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Calendario Ticket</h3>
           <div className="flex items-center gap-2">
-            <button
-              onClick={goToPreviousMonth}
-              className="p-1 hover:bg-gray-100 rounded"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <span className="text-sm font-medium min-w-[120px] text-center">
-              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-            </span>
-            <button
-              onClick={goToNextMonth}
-              className="p-1 hover:bg-gray-100 rounded"
-            >
-              <ChevronRight size={16} />
-            </button>
+            {/* Controlli Google Calendar */}
+            <div className="flex items-center gap-2 mr-4">
+              {!isAuthenticated ? (
+                <button
+                  onClick={authenticate}
+                  disabled={googleLoading}
+                  className="flex items-center gap-1 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:opacity-50"
+                >
+                  <Calendar size={14} />
+                  {googleLoading ? 'Caricamento...' : 'Google Calendar'}
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowGoogleEvents(!showGoogleEvents)}
+                    className={`flex items-center gap-1 px-3 py-1 text-xs rounded ${
+                      showGoogleEvents 
+                        ? 'bg-green-500 text-white' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    <ExternalLink size={14} />
+                    Google {showGoogleEvents ? 'ON' : 'OFF'}
+                  </button>
+                  <button
+                    onClick={signOut}
+                    className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                  >
+                    Disconnetti
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {/* Navigazione mese */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={goToPreviousMonth}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-sm font-medium min-w-[120px] text-center">
+                {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              </span>
+              <button
+                onClick={goToNextMonth}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         </div>
+        
+        {/* Messaggi di errore Google Calendar */}
+        {googleError && (
+          <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
+            {googleError}
+          </div>
+        )}
       </div>
 
       <div className="p-4">
@@ -186,7 +264,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
 
         {/* Legenda */}
         <div className="mt-4 pt-4 border-t">
-          <div className="text-xs text-gray-600 mb-2">Legenda priorità:</div>
+          <div className="text-xs text-gray-600 mb-2">Legenda:</div>
           <div className="flex flex-wrap gap-3 text-xs">
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-full bg-red-500"></div>
@@ -204,6 +282,12 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
               <div className="w-2 h-2 rounded-full bg-gray-500"></div>
               <span>Bassa</span>
             </div>
+            {showGoogleEvents && (
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                <span>Google Calendar</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
