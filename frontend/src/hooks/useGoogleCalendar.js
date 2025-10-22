@@ -308,6 +308,33 @@ export const useGoogleCalendar = () => {
     return PRIORITY_COLORS[priorita?.toLowerCase()] || '1';
   };
 
+  // Controlla se Google Calendar è già connesso (token salvato)
+  const checkExistingConnection = async () => {
+    try {
+      if (window.gapi && window.gapi.client) {
+        const token = window.gapi.client.getToken();
+        if (token && token.access_token) {
+          console.log('Token Google esistente trovato, verifica validità...');
+          
+          // Verifica se il token è ancora valido
+          try {
+            await window.gapi.client.calendar.calendarList.list();
+            console.log('Token Google valido, connessione automatica riuscita');
+            setIsAuthenticated(true);
+            return true;
+          } catch (err) {
+            console.log('Token Google scaduto, richiesta nuova autenticazione');
+            return false;
+          }
+        }
+      }
+      return false;
+    } catch (err) {
+      console.log('Nessuna connessione Google esistente');
+      return false;
+    }
+  };
+
   // Sincronizza automaticamente un ticket quando viene preso in carico
   const autoSyncTicket = async (ticket) => {
     try {
@@ -413,6 +440,7 @@ export const useGoogleCalendar = () => {
     updateCalendarEvent,
     deleteCalendarEvent,
     autoSyncTicket,
-    updateTicketInCalendar
+    updateTicketInCalendar,
+    checkExistingConnection
   };
 };

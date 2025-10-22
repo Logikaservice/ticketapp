@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, ExternalLink } from 'lucide-react';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { SYNC_STATES } from '../config/googleConfig';
@@ -20,8 +20,16 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
     updateCalendarEvent,
     deleteCalendarEvent,
     autoSyncTicket,
-    updateTicketInCalendar
+    updateTicketInCalendar,
+    checkExistingConnection
   } = useGoogleCalendar();
+
+  // Controlla connessione Google esistente al caricamento
+  useEffect(() => {
+    if (currentUser?.ruolo === 'tecnico') {
+      checkExistingConnection();
+    }
+  }, [currentUser, checkExistingConnection]);
 
   // Funzione per sincronizzare tutti i ticket
   const handleSyncAllTickets = async () => {
@@ -241,7 +249,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
             
             {/* Messaggio informativo */}
             <div className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
-              📅 <strong>Sincronizzazione bidirezionale:</strong> I ticket presi in carico vengono sincronizzati con Google Calendar. Le modifiche ai ticket (data, ora, stato) si riflettono automaticamente su Google Calendar. Gli eventi Google non vengono mostrati in questo calendario.
+              📅 <strong>Sincronizzazione automatica:</strong> I ticket presi in carico vengono sincronizzati automaticamente con Google Calendar. Le modifiche ai ticket si riflettono automaticamente su Google Calendar. Gli eventi Google non vengono mostrati in questo calendario.
             </div>
       </div>
 
