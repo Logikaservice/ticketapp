@@ -57,7 +57,7 @@ const CalendarStub = () => (
   </div>
 );
 
-const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManageAlerts, onEditAlert, currentUser }) => (
+const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManageAlerts, onEditAlert, currentUser, users = [] }) => (
   <div className="bg-white rounded-xl border">
     <div className="p-4 border-b flex items-center justify-between">
       <h3 className="font-semibold">Avvisi Importanti</h3>
@@ -86,6 +86,29 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
                 {avv.title}
               </div>
               <div className="text-sm mt-1">{avv.body}</div>
+              
+              {/* Informazioni destinatari */}
+              <div className="mt-2 flex items-center gap-2">
+                <div className="text-xs text-gray-500 flex items-center gap-1">
+                  <Users size={12} />
+                  <span>
+                    {avv.clients && Array.isArray(avv.clients) && avv.clients.length > 0 
+                      ? avv.clients.length === 1 
+                        ? `Condiviso con 1 cliente`
+                        : `Condiviso con ${avv.clients.length} clienti`
+                      : 'Condiviso con tutti i clienti'
+                    }
+                  </span>
+                </div>
+                {avv.clients && Array.isArray(avv.clients) && avv.clients.length > 0 && avv.clients.length <= 3 && (
+                  <div className="text-xs text-blue-600">
+                    ({avv.clients.map(c => {
+                      const user = users.find(u => u.id === c);
+                      return user ? (user.azienda || `${user.nome} ${user.cognome}`) : 'Cliente';
+                    }).join(', ')})
+                  </div>
+                )}
+              </div>
               
               {/* Visualizza allegati se presenti */}
               {avv.attachments && avv.attachments.length > 0 && (
@@ -345,6 +368,7 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
             onManageAlerts={() => setModalState({ type: 'manageAlerts', data: null })}
             onEditAlert={handleEditAlertClick}
             currentUser={currentUser}
+            users={users}
           />
 
           {/* Qui possiamo aggiungere altri contenuti; la lista completa è nella vista Ticket */}
