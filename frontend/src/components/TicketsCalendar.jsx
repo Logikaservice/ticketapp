@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, ExternalLink } from 'lucide-react';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
+import { SYNC_STATES } from '../config/googleConfig';
 
 const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -14,8 +15,34 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
     error: googleError,
     authenticate,
     signOut,
-    loadEvents
+    loadEvents,
+    syncTicketToCalendar,
+    updateCalendarEvent,
+    deleteCalendarEvent
   } = useGoogleCalendar();
+
+  // Funzione per sincronizzare tutti i ticket
+  const handleSyncAllTickets = async () => {
+    try {
+      const ticketsToSync = tickets.filter(ticket => 
+        SYNC_STATES.includes(ticket.stato)
+      );
+      
+      for (const ticket of ticketsToSync) {
+        try {
+          await syncTicketToCalendar(ticket);
+          console.log(`Ticket #${ticket.id} sincronizzato con Google Calendar`);
+        } catch (err) {
+          console.error(`Errore sincronizzazione ticket #${ticket.id}:`, err);
+        }
+      }
+      
+      alert(`Sincronizzazione completata! ${ticketsToSync.length} ticket sincronizzati.`);
+    } catch (err) {
+      console.error('Errore sincronizzazione:', err);
+      alert('Errore durante la sincronizzazione. Controlla la console per i dettagli.');
+    }
+  };
 
   // Solo per tecnici
   if (currentUser?.ruolo !== 'tecnico') {
@@ -28,7 +55,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
   }
 
   // Stati da considerare
-  const relevantStates = ['in_lavorazione', 'risolto', 'chiuso', 'inviato', 'fatturato'];
+  const relevantStates = SYNC_STATES;
   
   // Filtra i ticket per stati rilevanti
   const relevantTickets = tickets.filter(ticket => 
@@ -190,6 +217,19 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
                 </div>
               )}
             </div>
+            
+            {/* Sincronizzazione Ticket */}
+            {isAuthenticated && (
+              <div className="flex items-center gap-2 mr-4">
+                <button 
+                  onClick={handleSyncAllTickets} 
+                  className="flex items-center gap-1 px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+                >
+                  <Calendar size={14} />
+                  Sincronizza Ticket
+                </button>
+              </div>
+            )}
             
             {/* Navigazione mese */}
             <div className="flex items-center gap-2">

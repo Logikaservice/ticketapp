@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { GOOGLE_CONFIG, PRIORITY_COLORS } from '../config/googleConfig';
 
 export const useGoogleCalendar = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -21,9 +22,9 @@ export const useGoogleCalendar = () => {
           window.gapi.load('client:auth2', () => {
             window.gapi.client.init({
               apiKey: process.env.REACT_APP_GOOGLE_API_KEY,
-              clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID,
-              discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
-              scope: 'https://www.googleapis.com/auth/calendar.readonly'
+              clientId: GOOGLE_CONFIG.CLIENT_ID,
+              discoveryDocs: GOOGLE_CONFIG.DISCOVERY_DOCS,
+              scope: GOOGLE_CONFIG.SCOPES
             }).then(() => {
               resolve();
             }).catch(reject);
@@ -118,6 +119,93 @@ export const useGoogleCalendar = () => {
     }
   };
 
+  // Sincronizza ticket con Google Calendar
+  const syncTicketToCalendar = async (ticket) => {
+    try {
+      if (!isAuthenticated) {
+        throw new Error('Non autenticato con Google Calendar');
+      }
+
+      const event = {
+        summary: `Ticket #${ticket.id} - ${ticket.titolo}`,
+        description: `Ticket: ${ticket.titolo}\nCliente: ${ticket.cliente}\nPriorità: ${ticket.priorita}\nStato: ${ticket.stato}\nDescrizione: ${ticket.descrizione}`,
+        start: {
+          dateTime: new Date(ticket.dataApertura).toISOString(),
+          timeZone: 'Europe/Rome'
+        },
+        end: {
+          dateTime: new Date(new Date(ticket.dataApertura).getTime() + 60 * 60 * 1000).toISOString(), // 1 ora dopo
+          timeZone: 'Europe/Rome'
+        },
+        colorId: getPriorityColorId(ticket.priorita),
+        source: {
+          title: 'TicketApp',
+          url: `${window.location.origin}/ticket/${ticket.id}`
+        }
+      };
+
+      const response = await window.gapi.client.calendar.events.insert({
+        calendarId: 'primary',
+        resource: event
+      });
+
+      return response.result;
+    } catch (err) {
+      console.error('Errore sincronizzazione ticket:', err);
+      throw err;
+    }
+  };
+
+  // Aggiorna evento Google Calendar
+  const updateCalendarEvent = async (eventId, ticket) => {
+    try {
+      if (!isAuthenticated) {
+        throw new Error('Non autenticato con Google Calendar');
+      }
+
+      const event = {
+        summary: `Ticket #${ticket.id} - ${ticket.titolo}`,
+        description: `Ticket: ${ticket.titolo}\nCliente: ${ticket.cliente}\nPriorità: ${ticket.priorita}\nStato: ${ticket.stato}\nDescrizione: ${ticket.descrizione}`,
+        colorId: getPriorityColorId(ticket.priorita)
+      };
+
+      const response = await window.gapi.client.calendar.events.update({
+        calendarId: 'primary',
+        eventId: eventId,
+        resource: event
+      });
+
+      return response.result;
+    } catch (err) {
+      console.error('Errore aggiornamento evento:', err);
+      throw err;
+    }
+  };
+
+  // Elimina evento Google Calendar
+  const deleteCalendarEvent = async (eventId) => {
+    try {
+      if (!isAuthenticated) {
+        throw new Error('Non autenticato con Google Calendar');
+      }
+
+      await window.gapi.client.calendar.events.delete({
+        calendarId: 'primary',
+        eventId: eventId
+      });
+
+      return true;
+    } catch (err) {
+      console.error('Errore eliminazione evento:', err);
+      throw err;
+    }
+  };
+
+  // Ottieni color ID basato sulla priorità
+  const getPriorityColorId = (priorita) => {
+    return PRIORITY_COLORS[priorita?.toLowerCase()] || '1';
+  };
+
   return {
     isAuthenticated,
     events,
@@ -125,6 +213,9 @@ export const useGoogleCalendar = () => {
     error,
     authenticate,
     signOut,
-    loadEvents
+    loadEvents,
+    syncTicketToCalendar,
+    updateCalendarEvent,
+    deleteCalendarEvent
   };
 };
