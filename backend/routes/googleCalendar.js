@@ -24,8 +24,6 @@ module.exports = (pool) => {
     scopes: ['https://www.googleapis.com/auth/calendar']
   });
 
-  const oauth2Client = await auth.getClient();
-
   // ENDPOINT: Sincronizza ticket con Google Calendar
   router.post('/sync-google-calendar', async (req, res) => {
     try {
@@ -45,6 +43,7 @@ module.exports = (pool) => {
       }
 
       // Crea evento Google Calendar
+      const oauth2Client = await auth.getClient();
       const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
       // Gestisci diversi formati di data
@@ -92,16 +91,32 @@ module.exports = (pool) => {
         }
       };
 
-      const response = await calendar.events.insert({
-        calendarId: 'primary',
-        resource: event
-      });
+      let result;
+      if (action === 'create') {
+        result = await calendar.events.insert({
+          calendarId: 'primary',
+          resource: event
+        });
+      } else if (action === 'update' && ticket.googleCalendarEventId) {
+        result = await calendar.events.update({
+          calendarId: 'primary',
+          eventId: ticket.googleCalendarEventId,
+          resource: event
+        });
+      } else if (action === 'delete' && ticket.googleCalendarEventId) {
+        result = await calendar.events.delete({
+          calendarId: 'primary',
+          eventId: ticket.googleCalendarEventId
+        });
+      } else {
+        return res.status(400).json({ error: 'Azione non valida o ID evento mancante' });
+      }
 
       console.log('Ticket #' + ticket.id + ' sincronizzato con Google Calendar via backend');
       
       res.json({
         success: true,
-        eventId: response.data.id,
+        eventId: result.data?.id,
         message: 'Ticket sincronizzato con Google Calendar'
       });
 
