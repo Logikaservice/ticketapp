@@ -16,8 +16,15 @@ export const useGoogleCalendar = () => {
           return;
         }
 
+        // Verifica se le credenziali sono configurate
+        if (!GOOGLE_CONFIG.CLIENT_ID) {
+          reject(new Error('Google Client ID non configurato'));
+          return;
+        }
+
         const script = document.createElement('script');
         script.src = 'https://apis.google.com/js/api.js';
+        script.crossOrigin = 'anonymous';
         script.onload = () => {
           window.gapi.load('client:auth2', () => {
             window.gapi.client.init({
@@ -30,14 +37,17 @@ export const useGoogleCalendar = () => {
             }).catch(reject);
           });
         };
-        script.onerror = reject;
+        script.onerror = (err) => {
+          console.error('Errore caricamento script Google:', err);
+          reject(new Error('Impossibile caricare Google API script'));
+        };
         document.head.appendChild(script);
       });
     };
 
     loadGoogleAPI().catch(err => {
       console.error('Errore caricamento Google API:', err);
-      setError('Errore nel caricamento di Google Calendar API');
+      setError(`Errore nel caricamento di Google Calendar API: ${err.message}`);
     });
   }, []);
 
