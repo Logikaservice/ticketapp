@@ -6,18 +6,25 @@ const { google } = require('googleapis');
 module.exports = (pool) => {
   const router = express.Router();
 
-  // Configurazione Google Calendar API
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000'
-  );
-
-  // Imposta le credenziali (token di servizio)
-  oauth2Client.setCredentials({
-    access_token: process.env.GOOGLE_ACCESS_TOKEN,
-    refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+  // Configurazione Google Calendar API con Service Account
+  const auth = new google.auth.GoogleAuth({
+    credentials: {
+      type: "service_account",
+      project_id: process.env.GOOGLE_PROJECT_ID || "ticketapp-b2a2a",
+      private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      client_email: process.env.GOOGLE_CLIENT_EMAIL,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      auth_uri: "https://accounts.google.com/o/oauth2/auth",
+      token_uri: "https://oauth2.googleapis.com/token",
+      auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+      client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL,
+      universe_domain: "googleapis.com"
+    },
+    scopes: ['https://www.googleapis.com/auth/calendar']
   });
+
+  const oauth2Client = await auth.getClient();
 
   // ENDPOINT: Sincronizza ticket con Google Calendar
   router.post('/sync-google-calendar', async (req, res) => {
@@ -26,6 +33,15 @@ module.exports = (pool) => {
 
       if (!ticket) {
         return res.status(400).json({ error: 'Ticket non fornito' });
+      }
+
+      // Verifica che le credenziali siano configurate
+      if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+        console.log('Credenziali Google Calendar non configurate, sincronizzazione saltata');
+        return res.json({
+          success: false,
+          message: 'Google Calendar non configurato'
+        });
       }
 
       // Crea evento Google Calendar
