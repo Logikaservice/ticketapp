@@ -330,6 +330,77 @@ export const useGoogleCalendar = () => {
     }
   };
 
+  // Aggiorna evento Google Calendar quando cambia un ticket
+  const updateTicketInCalendar = async (ticket, eventId) => {
+    try {
+      if (!isAuthenticated) {
+        console.log('Google Calendar non connesso, aggiornamento saltato');
+        return false;
+      }
+
+      if (!eventId) {
+        console.log('Nessun eventId fornito per ticket #' + ticket.id);
+        return false;
+      }
+
+      console.log('Aggiornamento evento Google Calendar per ticket #' + ticket.id);
+      
+      // Gestisci diversi formati di data
+      let startDate;
+      if (ticket.dataApertura) {
+        const dateFormats = [
+          ticket.dataApertura,
+          new Date(ticket.dataApertura),
+          new Date(ticket.dataApertura.replace(/-/g, '/')),
+          new Date(ticket.dataApertura + 'T00:00:00'),
+        ];
+        
+        for (const dateFormat of dateFormats) {
+          const testDate = new Date(dateFormat);
+          if (!isNaN(testDate.getTime())) {
+            startDate = testDate;
+            break;
+          }
+        }
+        
+        if (!startDate || isNaN(startDate.getTime())) {
+          console.warn('Data non valida per aggiornamento ticket #' + ticket.id);
+          startDate = new Date();
+        }
+      } else {
+        startDate = new Date();
+      }
+
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+
+      const event = {
+        summary: `Ticket #${ticket.id} - ${ticket.titolo}`,
+        description: `Ticket: ${ticket.titolo}\nCliente: ${ticket.cliente}\nPriorità: ${ticket.priorita}\nStato: ${ticket.stato}\nDescrizione: ${ticket.descrizione}\nData apertura: ${startDate.toLocaleDateString('it-IT')}`,
+        start: {
+          dateTime: startDate.toISOString(),
+          timeZone: 'Europe/Rome'
+        },
+        end: {
+          dateTime: endDate.toISOString(),
+          timeZone: 'Europe/Rome'
+        },
+        colorId: getPriorityColorId(ticket.priorita)
+      };
+
+      const response = await window.gapi.client.calendar.events.update({
+        calendarId: 'primary',
+        eventId: eventId,
+        resource: event
+      });
+
+      console.log('Evento Google Calendar aggiornato per ticket #' + ticket.id);
+      return response.result;
+    } catch (err) {
+      console.error('Errore aggiornamento evento Google Calendar:', err);
+      return false;
+    }
+  };
+
   return {
     isAuthenticated,
     events,
@@ -341,6 +412,7 @@ export const useGoogleCalendar = () => {
     syncTicketToCalendar,
     updateCalendarEvent,
     deleteCalendarEvent,
-    autoSyncTicket
+    autoSyncTicket,
+    updateTicketInCalendar
   };
 };

@@ -19,7 +19,8 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
     syncTicketToCalendar,
     updateCalendarEvent,
     deleteCalendarEvent,
-    autoSyncTicket
+    autoSyncTicket,
+    updateTicketInCalendar
   } = useGoogleCalendar();
 
   // Funzione per sincronizzare tutti i ticket
@@ -240,7 +241,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
             
             {/* Messaggio informativo */}
             <div className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
-              📅 <strong>Sincronizzazione automatica:</strong> I ticket presi in carico vengono automaticamente sincronizzati con Google Calendar. Gli eventi Google non vengono mostrati in questo calendario.
+              📅 <strong>Sincronizzazione bidirezionale:</strong> I ticket presi in carico vengono sincronizzati con Google Calendar. Le modifiche ai ticket (data, ora, stato) si riflettono automaticamente su Google Calendar. Gli eventi Google non vengono mostrati in questo calendario.
             </div>
       </div>
 
