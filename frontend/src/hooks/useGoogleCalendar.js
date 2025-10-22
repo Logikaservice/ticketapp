@@ -194,16 +194,31 @@ export const useGoogleCalendar = () => {
       }
 
       // Debug: controlla il formato della data
-      console.log('Ticket dataApertura:', ticket.dataApertura, 'Tipo:', typeof ticket.dataApertura);
+      console.log('Ticket #' + ticket.id + ' - dataApertura:', ticket.dataApertura, 'Tipo:', typeof ticket.dataApertura);
       
       // Gestisci diversi formati di data
       let startDate;
       if (ticket.dataApertura) {
-        startDate = new Date(ticket.dataApertura);
-        // Verifica se la data è valida
-        if (isNaN(startDate.getTime())) {
-          console.warn('Data non valida per ticket #' + ticket.id + ':', ticket.dataApertura);
-          // Usa la data corrente come fallback
+        // Prova diversi formati di data
+        const dateFormats = [
+          ticket.dataApertura, // Formato originale
+          new Date(ticket.dataApertura), // Formato standard
+          new Date(ticket.dataApertura.replace(/-/g, '/')), // Formato con slash
+          new Date(ticket.dataApertura + 'T00:00:00'), // Aggiungi ora se manca
+        ];
+        
+        for (const dateFormat of dateFormats) {
+          const testDate = new Date(dateFormat);
+          if (!isNaN(testDate.getTime())) {
+            startDate = testDate;
+            console.log('Data valida trovata per ticket #' + ticket.id + ':', startDate.toISOString());
+            break;
+          }
+        }
+        
+        // Se nessun formato funziona, usa la data corrente
+        if (!startDate || isNaN(startDate.getTime())) {
+          console.warn('Nessun formato data valido per ticket #' + ticket.id + ':', ticket.dataApertura);
           startDate = new Date();
         }
       } else {
@@ -215,7 +230,7 @@ export const useGoogleCalendar = () => {
 
       const event = {
         summary: `Ticket #${ticket.id} - ${ticket.titolo}`,
-        description: `Ticket: ${ticket.titolo}\nCliente: ${ticket.cliente}\nPriorità: ${ticket.priorita}\nStato: ${ticket.stato}\nDescrizione: ${ticket.descrizione}`,
+        description: `Ticket: ${ticket.titolo}\nCliente: ${ticket.cliente}\nPriorità: ${ticket.priorita}\nStato: ${ticket.stato}\nDescrizione: ${ticket.descrizione}\nData apertura: ${startDate.toLocaleDateString('it-IT')}`,
         start: {
           dateTime: startDate.toISOString(),
           timeZone: 'Europe/Rome'
