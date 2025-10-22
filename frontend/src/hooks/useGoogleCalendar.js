@@ -25,47 +25,64 @@ export const useGoogleCalendar = () => {
         
         console.log('Google Client ID configurato:', GOOGLE_CONFIG.CLIENT_ID);
 
+        // Carica Google API script
         const script = document.createElement('script');
         script.src = 'https://apis.google.com/js/api.js';
-        script.crossOrigin = 'anonymous';
-        script.onload = () => {
-          console.log('Google API script caricato con successo');
-          window.gapi.load('client:auth2', () => {
-            console.log('Google API client caricato');
-            window.gapi.client.init({
-              apiKey: process.env.REACT_APP_GOOGLE_API_KEY,
-              clientId: GOOGLE_CONFIG.CLIENT_ID,
-              discoveryDocs: GOOGLE_CONFIG.DISCOVERY_DOCS,
-              scope: GOOGLE_CONFIG.SCOPES
-            }).then(() => {
-              console.log('Google API client inizializzato con successo');
-              resolve();
-            }).catch((err) => {
-              console.error('Errore inizializzazione Google API:', err);
-              // Prova inizializzazione alternativa senza auth2
-              console.log('Tentativo inizializzazione alternativa...');
-              window.gapi.load('client', () => {
-                window.gapi.client.init({
-                  apiKey: process.env.REACT_APP_GOOGLE_API_KEY,
-                  clientId: GOOGLE_CONFIG.CLIENT_ID,
-                  discoveryDocs: GOOGLE_CONFIG.DISCOVERY_DOCS,
-                  scope: GOOGLE_CONFIG.SCOPES
-                }).then(() => {
-                  console.log('Google API client inizializzato (modalità alternativa)');
-                  resolve();
-                }).catch((altErr) => {
-                  console.error('Errore anche con inizializzazione alternativa:', altErr);
-                  reject(altErr);
-                });
+        script.async = true;
+        script.defer = true;
+        
+        // Carica anche Google Identity Services
+        const gisScript = document.createElement('script');
+        gisScript.src = 'https://accounts.google.com/gsi/client';
+        gisScript.async = true;
+        gisScript.defer = true;
+        let scriptsLoaded = 0;
+        const totalScripts = 2;
+        
+        const checkAllLoaded = () => {
+          scriptsLoaded++;
+          if (scriptsLoaded === totalScripts) {
+            console.log('Tutti gli script Google caricati con successo');
+            
+            // Inizializza solo il client, senza auth2
+            window.gapi.load('client', () => {
+              console.log('Google API client caricato');
+              window.gapi.client.init({
+                apiKey: process.env.REACT_APP_GOOGLE_API_KEY,
+                clientId: GOOGLE_CONFIG.CLIENT_ID,
+                discoveryDocs: GOOGLE_CONFIG.DISCOVERY_DOCS,
+                scope: GOOGLE_CONFIG.SCOPES
+              }).then(() => {
+                console.log('Google API client inizializzato con successo');
+                resolve();
+              }).catch((err) => {
+                console.error('Errore inizializzazione Google API:', err);
+                reject(err);
               });
             });
-          });
+          }
+        };
+        
+        script.onload = () => {
+          console.log('Google API script caricato con successo');
+          checkAllLoaded();
         };
         script.onerror = (err) => {
-          console.error('Errore caricamento script Google:', err);
+          console.error('Errore caricamento script Google API:', err);
           reject(new Error('Impossibile caricare Google API script'));
         };
+        
+        gisScript.onload = () => {
+          console.log('Google Identity Services script caricato con successo');
+          checkAllLoaded();
+        };
+        gisScript.onerror = (err) => {
+          console.error('Errore caricamento script Google Identity Services:', err);
+          reject(new Error('Impossibile caricare Google Identity Services script'));
+        };
+        
         document.head.appendChild(script);
+        document.head.appendChild(gisScript);
       });
     };
 
@@ -81,12 +98,28 @@ export const useGoogleCalendar = () => {
       setLoading(true);
       setError(null);
 
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      const user = await authInstance.signIn();
-      
-      if (user.isSignedIn()) {
-        setIsAuthenticated(true);
-        await loadEvents();
+      // Usa Google Identity Services invece di auth2
+      if (window.google && window.google.accounts) {
+        const tokenClient = window.google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CONFIG.CLIENT_ID,
+          scope: GOOGLE_CONFIG.SCOPES,
+          callback: (tokenResponse) => {
+            if (tokenResponse.error) {
+              console.error('Errore autenticazione:', tokenResponse.error);
+              setError('Errore durante l\'autenticazione con Google');
+              return;
+            }
+            
+            // Imposta il token per le chiamate API
+            window.gapi.client.setToken(tokenResponse);
+            setIsAuthenticated(true);
+            loadEvents();
+          },
+        });
+        
+        tokenClient.requestAccessToken();
+      } else {
+        throw new Error('Google Identity Services non disponibile');
       }
     } catch (err) {
       console.error('Errore autenticazione:', err);
