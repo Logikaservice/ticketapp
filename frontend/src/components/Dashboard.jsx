@@ -121,7 +121,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
                     }
                   </span>
                 </div>
-                {avv.clients && Array.isArray(avv.clients) && avv.clients.length > 0 && avv.clients.length <= 3 && (
+                {avv.clients && Array.isArray(avv.clients) && avv.clients.length > 0 && avv.clients.length <= 3 && users && users.length > 0 && (
                   <div className="text-xs text-blue-600">
                     ({avv.clients.map(c => {
                       const user = users.find(u => u.id === c);
@@ -390,7 +390,7 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
             onManageAlerts={() => setModalState({ type: 'manageAlerts', data: null })}
             onEditAlert={handleEditAlertClick}
             currentUser={currentUser}
-            users={users}
+            users={users || []}
           />
 
           {/* Qui possiamo aggiungere altri contenuti; la lista completa è nella vista Ticket */}
