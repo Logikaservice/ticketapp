@@ -184,21 +184,52 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Calendario Ticket</h3>
           <div className="flex items-center gap-2">
-            {/* Controlli Google Calendar - Temporaneamente disabilitato */}
+            {/* Controlli Google Calendar */}
             <div className="flex items-center gap-2 mr-4">
-              <div className="flex items-center gap-1 px-3 py-1 bg-gray-400 text-white text-xs rounded cursor-not-allowed">
-                <Calendar size={14} />
-                Google Calendar (In sviluppo)
-              </div>
+              {!isAuthenticated ? (
+                <button
+                  onClick={authenticate}
+                  disabled={googleLoading}
+                  className="flex items-center gap-1 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:opacity-50"
+                >
+                  <Calendar size={14} />
+                  {googleLoading ? 'Caricamento...' : 'Google Calendar'}
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowGoogleEvents(!showGoogleEvents)}
+                    className={`flex items-center gap-1 px-3 py-1 text-xs rounded ${
+                      showGoogleEvents 
+                        ? 'bg-green-500 text-white' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    <ExternalLink size={14} />
+                    Google {showGoogleEvents ? 'ON' : 'OFF'}
+                  </button>
+                  <button
+                    onClick={signOut}
+                    className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                  >
+                    Disconnetti
+                  </button>
+                </div>
+              )}
             </div>
             
-            {/* Sincronizzazione Ticket - Temporaneamente disabilitata */}
-            <div className="flex items-center gap-2 mr-4">
-              <div className="flex items-center gap-1 px-3 py-1 bg-gray-400 text-white text-xs rounded cursor-not-allowed">
-                <Calendar size={14} />
-                Sincronizza Ticket (In sviluppo)
+            {/* Sincronizzazione Ticket */}
+            {isAuthenticated && (
+              <div className="flex items-center gap-2 mr-4">
+                <button 
+                  onClick={handleSyncAllTickets} 
+                  className="flex items-center gap-1 px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+                >
+                  <Calendar size={14} />
+                  Sincronizza Ticket
+                </button>
               </div>
-            </div>
+            )}
             
             {/* Navigazione mese */}
             <div className="flex items-center gap-2">
@@ -222,10 +253,11 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         </div>
         
         {/* Messaggi di errore Google Calendar */}
-            {/* Google Calendar temporaneamente disabilitato */}
-            <div className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
-              Google Calendar integration in sviluppo. Il calendario ticket funziona correttamente.
-            </div>
+            {googleError && (
+              <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
+                {googleError}
+              </div>
+            )}
       </div>
 
       <div className="p-4">
