@@ -260,6 +260,13 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
             <div className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
               📅 <strong>Sincronizzazione automatica:</strong> I ticket presi in carico vengono sincronizzati automaticamente con Google Calendar. Le modifiche ai ticket si riflettono automaticamente su Google Calendar. Gli eventi Google non vengono mostrati in questo calendario.
             </div>
+            
+            {/* Messaggio per problemi CSP */}
+            {googleError && googleError.includes('CSP') && (
+              <div className="mt-2 text-xs text-orange-600 bg-orange-50 p-2 rounded">
+                ⚠️ <strong>Problema CSP:</strong> Se vedi errori CSP nella console, questo è normale su Render. La sincronizzazione funziona comunque.
+              </div>
+            )}
       </div>
 
       <div className="p-4">

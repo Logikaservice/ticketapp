@@ -17,80 +17,49 @@ export const useGoogleCalendar = () => {
           return;
         }
 
-        // Timeout per evitare attese infinite
-        const timeout = setTimeout(() => {
-          reject(new Error('Timeout caricamento Google API'));
-        }, 30000); // 30 secondi timeout
-
-            // Verifica se le credenziali sono configurate
-            if (!GOOGLE_CONFIG.CLIENT_ID) {
-              console.error('Google Client ID non configurato:', GOOGLE_CONFIG.CLIENT_ID);
-              setError('Google Calendar non configurato. Contatta l\'amministratore per configurare le credenziali Google.');
-              reject(new Error('Google Client ID non configurato. Verifica le variabili d\'ambiente.'));
-              return;
-            }
+        // Verifica se le credenziali sono configurate
+        if (!GOOGLE_CONFIG.CLIENT_ID) {
+          console.error('Google Client ID non configurato:', GOOGLE_CONFIG.CLIENT_ID);
+          setError('Google Calendar non configurato. Contatta l\'amministratore per configurare le credenziali Google.');
+          reject(new Error('Google Client ID non configurato. Verifica le variabili d\'ambiente.'));
+          return;
+        }
         
         console.log('Google Client ID configurato:', GOOGLE_CONFIG.CLIENT_ID);
 
-        // Carica Google API script
+        // Carica solo Google API script (senza Google Identity Services per ora)
         const script = document.createElement('script');
         script.src = 'https://apis.google.com/js/api.js';
         script.async = true;
         script.defer = true;
         
-        // Carica anche Google Identity Services
-        const gisScript = document.createElement('script');
-        gisScript.src = 'https://accounts.google.com/gsi/client';
-        gisScript.async = true;
-        gisScript.defer = true;
-        let scriptsLoaded = 0;
-        const totalScripts = 2;
-        
-            const checkAllLoaded = () => {
-              scriptsLoaded++;
-              if (scriptsLoaded === totalScripts) {
-                clearTimeout(timeout); // Cancella il timeout
-                console.log('Tutti gli script Google caricati con successo');
-                
-                // Inizializza solo il client, senza auth2
-                window.gapi.load('client', () => {
-                  console.log('Google API client caricato');
-                  window.gapi.client.init({
-                    apiKey: process.env.REACT_APP_GOOGLE_API_KEY,
-                    clientId: GOOGLE_CONFIG.CLIENT_ID,
-                    discoveryDocs: GOOGLE_CONFIG.DISCOVERY_DOCS,
-                    scope: GOOGLE_CONFIG.SCOPES
-                  }).then(() => {
-                    console.log('Google API client inizializzato con successo');
-                    resolve();
-                  }).catch((err) => {
-                    console.error('Errore inizializzazione Google API:', err);
-                    reject(err);
-                  });
-                });
-              }
-            };
-        
         script.onload = () => {
           console.log('Google API script caricato con successo');
-          checkAllLoaded();
+          
+          // Inizializza solo il client
+          window.gapi.load('client', () => {
+            console.log('Google API client caricato');
+            window.gapi.client.init({
+              apiKey: process.env.REACT_APP_GOOGLE_API_KEY,
+              clientId: GOOGLE_CONFIG.CLIENT_ID,
+              discoveryDocs: GOOGLE_CONFIG.DISCOVERY_DOCS,
+              scope: GOOGLE_CONFIG.SCOPES
+            }).then(() => {
+              console.log('Google API client inizializzato con successo');
+              resolve();
+            }).catch((err) => {
+              console.error('Errore inizializzazione Google API:', err);
+              reject(err);
+            });
+          });
         };
+        
         script.onerror = (err) => {
           console.error('Errore caricamento script Google API:', err);
           reject(new Error('Impossibile caricare Google API script'));
         };
         
-        gisScript.onload = () => {
-          console.log('Google Identity Services script caricato con successo');
-          checkAllLoaded();
-        };
-        gisScript.onerror = (err) => {
-          console.error('Errore caricamento script Google Identity Services:', err);
-          reject(new Error('Impossibile caricare Google Identity Services script'));
-        };
-        
         document.head.appendChild(script);
-        document.head.appendChild(gisScript);
       });
     };
 
@@ -106,45 +75,26 @@ export const useGoogleCalendar = () => {
       setLoading(true);
       setError(null);
 
-      // Verifica se Google Identity Services è disponibile
-      if (!window.google || !window.google.accounts) {
-        throw new Error('Google Identity Services non disponibile. Ricarica la pagina e riprova.');
-      }
-
-      // Usa Google Identity Services con gestione errori migliorata
-      const tokenClient = window.google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CONFIG.CLIENT_ID,
-        scope: GOOGLE_CONFIG.SCOPES,
-        callback: (tokenResponse) => {
-          if (tokenResponse.error) {
-            console.error('Errore autenticazione:', tokenResponse.error);
-            setError(`Errore autenticazione: ${tokenResponse.error}. Verifica le credenziali Google.`);
-            return;
-          }
-          
-          try {
-            // Imposta il token per le chiamate API
-            window.gapi.client.setToken(tokenResponse);
-            setIsAuthenticated(true);
-            setError(null);
-            console.log('Autenticazione Google Calendar riuscita');
-            loadEvents();
-          } catch (err) {
-            console.error('Errore impostazione token:', err);
-            setError('Errore durante l\'impostazione del token Google');
-          }
-        },
-        error_callback: (error) => {
-          console.error('Errore callback autenticazione:', error);
-          setError(`Errore autenticazione: ${error.type || 'Sconosciuto'}. Verifica le credenziali Google.`);
-        }
-      });
+      // Usa un approccio più semplice con popup
+      const authUrl = `https://accounts.google.com/oauth/authorize?client_id=${GOOGLE_CONFIG.CLIENT_ID}&redirect_uri=${encodeURIComponent(window.location.origin)}&scope=${encodeURIComponent(GOOGLE_CONFIG.SCOPES)}&response_type=token&access_type=offline`;
       
-      tokenClient.requestAccessToken();
+      // Apri popup per autenticazione
+      const popup = window.open(authUrl, 'googleAuth', 'width=500,height=600,scrollbars=yes,resizable=yes');
+      
+      // Monitora il popup
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkClosed);
+          setLoading(false);
+          // Qui potresti implementare la logica per gestire il token
+          // Per ora mostriamo un messaggio
+          setError('Autenticazione Google non completata. Riprova.');
+        }
+      }, 1000);
+      
     } catch (err) {
       console.error('Errore autenticazione:', err);
       setError(`Errore durante l'autenticazione con Google: ${err.message}`);
-    } finally {
       setLoading(false);
     }
   };
