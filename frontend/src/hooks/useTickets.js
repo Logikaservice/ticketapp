@@ -5,7 +5,8 @@ export const useTickets = (
   setSelectedTicket,
   currentUser,
   tickets,
-  closeModal
+  closeModal,
+  googleCalendarSync // Aggiungiamo il parametro per la sincronizzazione Google Calendar
 ) => {
   const handleCreateTicket = async (
     newTicketData,
@@ -42,6 +43,19 @@ export const useTickets = (
       const savedTicketWithNew = { ...savedTicket, isNew: true };
       setTickets(prev => [savedTicketWithNew, ...prev]);
       closeModal();
+      
+      // Sincronizzazione automatica con Google Calendar per nuovi ticket
+      if (googleCalendarSync && typeof googleCalendarSync === 'function') {
+        try {
+          console.log('Sincronizzazione automatica nuovo ticket #' + savedTicket.id + ' con Google Calendar');
+          await googleCalendarSync(savedTicket);
+          console.log('Ticket #' + savedTicket.id + ' sincronizzato automaticamente con Google Calendar');
+        } catch (err) {
+          console.error('Errore sincronizzazione automatica ticket #' + savedTicket.id + ':', err);
+          // Non mostriamo errore all'utente per non interrompere il flusso
+        }
+      }
+      
       try {
         // Marca subito come non visto per l'utente corrente (evidenza gialla immediata senza refresh)
         const key = `unseenNewTicketIds_${currentUser.id}`;

@@ -18,6 +18,7 @@ import { useTickets } from './hooks/useTickets';
 import { useTimeLogs } from './hooks/useTimeLogs';
 import { useReports } from './hooks/useReports';
 import { useModals } from './hooks/useModals';
+import { useGoogleCalendar } from './hooks/useGoogleCalendar';
 
 export default function TicketApp() {
   const [users, setUsers] = useState([]);
@@ -99,6 +100,9 @@ export default function TicketApp() {
     handleAutoFillLogin
   } = useAuth(showNotification);
 
+  // Hook per Google Calendar
+  const { syncTicketToCalendar } = useGoogleCalendar();
+
   const {
     handleCreateClient,
     handleUpdateClient,
@@ -127,7 +131,8 @@ export default function TicketApp() {
     setSelectedTicket,
     currentUser,
     tickets,
-    closeModal
+    closeModal,
+    syncTicketToCalendar // Passiamo la funzione di sincronizzazione Google Calendar
   );
 
   const {
