@@ -42,7 +42,22 @@ export const useGoogleCalendar = () => {
               resolve();
             }).catch((err) => {
               console.error('Errore inizializzazione Google API:', err);
-              reject(err);
+              // Prova inizializzazione alternativa senza auth2
+              console.log('Tentativo inizializzazione alternativa...');
+              window.gapi.load('client', () => {
+                window.gapi.client.init({
+                  apiKey: process.env.REACT_APP_GOOGLE_API_KEY,
+                  clientId: GOOGLE_CONFIG.CLIENT_ID,
+                  discoveryDocs: GOOGLE_CONFIG.DISCOVERY_DOCS,
+                  scope: GOOGLE_CONFIG.SCOPES
+                }).then(() => {
+                  console.log('Google API client inizializzato (modalità alternativa)');
+                  resolve();
+                }).catch((altErr) => {
+                  console.error('Errore anche con inizializzazione alternativa:', altErr);
+                  reject(altErr);
+                });
+              });
             });
           });
         };
