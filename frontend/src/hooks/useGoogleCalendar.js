@@ -99,6 +99,36 @@ export const useGoogleCalendar = () => {
     }
   };
 
+  // Sincronizzazione automatica senza autenticazione (per backend)
+  const syncTicketToCalendarBackend = async (ticket) => {
+    try {
+      console.log('Sincronizzazione ticket #' + ticket.id + ' via backend');
+      
+      // Invia ticket al backend per sincronizzazione
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/sync-google-calendar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ticket: ticket,
+          action: 'create'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore sincronizzazione backend');
+      }
+
+      const result = await response.json();
+      console.log('Ticket #' + ticket.id + ' sincronizzato via backend:', result);
+      return result;
+    } catch (err) {
+      console.error('Errore sincronizzazione backend ticket #' + ticket.id + ':', err);
+      return false;
+    }
+  };
+
   // Disconnessione
   const signOut = async () => {
     try {
@@ -159,6 +189,12 @@ export const useGoogleCalendar = () => {
   // Sincronizza ticket con Google Calendar
   const syncTicketToCalendar = async (ticket) => {
     try {
+      // Prova prima la sincronizzazione via backend (sempre attiva)
+      if (await syncTicketToCalendarBackend(ticket)) {
+        return true;
+      }
+      
+      // Se il backend non funziona, prova la sincronizzazione diretta
       if (!isAuthenticated) {
         console.log('Google Calendar non connesso, sincronizzazione saltata');
         return false;
@@ -433,6 +469,7 @@ export const useGoogleCalendar = () => {
     deleteCalendarEvent,
     autoSyncTicket,
     updateTicketInCalendar,
-    checkExistingConnection
+    checkExistingConnection,
+    syncTicketToCalendarBackend
   };
 };

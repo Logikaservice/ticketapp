@@ -113,10 +113,12 @@ app.post('/api/login', async (req, res) => {
 const usersRoutes = require('./routes/users')(pool);
 const ticketsRoutes = require('./routes/tickets')(pool);
 const alertsRoutes = require('./routes/alerts')(pool);
+const googleCalendarRoutes = require('./routes/googleCalendar')(pool);
 
 app.use('/api/users', usersRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/alerts', alertsRoutes);
+app.use('/api', googleCalendarRoutes);
 
 // --- ENDPOINT PER INIZIALIZZARE IL DATABASE ---
 app.post('/api/init-db', async (req, res) => {
