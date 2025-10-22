@@ -57,7 +57,13 @@ const CalendarStub = () => (
   </div>
 );
 
-const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManageAlerts, onEditAlert, currentUser, users = [] }) => (
+const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManageAlerts, onEditAlert, currentUser, users = [] }) => {
+  // Verifica di sicurezza per users
+  if (!users || !Array.isArray(users)) {
+    users = [];
+  }
+  
+  return (
   <div className="bg-white rounded-xl border">
     <div className="p-4 border-b flex items-center justify-between">
       <h3 className="font-semibold">Avvisi Importanti</h3>
@@ -178,9 +184,10 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
       })}
     </div>
   </div>
-);
+  );
+};
 
-const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger }) => {
+const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger }) => {
   const visibleTickets = useMemo(() => {
     if (currentUser?.ruolo === 'cliente') {
       return tickets.filter(t => t.clienteid === currentUser.id);
