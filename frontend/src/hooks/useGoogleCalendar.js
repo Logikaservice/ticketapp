@@ -17,6 +17,11 @@ export const useGoogleCalendar = () => {
           return;
         }
 
+        // Timeout per evitare attese infinite
+        const timeout = setTimeout(() => {
+          reject(new Error('Timeout caricamento Google API'));
+        }, 30000); // 30 secondi timeout
+
             // Verifica se le credenziali sono configurate
             if (!GOOGLE_CONFIG.CLIENT_ID) {
               console.error('Google Client ID non configurato:', GOOGLE_CONFIG.CLIENT_ID);
@@ -41,29 +46,30 @@ export const useGoogleCalendar = () => {
         let scriptsLoaded = 0;
         const totalScripts = 2;
         
-        const checkAllLoaded = () => {
-          scriptsLoaded++;
-          if (scriptsLoaded === totalScripts) {
-            console.log('Tutti gli script Google caricati con successo');
-            
-            // Inizializza solo il client, senza auth2
-            window.gapi.load('client', () => {
-              console.log('Google API client caricato');
-              window.gapi.client.init({
-                apiKey: process.env.REACT_APP_GOOGLE_API_KEY,
-                clientId: GOOGLE_CONFIG.CLIENT_ID,
-                discoveryDocs: GOOGLE_CONFIG.DISCOVERY_DOCS,
-                scope: GOOGLE_CONFIG.SCOPES
-              }).then(() => {
-                console.log('Google API client inizializzato con successo');
-                resolve();
-              }).catch((err) => {
-                console.error('Errore inizializzazione Google API:', err);
-                reject(err);
-              });
-            });
-          }
-        };
+            const checkAllLoaded = () => {
+              scriptsLoaded++;
+              if (scriptsLoaded === totalScripts) {
+                clearTimeout(timeout); // Cancella il timeout
+                console.log('Tutti gli script Google caricati con successo');
+                
+                // Inizializza solo il client, senza auth2
+                window.gapi.load('client', () => {
+                  console.log('Google API client caricato');
+                  window.gapi.client.init({
+                    apiKey: process.env.REACT_APP_GOOGLE_API_KEY,
+                    clientId: GOOGLE_CONFIG.CLIENT_ID,
+                    discoveryDocs: GOOGLE_CONFIG.DISCOVERY_DOCS,
+                    scope: GOOGLE_CONFIG.SCOPES
+                  }).then(() => {
+                    console.log('Google API client inizializzato con successo');
+                    resolve();
+                  }).catch((err) => {
+                    console.error('Errore inizializzazione Google API:', err);
+                    reject(err);
+                  });
+                });
+              }
+            };
         
         script.onload = () => {
           console.log('Google API script caricato con successo');
@@ -100,32 +106,44 @@ export const useGoogleCalendar = () => {
       setLoading(true);
       setError(null);
 
-      // Usa Google Identity Services invece di auth2
-      if (window.google && window.google.accounts) {
-        const tokenClient = window.google.accounts.oauth2.initTokenClient({
-          client_id: GOOGLE_CONFIG.CLIENT_ID,
-          scope: GOOGLE_CONFIG.SCOPES,
-          callback: (tokenResponse) => {
-            if (tokenResponse.error) {
-              console.error('Errore autenticazione:', tokenResponse.error);
-              setError('Errore durante l\'autenticazione con Google');
-              return;
-            }
-            
+      // Verifica se Google Identity Services è disponibile
+      if (!window.google || !window.google.accounts) {
+        throw new Error('Google Identity Services non disponibile. Ricarica la pagina e riprova.');
+      }
+
+      // Usa Google Identity Services con gestione errori migliorata
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CONFIG.CLIENT_ID,
+        scope: GOOGLE_CONFIG.SCOPES,
+        callback: (tokenResponse) => {
+          if (tokenResponse.error) {
+            console.error('Errore autenticazione:', tokenResponse.error);
+            setError(`Errore autenticazione: ${tokenResponse.error}. Verifica le credenziali Google.`);
+            return;
+          }
+          
+          try {
             // Imposta il token per le chiamate API
             window.gapi.client.setToken(tokenResponse);
             setIsAuthenticated(true);
+            setError(null);
+            console.log('Autenticazione Google Calendar riuscita');
             loadEvents();
-          },
-        });
-        
-        tokenClient.requestAccessToken();
-      } else {
-        throw new Error('Google Identity Services non disponibile');
-      }
+          } catch (err) {
+            console.error('Errore impostazione token:', err);
+            setError('Errore durante l\'impostazione del token Google');
+          }
+        },
+        error_callback: (error) => {
+          console.error('Errore callback autenticazione:', error);
+          setError(`Errore autenticazione: ${error.type || 'Sconosciuto'}. Verifica le credenziali Google.`);
+        }
+      });
+      
+      tokenClient.requestAccessToken();
     } catch (err) {
       console.error('Errore autenticazione:', err);
-      setError('Errore durante l\'autenticazione con Google');
+      setError(`Errore durante l'autenticazione con Google: ${err.message}`);
     } finally {
       setLoading(false);
     }
