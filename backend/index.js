@@ -2,6 +2,9 @@
 
 const express = require('express');
 const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { Pool } = require('pg');
 
 const app = express();
@@ -30,6 +33,39 @@ app.use(cors({
   }
 }));
 app.use(express.json());
+
+// --- CONFIGURAZIONE MULTER PER UPLOAD FILE ---
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, 'uploads', 'alerts');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `alert-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accetta solo immagini
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo file immagine sono permessi!'), false);
+    }
+  }
+});
+
+// --- SERVIRE FILE STATICI ---
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // --- ROUTES ---
 app.get('/api', (req, res) => {
@@ -97,6 +133,7 @@ app.post('/api/init-db', async (req, res) => {
         clients JSONB DEFAULT '[]',
         is_permanent BOOLEAN DEFAULT true,
         days_to_expire INTEGER DEFAULT 7,
+        attachments JSONB DEFAULT '[]',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -106,6 +143,7 @@ app.post('/api/init-db', async (req, res) => {
       await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS clients JSONB DEFAULT '[]'`);
       await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS is_permanent BOOLEAN DEFAULT true`);
       await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS days_to_expire INTEGER DEFAULT 7`);
+      await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'`);
       console.log("✅ Colonne aggiunte alla tabella alerts esistente");
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonne (potrebbero già esistere):", alterErr.message);
@@ -138,6 +176,7 @@ const startServer = async () => {
           clients JSONB DEFAULT '[]',
           is_permanent BOOLEAN DEFAULT true,
           days_to_expire INTEGER DEFAULT 7,
+          attachments JSONB DEFAULT '[]',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
