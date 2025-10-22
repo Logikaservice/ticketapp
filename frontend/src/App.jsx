@@ -494,22 +494,29 @@ export default function TicketApp() {
   const handleSaveAlert = async (alertData) => {
     try {
       const apiBase = process.env.REACT_APP_API_URL || 'https://ticketapp-4eqb.onrender.com';
+      const formData = new FormData();
+      formData.append('title', alertData.title);
+      formData.append('body', alertData.description);
+      formData.append('level', alertData.priority);
+      formData.append('clients', JSON.stringify(alertData.clients));
+      formData.append('isPermanent', alertData.isPermanent);
+      formData.append('daysToExpire', alertData.daysToExpire);
+      formData.append('created_by', currentUser?.nome + ' ' + currentUser?.cognome);
+      
+      // Aggiungi i file selezionati
+      if (alertData.files && alertData.files.length > 0) {
+        alertData.files.forEach((file, index) => {
+          formData.append('attachments', file);
+        });
+      }
+
       const res = await fetch(`${apiBase}/api/alerts`, {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json', 
           'x-user-role': 'tecnico',
           'x-user-id': currentUser?.id 
         },
-        body: JSON.stringify({
-          title: alertData.title,
-          body: alertData.description,
-          level: alertData.priority,
-          clients: alertData.clients,
-          isPermanent: alertData.isPermanent,
-          daysToExpire: alertData.daysToExpire,
-          created_by: currentUser?.nome + ' ' + currentUser?.cognome
-        })
+        body: formData
       });
       if (!res.ok) throw new Error('Errore creazione avviso');
       showNotification('Avviso creato con successo!', 'success');
@@ -523,21 +530,29 @@ export default function TicketApp() {
   const handleEditAlert = async (alertData) => {
     try {
       const apiBase = process.env.REACT_APP_API_URL || 'https://ticketapp-4eqb.onrender.com';
+      const formData = new FormData();
+      formData.append('title', alertData.title);
+      formData.append('body', alertData.description);
+      formData.append('level', alertData.priority);
+      formData.append('clients', JSON.stringify(alertData.clients));
+      formData.append('isPermanent', alertData.isPermanent);
+      formData.append('daysToExpire', alertData.daysToExpire);
+      formData.append('existingAttachments', JSON.stringify(alertData.existingAttachments || []));
+      
+      // Aggiungi i nuovi file selezionati
+      if (alertData.files && alertData.files.length > 0) {
+        alertData.files.forEach((file, index) => {
+          formData.append('attachments', file);
+        });
+      }
+
       const res = await fetch(`${apiBase}/api/alerts/${alertData.id}`, {
         method: 'PUT',
         headers: { 
-          'Content-Type': 'application/json', 
           'x-user-role': 'tecnico',
           'x-user-id': currentUser?.id 
         },
-        body: JSON.stringify({
-          title: alertData.title,
-          body: alertData.description,
-          level: alertData.priority,
-          clients: alertData.clients,
-          isPermanent: alertData.isPermanent,
-          daysToExpire: alertData.daysToExpire
-        })
+        body: formData
       });
       if (!res.ok) throw new Error('Errore modifica avviso');
       showNotification('Avviso modificato con successo!', 'success');

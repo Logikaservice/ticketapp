@@ -86,6 +86,26 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
                 {avv.title}
               </div>
               <div className="text-sm mt-1">{avv.body}</div>
+              
+              {/* Visualizza allegati se presenti */}
+              {avv.attachments && avv.attachments.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-xs text-gray-500 mb-2">Allegati:</div>
+                  <div className="flex flex-wrap gap-2">
+                    {avv.attachments.map((attachment, index) => (
+                      <div key={index} className="relative">
+                        <img
+                          src={`${process.env.REACT_APP_API_URL}${attachment.path}`}
+                          alt={attachment.originalName}
+                          className="w-16 h-16 object-cover rounded border cursor-pointer hover:opacity-80 transition"
+                          onClick={() => window.open(`${process.env.REACT_APP_API_URL}${attachment.path}`, '_blank')}
+                          title={attachment.originalName}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             {isEditable && (
               <div className="flex items-center gap-2">
@@ -210,22 +230,29 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
   // Funzioni per gestione avvisi nel modal
   const handleSaveAlert = async (alertData) => {
     try {
+      const formData = new FormData();
+      formData.append('title', alertData.title);
+      formData.append('body', alertData.description);
+      formData.append('level', alertData.priority);
+      formData.append('clients', JSON.stringify(alertData.clients));
+      formData.append('isPermanent', alertData.isPermanent);
+      formData.append('daysToExpire', alertData.daysToExpire);
+      formData.append('created_by', currentUser?.nome + ' ' + currentUser?.cognome);
+      
+      // Aggiungi i file selezionati
+      if (alertData.files && alertData.files.length > 0) {
+        alertData.files.forEach((file, index) => {
+          formData.append('attachments', file);
+        });
+      }
+
       const res = await fetch(`${apiBase}/api/alerts`, {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json', 
           'x-user-role': 'tecnico',
           'x-user-id': currentUser?.id 
         },
-        body: JSON.stringify({
-          title: alertData.title,
-          body: alertData.description,
-          level: alertData.priority,
-          clients: alertData.clients,
-          isPermanent: alertData.isPermanent,
-          daysToExpire: alertData.daysToExpire,
-          created_by: currentUser?.nome + ' ' + currentUser?.cognome
-        })
+        body: formData
       });
       if (!res.ok) throw new Error('Errore creazione avviso');
       fetchAlerts();
@@ -237,21 +264,29 @@ const Dashboard = ({ currentUser, tickets, users, selectedTicket, setSelectedTic
 
   const handleEditAlert = async (alertData) => {
     try {
+      const formData = new FormData();
+      formData.append('title', alertData.title);
+      formData.append('body', alertData.description);
+      formData.append('level', alertData.priority);
+      formData.append('clients', JSON.stringify(alertData.clients));
+      formData.append('isPermanent', alertData.isPermanent);
+      formData.append('daysToExpire', alertData.daysToExpire);
+      formData.append('existingAttachments', JSON.stringify(alertData.existingAttachments || []));
+      
+      // Aggiungi i nuovi file selezionati
+      if (alertData.files && alertData.files.length > 0) {
+        alertData.files.forEach((file, index) => {
+          formData.append('attachments', file);
+        });
+      }
+
       const res = await fetch(`${apiBase}/api/alerts/${alertData.id}`, {
         method: 'PUT',
         headers: { 
-          'Content-Type': 'application/json', 
           'x-user-role': 'tecnico',
           'x-user-id': currentUser?.id 
         },
-        body: JSON.stringify({
-          title: alertData.title,
-          body: alertData.description,
-          level: alertData.priority,
-          clients: alertData.clients,
-          isPermanent: alertData.isPermanent,
-          daysToExpire: alertData.daysToExpire
-        })
+        body: formData
       });
       if (!res.ok) throw new Error('Errore modifica avviso');
       fetchAlerts();

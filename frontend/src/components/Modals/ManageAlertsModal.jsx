@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, AlertTriangle, Users, Calendar, Clock, Info, AlertCircle, AlertTriangle as AlertTriangleIcon } from 'lucide-react';
+import { X, AlertTriangle, Users, Calendar, Clock, Info, AlertCircle, AlertTriangle as AlertTriangleIcon, Image, Trash2 } from 'lucide-react';
 
 const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAlert }) => {
   const [formData, setFormData] = useState({
@@ -10,6 +10,9 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
     isPermanent: true,
     daysToExpire: 7
   });
+
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [existingAttachments, setExistingAttachments] = useState([]);
 
   const [selectedClients, setSelectedClients] = useState([]);
   const [showClientSelector, setShowClientSelector] = useState(false);
@@ -26,6 +29,7 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
           isPermanent: editingAlert.isPermanent !== false,
           daysToExpire: editingAlert.daysToExpire || 7
         });
+        setExistingAttachments(editingAlert.attachments || []);
         // Gestisci clienti come array o JSON
         const clients = editingAlert.clients;
         if (Array.isArray(clients)) {
@@ -49,9 +53,35 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
           daysToExpire: 7
         });
         setSelectedClients([]);
+        setSelectedFiles([]);
+        setExistingAttachments([]);
       }
     }
   }, [isOpen, editingAlert]);
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length !== files.length) {
+      alert('Solo file immagine sono permessi');
+    }
+    
+    if (selectedFiles.length + imageFiles.length > 5) {
+      alert('Massimo 5 immagini per avviso');
+      return;
+    }
+    
+    setSelectedFiles(prev => [...prev, ...imageFiles]);
+  };
+
+  const handleRemoveFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveExistingAttachment = (index) => {
+    setExistingAttachments(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -63,7 +93,9 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
     const alertData = {
       ...formData,
       clients: selectedClients,
-      id: editingAlert?.id
+      id: editingAlert?.id,
+      files: selectedFiles,
+      existingAttachments: existingAttachments
     };
 
     if (editingAlert) {
@@ -285,6 +317,83 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                   ))}
                   </div>
                 </>
+              )}
+            </div>
+          </div>
+
+          {/* Allegati */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Allegati (Foto)</label>
+            <div className="space-y-3">
+              {/* Input per selezionare file */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-purple-400 transition">
+                <input
+                  type="file"
+                  id="fileInput"
+                  multiple
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <label htmlFor="fileInput" className="cursor-pointer flex flex-col items-center gap-2">
+                  <Image className="w-8 h-8 text-gray-400" />
+                  <span className="text-sm text-gray-600">
+                    Clicca per selezionare immagini (max 5)
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    JPG, PNG, GIF - Max 5MB per immagine
+                  </span>
+                </label>
+              </div>
+
+              {/* File selezionati */}
+              {selectedFiles.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-gray-700">Nuove immagini selezionate:</h4>
+                  {selectedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                      <div className="flex items-center gap-2">
+                        <Image className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm text-gray-700">{file.name}</span>
+                        <span className="text-xs text-gray-500">
+                          ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile(index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Allegati esistenti (solo in modifica) */}
+              {editingAlert && existingAttachments.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-gray-700">Immagini esistenti:</h4>
+                  {existingAttachments.map((attachment, index) => (
+                    <div key={index} className="flex items-center justify-between bg-blue-50 p-2 rounded">
+                      <div className="flex items-center gap-2">
+                        <Image className="w-4 h-4 text-blue-500" />
+                        <span className="text-sm text-gray-700">{attachment.originalName}</span>
+                        <span className="text-xs text-gray-500">
+                          ({(attachment.size / 1024 / 1024).toFixed(2)} MB)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveExistingAttachment(index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
