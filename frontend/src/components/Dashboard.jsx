@@ -1,7 +1,7 @@
 // src/components/Dashboard.jsx
 
 import React, { useMemo, useEffect } from 'react';
-import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, X } from 'lucide-react';
+import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, X, Info } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import { formatDate } from '../utils/formatters';
 
@@ -77,12 +77,33 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
       {alerts.length === 0 && (
         <div className="text-sm text-gray-500">Nessun avviso presente.</div>
       )}
-      {alerts.map(avv => (
-        <div key={avv.id} className={`w-full p-3 rounded-lg border ${avv.color || 'border-yellow-300 bg-yellow-50 text-yellow-800'}`}>
+      {alerts.map(avv => {
+        // Determina il colore in base alla priorità
+        const getAlertColor = (level) => {
+          switch (level) {
+            case 'danger':
+              return 'border-red-300 bg-red-50 text-red-800';
+            case 'warning':
+              return 'border-yellow-300 bg-yellow-50 text-yellow-800';
+            case 'info':
+              return 'border-blue-300 bg-blue-50 text-blue-800';
+            default:
+              return 'border-yellow-300 bg-yellow-50 text-yellow-800';
+          }
+        };
+
+        return (
+        <div key={avv.id} className={`w-full p-3 rounded-lg border ${getAlertColor(avv.level)}`}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
               <div className="font-bold flex items-center gap-2">
-                <AlertTriangle size={16} />
+                {avv.level === 'danger' ? (
+                  <AlertTriangle size={16} className="text-red-600" />
+                ) : avv.level === 'info' ? (
+                  <Info size={16} className="text-blue-600" />
+                ) : (
+                  <AlertTriangle size={16} className="text-yellow-600" />
+                )}
                 {avv.title}
               </div>
               <div className="text-sm mt-1">{avv.body}</div>
@@ -153,7 +174,8 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
             </div>
           )}
         </div>
-      ))}
+        );
+      })}
     </div>
   </div>
 );
