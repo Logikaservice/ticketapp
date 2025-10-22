@@ -6,6 +6,7 @@ export const useGoogleCalendar = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [lastTokenCheck, setLastTokenCheck] = useState(0); // Aggiungiamo un timestamp per evitare verifiche continue
 
   // Carica Google Calendar API
   useEffect(() => {
@@ -191,7 +192,8 @@ export const useGoogleCalendar = () => {
   const syncTicketToCalendar = async (ticket) => {
     try {
       if (!isAuthenticated) {
-        throw new Error('Non autenticato con Google Calendar');
+        console.log('Google Calendar non connesso, sincronizzazione saltata');
+        return false;
       }
 
       // Debug: controlla il formato della data
@@ -255,6 +257,14 @@ export const useGoogleCalendar = () => {
       return response.result;
     } catch (err) {
       console.error('Errore sincronizzazione ticket:', err);
+      
+      // Se il token è scaduto, disconnetti e richiedi nuova autenticazione
+      if (err.status === 401 || err.message?.includes('unauthorized')) {
+        console.log('Token scaduto, disconnessione automatica');
+        setIsAuthenticated(false);
+        setError('Token Google scaduto. Riconnettiti per continuare la sincronizzazione.');
+      }
+      
       throw err;
     }
   };
@@ -312,20 +322,33 @@ export const useGoogleCalendar = () => {
   // Controlla se Google Calendar è già connesso (token salvato)
   const checkExistingConnection = async () => {
     try {
+      // Evita verifiche troppo frequenti (max ogni 30 secondi)
+      const now = Date.now();
+      if (now - lastTokenCheck < 30000) {
+        console.log('Verifica token troppo recente, salto');
+        return isAuthenticated;
+      }
+      
       if (window.gapi && window.gapi.client) {
         const token = window.gapi.client.getToken();
         if (token && token.access_token) {
           console.log('Token Google esistente trovato, verifica validità...');
+          setLastTokenCheck(now);
           
-          // Verifica se il token è ancora valido
-          try {
-            await window.gapi.client.calendar.calendarList.list();
-            console.log('Token Google valido, connessione automatica riuscita');
-            setIsAuthenticated(true);
+          // Verifica se il token è ancora valido (solo se non è già autenticato)
+          if (!isAuthenticated) {
+            try {
+              await window.gapi.client.calendar.calendarList.list();
+              console.log('Token Google valido, connessione automatica riuscita');
+              setIsAuthenticated(true);
+              return true;
+            } catch (err) {
+              console.log('Token Google scaduto, richiesta nuova autenticazione');
+              return false;
+            }
+          } else {
+            console.log('Già autenticato, salto verifica token');
             return true;
-          } catch (err) {
-            console.log('Token Google scaduto, richiesta nuova autenticazione');
-            return false;
           }
         }
       }
