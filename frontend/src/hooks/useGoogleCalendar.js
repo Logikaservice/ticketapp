@@ -16,12 +16,13 @@ export const useGoogleCalendar = () => {
           return;
         }
 
-        // Verifica se le credenziali sono configurate
-        if (!GOOGLE_CONFIG.CLIENT_ID) {
-          console.error('Google Client ID non configurato:', GOOGLE_CONFIG.CLIENT_ID);
-          reject(new Error('Google Client ID non configurato. Verifica le variabili d\'ambiente.'));
-          return;
-        }
+            // Verifica se le credenziali sono configurate
+            if (!GOOGLE_CONFIG.CLIENT_ID) {
+              console.error('Google Client ID non configurato:', GOOGLE_CONFIG.CLIENT_ID);
+              setError('Google Calendar non configurato. Contatta l\'amministratore per configurare le credenziali Google.');
+              reject(new Error('Google Client ID non configurato. Verifica le variabili d\'ambiente.'));
+              return;
+            }
         
         console.log('Google Client ID configurato:', GOOGLE_CONFIG.CLIENT_ID);
 

@@ -240,10 +240,19 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
           </div>
         </div>
         
-        {/* Messaggi di errore Google Calendar */}
+            {/* Messaggi di errore Google Calendar */}
             {googleError && (
               <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
                 {googleError}
+                {googleError.includes('non configurato') && (
+                  <div className="mt-1 text-xs">
+                    <strong>Soluzione:</strong> Configura le variabili d'ambiente su Render:
+                    <br />• REACT_APP_GOOGLE_CLIENT_ID
+                    <br />• REACT_APP_GOOGLE_CLIENT_SECRET  
+                    <br />• REACT_APP_GOOGLE_PROJECT_ID
+                    <br />• REACT_APP_GOOGLE_API_KEY
+                  </div>
+                )}
               </div>
             )}
             
