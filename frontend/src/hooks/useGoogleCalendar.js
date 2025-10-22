@@ -18,23 +18,32 @@ export const useGoogleCalendar = () => {
 
         // Verifica se le credenziali sono configurate
         if (!GOOGLE_CONFIG.CLIENT_ID) {
-          reject(new Error('Google Client ID non configurato'));
+          console.error('Google Client ID non configurato:', GOOGLE_CONFIG.CLIENT_ID);
+          reject(new Error('Google Client ID non configurato. Verifica le variabili d\'ambiente.'));
           return;
         }
+        
+        console.log('Google Client ID configurato:', GOOGLE_CONFIG.CLIENT_ID);
 
         const script = document.createElement('script');
         script.src = 'https://apis.google.com/js/api.js';
         script.crossOrigin = 'anonymous';
         script.onload = () => {
+          console.log('Google API script caricato con successo');
           window.gapi.load('client:auth2', () => {
+            console.log('Google API client caricato');
             window.gapi.client.init({
               apiKey: process.env.REACT_APP_GOOGLE_API_KEY,
               clientId: GOOGLE_CONFIG.CLIENT_ID,
               discoveryDocs: GOOGLE_CONFIG.DISCOVERY_DOCS,
               scope: GOOGLE_CONFIG.SCOPES
             }).then(() => {
+              console.log('Google API client inizializzato con successo');
               resolve();
-            }).catch(reject);
+            }).catch((err) => {
+              console.error('Errore inizializzazione Google API:', err);
+              reject(err);
+            });
           });
         };
         script.onerror = (err) => {
