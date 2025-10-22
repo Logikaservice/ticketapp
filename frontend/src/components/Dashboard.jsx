@@ -3,6 +3,7 @@
 import React, { useMemo, useEffect } from 'react';
 import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, X, Info, Users } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
+import TicketsCalendar from './TicketsCalendar';
 import { formatDate } from '../utils/formatters';
 
 const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, badge = null }) => {
@@ -36,26 +37,6 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, bad
   );
 };
 
-const CalendarStub = () => (
-  <div className="bg-white rounded-xl border p-4">
-    <div className="flex items-center justify-between mb-3">
-      <h3 className="font-semibold">Ottobre 2025</h3>
-      <div className="flex gap-2 text-gray-400">
-        <button>&lt;</button>
-        <button>&gt;</button>
-      </div>
-    </div>
-    <div className="grid grid-cols-7 gap-2 text-center text-xs">
-      {['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map(d => (
-        <div key={d} className="text-gray-500">{d}</div>
-      ))}
-      {Array.from({ length: 35 }).map((_, i) => (
-        <div key={i} className="h-10 rounded-lg border flex items-center justify-center text-sm bg-gray-50" />
-      ))}
-    </div>
-    <div className="mt-3 text-xs text-gray-500">Legenda Impegni: Priorità base/Media/Alta/Urgente</div>
-  </div>
-);
 
 const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManageAlerts, onEditAlert, currentUser, users = [] }) => {
   // Verifica di sicurezza per users
@@ -418,7 +399,11 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           {/* Qui possiamo aggiungere altri contenuti; la lista completa è nella vista Ticket */}
         </div>
         <div>
-          <CalendarStub />
+          <TicketsCalendar 
+            tickets={tickets}
+            onTicketClick={handlers?.handleSelectTicket}
+            currentUser={currentUser}
+          />
         </div>
       </div>
 
