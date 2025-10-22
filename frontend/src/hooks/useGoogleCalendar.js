@@ -193,15 +193,35 @@ export const useGoogleCalendar = () => {
         throw new Error('Non autenticato con Google Calendar');
       }
 
+      // Debug: controlla il formato della data
+      console.log('Ticket dataApertura:', ticket.dataApertura, 'Tipo:', typeof ticket.dataApertura);
+      
+      // Gestisci diversi formati di data
+      let startDate;
+      if (ticket.dataApertura) {
+        startDate = new Date(ticket.dataApertura);
+        // Verifica se la data è valida
+        if (isNaN(startDate.getTime())) {
+          console.warn('Data non valida per ticket #' + ticket.id + ':', ticket.dataApertura);
+          // Usa la data corrente come fallback
+          startDate = new Date();
+        }
+      } else {
+        console.warn('Nessuna dataApertura per ticket #' + ticket.id);
+        startDate = new Date();
+      }
+
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 ora dopo
+
       const event = {
         summary: `Ticket #${ticket.id} - ${ticket.titolo}`,
         description: `Ticket: ${ticket.titolo}\nCliente: ${ticket.cliente}\nPriorità: ${ticket.priorita}\nStato: ${ticket.stato}\nDescrizione: ${ticket.descrizione}`,
         start: {
-          dateTime: new Date(ticket.dataApertura).toISOString(),
+          dateTime: startDate.toISOString(),
           timeZone: 'Europe/Rome'
         },
         end: {
-          dateTime: new Date(new Date(ticket.dataApertura).getTime() + 60 * 60 * 1000).toISOString(), // 1 ora dopo
+          dateTime: endDate.toISOString(),
           timeZone: 'Europe/Rome'
         },
         colorId: getPriorityColorId(ticket.priorita),
