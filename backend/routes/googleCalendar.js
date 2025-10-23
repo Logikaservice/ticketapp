@@ -11,6 +11,12 @@ module.exports = (pool) => {
   
   const getAuth = () => {
     if (!auth) {
+      // Verifica che le credenziali essenziali siano presenti
+      if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+        console.log('⚠️ Credenziali Google Service Account non complete - Google Calendar non disponibile');
+        return null;
+      }
+      
       try {
         auth = new google.auth.GoogleAuth({
           credentials: {
@@ -28,8 +34,9 @@ module.exports = (pool) => {
           },
           scopes: ['https://www.googleapis.com/auth/calendar']
         });
+        console.log('✅ Google Auth inizializzato correttamente');
       } catch (err) {
-        console.error('Errore inizializzazione Google Auth:', err);
+        console.error('❌ Errore inizializzazione Google Auth:', err);
         return null;
       }
     }
