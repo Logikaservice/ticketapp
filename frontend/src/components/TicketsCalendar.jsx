@@ -127,22 +127,21 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         return;
       }
       
-      // SOLUZIONE SEMPLICE: Usa solo la data senza orario per evitare problemi di fuso orario
-      const date = new Date(ticket.dataapertura);
+      // SOLUZIONE FUSO ORARIO: Gestisci correttamente le date UTC
+      let dateKey;
       
-      // Estrai solo la parte data (YYYY-MM-DD) senza considerare l'orario
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const dateKey = `${year}-${month}-${day}`;
+      if (ticket.dataapertura.includes('T')) {
+        // Se è in formato ISO (2025-10-23T21:44:00.000Z), estrai solo la parte data
+        const dateOnly = ticket.dataapertura.split('T')[0];
+        dateKey = dateOnly; // Usa direttamente "2025-10-23"
+        console.log(`Ticket #${ticket.id} ISO date: ${ticket.dataapertura} → ${dateKey}`);
+      } else {
+        // Se è già solo data, usa direttamente
+        dateKey = ticket.dataapertura;
+        console.log(`Ticket #${ticket.id} direct date: ${dateKey}`);
+      }
       
-      console.log(`Ticket #${ticket.id} date processing:`, {
-        original: ticket.dataapertura,
-        year: year,
-        month: month,
-        day: day,
-        dateKey: dateKey
-      });
+      console.log(`Ticket #${ticket.id} final dateKey:`, dateKey);
       
       if (!grouped[dateKey]) {
         grouped[dateKey] = {};
