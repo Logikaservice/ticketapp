@@ -70,14 +70,6 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         return;
       }
       
-      // DEBUG: Log per vedere le date
-      console.log('🔍 Ticket date debug:', {
-        ticketId: ticket.id,
-        numero: ticket.numero,
-        dataapertura: ticket.dataapertura,
-        dataaperturaType: typeof ticket.dataapertura
-      });
-      
       // SOLUZIONE FUSO ORARIO: Gestisci correttamente le date UTC
       let dateKey;
       
@@ -89,8 +81,6 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         // Se è già solo data, usa direttamente
         dateKey = ticket.dataapertura;
       }
-      
-      console.log('📅 DateKey generato:', dateKey);
       
       if (!grouped[dateKey]) {
         grouped[dateKey] = {};
@@ -156,10 +146,6 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
       const day = String(current.getDate()).padStart(2, '0');
       const dateKey = `${year}-${month}-${day}`;
       
-      // DEBUG: Log per vedere i dateKey del calendario
-      if (i < 5) { // Solo per i primi 5 giorni per non spammare
-        console.log('📅 Calendar dateKey:', dateKey, 'Date:', current.toDateString());
-      }
       
       const isCurrentMonth = current.getMonth() === currentDate.getMonth();
       const isToday = current.toDateString() === new Date().toDateString();
