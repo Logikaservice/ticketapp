@@ -85,13 +85,9 @@ module.exports = (pool) => {
           const authClient = await authInstance.getClient();
           console.log('Client Google Auth ottenuto:', authClient.credentials?.client_email);
           
-          // Verifica che le credenziali siano valide
+          // Log di debug per le credenziali
           if (!authClient.credentials?.client_email) {
-            console.log('❌ ERRORE: Service Account credentials non valide');
-            return res.json({
-              success: false,
-              message: 'Service Account credentials non valide'
-            });
+            console.log('⚠️ ATTENZIONE: Service Account email non disponibile, ma procedo comunque');
           }
       
       const calendar = google.calendar({ version: 'v3', auth: authClient });
