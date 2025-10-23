@@ -20,7 +20,7 @@ module.exports = (pool) => {
     
     if (isGmail) {
       console.log('📧 Configurazione Gmail');
-      return nodemailer.createTransporter({
+      return nodemailer.createTransport({
         service: 'gmail',
         auth: {
           user: process.env.EMAIL_USER,
@@ -30,7 +30,7 @@ module.exports = (pool) => {
     } else if (isAruba) {
       console.log('📧 Configurazione Aruba');
       // Prova prima con SSL (porta 465)
-      return nodemailer.createTransporter({
+      return nodemailer.createTransport({
         host: 'smtps.aruba.it',
         port: 465,
         secure: true, // SSL
@@ -45,7 +45,7 @@ module.exports = (pool) => {
     } else {
       console.log('📧 Configurazione generica');
       // Configurazione generica per altri provider
-      return nodemailer.createTransporter({
+      return nodemailer.createTransport({
         host: 'smtp.gmail.com', // Fallback
         port: 587,
         secure: false,
