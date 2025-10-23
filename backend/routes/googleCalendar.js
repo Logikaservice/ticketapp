@@ -193,17 +193,18 @@ module.exports = (pool) => {
               if (userEmail && userEmail !== 'YOUR_EMAIL@gmail.com') {
                 console.log('Tentativo condivisione calendario con:', userEmail);
                 
-                  try {
-                    const shareResult = await calendar.acl.insert({
-                      calendarId: testCalendar.data.id,
-                      resource: {
-                        role: 'writer',
-                        scope: {
-                          type: 'user',
-                          value: userEmail
-                        }
-                      }
-                    });
+                    try {
+                      const shareResult = await calendar.acl.insert({
+                        calendarId: testCalendar.data.id,
+                        resource: {
+                          role: 'writer',
+                          scope: {
+                            type: 'user',
+                            value: userEmail
+                          }
+                        },
+                        sendNotifications: false // Disabilita notifiche email
+                      });
                     console.log('Calendario condiviso con permessi di SCRITTURA:', shareResult.data);
                     console.log('IMPORTANTE: Ora puoi modificare gli eventi nel "TicketApp Test Calendar"');
                   } catch (shareErr) {
@@ -219,17 +220,18 @@ module.exports = (pool) => {
                 const clientEmails = await pool.query('SELECT email FROM users WHERE ruolo = \'cliente\' AND email IS NOT NULL');
                 
                 for (const client of clientEmails.rows) {
-                  try {
-                    const clientShareResult = await calendar.acl.insert({
-                      calendarId: testCalendar.data.id,
-                      resource: {
-                        role: 'reader', // I clienti possono solo leggere
-                        scope: {
-                          type: 'user',
-                          value: client.email
-                        }
-                      }
-                    });
+                    try {
+                      const clientShareResult = await calendar.acl.insert({
+                        calendarId: testCalendar.data.id,
+                        resource: {
+                          role: 'reader', // I clienti possono solo leggere
+                          scope: {
+                            type: 'user',
+                            value: client.email
+                          }
+                        },
+                        sendNotifications: false // Disabilita notifiche email
+                      });
                     console.log(`✅ Calendario condiviso con cliente: ${client.email}`);
                   } catch (clientShareErr) {
                     console.log(`⚠️ Errore condivisione con cliente ${client.email}:`, clientShareErr.message);
@@ -447,7 +449,8 @@ module.exports = (pool) => {
                   type: 'user',
                   value: userEmail
                 }
-              }
+              },
+              sendNotifications: false // Disabilita notifiche email
             });
             
             console.log(`✅ Permessi aggiornati per ${cal.summary}:`, updateResult.data);
@@ -468,7 +471,8 @@ module.exports = (pool) => {
                       type: 'user',
                       value: userEmail
                     }
-                  }
+                  },
+                  sendNotifications: false // Disabilita notifiche email
                 });
                 
                 console.log(`✅ Permessi creati per ${cal.summary}:`, createResult.data);
@@ -557,7 +561,8 @@ module.exports = (pool) => {
                   type: 'user',
                   value: clientEmail
                 }
-              }
+              },
+              sendNotifications: false // Disabilita notifiche email
             });
             
             console.log(`✅ Calendario condiviso con nuovo cliente: ${clientEmail}`);
