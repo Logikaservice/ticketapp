@@ -16,7 +16,7 @@ module.exports = (pool) => {
     const isGmail = process.env.EMAIL_USER?.includes('@gmail.com');
     const isAruba = process.env.EMAIL_USER?.includes('@logikaservice.it') || process.env.EMAIL_USER?.includes('@aruba.it');
     
-    console.log('Provider rilevato:', { isGmail, isAruba }');
+    console.log('Provider rilevato:', { isGmail, isAruba });
     
     if (isGmail) {
       console.log('📧 Configurazione Gmail');
