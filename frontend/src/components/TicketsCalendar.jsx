@@ -127,28 +127,33 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         return;
       }
       
-      // Gestisci diversi formati di data per evitare problemi di fuso orario
-      let date;
-      if (ticket.dataapertura.includes('T')) {
-        // Se è in formato ISO, estrai solo la parte data
-        const dateOnly = ticket.dataapertura.split('T')[0];
-        date = new Date(dateOnly + 'T00:00:00');
-      } else {
-        // Se è già solo data, usa direttamente
-        date = new Date(ticket.dataapertura);
-      }
+      // SOLUZIONE DRASTICA: Se il ticket è stato creato oggi, forza la data di oggi
+      const today = new Date();
+      const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       
-      // Forza la data locale
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const dateKey = `${year}-${month}-${day}`;
+      // Controlla se il ticket è stato creato oggi (entro le ultime 24 ore)
+      const ticketDate = new Date(ticket.dataapertura);
+      const hoursDiff = (today - ticketDate) / (1000 * 60 * 60);
+      
+      let dateKey;
+      if (hoursDiff < 24 && hoursDiff >= 0) {
+        // Se il ticket è stato creato nelle ultime 24 ore, usa la data di oggi
+        dateKey = todayKey;
+        console.log(`Ticket #${ticket.id} creato oggi, forzando data: ${dateKey}`);
+      } else {
+        // Altrimenti usa la data originale
+        const year = ticketDate.getFullYear();
+        const month = String(ticketDate.getMonth() + 1).padStart(2, '0');
+        const day = String(ticketDate.getDate()).padStart(2, '0');
+        dateKey = `${year}-${month}-${day}`;
+      }
       
       console.log(`Ticket #${ticket.id} date processing:`, {
         original: ticket.dataapertura,
-        parsed: date.toISOString(),
-        localDate: `${year}-${month}-${day}`,
-        dateKey: dateKey
+        ticketDate: ticketDate.toISOString(),
+        hoursDiff: hoursDiff,
+        todayKey: todayKey,
+        finalDateKey: dateKey
       });
       
       if (!grouped[dateKey]) {
