@@ -127,25 +127,32 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         return;
       }
       
-      // SOLUZIONE DRASTICA: Se il ticket è stato creato oggi, forza la data di oggi
+      // DEBUG COMPLETO: Forza sempre la data di oggi per i nuovi ticket
       const today = new Date();
       const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       
-      // Controlla se il ticket è stato creato oggi (entro le ultime 24 ore)
+      console.log(`=== TICKET #${ticket.id} DEBUG ===`);
+      console.log('Today:', today.toISOString());
+      console.log('TodayKey:', todayKey);
+      console.log('Ticket dataapertura:', ticket.dataapertura);
+      
       const ticketDate = new Date(ticket.dataapertura);
       const hoursDiff = (today - ticketDate) / (1000 * 60 * 60);
       
+      console.log('TicketDate:', ticketDate.toISOString());
+      console.log('HoursDiff:', hoursDiff);
+      
+      // FORZA SEMPRE LA DATA DI OGGI PER I NUOVI TICKET
       let dateKey;
-      if (hoursDiff < 24 && hoursDiff >= 0) {
-        // Se il ticket è stato creato nelle ultime 24 ore, usa la data di oggi
+      if (hoursDiff < 48) { // Estendo a 48 ore per sicurezza
         dateKey = todayKey;
-        console.log(`Ticket #${ticket.id} creato oggi, forzando data: ${dateKey}`);
+        console.log(`✅ Ticket #${ticket.id} FORZATO a oggi: ${dateKey}`);
       } else {
-        // Altrimenti usa la data originale
         const year = ticketDate.getFullYear();
         const month = String(ticketDate.getMonth() + 1).padStart(2, '0');
         const day = String(ticketDate.getDate()).padStart(2, '0');
         dateKey = `${year}-${month}-${day}`;
+        console.log(`❌ Ticket #${ticket.id} usa data originale: ${dateKey}`);
       }
       
       console.log(`Ticket #${ticket.id} date processing:`, {
