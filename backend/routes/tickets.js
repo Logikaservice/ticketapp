@@ -32,8 +32,8 @@ module.exports = (pool) => {
     try {
       const client = await pool.connect();
       const query = `
-        INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, last_read_by_client, last_read_by_tecnico) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()) 
+        INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW(), NOW()) 
         RETURNING *;
       `;
       const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza'];

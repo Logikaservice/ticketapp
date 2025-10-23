@@ -332,12 +332,16 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
                   {day.date.getDate()}
                 </div>
                 
-                {/* Indicatore se ci sono ticket */}
-                {hasTickets && (
-                  <div className="mt-1 flex justify-center">
-                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  </div>
-                )}
+                {/* Pallini per priorità */}
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {Object.entries(day.tickets).map(([priorita, tickets]) => (
+                    <div
+                      key={priorita}
+                      className={`w-2 h-2 rounded-full ${getPriorityColor(priorita)}`}
+                      title={`${getPriorityName(priorita)}: ${tickets.length} ticket`}
+                    />
+                  ))}
+                </div>
               </div>
             );
           })}
