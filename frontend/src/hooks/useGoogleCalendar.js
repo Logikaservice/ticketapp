@@ -76,7 +76,7 @@ export const useGoogleCalendar = () => {
       setError(null);
 
       // Usa un approccio più semplice con popup
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CONFIG.CLIENT_ID}&redirect_uri=${encodeURIComponent('https://ticketapp-frontend-ton5.onrender.com/auth/google/callback')}&scope=${encodeURIComponent('openid email profile')}&response_type=code&access_type=offline`;
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CONFIG.CLIENT_ID}&redirect_uri=${encodeURIComponent('https://ticketapp-frontend-ton5.onrender.com')}&scope=${encodeURIComponent('openid email profile')}&response_type=code&access_type=offline`;
       
       // Apri popup per autenticazione
       const popup = window.open(authUrl, 'googleAuth', 'width=500,height=600,scrollbars=yes,resizable=yes');

@@ -26,9 +26,11 @@ export default function TicketApp() {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   
-  // Controlla se siamo nella pagina di callback Google
-  const isGoogleCallback = window.location.pathname === '/auth/google/callback' || window.location.href.includes('/auth/google/callback');
-  console.log('Current pathname:', window.location.pathname, 'Current href:', window.location.href, 'Is Google callback:', isGoogleCallback);
+  // Controlla se abbiamo un codice OAuth nell'URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const oauthCode = urlParams.get('code');
+  const isGoogleCallback = !!oauthCode;
+  console.log('OAuth code:', oauthCode, 'Is Google callback:', isGoogleCallback);
   
   const [notifications, setNotifications] = useState([]);
 
