@@ -19,11 +19,15 @@ import { useTimeLogs } from './hooks/useTimeLogs';
 import { useReports } from './hooks/useReports';
 import { useModals } from './hooks/useModals';
 import { useGoogleCalendar } from './hooks/useGoogleCalendar';
+import GoogleCallback from './components/GoogleCallback';
 
 export default function TicketApp() {
   const [users, setUsers] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  
+  // Controlla se siamo nella pagina di callback Google
+  const isGoogleCallback = window.location.pathname === '/auth/google/callback';
   
   const [notifications, setNotifications] = useState([]);
 
@@ -645,6 +649,11 @@ export default function TicketApp() {
   // ====================================================================
   // RENDER
   // ====================================================================
+  // Se siamo nella pagina di callback Google, mostra il componente di callback
+  if (isGoogleCallback) {
+    return <GoogleCallback />;
+  }
+
   if (!isLoggedIn) {
     return (
       <>
