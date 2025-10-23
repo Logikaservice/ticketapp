@@ -153,6 +153,9 @@ module.exports = (pool) => {
       };
 
       let result;
+      let calendarId = 'primary'; // Default to primary, will be updated if a TicketApp calendar is found/created
+      let calendarList = null; // Inizializza calendarList fuori dal blocco try
+
       if (action === 'create') {
         console.log('Creazione evento Google Calendar...');
         console.log('Evento da creare:', {
@@ -162,7 +165,6 @@ module.exports = (pool) => {
         });
         
         // Test: prova a ottenere la lista dei calendari per verificare l'accesso
-        let calendarList = null; // Inizializza calendarList fuori dal blocco try
         try {
           console.log('Test accesso calendari...');
           calendarList = await calendar.calendarList.list();
@@ -220,7 +222,7 @@ module.exports = (pool) => {
         console.log('Inserimento evento nel calendario...');
         
         // Usa il calendario del Service Account invece di 'primary'
-        const calendarId = calendarList && calendarList.data && calendarList.data.items && calendarList.data.items.length > 0 
+        calendarId = calendarList && calendarList.data && calendarList.data.items && calendarList.data.items.length > 0 
           ? calendarList.data.items[0].id 
           : 'primary';
           
