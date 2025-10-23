@@ -81,9 +81,18 @@ module.exports = (pool) => {
         });
       }
       
-      console.log('Ottenimento client Google Auth...');
-      const authClient = await authInstance.getClient();
-      console.log('Client Google Auth ottenuto:', authClient.credentials?.client_email);
+          console.log('Ottenimento client Google Auth...');
+          const authClient = await authInstance.getClient();
+          console.log('Client Google Auth ottenuto:', authClient.credentials?.client_email);
+          
+          // Verifica che le credenziali siano valide
+          if (!authClient.credentials?.client_email) {
+            console.log('❌ ERRORE: Service Account credentials non valide');
+            return res.json({
+              success: false,
+              message: 'Service Account credentials non valide'
+            });
+          }
       
       const calendar = google.calendar({ version: 'v3', auth: authClient });
       console.log('Google Calendar API inizializzata');
@@ -299,12 +308,30 @@ module.exports = (pool) => {
           resource: event
         });
       } else if (action === 'delete' && ticket.googleCalendarEventId) {
+        // Per la cancellazione, devo trovare il calendario corretto
+        let deleteCalendarId = 'primary'; // Default
+        
+        try {
+          console.log('Ricerca calendario per cancellazione evento...');
+          const calendarList = await calendar.calendarList.list();
+          const ticketAppCalendar = calendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
+          
+          if (ticketAppCalendar) {
+            deleteCalendarId = ticketAppCalendar.id;
+            console.log('Trovato TicketApp Test Calendar per cancellazione:', deleteCalendarId);
+          } else {
+            console.log('TicketApp Test Calendar non trovato, uso primary');
+          }
+        } catch (err) {
+          console.log('Errore ricerca calendario per cancellazione:', err.message);
+        }
+        
         // Cancella l'evento da Google Calendar
         result = await calendar.events.delete({
-          calendarId: calendarId,
+          calendarId: deleteCalendarId,
           eventId: ticket.googleCalendarEventId
         });
-        console.log('Evento cancellato da Google Calendar:', ticket.googleCalendarEventId);
+        console.log('Evento cancellato da Google Calendar:', ticket.googleCalendarEventId, 'dal calendario:', deleteCalendarId);
       } else {
         return res.status(400).json({ error: 'Azione non valida o ID evento mancante' });
       }
