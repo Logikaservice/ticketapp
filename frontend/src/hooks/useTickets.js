@@ -29,7 +29,10 @@ export const useTickets = (
       ...newTicketData,
       clienteid: clienteId,
       stato: 'aperto',
-      nomerichiedente: newTicketData.nomerichiedente || (currentUser.ruolo === 'cliente' ? `${currentUser.nome} ${currentUser.cognome || ''}`.trim() : 'Tecnico')
+      nomerichiedente: newTicketData.nomerichiedente || (currentUser.ruolo === 'cliente' ? `${currentUser.nome} ${currentUser.cognome || ''}`.trim() : 'Tecnico'),
+      // Flag per distinguere se il ticket è creato dal cliente stesso
+      createdBy: currentUser.ruolo,
+      selfCreated: currentUser.ruolo === 'cliente' && clienteId === currentUser.id
     };
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`, {

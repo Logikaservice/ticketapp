@@ -40,7 +40,7 @@ module.exports = (pool) => {
       const result = await client.query(query, values);
       client.release();
       
-      // Invia notifica email al cliente se è un ticket assegnato
+      // Invia notifica email al cliente
       if (result.rows[0]) {
         try {
           // Ottieni i dati del cliente
@@ -49,8 +49,12 @@ module.exports = (pool) => {
           if (clientData.rows.length > 0 && clientData.rows[0].email) {
             const client = clientData.rows[0];
             
+            // Determina il tipo di notifica
+            const isSelfCreated = req.body.createdBy === 'cliente' || req.body.selfCreated;
+            const emailType = isSelfCreated ? 'notify-ticket-created' : 'notify-ticket-assigned';
+            
             // Invia email di notifica
-            const emailResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/email/notify-ticket-assigned`, {
+            const emailResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/email/${emailType}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -58,12 +62,13 @@ module.exports = (pool) => {
               body: JSON.stringify({
                 ticket: result.rows[0],
                 clientEmail: client.email,
-                clientName: `${client.nome} ${client.cognome}`
+                clientName: `${client.nome} ${client.cognome}`,
+                isSelfCreated: isSelfCreated
               })
             });
             
             if (emailResponse.ok) {
-              console.log(`✅ Email notifica inviata al cliente: ${client.email}`);
+              console.log(`✅ Email notifica inviata al cliente: ${client.email} (${emailType})`);
             } else {
               console.log(`⚠️ Errore invio email al cliente: ${client.email}`);
             }
