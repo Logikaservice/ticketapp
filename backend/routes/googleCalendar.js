@@ -176,6 +176,28 @@ module.exports = (pool) => {
                 }
               });
               console.log('Calendario di test creato:', testCalendar.data.id);
+              
+              // Condividi il calendario con l'account principale
+              // NOTA: Sostituisci 'YOUR_EMAIL@gmail.com' con il tuo email reale
+              const userEmail = process.env.GOOGLE_USER_EMAIL || 'YOUR_EMAIL@gmail.com';
+              console.log('Tentativo condivisione calendario con:', userEmail);
+              
+              try {
+                const shareResult = await calendar.acl.insert({
+                  calendarId: testCalendar.data.id,
+                  resource: {
+                    role: 'reader',
+                    scope: {
+                      type: 'user',
+                      value: userEmail
+                    }
+                  }
+                });
+                console.log('Calendario condiviso con successo:', shareResult.data);
+              } catch (shareErr) {
+                console.log('ERRORE condivisione calendario:', shareErr.message);
+                console.log('IMPORTANTE: Aggiungi GOOGLE_USER_EMAIL nelle variabili d\'ambiente su Render');
+              }
             } catch (err) {
               console.log('ERRORE creazione calendario di test:', err.message);
             }
@@ -185,8 +207,16 @@ module.exports = (pool) => {
         }
 
         console.log('Inserimento evento nel calendario...');
+        
+        // Usa il calendario del Service Account invece di 'primary'
+        const calendarId = calendarList.data.items && calendarList.data.items.length > 0 
+          ? calendarList.data.items[0].id 
+          : 'primary';
+          
+        console.log('Usando calendarId:', calendarId);
+        
         result = await calendar.events.insert({
-          calendarId: 'primary',
+          calendarId: calendarId,
           resource: event
         });
         console.log('Evento creato con successo:', result.data.id);
