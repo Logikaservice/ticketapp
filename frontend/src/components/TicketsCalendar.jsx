@@ -108,22 +108,9 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
   const ticketsByDate = useMemo(() => {
     const grouped = {};
     
-    console.log('=== DEBUG CALENDAR ===');
-    console.log('Total tickets:', tickets.length);
-    console.log('Relevant tickets:', relevantTickets.length);
-    console.log('SYNC_STATES:', SYNC_STATES);
-    
     // Aggiungi ticket
     relevantTickets.forEach(ticket => {
-      console.log(`Ticket #${ticket.id}:`, {
-        dataapertura: ticket.dataapertura,
-        priorita: ticket.priorita,
-        stato: ticket.stato,
-        titolo: ticket.titolo
-      });
-      
       if (!ticket.dataapertura) {
-        console.log(`Ticket #${ticket.id} has no dataapertura, skipping`);
         return;
       }
       
@@ -134,14 +121,10 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         // Se è in formato ISO (2025-10-23T21:44:00.000Z), estrai solo la parte data
         const dateOnly = ticket.dataapertura.split('T')[0];
         dateKey = dateOnly; // Usa direttamente "2025-10-23"
-        console.log(`Ticket #${ticket.id} ISO date: ${ticket.dataapertura} → ${dateKey}`);
       } else {
         // Se è già solo data, usa direttamente
         dateKey = ticket.dataapertura;
-        console.log(`Ticket #${ticket.id} direct date: ${dateKey}`);
       }
-      
-      console.log(`Ticket #${ticket.id} final dateKey:`, dateKey);
       
       if (!grouped[dateKey]) {
         grouped[dateKey] = {};
@@ -153,9 +136,6 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
       
       grouped[dateKey][ticket.priorita].push(ticket);
     });
-    
-    console.log('Grouped tickets by date:', grouped);
-    console.log('=== END DEBUG ===');
     
     return grouped;
   }, [relevantTickets, showGoogleEvents, googleEvents]);
