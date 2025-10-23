@@ -128,11 +128,16 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
       }
       
       const date = new Date(ticket.dataapertura);
-      const dateKey = date.toISOString().split('T')[0];
+      // Usa il fuso orario locale per evitare spostamenti di giorno
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`;
       
       console.log(`Ticket #${ticket.id} date processing:`, {
         original: ticket.dataapertura,
         parsed: date.toISOString(),
+        localDate: `${year}-${month}-${day}`,
         dateKey: dateKey
       });
       
