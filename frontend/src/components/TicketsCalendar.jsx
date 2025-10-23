@@ -179,7 +179,12 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
     
     // Genera 42 giorni (6 settimane)
     for (let i = 0; i < 42; i++) {
-      const dateKey = current.toISOString().split('T')[0];
+      // Usa la data locale per evitare problemi di fuso orario
+      const year = current.getFullYear();
+      const month = String(current.getMonth() + 1).padStart(2, '0');
+      const day = String(current.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`;
+      
       const isCurrentMonth = current.getMonth() === month;
       const isToday = current.toDateString() === new Date().toDateString();
       
