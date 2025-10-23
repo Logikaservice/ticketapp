@@ -8,11 +8,18 @@ module.exports = (pool) => {
 
   // Configurazione email transporter
   const createTransporter = () => {
+    console.log('🔧 Creazione transporter email...');
+    console.log('EMAIL_USER:', process.env.EMAIL_USER);
+    console.log('EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? 'Configurato' : 'Mancante');
+    
     // Supporta sia Gmail che Aruba
     const isGmail = process.env.EMAIL_USER?.includes('@gmail.com');
     const isAruba = process.env.EMAIL_USER?.includes('@logikaservice.it') || process.env.EMAIL_USER?.includes('@aruba.it');
     
+    console.log('Provider rilevato:', { isGmail, isAruba }');
+    
     if (isGmail) {
+      console.log('📧 Configurazione Gmail');
       return nodemailer.createTransporter({
         service: 'gmail',
         auth: {
@@ -21,6 +28,7 @@ module.exports = (pool) => {
         }
       });
     } else if (isAruba) {
+      console.log('📧 Configurazione Aruba');
       // Prova prima con SSL (porta 465)
       return nodemailer.createTransporter({
         host: 'smtps.aruba.it',
@@ -35,6 +43,7 @@ module.exports = (pool) => {
         }
       });
     } else {
+      console.log('📧 Configurazione generica');
       // Configurazione generica per altri provider
       return nodemailer.createTransporter({
         host: 'smtp.gmail.com', // Fallback
@@ -51,9 +60,18 @@ module.exports = (pool) => {
   // ENDPOINT: Invia notifica email per nuovo ticket assegnato
   router.post('/notify-ticket-assigned', async (req, res) => {
     try {
+      console.log('📧 === INVIO EMAIL TICKET ASSEGNATO ===');
       const { ticket, clientEmail, clientName } = req.body;
       
+      console.log('Dati ricevuti:', { 
+        ticketId: ticket?.id, 
+        ticketNumero: ticket?.numero,
+        clientEmail, 
+        clientName 
+      });
+      
       if (!ticket || !clientEmail) {
+        console.log('❌ Dati mancanti:', { ticket: !!ticket, clientEmail: !!clientEmail });
         return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
       }
 
@@ -66,6 +84,7 @@ module.exports = (pool) => {
         });
       }
 
+      console.log('🔧 Creazione transporter...');
       const transporter = createTransporter();
       
       // Template email
@@ -121,6 +140,13 @@ module.exports = (pool) => {
       };
 
       // Invia email
+      console.log('📤 Invio email...');
+      console.log('Mail options:', {
+        from: mailOptions.from,
+        to: mailOptions.to,
+        subject: mailOptions.subject
+      });
+      
       const info = await transporter.sendMail(mailOptions);
       console.log('✅ Email inviata con successo:', info.messageId);
       
