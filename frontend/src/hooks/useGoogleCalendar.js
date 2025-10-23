@@ -142,6 +142,7 @@ export const useGoogleCalendar = () => {
   // Scambia il codice con un token
   const exchangeCodeForToken = async (code) => {
     try {
+      console.log('Sending OAuth code to backend:', code);
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/google-auth`, {
         method: 'POST',
         headers: {
@@ -150,8 +151,12 @@ export const useGoogleCalendar = () => {
         body: JSON.stringify({ code })
       });
 
+      console.log('Backend response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Errore scambio codice per token');
+        const errorText = await response.text();
+        console.error('Backend error response:', errorText);
+        throw new Error(`Errore scambio codice per token: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
@@ -163,7 +168,7 @@ export const useGoogleCalendar = () => {
       
     } catch (err) {
       console.error('Errore scambio token:', err);
-      setError('Errore durante l\'autenticazione con Google');
+      setError(`Errore durante l'autenticazione con Google: ${err.message}`);
       setLoading(false);
     }
   };
