@@ -6,6 +6,8 @@ import { SYNC_STATES } from '../config/googleConfig';
 const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showGoogleEvents, setShowGoogleEvents] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDateTickets, setSelectedDateTickets] = useState([]);
   
   // Hook per Google Calendar
   const {
@@ -51,6 +53,36 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
     } catch (err) {
       console.error('Errore sincronizzazione:', err);
       alert('Errore durante la sincronizzazione. Controlla la console per i dettagli.');
+    }
+  };
+
+  // Funzione per gestire il click sui giorni
+  const handleDayClick = (day) => {
+    const allTicketsForDay = [];
+    
+    // Raccoglie tutti i ticket del giorno selezionato
+    Object.values(day.tickets).forEach(ticketsArray => {
+      allTicketsForDay.push(...ticketsArray);
+    });
+    
+    if (allTicketsForDay.length > 0) {
+      setSelectedDate(day.date);
+      setSelectedDateTickets(allTicketsForDay);
+    } else {
+      setSelectedDate(null);
+      setSelectedDateTickets([]);
+    }
+  };
+
+  // Funzione per gestire il click sui ticket nella lista
+  const handleTicketClick = (ticket) => {
+    // Chiude la lista
+    setSelectedDate(null);
+    setSelectedDateTickets([]);
+    
+    // Naviga al ticket
+    if (onTicketClick) {
+      onTicketClick(ticket);
     }
   };
 
@@ -281,37 +313,85 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
 
         {/* Griglia calendario */}
         <div className="grid grid-cols-7 gap-1">
-          {calendarDays.map((day, index) => (
-            <div
-              key={index}
-              className={`min-h-[40px] p-1 border rounded ${
-                day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-              } ${day.isToday ? 'ring-2 ring-blue-500' : ''}`}
-            >
-              <div className={`text-xs ${day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>
-                {day.date.getDate()}
-              </div>
-              
-              {/* Pallini per priorità */}
-              <div className="flex flex-wrap gap-1 mt-1">
-                {Object.entries(day.tickets).map(([priorita, tickets]) => (
-                  <div
-                    key={priorita}
-                    className={`w-2 h-2 rounded-full ${getPriorityColor(priorita)} cursor-pointer hover:scale-125 transition-transform`}
-                    title={`${getPriorityName(priorita)}: ${tickets.length} ticket`}
-                    onClick={() => {
-                      // Mostra tooltip con lista ticket
-                      const ticketList = tickets.map(t => `${t.numero} - ${t.titolo}`).join('\n');
-                      alert(`Ticket ${getPriorityName(priorita)}:\n${ticketList}`);
-                    }}
-                  />
-                ))}
+          {calendarDays.map((day, index) => {
+            const hasTickets = Object.values(day.tickets).flat().length > 0;
+            const isSelected = selectedDate && selectedDate.toDateString() === day.date.toDateString();
+            
+            return (
+              <div
+                key={index}
+                className={`min-h-[40px] p-1 border rounded cursor-pointer transition-all ${
+                  day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
+                } ${day.isToday ? 'ring-2 ring-blue-500' : ''} ${
+                  isSelected ? 'ring-2 ring-green-500 bg-green-50' : ''
+                } ${hasTickets ? 'hover:bg-blue-50 hover:border-blue-300' : ''}`}
+                onClick={() => handleDayClick(day)}
+                title={hasTickets ? `Click per vedere i ticket del ${day.date.toLocaleDateString('it-IT')}` : ''}
+              >
+                <div className={`text-xs ${day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>
+                  {day.date.getDate()}
+                </div>
                 
-                {/* Eventi Google Calendar non vengono mostrati */}
+                {/* Indicatore se ci sono ticket */}
+                {hasTickets && (
+                  <div className="mt-1 flex justify-center">
+                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+
+        {/* Lista ticket del giorno selezionato */}
+        {selectedDate && selectedDateTickets.length > 0 && (
+          <div className="mt-4 pt-4 border-t">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-semibold text-sm">
+                Ticket del {selectedDate.toLocaleDateString('it-IT')} ({selectedDateTickets.length})
+              </h4>
+              <button
+                onClick={() => {
+                  setSelectedDate(null);
+                  setSelectedDateTickets([]);
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700"
+              >
+                ✕ Chiudi
+              </button>
+            </div>
+            
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {selectedDateTickets.map((ticket) => (
+                <div
+                  key={ticket.id}
+                  className={`p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
+                    getPriorityColor(ticket.priorita).replace('bg-', 'border-l-4 border-l-')
+                  }`}
+                  onClick={() => handleTicketClick(ticket)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">#{ticket.numero}</span>
+                        <span className={`px-2 py-1 text-xs rounded-full text-white ${getPriorityColor(ticket.priorita)}`}>
+                          {getPriorityName(ticket.priorita)}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-700 mt-1">{ticket.titolo}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Cliente: {ticket.cliente} • Stato: {ticket.stato}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      Click per aprire
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Legenda */}
         <div className="mt-4 pt-4 border-t">
@@ -333,7 +413,10 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
               <div className="w-2 h-2 rounded-full bg-gray-500"></div>
               <span>Bassa</span>
             </div>
-            {/* Google Calendar non viene mostrato nel calendario */}
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+              <span>Giorni con ticket</span>
+            </div>
           </div>
         </div>
       </div>
