@@ -40,6 +40,29 @@ module.exports = (pool) => {
       const result = await client.query(query, values);
       client.release();
       
+      // Condividi il calendario con il nuovo cliente
+      if (result.rows[0] && result.rows[0].ruolo === 'cliente') {
+        try {
+          const shareResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/share-calendar-with-client`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              clientEmail: result.rows[0].email
+            })
+          });
+          
+          if (shareResponse.ok) {
+            console.log(`✅ Calendario condiviso con nuovo cliente: ${result.rows[0].email}`);
+          } else {
+            console.log(`⚠️ Errore condivisione calendario con nuovo cliente: ${result.rows[0].email}`);
+          }
+        } catch (shareErr) {
+          console.log('⚠️ Errore condivisione calendario nuovo cliente:', shareErr.message);
+        }
+      }
+      
       res.status(201).json(result.rows[0]);
     } catch (err) {
       console.error('ERRORE NELLA CREAZIONE DEL CLIENTE:', err);

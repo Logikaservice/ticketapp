@@ -32,7 +32,7 @@ EMAIL_PASSWORD=your-app-password
 #### **✅ Notifiche Automatiche**
 - **Nuovo Ticket**: Email al cliente quando viene assegnato un ticket
 - **Aggiornamento Ticket**: Email quando il ticket viene modificato
-- **Calendario Google**: Il ticket appare automaticamente nel calendario del cliente
+- **Calendario Google**: Il ticket appare automaticamente nel "TicketApp Test Calendar" condiviso
 
 #### **✅ Template Email Professionali**
 - Design responsive e moderno
@@ -45,7 +45,21 @@ EMAIL_PASSWORD=your-app-password
 - Visualizzano solo i loro ticket
 - Click sui giorni per vedere i dettagli
 
-### **4. 🧪 Test Sistema**
+### **4. 📅 Sistema Calendario Condiviso**
+
+#### **Come Funziona**
+- **Service Account**: Crea eventi nel "TicketApp Test Calendar"
+- **Condivisione Automatica**: Il calendario viene condiviso con tutti i clienti
+- **Accesso Clienti**: I clienti vedono il calendario nel loro Google Calendar
+- **Permessi**: I clienti hanno accesso in lettura (non possono modificare)
+
+#### **Calendario Condiviso**
+- **Nome**: "TicketApp Test Calendar"
+- **Visibilità**: Appare nella lista calendari di ogni cliente
+- **Sincronizzazione**: Automatica con tutti i ticket creati
+- **Aggiornamenti**: In tempo reale quando i ticket vengono modificati
+
+### **5. 🧪 Test Sistema**
 
 #### **Test Creazione Ticket**
 1. Crea un nuovo ticket assegnato a un cliente

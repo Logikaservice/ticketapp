@@ -212,6 +212,32 @@ module.exports = (pool) => {
               } else {
                 console.log('GOOGLE_USER_EMAIL non configurato. Aggiungi la variabile su Render con il tuo email.');
               }
+              
+              // Condividi il calendario con tutti i clienti
+              try {
+                console.log('Condivisione calendario con tutti i clienti...');
+                const clientEmails = await pool.query('SELECT email FROM users WHERE ruolo = \'cliente\' AND email IS NOT NULL');
+                
+                for (const client of clientEmails.rows) {
+                  try {
+                    const clientShareResult = await calendar.acl.insert({
+                      calendarId: testCalendar.data.id,
+                      resource: {
+                        role: 'reader', // I clienti possono solo leggere
+                        scope: {
+                          type: 'user',
+                          value: client.email
+                        }
+                      }
+                    });
+                    console.log(`✅ Calendario condiviso con cliente: ${client.email}`);
+                  } catch (clientShareErr) {
+                    console.log(`⚠️ Errore condivisione con cliente ${client.email}:`, clientShareErr.message);
+                  }
+                }
+              } catch (shareErr) {
+                console.log('⚠️ Errore condivisione con clienti:', shareErr.message);
+              }
             } catch (err) {
               console.log('ERRORE creazione calendario di test:', err.message);
             }
@@ -488,5 +514,75 @@ module.exports = (pool) => {
     }
   });
 
-  return router;
-};
+      // ENDPOINT: Condividi calendario con un nuovo cliente
+      router.post('/share-calendar-with-client', async (req, res) => {
+        try {
+          const { clientEmail } = req.body;
+          
+          if (!clientEmail) {
+            return res.status(400).json({ error: 'Email cliente obbligatoria' });
+          }
+          
+          // Inizializza Google Auth
+          const authInstance = getAuth();
+          if (!authInstance) {
+            return res.json({
+              success: false,
+              message: 'Google Auth non disponibile'
+            });
+          }
+          
+          const authClient = await authInstance.getClient();
+          const calendar = google.calendar({ version: 'v3', auth: authClient });
+          
+          // Trova il TicketApp Test Calendar
+          const calendarList = await calendar.calendarList.list();
+          const ticketAppCalendar = calendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
+          
+          if (!ticketAppCalendar) {
+            return res.json({
+              success: false,
+              message: 'TicketApp Test Calendar non trovato'
+            });
+          }
+          
+          // Condividi il calendario con il cliente
+          try {
+            const shareResult = await calendar.acl.insert({
+              calendarId: ticketAppCalendar.id,
+              resource: {
+                role: 'reader',
+                scope: {
+                  type: 'user',
+                  value: clientEmail
+                }
+              }
+            });
+            
+            console.log(`✅ Calendario condiviso con nuovo cliente: ${clientEmail}`);
+            
+            res.json({
+              success: true,
+              message: `Calendario condiviso con ${clientEmail}`,
+              calendarId: ticketAppCalendar.id
+            });
+            
+          } catch (shareErr) {
+            console.log(`⚠️ Errore condivisione con cliente ${clientEmail}:`, shareErr.message);
+            res.json({
+              success: false,
+              message: `Errore condivisione con ${clientEmail}: ${shareErr.message}`
+            });
+          }
+          
+        } catch (err) {
+          console.error('Errore condivisione calendario con cliente:', err);
+          res.status(500).json({ 
+            error: 'Errore condivisione calendario',
+            details: err.message 
+          });
+        }
+      });
+
+      return router;
+    };
