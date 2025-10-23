@@ -169,6 +169,39 @@ app.post('/api/init-db', async (req, res) => {
   }
 });
 
+// --- ENDPOINT PER VERIFICARE LO SCHEMA DEL DATABASE ---
+app.get('/api/check-schema', async (req, res) => {
+  try {
+    const client = await pool.connect();
+    
+    // Verifica se la colonna googlecalendareventid esiste
+    const result = await client.query(`
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'tickets' AND column_name = 'googlecalendareventid'
+    `);
+    
+    client.release();
+    
+    if (result.rows.length > 0) {
+      res.json({ 
+        success: true, 
+        message: 'Colonna googlecalendareventid esiste',
+        column: result.rows[0]
+      });
+    } else {
+      res.json({ 
+        success: false, 
+        message: 'Colonna googlecalendareventid NON esiste',
+        suggestion: 'Chiama /api/init-db per aggiungere la colonna'
+      });
+    }
+  } catch (err) {
+    console.error('❌ Errore verifica schema:', err);
+    res.status(500).json({ error: 'Errore nella verifica dello schema' });
+  }
+});
+
 // --- AVVIO DEL SERVER ---
 const startServer = async () => {
   try {

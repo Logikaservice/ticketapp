@@ -344,5 +344,121 @@ module.exports = (pool) => {
     return colors[priorita?.toLowerCase()] || '1';
   };
 
+  // ENDPOINT: Forza aggiornamento permessi calendario
+  router.post('/force-update-permissions', async (req, res) => {
+    try {
+      console.log('=== FORZA AGGIORNAMENTO PERMESSI CALENDARIO ===');
+      
+      const userEmail = process.env.GOOGLE_USER_EMAIL;
+      if (!userEmail || userEmail === 'YOUR_EMAIL@gmail.com') {
+        return res.json({
+          success: false,
+          message: 'GOOGLE_USER_EMAIL non configurato correttamente'
+        });
+      }
+      
+      console.log('Email utente:', userEmail);
+      
+      // Inizializza Google Auth
+      const authInstance = getAuth();
+      if (!authInstance) {
+        return res.json({
+          success: false,
+          message: 'Google Auth non disponibile'
+        });
+      }
+      
+      const authClient = await authInstance.getClient();
+      const calendar = google.calendar({ version: 'v3', auth: authClient });
+      
+      // Ottieni lista calendari
+      const calendarList = await calendar.calendarList.list();
+      console.log('Calendari disponibili:', calendarList.data.items?.length || 0);
+      
+      let updatedCalendars = [];
+      
+      for (const cal of calendarList.data.items || []) {
+        if (cal.summary && cal.summary.includes('TicketApp')) {
+          console.log(`Aggiornamento permessi per: ${cal.summary} (${cal.id})`);
+          
+          try {
+            // Prova ad aggiornare i permessi
+            const updateResult = await calendar.acl.update({
+              calendarId: cal.id,
+              ruleId: `user:${userEmail}`,
+              resource: {
+                role: 'writer',
+                scope: {
+                  type: 'user',
+                  value: userEmail
+                }
+              }
+            });
+            
+            console.log(`✅ Permessi aggiornati per ${cal.summary}:`, updateResult.data);
+            updatedCalendars.push({
+              name: cal.summary,
+              id: cal.id,
+              status: 'updated'
+            });
+          } catch (updateErr) {
+            if (updateErr.message.includes('not found')) {
+              // Se la regola non esiste, creala
+              try {
+                const createResult = await calendar.acl.insert({
+                  calendarId: cal.id,
+                  resource: {
+                    role: 'writer',
+                    scope: {
+                      type: 'user',
+                      value: userEmail
+                    }
+                  }
+                });
+                
+                console.log(`✅ Permessi creati per ${cal.summary}:`, createResult.data);
+                updatedCalendars.push({
+                  name: cal.summary,
+                  id: cal.id,
+                  status: 'created'
+                });
+              } catch (createErr) {
+                console.log(`❌ Errore creazione permessi per ${cal.summary}:`, createErr.message);
+                updatedCalendars.push({
+                  name: cal.summary,
+                  id: cal.id,
+                  status: 'error',
+                  error: createErr.message
+                });
+              }
+            } else {
+              console.log(`❌ Errore aggiornamento permessi per ${cal.summary}:`, updateErr.message);
+              updatedCalendars.push({
+                name: cal.summary,
+                id: cal.id,
+                status: 'error',
+                error: updateErr.message
+              });
+            }
+          }
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: 'Aggiornamento permessi completato',
+        userEmail: userEmail,
+        updatedCalendars: updatedCalendars
+      });
+      
+    } catch (err) {
+      console.error('Errore aggiornamento permessi:', err);
+      res.status(500).json({ 
+        error: 'Errore aggiornamento permessi',
+        details: err.message 
+      });
+    }
+  });
+
   return router;
 };
