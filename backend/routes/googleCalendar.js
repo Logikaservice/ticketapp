@@ -69,11 +69,26 @@ module.exports = (pool) => {
         if (!startDate || isNaN(startDate.getTime())) {
           startDate = new Date();
         }
+      } else if (ticket.created_at) {
+        // Usa la data di creazione del ticket se disponibile
+        startDate = new Date(ticket.created_at);
+        if (isNaN(startDate.getTime())) {
+          startDate = new Date();
+        }
       } else {
         startDate = new Date();
       }
 
       const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 ora dopo
+
+      // Log della data utilizzata
+      console.log('Ticket date info:', {
+        ticketId: ticket.id,
+        dataApertura: ticket.dataApertura,
+        created_at: ticket.created_at,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      });
 
       const event = {
         summary: `Ticket #${ticket.id} - ${ticket.titolo}`,
