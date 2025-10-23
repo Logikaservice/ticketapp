@@ -271,25 +271,40 @@ module.exports = (pool) => {
         return res.status(400).json({ error: 'Azione non valida o ID evento mancante' });
       }
 
-      console.log('Ticket #' + ticket.id + ' sincronizzato con Google Calendar via backend');
-      console.log('Event details:', {
-        summary: event.summary,
-        start: event.start,
-        end: event.end,
-        calendarId: 'primary',
-        eventId: result.data?.id
-      });
-      
-      res.json({
-        success: true,
-        eventId: result.data?.id,
-        message: 'Ticket sincronizzato con Google Calendar',
-        eventDetails: {
-          summary: event.summary,
-          start: event.start,
-          end: event.end
-        }
-      });
+          console.log('Ticket #' + ticket.id + ' sincronizzato con Google Calendar via backend');
+          console.log('Event details:', {
+            summary: event.summary,
+            start: event.start,
+            end: event.end,
+            calendarId: calendarId,
+            eventId: result.data?.id
+          });
+          
+          // Salva l'ID dell'evento Google Calendar nel database
+          if (result.data?.id) {
+            try {
+              const client = await pool.connect();
+              await client.query(
+                'UPDATE tickets SET googlecalendareventid = $1 WHERE id = $2',
+                [result.data.id, ticket.id]
+              );
+              client.release();
+              console.log(`✅ ID evento Google Calendar salvato per ticket #${ticket.id}: ${result.data.id}`);
+            } catch (dbErr) {
+              console.log('⚠️ Errore salvataggio ID evento Google Calendar:', dbErr.message);
+            }
+          }
+          
+          res.json({
+            success: true,
+            eventId: result.data?.id,
+            message: 'Ticket sincronizzato con Google Calendar',
+            eventDetails: {
+              summary: event.summary,
+              start: event.start,
+              end: event.end
+            }
+          });
 
     } catch (err) {
       console.error('Errore sincronizzazione Google Calendar:', err);

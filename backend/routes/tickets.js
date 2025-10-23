@@ -181,10 +181,52 @@ module.exports = (pool) => {
     const { id } = req.params;
     try {
       const client = await pool.connect();
+      
+      // Prima ottieni il ticket per recuperare l'ID dell'evento Google Calendar
+      const ticketResult = await client.query('SELECT * FROM tickets WHERE id = $1', [id]);
+      
+      if (ticketResult.rows.length === 0) {
+        client.release();
+        return res.status(404).json({ error: 'Ticket non trovato' });
+      }
+      
+      const ticket = ticketResult.rows[0];
+      
+      // Elimina il ticket dal database
       const result = await client.query('DELETE FROM tickets WHERE id = $1', [id]);
       client.release();
 
       if (result.rowCount > 0) {
+        // Se il ticket ha un ID evento Google Calendar, sincronizza la cancellazione
+        if (ticket.googlecalendareventid) {
+          console.log(`🗑️ Ticket #${ticket.id} eliminato, sincronizzazione cancellazione Google Calendar...`);
+          
+          // Chiama la sincronizzazione Google Calendar
+          try {
+            const syncResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/sync-google-calendar`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                ticket: {
+                  ...ticket,
+                  googleCalendarEventId: ticket.googlecalendareventid
+                },
+                action: 'delete'
+              })
+            });
+            
+            if (syncResponse.ok) {
+              console.log(`✅ Evento Google Calendar cancellato per ticket #${ticket.id}`);
+            } else {
+              console.log(`⚠️ Errore cancellazione evento Google Calendar per ticket #${ticket.id}`);
+            }
+          } catch (syncErr) {
+            console.log(`⚠️ Errore sincronizzazione cancellazione Google Calendar:`, syncErr.message);
+          }
+        }
+        
         res.status(200).json({ message: 'Ticket eliminato con successo' });
       } else {
         res.status(404).json({ error: 'Ticket non trovato' });

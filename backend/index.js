@@ -153,6 +153,14 @@ app.post('/api/init-db', async (req, res) => {
       console.log("⚠️ Errore aggiunta colonne (potrebbero già esistere):", alterErr.message);
     }
     
+    // Aggiungi colonna googlecalendareventid alla tabella tickets se non esiste
+    try {
+      await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS googlecalendareventid TEXT`);
+      console.log("✅ Colonna googlecalendareventid aggiunta alla tabella tickets");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonna googlecalendareventid (potrebbe già esistere):", alterErr.message);
+    }
+    
     console.log("✅ Tabella alerts creata/verificata");
     res.json({ message: 'Database inizializzato con successo' });
   } catch (err) {
@@ -187,6 +195,14 @@ const startServer = async () => {
       console.log("✅ Tabella alerts inizializzata automaticamente");
     } catch (initErr) {
       console.log("⚠️ Tabella alerts già esistente o errore:", initErr.message);
+    }
+    
+    // Aggiungi colonna googlecalendareventid alla tabella tickets se non esiste
+    try {
+      await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS googlecalendareventid TEXT`);
+      console.log("✅ Colonna googlecalendareventid aggiunta alla tabella tickets (auto-init)");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonna googlecalendareventid (auto-init):", alterErr.message);
     }
     
     app.listen(PORT, () => {
