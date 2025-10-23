@@ -163,6 +163,23 @@ module.exports = (pool) => {
             summary: cal.summary,
             primary: cal.primary
           })));
+          
+          // Se non ci sono calendari, prova a creare un calendario di test
+          if (!calendarList.data.items || calendarList.data.items.length === 0) {
+            console.log('Nessun calendario accessibile, creazione calendario di test...');
+            try {
+              const testCalendar = await calendar.calendars.insert({
+                resource: {
+                  summary: 'TicketApp Test Calendar',
+                  description: 'Calendario di test per TicketApp',
+                  timeZone: 'Europe/Rome'
+                }
+              });
+              console.log('Calendario di test creato:', testCalendar.data.id);
+            } catch (err) {
+              console.log('ERRORE creazione calendario di test:', err.message);
+            }
+          }
         } catch (err) {
           console.log('ERRORE accesso calendari:', err.message);
         }
@@ -173,6 +190,8 @@ module.exports = (pool) => {
           resource: event
         });
         console.log('Evento creato con successo:', result.data.id);
+        console.log('Evento creato nel calendario:', result.data.htmlLink);
+        console.log('Evento creato con data:', result.data.start?.dateTime || result.data.start?.date);
       } else if (action === 'update' && ticket.googleCalendarEventId) {
         result = await calendar.events.update({
           calendarId: 'primary',
