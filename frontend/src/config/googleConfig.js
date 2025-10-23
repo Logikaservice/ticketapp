@@ -17,6 +17,7 @@ export const PRIORITY_COLORS = {
 
 // Stati ticket da sincronizzare
 export const SYNC_STATES = [
+  'aperto',
   'in_lavorazione',
   'risolto', 
   'chiuso',
