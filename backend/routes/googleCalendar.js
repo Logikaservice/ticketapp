@@ -92,22 +92,18 @@ module.exports = (pool) => {
       console.log('Using calendarId: primary');
       console.log('Service Account email:', authClient.credentials?.client_email);
 
-      // Gestisci diversi formati di data
+      // Gestisci diversi formati di data con timezone corretto
       let startDate;
       if (ticket.dataapertura) {
-        const dateFormats = [
-          ticket.dataapertura,
-          new Date(ticket.dataapertura),
-          new Date(ticket.dataapertura.replace(/-/g, '/')),
-          new Date(ticket.dataapertura + 'T00:00:00'),
-        ];
-        
-        for (const dateFormat of dateFormats) {
-          const testDate = new Date(dateFormat);
-          if (!isNaN(testDate.getTime())) {
-            startDate = testDate;
-            break;
-          }
+        // Se è in formato ISO con timezone, usa direttamente
+        if (ticket.dataapertura.includes('T') && ticket.dataapertura.includes('+')) {
+          startDate = new Date(ticket.dataapertura);
+        } else if (ticket.dataapertura.includes('T')) {
+          // Se è ISO senza timezone, aggiungi timezone Europe/Rome
+          startDate = new Date(ticket.dataapertura + '+02:00');
+        } else {
+          // Se è solo data, aggiungi time locale
+          startDate = new Date(ticket.dataapertura + 'T00:00:00+02:00');
         }
         
         if (!startDate || isNaN(startDate.getTime())) {
