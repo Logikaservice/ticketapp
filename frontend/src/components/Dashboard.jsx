@@ -168,6 +168,10 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
 };
 
 const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger }) => {
+  // Stati per la ricerca
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [searchResults, setSearchResults] = React.useState([]);
+
   const visibleTickets = useMemo(() => {
     if (currentUser?.ruolo === 'cliente') {
       return tickets.filter(t => t.clienteid === currentUser.id);
@@ -205,6 +209,22 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   }, []);
 
   const roleLabel = currentUser?.ruolo === 'tecnico' ? 'Tecnico' : 'Cliente';
+
+  // Effetto per la ricerca in tempo reale
+  React.useEffect(() => {
+    if (searchTerm.trim().length >= 2) {
+      const results = visibleTickets.filter(ticket => 
+        ticket.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ticket.titolo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ticket.id?.toString().includes(searchTerm) ||
+        ticket.descrizione?.toLowerCase().includes(searchTerm.toLowerCase())
+      ).slice(0, 10); // Limita a 10 risultati
+      
+      setSearchResults(results);
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchTerm, visibleTickets]);
 
   // Avvisi: ora da API backend
   const [alerts, setAlerts] = React.useState([]);
@@ -367,53 +387,66 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               type="text"
               placeholder="Cerca ticket (es. TKT-2025-254)"
               className="w-64 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              onChange={(e) => {
-                const searchTerm = e.target.value.trim();
-                if (searchTerm) {
-                  // Cerca ticket per numero o ID
-                  const foundTicket = tickets.find(ticket => 
-                    ticket.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    ticket.id?.toString().includes(searchTerm)
-                  );
-                  
-                  if (foundTicket) {
-                    // Seleziona il ticket e naviga alla sezione corretta
-                    if (handlers?.handleSelectTicket) {
-                      handlers.handleSelectTicket(foundTicket);
-                    }
-                    if (onOpenState) {
-                      onOpenState(foundTicket.stato);
-                    }
-                    // Pulisci il campo di ricerca
-                    e.target.value = '';
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && searchResults.length > 0) {
+                  // Seleziona il primo risultato
+                  const firstResult = searchResults[0];
+                  if (handlers?.handleSelectTicket) {
+                    handlers.handleSelectTicket(firstResult);
                   }
+                  if (onOpenState) {
+                    onOpenState(firstResult.stato);
+                  }
+                  setSearchTerm('');
+                  setSearchResults([]);
                 }
               }}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  const searchTerm = e.target.value.trim();
-                  if (searchTerm) {
-                    // Cerca ticket per numero o ID
-                    const foundTicket = tickets.find(ticket => 
-                      ticket.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      ticket.id?.toString().includes(searchTerm)
-                    );
-                    
-                    if (foundTicket) {
-                      // Seleziona il ticket e naviga alla sezione corretta
-                      if (handlers?.handleSelectTicket) {
-                        handlers.handleSelectTicket(foundTicket);
-                      }
-                      if (onOpenState) {
-                        onOpenState(foundTicket.stato);
-                      }
-                      // Pulisci il campo di ricerca
-                      e.target.value = '';
-                    }
-                  }
-                }
+              onBlur={() => {
+                // Chiudi i risultati dopo un breve delay per permettere il click
+                setTimeout(() => setSearchResults([]), 200);
               }}
             />
+            
+            {/* Lista risultati ricerca */}
+            {searchTerm && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                {searchResults.map((ticket) => (
+                  <div
+                    key={ticket.id}
+                    className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
+                    onClick={() => {
+                      if (handlers?.handleSelectTicket) {
+                        handlers.handleSelectTicket(ticket);
+                      }
+                      if (onOpenState) {
+                        onOpenState(ticket.stato);
+                      }
+                      setSearchTerm('');
+                      setSearchResults([]);
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-sm">{ticket.numero}</div>
+                        <div className="text-xs text-gray-600 truncate">{ticket.titolo}</div>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {ticket.stato}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Messaggio nessun risultato */}
+            {searchTerm && searchResults.length === 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 p-3">
+                <div className="text-sm text-gray-500">Nessun ticket trovato</div>
+              </div>
+            )}
           </div>
           <div className="text-sm text-gray-500">Oggi: {formatDate(new Date().toISOString())}</div>
         </div>
