@@ -7,25 +7,38 @@
 Aggiungi queste variabili nel tuo backend su Render:
 
 ```bash
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASSWORD=your-app-password
+EMAIL_USER=your-email@yourdomain.com
+EMAIL_PASSWORD=your-password
 ```
 
-### **2. 🔐 Configurazione Gmail**
+### **2. 🔐 Configurazione Email**
 
-#### **Passo 1: Abilita 2-Factor Authentication**
+#### **Opzione A: Gmail**
+
+##### **Passo 1: Abilita 2-Factor Authentication**
 1. Vai su [Google Account](https://myaccount.google.com/)
 2. Sicurezza → Verifica in due passaggi → Attiva
 
-#### **Passo 2: Genera Password App**
+##### **Passo 2: Genera Password App**
 1. Sicurezza → Password delle app
 2. Seleziona "Mail" e "Altro (nome personalizzato)"
 3. Inserisci "TicketApp"
 4. Copia la password generata (16 caratteri)
 
-#### **Passo 3: Configura Render**
+##### **Passo 3: Configura Render**
 - `EMAIL_USER`: Il tuo indirizzo Gmail completo
 - `EMAIL_PASSWORD`: La password app generata (16 caratteri)
+
+#### **Opzione B: Aruba (logikaservice.it)**
+
+##### **Passo 1: Configurazione Aruba**
+1. Usa la tua email Aruba: `ticketapp@logikaservice.it`
+2. Usa la tua password normale di Aruba
+3. Il sistema rileverà automaticamente il dominio Aruba
+
+##### **Passo 2: Configura Render**
+- `EMAIL_USER`: ticketapp@logikaservice.it
+- `EMAIL_PASSWORD`: la-tua-password-aruba-normale
 
 ### **3. 🎯 Funzionalità Implementate**
 

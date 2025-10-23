@@ -8,13 +8,40 @@ module.exports = (pool) => {
 
   // Configurazione email transporter
   const createTransporter = () => {
-    return nodemailer.createTransporter({
-      service: 'gmail', // Puoi cambiare con altri provider
-      auth: {
-        user: process.env.EMAIL_USER, // Email del mittente
-        pass: process.env.EMAIL_PASSWORD // Password app specifica
-      }
-    });
+    // Supporta sia Gmail che Aruba
+    const isGmail = process.env.EMAIL_USER?.includes('@gmail.com');
+    const isAruba = process.env.EMAIL_USER?.includes('@logikaservice.it') || process.env.EMAIL_USER?.includes('@aruba.it');
+    
+    if (isGmail) {
+      return nodemailer.createTransporter({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD
+        }
+      });
+    } else if (isAruba) {
+      return nodemailer.createTransporter({
+        host: 'smtps.aruba.it',
+        port: 465,
+        secure: true, // SSL
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD
+        }
+      });
+    } else {
+      // Configurazione generica per altri provider
+      return nodemailer.createTransporter({
+        host: 'smtp.gmail.com', // Fallback
+        port: 587,
+        secure: false,
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD
+        }
+      });
+    }
   };
 
   // ENDPOINT: Invia notifica email per nuovo ticket assegnato
