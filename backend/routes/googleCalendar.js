@@ -254,16 +254,32 @@ module.exports = (pool) => {
         console.log('Evento creato con successo:', result.data.id);
         console.log('Evento creato nel calendario:', result.data.htmlLink);
         console.log('Evento creato con data:', result.data.start?.dateTime || result.data.start?.date);
+        
+        // Salva l'ID dell'evento Google Calendar nel database SOLO per la creazione
+        if (result.data?.id) {
+          try {
+            const client = await pool.connect();
+            await client.query(
+              'UPDATE tickets SET googlecalendareventid = $1 WHERE id = $2',
+              [result.data.id, ticket.id]
+            );
+            client.release();
+            console.log(`✅ ID evento Google Calendar salvato per ticket #${ticket.id}: ${result.data.id}`);
+          } catch (dbErr) {
+            console.log('⚠️ Errore salvataggio ID evento Google Calendar:', dbErr.message);
+          }
+        }
+        
       } else if (action === 'update' && ticket.googleCalendarEventId) {
         result = await calendar.events.update({
-          calendarId: 'primary',
+          calendarId: calendarId,
           eventId: ticket.googleCalendarEventId,
           resource: event
         });
       } else if (action === 'delete' && ticket.googleCalendarEventId) {
         // Cancella l'evento da Google Calendar
         result = await calendar.events.delete({
-          calendarId: 'primary',
+          calendarId: calendarId,
           eventId: ticket.googleCalendarEventId
         });
         console.log('Evento cancellato da Google Calendar:', ticket.googleCalendarEventId);
@@ -271,29 +287,14 @@ module.exports = (pool) => {
         return res.status(400).json({ error: 'Azione non valida o ID evento mancante' });
       }
 
-          console.log('Ticket #' + ticket.id + ' sincronizzato con Google Calendar via backend');
-          console.log('Event details:', {
-            summary: event.summary,
-            start: event.start,
-            end: event.end,
-            calendarId: calendarId,
-            eventId: result.data?.id
-          });
-          
-          // Salva l'ID dell'evento Google Calendar nel database
-          if (result.data?.id) {
-            try {
-              const client = await pool.connect();
-              await client.query(
-                'UPDATE tickets SET googlecalendareventid = $1 WHERE id = $2',
-                [result.data.id, ticket.id]
-              );
-              client.release();
-              console.log(`✅ ID evento Google Calendar salvato per ticket #${ticket.id}: ${result.data.id}`);
-            } catch (dbErr) {
-              console.log('⚠️ Errore salvataggio ID evento Google Calendar:', dbErr.message);
-            }
-          }
+      console.log('Ticket #' + ticket.id + ' sincronizzato con Google Calendar via backend');
+      console.log('Event details:', {
+        summary: event.summary,
+        start: event.start,
+        end: event.end,
+        calendarId: calendarId,
+        eventId: result.data?.id
+      });
           
           res.json({
             success: true,

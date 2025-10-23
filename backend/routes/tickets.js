@@ -191,6 +191,7 @@ module.exports = (pool) => {
       }
       
       const ticket = ticketResult.rows[0];
+      console.log(`🗑️ Ticket #${ticket.id} da eliminare - Google Calendar Event ID: ${ticket.googlecalendareventid || 'NON PRESENTE'}`);
       
       // Elimina il ticket dal database
       const result = await client.query('DELETE FROM tickets WHERE id = $1', [id]);
