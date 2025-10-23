@@ -302,7 +302,8 @@ module.exports = (pool) => {
         
         result = await calendar.events.insert({
           calendarId: calendarId,
-          resource: event
+          resource: event,
+          sendUpdates: 'none' // Disabilita inviti email automatici
         });
         console.log('Evento creato con successo:', result.data.id);
         console.log('Evento creato nel calendario:', result.data.htmlLink);

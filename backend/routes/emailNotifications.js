@@ -314,12 +314,6 @@ module.exports = (pool) => {
                 </p>
               </div>
               
-              <div style="background: #fff3e0; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                <p style="margin: 0; color: #f57c00;">
-                  <strong>📅 Il ticket è stato aggiunto al tuo calendario Google!</strong><br>
-                  Puoi visualizzarlo nel tuo calendario personale.
-                </p>
-              </div>
               
               <div style="text-align: center; margin: 30px 0;">
                 <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
