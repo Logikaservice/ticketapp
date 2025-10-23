@@ -143,12 +143,15 @@ export const useGoogleCalendar = () => {
     }
   };
 
-  // Sincronizzazione automatica con Service Account (per backend)
+  // Sincronizzazione automatica con OAuth2 (per backend)
   const syncTicketToCalendarBackend = async (ticket, action = 'create') => {
     try {
-      console.log(`Sincronizzazione automatica ticket #${ticket.id} (${action}) via Service Account`);
+      console.log(`Sincronizzazione automatica ticket #${ticket.id} (${action}) via OAuth2`);
       
-      // Invia ticket al backend per sincronizzazione automatica
+      // Recupera i token OAuth2 dal localStorage
+      const tokens = JSON.parse(localStorage.getItem('google_tokens') || 'null');
+      
+      // Invia ticket e token al backend per sincronizzazione
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/sync-google-calendar`, {
         method: 'POST',
         headers: {
@@ -156,7 +159,8 @@ export const useGoogleCalendar = () => {
         },
         body: JSON.stringify({
           ticket: ticket,
-          action: action
+          action: action,
+          tokens: tokens
         })
       });
 
