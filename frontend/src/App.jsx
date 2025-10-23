@@ -116,7 +116,7 @@ export default function TicketApp() {
   } = useAuth(showNotification);
 
   // Hook per Google Calendar
-  const { syncTicketToCalendar } = useGoogleCalendar();
+  const { syncTicketToCalendarBackend } = useGoogleCalendar();
 
   const {
     handleCreateClient,
@@ -147,7 +147,7 @@ export default function TicketApp() {
     currentUser,
     tickets,
     closeModal,
-    syncTicketToCalendar // Passiamo la funzione di sincronizzazione Google Calendar
+    syncTicketToCalendarBackend // Passiamo la funzione di sincronizzazione Google Calendar
   );
 
   const {

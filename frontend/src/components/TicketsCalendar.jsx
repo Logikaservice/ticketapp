@@ -1,37 +1,15 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, ExternalLink } from 'lucide-react';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { SYNC_STATES } from '../config/googleConfig';
 
 const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [showGoogleEvents, setShowGoogleEvents] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedDateTickets, setSelectedDateTickets] = useState([]);
   
   // Hook per Google Calendar
-  const {
-    isAuthenticated,
-    events: googleEvents,
-    loading: googleLoading,
-    error: googleError,
-    authenticate,
-    signOut,
-    loadEvents,
-    syncTicketToCalendar,
-    updateCalendarEvent,
-    deleteCalendarEvent,
-    autoSyncTicket,
-    updateTicketInCalendar,
-    checkExistingConnection
-  } = useGoogleCalendar();
-
-  // Controlla connessione Google esistente al caricamento
-  useEffect(() => {
-    if (currentUser?.ruolo === 'tecnico') {
-      checkExistingConnection();
-    }
-  }, [currentUser, checkExistingConnection]);
+  const { syncTicketToCalendarBackend } = useGoogleCalendar();
 
   // Funzione per sincronizzare tutti i ticket
   const handleSyncAllTickets = async () => {
@@ -42,7 +20,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
       
       for (const ticket of ticketsToSync) {
         try {
-          await syncTicketToCalendar(ticket);
+          await syncTicketToCalendarBackend(ticket, 'create');
           console.log(`Ticket #${ticket.id} sincronizzato con Google Calendar`);
         } catch (err) {
           console.error(`Errore sincronizzazione ticket #${ticket.id}:`, err);
@@ -229,45 +207,16 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Calendario Ticket</h3>
           <div className="flex items-center gap-2">
-            {/* Controlli Google Calendar - Solo sincronizzazione */}
-            <div className="flex items-center gap-2 mr-4">
-              {!isAuthenticated ? (
-                <button
-                  onClick={authenticate}
-                  disabled={googleLoading}
-                  className="flex items-center gap-1 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:opacity-50"
-                >
-                  <Calendar size={14} />
-                  {googleLoading ? 'Caricamento...' : 'Connetti Google'}
-                </button>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 px-3 py-1 bg-green-500 text-white text-xs rounded">
-                    <Calendar size={14} />
-                    Google Connesso
-                  </div>
-                  <button
-                    onClick={signOut}
-                    className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
-                  >
-                    Disconnetti
-                  </button>
-                </div>
-              )}
-            </div>
-            
             {/* Sincronizzazione Ticket */}
-            {isAuthenticated && (
-              <div className="flex items-center gap-2 mr-4">
-                <button 
-                  onClick={handleSyncAllTickets} 
-                  className="flex items-center gap-1 px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                >
-                  <Calendar size={14} />
-                  Sincronizza Ticket
-                </button>
-              </div>
-            )}
+            <div className="flex items-center gap-2 mr-4">
+              <button 
+                onClick={handleSyncAllTickets} 
+                className="flex items-center gap-1 px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+              >
+                <Calendar size={14} />
+                Sincronizza Ticket
+              </button>
+            </div>
             
             {/* Navigazione mese */}
             <div className="flex items-center gap-2">
@@ -290,33 +239,10 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
           </div>
         </div>
         
-            {/* Messaggi di errore Google Calendar */}
-            {googleError && (
-              <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded">
-                {googleError}
-                {googleError.includes('non configurato') && (
-                  <div className="mt-1 text-xs">
-                    <strong>Soluzione:</strong> Configura le variabili d'ambiente su Render:
-                    <br />• REACT_APP_GOOGLE_CLIENT_ID
-                    <br />• REACT_APP_GOOGLE_CLIENT_SECRET  
-                    <br />• REACT_APP_GOOGLE_PROJECT_ID
-                    <br />• REACT_APP_GOOGLE_API_KEY
-                  </div>
-                )}
-              </div>
-            )}
-            
             {/* Messaggio informativo */}
             <div className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
-              📅 <strong>Sincronizzazione automatica:</strong> I ticket presi in carico vengono sincronizzati automaticamente con Google Calendar. Le modifiche ai ticket si riflettono automaticamente su Google Calendar. Gli eventi Google non vengono mostrati in questo calendario.
+              📅 <strong>Sincronizzazione automatica:</strong> I ticket vengono sincronizzati automaticamente con Google Calendar tramite Service Account. Le modifiche ai ticket si riflettono automaticamente su Google Calendar.
             </div>
-            
-            {/* Messaggio per problemi CSP */}
-            {googleError && googleError.includes('CSP') && (
-              <div className="mt-2 text-xs text-orange-600 bg-orange-50 p-2 rounded">
-                ⚠️ <strong>Problema CSP:</strong> Se vedi errori CSP nella console, questo è normale su Render. La sincronizzazione funziona comunque.
-              </div>
-            )}
       </div>
 
       <div className="p-4">
