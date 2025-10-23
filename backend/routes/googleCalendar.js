@@ -50,12 +50,12 @@ module.exports = (pool) => {
 
       // Gestisci diversi formati di data
       let startDate;
-      if (ticket.dataApertura) {
+      if (ticket.dataapertura) {
         const dateFormats = [
-          ticket.dataApertura,
-          new Date(ticket.dataApertura),
-          new Date(ticket.dataApertura.replace(/-/g, '/')),
-          new Date(ticket.dataApertura + 'T00:00:00'),
+          ticket.dataapertura,
+          new Date(ticket.dataapertura),
+          new Date(ticket.dataapertura.replace(/-/g, '/')),
+          new Date(ticket.dataapertura + 'T00:00:00'),
         ];
         
         for (const dateFormat of dateFormats) {
@@ -84,23 +84,10 @@ module.exports = (pool) => {
       // Log della data utilizzata
       console.log('Ticket date info:', {
         ticketId: ticket.id,
-        dataApertura: ticket.dataApertura,
+        dataapertura: ticket.dataapertura,
         created_at: ticket.created_at,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
-      });
-      
-      // Log di tutti i campi del ticket per debug
-      console.log('All ticket fields:', Object.keys(ticket));
-      console.log('Ticket data sample:', {
-        id: ticket.id,
-        titolo: ticket.titolo,
-        dataApertura: ticket.dataApertura,
-        created_at: ticket.created_at,
-        data_creazione: ticket.data_creazione,
-        dataCreazione: ticket.dataCreazione,
-        timestamp: ticket.timestamp,
-        date: ticket.date
       });
 
       const event = {
