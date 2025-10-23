@@ -137,10 +137,12 @@ module.exports = (pool) => {
           resource: event
         });
       } else if (action === 'delete' && ticket.googleCalendarEventId) {
+        // Cancella l'evento da Google Calendar
         result = await calendar.events.delete({
           calendarId: 'primary',
           eventId: ticket.googleCalendarEventId
         });
+        console.log('Evento cancellato da Google Calendar:', ticket.googleCalendarEventId);
       } else {
         return res.status(400).json({ error: 'Azione non valida o ID evento mancante' });
       }

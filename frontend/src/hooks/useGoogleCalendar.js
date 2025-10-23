@@ -144,9 +144,9 @@ export const useGoogleCalendar = () => {
   };
 
   // Sincronizzazione automatica con Service Account (per backend)
-  const syncTicketToCalendarBackend = async (ticket) => {
+  const syncTicketToCalendarBackend = async (ticket, action = 'create') => {
     try {
-      console.log('Sincronizzazione automatica ticket #' + ticket.id + ' via Service Account');
+      console.log(`Sincronizzazione automatica ticket #${ticket.id} (${action}) via Service Account`);
       
       // Invia ticket al backend per sincronizzazione automatica
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/sync-google-calendar`, {
@@ -156,7 +156,7 @@ export const useGoogleCalendar = () => {
         },
         body: JSON.stringify({
           ticket: ticket,
-          action: 'create'
+          action: action
         })
       });
 
