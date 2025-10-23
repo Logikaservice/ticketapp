@@ -70,6 +70,14 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         return;
       }
       
+      // DEBUG: Log per vedere le date
+      console.log('Ticket date debug:', {
+        ticketId: ticket.id,
+        numero: ticket.numero,
+        dataapertura: ticket.dataapertura,
+        dataaperturaType: typeof ticket.dataapertura
+      });
+      
       // SOLUZIONE FUSO ORARIO: Gestisci correttamente le date UTC
       let dateKey;
       
@@ -82,6 +90,8 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         dateKey = ticket.dataapertura;
       }
       
+      console.log('DateKey generato:', dateKey);
+      
       if (!grouped[dateKey]) {
         grouped[dateKey] = {};
       }
@@ -93,6 +103,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
       grouped[dateKey][ticket.priorita].push(ticket);
     });
     
+    console.log('TicketsByDate grouped:', grouped);
     return grouped;
   }, [relevantTickets]);
 
