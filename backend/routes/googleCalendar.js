@@ -183,22 +183,22 @@ module.exports = (pool) => {
               if (userEmail && userEmail !== 'YOUR_EMAIL@gmail.com') {
                 console.log('Tentativo condivisione calendario con:', userEmail);
                 
-                try {
-                  const shareResult = await calendar.acl.insert({
-                    calendarId: testCalendar.data.id,
-                    resource: {
-                      role: 'reader',
-                      scope: {
-                        type: 'user',
-                        value: userEmail
+                  try {
+                    const shareResult = await calendar.acl.insert({
+                      calendarId: testCalendar.data.id,
+                      resource: {
+                        role: 'writer',
+                        scope: {
+                          type: 'user',
+                          value: userEmail
+                        }
                       }
-                    }
-                  });
-                  console.log('Calendario condiviso con successo:', shareResult.data);
-                  console.log('IMPORTANTE: Controlla il tuo Google Calendar per vedere "TicketApp Test Calendar"');
-                } catch (shareErr) {
-                  console.log('ERRORE condivisione calendario:', shareErr.message);
-                }
+                    });
+                    console.log('Calendario condiviso con permessi di SCRITTURA:', shareResult.data);
+                    console.log('IMPORTANTE: Ora puoi modificare gli eventi nel "TicketApp Test Calendar"');
+                  } catch (shareErr) {
+                    console.log('ERRORE condivisione calendario:', shareErr.message);
+                  }
               } else {
                 console.log('GOOGLE_USER_EMAIL non configurato. Aggiungi la variabile su Render con il tuo email.');
               }
@@ -225,21 +225,38 @@ module.exports = (pool) => {
           if (userEmail && userEmail !== 'YOUR_EMAIL@gmail.com') {
             console.log('Verifica condivisione calendario esistente con:', userEmail);
             try {
-              // Prova a condividere il calendario esistente
+              // Prova a condividere il calendario esistente con permessi di scrittura
               const shareResult = await calendar.acl.insert({
                 calendarId: calendarId,
                 resource: {
-                  role: 'reader',
+                  role: 'writer',
                   scope: {
                     type: 'user',
                     value: userEmail
                   }
                 }
               });
-              console.log('Calendario esistente condiviso con successo:', shareResult.data);
+              console.log('Calendario esistente condiviso con permessi di SCRITTURA:', shareResult.data);
             } catch (shareErr) {
               if (shareErr.message.includes('already exists')) {
-                console.log('Calendario già condiviso con questo utente');
+                console.log('Calendario già condiviso con questo utente - aggiornamento permessi a WRITER');
+                // Prova ad aggiornare i permessi esistenti
+                try {
+                  const updateResult = await calendar.acl.update({
+                    calendarId: calendarId,
+                    ruleId: `user:${userEmail}`,
+                    resource: {
+                      role: 'writer',
+                      scope: {
+                        type: 'user',
+                        value: userEmail
+                      }
+                    }
+                  });
+                  console.log('Permessi aggiornati a WRITER:', updateResult.data);
+                } catch (updateErr) {
+                  console.log('Errore aggiornamento permessi:', updateErr.message);
+                }
               } else {
                 console.log('ERRORE condivisione calendario esistente:', shareErr.message);
               }
