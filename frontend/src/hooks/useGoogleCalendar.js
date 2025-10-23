@@ -69,32 +69,101 @@ export const useGoogleCalendar = () => {
     });
   }, []);
 
-  // Autenticazione
+  // Autenticazione con Google Identity Services
   const authenticate = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Usa un approccio più semplice con popup
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CONFIG.CLIENT_ID}&redirect_uri=${encodeURIComponent('https://ticketapp-frontend-ton5.onrender.com')}&scope=${encodeURIComponent('openid email profile')}&response_type=code&access_type=offline`;
-      
-      // Apri popup per autenticazione
-      const popup = window.open(authUrl, 'googleAuth', 'width=500,height=600,scrollbars=yes,resizable=yes');
-      
-      // Monitora il popup
-      const checkClosed = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(checkClosed);
+      // Carica Google Identity Services se non è già caricato
+      if (!window.google) {
+        await loadGoogleIdentityServices();
+      }
+
+      // Configura il client OAuth
+      const client = window.google.accounts.oauth2.initCodeClient({
+        client_id: GOOGLE_CONFIG.CLIENT_ID,
+        scope: GOOGLE_CONFIG.SCOPES,
+        ux_mode: 'popup',
+        callback: (response) => {
+          console.log('OAuth response received:', response);
+          if (response.code) {
+            // Invia il codice al backend per scambiarlo con un token
+            exchangeCodeForToken(response.code);
+          } else {
+            setError('Nessun codice di autorizzazione ricevuto');
+            setLoading(false);
+          }
+        },
+        error_callback: (error) => {
+          console.error('OAuth error:', error);
+          setError(`Errore OAuth: ${error.type}`);
           setLoading(false);
-          // Qui potresti implementare la logica per gestire il token
-          // Per ora mostriamo un messaggio
-          setError('Autenticazione Google non completata. Riprova.');
         }
-      }, 1000);
+      });
+
+      // Avvia il flusso OAuth
+      client.requestCode();
       
     } catch (err) {
       console.error('Errore autenticazione:', err);
       setError(`Errore durante l'autenticazione con Google: ${err.message}`);
+      setLoading(false);
+    }
+  };
+
+  // Carica Google Identity Services
+  const loadGoogleIdentityServices = () => {
+    return new Promise((resolve, reject) => {
+      if (window.google && window.google.accounts) {
+        resolve();
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        console.log('Google Identity Services caricato');
+        resolve();
+      };
+      
+      script.onerror = (err) => {
+        console.error('Errore caricamento Google Identity Services:', err);
+        reject(err);
+      };
+      
+      document.head.appendChild(script);
+    });
+  };
+
+  // Scambia il codice con un token
+  const exchangeCodeForToken = async (code) => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/google-auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code })
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore scambio codice per token');
+      }
+
+      const result = await response.json();
+      console.log('Token ricevuto:', result);
+      
+      setIsAuthenticated(true);
+      setLoading(false);
+      setError(null);
+      
+    } catch (err) {
+      console.error('Errore scambio token:', err);
+      setError('Errore durante l\'autenticazione con Google');
       setLoading(false);
     }
   };
