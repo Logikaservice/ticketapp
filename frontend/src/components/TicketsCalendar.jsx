@@ -116,7 +116,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
     });
     
     return grouped;
-  }, [relevantTickets, showGoogleEvents, googleEvents]);
+  }, [relevantTickets]);
 
   // Funzione per ottenere il colore della priorità
   const getPriorityColor = (priorita) => {
