@@ -83,7 +83,7 @@ export const useGoogleCalendar = () => {
       // Configura il client OAuth
       const client = window.google.accounts.oauth2.initCodeClient({
         client_id: GOOGLE_CONFIG.CLIENT_ID,
-        scope: GOOGLE_CONFIG.SCOPES,
+        scope: 'https://www.googleapis.com/auth/calendar',
         ux_mode: 'popup',
         callback: (response) => {
           console.log('OAuth response received:', response);
