@@ -79,6 +79,38 @@ module.exports = (pool) => {
         }
       }
       
+      // Invia notifica email ai tecnici
+      try {
+        console.log('📧 Invio notifica ai tecnici...');
+        const techniciansData = await pool.query('SELECT email, nome, cognome FROM users WHERE ruolo = \'tecnico\' AND email IS NOT NULL');
+        
+        for (const technician of techniciansData.rows) {
+          try {
+            const technicianEmailResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/email/notify-technician-new-ticket`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                ticket: result.rows[0],
+                technicianEmail: technician.email,
+                technicianName: `${technician.nome} ${technician.cognome}`
+              })
+            });
+            
+            if (technicianEmailResponse.ok) {
+              console.log(`✅ Email notifica inviata al tecnico: ${technician.email}`);
+            } else {
+              console.log(`⚠️ Errore invio email al tecnico: ${technician.email}`);
+            }
+          } catch (techEmailErr) {
+            console.log(`⚠️ Errore invio email tecnico ${technician.email}:`, techEmailErr.message);
+          }
+        }
+      } catch (techErr) {
+        console.log('⚠️ Errore invio email ai tecnici:', techErr.message);
+      }
+      
       res.status(201).json(result.rows[0]);
     } catch (err) {
       console.error('Errore nella creazione del ticket:', err);

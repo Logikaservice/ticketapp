@@ -431,5 +431,111 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Invia notifica email al tecnico per nuovo ticket
+  router.post('/notify-technician-new-ticket', async (req, res) => {
+    try {
+      console.log('📧 === INVIO EMAIL TECNICO NUOVO TICKET ===');
+      const { ticket, technicianEmail, technicianName } = req.body;
+      
+      console.log('Dati ricevuti:', { 
+        ticketId: ticket?.id, 
+        ticketNumero: ticket?.numero,
+        technicianEmail, 
+        technicianName 
+      });
+      
+      if (!ticket || !technicianEmail) {
+        console.log('❌ Dati mancanti:', { ticket: !!ticket, technicianEmail: !!technicianEmail });
+        return res.status(400).json({ error: 'Ticket e email tecnico sono obbligatori' });
+      }
+
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        console.log('⚠️ Credenziali email non configurate');
+        return res.json({
+          success: false,
+          message: 'Sistema email non configurato'
+        });
+      }
+
+      console.log('🔧 Creazione transporter...');
+      const transporter = createTransporter();
+      
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: technicianEmail,
+        subject: `🎫 Nuovo Ticket #${ticket.numero} - ${ticket.titolo}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0;">🎫 TicketApp</h1>
+              <p style="margin: 10px 0 0 0;">Nuovo Ticket di Assistenza</p>
+            </div>
+            
+            <div style="padding: 30px; background: #f8f9fa;">
+              <h2 style="color: #333; margin-top: 0;">Ciao ${technicianName || 'Tecnico'}!</h2>
+              
+              <p>È stato creato un nuovo ticket di assistenza:</p>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+                <h3 style="color: #3b82f6; margin-top: 0;">📋 Dettagli Ticket</h3>
+                <p><strong>Numero:</strong> ${ticket.numero}</p>
+                <p><strong>Titolo:</strong> ${ticket.titolo}</p>
+                <p><strong>Descrizione:</strong> ${ticket.descrizione}</p>
+                <p><strong>Priorità:</strong> <span style="color: ${getPriorityColor(ticket.priorita)}">${ticket.priorita.toUpperCase()}</span></p>
+                <p><strong>Stato:</strong> ${ticket.stato}</p>
+                <p><strong>Data apertura:</strong> ${new Date(ticket.dataapertura).toLocaleDateString('it-IT')}</p>
+                <p><strong>Richiedente:</strong> ${ticket.nomerichiedente}</p>
+              </div>
+              
+              <div style="background: #e0f2f7; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #0288d1;">
+                  <strong>🔔 Nuovo ticket da gestire!</strong><br>
+                  Il ticket è stato aggiunto al calendario e richiede la tua attenzione.
+                </p>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
+                   style="background: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                  🔗 Accedi al Sistema
+                </a>
+              </div>
+              
+              <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+              
+              <p style="color: #666; font-size: 14px; margin: 0;">
+                Questa email è stata inviata automaticamente dal sistema TicketApp.<br>
+                Per assistenza, contatta il supporto tecnico.
+              </p>
+            </div>
+          </div>
+        `
+      };
+
+      console.log('📤 Invio email tecnico...');
+      console.log('Mail options:', {
+        from: mailOptions.from,
+        to: mailOptions.to,
+        subject: mailOptions.subject
+      });
+      
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email tecnico inviata con successo:', info.messageId);
+      
+      res.json({
+        success: true,
+        messageId: info.messageId,
+        message: 'Email tecnico inviata con successo'
+      });
+
+    } catch (err) {
+      console.error('❌ Errore invio email tecnico:', err);
+      res.status(500).json({ 
+        error: 'Errore invio email tecnico',
+        details: err.message 
+      });
+    }
+  });
+
   return router;
 };
