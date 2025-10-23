@@ -11,28 +11,6 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
   // Hook per Google Calendar
   const { syncTicketToCalendarBackend } = useGoogleCalendar();
 
-  // Funzione per sincronizzare tutti i ticket
-  const handleSyncAllTickets = async () => {
-    try {
-      const ticketsToSync = tickets.filter(ticket => 
-        SYNC_STATES.includes(ticket.stato)
-      );
-      
-      for (const ticket of ticketsToSync) {
-        try {
-          await syncTicketToCalendarBackend(ticket, 'create');
-          console.log(`Ticket #${ticket.id} sincronizzato con Google Calendar`);
-        } catch (err) {
-          console.error(`Errore sincronizzazione ticket #${ticket.id}:`, err);
-        }
-      }
-      
-      alert(`Sincronizzazione completata! ${ticketsToSync.length} ticket sincronizzati.`);
-    } catch (err) {
-      console.error('Errore sincronizzazione:', err);
-      alert('Errore durante la sincronizzazione. Controlla la console per i dettagli.');
-    }
-  };
 
   // Funzione per gestire il click sui giorni
   const handleDayClick = (day) => {
@@ -207,17 +185,6 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         <div className="flex items-center justify-between">
           <h3 className="font-semibold">Calendario Ticket</h3>
           <div className="flex items-center gap-2">
-            {/* Sincronizzazione Ticket */}
-            <div className="flex items-center gap-2 mr-4">
-              <button 
-                onClick={handleSyncAllTickets} 
-                className="flex items-center gap-1 px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-              >
-                <Calendar size={14} />
-                Sincronizza Ticket
-              </button>
-            </div>
-            
             {/* Navigazione mese */}
             <div className="flex items-center gap-2">
               <button
@@ -238,11 +205,6 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
             </div>
           </div>
         </div>
-        
-            {/* Messaggio informativo */}
-            <div className="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
-              📅 <strong>Sincronizzazione automatica:</strong> I ticket vengono sincronizzati automaticamente con Google Calendar tramite Service Account. Le modifiche ai ticket si riflettono automaticamente su Google Calendar.
-            </div>
       </div>
 
       <div className="p-4">

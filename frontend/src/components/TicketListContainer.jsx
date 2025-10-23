@@ -93,6 +93,27 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
     }
   }, [ticketCounts, viewState]);
 
+  // Scroll automatico al ticket selezionato
+  useEffect(() => {
+    if (selectedTicket) {
+      // Aspetta che il DOM si aggiorni
+      setTimeout(() => {
+        const ticketElement = document.querySelector(`[data-ticket-id="${selectedTicket.id}"]`);
+        if (ticketElement) {
+          ticketElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+          // Evidenzia temporaneamente il ticket
+          ticketElement.classList.add('ring-2', 'ring-blue-500', 'bg-blue-50');
+          setTimeout(() => {
+            ticketElement.classList.remove('ring-2', 'ring-blue-500', 'bg-blue-50');
+          }, 2000);
+        }
+      }, 100);
+    }
+  }, [selectedTicket]);
+
   const markAsViewed = (status) => {
     const newLastSeen = {
       ...lastSeenCounts,

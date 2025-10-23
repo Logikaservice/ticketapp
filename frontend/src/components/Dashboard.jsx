@@ -49,7 +49,6 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
     <div className="p-4 border-b flex items-center justify-between">
       <h3 className="font-semibold">Avvisi Importanti</h3>
       <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1 text-yellow-700 bg-yellow-100 px-2 py-1 rounded-full text-xs font-bold">⚠ Avvisi</span>
         {currentUser?.ruolo === 'tecnico' && (
           <button
             onClick={onManageAlerts}
@@ -361,7 +360,63 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">Dashboard Riepilogo ({roleLabel})</h2>
-        <div className="text-sm text-gray-500">Oggi: {formatDate(new Date().toISOString())}</div>
+        <div className="flex items-center gap-4">
+          {/* Campo ricerca veloce */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Cerca ticket (es. TKT-2025-254)"
+              className="w-64 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={(e) => {
+                const searchTerm = e.target.value.trim();
+                if (searchTerm) {
+                  // Cerca ticket per numero o ID
+                  const foundTicket = tickets.find(ticket => 
+                    ticket.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    ticket.id?.toString().includes(searchTerm)
+                  );
+                  
+                  if (foundTicket) {
+                    // Seleziona il ticket e naviga alla sezione corretta
+                    if (handlers?.handleSelectTicket) {
+                      handlers.handleSelectTicket(foundTicket);
+                    }
+                    if (onOpenState) {
+                      onOpenState(foundTicket.stato);
+                    }
+                    // Pulisci il campo di ricerca
+                    e.target.value = '';
+                  }
+                }
+              }}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  const searchTerm = e.target.value.trim();
+                  if (searchTerm) {
+                    // Cerca ticket per numero o ID
+                    const foundTicket = tickets.find(ticket => 
+                      ticket.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      ticket.id?.toString().includes(searchTerm)
+                    );
+                    
+                    if (foundTicket) {
+                      // Seleziona il ticket e naviga alla sezione corretta
+                      if (handlers?.handleSelectTicket) {
+                        handlers.handleSelectTicket(foundTicket);
+                      }
+                      if (onOpenState) {
+                        onOpenState(foundTicket.stato);
+                      }
+                      // Pulisci il campo di ricerca
+                      e.target.value = '';
+                    }
+                  }
+                }
+              }}
+            />
+          </div>
+          <div className="text-sm text-gray-500">Oggi: {formatDate(new Date().toISOString())}</div>
+        </div>
       </div>
 
       {/* Stat menu style */}
@@ -401,7 +456,16 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         <div>
           <TicketsCalendar 
             tickets={tickets}
-            onTicketClick={handlers?.handleSelectTicket}
+            onTicketClick={(ticket) => {
+              // Naviga alla sezione corretta e seleziona il ticket
+              if (handlers?.handleSelectTicket) {
+                handlers.handleSelectTicket(ticket);
+              }
+              // Naviga alla sezione corretta basata sullo stato del ticket
+              if (onOpenState) {
+                onOpenState(ticket.stato);
+              }
+            }}
             currentUser={currentUser}
           />
         </div>

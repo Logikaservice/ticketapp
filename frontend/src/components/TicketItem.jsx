@@ -32,6 +32,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
   return (
     <>
       <div
+        data-ticket-id={ticket.id}
         onClick={() => handleSelectTicket(ticket)}
         className={'cursor-pointer border-b relative overflow-hidden transition-all ' + 
   (ticket.isNew ? 'bg-yellow-50 border-yellow-300 animate-pulse-slow shadow-md hover:bg-yellow-100' : 
