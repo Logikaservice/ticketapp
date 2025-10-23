@@ -26,11 +26,19 @@ export default function TicketApp() {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   
-  // Controlla se abbiamo un codice OAuth nell'URL
-  const urlParams = new URLSearchParams(window.location.search);
-  const oauthCode = urlParams.get('code');
-  const isGoogleCallback = !!oauthCode;
-  console.log('OAuth code:', oauthCode, 'Is Google callback:', isGoogleCallback);
+  // Controlla se abbiamo un codice OAuth nell'URL (solo una volta)
+  const [oauthCode, setOauthCode] = useState(null);
+  const [isGoogleCallback, setIsGoogleCallback] = useState(false);
+  
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    if (code) {
+      setOauthCode(code);
+      setIsGoogleCallback(true);
+      console.log('OAuth code found:', code);
+    }
+  }, []);
   
   const [notifications, setNotifications] = useState([]);
 
