@@ -8,65 +8,14 @@ export const useGoogleCalendar = () => {
   const [error, setError] = useState(null);
   const [lastTokenCheck, setLastTokenCheck] = useState(0); // Aggiungiamo un timestamp per evitare verifiche continue
 
-  // Carica Google Calendar API
+  // Verifica credenziali Google
   useEffect(() => {
-    const loadGoogleAPI = () => {
-      return new Promise((resolve, reject) => {
-        if (window.gapi) {
-          resolve();
-          return;
-        }
-
-        // Verifica se le credenziali sono configurate
-        if (!GOOGLE_CONFIG.CLIENT_ID) {
-          console.error('Google Client ID non configurato:', GOOGLE_CONFIG.CLIENT_ID);
-          setError('Google Calendar non configurato. Contatta l\'amministratore per configurare le credenziali Google.');
-          reject(new Error('Google Client ID non configurato. Verifica le variabili d\'ambiente.'));
-          return;
-        }
-        
-        console.log('Google Client ID configurato:', GOOGLE_CONFIG.CLIENT_ID);
-
-        // Carica solo Google API script (senza Google Identity Services per ora)
-        const script = document.createElement('script');
-        script.src = 'https://apis.google.com/js/api.js';
-        script.async = true;
-        script.defer = true;
-        
-        script.onload = () => {
-          console.log('Google API script caricato con successo');
-          
-          // Inizializza solo il client
-          window.gapi.load('client', () => {
-            console.log('Google API client caricato');
-            window.gapi.client.init({
-              apiKey: process.env.REACT_APP_GOOGLE_API_KEY,
-              clientId: GOOGLE_CONFIG.CLIENT_ID,
-              discoveryDocs: GOOGLE_CONFIG.DISCOVERY_DOCS,
-              scope: GOOGLE_CONFIG.SCOPES
-            }).then(() => {
-              console.log('Google API client inizializzato con successo');
-              resolve();
-            }).catch((err) => {
-              console.error('Errore inizializzazione Google API:', err);
-              reject(err);
-            });
-          });
-        };
-        
-        script.onerror = (err) => {
-          console.error('Errore caricamento script Google API:', err);
-          reject(new Error('Impossibile caricare Google API script'));
-        };
-        
-        document.head.appendChild(script);
-      });
-    };
-
-    loadGoogleAPI().catch(err => {
-      console.error('Errore caricamento Google API:', err);
-      setError(`Errore nel caricamento di Google Calendar API: ${err.message}`);
-    });
+    if (!GOOGLE_CONFIG.CLIENT_ID) {
+      console.error('Google Client ID non configurato:', GOOGLE_CONFIG.CLIENT_ID);
+      setError('Google Calendar non configurato. Contatta l\'amministratore per configurare le credenziali Google.');
+    } else {
+      console.log('Google Client ID configurato:', GOOGLE_CONFIG.CLIENT_ID);
+    }
   }, []);
 
   // Autenticazione con URL manuale
