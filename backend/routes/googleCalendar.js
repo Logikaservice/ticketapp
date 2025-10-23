@@ -113,11 +113,23 @@ module.exports = (pool) => {
       }
 
       console.log('Ticket #' + ticket.id + ' sincronizzato con Google Calendar via backend');
+      console.log('Event details:', {
+        summary: event.summary,
+        start: event.start,
+        end: event.end,
+        calendarId: 'primary',
+        eventId: result.data?.id
+      });
       
       res.json({
         success: true,
         eventId: result.data?.id,
-        message: 'Ticket sincronizzato con Google Calendar'
+        message: 'Ticket sincronizzato con Google Calendar',
+        eventDetails: {
+          summary: event.summary,
+          start: event.start,
+          end: event.end
+        }
       });
 
     } catch (err) {
