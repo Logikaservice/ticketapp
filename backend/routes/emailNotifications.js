@@ -61,7 +61,7 @@ module.exports = (pool) => {
   router.post('/notify-ticket-assigned', async (req, res) => {
     try {
       console.log('📧 === INVIO EMAIL TICKET ASSEGNATO ===');
-      const { ticket, clientEmail, clientName } = req.body;
+      const { ticket, clientEmail, clientName, clientAzienda } = req.body;
       
       console.log('Dati ricevuti:', { 
         ticketId: ticket?.id, 
@@ -100,7 +100,7 @@ module.exports = (pool) => {
             </div>
             
             <div style="padding: 30px; background: #f8f9fa;">
-              <h2 style="color: #333; margin-top: 0;">Ciao ${clientName || 'Cliente'}!</h2>
+              <h2 style="color: #333; margin-top: 0;">Ciao ${clientAzienda || 'Cliente'}!</h2>
               
               <p>Ti è stato assegnato un nuovo ticket di assistenza:</p>
               
@@ -168,7 +168,7 @@ module.exports = (pool) => {
   // ENDPOINT: Invia notifica per aggiornamento ticket
   router.post('/notify-ticket-updated', async (req, res) => {
     try {
-      const { ticket, clientEmail, clientName, changes } = req.body;
+      const { ticket, clientEmail, clientName, clientAzienda, changes } = req.body;
       
       if (!ticket || !clientEmail) {
         return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
@@ -195,7 +195,7 @@ module.exports = (pool) => {
             </div>
             
             <div style="padding: 30px; background: #f8f9fa;">
-              <h2 style="color: #333; margin-top: 0;">Ciao ${clientName || 'Cliente'}!</h2>
+              <h2 style="color: #333; margin-top: 0;">Ciao ${clientAzienda || 'Cliente'}!</h2>
               
               <p>Il tuo ticket è stato aggiornato:</p>
               
@@ -265,7 +265,7 @@ module.exports = (pool) => {
   // ENDPOINT: Invia notifica email per ticket creato dal cliente
   router.post('/notify-ticket-created', async (req, res) => {
     try {
-      const { ticket, clientEmail, clientName, isSelfCreated } = req.body;
+      const { ticket, clientEmail, clientName, clientAzienda, isSelfCreated } = req.body;
       
       if (!ticket || !clientEmail) {
         return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
@@ -293,7 +293,7 @@ module.exports = (pool) => {
             </div>
             
             <div style="padding: 30px; background: #f8f9fa;">
-              <h2 style="color: #333; margin-top: 0;">Ciao ${clientName || 'Cliente'}!</h2>
+              <h2 style="color: #333; margin-top: 0;">Ciao ${clientAzienda || 'Cliente'}!</h2>
               
               <p>Hai creato con successo un nuovo ticket di assistenza:</p>
               

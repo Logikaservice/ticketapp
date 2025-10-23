@@ -63,6 +63,7 @@ module.exports = (pool) => {
                 ticket: result.rows[0],
                 clientEmail: client.email,
                 clientName: `${client.nome} ${client.cognome}`,
+                clientAzienda: client.azienda,
                 isSelfCreated: isSelfCreated
               })
             });
@@ -121,6 +122,7 @@ module.exports = (pool) => {
                 ticket: result.rows[0],
                 clientEmail: client.email,
                 clientName: `${client.nome} ${client.cognome}`,
+                clientAzienda: client.azienda,
                 changes: 'Ticket aggiornato'
               })
             });
