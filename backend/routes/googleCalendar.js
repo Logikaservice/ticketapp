@@ -6,44 +6,42 @@ const { google } = require('googleapis');
 module.exports = (pool) => {
   const router = express.Router();
 
-  // Configurazione Google Calendar API con Service Account
-  const auth = new google.auth.GoogleAuth({
-    credentials: {
-      type: "service_account",
-      project_id: process.env.GOOGLE_PROJECT_ID || "ticketapp-b2a2a",
-      private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      auth_uri: "https://accounts.google.com/o/oauth2/auth",
-      token_uri: "https://oauth2.googleapis.com/token",
-      auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-      client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL,
-      universe_domain: "googleapis.com"
-    },
-    scopes: ['https://www.googleapis.com/auth/calendar']
-  });
+  // Configurazione Google Calendar API con OAuth2
+  const auth = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI || 'https://ticketapp-frontend-ton5.onrender.com'
+  );
 
   // ENDPOINT: Sincronizza ticket con Google Calendar
   router.post('/sync-google-calendar', async (req, res) => {
     try {
-      const { ticket, action } = req.body;
+      const { ticket, action, tokens } = req.body;
 
       if (!ticket) {
         return res.status(400).json({ error: 'Ticket non fornito' });
       }
 
-      // Verifica che le credenziali siano configurate
-      if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
-        console.log('Credenziali Google Calendar non configurate, sincronizzazione saltata');
+      // Verifica che le credenziali OAuth2 siano configurate
+      if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+        console.log('Credenziali Google OAuth2 non configurate, sincronizzazione saltata');
         return res.json({
           success: false,
-          message: 'Google Calendar non configurato'
+          message: 'Google OAuth2 non configurato'
         });
       }
 
-      // Crea evento Google Calendar
-      const oauth2Client = await auth.getClient();
+      // Usa OAuth2 client per accedere al calendario dell'utente
+      const oauth2Client = auth;
+      
+      // Imposta i token OAuth2 se forniti
+      if (tokens) {
+        oauth2Client.setCredentials(tokens);
+        console.log('OAuth2 tokens impostati per l\'utente');
+      } else {
+        console.log('Nessun token OAuth2 fornito, usando credenziali di default');
+      }
+      
       const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
       // Verifica il Calendar ID reale

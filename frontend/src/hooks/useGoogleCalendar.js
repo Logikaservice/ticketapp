@@ -173,9 +173,19 @@ export const useGoogleCalendar = () => {
       const result = await response.json();
       console.log('Token ricevuto:', result);
       
-      setIsAuthenticated(true);
-      setLoading(false);
-      setError(null);
+      if (result.success) {
+        // Salva i token nel localStorage per usarli nelle sincronizzazioni
+        localStorage.setItem('google_tokens', JSON.stringify(result.tokens));
+        console.log('Token OAuth2 salvati nel localStorage');
+        
+        setIsAuthenticated(true);
+        setLoading(false);
+        setError(null);
+        console.log('Autenticazione Google completata con successo');
+      } else {
+        setError(result.error || 'Errore durante l\'autenticazione');
+        setLoading(false);
+      }
       
     } catch (err) {
       console.error('Errore scambio token:', err);
@@ -189,7 +199,10 @@ export const useGoogleCalendar = () => {
     try {
       console.log('Sincronizzazione ticket #' + ticket.id + ' via backend');
       
-      // Invia ticket al backend per sincronizzazione
+      // Recupera i token OAuth2 dal localStorage
+      const tokens = JSON.parse(localStorage.getItem('google_tokens') || 'null');
+      
+      // Invia ticket e token al backend per sincronizzazione
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/sync-google-calendar`, {
         method: 'POST',
         headers: {
@@ -197,7 +210,8 @@ export const useGoogleCalendar = () => {
         },
         body: JSON.stringify({
           ticket: ticket,
-          action: 'create'
+          action: 'create',
+          tokens: tokens
         })
       });
 
@@ -217,10 +231,13 @@ export const useGoogleCalendar = () => {
   // Disconnessione
   const signOut = async () => {
     try {
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      await authInstance.signOut();
+      // Rimuovi i token dal localStorage
+      localStorage.removeItem('google_tokens');
+      console.log('Token OAuth2 rimossi dal localStorage');
+      
       setIsAuthenticated(false);
       setEvents([]);
+      console.log('Disconnessione Google completata');
     } catch (err) {
       console.error('Errore disconnessione:', err);
     }
