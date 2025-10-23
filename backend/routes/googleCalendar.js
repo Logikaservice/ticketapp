@@ -89,6 +89,19 @@ module.exports = (pool) => {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
       });
+      
+      // Log di tutti i campi del ticket per debug
+      console.log('All ticket fields:', Object.keys(ticket));
+      console.log('Ticket data sample:', {
+        id: ticket.id,
+        titolo: ticket.titolo,
+        dataApertura: ticket.dataApertura,
+        created_at: ticket.created_at,
+        data_creazione: ticket.data_creazione,
+        dataCreazione: ticket.dataCreazione,
+        timestamp: ticket.timestamp,
+        date: ticket.date
+      });
 
       const event = {
         summary: `Ticket #${ticket.id} - ${ticket.titolo}`,
