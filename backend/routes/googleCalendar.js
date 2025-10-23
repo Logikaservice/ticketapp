@@ -179,25 +179,28 @@ module.exports = (pool) => {
               console.log('Calendario di test creato:', testCalendar.data.id);
               
               // Condividi il calendario con l'account principale
-              // NOTA: Sostituisci 'YOUR_EMAIL@gmail.com' con il tuo email reale
-              const userEmail = process.env.GOOGLE_USER_EMAIL || 'YOUR_EMAIL@gmail.com';
-              console.log('Tentativo condivisione calendario con:', userEmail);
-              
-              try {
-                const shareResult = await calendar.acl.insert({
-                  calendarId: testCalendar.data.id,
-                  resource: {
-                    role: 'reader',
-                    scope: {
-                      type: 'user',
-                      value: userEmail
+              const userEmail = process.env.GOOGLE_USER_EMAIL;
+              if (userEmail && userEmail !== 'YOUR_EMAIL@gmail.com') {
+                console.log('Tentativo condivisione calendario con:', userEmail);
+                
+                try {
+                  const shareResult = await calendar.acl.insert({
+                    calendarId: testCalendar.data.id,
+                    resource: {
+                      role: 'reader',
+                      scope: {
+                        type: 'user',
+                        value: userEmail
+                      }
                     }
-                  }
-                });
-                console.log('Calendario condiviso con successo:', shareResult.data);
-              } catch (shareErr) {
-                console.log('ERRORE condivisione calendario:', shareErr.message);
-                console.log('IMPORTANTE: Aggiungi GOOGLE_USER_EMAIL nelle variabili d\'ambiente su Render');
+                  });
+                  console.log('Calendario condiviso con successo:', shareResult.data);
+                  console.log('IMPORTANTE: Controlla il tuo Google Calendar per vedere "TicketApp Test Calendar"');
+                } catch (shareErr) {
+                  console.log('ERRORE condivisione calendario:', shareErr.message);
+                }
+              } else {
+                console.log('GOOGLE_USER_EMAIL non configurato. Aggiungi la variabile su Render con il tuo email.');
               }
             } catch (err) {
               console.log('ERRORE creazione calendario di test:', err.message);
@@ -215,6 +218,34 @@ module.exports = (pool) => {
           : 'primary';
           
         console.log('Usando calendarId:', calendarId);
+        
+        // Condividi il calendario esistente con l'utente se non è già condiviso
+        if (calendarId !== 'primary' && calendarList && calendarList.data && calendarList.data.items && calendarList.data.items.length > 0) {
+          const userEmail = process.env.GOOGLE_USER_EMAIL;
+          if (userEmail && userEmail !== 'YOUR_EMAIL@gmail.com') {
+            console.log('Verifica condivisione calendario esistente con:', userEmail);
+            try {
+              // Prova a condividere il calendario esistente
+              const shareResult = await calendar.acl.insert({
+                calendarId: calendarId,
+                resource: {
+                  role: 'reader',
+                  scope: {
+                    type: 'user',
+                    value: userEmail
+                  }
+                }
+              });
+              console.log('Calendario esistente condiviso con successo:', shareResult.data);
+            } catch (shareErr) {
+              if (shareErr.message.includes('already exists')) {
+                console.log('Calendario già condiviso con questo utente');
+              } else {
+                console.log('ERRORE condivisione calendario esistente:', shareErr.message);
+              }
+            }
+          }
+        }
         
         result = await calendar.events.insert({
           calendarId: calendarId,
