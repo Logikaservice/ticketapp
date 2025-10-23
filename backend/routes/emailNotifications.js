@@ -94,9 +94,9 @@ module.exports = (pool) => {
         subject: `🎫 Nuovo Ticket #${ticket.numero} - ${ticket.titolo}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center;">
+            <div style="background: linear-gradient(135deg, #4caf50 0%, #45a049 100%); color: white; padding: 20px; text-align: center;">
               <h1 style="margin: 0;">🎫 TicketApp</h1>
-              <p style="margin: 10px 0 0 0;">Sistema Gestione Ticket</p>
+              <p style="margin: 10px 0 0 0;">Nuovo Ticket di Assistenza Assegnato</p>
             </div>
             
             <div style="padding: 30px; background: #f8f9fa;">
@@ -104,8 +104,8 @@ module.exports = (pool) => {
               
               <p>Ti è stato assegnato un nuovo ticket di assistenza:</p>
               
-              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #667eea;">
-                <h3 style="color: #667eea; margin-top: 0;">📋 Dettagli Ticket</h3>
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #4caf50;">
+                <h3 style="color: #4caf50; margin-top: 0;">📋 Dettagli Ticket</h3>
                 <p><strong>Numero:</strong> ${ticket.numero}</p>
                 <p><strong>Titolo:</strong> ${ticket.titolo}</p>
                 <p><strong>Descrizione:</strong> ${ticket.descrizione}</p>
@@ -114,16 +114,16 @@ module.exports = (pool) => {
                 <p><strong>Data apertura:</strong> ${new Date(ticket.dataapertura).toLocaleDateString('it-IT')}</p>
               </div>
               
-              <div style="background: #e3f2fd; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                <p style="margin: 0; color: #1976d2;">
-                  <strong>📅 Il ticket è stato aggiunto al tuo calendario Google!</strong><br>
+              <div style="background: #e8f5e8; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #2e7d32;">
+                  <strong>✅ Il tuo ticket è stato aggiunto al calendario!</strong><br>
                   Puoi visualizzarlo nel tuo calendario personale.
                 </p>
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
                 <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
-                   style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                   style="background: #4caf50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   🔗 Accedi al Sistema
                 </a>
               </div>
@@ -189,9 +189,9 @@ module.exports = (pool) => {
         subject: `🔄 Aggiornamento Ticket #${ticket.numero} - ${ticket.titolo}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center;">
-              <h1 style="margin: 0;">🔄 TicketApp</h1>
-              <p style="margin: 10px 0 0 0;">Aggiornamento Ticket</p>
+            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0;">🎫 TicketApp</h1>
+              <p style="margin: 10px 0 0 0;">Aggiornamento sul tuo Ticket di Assistenza</p>
             </div>
             
             <div style="padding: 30px; background: #f8f9fa;">
@@ -199,17 +199,21 @@ module.exports = (pool) => {
               
               <p>Il tuo ticket è stato aggiornato:</p>
               
-              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #ff9800;">
-                <h3 style="color: #ff9800; margin-top: 0;">📋 Ticket #${ticket.numero}</h3>
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                <h3 style="color: #f59e0b; margin-top: 0;">📋 Dettagli Aggiornati</h3>
+                <p><strong>Numero:</strong> ${ticket.numero}</p>
                 <p><strong>Titolo:</strong> ${ticket.titolo}</p>
-                <p><strong>Stato attuale:</strong> <span style="color: ${getStatusColor(ticket.stato)}">${ticket.stato.toUpperCase()}</span></p>
+                <p><strong>Descrizione:</strong> ${ticket.descrizione}</p>
+                <p><strong>Priorità:</strong> <span style="color: ${getPriorityColor(ticket.priorita)}">${ticket.priorita.toUpperCase()}</span></p>
+                <p><strong>Stato:</strong> <span style="color: ${getPriorityColor(ticket.stato)}">${ticket.stato.toUpperCase()}</span></p>
+                <p><strong>Data apertura:</strong> ${new Date(ticket.dataapertura).toLocaleDateString('it-IT')}</p>
                 ${changes ? `<p><strong>Modifiche:</strong> ${changes}</p>` : ''}
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
                 <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
-                   style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                  🔗 Visualizza Ticket
+                   style="background: #f59e0b; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                  🔗 Accedi al Sistema
                 </a>
               </div>
             </div>
