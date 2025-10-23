@@ -108,12 +108,33 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
   const ticketsByDate = useMemo(() => {
     const grouped = {};
     
+    console.log('=== DEBUG CALENDAR ===');
+    console.log('Total tickets:', tickets.length);
+    console.log('Relevant tickets:', relevantTickets.length);
+    console.log('SYNC_STATES:', SYNC_STATES);
+    
     // Aggiungi ticket
     relevantTickets.forEach(ticket => {
-      if (!ticket.dataapertura) return;
+      console.log(`Ticket #${ticket.id}:`, {
+        dataapertura: ticket.dataapertura,
+        priorita: ticket.priorita,
+        stato: ticket.stato,
+        titolo: ticket.titolo
+      });
+      
+      if (!ticket.dataapertura) {
+        console.log(`Ticket #${ticket.id} has no dataapertura, skipping`);
+        return;
+      }
       
       const date = new Date(ticket.dataapertura);
       const dateKey = date.toISOString().split('T')[0];
+      
+      console.log(`Ticket #${ticket.id} date processing:`, {
+        original: ticket.dataapertura,
+        parsed: date.toISOString(),
+        dateKey: dateKey
+      });
       
       if (!grouped[dateKey]) {
         grouped[dateKey] = {};
@@ -126,8 +147,8 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
       grouped[dateKey][ticket.priorita].push(ticket);
     });
     
-    // Eventi Google Calendar non vengono mostrati nel calendario
-    // Solo sincronizzazione ticket → Google Calendar
+    console.log('Grouped tickets by date:', grouped);
+    console.log('=== END DEBUG ===');
     
     return grouped;
   }, [relevantTickets, showGoogleEvents, googleEvents]);
