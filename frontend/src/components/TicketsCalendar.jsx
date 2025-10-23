@@ -74,9 +74,12 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
       let dateKey;
       
       if (ticket.dataapertura.includes('T')) {
-        // Se è in formato ISO (2025-10-23T21:44:00.000Z), estrai solo la parte data
-        const dateOnly = ticket.dataapertura.split('T')[0];
-        dateKey = dateOnly; // Usa direttamente "2025-10-23"
+        // Se è in formato ISO, crea un oggetto Date e usa la data locale
+        const date = new Date(ticket.dataapertura);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        dateKey = `${year}-${month}-${day}`;
       } else {
         // Se è già solo data, usa direttamente
         dateKey = ticket.dataapertura;
