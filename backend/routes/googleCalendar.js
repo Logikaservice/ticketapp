@@ -39,15 +39,24 @@ module.exports = (pool) => {
   // ENDPOINT: Sincronizza ticket con Google Calendar
   router.post('/sync-google-calendar', async (req, res) => {
     try {
+      console.log('=== RICHIESTA SINCRONIZZAZIONE GOOGLE CALENDAR ===');
       const { ticket, action, tokens } = req.body;
+      
+      console.log('Ticket ricevuto:', ticket ? `#${ticket.id} - ${ticket.titolo}` : 'Nessun ticket');
+      console.log('Azione:', action || 'create');
 
       if (!ticket) {
+        console.log('ERRORE: Ticket non fornito');
         return res.status(400).json({ error: 'Ticket non fornito' });
       }
 
       // Verifica che le credenziali Service Account siano configurate
+      console.log('Verifica credenziali Service Account...');
+      console.log('GOOGLE_CLIENT_EMAIL:', process.env.GOOGLE_CLIENT_EMAIL ? 'Configurato' : 'Mancante');
+      console.log('GOOGLE_PRIVATE_KEY:', process.env.GOOGLE_PRIVATE_KEY ? 'Configurato' : 'Mancante');
+      
       if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
-        console.log('Credenziali Google Service Account non configurate, sincronizzazione saltata');
+        console.log('ERRORE: Credenziali Google Service Account non configurate');
         return res.json({
           success: false,
           message: 'Google Service Account non configurato'
@@ -55,19 +64,22 @@ module.exports = (pool) => {
       }
 
       // Usa Service Account per sincronizzazione automatica
+      console.log('Inizializzazione Google Auth...');
       const authInstance = getAuth();
       if (!authInstance) {
-        console.log('Google Auth non disponibile, sincronizzazione saltata');
+        console.log('ERRORE: Google Auth non disponibile');
         return res.json({
           success: false,
           message: 'Google Auth non configurato'
         });
       }
       
+      console.log('Ottenimento client Google Auth...');
       const authClient = await authInstance.getClient();
-      const calendar = google.calendar({ version: 'v3', auth: authClient });
+      console.log('Client Google Auth ottenuto:', authClient.credentials?.client_email);
       
-      console.log('Service Account configurato per sincronizzazione automatica');
+      const calendar = google.calendar({ version: 'v3', auth: authClient });
+      console.log('Google Calendar API inizializzata');
 
       // Verifica il Calendar ID reale
       console.log('Using calendarId: primary');
@@ -135,8 +147,16 @@ module.exports = (pool) => {
 
       let result;
       if (action === 'create') {
+        console.log('Creazione evento Google Calendar...');
+        console.log('Evento da creare:', {
+          summary: event.summary,
+          start: event.start,
+          end: event.end
+        });
+        
         // Test: prova a ottenere la lista dei calendari per verificare l'accesso
         try {
+          console.log('Test accesso calendari...');
           const calendarList = await calendar.calendarList.list();
           console.log('Available calendars:', calendarList.data.items?.map(cal => ({
             id: cal.id,
@@ -144,13 +164,15 @@ module.exports = (pool) => {
             primary: cal.primary
           })));
         } catch (err) {
-          console.log('Error getting calendar list:', err.message);
+          console.log('ERRORE accesso calendari:', err.message);
         }
 
+        console.log('Inserimento evento nel calendario...');
         result = await calendar.events.insert({
           calendarId: 'primary',
           resource: event
         });
+        console.log('Evento creato con successo:', result.data.id);
       } else if (action === 'update' && ticket.googleCalendarEventId) {
         result = await calendar.events.update({
           calendarId: 'primary',
