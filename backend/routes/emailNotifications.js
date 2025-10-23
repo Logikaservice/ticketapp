@@ -21,6 +21,7 @@ module.exports = (pool) => {
         }
       });
     } else if (isAruba) {
+      // Prova prima con SSL (porta 465)
       return nodemailer.createTransporter({
         host: 'smtps.aruba.it',
         port: 465,
@@ -28,6 +29,9 @@ module.exports = (pool) => {
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASSWORD
+        },
+        tls: {
+          rejectUnauthorized: false
         }
       });
     } else {
@@ -320,6 +324,85 @@ module.exports = (pool) => {
       res.status(500).json({ 
         error: 'Errore invio email',
         details: err.message 
+      });
+    }
+  });
+
+  // ENDPOINT: Test configurazione email
+  router.post('/test-email-config', async (req, res) => {
+    try {
+      const { testEmail } = req.body;
+      
+      if (!testEmail) {
+        return res.status(400).json({ error: 'Email di test obbligatoria' });
+      }
+
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        return res.json({
+          success: false,
+          message: 'Credenziali email non configurate',
+          details: {
+            EMAIL_USER: process.env.EMAIL_USER ? 'Configurato' : 'Mancante',
+            EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? 'Configurato' : 'Mancante'
+          }
+        });
+      }
+
+      const transporter = createTransporter();
+      
+      // Email di test semplice
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: testEmail,
+        subject: '🧪 Test Configurazione Email TicketApp',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #4caf50 0%, #45a049 100%); color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0;">🧪 TicketApp</h1>
+              <p style="margin: 10px 0 0 0;">Test Configurazione Email</p>
+            </div>
+            
+            <div style="padding: 30px; background: #f8f9fa;">
+              <h2 style="color: #333; margin-top: 0;">Test Email Riuscito!</h2>
+              
+              <p>Se ricevi questa email, significa che la configurazione email funziona correttamente.</p>
+              
+              <div style="background: #e8f5e8; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #2e7d32;">
+                  <strong>✅ Configurazione Email Funzionante</strong><br>
+                  Il sistema può inviare notifiche ai clienti.
+                </p>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
+                   style="background: #4caf50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                  🔗 Accedi al Sistema
+                </a>
+              </div>
+            </div>
+          </div>
+        `
+      };
+
+      // Invia email di test
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email di test inviata con successo:', info.messageId);
+      
+      res.json({
+        success: true,
+        messageId: info.messageId,
+        message: 'Email di test inviata con successo',
+        from: process.env.EMAIL_USER,
+        to: testEmail
+      });
+
+    } catch (err) {
+      console.error('❌ Errore test email:', err);
+      res.status(500).json({ 
+        error: 'Errore test email',
+        details: err.message,
+        stack: err.stack
       });
     }
   });
