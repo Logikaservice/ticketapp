@@ -6,23 +6,35 @@ const { google } = require('googleapis');
 module.exports = (pool) => {
   const router = express.Router();
 
-  // Configurazione Google Calendar API con Service Account
-  const auth = new google.auth.GoogleAuth({
-    credentials: {
-      type: "service_account",
-      project_id: process.env.GOOGLE_PROJECT_ID || "ticketapp-b2a2a",
-      private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      auth_uri: "https://accounts.google.com/o/oauth2/auth",
-      token_uri: "https://oauth2.googleapis.com/token",
-      auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-      client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL,
-      universe_domain: "googleapis.com"
-    },
-    scopes: ['https://www.googleapis.com/auth/calendar']
-  });
+  // Configurazione Google Calendar API con Service Account (lazy loading)
+  let auth = null;
+  
+  const getAuth = () => {
+    if (!auth) {
+      try {
+        auth = new google.auth.GoogleAuth({
+          credentials: {
+            type: "service_account",
+            project_id: process.env.GOOGLE_PROJECT_ID || "ticketapp-b2a2a",
+            private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+            private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+            client_email: process.env.GOOGLE_CLIENT_EMAIL,
+            client_id: process.env.GOOGLE_CLIENT_ID,
+            auth_uri: "https://accounts.google.com/o/oauth2/auth",
+            token_uri: "https://oauth2.googleapis.com/token",
+            auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+            client_x509_cert_url: process.env.GOOGLE_CLIENT_X509_CERT_URL,
+            universe_domain: "googleapis.com"
+          },
+          scopes: ['https://www.googleapis.com/auth/calendar']
+        });
+      } catch (err) {
+        console.error('Errore inizializzazione Google Auth:', err);
+        return null;
+      }
+    }
+    return auth;
+  };
 
   // ENDPOINT: Sincronizza ticket con Google Calendar
   router.post('/sync-google-calendar', async (req, res) => {
@@ -43,7 +55,16 @@ module.exports = (pool) => {
       }
 
       // Usa Service Account per sincronizzazione automatica
-      const authClient = await auth.getClient();
+      const authInstance = getAuth();
+      if (!authInstance) {
+        console.log('Google Auth non disponibile, sincronizzazione saltata');
+        return res.json({
+          success: false,
+          message: 'Google Auth non configurato'
+        });
+      }
+      
+      const authClient = await authInstance.getClient();
       const calendar = google.calendar({ version: 'v3', auth: authClient });
       
       console.log('Service Account configurato per sincronizzazione automatica');
