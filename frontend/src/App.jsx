@@ -28,6 +28,7 @@ export default function TicketApp() {
   
   // Controlla se siamo nella pagina di callback Google
   const isGoogleCallback = window.location.pathname === '/auth/google/callback';
+  console.log('Current pathname:', window.location.pathname, 'Is Google callback:', isGoogleCallback);
   
   const [notifications, setNotifications] = useState([]);
 
