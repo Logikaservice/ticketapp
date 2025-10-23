@@ -46,6 +46,10 @@ module.exports = (pool) => {
       const oauth2Client = await auth.getClient();
       const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
 
+      // Verifica il Calendar ID reale
+      console.log('Using calendarId: primary');
+      console.log('OAuth2 client email:', oauth2Client.credentials?.client_email);
+
       // Gestisci diversi formati di data
       let startDate;
       if (ticket.dataApertura) {
@@ -93,6 +97,18 @@ module.exports = (pool) => {
 
       let result;
       if (action === 'create') {
+        // Test: prova a ottenere la lista dei calendari per verificare l'accesso
+        try {
+          const calendarList = await calendar.calendarList.list();
+          console.log('Available calendars:', calendarList.data.items?.map(cal => ({
+            id: cal.id,
+            summary: cal.summary,
+            primary: cal.primary
+          })));
+        } catch (err) {
+          console.log('Error getting calendar list:', err.message);
+        }
+
         result = await calendar.events.insert({
           calendarId: 'primary',
           resource: event
