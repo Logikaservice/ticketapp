@@ -172,7 +172,12 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
     const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - firstDay.getDay());
+    
+    // Corregge l'allineamento: getDay() restituisce 0=domenica, 1=lunedì, etc.
+    // Ma il calendario inizia con lunedì, quindi dobbiamo aggiustare
+    const dayOfWeek = firstDay.getDay();
+    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Domenica=6, Lunedì=0
+    startDate.setDate(startDate.getDate() - daysToSubtract);
     
     const days = [];
     const current = new Date(startDate);
