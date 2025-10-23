@@ -155,9 +155,10 @@ module.exports = (pool) => {
         });
         
         // Test: prova a ottenere la lista dei calendari per verificare l'accesso
+        let calendarList = null; // Inizializza calendarList fuori dal blocco try
         try {
           console.log('Test accesso calendari...');
-          const calendarList = await calendar.calendarList.list();
+          calendarList = await calendar.calendarList.list();
           console.log('Available calendars:', calendarList.data.items?.map(cal => ({
             id: cal.id,
             summary: cal.summary,
@@ -209,7 +210,7 @@ module.exports = (pool) => {
         console.log('Inserimento evento nel calendario...');
         
         // Usa il calendario del Service Account invece di 'primary'
-        const calendarId = calendarList.data.items && calendarList.data.items.length > 0 
+        const calendarId = calendarList && calendarList.data && calendarList.data.items && calendarList.data.items.length > 0 
           ? calendarList.data.items[0].id 
           : 'primary';
           
