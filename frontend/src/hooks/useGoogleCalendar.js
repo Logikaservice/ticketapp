@@ -69,41 +69,52 @@ export const useGoogleCalendar = () => {
     });
   }, []);
 
-  // Autenticazione con Google Identity Services
+  // Autenticazione con URL manuale
   const authenticate = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Carica Google Identity Services se non è già caricato
-      if (!window.google) {
-        await loadGoogleIdentityServices();
-      }
+      // Costruisci l'URL OAuth manualmente
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${encodeURIComponent(GOOGLE_CONFIG.CLIENT_ID)}&` +
+        `redirect_uri=${encodeURIComponent('https://ticketapp-frontend-ton5.onrender.com')}&` +
+        `scope=${encodeURIComponent('https://www.googleapis.com/auth/calendar')}&` +
+        `response_type=code&` +
+        `access_type=offline&` +
+        `prompt=consent`;
 
-      // Configura il client OAuth
-      const client = window.google.accounts.oauth2.initCodeClient({
-        client_id: GOOGLE_CONFIG.CLIENT_ID,
-        scope: 'https://www.googleapis.com/auth/calendar',
-        ux_mode: 'popup',
-        callback: (response) => {
-          console.log('OAuth response received:', response);
-          if (response.code) {
-            // Invia il codice al backend per scambiarlo con un token
-            exchangeCodeForToken(response.code);
-          } else {
-            setError('Nessun codice di autorizzazione ricevuto');
-            setLoading(false);
-          }
-        },
-        error_callback: (error) => {
-          console.error('OAuth error:', error);
-          setError(`Errore OAuth: ${error.type}`);
+      console.log('OAuth URL:', authUrl);
+      
+      // Apri popup per autenticazione
+      const popup = window.open(authUrl, 'googleAuth', 'width=500,height=600,scrollbars=yes,resizable=yes');
+      
+      // Monitora il popup per il codice
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkClosed);
           setLoading(false);
+          setError('Autenticazione Google non completata. Riprova.');
+          return;
         }
-      });
 
-      // Avvia il flusso OAuth
-      client.requestCode();
+        try {
+          // Controlla se l'URL del popup contiene il codice
+          if (popup.location.href.includes('code=')) {
+            const urlParams = new URLSearchParams(popup.location.search);
+            const code = urlParams.get('code');
+            
+            if (code) {
+              console.log('OAuth code received:', code);
+              popup.close();
+              clearInterval(checkClosed);
+              exchangeCodeForToken(code);
+            }
+          }
+        } catch (err) {
+          // Cross-origin error, continua a monitorare
+        }
+      }, 1000);
       
     } catch (err) {
       console.error('Errore autenticazione:', err);
