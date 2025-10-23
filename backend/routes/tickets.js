@@ -39,6 +39,40 @@ module.exports = (pool) => {
       const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza'];
       const result = await client.query(query, values);
       client.release();
+      
+      // Invia notifica email al cliente se è un ticket assegnato
+      if (result.rows[0]) {
+        try {
+          // Ottieni i dati del cliente
+          const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [clienteid]);
+          
+          if (clientData.rows.length > 0 && clientData.rows[0].email) {
+            const client = clientData.rows[0];
+            
+            // Invia email di notifica
+            const emailResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/email/notify-ticket-assigned`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                ticket: result.rows[0],
+                clientEmail: client.email,
+                clientName: `${client.nome} ${client.cognome}`
+              })
+            });
+            
+            if (emailResponse.ok) {
+              console.log(`✅ Email notifica inviata al cliente: ${client.email}`);
+            } else {
+              console.log(`⚠️ Errore invio email al cliente: ${client.email}`);
+            }
+          }
+        } catch (emailErr) {
+          console.log('⚠️ Errore invio email notifica:', emailErr.message);
+        }
+      }
+      
       res.status(201).json(result.rows[0]);
     } catch (err) {
       console.error('Errore nella creazione del ticket:', err);
@@ -65,6 +99,35 @@ module.exports = (pool) => {
 
       if (result.rows.length > 0) {
         console.log(`✅ Ticket aggiornato: ID ${id}`);
+        
+        // Invia notifica email per aggiornamento ticket
+        try {
+          const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [result.rows[0].clienteid]);
+          
+          if (clientData.rows.length > 0 && clientData.rows[0].email) {
+            const client = clientData.rows[0];
+            
+            const emailResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/email/notify-ticket-updated`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                ticket: result.rows[0],
+                clientEmail: client.email,
+                clientName: `${client.nome} ${client.cognome}`,
+                changes: 'Ticket aggiornato'
+              })
+            });
+            
+            if (emailResponse.ok) {
+              console.log(`✅ Email aggiornamento inviata al cliente: ${client.email}`);
+            }
+          }
+        } catch (emailErr) {
+          console.log('⚠️ Errore invio email aggiornamento:', emailErr.message);
+        }
+        
         res.json(result.rows[0]);
       } else {
         res.status(404).json({ error: 'Ticket non trovato' });

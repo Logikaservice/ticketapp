@@ -42,15 +42,8 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
     }
   };
 
-  // Solo per tecnici
-  if (currentUser?.ruolo !== 'tecnico') {
-    return (
-      <div className="bg-white rounded-xl border p-6">
-        <h3 className="font-semibold mb-4">Calendario</h3>
-        <div className="text-sm text-gray-500">Calendario disponibile solo per i tecnici</div>
-      </div>
-    );
-  }
+  // Calendario disponibile per tutti (tecnici e clienti)
+  // I clienti vedranno solo i loro ticket
 
   // Stati da considerare
   const relevantStates = SYNC_STATES;
