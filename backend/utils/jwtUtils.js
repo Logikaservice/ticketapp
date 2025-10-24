@@ -36,8 +36,7 @@ const generateToken = (user) => {
       ruolo: user.ruolo,
       nome: user.nome,
       cognome: user.cognome,
-      iat: Math.floor(Date.now() / 1000), // Issued at
-      exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // Expires in 24h
+      iat: Math.floor(Date.now() / 1000) // Issued at
     };
     
     console.log('Payload creato:', payload);
@@ -70,8 +69,7 @@ const generateRefreshToken = (user) => {
       id: user.id,
       email: user.email,
       type: 'refresh',
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // Expires in 7 days
+      iat: Math.floor(Date.now() / 1000)
     };
     
     console.log('Refresh payload creato:', payload);
