@@ -28,7 +28,9 @@ const authenticateToken = (req, res, next) => {
       email: decoded.email,
       ruolo: decoded.ruolo,
       nome: decoded.nome,
-      cognome: decoded.cognome
+      cognome: decoded.cognome,
+      telefono: decoded.telefono,
+      azienda: decoded.azienda
     };
     
     console.log(`🔐 Utente autenticato: ${req.user.email} (${req.user.ruolo})`);

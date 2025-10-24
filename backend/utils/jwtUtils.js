@@ -36,6 +36,8 @@ const generateToken = (user) => {
       ruolo: user.ruolo,
       nome: user.nome,
       cognome: user.cognome,
+      telefono: user.telefono,
+      azienda: user.azienda,
       iat: Math.floor(Date.now() / 1000) // Issued at
     };
     

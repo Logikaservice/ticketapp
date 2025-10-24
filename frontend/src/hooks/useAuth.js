@@ -29,7 +29,9 @@ export const useAuth = (showNotification) => {
             email: tokenData.email,
             ruolo: tokenData.ruolo,
             nome: tokenData.nome,
-            cognome: tokenData.cognome
+            cognome: tokenData.cognome,
+            telefono: tokenData.telefono,
+            azienda: tokenData.azienda
           });
           setIsLoggedIn(true);
         } else {
