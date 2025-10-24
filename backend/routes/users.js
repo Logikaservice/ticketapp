@@ -43,7 +43,7 @@ module.exports = (pool) => {
       // Condividi il calendario con il nuovo cliente
       if (result.rows[0] && result.rows[0].ruolo === 'cliente') {
         try {
-          const shareResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/share-calendar-with-client`, {
+          const shareResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/share-calendar-with-client`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

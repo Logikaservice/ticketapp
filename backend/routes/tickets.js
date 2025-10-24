@@ -54,7 +54,7 @@ module.exports = (pool) => {
             const emailType = isSelfCreated ? 'notify-ticket-created' : 'notify-ticket-assigned';
             
             // Invia email di notifica
-            const emailResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/email/${emailType}`, {
+            const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/${emailType}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -86,7 +86,7 @@ module.exports = (pool) => {
         
         for (const technician of techniciansData.rows) {
           try {
-            const technicianEmailResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/email/notify-technician-new-ticket`, {
+            const technicianEmailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-technician-new-ticket`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -145,7 +145,7 @@ module.exports = (pool) => {
           if (clientData.rows.length > 0 && clientData.rows[0].email) {
             const client = clientData.rows[0];
             
-            const emailResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/email/notify-ticket-updated`, {
+            const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-ticket-updated`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -306,7 +306,7 @@ module.exports = (pool) => {
           
           // Chiama la sincronizzazione Google Calendar
           try {
-            const syncResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/sync-google-calendar`, {
+            const syncResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/sync-google-calendar`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
