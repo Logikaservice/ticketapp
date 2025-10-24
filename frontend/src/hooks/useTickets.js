@@ -137,11 +137,27 @@ export const useTickets = (
   const handleDeleteTicket = async (id) => {
     if (!window.confirm('Sei sicuro di voler eliminare questo ticket?')) return;
     try {
+      // Trova il ticket prima di eliminarlo per la sincronizzazione
+      const ticketToDelete = tickets.find(t => t.id === id);
+      
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}`, { 
         method: 'DELETE',
         headers: getAuthHeader()
       });
       if (!response.ok) throw new Error('Errore durante l\'eliminazione');
+      
+      // Sincronizzazione automatica con Google Calendar per eliminazione ticket
+      if (googleCalendarSync && typeof googleCalendarSync === 'function' && ticketToDelete) {
+        try {
+          console.log('Sincronizzazione automatica eliminazione ticket #' + id + ' con Google Calendar');
+          await googleCalendarSync(ticketToDelete, 'delete');
+          console.log('Ticket #' + id + ' rimosso automaticamente da Google Calendar');
+        } catch (err) {
+          console.error('Errore sincronizzazione automatica eliminazione ticket #' + id + ':', err);
+          // Non mostriamo errore all'utente per non interrompere il flusso
+        }
+      }
+      
       setTickets(prev => prev.filter(t => t.id !== id));
       if (selectedTicket?.id === id) setSelectedTicket(null);
       showNotification('Ticket eliminato con successo!', 'success');
