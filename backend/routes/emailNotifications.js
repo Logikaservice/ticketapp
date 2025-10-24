@@ -595,6 +595,12 @@ module.exports = (pool) => {
       }
       
       console.log('✅ Transporter creato, invio email di test...');
+      console.log('📧 Dettagli email test:', {
+        from: process.env.EMAIL_USER,
+        to: testEmail,
+        provider: process.env.EMAIL_USER?.includes('@gmail.com') ? 'Gmail' : 'Aruba/Altro'
+      });
+      
       const mailOptions = {
         from: process.env.EMAIL_USER,
         to: testEmail,
@@ -652,9 +658,21 @@ module.exports = (pool) => {
 
     } catch (err) {
       console.error('❌ Errore test notifiche email:', err);
+      console.error('❌ Stack trace:', err.stack);
+      console.error('❌ Configurazione al momento dell\'errore:', {
+        EMAIL_USER: process.env.EMAIL_USER ? 'Configurato' : 'MANCANTE',
+        EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? 'Configurato' : 'MANCANTE',
+        testEmail: testEmail
+      });
+      
       res.status(500).json({ 
         error: 'Errore test notifiche email',
-        details: err.message 
+        details: err.message,
+        stack: err.stack,
+        config: {
+          EMAIL_USER: process.env.EMAIL_USER ? 'Configurato' : 'MANCANTE',
+          EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? 'Configurato' : 'MANCANTE'
+        }
       });
     }
   });
