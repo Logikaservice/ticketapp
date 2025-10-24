@@ -1,6 +1,7 @@
 // routes/users.js
 
 const express = require('express');
+const { hashPassword } = require('../utils/passwordUtils');
 const router = express.Router();
 
 module.exports = (pool) => {
@@ -17,7 +18,7 @@ module.exports = (pool) => {
     }
   });
 
-  // ENDPOINT: Crea un nuovo cliente (utente)
+  // ENDPOINT: Crea un nuovo cliente (utente) - SICURO con hash password
   router.post('/', async (req, res) => {
     const { email, password, telefono, azienda, ruolo, nome, cognome } = req.body;
 
@@ -30,13 +31,17 @@ module.exports = (pool) => {
     }
 
     try {
+      // Hasha la password prima di salvarla
+      const hashedPassword = await hashPassword(password);
+      console.log(`🔐 Password hashata per nuovo utente: ${email}`);
+      
       const client = await pool.connect();
       const query = `
         INSERT INTO users (email, password, telefono, azienda, ruolo, nome, cognome) 
         VALUES ($1, $2, $3, $4, $5, $6, $7) 
         RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
       `;
-      const values = [email, password, telefono || null, azienda, ruolo || 'cliente', nome, cognome];
+      const values = [email, hashedPassword, telefono || null, azienda, ruolo || 'cliente', nome, cognome];
       const result = await client.query(query, values);
       client.release();
       
@@ -70,7 +75,7 @@ module.exports = (pool) => {
     }
   });
 
-  // ENDPOINT: Aggiorna un utente/cliente
+  // ENDPOINT: Aggiorna un utente/cliente - SICURO con hash password
   router.patch('/:id', async (req, res) => {
     const { id } = req.params;
     const { nome, cognome, email, telefono, azienda, password } = req.body;
@@ -80,13 +85,17 @@ module.exports = (pool) => {
       
       let query, values;
       if (password && password.trim() !== '') {
+        // Hasha la nuova password
+        const hashedPassword = await hashPassword(password);
+        console.log(`🔐 Password hashata per aggiornamento utente ID: ${id}`);
+        
         query = `
           UPDATE users 
           SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, password = $6
           WHERE id = $7 
           RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
         `;
-        values = [nome, cognome, email, telefono, azienda, password, id];
+        values = [nome, cognome, email, telefono, azienda, hashedPassword, id];
       } else {
         query = `
           UPDATE users 
