@@ -19,9 +19,12 @@ module.exports = (pool) => {
     // Forza Gmail se Aruba ha problemi di connessione
     const forceGmail = process.env.FORCE_GMAIL === 'true';
     
-    console.log('Provider rilevato:', { isGmail, isAruba, forceGmail });
+    // Se Aruba continua a fallire, forza Gmail
+    const useGmail = isGmail || forceGmail || (isAruba && process.env.ARUBA_FALLBACK_GMAIL === 'true');
     
-    if (isGmail || forceGmail) {
+    console.log('Provider rilevato:', { isGmail, isAruba, forceGmail, useGmail });
+    
+    if (useGmail) {
       console.log('📧 Configurazione Gmail');
       return nodemailer.createTransport({
         service: 'gmail',
@@ -33,7 +36,7 @@ module.exports = (pool) => {
     } else if (isAruba) {
       console.log('📧 Configurazione Aruba SMTP');
       // Usa SMTP diretto di Aruba
-      return nodemailer.createTransport({
+      const arubaTransporter = nodemailer.createTransport({
         host: 'smtps.aruba.it',
         port: 465,
         secure: true, // SSL
@@ -48,6 +51,16 @@ module.exports = (pool) => {
         greetingTimeout: 30000,   // 30 secondi
         socketTimeout: 60000      // 60 secondi
       });
+      
+      // Aggiungi gestione errori per fallback automatico
+      arubaTransporter.on('error', (err) => {
+        console.log('⚠️ Errore Aruba rilevato:', err.message);
+        if (err.message.includes('550') || err.message.includes('Connessione')) {
+          console.log('🔄 Aruba bloccato, considera fallback Gmail');
+        }
+      });
+      
+      return arubaTransporter;
     } else {
       console.log('📧 Configurazione generica');
       // Configurazione generica per altri provider
