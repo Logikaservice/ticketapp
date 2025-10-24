@@ -53,9 +53,9 @@ export default function TicketApp() {
   const [settingsData, setSettingsData] = useState({ 
     nome: '', 
     email: '', 
-    vecchiaPassword: '', 
-    nuovaPassword: '', 
-    confermaNuovaPassword: '' 
+    telefono: '',
+    azienda: '',
+    nuovaPassword: '' 
   });
   const [newClientData, setNewClientData] = useState({ 
     nome: '',
@@ -516,7 +516,13 @@ export default function TicketApp() {
   // ====================================================================
   const openNewTicketModal = () => { resetNewTicketData(); setModalState({ type: 'newTicket' }); };
   const openSettings = () => {
-    setSettingsData({ nome: currentUser.nome, email: currentUser.email, vecchiaPassword: '', nuovaPassword: '', confermaNuovaPassword: '' });
+    setSettingsData({ 
+      nome: currentUser.nome || '', 
+      email: currentUser.email || '', 
+      telefono: currentUser.telefono || '',
+      azienda: currentUser.azienda || '',
+      nuovaPassword: '' 
+    });
     setModalState({ type: 'settings' });
   };
   const openManageClientsModal = () => setModalState({ type: 'manageClients' });
@@ -604,7 +610,73 @@ export default function TicketApp() {
   // ====================================================================
   // WRAPPER FUNZIONI
   // ====================================================================
-  const handleUpdateSettings = () => { /* ... la tua logica ... */ };
+  const handleUpdateSettings = async () => {
+    try {
+      console.log('🔄 Aggiornamento impostazioni tecnico...');
+      console.log('Dati impostazioni:', settingsData);
+      
+      // Validazione password (solo se fornita)
+      if (settingsData.nuovaPassword && settingsData.nuovaPassword.trim() !== '' && settingsData.nuovaPassword.length < 6) {
+        showNotification('La nuova password deve essere di almeno 6 caratteri', 'error');
+        return;
+      }
+      
+      // Prepara i dati da inviare
+      const updateData = {
+        nome: settingsData.nome,
+        email: settingsData.email,
+        telefono: settingsData.telefono || null,
+        azienda: settingsData.azienda || null
+      };
+      
+      // Aggiungi password solo se fornita
+      if (settingsData.nuovaPassword && settingsData.nuovaPassword.trim() !== '') {
+        updateData.password = settingsData.nuovaPassword;
+      }
+      
+      console.log('Dati da inviare:', updateData);
+      
+      // Chiamata API per aggiornare le impostazioni
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${currentUser.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify(updateData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Errore API: ${response.statusText}`);
+      }
+      
+      const updatedUser = await response.json();
+      console.log('✅ Utente aggiornato:', updatedUser);
+      
+      // Aggiorna lo stato dell'utente corrente
+      setCurrentUser(prev => ({
+        ...prev,
+        ...updatedUser
+      }));
+      
+      // Resetta i dati delle impostazioni
+      setSettingsData({
+        nome: updatedUser.nome || '',
+        email: updatedUser.email || '',
+        telefono: updatedUser.telefono || '',
+        azienda: updatedUser.azienda || '',
+        nuovaPassword: ''
+      });
+      
+      showNotification('Impostazioni aggiornate con successo!', 'success');
+      closeModal();
+      
+    } catch (error) {
+      console.error('❌ Errore aggiornamento impostazioni:', error);
+      showNotification(error.message || 'Errore durante l\'aggiornamento delle impostazioni', 'error');
+    }
+  };
   const handleConfirmUrgentCreation = async () => {
     // Conferma creazione URGENTE: procede alla normale creazione e chiude le modali
     await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket);

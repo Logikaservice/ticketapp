@@ -37,37 +37,43 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
           />
         </div>
 
+        <div>
+          <label className="block text-sm mb-1">Telefono</label>
+          <input
+            type="tel"
+            value={settingsData.telefono}
+            onChange={(e) => setSettingsData({ ...settingsData, telefono: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            placeholder="+39 123 456 7890"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1">Azienda</label>
+          <input
+            type="text"
+            value={settingsData.azienda}
+            onChange={(e) => setSettingsData({ ...settingsData, azienda: e.target.value })}
+            className="w-full px-3 py-2 border rounded-lg"
+            placeholder="Nome azienda"
+          />
+        </div>
+
         <div className="border-t pt-4">
           <h3 className="text-sm font-bold mb-3">Cambia Password</h3>
           <div className="space-y-3">
             <div>
-              <label className="block text-sm mb-1">Vecchia</label>
-              <input
-                type="password"
-                value={settingsData.vecchiaPassword}
-                onChange={(e) => setSettingsData({ ...settingsData, vecchiaPassword: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm mb-1">Nuova</label>
+              <label className="block text-sm mb-1">Nuova Password</label>
               <input
                 type="password"
                 value={settingsData.nuovaPassword}
                 onChange={(e) => setSettingsData({ ...settingsData, nuovaPassword: e.target.value })}
                 className="w-full px-3 py-2 border rounded-lg"
+                placeholder="Lascia vuoto per non modificare"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm mb-1">Conferma</label>
-              <input
-                type="password"
-                value={settingsData.confermaNuovaPassword}
-                onChange={(e) => setSettingsData({ ...settingsData, confermaNuovaPassword: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-              />
+              <p className="text-xs text-gray-500 mt-1">
+                Lascia vuoto se non vuoi cambiare la password
+              </p>
             </div>
           </div>
         </div>
