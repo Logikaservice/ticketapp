@@ -19,6 +19,17 @@ const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d'; // 7 
  */
 const generateToken = (user) => {
   try {
+    console.log('🔐 Inizio generazione JWT token...');
+    console.log('User data:', {
+      id: user.id,
+      email: user.email,
+      ruolo: user.ruolo,
+      nome: user.nome,
+      cognome: user.cognome
+    });
+    console.log('JWT_SECRET length:', JWT_SECRET ? JWT_SECRET.length : 'N/A');
+    console.log('JWT_EXPIRES_IN:', JWT_EXPIRES_IN);
+    
     const payload = {
       id: user.id,
       email: user.email,
@@ -29,11 +40,15 @@ const generateToken = (user) => {
       exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // Expires in 24h
     };
     
+    console.log('Payload creato:', payload);
+    
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-    console.log(`🔐 JWT token generato per: ${user.email} (${user.ruolo})`);
+    console.log(`✅ JWT token generato per: ${user.email} (${user.ruolo})`);
+    console.log('Token length:', token.length);
     return token;
   } catch (error) {
     console.error('❌ Errore generazione JWT token:', error);
+    console.error('❌ Stack trace:', error.stack);
     throw new Error('Errore generazione token');
   }
 };
@@ -45,6 +60,12 @@ const generateToken = (user) => {
  */
 const generateRefreshToken = (user) => {
   try {
+    console.log('🔄 Inizio generazione refresh token...');
+    console.log('User data per refresh:', {
+      id: user.id,
+      email: user.email
+    });
+    
     const payload = {
       id: user.id,
       email: user.email,
@@ -53,11 +74,15 @@ const generateRefreshToken = (user) => {
       exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // Expires in 7 days
     };
     
+    console.log('Refresh payload creato:', payload);
+    
     const refreshToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_REFRESH_EXPIRES_IN });
-    console.log(`🔄 Refresh token generato per: ${user.email}`);
+    console.log(`✅ Refresh token generato per: ${user.email}`);
+    console.log('Refresh token length:', refreshToken.length);
     return refreshToken;
   } catch (error) {
     console.error('❌ Errore generazione refresh token:', error);
+    console.error('❌ Stack trace refresh:', error.stack);
     throw new Error('Errore generazione refresh token');
   }
 };
@@ -142,23 +167,40 @@ const extractTokenFromHeader = (req) => {
  * @returns {Object} - Risposta con token e dati utente
  */
 const generateLoginResponse = (user) => {
-  const token = generateToken(user);
-  const refreshToken = generateRefreshToken(user);
-  
-  return {
-    success: true,
-    token,
-    refreshToken,
-    user: {
-      id: user.id,
-      email: user.email,
-      ruolo: user.ruolo,
-      nome: user.nome,
-      cognome: user.cognome,
-      telefono: user.telefono,
-      azienda: user.azienda
-    }
-  };
+  try {
+    console.log('🚀 Inizio generazione risposta login completa...');
+    console.log('User completo:', user);
+    
+    const token = generateToken(user);
+    const refreshToken = generateRefreshToken(user);
+    
+    const response = {
+      success: true,
+      token,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        ruolo: user.ruolo,
+        nome: user.nome,
+        cognome: user.cognome,
+        telefono: user.telefono,
+        azienda: user.azienda
+      }
+    };
+    
+    console.log('✅ Risposta login generata con successo');
+    console.log('Response keys:', Object.keys(response));
+    console.log('Token presente:', !!response.token);
+    console.log('Refresh token presente:', !!response.refreshToken);
+    console.log('User presente:', !!response.user);
+    
+    return response;
+  } catch (error) {
+    console.error('❌ Errore generazione risposta login:', error);
+    console.error('❌ Stack trace risposta login:', error.stack);
+    throw error;
+  }
 };
 
 module.exports = {
