@@ -1,9 +1,62 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export const useAuth = (showNotification) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [token, setToken] = useState(localStorage.getItem('authToken'));
+  const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
+
+  // Verifica token al caricamento
+  useEffect(() => {
+    if (token) {
+      // Verifica se il token è valido
+      const tokenData = JSON.parse(atob(token.split('.')[1]));
+      const now = Date.now() / 1000;
+      
+      if (tokenData.exp > now) {
+        // Token valido, imposta l'utente
+        setCurrentUser({
+          id: tokenData.id,
+          email: tokenData.email,
+          ruolo: tokenData.ruolo,
+          nome: tokenData.nome,
+          cognome: tokenData.cognome
+        });
+        setIsLoggedIn(true);
+      } else {
+        // Token scaduto, prova a rinnovarlo
+        handleRefreshToken();
+      }
+    }
+  }, []);
+
+  const handleRefreshToken = async () => {
+    if (!refreshToken) {
+      handleLogout();
+      return;
+    }
+
+    try {
+      const response = await fetch(process.env.REACT_APP_API_URL + '/api/refresh-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setToken(data.token);
+        localStorage.setItem('authToken', data.token);
+        console.log('🔄 Token rinnovato automaticamente');
+      } else {
+        handleLogout();
+      }
+    } catch (error) {
+      console.error('Errore rinnovo token:', error);
+      handleLogout();
+    }
+  };
 
   const handleLogin = async () => {
     if (!loginData.email || !loginData.password) return showNotification('Inserisci email e password.', 'error');
@@ -13,12 +66,24 @@ export const useAuth = (showNotification) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginData)
       });
-      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Credenziali non valide');
-      const user = await response.json();
-      setCurrentUser(user);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Credenziali non valide');
+      }
+      
+      const loginResponse = await response.json();
+      
+      // Salva token e refresh token
+      setToken(loginResponse.token);
+      setRefreshToken(loginResponse.refreshToken);
+      localStorage.setItem('authToken', loginResponse.token);
+      localStorage.setItem('refreshToken', loginResponse.refreshToken);
+      
+      setCurrentUser(loginResponse.user);
       setIsLoggedIn(true);
       setLoginData({ email: '', password: '' });
-      showNotification(`Benvenuto ${user.nome}!`, 'success');
+      showNotification(`Benvenuto ${loginResponse.user.nome}!`, 'success');
     } catch (error) {
       showNotification(error.message, 'error');
     }
@@ -27,8 +92,17 @@ export const useAuth = (showNotification) => {
   const handleLogout = () => {
     setIsLoggedIn(false);
     setCurrentUser(null);
+    setToken(null);
+    setRefreshToken(null);
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('openTicketId');
     showNotification('Disconnessione effettuata.', 'info');
+  };
+
+  // Funzione per ottenere l'header Authorization
+  const getAuthHeader = () => {
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
   };
 
   const handleAutoFillLogin = (ruolo) => {
@@ -46,6 +120,8 @@ export const useAuth = (showNotification) => {
     setLoginData,
     handleLogin,
     handleLogout,
-    handleAutoFillLogin
+    handleAutoFillLogin,
+    getAuthHeader,
+    token
   };
 };
