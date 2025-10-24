@@ -150,10 +150,15 @@ app.post('/api/login', async (req, res) => {
       
       // Ripristina JWT token e refresh token
       try {
+        console.log('🔐 Generazione JWT per utente:', user.email);
         const loginResponse = generateLoginResponse(user);
+        console.log('✅ JWT generato con successo');
+        console.log('Token length:', loginResponse.token ? loginResponse.token.length : 'N/A');
+        console.log('Refresh token length:', loginResponse.refreshToken ? loginResponse.refreshToken.length : 'N/A');
         res.json(loginResponse);
       } catch (jwtErr) {
         console.error('❌ Errore generazione JWT:', jwtErr);
+        console.error('❌ Stack trace JWT:', jwtErr.stack);
         // Fallback senza JWT se c'è errore
         res.json({
           success: true,

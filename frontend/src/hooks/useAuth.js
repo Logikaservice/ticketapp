@@ -10,23 +10,35 @@ export const useAuth = (showNotification) => {
   // Verifica token al caricamento
   useEffect(() => {
     if (token) {
-      // Verifica se il token è valido
-      const tokenData = JSON.parse(atob(token.split('.')[1]));
-      const now = Date.now() / 1000;
-      
-      if (tokenData.exp > now) {
-        // Token valido, imposta l'utente
-        setCurrentUser({
-          id: tokenData.id,
-          email: tokenData.email,
-          ruolo: tokenData.ruolo,
-          nome: tokenData.nome,
-          cognome: tokenData.cognome
-        });
-        setIsLoggedIn(true);
-      } else {
-        // Token scaduto, prova a rinnovarlo
-        handleRefreshToken();
+      try {
+        // Verifica se il token è valido
+        const tokenParts = token.split('.');
+        if (tokenParts.length !== 3) {
+          console.error('❌ Token JWT malformato');
+          handleLogout();
+          return;
+        }
+        
+        const tokenData = JSON.parse(atob(tokenParts[1]));
+        const now = Date.now() / 1000;
+        
+        if (tokenData.exp > now) {
+          // Token valido, imposta l'utente
+          setCurrentUser({
+            id: tokenData.id,
+            email: tokenData.email,
+            ruolo: tokenData.ruolo,
+            nome: tokenData.nome,
+            cognome: tokenData.cognome
+          });
+          setIsLoggedIn(true);
+        } else {
+          // Token scaduto, prova a rinnovarlo
+          handleRefreshToken();
+        }
+      } catch (error) {
+        console.error('❌ Errore decodifica token:', error);
+        handleLogout();
       }
     }
   }, []);
@@ -73,6 +85,12 @@ export const useAuth = (showNotification) => {
       }
       
       const loginResponse = await response.json();
+      
+      // Verifica che la risposta contenga i token
+      if (!loginResponse.token || !loginResponse.refreshToken) {
+        console.error('❌ Risposta login senza token');
+        throw new Error('Risposta login non valida');
+      }
       
       // Salva token e refresh token
       setToken(loginResponse.token);
