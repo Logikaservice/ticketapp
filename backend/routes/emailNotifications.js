@@ -31,8 +31,8 @@ module.exports = (pool) => {
         }
       });
     } else if (isAruba) {
-      console.log('📧 Configurazione Aruba');
-      // Prova prima con SSL (porta 465)
+      console.log('📧 Configurazione Aruba SMTP');
+      // Usa SMTP diretto di Aruba
       return nodemailer.createTransport({
         host: 'smtps.aruba.it',
         port: 465,
@@ -43,7 +43,10 @@ module.exports = (pool) => {
         },
         tls: {
           rejectUnauthorized: false
-        }
+        },
+        connectionTimeout: 60000, // 60 secondi
+        greetingTimeout: 30000,   // 30 secondi
+        socketTimeout: 60000      // 60 secondi
       });
     } else {
       console.log('📧 Configurazione generica');
