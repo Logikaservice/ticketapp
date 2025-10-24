@@ -20,7 +20,7 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
       email: cliente.email || '',
       telefono: cliente.telefono || '',
       azienda: cliente.azienda || '',
-      password: cliente.password || ''
+      password: '' // Campo password sempre vuoto per nuove password
     });
   };
 
