@@ -196,6 +196,7 @@ const alertsRoutes = require('./routes/alerts')(pool);
 const googleCalendarRoutes = require('./routes/googleCalendar')(pool);
 const googleAuthRoutes = require('./routes/googleAuth')(pool);
 const emailNotificationsRoutes = require('./routes/emailNotifications')(pool);
+const tempLoginRoutes = require('./routes/tempLogin')(pool);
 
 // Rotte protette con autenticazione JWT
 app.use('/api/users', authenticateToken, usersRoutes);
@@ -204,6 +205,9 @@ app.use('/api/alerts', authenticateToken, alertsRoutes);
 app.use('/api', authenticateToken, googleCalendarRoutes);
 app.use('/api', authenticateToken, googleAuthRoutes);
 app.use('/api/email', authenticateToken, emailNotificationsRoutes);
+
+// Rotte temporanee per debug (senza autenticazione)
+app.use('/api/temp', tempLoginRoutes);
 
 // --- ENDPOINT PER INIZIALIZZARE IL DATABASE ---
 app.post('/api/init-db', async (req, res) => {
