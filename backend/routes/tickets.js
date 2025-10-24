@@ -66,10 +66,14 @@ module.exports = (pool) => {
             console.log('📧 URL email:', emailUrl);
             console.log('📧 API_URL configurato:', process.env.API_URL ? 'SÌ' : 'NO');
             
+            // Estrai il token JWT dall'header della richiesta originale
+            const authHeader = req.headers.authorization;
+            
             const emailResponse = await fetch(emailUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                ...(authHeader ? { 'Authorization': authHeader } : {})
               },
               body: JSON.stringify({
                 ticket: result.rows[0],
@@ -172,10 +176,14 @@ module.exports = (pool) => {
           if (clientData.rows.length > 0 && clientData.rows[0].email) {
             const client = clientData.rows[0];
             
+            // Estrai il token JWT dall'header della richiesta originale
+            const authHeader = req.headers.authorization;
+            
             const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-ticket-updated`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                ...(authHeader ? { 'Authorization': authHeader } : {})
               },
               body: JSON.stringify({
                 ticket: result.rows[0],
