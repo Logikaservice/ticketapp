@@ -112,7 +112,8 @@ export default function TicketApp() {
     setLoginData,
     handleLogin,
     handleLogout,
-    handleAutoFillLogin
+    handleAutoFillLogin,
+    getAuthHeader
   } = useAuth(showNotification);
 
   // Hook per Google Calendar
@@ -147,7 +148,8 @@ export default function TicketApp() {
     currentUser,
     tickets,
     closeModal,
-    syncTicketToCalendarBackend // Passiamo la funzione di sincronizzazione Google Calendar
+    syncTicketToCalendarBackend, // Passiamo la funzione di sincronizzazione Google Calendar
+    getAuthHeader // Passiamo la funzione per l'autenticazione
   );
 
   const {
@@ -243,7 +245,9 @@ export default function TicketApp() {
     const fetchData = async () => {
       if (!process.env.REACT_APP_API_URL || !currentUser) return;
       try {
-        const ticketsResponse = await fetch(process.env.REACT_APP_API_URL + '/api/tickets');
+        const ticketsResponse = await fetch(process.env.REACT_APP_API_URL + '/api/tickets', {
+          headers: getAuthHeader()
+        });
         if (!ticketsResponse.ok) throw new Error("Errore nel caricare i ticket");
         const ticketsData = await ticketsResponse.json();
         
@@ -251,7 +255,9 @@ export default function TicketApp() {
         const ticketsWithForniture = await Promise.all(
           ticketsData.map(async (ticket) => {
             try {
-              const fornitureResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`);
+              const fornitureResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`, {
+                headers: getAuthHeader()
+              });
               if (fornitureResponse.ok) {
                 const forniture = await fornitureResponse.json();
                 return { ...ticket, fornitureCount: forniture.length };
@@ -287,7 +293,9 @@ export default function TicketApp() {
         setPrevTicketStates(initMap);
 
         if (currentUser.ruolo === 'tecnico') {
-          const usersResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users');
+          const usersResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users', {
+            headers: getAuthHeader()
+          });
           if (usersResponse.ok) setUsers(await usersResponse.json());
         }
         
@@ -348,7 +356,9 @@ export default function TicketApp() {
     // Polling ogni 10 secondi
     const doPoll = async () => {
       try {
-        const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets');
+        const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets', {
+          headers: getAuthHeader()
+        });
         if (!response.ok) return;
         
         const updatedTickets = await response.json();
@@ -357,7 +367,9 @@ export default function TicketApp() {
         const ticketsWithForniture = await Promise.all(
           updatedTickets.map(async (ticket) => {
             try {
-              const fornitureResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`);
+              const fornitureResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`, {
+                headers: getAuthHeader()
+              });
               if (fornitureResponse.ok) {
                 const forniture = await fornitureResponse.json();
                 return { ...ticket, fornitureCount: forniture.length };
@@ -729,6 +741,7 @@ export default function TicketApp() {
             getUnreadCount={getUnreadCount}
             externalHighlights={dashboardHighlights}
             alertsRefreshTrigger={alertsRefreshTrigger}
+            getAuthHeader={getAuthHeader}
             onOpenState={(state) => {
               setDashboardTargetState(state || 'aperto');
               setShowDashboard(false);

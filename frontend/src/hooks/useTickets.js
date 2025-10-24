@@ -6,7 +6,8 @@ export const useTickets = (
   currentUser,
   tickets,
   closeModal,
-  googleCalendarSync // Aggiungiamo il parametro per la sincronizzazione Google Calendar
+  googleCalendarSync, // Aggiungiamo il parametro per la sincronizzazione Google Calendar
+  getAuthHeader // Aggiungiamo il parametro per l'autenticazione
 ) => {
   const handleCreateTicket = async (
     newTicketData,
@@ -37,7 +38,10 @@ export const useTickets = (
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
         body: JSON.stringify(ticketDaInviare)
       });
       if (!response.ok) throw new Error('Errore del server.');

@@ -167,7 +167,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
   );
 };
 
-const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger }) => {
+const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger, getAuthHeader }) => {
   // Stati per la ricerca
   const [searchTerm, setSearchTerm] = React.useState('');
   const [searchResults, setSearchResults] = React.useState([]);
@@ -231,7 +231,9 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   const apiBase = process.env.REACT_APP_API_URL;
   const fetchAlerts = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/alerts`);
+      const res = await fetch(`${apiBase}/api/alerts`, {
+        headers: getAuthHeader()
+      });
       if (!res.ok) throw new Error('Errore caricamento avvisi');
       const allAlerts = await res.json();
       
