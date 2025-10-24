@@ -43,18 +43,30 @@ module.exports = (pool) => {
       // Invia notifica email al cliente
       if (result.rows[0]) {
         try {
+          console.log('📧 === INVIO NOTIFICA EMAIL CLIENTE ===');
+          console.log('📧 Ticket creato:', result.rows[0].id, result.rows[0].titolo);
+          console.log('📧 Cliente ID:', clienteid);
+          
           // Ottieni i dati del cliente
           const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [clienteid]);
+          console.log('📧 Dati cliente trovati:', clientData.rows.length > 0);
           
           if (clientData.rows.length > 0 && clientData.rows[0].email) {
             const client = clientData.rows[0];
+            console.log('📧 Email cliente:', client.email);
+            console.log('📧 Nome cliente:', client.nome, client.cognome);
             
             // Determina il tipo di notifica
             const isSelfCreated = req.body.createdBy === 'cliente' || req.body.selfCreated;
             const emailType = isSelfCreated ? 'notify-ticket-created' : 'notify-ticket-assigned';
+            console.log('📧 Tipo notifica:', emailType, '(isSelfCreated:', isSelfCreated, ')');
             
             // Invia email di notifica
-            const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/${emailType}`, {
+            const emailUrl = `${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/${emailType}`;
+            console.log('📧 URL email:', emailUrl);
+            console.log('📧 API_URL configurato:', process.env.API_URL ? 'SÌ' : 'NO');
+            
+            const emailResponse = await fetch(emailUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -69,9 +81,14 @@ module.exports = (pool) => {
             });
             
             if (emailResponse.ok) {
+              const responseData = await emailResponse.json();
               console.log(`✅ Email notifica inviata al cliente: ${client.email} (${emailType})`);
+              console.log('📧 Risposta email:', responseData);
             } else {
-              console.log(`⚠️ Errore invio email al cliente: ${client.email}`);
+              const errorText = await emailResponse.text();
+              console.log(`❌ Errore invio email al cliente: ${client.email}`);
+              console.log('📧 Status:', emailResponse.status);
+              console.log('📧 Errore:', errorText);
             }
           }
         } catch (emailErr) {
@@ -81,12 +98,17 @@ module.exports = (pool) => {
       
       // Invia notifica email ai tecnici
       try {
-        console.log('📧 Invio notifica ai tecnici...');
+        console.log('📧 === INVIO NOTIFICA EMAIL TECNICI ===');
         const techniciansData = await pool.query('SELECT email, nome, cognome FROM users WHERE ruolo = \'tecnico\' AND email IS NOT NULL');
+        console.log('📧 Tecnici trovati:', techniciansData.rows.length);
         
         for (const technician of techniciansData.rows) {
           try {
-            const technicianEmailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-technician-new-ticket`, {
+            console.log('📧 Invio email a tecnico:', technician.email);
+            const techEmailUrl = `${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-technician-new-ticket`;
+            console.log('📧 URL tecnico:', techEmailUrl);
+            
+            const technicianEmailResponse = await fetch(techEmailUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -99,9 +121,14 @@ module.exports = (pool) => {
             });
             
             if (technicianEmailResponse.ok) {
+              const responseData = await technicianEmailResponse.json();
               console.log(`✅ Email notifica inviata al tecnico: ${technician.email}`);
+              console.log('📧 Risposta tecnico:', responseData);
             } else {
-              console.log(`⚠️ Errore invio email al tecnico: ${technician.email}`);
+              const errorText = await technicianEmailResponse.text();
+              console.log(`❌ Errore invio email al tecnico: ${technician.email}`);
+              console.log('📧 Status tecnico:', technicianEmailResponse.status);
+              console.log('📧 Errore tecnico:', errorText);
             }
           } catch (techEmailErr) {
             console.log(`⚠️ Errore invio email tecnico ${technician.email}:`, techEmailErr.message);
