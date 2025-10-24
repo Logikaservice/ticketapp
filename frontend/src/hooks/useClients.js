@@ -46,7 +46,10 @@ export const useClients = (showNotification, setUsers, setTickets, getAuthHeader
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
         body: JSON.stringify(updatedData)
       });
       
@@ -71,7 +74,8 @@ export const useClients = (showNotification, setUsers, setTickets, getAuthHeader
     
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeader()
       });
       
       if (!response.ok) {
