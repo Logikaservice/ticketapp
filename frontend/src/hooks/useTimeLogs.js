@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { getInitialMaterial, getInitialTimeLog } from '../utils/helpers';
 
-export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showNotification) => {
+export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showNotification, getAuthHeader) => {
   const [timeLogs, setTimeLogs] = useState([]);
 
   // Inizializza timeLogs da un ticket
@@ -124,7 +124,10 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
 
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/timelogs`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
         body: JSON.stringify({ timeLogs: logsToSave })
       });
 

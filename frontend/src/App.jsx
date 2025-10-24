@@ -117,13 +117,13 @@ export default function TicketApp() {
   } = useAuth(showNotification);
 
   // Hook per Google Calendar
-  const { syncTicketToCalendarBackend } = useGoogleCalendar();
+  const { syncTicketToCalendarBackend } = useGoogleCalendar(getAuthHeader);
 
   const {
     handleCreateClient,
     handleUpdateClient,
     handleDeleteClient
-  } = useClients(showNotification, setUsers, setTickets);
+  } = useClients(showNotification, setUsers, setTickets, getAuthHeader);
 
   const closeModal = () => {
     if (modalState.type === 'newTicket') {
@@ -165,7 +165,7 @@ export default function TicketApp() {
     handleAddMaterial,
     handleRemoveMaterial,
     handleSaveTimeLogs
-  } = useTimeLogs(selectedTicket, setTickets, setSelectedTicket, showNotification);
+  } = useTimeLogs(selectedTicket, setTickets, setSelectedTicket, showNotification, getAuthHeader);
 
   const {
     handleGenerateSentReport,

@@ -1,4 +1,4 @@
-export const useClients = (showNotification, setUsers, setTickets) => {
+export const useClients = (showNotification, setUsers, setTickets, getAuthHeader) => {
   const handleCreateClient = async (newClientData, closeModal) => {
     if (!newClientData.email || !newClientData.password) {
       return showNotification('Email e password sono obbligatori.', 'error');
@@ -18,7 +18,10 @@ export const useClients = (showNotification, setUsers, setTickets) => {
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
         body: JSON.stringify(clienteDaCreare)
       });
       

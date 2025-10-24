@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export const useGoogleCalendar = () => {
+export const useGoogleCalendar = (getAuthHeader) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -14,6 +14,7 @@ export const useGoogleCalendar = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeader()
         },
         body: JSON.stringify({
           ticket: ticket,
