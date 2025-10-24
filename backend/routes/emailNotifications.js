@@ -569,14 +569,32 @@ module.exports = (pool) => {
       }
 
       if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        console.log('❌ Configurazione email mancante:', {
+          EMAIL_USER: process.env.EMAIL_USER ? 'Configurato' : 'MANCANTE',
+          EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? 'Configurato' : 'MANCANTE'
+        });
         return res.status(500).json({ 
           error: 'Sistema email non configurato',
-          details: 'EMAIL_USER o EMAIL_PASSWORD mancanti'
+          details: 'EMAIL_USER o EMAIL_PASSWORD mancanti nelle variabili d\'ambiente',
+          config: {
+            EMAIL_USER: process.env.EMAIL_USER ? 'Configurato' : 'MANCANTE',
+            EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? 'Configurato' : 'MANCANTE'
+          }
         });
       }
 
+      console.log('🔧 Creazione transporter per test email...');
       const transporter = createTransporter();
       
+      if (!transporter) {
+        console.log('❌ Errore creazione transporter');
+        return res.status(500).json({ 
+          error: 'Errore configurazione email',
+          details: 'Impossibile creare transporter email'
+        });
+      }
+      
+      console.log('✅ Transporter creato, invio email di test...');
       const mailOptions = {
         from: process.env.EMAIL_USER,
         to: testEmail,
