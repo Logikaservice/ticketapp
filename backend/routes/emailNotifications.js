@@ -537,5 +537,109 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Controlla stato sistema email
+  router.get('/status', async (req, res) => {
+    try {
+      const status = {
+        emailConfigured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASSWORD),
+        emailUser: process.env.EMAIL_USER,
+        emailProvider: process.env.EMAIL_USER?.includes('@gmail.com') ? 'Gmail' : 'Aruba/Altro',
+        googleCalendarDisabled: process.env.DISABLE_GOOGLE_CALENDAR === 'true',
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log('📧 Stato sistema email:', status);
+      res.json(status);
+    } catch (err) {
+      console.error('❌ Errore controllo stato email:', err);
+      res.status(500).json({ 
+        error: 'Errore controllo stato email',
+        details: err.message 
+      });
+    }
+  });
+
+  // ENDPOINT: Test notifiche email
+  router.post('/test-notifications', async (req, res) => {
+    try {
+      const { testEmail } = req.body;
+      
+      if (!testEmail) {
+        return res.status(400).json({ error: 'Email di test richiesta' });
+      }
+
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        return res.status(500).json({ 
+          error: 'Sistema email non configurato',
+          details: 'EMAIL_USER o EMAIL_PASSWORD mancanti'
+        });
+      }
+
+      const transporter = createTransporter();
+      
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: testEmail,
+        subject: '🧪 Test Notifiche TicketApp',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #4caf50 0%, #45a049 100%); color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0;">🧪 TicketApp - Test Notifiche</h1>
+              <p style="margin: 10px 0 0 0;">Test Sistema Email</p>
+            </div>
+            
+            <div style="padding: 30px; background: #f8f9fa;">
+              <h2 style="color: #333; margin-top: 0;">Test Completato con Successo!</h2>
+              
+              <div style="background: #e8f5e8; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #2e7d32;">
+                  <strong>✅ Le notifiche email funzionano correttamente!</strong><br>
+                  Questo è un messaggio di test per verificare che il sistema di notifiche sia operativo.
+                </p>
+              </div>
+              
+              <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #856404;">
+                  <strong>📧 Configurazione Email:</strong><br>
+                  • Provider: ${process.env.EMAIL_USER?.includes('@gmail.com') ? 'Gmail' : 'Aruba/Altro'}<br>
+                  • Da: ${process.env.EMAIL_USER}<br>
+                  • A: ${testEmail}
+                </p>
+              </div>
+              
+              <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+              
+              <p style="color: #666; font-size: 14px; margin: 0;">
+                Questo messaggio è stato inviato automaticamente dal sistema TicketApp per testare le notifiche email.<br>
+                Se ricevi questo messaggio, significa che le notifiche per i ticket funzionano correttamente.
+              </p>
+            </div>
+          </div>
+        `
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email di test inviata con successo:', info.messageId);
+      
+      res.json({
+        success: true,
+        messageId: info.messageId,
+        message: 'Email di test inviata con successo',
+        details: {
+          from: process.env.EMAIL_USER,
+          to: testEmail,
+          provider: process.env.EMAIL_USER?.includes('@gmail.com') ? 'Gmail' : 'Aruba/Altro'
+        }
+      });
+
+    } catch (err) {
+      console.error('❌ Errore test notifiche email:', err);
+      res.status(500).json({ 
+        error: 'Errore test notifiche email',
+        details: err.message 
+      });
+    }
+  });
+
   return router;
 };

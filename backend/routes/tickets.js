@@ -54,7 +54,11 @@ module.exports = (pool) => {
             const emailType = isSelfCreated ? 'notify-ticket-created' : 'notify-ticket-assigned';
             
             // Invia email di notifica
-            const emailResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/email/${emailType}`, {
+            const emailUrl = `${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/${emailType}`;
+            console.log(`📧 Invio email al cliente: ${client.email} (${emailType})`);
+            console.log(`📧 URL email: ${emailUrl}`);
+            
+            const emailResponse = await fetch(emailUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -71,7 +75,8 @@ module.exports = (pool) => {
             if (emailResponse.ok) {
               console.log(`✅ Email notifica inviata al cliente: ${client.email} (${emailType})`);
             } else {
-              console.log(`⚠️ Errore invio email al cliente: ${client.email}`);
+              const errorText = await emailResponse.text();
+              console.log(`⚠️ Errore invio email al cliente: ${client.email} - Status: ${emailResponse.status} - Error: ${errorText}`);
             }
           }
         } catch (emailErr) {
@@ -86,7 +91,11 @@ module.exports = (pool) => {
         
         for (const technician of techniciansData.rows) {
           try {
-            const technicianEmailResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/email/notify-technician-new-ticket`, {
+            const techEmailUrl = `${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-technician-new-ticket`;
+            console.log(`📧 Invio email al tecnico: ${technician.email}`);
+            console.log(`📧 URL email tecnico: ${techEmailUrl}`);
+            
+            const technicianEmailResponse = await fetch(techEmailUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -101,7 +110,8 @@ module.exports = (pool) => {
             if (technicianEmailResponse.ok) {
               console.log(`✅ Email notifica inviata al tecnico: ${technician.email}`);
             } else {
-              console.log(`⚠️ Errore invio email al tecnico: ${technician.email}`);
+              const errorText = await technicianEmailResponse.text();
+              console.log(`⚠️ Errore invio email al tecnico: ${technician.email} - Status: ${technicianEmailResponse.status} - Error: ${errorText}`);
             }
           } catch (techEmailErr) {
             console.log(`⚠️ Errore invio email tecnico ${technician.email}:`, techEmailErr.message);
@@ -145,7 +155,7 @@ module.exports = (pool) => {
           if (clientData.rows.length > 0 && clientData.rows[0].email) {
             const client = clientData.rows[0];
             
-            const emailResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/email/notify-ticket-updated`, {
+            const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-ticket-updated`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -306,7 +316,7 @@ module.exports = (pool) => {
           
           // Chiama la sincronizzazione Google Calendar
           try {
-            const syncResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/sync-google-calendar`, {
+            const syncResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/sync-google-calendar`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

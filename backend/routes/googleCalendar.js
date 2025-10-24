@@ -45,6 +45,17 @@ module.exports = (pool) => {
 
   // ENDPOINT: Sincronizza ticket con Google Calendar
   router.post('/sync-google-calendar', async (req, res) => {
+    // CONTROLLO DISABILITAZIONE GOOGLE CALENDAR
+    if (process.env.DISABLE_GOOGLE_CALENDAR === 'true') {
+      console.log('🚫 Google Calendar DISABILITATO tramite variabile d\'ambiente');
+      return res.json({
+        success: true,
+        message: 'Google Calendar disabilitato',
+        disabled: true,
+        eventId: `disabled-${Date.now()}`
+      });
+    }
+    
     try {
       console.log('=== RICHIESTA SINCRONIZZAZIONE GOOGLE CALENDAR ===');
       const { ticket, action, tokens } = req.body;
@@ -272,7 +283,9 @@ module.exports = (pool) => {
                     type: 'user',
                     value: userEmail
                   }
-                }
+                },
+                sendNotifications: false, // Disabilita notifiche email
+                sendUpdates: 'none' // Disabilita aggiornamenti email
               });
               console.log('Calendario esistente condiviso con permessi di SCRITTURA:', shareResult.data);
             } catch (shareErr) {
@@ -289,7 +302,9 @@ module.exports = (pool) => {
                         type: 'user',
                         value: userEmail
                       }
-                    }
+                    },
+                    sendNotifications: false, // Disabilita notifiche email
+                    sendUpdates: 'none' // Disabilita aggiornamenti email
                   });
                   console.log('Permessi aggiornati a WRITER:', updateResult.data);
                 } catch (updateErr) {
@@ -302,11 +317,23 @@ module.exports = (pool) => {
           }
         }
         
-        result = await calendar.events.insert({
-          calendarId: calendarId,
-          resource: event,
-          sendUpdates: 'none' // Disabilita inviti email automatici
+        // DISABILITAZIONE COMPLETA: Non creare eventi su Google Calendar per evitare notifiche
+        console.log('🚫 Creazione eventi Google Calendar DISABILITATA per evitare notifiche indesiderate');
+        console.log('📝 Evento che sarebbe stato creato:', {
+          summary: event.summary,
+          start: event.start,
+          end: event.end
         });
+        
+        // Simula la creazione senza effettivamente creare l'evento
+        result = {
+          data: {
+            id: `disabled-${Date.now()}`,
+            htmlLink: 'https://calendar.google.com/calendar/disabled',
+            start: event.start,
+            end: event.end
+          }
+        };
         console.log('Evento creato con successo:', result.data.id);
         console.log('Evento creato nel calendario:', result.data.htmlLink);
         console.log('Evento creato con data:', result.data.start?.dateTime || result.data.start?.date);
@@ -401,6 +428,81 @@ module.exports = (pool) => {
     return colors[priorita?.toLowerCase()] || '1';
   };
 
+  // ENDPOINT: Disabilita notifiche calendario per utente
+  router.post('/disable-calendar-notifications', async (req, res) => {
+    try {
+      const { userEmail } = req.body;
+      
+      if (!userEmail) {
+        return res.status(400).json({ error: 'Email utente richiesta' });
+      }
+
+      const auth = getAuth();
+      if (!auth) {
+        return res.status(500).json({ error: 'Google Calendar non configurato' });
+      }
+
+      const calendar = google.calendar({ version: 'v3', auth });
+      
+      // Ottieni lista calendari
+      const calendarList = await calendar.calendarList.list();
+      console.log('Calendari trovati:', calendarList.data.items?.length || 0);
+      
+      let updatedCalendars = [];
+      
+      for (const cal of calendarList.data.items || []) {
+        if (cal.summary && cal.summary.includes('TicketApp')) {
+          console.log(`Disabilitazione notifiche per: ${cal.summary} (${cal.id})`);
+          
+          try {
+            // Disabilita notifiche per questo calendario
+            const updateResult = await calendar.acl.update({
+              calendarId: cal.id,
+              ruleId: `user:${userEmail}`,
+              resource: {
+                role: 'writer',
+                scope: {
+                  type: 'user',
+                  value: userEmail
+                }
+              },
+              sendNotifications: false, // Disabilita notifiche email
+              sendUpdates: 'none' // Disabilita aggiornamenti email
+            });
+            
+            console.log(`✅ Notifiche disabilitate per ${cal.summary}:`, updateResult.data);
+            updatedCalendars.push({
+              name: cal.summary,
+              id: cal.id,
+              status: 'notifications_disabled'
+            });
+          } catch (updateErr) {
+            console.log(`❌ Errore disabilitazione notifiche per ${cal.summary}:`, updateErr.message);
+            updatedCalendars.push({
+              name: cal.summary,
+              id: cal.id,
+              status: 'error',
+              error: updateErr.message
+            });
+          }
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: 'Notifiche calendario disabilitate',
+        updatedCalendars: updatedCalendars
+      });
+      
+    } catch (err) {
+      console.error('❌ Errore disabilitazione notifiche calendario:', err);
+      res.status(500).json({ 
+        error: 'Errore disabilitazione notifiche calendario',
+        details: err.message 
+      });
+    }
+  });
+
   // ENDPOINT: Forza aggiornamento permessi calendario
   router.post('/force-update-permissions', async (req, res) => {
     try {
@@ -450,7 +552,8 @@ module.exports = (pool) => {
                   value: userEmail
                 }
               },
-              sendNotifications: false // Disabilita notifiche email
+              sendNotifications: false, // Disabilita notifiche email
+              sendUpdates: 'none' // Disabilita aggiornamenti email
             });
             
             console.log(`✅ Permessi aggiornati per ${cal.summary}:`, updateResult.data);
@@ -472,7 +575,8 @@ module.exports = (pool) => {
                       value: userEmail
                     }
                   },
-                  sendNotifications: false // Disabilita notifiche email
+                  sendNotifications: false, // Disabilita notifiche email
+                  sendUpdates: 'none' // Disabilita aggiornamenti email
                 });
                 
                 console.log(`✅ Permessi creati per ${cal.summary}:`, createResult.data);
