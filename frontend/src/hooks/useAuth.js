@@ -134,6 +134,7 @@ export const useAuth = (showNotification) => {
   return {
     isLoggedIn,
     currentUser,
+    setCurrentUser,
     loginData,
     setLoginData,
     handleLogin,

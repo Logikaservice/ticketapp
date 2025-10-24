@@ -108,6 +108,7 @@ export default function TicketApp() {
   const {
     isLoggedIn,
     currentUser,
+    setCurrentUser,
     loginData,
     setLoginData,
     handleLogin,
