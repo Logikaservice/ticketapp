@@ -45,17 +45,6 @@ module.exports = (pool) => {
 
   // ENDPOINT: Sincronizza ticket con Google Calendar
   router.post('/sync-google-calendar', async (req, res) => {
-    // CONTROLLO DISABILITAZIONE GOOGLE CALENDAR
-    if (process.env.DISABLE_GOOGLE_CALENDAR === 'true') {
-      console.log('🚫 Google Calendar DISABILITATO tramite variabile d\'ambiente');
-      return res.json({
-        success: true,
-        message: 'Google Calendar disabilitato',
-        disabled: true,
-        eventId: `disabled-${Date.now()}`
-      });
-    }
-    
     try {
       console.log('=== RICHIESTA SINCRONIZZAZIONE GOOGLE CALENDAR ===');
       const { ticket, action, tokens } = req.body;
@@ -317,23 +306,12 @@ module.exports = (pool) => {
           }
         }
         
-        // DISABILITAZIONE COMPLETA: Non creare eventi su Google Calendar per evitare notifiche
-        console.log('🚫 Creazione eventi Google Calendar DISABILITATA per evitare notifiche indesiderate');
-        console.log('📝 Evento che sarebbe stato creato:', {
-          summary: event.summary,
-          start: event.start,
-          end: event.end
+        result = await calendar.events.insert({
+          calendarId: calendarId,
+          resource: event,
+          sendUpdates: 'none', // Disabilita inviti email automatici
+          conferenceDataVersion: 0 // Disabilita notifiche di conferenza
         });
-        
-        // Simula la creazione senza effettivamente creare l'evento
-        result = {
-          data: {
-            id: `disabled-${Date.now()}`,
-            htmlLink: 'https://calendar.google.com/calendar/disabled',
-            start: event.start,
-            end: event.end
-          }
-        };
         console.log('Evento creato con successo:', result.data.id);
         console.log('Evento creato nel calendario:', result.data.htmlLink);
         console.log('Evento creato con data:', result.data.start?.dateTime || result.data.start?.date);
