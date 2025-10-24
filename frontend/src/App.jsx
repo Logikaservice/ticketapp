@@ -842,6 +842,7 @@ export default function TicketApp() {
           onClose={() => setFornitureModalTicket(null)}
           onFornitureCountChange={handleFornitureCountChange}
           currentUser={currentUser}
+          getAuthHeader={getAuthHeader}
         />
       )}
 

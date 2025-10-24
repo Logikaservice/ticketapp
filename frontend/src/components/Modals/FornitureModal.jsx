@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Package, Plus, Trash2 } from 'lucide-react';
 
-const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser }) => {
+const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, getAuthHeader }) => {
   const [forniture, setForniture] = useState([]);
   const [nuovoMateriale, setNuovoMateriale] = useState('');
   const [nuovaQuantita, setNuovaQuantita] = useState(1);
@@ -61,7 +61,8 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser }
 
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/forniture/${fornituraId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: getAuthHeader()
       });
 
       if (response.ok) {
