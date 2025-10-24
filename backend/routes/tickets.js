@@ -32,17 +32,17 @@ module.exports = (pool) => {
     try {
       const client = await pool.connect();
       
-      // Genera ID unico garantito
+      // Genera ID semplice e pulito
       let numero;
       let isUnique = false;
       let attempts = 0;
       const maxAttempts = 10;
       
       while (!isUnique && attempts < maxAttempts) {
-        // Usa timestamp + random per garantire unicità
-        const timestamp = Date.now().toString().slice(-6); // Ultimi 6 cifre del timestamp
-        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-        numero = `TKT-${new Date().getFullYear()}-${timestamp}${random}`;
+        // Genera numero semplice: anno + numero sequenziale
+        const year = new Date().getFullYear();
+        const randomNum = Math.floor(Math.random() * 999) + 1; // 1-999
+        numero = `TKT-${year}-${randomNum}`;
         
         // Verifica se l'ID esiste già
         const checkQuery = 'SELECT id FROM tickets WHERE numero = $1';
