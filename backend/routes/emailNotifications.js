@@ -6,74 +6,20 @@ const nodemailer = require('nodemailer');
 module.exports = (pool) => {
   const router = express.Router();
 
-  // Configurazione email transporter
+  // Configurazione email transporter - Solo Gmail
   const createTransporter = () => {
     console.log('🔧 Creazione transporter email...');
     console.log('EMAIL_USER:', process.env.EMAIL_USER);
     console.log('EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? 'Configurato' : 'Mancante');
     
-    // Supporta sia Gmail che Aruba
-    const isGmail = process.env.EMAIL_USER?.includes('@gmail.com');
-    const isAruba = process.env.EMAIL_USER?.includes('@logikaservice.it') || process.env.EMAIL_USER?.includes('@aruba.it');
-    
-    // Forza Gmail se Aruba ha problemi di connessione
-    const forceGmail = process.env.FORCE_GMAIL === 'true';
-    
-    // Se Aruba continua a fallire, forza Gmail
-    const useGmail = isGmail || forceGmail || (isAruba && process.env.ARUBA_FALLBACK_GMAIL === 'true');
-    
-    console.log('Provider rilevato:', { isGmail, isAruba, forceGmail, useGmail });
-    
-    if (useGmail) {
-      console.log('📧 Configurazione Gmail');
-      return nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD
-        }
-      });
-    } else if (isAruba) {
-      console.log('📧 Configurazione Aruba SMTP');
-      // Usa SMTP diretto di Aruba
-      const arubaTransporter = nodemailer.createTransport({
-        host: 'smtps.aruba.it',
-        port: 465,
-        secure: true, // SSL
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD
-        },
-        tls: {
-          rejectUnauthorized: false
-        },
-        connectionTimeout: 60000, // 60 secondi
-        greetingTimeout: 30000,   // 30 secondi
-        socketTimeout: 60000      // 60 secondi
-      });
-      
-      // Aggiungi gestione errori per fallback automatico
-      arubaTransporter.on('error', (err) => {
-        console.log('⚠️ Errore Aruba rilevato:', err.message);
-        if (err.message.includes('550') || err.message.includes('Connessione')) {
-          console.log('🔄 Aruba bloccato, considera fallback Gmail');
-        }
-      });
-      
-      return arubaTransporter;
-    } else {
-      console.log('📧 Configurazione generica');
-      // Configurazione generica per altri provider
-      return nodemailer.createTransport({
-        host: 'smtp.gmail.com', // Fallback
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD
-        }
-      });
-    }
+    console.log('📧 Configurazione Gmail');
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD
+      }
+    });
   };
 
   // ENDPOINT: Invia notifica email per nuovo ticket assegnato
