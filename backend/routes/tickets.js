@@ -28,9 +28,41 @@ module.exports = (pool) => {
   // ENDPOINT: Crea un nuovo ticket
   router.post('/', async (req, res) => {
     const { clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria } = req.body;
-    const numero = `TKT-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+    
     try {
       const client = await pool.connect();
+      
+      // Genera ID unico garantito
+      let numero;
+      let isUnique = false;
+      let attempts = 0;
+      const maxAttempts = 10;
+      
+      while (!isUnique && attempts < maxAttempts) {
+        // Usa timestamp + random per garantire unicità
+        const timestamp = Date.now().toString().slice(-6); // Ultimi 6 cifre del timestamp
+        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        numero = `TKT-${new Date().getFullYear()}-${timestamp}${random}`;
+        
+        // Verifica se l'ID esiste già
+        const checkQuery = 'SELECT id FROM tickets WHERE numero = $1';
+        const checkResult = await client.query(checkQuery, [numero]);
+        
+        if (checkResult.rows.length === 0) {
+          isUnique = true;
+        } else {
+          attempts++;
+          console.log(`⚠️ ID duplicato ${numero}, tentativo ${attempts + 1}`);
+        }
+      }
+      
+      if (!isUnique) {
+        client.release();
+        throw new Error('Impossibile generare ID unico dopo 10 tentativi');
+      }
+      
+      console.log(`✅ ID ticket generato: ${numero}`);
+      
       const query = `
         INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() AT TIME ZONE 'Europe/Rome', NOW(), NOW()) 
