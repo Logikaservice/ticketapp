@@ -20,7 +20,8 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
       email: cliente.email || '',
       telefono: cliente.telefono || '',
       azienda: cliente.azienda || '',
-      password: '' // Campo password sempre vuoto per nuove password
+      password: '', // Campo per nuova password
+      currentPassword: cliente.password || '' // Password attuale visibile
     });
   };
 
@@ -166,6 +167,19 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">
                             <Lock size={12} />
+                            Password Attuale
+                          </label>
+                          <input
+                            type="text"
+                            value={editData.currentPassword}
+                            readOnly
+                            className="w-full px-2 py-1.5 text-sm border rounded-lg bg-gray-50 font-mono text-gray-600"
+                            placeholder="Password attuale"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">
+                            <Lock size={12} />
                             Nuova Password <span className="text-gray-400 text-xs">(opzionale)</span>
                           </label>
                           <input
@@ -179,9 +193,10 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                       </div>
                       
                       {/* Info Password */}
-                      <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-xs text-yellow-800">
-                          <strong>Nota:</strong> Se lasci il campo password vuoto, la password attuale non verrà modificata.
+                      <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-xs text-blue-800">
+                          <strong>Password Attuale:</strong> Visualizza la password corrente del cliente.<br/>
+                          <strong>Nuova Password:</strong> Lascia vuoto per non modificare, oppure inserisci una nuova password.
                         </p>
                       </div>
                       
