@@ -11,10 +11,10 @@ module.exports = (pool) => {
       const client = await pool.connect();
       const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda FROM users');
       
-      // Per il tecnico, mostra password in chiaro se non è hashata
+      // Per il tecnico, mostra sempre la password in chiaro
       const usersWithPlainPasswords = result.rows.map(user => ({
         ...user,
-        password: user.password && user.password.startsWith('$2b$') ? '***HASHED***' : user.password
+        password: user.password || ''
       }));
       
       client.release();

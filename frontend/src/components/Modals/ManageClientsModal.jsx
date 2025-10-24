@@ -108,6 +108,21 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                       </div>
 
                       {/* FORM DI MODIFICA */}
+                      
+                      {/* Azienda - Prima riga da sola */}
+                      <div className="mb-3">
+                        <label className="block text-xs font-medium text-gray-700 mb-1 font-bold">
+                          Azienda
+                        </label>
+                        <input
+                          type="text"
+                          value={editData.azienda}
+                          onChange={(e) => setEditData({ ...editData, azienda: e.target.value })}
+                          className="w-full px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        />
+                      </div>
+
+                      {/* Nome e Cognome - Seconda riga */}
                       <div className="grid grid-cols-2 gap-3 mb-3">
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -131,6 +146,10 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                             className="w-full px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                           />
                         </div>
+                      </div>
+
+                      {/* Email e Password - Terza riga */}
+                      <div className="grid grid-cols-2 gap-3 mb-3">
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Email
@@ -139,28 +158,6 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                             type="email"
                             value={editData.email}
                             onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-                            className="w-full px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Telefono
-                          </label>
-                          <input
-                            type="tel"
-                            value={editData.telefono}
-                            onChange={(e) => setEditData({ ...editData, telefono: e.target.value })}
-                            className="w-full px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">
-                            Azienda
-                          </label>
-                          <input
-                            type="text"
-                            value={editData.azienda}
-                            onChange={(e) => setEditData({ ...editData, azienda: e.target.value })}
                             className="w-full px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                           />
                         </div>
@@ -177,6 +174,19 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                             className="w-full px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
                           />
                         </div>
+                      </div>
+
+                      {/* Telefono - Quarta riga */}
+                      <div className="mb-3">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Telefono
+                        </label>
+                        <input
+                          type="tel"
+                          value={editData.telefono}
+                          onChange={(e) => setEditData({ ...editData, telefono: e.target.value })}
+                          className="w-full px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        />
                       </div>
                       
                       
