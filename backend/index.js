@@ -148,19 +148,26 @@ app.post('/api/login', async (req, res) => {
       delete user.password;
       console.log(`✅ Login riuscito per: ${email}`);
       
-      // Risposta semplice senza JWT per debug
-      res.json({
-        success: true,
-        user: {
-          id: user.id,
-          email: user.email,
-          ruolo: user.ruolo,
-          nome: user.nome,
-          cognome: user.cognome,
-          telefono: user.telefono,
-          azienda: user.azienda
-        }
-      });
+      // Ripristina JWT token e refresh token
+      try {
+        const loginResponse = generateLoginResponse(user);
+        res.json(loginResponse);
+      } catch (jwtErr) {
+        console.error('❌ Errore generazione JWT:', jwtErr);
+        // Fallback senza JWT se c'è errore
+        res.json({
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            ruolo: user.ruolo,
+            nome: user.nome,
+            cognome: user.cognome,
+            telefono: user.telefono,
+            azienda: user.azienda
+          }
+        });
+      }
     } else {
       console.log(`❌ Login fallito per: ${email}`);
       res.status(401).json({ error: 'Credenziali non valide' });
