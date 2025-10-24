@@ -34,9 +34,40 @@ export const useGoogleCalendar = () => {
     }
   };
 
+  // Disabilita notifiche calendario per utente
+  const disableCalendarNotifications = async (userEmail) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/disable-calendar-notifications`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userEmail })
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore disabilitazione notifiche');
+      }
+
+      const result = await response.json();
+      console.log('Notifiche calendario disabilitate:', result);
+      return result;
+    } catch (err) {
+      console.error('Errore disabilitazione notifiche calendario:', err);
+      setError(err.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     loading,
     error,
-    syncTicketToCalendarBackend
+    syncTicketToCalendarBackend,
+    disableCalendarNotifications
   };
 };
