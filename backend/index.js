@@ -88,8 +88,9 @@ app.get('/api/keepalive', async (req, res) => {
   }
 });
 
-// Importa utility per hash delle password
+// Importa utility per hash delle password e JWT
 const { verifyPassword, migratePassword } = require('./utils/passwordUtils');
+const { generateLoginResponse, verifyRefreshToken, generateToken } = require('./utils/jwtUtils');
 
 // ENDPOINT: Login utente (SICURO con hash delle password)
 app.post('/api/login', async (req, res) => {
@@ -135,7 +136,10 @@ app.post('/api/login', async (req, res) => {
     if (isValidPassword) {
       delete user.password;
       console.log(`✅ Login riuscito per: ${email}`);
-      res.json(user);
+      
+      // Genera JWT token e refresh token
+      const loginResponse = generateLoginResponse(user);
+      res.json(loginResponse);
     } else {
       console.log(`❌ Login fallito per: ${email}`);
       res.status(401).json({ error: 'Credenziali non valide' });
@@ -146,6 +150,45 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
+// ENDPOINT: Refresh token
+app.post('/api/refresh-token', async (req, res) => {
+  const { refreshToken } = req.body;
+  
+  if (!refreshToken) {
+    return res.status(400).json({ error: 'Refresh token richiesto' });
+  }
+  
+  try {
+    // Verifica il refresh token
+    const decoded = verifyRefreshToken(refreshToken);
+    
+    // Genera un nuovo access token
+    const newToken = generateToken({
+      id: decoded.id,
+      email: decoded.email,
+      ruolo: decoded.ruolo,
+      nome: decoded.nome,
+      cognome: decoded.cognome
+    });
+    
+    console.log(`🔄 Token rinnovato per: ${decoded.email}`);
+    res.json({
+      success: true,
+      token: newToken
+    });
+    
+  } catch (error) {
+    console.log(`❌ Errore refresh token: ${error.message}`);
+    res.status(401).json({ 
+      error: error.message,
+      code: 'INVALID_REFRESH_TOKEN'
+    });
+  }
+});
+
+// Importa middleware di autenticazione
+const { authenticateToken, requireRole } = require('./middleware/authMiddleware');
+
 // --- IMPORTA LE ROUTES ---
 const usersRoutes = require('./routes/users')(pool);
 const ticketsRoutes = require('./routes/tickets')(pool);
@@ -154,12 +197,13 @@ const googleCalendarRoutes = require('./routes/googleCalendar')(pool);
 const googleAuthRoutes = require('./routes/googleAuth')(pool);
 const emailNotificationsRoutes = require('./routes/emailNotifications')(pool);
 
-app.use('/api/users', usersRoutes);
-app.use('/api/tickets', ticketsRoutes);
-app.use('/api/alerts', alertsRoutes);
-app.use('/api', googleCalendarRoutes);
-app.use('/api', googleAuthRoutes);
-app.use('/api/email', emailNotificationsRoutes);
+// Rotte protette con autenticazione JWT
+app.use('/api/users', authenticateToken, usersRoutes);
+app.use('/api/tickets', authenticateToken, ticketsRoutes);
+app.use('/api/alerts', authenticateToken, alertsRoutes);
+app.use('/api', authenticateToken, googleCalendarRoutes);
+app.use('/api', authenticateToken, googleAuthRoutes);
+app.use('/api/email', authenticateToken, emailNotificationsRoutes);
 
 // --- ENDPOINT PER INIZIALIZZARE IL DATABASE ---
 app.post('/api/init-db', async (req, res) => {
