@@ -110,7 +110,10 @@ export const useTickets = (
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${isEditingTicket}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
         body: JSON.stringify(ticketAggiornato)
       });
       
@@ -217,7 +220,10 @@ export const useTickets = (
     try {
       const messageResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}/messages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
         body: JSON.stringify(messageData)
       });
       if (!messageResponse.ok) throw new Error('Errore nel salvare il messaggio');
@@ -229,7 +235,10 @@ export const useTickets = (
       if (newStatus !== ticket.stato) {
         await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}/status`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...getAuthHeader()
+          },
           body: JSON.stringify({ status: newStatus })
         });
       }
@@ -256,7 +265,10 @@ export const useTickets = (
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}/status`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
         body: JSON.stringify({ status })
       });
       if (!response.ok) throw new Error('Errore aggiornamento stato');
@@ -303,7 +315,10 @@ export const useTickets = (
       // 1. Salva i timeLogs
       const timelogsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/timelogs`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
         body: JSON.stringify({ timeLogs: logsToSave })
       });
 
@@ -312,14 +327,19 @@ export const useTickets = (
       // 2. Aggiorna lo stato a risolto
       const statusResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/status`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
         body: JSON.stringify({ status: 'risolto' })
       });
 
       if (!statusResponse.ok) throw new Error('Errore nell\'aggiornamento dello stato');
 
       // 3. Ricarica il ticket completo con i timeLogs
-      const ticketResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`);
+      const ticketResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`, {
+        headers: getAuthHeader()
+      });
       if (ticketResponse.ok) {
         const allTickets = await ticketResponse.json();
         const updatedTicket = allTickets.find(t => t.id === selectedTicket.id);
