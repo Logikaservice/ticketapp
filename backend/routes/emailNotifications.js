@@ -16,9 +16,12 @@ module.exports = (pool) => {
     const isGmail = process.env.EMAIL_USER?.includes('@gmail.com');
     const isAruba = process.env.EMAIL_USER?.includes('@logikaservice.it') || process.env.EMAIL_USER?.includes('@aruba.it');
     
-    console.log('Provider rilevato:', { isGmail, isAruba });
+    // Forza Gmail se Aruba ha problemi di connessione
+    const forceGmail = process.env.FORCE_GMAIL === 'true';
     
-    if (isGmail) {
+    console.log('Provider rilevato:', { isGmail, isAruba, forceGmail });
+    
+    if (isGmail || forceGmail) {
       console.log('📧 Configurazione Gmail');
       return nodemailer.createTransport({
         service: 'gmail',
