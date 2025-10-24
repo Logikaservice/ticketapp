@@ -78,7 +78,7 @@ ${status.emailConfigured ?
   };
 
   return (
-    <div className="bg-white rounded-xl max-w-md w-full p-6">
+    <div className="bg-white rounded-xl max-w-2xl w-full p-6">
       <div className="flex items-center justify-between mb-6 border-b pb-3">
         <h2 className="text-2xl font-bold flex items-center gap-2">
           <Settings size={24} />
