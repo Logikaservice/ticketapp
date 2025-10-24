@@ -112,10 +112,14 @@ module.exports = (pool) => {
             const techEmailUrl = `${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-technician-new-ticket`;
             console.log('📧 URL tecnico:', techEmailUrl);
             
+            // Estrai il token JWT dall'header della richiesta originale
+            const authHeader = req.headers.authorization;
+            
             const technicianEmailResponse = await fetch(techEmailUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
+                ...(authHeader ? { 'Authorization': authHeader } : {})
               },
               body: JSON.stringify({
                 ticket: result.rows[0],
