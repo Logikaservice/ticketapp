@@ -62,17 +62,7 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
-            <input
-              type="tel"
-              value={settingsData.telefono}
-              onChange={(e) => setSettingsData({ ...settingsData, telefono: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-              placeholder="+39 123 456 7890"
-            />
-          </div>
-
+          {/* Cambia Password - Sotto Email */}
           <div className="border-t pt-4">
             <h3 className="text-sm font-bold mb-3">Cambia Password</h3>
             <div className="space-y-3">
@@ -89,6 +79,21 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
                   Lascia vuoto se non vuoi cambiare la password
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* Dati Aggiuntivi */}
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-bold mb-3">Dati Aggiuntivi</h3>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Telefono</label>
+              <input
+                type="tel"
+                value={settingsData.telefono}
+                onChange={(e) => setSettingsData({ ...settingsData, telefono: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                placeholder="+39 123 456 7890"
+              />
             </div>
           </div>
         </div>
