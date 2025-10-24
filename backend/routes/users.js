@@ -10,8 +10,15 @@ module.exports = (pool) => {
     try {
       const client = await pool.connect();
       const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda FROM users');
+      
+      // Per il tecnico, mostra password in chiaro se non è hashata
+      const usersWithPlainPasswords = result.rows.map(user => ({
+        ...user,
+        password: user.password && user.password.startsWith('$2b$') ? '***HASHED***' : user.password
+      }));
+      
       client.release();
-      res.json(result.rows);
+      res.json(usersWithPlainPasswords);
     } catch (err) {
       console.error('Errore nel prendere gli utenti', err);
       res.status(500).json({ error: 'Errore interno del server' });
@@ -85,23 +92,22 @@ module.exports = (pool) => {
       
       let query, values;
       if (password && password.trim() !== '') {
-        // Hasha la nuova password
-        const hashedPassword = await hashPassword(password);
-        console.log(`🔐 Password hashata per aggiornamento utente ID: ${id}`);
+        // Salva la password in chiaro per il tecnico (non hashata)
+        console.log(`🔓 Password salvata in chiaro per aggiornamento utente ID: ${id}`);
         
         query = `
           UPDATE users 
           SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, password = $6
           WHERE id = $7 
-          RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
+          RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password;
         `;
-        values = [nome, cognome, email, telefono, azienda, hashedPassword, id];
+        values = [nome, cognome, email, telefono, azienda, password, id];
       } else {
         query = `
           UPDATE users 
           SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5 
           WHERE id = $6 
-          RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
+          RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password;
         `;
         values = [nome, cognome, email, telefono, azienda, id];
       }

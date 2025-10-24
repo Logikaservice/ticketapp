@@ -20,13 +20,13 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
       email: cliente.email || '',
       telefono: cliente.telefono || '',
       azienda: cliente.azienda || '',
-      password: '', // Campo per nuova password
-      currentPassword: cliente.password || '' // Password attuale visibile
+      password: cliente.password || '' // Password attuale editabile
     });
   };
 
   const handleSave = (id) => {
     const dataToSend = { ...editData };
+    // Se la password è vuota, non la inviamo (mantiene quella attuale)
     if (!dataToSend.password || dataToSend.password.trim() === '') {
       delete dataToSend.password;
     }
@@ -167,38 +167,18 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">
                             <Lock size={12} />
-                            Password Attuale
-                          </label>
-                          <input
-                            type="text"
-                            value={editData.currentPassword}
-                            readOnly
-                            className="w-full px-2 py-1.5 text-sm border rounded-lg bg-gray-50 font-mono text-gray-600"
-                            placeholder="Password attuale"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">
-                            <Lock size={12} />
-                            Nuova Password <span className="text-gray-400 text-xs">(opzionale)</span>
+                            Password
                           </label>
                           <input
                             type="text"
                             value={editData.password}
                             onChange={(e) => setEditData({ ...editData, password: e.target.value })}
-                            placeholder="Lascia vuoto per non modificare"
+                            placeholder="Password del cliente"
                             className="w-full px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-mono"
                           />
                         </div>
                       </div>
                       
-                      {/* Info Password */}
-                      <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-xs text-blue-800">
-                          <strong>Password Attuale:</strong> Visualizza la password corrente del cliente.<br/>
-                          <strong>Nuova Password:</strong> Lascia vuoto per non modificare, oppure inserisci una nuova password.
-                        </p>
-                      </div>
                       
                       <div className="flex gap-2 justify-end">
                         <button
