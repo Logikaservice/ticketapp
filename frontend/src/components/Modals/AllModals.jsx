@@ -74,6 +74,8 @@ const AllModals = ({ modalState, closeModal, ...handlers }) => {
             isEditing={modalState.data?.isEditing}
             clientName={modalState.data?.clientName}
             currentUser={handlers.currentUser}
+            statusChange={modalState.data?.statusChange}
+            newStatus={modalState.data?.newStatus}
           />
         );
         

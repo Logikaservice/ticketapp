@@ -334,12 +334,15 @@ export const useTickets = (
     }
   };
 
-  const handleChangeStatus = async (id, status, handleOpenTimeLogger) => {
+  const handleChangeStatus = async (id, status, handleOpenTimeLogger, sendEmail = true) => {
     if (status === 'risolto' && currentUser.ruolo === 'tecnico') {
       const ticket = tickets.find(tk => tk.id === id);
       if (ticket) handleOpenTimeLogger(ticket);
       return;
     }
+    
+    console.log('🔍 DEBUG FRONTEND: changeStatus - sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
+    
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}/status`, {
         method: 'PATCH',
@@ -347,7 +350,7 @@ export const useTickets = (
           'Content-Type': 'application/json',
           ...getAuthHeader()
         },
-        body: JSON.stringify({ status })
+        body: JSON.stringify({ status, sendEmail })
       });
       if (!response.ok) throw new Error('Errore aggiornamento stato');
       const updatedTicket = await response.json();

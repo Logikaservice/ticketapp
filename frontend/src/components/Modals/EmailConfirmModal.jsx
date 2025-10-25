@@ -8,7 +8,9 @@ const EmailConfirmModal = ({
   onCancel, 
   isEditing = false,
   clientName = 'Cliente',
-  currentUser = null
+  currentUser = null,
+  statusChange = false,
+  newStatus = null
 }) => {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -41,7 +43,18 @@ const EmailConfirmModal = ({
             </h3>
             
             <p className="text-gray-600 text-sm leading-relaxed">
-              {currentUser?.ruolo === 'cliente' ? (
+              {statusChange ? (
+                currentUser?.ruolo === 'cliente' ? (
+                  <>
+                    Riceverai una notifica via email per il cambio di stato del ticket.
+                  </>
+                ) : (
+                  <>
+                    Il cliente <strong>{clientName}</strong> riceverà una notifica via email 
+                    per il cambio di stato del ticket a <strong>{newStatus}</strong>.
+                  </>
+                )
+              ) : currentUser?.ruolo === 'cliente' ? (
                 isEditing ? (
                   <>
                     Riceverai una notifica via email sulle modifiche apportate al ticket.

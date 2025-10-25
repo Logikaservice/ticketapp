@@ -774,6 +774,9 @@ export default function TicketApp() {
     } else if (type === 'update') {
       // Aggiorna ticket con invio email
       await updateTicket(data, isEditing, selectedClient, true);
+    } else if (type === 'changeStatus') {
+      // Cambia stato ticket con invio email
+      await changeStatus(data.id, data.status, handleOpenTimeLogger, true);
     }
     
     setPendingTicketAction(null);
@@ -791,6 +794,9 @@ export default function TicketApp() {
     } else if (type === 'update') {
       // Aggiorna ticket senza invio email
       await updateTicket(data, isEditing, selectedClient, false);
+    } else if (type === 'changeStatus') {
+      // Cambia stato ticket senza invio email
+      await changeStatus(data.id, data.status, handleOpenTimeLogger, false);
     }
     
     setPendingTicketAction(null);
@@ -805,6 +811,32 @@ export default function TicketApp() {
   };
 
   const handleChangeStatus = (id, status) => {
+    // Se è un tecnico, chiedi conferma per l'invio email
+    if (currentUser.ruolo === 'tecnico') {
+      console.log('🔍 DEBUG: Cambio stato ticket - currentUser.ruolo =', currentUser.ruolo);
+      console.log('🔍 DEBUG: Mostrando modal di conferma email per cambio stato');
+      
+      const ticket = tickets.find(t => t.id === id);
+      const clientName = ticket ? users.find(u => u.id === ticket.clienteid)?.azienda || 'Cliente' : 'Cliente';
+      
+      setPendingTicketAction({
+        type: 'changeStatus',
+        data: { id, status },
+        isEditing: false,
+        selectedClient: null
+      });
+      setModalState({ 
+        type: 'emailConfirm', 
+        data: { 
+          isEditing: false, 
+          clientName: clientName,
+          statusChange: true,
+          newStatus: status
+        } 
+      });
+      return;
+    }
+    
     changeStatus(id, status, handleOpenTimeLogger);
   };
 
