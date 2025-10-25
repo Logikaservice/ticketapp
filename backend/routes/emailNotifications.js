@@ -160,7 +160,7 @@ module.exports = (pool) => {
             </div>
             
             <div style="padding: 30px; background: #f8f9fa;">
-              <h2 style="color: #333; margin-top: 0;">Ciao ${clientName || 'Cliente'}!</h2>
+              <h2 style="color: #333; margin-top: 0;">Ciao Cliente!</h2>
               
               <p>Il nostro tecnico ha preso in carico il tuo ticket di assistenza:</p>
               
@@ -231,7 +231,7 @@ module.exports = (pool) => {
             </div>
             
             <div style="padding: 30px; background: #f8f9fa;">
-              <h2 style="color: #333; margin-top: 0;">Ciao ${clientName || 'Cliente'}!</h2>
+              <h2 style="color: #333; margin-top: 0;">Ciao Cliente!</h2>
               
               <p>Il nostro tecnico ha risolto il tuo ticket di assistenza:</p>
               
@@ -302,7 +302,7 @@ module.exports = (pool) => {
             </div>
             
             <div style="padding: 30px; background: #f8f9fa;">
-              <h2 style="color: #333; margin-top: 0;">Ciao ${clientName || 'Cliente'}!</h2>
+              <h2 style="color: #333; margin-top: 0;">Ciao Cliente!</h2>
               
               <p>Il nostro tecnico ha chiuso il tuo ticket di assistenza:</p>
               
