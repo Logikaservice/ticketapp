@@ -29,7 +29,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
       }
       
       try {
-        const url = process.env.REACT_APP_API_URL + '/api/clients';
+        const url = process.env.REACT_APP_API_URL + '/clients';
         console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - URL richiesta:', url);
         
         const clientsResponse = await fetch(url);

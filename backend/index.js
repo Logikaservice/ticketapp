@@ -254,6 +254,21 @@ app.get('/api/clients', async (req, res) => {
   }
 });
 
+// Endpoint alternativo per clienti (senza /api per evitare middleware)
+app.get('/clients', async (req, res) => {
+  try {
+    console.log('🔍 DEBUG BACKEND: Endpoint /clients chiamato');
+    const client = await pool.connect();
+    const result = await client.query('SELECT id, email, nome, cognome, azienda FROM users WHERE ruolo = \'cliente\'');
+    client.release();
+    console.log('🔍 DEBUG BACKEND: Clienti trovati:', result.rows.length);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Errore nel prendere i clienti:', err);
+    res.status(500).json({ error: 'Errore interno del server' });
+  }
+});
+
 // Rotte protette con autenticazione JWT
 app.use('/api/users', authenticateToken, usersRoutes);
 app.use('/api/tickets', authenticateToken, ticketsRoutes);
