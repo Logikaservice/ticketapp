@@ -312,6 +312,30 @@ export default function TicketApp() {
     if (isLoggedIn) fetchData();
   }, [isLoggedIn, currentUser]);
 
+  // ====================================================================
+  // CARICA CLIENTI PER AUTO-RILEVAMENTO AZIENDA (anche senza login)
+  // ====================================================================
+  useEffect(() => {
+    const fetchClients = async () => {
+      if (!process.env.REACT_APP_API_URL) return;
+      
+      try {
+        const usersResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users', {
+          headers: currentUser ? getAuthHeader() : {}
+        });
+        if (usersResponse.ok) {
+          const allUsers = await usersResponse.json();
+          setUsers(allUsers);
+          console.log('🔍 DEBUG AUTO-AZIENDA: Clienti caricati:', allUsers.filter(u => u.ruolo === 'cliente'));
+        }
+      } catch (error) {
+        console.log('🔍 DEBUG AUTO-AZIENDA: Errore caricamento clienti:', error);
+      }
+    };
+    
+    fetchClients();
+  }, []); // Esegue solo al mount del componente
+
   // Riceve eventi per glow/frecce della dashboard
   useEffect(() => {
     const handler = (e) => {
