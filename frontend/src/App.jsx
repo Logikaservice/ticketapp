@@ -711,53 +711,55 @@ export default function TicketApp() {
       return;
     }
     
-    // Se è un tecnico, chiedi conferma per l'invio email
+    // Chiedi conferma per l'invio email (sia per tecnici che per clienti)
     console.log('🔍 DEBUG: currentUser.ruolo =', currentUser.ruolo);
-    if (currentUser.ruolo === 'tecnico') {
-      console.log('🔍 DEBUG: Mostrando modal di conferma email per tecnico');
-      const clientName = users.find(u => u.id === parseInt(selectedClientForNewTicket))?.azienda || 'Cliente';
-      setPendingTicketAction({
-        type: 'create',
-        data: newTicketData,
-        isEditing: isEditingTicket,
-        selectedClient: selectedClientForNewTicket
-      });
-      setModalState({ 
-        type: 'emailConfirm', 
-        data: { 
-          isEditing: isEditingTicket, 
-          clientName: clientName 
-        } 
-      });
-      return;
-    }
+    console.log('🔍 DEBUG: Mostrando modal di conferma email');
     
-    console.log('🔍 DEBUG: Utente non è tecnico, procedendo senza modal');
+    const clientName = currentUser.ruolo === 'tecnico' 
+      ? users.find(u => u.id === parseInt(selectedClientForNewTicket))?.azienda || 'Cliente'
+      : currentUser.azienda || 'Cliente';
+      
+    setPendingTicketAction({
+      type: 'create',
+      data: newTicketData,
+      isEditing: isEditingTicket,
+      selectedClient: selectedClientForNewTicket
+    });
+    setModalState({ 
+      type: 'emailConfirm', 
+      data: { 
+        isEditing: isEditingTicket, 
+        clientName: clientName 
+      } 
+    });
+    return;
     
     createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket);
   };
 
   const wrappedHandleUpdateTicket = () => {
-    // Se è un tecnico, chiedi conferma per l'invio email
-    if (currentUser.ruolo === 'tecnico') {
-      const clientName = users.find(u => u.id === parseInt(selectedClientForNewTicket))?.azienda || 'Cliente';
-      setPendingTicketAction({
-        type: 'update',
-        data: newTicketData,
-        isEditing: isEditingTicket,
-        selectedClient: selectedClientForNewTicket
-      });
-      setModalState({ 
-        type: 'emailConfirm', 
-        data: { 
-          isEditing: true, 
-          clientName: clientName 
-        } 
-      });
-      return;
-    }
+    // Chiedi conferma per l'invio email (sia per tecnici che per clienti)
+    console.log('🔍 DEBUG: Aggiornamento ticket - currentUser.ruolo =', currentUser.ruolo);
+    console.log('🔍 DEBUG: Mostrando modal di conferma email per aggiornamento');
     
-    updateTicket(newTicketData, isEditingTicket, selectedClientForNewTicket);
+    const clientName = currentUser.ruolo === 'tecnico' 
+      ? users.find(u => u.id === parseInt(selectedClientForNewTicket))?.azienda || 'Cliente'
+      : currentUser.azienda || 'Cliente';
+      
+    setPendingTicketAction({
+      type: 'update',
+      data: newTicketData,
+      isEditing: isEditingTicket,
+      selectedClient: selectedClientForNewTicket
+    });
+    setModalState({ 
+      type: 'emailConfirm', 
+      data: { 
+        isEditing: true, 
+        clientName: clientName 
+      } 
+    });
+    return;
   };
 
   // Gestione conferma email

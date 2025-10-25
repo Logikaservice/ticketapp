@@ -7,7 +7,8 @@ const EmailConfirmModal = ({
   onConfirm, 
   onCancel, 
   isEditing = false,
-  clientName = 'Cliente'
+  clientName = 'Cliente',
+  currentUser = null
 }) => {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -40,16 +41,28 @@ const EmailConfirmModal = ({
             </h3>
             
             <p className="text-gray-600 text-sm leading-relaxed">
-              {isEditing ? (
-                <>
-                  Il cliente <strong>{clientName}</strong> riceverà una notifica via email 
-                  sulle modifiche apportate al ticket.
-                </>
+              {currentUser?.ruolo === 'cliente' ? (
+                isEditing ? (
+                  <>
+                    Riceverai una notifica via email sulle modifiche apportate al ticket.
+                  </>
+                ) : (
+                  <>
+                    Riceverai una notifica via email per il nuovo ticket creato.
+                  </>
+                )
               ) : (
-                <>
-                  Il cliente <strong>{clientName}</strong> riceverà una notifica via email 
-                  per il nuovo ticket creato.
-                </>
+                isEditing ? (
+                  <>
+                    Il cliente <strong>{clientName}</strong> riceverà una notifica via email 
+                    sulle modifiche apportate al ticket.
+                  </>
+                ) : (
+                  <>
+                    Il cliente <strong>{clientName}</strong> riceverà una notifica via email 
+                    per il nuovo ticket creato.
+                  </>
+                )
               )}
             </p>
           </div>

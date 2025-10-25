@@ -73,6 +73,7 @@ const AllModals = ({ modalState, closeModal, ...handlers }) => {
             onCancel={handlers.onCancelEmail}
             isEditing={modalState.data?.isEditing}
             clientName={modalState.data?.clientName}
+            currentUser={handlers.currentUser}
           />
         );
         
