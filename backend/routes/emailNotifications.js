@@ -350,6 +350,97 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Notifica tecnico di reclamo cliente su ticket risolto
+  router.post('/notify-technician-complaint', async (req, res) => {
+    try {
+      const { ticket, clientEmail, clientName, complaintMessages } = req.body;
+      
+      if (!ticket || !clientEmail) {
+        return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
+      }
+
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        return res.json({
+          success: false,
+          message: 'Sistema email non configurato'
+        });
+      }
+
+      const transporter = createTransporter();
+      
+      // Formatta i messaggi di reclamo
+      const formattedComplaints = complaintMessages.map(msg => 
+        `• ${msg.contenuto} (${new Date(msg.data).toLocaleString('it-IT')})`
+      ).join('\n');
+      
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: process.env.EMAIL_USER, // Invia al tecnico (stesso indirizzo)
+        subject: `🚨 RECLAMO Ticket ${ticket.numero} - ${ticket.titolo}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0;">🚨 TicketApp</h1>
+              <p style="margin: 10px 0 0 0;">RECLAMO CLIENTE - Attenzione Richiesta</p>
+            </div>
+            
+            <div style="padding: 30px; background: #f8f9fa;">
+              <h2 style="color: #333; margin-top: 0;">⚠️ Reclamo Ricevuto!</h2>
+              
+              <p>Il cliente ha presentato un reclamo sul ticket risolto:</p>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #dc2626;">
+                <h3 style="color: #dc2626; margin-top: 0;">📋 Dettagli Ticket</h3>
+                <p><strong>Numero:</strong> ${ticket.numero}</p>
+                <p><strong>Titolo:</strong> ${ticket.titolo}</p>
+                <p><strong>Cliente:</strong> ${clientName || 'Cliente'}</p>
+                <p><strong>Email Cliente:</strong> ${clientEmail}</p>
+                <p><strong>Stato:</strong> <span style="color: #dc2626; font-weight: bold;">RISOLTO (con reclamo)</span></p>
+              </div>
+              
+              <div style="background: #fef2f2; border-radius: 8px; padding: 15px; margin: 20px 0; border-left: 4px solid #dc2626;">
+                <h3 style="color: #dc2626; margin-top: 0;">💬 Messaggi di Reclamo</h3>
+                <div style="background: white; padding: 15px; border-radius: 6px; font-family: monospace; white-space: pre-line; color: #374151;">
+${formattedComplaints}
+                </div>
+              </div>
+              
+              <div style="background: #fef2f2; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #dc2626;">
+                  <strong>🚨 AZIONE RICHIESTA:</strong><br>
+                  Il cliente non è soddisfatto della risoluzione. È necessario rivedere il ticket e contattare il cliente.
+                </p>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
+                   style="background: #dc2626; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                  🔗 Gestisci Ticket
+                </a>
+              </div>
+            </div>
+          </div>
+        `
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email reclamo tecnico inviata:', info.messageId);
+      
+      res.json({
+        success: true,
+        messageId: info.messageId,
+        message: 'Email reclamo tecnico inviata con successo'
+      });
+
+    } catch (err) {
+      console.error('❌ Errore invio email reclamo tecnico:', err);
+      res.status(500).json({ 
+        error: 'Errore invio email',
+        details: err.message 
+      });
+    }
+  });
+
   // ENDPOINT: Invia notifica per aggiornamento ticket
   router.post('/notify-ticket-updated', async (req, res) => {
     try {
