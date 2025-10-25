@@ -29,23 +29,21 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
       }
       
       try {
-        const url = process.env.REACT_APP_API_URL + '/api/users';
+        const url = process.env.REACT_APP_API_URL + '/api/clients';
         console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - URL richiesta:', url);
         
-        const usersResponse = await fetch(url);
+        const clientsResponse = await fetch(url);
         
-        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Response status:', usersResponse.status);
-        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Response ok:', usersResponse.ok);
+        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Response status:', clientsResponse.status);
+        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Response ok:', clientsResponse.ok);
         
-        if (usersResponse.ok) {
-          const allUsers = await usersResponse.json();
-          console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Tutti gli utenti ricevuti:', allUsers);
-          const clients = allUsers.filter(u => u.ruolo === 'cliente');
-          console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Clienti filtrati:', clients);
+        if (clientsResponse.ok) {
+          const clients = await clientsResponse.json();
+          console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Clienti ricevuti:', clients);
           setClients(clients);
         } else {
-          const errorText = await usersResponse.text();
-          console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Errore response:', usersResponse.status, errorText);
+          const errorText = await clientsResponse.text();
+          console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Errore response:', clientsResponse.status, errorText);
         }
       } catch (error) {
         console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Errore caricamento clienti:', error);
