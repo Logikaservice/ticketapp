@@ -136,8 +136,8 @@ module.exports = (pool) => {
       });
 
       const event = {
-        summary: `Ticket #${ticket.id} - ${ticket.titolo}`,
-        description: `Ticket: ${ticket.titolo}\nCliente: ${ticket.cliente}\nPriorità: ${ticket.priorita}\nStato: ${ticket.stato}\nDescrizione: ${ticket.descrizione}\nData apertura: ${startDate.toLocaleDateString('it-IT')}`,
+        summary: `${ticket.numero} - ${ticket.titolo}`,
+        description: `Ticket: ${ticket.numero}\nTitolo: ${ticket.titolo}\nCliente: ${ticket.cliente}\nPriorità: ${ticket.priorita}\nStato: ${ticket.stato}\nDescrizione: ${ticket.descrizione}\nData apertura: ${startDate.toLocaleDateString('it-IT')}`,
         start: {
           dateTime: startDate.toISOString(),
           timeZone: 'Europe/Rome'
