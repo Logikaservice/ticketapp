@@ -384,7 +384,7 @@ module.exports = (pool) => {
       
       const mailOptions = {
         from: process.env.EMAIL_USER,
-        to: process.env.EMAIL_USER, // Invia al tecnico (stesso indirizzo)
+        to: 'info@logikaservice.it', // Invia al tecnico all'indirizzo corretto
         subject: `🚨 RECLAMO Ticket ${ticket.numero} - ${ticket.titolo}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
