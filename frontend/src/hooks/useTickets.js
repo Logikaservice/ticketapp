@@ -13,7 +13,8 @@ export const useTickets = (
     newTicketData,
     isEditingTicket,
     handleUpdateTicket,
-    selectedClientForNewTicket
+    selectedClientForNewTicket,
+    sendEmail = true
   ) => {
     if (isEditingTicket) {
       handleUpdateTicket();
@@ -33,7 +34,8 @@ export const useTickets = (
       nomerichiedente: newTicketData.nomerichiedente || (currentUser.ruolo === 'cliente' ? `${currentUser.nome} ${currentUser.cognome || ''}`.trim() : 'Tecnico'),
       // Flag per distinguere se il ticket è creato dal cliente stesso
       createdBy: currentUser.ruolo,
-      selfCreated: currentUser.ruolo === 'cliente' && clienteId === currentUser.id
+      selfCreated: currentUser.ruolo === 'cliente' && clienteId === currentUser.id,
+      sendEmail: sendEmail
     };
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`, {
@@ -86,7 +88,8 @@ export const useTickets = (
   const handleUpdateTicket = async (
     newTicketData,
     isEditingTicket,
-    selectedClientForNewTicket
+    selectedClientForNewTicket,
+    sendEmail = true
   ) => {
     if (!newTicketData.titolo || !newTicketData.nomerichiedente) {
       return showNotification('Titolo e richiedente sono obbligatori.', 'error');
@@ -104,7 +107,8 @@ export const useTickets = (
       priorita: newTicketData.priorita,
       nomerichiedente: newTicketData.nomerichiedente,
       clienteid: clienteId,
-      dataapertura: newTicketData.dataapertura
+      dataapertura: newTicketData.dataapertura,
+      sendEmail: sendEmail
     };
     
     try {

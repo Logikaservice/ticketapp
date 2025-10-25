@@ -48,7 +48,7 @@ export default function TicketApp() {
     descrizione: '', 
     categoria: 'assistenza', 
     priorita: 'media', 
-    nomerichiedente: '' 
+    nomerichiedente: ''
   });
   const [settingsData, setSettingsData] = useState({ 
     nome: '', 
@@ -75,6 +75,7 @@ export default function TicketApp() {
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
   const [alertsRefreshTrigger, setAlertsRefreshTrigger] = useState(0);
+  const [pendingTicketAction, setPendingTicketAction] = useState(null);
 
   // Helpers per localStorage (nuovi ticket non ancora aperti dall'utente)
   const getSetFromStorage = (key) => {
@@ -709,11 +710,89 @@ export default function TicketApp() {
       setModalState({ type: 'urgentConfirm' });
       return;
     }
+    
+    // Se è un tecnico, chiedi conferma per l'invio email
+    console.log('🔍 DEBUG: currentUser.ruolo =', currentUser.ruolo);
+    if (currentUser.ruolo === 'tecnico') {
+      console.log('🔍 DEBUG: Mostrando modal di conferma email per tecnico');
+      const clientName = users.find(u => u.id === parseInt(selectedClientForNewTicket))?.azienda || 'Cliente';
+      setPendingTicketAction({
+        type: 'create',
+        data: newTicketData,
+        isEditing: isEditingTicket,
+        selectedClient: selectedClientForNewTicket
+      });
+      setModalState({ 
+        type: 'emailConfirm', 
+        data: { 
+          isEditing: isEditingTicket, 
+          clientName: clientName 
+        } 
+      });
+      return;
+    }
+    
+    console.log('🔍 DEBUG: Utente non è tecnico, procedendo senza modal');
+    
     createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket);
   };
 
   const wrappedHandleUpdateTicket = () => {
+    // Se è un tecnico, chiedi conferma per l'invio email
+    if (currentUser.ruolo === 'tecnico') {
+      const clientName = users.find(u => u.id === parseInt(selectedClientForNewTicket))?.azienda || 'Cliente';
+      setPendingTicketAction({
+        type: 'update',
+        data: newTicketData,
+        isEditing: isEditingTicket,
+        selectedClient: selectedClientForNewTicket
+      });
+      setModalState({ 
+        type: 'emailConfirm', 
+        data: { 
+          isEditing: true, 
+          clientName: clientName 
+        } 
+      });
+      return;
+    }
+    
     updateTicket(newTicketData, isEditingTicket, selectedClientForNewTicket);
+  };
+
+  // Gestione conferma email
+  const handleConfirmEmail = async () => {
+    if (!pendingTicketAction) return;
+    
+    const { type, data, isEditing, selectedClient } = pendingTicketAction;
+    
+    if (type === 'create') {
+      // Crea ticket con invio email
+      await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, true);
+    } else if (type === 'update') {
+      // Aggiorna ticket con invio email
+      await updateTicket(data, isEditing, selectedClient, true);
+    }
+    
+    setPendingTicketAction(null);
+    setModalState({ type: null, data: null });
+  };
+
+  const handleCancelEmail = async () => {
+    if (!pendingTicketAction) return;
+    
+    const { type, data, isEditing, selectedClient } = pendingTicketAction;
+    
+    if (type === 'create') {
+      // Crea ticket senza invio email
+      await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, false);
+    } else if (type === 'update') {
+      // Aggiorna ticket senza invio email
+      await updateTicket(data, isEditing, selectedClient, false);
+    }
+    
+    setPendingTicketAction(null);
+    setModalState({ type: null, data: null });
   };
 
   const wrappedHandleCreateClient = () => {
@@ -875,6 +954,8 @@ export default function TicketApp() {
         users={users}
         onSaveAlert={handleSaveAlert}
         onEditAlert={handleEditAlert}
+        onConfirmEmail={handleConfirmEmail}
+        onCancelEmail={handleCancelEmail}
       />
 
       {modalState.type === 'manageClients' && (

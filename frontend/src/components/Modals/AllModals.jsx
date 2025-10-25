@@ -7,6 +7,7 @@ import UrgentConfirmModal from './UrgentConfirmModal';
 import EmptyDescriptionConfirmModal from './EmptyDescriptionConfirmModal';
 import ReportModal from './ReportModal';
 import ManageAlertsModal from './ManageAlertsModal';
+import EmailConfirmModal from './EmailConfirmModal';
 
 const AllModals = ({ modalState, closeModal, ...handlers }) => {
   if (!modalState.type) return null;
@@ -62,6 +63,16 @@ const AllModals = ({ modalState, closeModal, ...handlers }) => {
             onSave={handlers.onSaveAlert}
             onEdit={handlers.onEditAlert}
             editingAlert={modalState.data}
+          />
+        );
+        
+      case 'emailConfirm':
+        return (
+          <EmailConfirmModal 
+            onConfirm={handlers.onConfirmEmail}
+            onCancel={handlers.onCancelEmail}
+            isEditing={modalState.data?.isEditing}
+            clientName={modalState.data?.clientName}
           />
         );
         

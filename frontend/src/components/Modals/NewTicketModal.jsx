@@ -136,6 +136,7 @@ const NewTicketModal = ({
               />
             </div>
           )}
+
         </div>
 
         {/* Footer con i pulsanti */}
