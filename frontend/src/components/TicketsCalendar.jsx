@@ -63,19 +63,26 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         return;
       }
       
+      console.log('🔍 DEBUG CALENDAR: Ticket dataapertura originale:', ticket.dataapertura);
+      
       // SOLUZIONE FUSO ORARIO: Gestisci correttamente le date UTC
       let dateKey;
       
       if (ticket.dataapertura.includes('T')) {
         // Se è in formato ISO, crea un oggetto Date e usa la data locale
         const date = new Date(ticket.dataapertura);
+        console.log('🔍 DEBUG CALENDAR: Date object:', date);
+        console.log('🔍 DEBUG CALENDAR: Date locale:', date.toLocaleDateString('it-IT'));
+        
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         dateKey = `${year}-${month}-${day}`;
+        console.log('🔍 DEBUG CALENDAR: DateKey generato:', dateKey);
       } else {
         // Se è già solo data, usa direttamente
         dateKey = ticket.dataapertura;
+        console.log('🔍 DEBUG CALENDAR: DateKey diretto:', dateKey);
       }
       
       if (!grouped[dateKey]) {
