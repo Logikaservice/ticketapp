@@ -147,11 +147,12 @@ module.exports = (pool) => {
         console.log('🔍 DEBUG BACKEND: Condizione finale - sendEmail === true =', sendEmail === true, 'sendEmail === undefined =', sendEmail === undefined);
       }
       
-      // Invia notifica email ai tecnici
-      try {
-        console.log('📧 === INVIO NOTIFICA EMAIL TECNICI ===');
-        const techniciansData = await pool.query('SELECT email, nome, cognome FROM users WHERE ruolo = \'tecnico\' AND email IS NOT NULL');
-        console.log('📧 Tecnici trovati:', techniciansData.rows.length);
+      // Invia notifica email ai tecnici (solo se sendEmail è true o undefined)
+      if (sendEmail === true || sendEmail === undefined) {
+        try {
+          console.log('📧 === INVIO NOTIFICA EMAIL TECNICI ===');
+          const techniciansData = await pool.query('SELECT email, nome, cognome FROM users WHERE ruolo = \'tecnico\' AND email IS NOT NULL');
+          console.log('📧 Tecnici trovati:', techniciansData.rows.length);
         
         for (const technician of techniciansData.rows) {
           try {
@@ -191,6 +192,9 @@ module.exports = (pool) => {
         }
       } catch (techErr) {
         console.log('⚠️ Errore invio email ai tecnici:', techErr.message);
+      }
+      } else {
+        console.log('🔍 DEBUG BACKEND: Email notifica NON inviata ai tecnici (sendEmail = false)');
       }
       
       res.status(201).json(result.rows[0]);
