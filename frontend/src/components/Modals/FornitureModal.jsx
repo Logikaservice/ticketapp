@@ -32,6 +32,11 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
   const handleAggiungi = async () => {
     if (!nuovoMateriale.trim()) return;
 
+    console.log('🔍 DEBUG FORNITURE: Tentativo di aggiungere fornitura');
+    console.log('🔍 DEBUG FORNITURE: Ticket ID:', ticket.id);
+    console.log('🔍 DEBUG FORNITURE: Materiale:', nuovoMateriale);
+    console.log('🔍 DEBUG FORNITURE: Quantità:', nuovaQuantita);
+
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`, {
         method: 'POST',
@@ -39,8 +44,13 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
         body: JSON.stringify({ materiale: nuovoMateriale, quantita: nuovaQuantita })
       });
 
+      console.log('🔍 DEBUG FORNITURE: Response status:', response.status);
+      console.log('🔍 DEBUG FORNITURE: Response ok:', response.ok);
+
       if (response.ok) {
         const newFornitura = await response.json();
+        console.log('🔍 DEBUG FORNITURE: Nuova fornitura creata:', newFornitura);
+        
         const updatedForniture = [newFornitura, ...forniture];
         setForniture(updatedForniture);
         setNuovoMateriale('');
@@ -50,9 +60,14 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
         if (onFornitureCountChange) {
           onFornitureCountChange(ticket.id, updatedForniture.length);
         }
+        
+        console.log('🔍 DEBUG FORNITURE: Fornitura aggiunta con successo');
+      } else {
+        const errorText = await response.text();
+        console.error('🔍 DEBUG FORNITURE: Errore response:', response.status, errorText);
       }
     } catch (err) {
-      console.error('Errore nell\'aggiungere la fornitura:', err);
+      console.error('🔍 DEBUG FORNITURE: Errore nell\'aggiungere la fornitura:', err);
     }
   };
 
