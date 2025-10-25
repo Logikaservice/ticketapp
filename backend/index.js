@@ -254,23 +254,31 @@ app.get('/clients', async (req, res) => {
 
 // Endpoint pubblico per richiesta assistenza veloce (senza login)
 app.post('/api/tickets/quick-request', async (req, res) => {
+  console.log('🔍 DEBUG QUICK REQUEST: Endpoint chiamato');
   const { titolo, descrizione, priorita, nomerichiedente, email, telefono, azienda } = req.body;
   
+  console.log('🔍 DEBUG QUICK REQUEST: Dati ricevuti:', { titolo, descrizione, priorita, nomerichiedente, email, telefono, azienda });
+  
   if (!titolo || !descrizione || !email || !nomerichiedente) {
+    console.log('🔍 DEBUG QUICK REQUEST: Campi obbligatori mancanti');
     return res.status(400).json({ error: 'Titolo, descrizione, email e nome sono obbligatori' });
   }
   
   try {
+    console.log('🔍 DEBUG QUICK REQUEST: Connessione al database');
     const client = await pool.connect();
     
     let clienteid = null;
     
     // 1. Controlla se esiste già un cliente con la stessa azienda
     if (azienda) {
+      console.log('🔍 DEBUG QUICK REQUEST: Controllo azienda esistente:', azienda);
       const existingClient = await client.query(
         'SELECT id FROM users WHERE azienda = $1 AND ruolo = \'cliente\' LIMIT 1', 
         [azienda]
       );
+      
+      console.log('🔍 DEBUG QUICK REQUEST: Risultato ricerca cliente:', existingClient.rows);
       
       if (existingClient.rows.length > 0) {
         // Azienda riconosciuta: usa il cliente esistente
@@ -278,6 +286,7 @@ app.post('/api/tickets/quick-request', async (req, res) => {
         console.log(`✅ Azienda riconosciuta: ${azienda} -> Cliente ID: ${clienteid}`);
       } else {
         // Azienda non riconosciuta: crea nuovo cliente
+        console.log('🔍 DEBUG QUICK REQUEST: Creazione nuovo cliente');
         const newClientQuery = `
           INSERT INTO users (email, password, telefono, azienda, ruolo, nome, cognome) 
           VALUES ($1, $2, $3, $4, $5, $6, $7) 
@@ -293,18 +302,24 @@ app.post('/api/tickets/quick-request', async (req, res) => {
           nomerichiedente.split(' ').slice(1).join(' ') || '' // Cognome
         ];
         
+        console.log('🔍 DEBUG QUICK REQUEST: Valori nuovo cliente:', newClientValues);
         const newClientResult = await client.query(newClientQuery, newClientValues);
         clienteid = newClientResult.rows[0].id;
         console.log(`✅ Nuovo cliente creato: ${azienda} -> Cliente ID: ${clienteid}`);
       }
+    } else {
+      console.log('🔍 DEBUG QUICK REQUEST: Nessuna azienda specificata');
     }
     
     // Genera numero ticket
+    console.log('🔍 DEBUG QUICK REQUEST: Generazione numero ticket');
     const countResult = await client.query('SELECT COUNT(*) FROM tickets');
     const count = parseInt(countResult.rows[0].count) + 1;
     const numero = `TKT-2025-${count.toString().padStart(3, '0')}`;
+    console.log('🔍 DEBUG QUICK REQUEST: Numero ticket generato:', numero);
     
     // Crea il ticket
+    console.log('🔍 DEBUG QUICK REQUEST: Creazione ticket');
     const query = `
       INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico, quick_request_data) 
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() AT TIME ZONE 'Europe/Rome', NOW(), NOW(), $9) 
@@ -319,7 +334,9 @@ app.post('/api/tickets/quick-request', async (req, res) => {
     });
     
     const values = [numero, clienteid, titolo, descrizione, 'aperto', priorita, nomerichiedente, 'assistenza', quickRequestData];
+    console.log('🔍 DEBUG QUICK REQUEST: Valori ticket:', values);
     const result = await client.query(query, values);
+    console.log('🔍 DEBUG QUICK REQUEST: Ticket creato:', result.rows[0]);
     client.release();
     
     if (result.rows[0]) {
@@ -365,7 +382,8 @@ app.post('/api/tickets/quick-request', async (req, res) => {
       res.status(500).json({ error: 'Errore nella creazione del ticket' });
     }
   } catch (err) {
-    console.error('Errore nella creazione della richiesta veloce:', err);
+    console.error('🔍 DEBUG QUICK REQUEST: ERRORE:', err);
+    console.error('🔍 DEBUG QUICK REQUEST: Stack trace:', err.stack);
     res.status(500).json({ error: 'Errore interno del server' });
   }
 });
