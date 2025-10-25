@@ -321,19 +321,12 @@ app.post('/api/tickets/quick-request', async (req, res) => {
     // Crea il ticket
     console.log('🔍 DEBUG QUICK REQUEST: Creazione ticket');
     const query = `
-      INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico, quick_request_data) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() AT TIME ZONE 'Europe/Rome', NOW(), NOW(), $9) 
+      INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() AT TIME ZONE 'Europe/Rome', NOW(), NOW()) 
       RETURNING *;
     `;
     
-    const quickRequestData = JSON.stringify({
-      email,
-      telefono: telefono || null,
-      azienda: azienda || null,
-      isQuickRequest: true
-    });
-    
-    const values = [numero, clienteid, titolo, descrizione, 'aperto', priorita, nomerichiedente, 'assistenza', quickRequestData];
+    const values = [numero, clienteid, titolo, descrizione, 'aperto', priorita, nomerichiedente, 'assistenza'];
     console.log('🔍 DEBUG QUICK REQUEST: Valori ticket:', values);
     const result = await client.query(query, values);
     console.log('🔍 DEBUG QUICK REQUEST: Ticket creato:', result.rows[0]);
