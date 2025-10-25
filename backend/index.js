@@ -263,6 +263,42 @@ app.post('/api/tickets/quick-request', async (req, res) => {
   try {
     const client = await pool.connect();
     
+    let clienteid = null;
+    
+    // 1. Controlla se esiste già un cliente con la stessa azienda
+    if (azienda) {
+      const existingClient = await client.query(
+        'SELECT id FROM users WHERE azienda = $1 AND ruolo = \'cliente\' LIMIT 1', 
+        [azienda]
+      );
+      
+      if (existingClient.rows.length > 0) {
+        // Azienda riconosciuta: usa il cliente esistente
+        clienteid = existingClient.rows[0].id;
+        console.log(`✅ Azienda riconosciuta: ${azienda} -> Cliente ID: ${clienteid}`);
+      } else {
+        // Azienda non riconosciuta: crea nuovo cliente
+        const newClientQuery = `
+          INSERT INTO users (email, password, telefono, azienda, ruolo, nome, cognome) 
+          VALUES ($1, $2, $3, $4, $5, $6, $7) 
+          RETURNING id;
+        `;
+        const newClientValues = [
+          email, 
+          'quick_request_' + Date.now(), // Password temporanea
+          telefono || null, 
+          azienda, 
+          'cliente', 
+          nomerichiedente.split(' ')[0] || nomerichiedente, // Nome
+          nomerichiedente.split(' ').slice(1).join(' ') || '' // Cognome
+        ];
+        
+        const newClientResult = await client.query(newClientQuery, newClientValues);
+        clienteid = newClientResult.rows[0].id;
+        console.log(`✅ Nuovo cliente creato: ${azienda} -> Cliente ID: ${clienteid}`);
+      }
+    }
+    
     // Genera numero ticket
     const countResult = await client.query('SELECT COUNT(*) FROM tickets');
     const count = parseInt(countResult.rows[0].count) + 1;
@@ -282,7 +318,7 @@ app.post('/api/tickets/quick-request', async (req, res) => {
       isQuickRequest: true
     });
     
-    const values = [numero, null, titolo, descrizione, 'aperto', priorita, nomerichiedente, 'assistenza', quickRequestData];
+    const values = [numero, clienteid, titolo, descrizione, 'aperto', priorita, nomerichiedente, 'assistenza', quickRequestData];
     const result = await client.query(query, values);
     client.release();
     
