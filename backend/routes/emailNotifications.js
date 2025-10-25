@@ -355,7 +355,15 @@ module.exports = (pool) => {
     try {
       const { ticket, clientEmail, clientName, complaintMessages } = req.body;
       
+      console.log('🚨 RICEVUTO RECLAMO:', {
+        ticket: ticket?.numero,
+        clientEmail,
+        clientName,
+        complaintCount: complaintMessages?.length
+      });
+      
       if (!ticket || !clientEmail) {
+        console.log('❌ Dati mancanti per reclamo');
         return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
       }
 
@@ -369,9 +377,10 @@ module.exports = (pool) => {
       const transporter = createTransporter();
       
       // Formatta i messaggi di reclamo
-      const formattedComplaints = complaintMessages.map(msg => 
-        `• ${msg.contenuto} (${new Date(msg.data).toLocaleString('it-IT')})`
-      ).join('\n');
+      const formattedComplaints = complaintMessages.map(msg => {
+        const date = msg.data || msg.created_at || new Date().toISOString();
+        return `• ${msg.contenuto} (${new Date(date).toLocaleString('it-IT')})`;
+      }).join('\n');
       
       const mailOptions = {
         from: process.env.EMAIL_USER,

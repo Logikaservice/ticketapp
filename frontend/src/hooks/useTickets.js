@@ -255,7 +255,12 @@ export const useTickets = (
         
         // Invia notifica email al tecnico per il reclamo
         try {
-          const complaintMessages = ticket.messaggi ? ticket.messaggi.filter(msg => msg.reclamo) : [];
+          console.log('🚨 INVIO RECLAMO - Ticket:', ticket.numero);
+          
+          // Usa il messaggio appena salvato come reclamo
+          const complaintMessages = [savedMessage];
+          console.log('📝 Messaggi reclamo:', complaintMessages);
+          
           const clientData = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${ticket.clienteid}`, {
             headers: getAuthHeader()
           });
@@ -279,6 +284,8 @@ export const useTickets = (
             
             if (emailResponse.ok) {
               console.log('✅ Email reclamo inviata al tecnico');
+            } else {
+              console.log('⚠️ Errore invio email reclamo:', emailResponse.status);
             }
           }
         } catch (emailErr) {
