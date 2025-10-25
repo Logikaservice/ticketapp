@@ -130,6 +130,219 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Notifica tecnico ha preso in carico il ticket
+  router.post('/notify-ticket-taken', async (req, res) => {
+    try {
+      const { ticket, clientEmail, clientName } = req.body;
+      
+      if (!ticket || !clientEmail) {
+        return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
+      }
+
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        return res.json({
+          success: false,
+          message: 'Sistema email non configurato'
+        });
+      }
+
+      const transporter = createTransporter();
+      
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: clientEmail,
+        subject: `👨‍💻 Ticket ${ticket.numero} Preso in Carico - ${ticket.titolo}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0;">🎫 TicketApp</h1>
+              <p style="margin: 10px 0 0 0;">Il tuo Ticket è stato Preso in Carico</p>
+            </div>
+            
+            <div style="padding: 30px; background: #f8f9fa;">
+              <h2 style="color: #333; margin-top: 0;">Ciao ${clientName || 'Cliente'}!</h2>
+              
+              <p>Il nostro tecnico ha preso in carico il tuo ticket di assistenza:</p>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+                <h3 style="color: #3b82f6; margin-top: 0;">📋 Dettagli Ticket</h3>
+                <p><strong>Numero:</strong> ${ticket.numero}</p>
+                <p><strong>Titolo:</strong> ${ticket.titolo}</p>
+                <p><strong>Stato:</strong> <span style="color: #3b82f6; font-weight: bold;">IN LAVORAZIONE</span></p>
+                <p><strong>Priorità:</strong> ${ticket.priorita}</p>
+              </div>
+              
+              <div style="background: #e0f2fe; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #0277bd;">
+                  <strong>👨‍💻 Il tecnico sta lavorando sul tuo ticket!</strong><br>
+                  Riceverai aggiornamenti non appena ci saranno novità.
+                </p>
+              </div>
+            </div>
+          </div>
+        `
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email "preso in carico" inviata:', info.messageId);
+      
+      res.json({
+        success: true,
+        messageId: info.messageId,
+        message: 'Email "preso in carico" inviata con successo'
+      });
+
+    } catch (err) {
+      console.error('❌ Errore invio email "preso in carico":', err);
+      res.status(500).json({ 
+        error: 'Errore invio email',
+        details: err.message 
+      });
+    }
+  });
+
+  // ENDPOINT: Notifica tecnico ha risolto il ticket
+  router.post('/notify-ticket-resolved', async (req, res) => {
+    try {
+      const { ticket, clientEmail, clientName } = req.body;
+      
+      if (!ticket || !clientEmail) {
+        return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
+      }
+
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        return res.json({
+          success: false,
+          message: 'Sistema email non configurato'
+        });
+      }
+
+      const transporter = createTransporter();
+      
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: clientEmail,
+        subject: `✅ Ticket ${ticket.numero} Risolto - ${ticket.titolo}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0;">🎫 TicketApp</h1>
+              <p style="margin: 10px 0 0 0;">Il tuo Ticket è stato Risolto!</p>
+            </div>
+            
+            <div style="padding: 30px; background: #f8f9fa;">
+              <h2 style="color: #333; margin-top: 0;">Ciao ${clientName || 'Cliente'}!</h2>
+              
+              <p>Il nostro tecnico ha risolto il tuo ticket di assistenza:</p>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #10b981;">
+                <h3 style="color: #10b981; margin-top: 0;">📋 Dettagli Ticket</h3>
+                <p><strong>Numero:</strong> ${ticket.numero}</p>
+                <p><strong>Titolo:</strong> ${ticket.titolo}</p>
+                <p><strong>Stato:</strong> <span style="color: #10b981; font-weight: bold;">RISOLTO</span></p>
+                <p><strong>Priorità:</strong> ${ticket.priorita}</p>
+              </div>
+              
+              <div style="background: #d1fae5; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #065f46;">
+                  <strong>✅ Il tuo problema è stato risolto!</strong><br>
+                  Se hai bisogno di ulteriore assistenza, non esitare a contattarci.
+                </p>
+              </div>
+            </div>
+          </div>
+        `
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email "risolto" inviata:', info.messageId);
+      
+      res.json({
+        success: true,
+        messageId: info.messageId,
+        message: 'Email "risolto" inviata con successo'
+      });
+
+    } catch (err) {
+      console.error('❌ Errore invio email "risolto":', err);
+      res.status(500).json({ 
+        error: 'Errore invio email',
+        details: err.message 
+      });
+    }
+  });
+
+  // ENDPOINT: Notifica tecnico ha chiuso il ticket
+  router.post('/notify-ticket-closed', async (req, res) => {
+    try {
+      const { ticket, clientEmail, clientName } = req.body;
+      
+      if (!ticket || !clientEmail) {
+        return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
+      }
+
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        return res.json({
+          success: false,
+          message: 'Sistema email non configurato'
+        });
+      }
+
+      const transporter = createTransporter();
+      
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: clientEmail,
+        subject: `🔒 Ticket ${ticket.numero} Chiuso - ${ticket.titolo}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #6b7280 0%, #374151 100%); color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0;">🎫 TicketApp</h1>
+              <p style="margin: 10px 0 0 0;">Il tuo Ticket è stato Chiuso</p>
+            </div>
+            
+            <div style="padding: 30px; background: #f8f9fa;">
+              <h2 style="color: #333; margin-top: 0;">Ciao ${clientName || 'Cliente'}!</h2>
+              
+              <p>Il nostro tecnico ha chiuso il tuo ticket di assistenza:</p>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #6b7280;">
+                <h3 style="color: #6b7280; margin-top: 0;">📋 Dettagli Ticket</h3>
+                <p><strong>Numero:</strong> ${ticket.numero}</p>
+                <p><strong>Titolo:</strong> ${ticket.titolo}</p>
+                <p><strong>Stato:</strong> <span style="color: #6b7280; font-weight: bold;">CHIUSO</span></p>
+                <p><strong>Priorità:</strong> ${ticket.priorita}</p>
+              </div>
+              
+              <div style="background: #f3f4f6; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #374151;">
+                  <strong>🔒 Il ticket è stato chiuso definitivamente.</strong><br>
+                  Se hai nuovi problemi, puoi sempre creare un nuovo ticket.
+                </p>
+              </div>
+            </div>
+          </div>
+        `
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email "chiuso" inviata:', info.messageId);
+      
+      res.json({
+        success: true,
+        messageId: info.messageId,
+        message: 'Email "chiuso" inviata con successo'
+      });
+
+    } catch (err) {
+      console.error('❌ Errore invio email "chiuso":', err);
+      res.status(500).json({ 
+        error: 'Errore invio email',
+        details: err.message 
+      });
+    }
+  });
+
   // ENDPOINT: Invia notifica per aggiornamento ticket
   router.post('/notify-ticket-updated', async (req, res) => {
     try {
