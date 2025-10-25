@@ -312,47 +312,6 @@ export default function TicketApp() {
     if (isLoggedIn) fetchData();
   }, [isLoggedIn, currentUser]);
 
-  // ====================================================================
-  // CARICA CLIENTI PER AUTO-RILEVAMENTO AZIENDA (anche senza login)
-  // ====================================================================
-  useEffect(() => {
-    const fetchClients = async () => {
-      console.log('🔍 DEBUG AUTO-AZIENDA: Inizio caricamento clienti');
-      console.log('🔍 DEBUG AUTO-AZIENDA: API_URL:', process.env.REACT_APP_API_URL);
-      
-      if (!process.env.REACT_APP_API_URL) {
-        console.log('🔍 DEBUG AUTO-AZIENDA: API_URL non definita');
-        return;
-      }
-      
-      try {
-        const url = process.env.REACT_APP_API_URL + '/api/users';
-        console.log('🔍 DEBUG AUTO-AZIENDA: URL richiesta:', url);
-        
-        const usersResponse = await fetch(url, {
-          headers: currentUser ? getAuthHeader() : {}
-        });
-        
-        console.log('🔍 DEBUG AUTO-AZIENDA: Response status:', usersResponse.status);
-        console.log('🔍 DEBUG AUTO-AZIENDA: Response ok:', usersResponse.ok);
-        
-        if (usersResponse.ok) {
-          const allUsers = await usersResponse.json();
-          console.log('🔍 DEBUG AUTO-AZIENDA: Tutti gli utenti ricevuti:', allUsers);
-          setUsers(allUsers);
-          const clients = allUsers.filter(u => u.ruolo === 'cliente');
-          console.log('🔍 DEBUG AUTO-AZIENDA: Clienti filtrati:', clients);
-        } else {
-          const errorText = await usersResponse.text();
-          console.log('🔍 DEBUG AUTO-AZIENDA: Errore response:', usersResponse.status, errorText);
-        }
-      } catch (error) {
-        console.log('🔍 DEBUG AUTO-AZIENDA: Errore caricamento clienti:', error);
-      }
-    };
-    
-    fetchClients();
-  }, []); // Esegue solo al mount del componente
 
   // Riceve eventi per glow/frecce della dashboard
   useEffect(() => {

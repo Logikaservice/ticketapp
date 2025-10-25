@@ -239,29 +239,12 @@ const tempLoginRoutes = require('./routes/tempLogin')(pool);
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
 
-// Endpoint pubblico per ottenere solo i clienti (per auto-rilevamento azienda) - DEVE ESSERE PRIMA DELLE ROUTE PROTETTE
-app.get('/api/clients', async (req, res) => {
-  try {
-    console.log('🔍 DEBUG BACKEND: Endpoint /api/clients chiamato');
-    const client = await pool.connect();
-    const result = await client.query('SELECT id, email, nome, cognome, azienda FROM users WHERE ruolo = \'cliente\'');
-    client.release();
-    console.log('🔍 DEBUG BACKEND: Clienti trovati:', result.rows.length);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('Errore nel prendere i clienti:', err);
-    res.status(500).json({ error: 'Errore interno del server' });
-  }
-});
-
-// Endpoint alternativo per clienti (senza /api per evitare middleware)
+// Endpoint pubblico per ottenere solo i clienti (per auto-rilevamento azienda)
 app.get('/clients', async (req, res) => {
   try {
-    console.log('🔍 DEBUG BACKEND: Endpoint /clients chiamato');
     const client = await pool.connect();
     const result = await client.query('SELECT id, email, nome, cognome, azienda FROM users WHERE ruolo = \'cliente\'');
     client.release();
-    console.log('🔍 DEBUG BACKEND: Clienti trovati:', result.rows.length);
     res.json(result.rows);
   } catch (err) {
     console.error('Errore nel prendere i clienti:', err);

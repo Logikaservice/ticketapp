@@ -20,33 +20,18 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
   // Carica i clienti direttamente nel modal
   useEffect(() => {
     const fetchClients = async () => {
-      console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Inizio caricamento clienti');
-      console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - API_URL:', process.env.REACT_APP_API_URL);
-      
-      if (!process.env.REACT_APP_API_URL) {
-        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - API_URL non definita');
-        return;
-      }
+      if (!process.env.REACT_APP_API_URL) return;
       
       try {
         const url = process.env.REACT_APP_API_URL + '/clients';
-        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - URL richiesta:', url);
-        
         const clientsResponse = await fetch(url);
-        
-        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Response status:', clientsResponse.status);
-        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Response ok:', clientsResponse.ok);
         
         if (clientsResponse.ok) {
           const clients = await clientsResponse.json();
-          console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Clienti ricevuti:', clients);
           setClients(clients);
-        } else {
-          const errorText = await clientsResponse.text();
-          console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Errore response:', clientsResponse.status, errorText);
         }
       } catch (error) {
-        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Errore caricamento clienti:', error);
+        console.error('Errore caricamento clienti:', error);
       }
     };
     
@@ -64,31 +49,18 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
     const domain = getEmailDomain(email);
     if (!domain) return null;
     
-    console.log('🔍 DEBUG AUTO-AZIENDA: Email inserita:', email);
-    console.log('🔍 DEBUG AUTO-AZIENDA: Dominio estratto:', domain);
-    console.log('🔍 DEBUG AUTO-AZIENDA: Clienti caricati localmente:', clients);
-    
-    const foundClient = clients.find(client => {
+    return clients.find(client => {
       const clientDomain = getEmailDomain(client.email);
-      console.log('🔍 DEBUG AUTO-AZIENDA: Controllando cliente:', client.email, 'dominio:', clientDomain);
       return clientDomain === domain;
     });
-    
-    console.log('🔍 DEBUG AUTO-AZIENDA: Cliente trovato:', foundClient);
-    return foundClient;
   };
 
   // Effetto per controllare l'email e bloccare l'azienda
   useEffect(() => {
-    console.log('🔍 DEBUG AUTO-AZIENDA: useEffect triggered');
-    console.log('🔍 DEBUG AUTO-AZIENDA: formData.email:', formData.email);
-    console.log('🔍 DEBUG AUTO-AZIENDA: clients length:', clients.length);
-    
     if (formData.email) {
       const existingClient = findClientByDomain(formData.email);
       
       if (existingClient) {
-        console.log('🔍 DEBUG AUTO-AZIENDA: Cliente trovato, bloccando azienda');
         // Blocca il campo azienda e imposta il valore
         setAziendaLocked(true);
         setAziendaSource(`Automaticamente rilevata da ${existingClient.email}`);
@@ -97,13 +69,11 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
           azienda: existingClient.azienda || existingClient.nome + ' ' + existingClient.cognome
         }));
       } else {
-        console.log('🔍 DEBUG AUTO-AZIENDA: Nessun cliente trovato, sbloccando azienda');
         // Sblocca il campo azienda
         setAziendaLocked(false);
         setAziendaSource('');
       }
     } else {
-      console.log('🔍 DEBUG AUTO-AZIENDA: Email vuota, sbloccando tutto');
       // Se l'email è vuota, sblocca tutto
       setAziendaLocked(false);
       setAziendaSource('');
