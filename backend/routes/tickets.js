@@ -254,12 +254,77 @@ module.exports = (pool) => {
     const { status } = req.body;
     try {
       const client = await pool.connect();
+      
+      // Ottieni il ticket corrente per confrontare lo stato
+      const currentTicketQuery = 'SELECT * FROM tickets WHERE id = $1';
+      const currentTicketResult = await client.query(currentTicketQuery, [id]);
+      
+      if (currentTicketResult.rows.length === 0) {
+        client.release();
+        return res.status(404).json({ error: 'Ticket non trovato' });
+      }
+      
+      const currentTicket = currentTicketResult.rows[0];
+      const oldStatus = currentTicket.stato;
+      
+      // Aggiorna lo stato
       const query = 'UPDATE tickets SET stato = $1 WHERE id = $2 RETURNING *;';
       const result = await client.query(query, [status, id]);
       client.release();
 
       if (result.rows.length > 0) {
-        res.json(result.rows[0]);
+        const updatedTicket = result.rows[0];
+        
+        // Invia notifica email solo per le azioni specifiche del tecnico
+        if (oldStatus !== status) {
+          try {
+            // Ottieni i dati del cliente
+            const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [updatedTicket.clienteid]);
+            
+            if (clientData.rows.length > 0 && clientData.rows[0].email) {
+              const client = clientData.rows[0];
+              const authHeader = req.headers.authorization;
+              
+              let notificationEndpoint = null;
+              
+              // Determina quale notifica inviare
+              if (oldStatus === 'aperto' && status === 'in_lavorazione') {
+                notificationEndpoint = '/api/email/notify-ticket-taken';
+              } else if (oldStatus === 'in_lavorazione' && status === 'risolto') {
+                notificationEndpoint = '/api/email/notify-ticket-resolved';
+              } else if (oldStatus === 'risolto' && status === 'chiuso') {
+                notificationEndpoint = '/api/email/notify-ticket-closed';
+              }
+              
+              if (notificationEndpoint) {
+                console.log(`📧 Invio notifica per cambio stato: ${oldStatus} → ${status}`);
+                
+                const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}${notificationEndpoint}`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(authHeader ? { 'Authorization': authHeader } : {})
+                  },
+                  body: JSON.stringify({
+                    ticket: updatedTicket,
+                    clientEmail: client.email,
+                    clientName: `${client.nome} ${client.cognome}`
+                  })
+                });
+                
+                if (emailResponse.ok) {
+                  console.log(`✅ Email inviata al cliente: ${client.email}`);
+                } else {
+                  console.log(`⚠️ Errore invio email:`, emailResponse.status);
+                }
+              }
+            }
+          } catch (emailErr) {
+            console.log('⚠️ Errore invio notifica email:', emailErr.message);
+          }
+        }
+        
+        res.json(updatedTicket);
       } else {
         res.status(404).json({ error: 'Ticket non trovato' });
       }
