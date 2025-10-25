@@ -328,6 +328,7 @@ app.post('/api/tickets/quick-request', async (req, res) => {
     
     const values = [numero, clienteid, titolo, descrizione, 'aperto', priorita, nomerichiedente, 'assistenza'];
     console.log('🔍 DEBUG QUICK REQUEST: Valori ticket:', values);
+    console.log('🔍 DEBUG QUICK REQUEST: Query SQL:', query);
     const result = await client.query(query, values);
     console.log('🔍 DEBUG QUICK REQUEST: Ticket creato:', result.rows[0]);
     client.release();
