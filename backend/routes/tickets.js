@@ -267,9 +267,17 @@ module.exports = (pool) => {
       const currentTicket = currentTicketResult.rows[0];
       const oldStatus = currentTicket.stato;
       
-      // Aggiorna lo stato
-      const query = 'UPDATE tickets SET stato = $1 WHERE id = $2 RETURNING *;';
-      const result = await client.query(query, [status, id]);
+      // Aggiorna lo stato e traccia quando è stato risolto
+      let query, values;
+      if (status === 'risolto') {
+        // Se il ticket viene risolto, salva la data di risoluzione
+        query = 'UPDATE tickets SET stato = $1, data_risoluzione = NOW() WHERE id = $2 RETURNING *;';
+        values = [status, id];
+      } else {
+        query = 'UPDATE tickets SET stato = $1 WHERE id = $2 RETURNING *;';
+        values = [status, id];
+      }
+      const result = await client.query(query, values);
       client.release();
 
       if (result.rows.length > 0) {
@@ -330,6 +338,43 @@ module.exports = (pool) => {
       }
     } catch (err) {
       console.error(`Errore nell'aggiornare il ticket ${id}`, err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // ENDPOINT: Chiude automaticamente i ticket risolti da più di 5 giorni
+  router.post('/close-expired', async (req, res) => {
+    try {
+      const client = await pool.connect();
+      
+      // Trova tutti i ticket risolti da più di 5 giorni
+      const query = `
+        UPDATE tickets 
+        SET stato = 'chiuso', data_chiusura_automatica = NOW()
+        WHERE stato = 'risolto' 
+        AND data_risoluzione IS NOT NULL 
+        AND data_risoluzione < NOW() - INTERVAL '5 days'
+        RETURNING id, numero, titolo, data_risoluzione;
+      `;
+      
+      const result = await client.query(query);
+      client.release();
+      
+      console.log(`🔄 Chiusi automaticamente ${result.rows.length} ticket scaduti`);
+      
+      // Log dei ticket chiusi
+      result.rows.forEach(ticket => {
+        console.log(`✅ Ticket ${ticket.numero} chiuso automaticamente (risolto il ${ticket.data_risoluzione})`);
+      });
+      
+      res.json({
+        success: true,
+        closedCount: result.rows.length,
+        closedTickets: result.rows
+      });
+      
+    } catch (err) {
+      console.error('❌ Errore chiusura automatica ticket:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });

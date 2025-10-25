@@ -249,6 +249,13 @@ module.exports = (pool) => {
                   Se hai bisogno di ulteriore assistenza, non esitare a contattarci.
                 </p>
               </div>
+              
+              <div style="background: #fef3c7; border-radius: 8px; padding: 15px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                <p style="margin: 0; color: #92400e;">
+                  <strong>⏰ Avviso Importante:</strong><br>
+                  Questo ticket sarà automaticamente chiuso tra 5 giorni. Dopo la chiusura automatica non potrai più reclamare o richiedere modifiche.
+                </p>
+              </div>
             </div>
           </div>
         `

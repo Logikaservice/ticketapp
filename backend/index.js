@@ -247,6 +247,44 @@ app.use('/api', authenticateToken, googleCalendarRoutes);
 app.use('/api', authenticateToken, googleAuthRoutes);
 app.use('/api/email', authenticateToken, emailNotificationsRoutes);
 
+// Endpoint per chiusura automatica ticket (senza autenticazione per cron job)
+app.post('/api/tickets/close-expired', async (req, res) => {
+  try {
+    const client = await pool.connect();
+    
+    // Trova tutti i ticket risolti da più di 5 giorni
+    const query = `
+      UPDATE tickets 
+      SET stato = 'chiuso', data_chiusura_automatica = NOW()
+      WHERE stato = 'risolto' 
+      AND data_risoluzione IS NOT NULL 
+      AND data_risoluzione < NOW() - INTERVAL '5 days'
+      RETURNING id, numero, titolo, data_risoluzione;
+    `;
+    
+    const result = await client.query(query);
+    client.release();
+    
+    console.log(`🔄 Chiusi automaticamente ${result.rows.length} ticket scaduti`);
+    
+    // Log dei ticket chiusi
+    result.rows.forEach(ticket => {
+      console.log(`✅ Ticket ${ticket.numero} chiuso automaticamente (risolto il ${ticket.data_risoluzione})`);
+    });
+    
+    res.json({
+      success: true,
+      closedCount: result.rows.length,
+      closedTickets: result.rows,
+      message: `Chiusi automaticamente ${result.rows.length} ticket scaduti`
+    });
+    
+  } catch (err) {
+    console.error('❌ Errore chiusura automatica ticket:', err);
+    res.status(500).json({ error: 'Errore interno del server' });
+  }
+});
+
 // --- ENDPOINT PER INIZIALIZZARE IL DATABASE ---
 app.post('/api/init-db', async (req, res) => {
   try {
