@@ -554,7 +554,8 @@ export default function TicketApp() {
         method: 'POST',
         headers: { 
           'x-user-role': 'tecnico',
-          'x-user-id': currentUser?.id 
+          'x-user-id': currentUser?.id,
+          ...getAuthHeader()
         },
         body: formData
       });
@@ -590,7 +591,8 @@ export default function TicketApp() {
         method: 'PUT',
         headers: { 
           'x-user-role': 'tecnico',
-          'x-user-id': currentUser?.id 
+          'x-user-id': currentUser?.id,
+          ...getAuthHeader()
         },
         body: formData
       });
