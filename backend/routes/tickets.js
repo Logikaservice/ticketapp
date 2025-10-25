@@ -273,7 +273,10 @@ module.exports = (pool) => {
   // ENDPOINT: Aggiorna lo stato di un ticket
   router.patch('/:id/status', async (req, res) => {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, sendEmail } = req.body;
+    console.log('🔍 DEBUG BACKEND STATUS: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
+    console.log('🔍 DEBUG BACKEND STATUS: req.body completo =', JSON.stringify(req.body));
+    console.log('🔍 DEBUG BACKEND STATUS: sendEmail === false =', sendEmail === false);
     try {
       const client = await pool.connect();
       
@@ -297,8 +300,11 @@ module.exports = (pool) => {
       if (result.rows.length > 0) {
         const updatedTicket = result.rows[0];
         
-        // Invia notifica email per le azioni specifiche
-        if (oldStatus !== status) {
+        // Invia notifica email per le azioni specifiche (solo se sendEmail è true o undefined)
+        console.log('🔍 DEBUG BACKEND STATUS: Controllo invio email - sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
+        console.log('🔍 DEBUG BACKEND STATUS: Condizione sendEmail === true =', sendEmail === true, 'sendEmail === undefined =', sendEmail === undefined);
+        
+        if (oldStatus !== status && (sendEmail === true || sendEmail === undefined)) {
           try {
             // Ottieni i dati del cliente
             const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [updatedTicket.clienteid]);
@@ -409,6 +415,10 @@ module.exports = (pool) => {
           } catch (emailErr) {
             console.log('⚠️ Errore invio notifica email:', emailErr.message);
           }
+        } else if (oldStatus !== status && sendEmail === false) {
+          console.log('🔍 DEBUG BACKEND STATUS: Email notifica NON inviata per cambio stato (sendEmail = false)');
+        } else {
+          console.log('🔍 DEBUG BACKEND STATUS: Email non inviata per altri motivi - oldStatus =', oldStatus, 'status =', status, 'sendEmail =', sendEmail);
         }
         
         res.json(updatedTicket);
