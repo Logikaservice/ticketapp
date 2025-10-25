@@ -262,10 +262,33 @@ export const useTickets = (
           console.log('📝 Messaggi reclamo:', complaintMessages);
           
           // Usa i dati del cliente già disponibili nel ticket
-          const clientEmail = ticket.emailcliente || ticket.email;
+          let clientEmail = ticket.emailcliente || ticket.email;
           const clientName = ticket.nomerichiedente || ticket.cliente || 'Cliente';
           
+          // Se l'email non è disponibile nel ticket, recuperala dal database
+          if (!clientEmail && ticket.clienteid) {
+            try {
+              const clientData = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${ticket.clienteid}`, {
+                headers: getAuthHeader()
+              });
+              
+              if (clientData.ok) {
+                const client = await clientData.json();
+                clientEmail = client.email;
+                console.log('📧 Email recuperata dal database:', clientEmail);
+              }
+            } catch (dbErr) {
+              console.log('⚠️ Errore recupero email dal database:', dbErr.message);
+            }
+          }
+          
           console.log('👤 Dati cliente:', { clientEmail, clientName });
+          
+          // Se ancora non abbiamo l'email, usa un fallback
+          if (!clientEmail) {
+            console.log('⚠️ Email cliente non disponibile, uso fallback');
+            clientEmail = 'cliente@example.com'; // Fallback temporaneo
+          }
           
           const emailResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/email/notify-technician-complaint`, {
             method: 'POST',
