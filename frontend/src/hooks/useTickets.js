@@ -347,71 +347,7 @@ export const useTickets = (
       setTickets(prevTickets => prevTickets.map(t => (t.id === id ? updatedTicket : t)));
       showNotification('Stato del ticket aggiornato!', 'success');
       
-      // Invia notifica email quando il cliente accetta un ticket risolto
-      if (status === 'chiuso' && currentUser.ruolo === 'cliente') {
-        try {
-          console.log('✅ INVIO ACCETTAZIONE - Ticket:', updatedTicket.numero);
-          
-          // Usa i dati del cliente già disponibili nel ticket
-          let clientEmail = updatedTicket.emailcliente || updatedTicket.email;
-          const clientName = updatedTicket.nomerichiedente || updatedTicket.cliente || 'Cliente';
-          
-          // Se l'email non è disponibile nel ticket, recuperala dal database
-          if (!clientEmail && updatedTicket.clienteid) {
-            console.log('🔍 Tentativo recupero email per cliente ID:', updatedTicket.clienteid);
-            try {
-              const clientData = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${updatedTicket.clienteid}`, {
-                headers: getAuthHeader()
-              });
-              
-              console.log('📡 Risposta API users:', clientData.status);
-              
-              if (clientData.ok) {
-                const client = await clientData.json();
-                clientEmail = client.email;
-                console.log('📧 Email recuperata dal database:', clientEmail);
-              } else {
-                console.log('❌ API users fallita:', clientData.status);
-                const errorText = await clientData.text();
-                console.log('📄 Dettagli errore API:', errorText);
-              }
-            } catch (dbErr) {
-              console.log('⚠️ Errore recupero email dal database:', dbErr.message);
-            }
-          }
-          
-          console.log('👤 Dati cliente:', { clientEmail, clientName });
-          
-          // Se ancora non abbiamo l'email, usa un fallback
-          if (!clientEmail) {
-            console.log('⚠️ Email cliente non disponibile, uso fallback');
-            clientEmail = 'cliente@example.com'; // Fallback temporaneo
-          }
-          
-          const emailResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/email/notify-technician-acceptance`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...getAuthHeader()
-            },
-            body: JSON.stringify({
-              ticket: updatedTicket,
-              clientEmail: clientEmail,
-              clientName: clientName
-            })
-          });
-          
-          if (emailResponse.ok) {
-            console.log('✅ Email accettazione inviata al tecnico');
-          } else {
-            console.log('⚠️ Errore invio email accettazione:', emailResponse.status);
-            const errorText = await emailResponse.text();
-            console.log('📄 Dettagli errore:', errorText);
-          }
-        } catch (emailErr) {
-          console.log('⚠️ Errore invio email accettazione:', emailErr.message);
-        }
-      }
+      // La logica delle email è ora gestita dal backend in base al ruolo dell'utente
       
       // Glow immediato (senza frecce): stato precedente diminuisce, nuovo aumenta
       try {

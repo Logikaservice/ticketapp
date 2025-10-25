@@ -275,7 +275,7 @@ module.exports = (pool) => {
       if (result.rows.length > 0) {
         const updatedTicket = result.rows[0];
         
-        // Invia notifica email solo per le azioni specifiche del tecnico
+        // Invia notifica email per le azioni specifiche
         if (oldStatus !== status) {
           try {
             // Ottieni i dati del cliente
@@ -285,21 +285,14 @@ module.exports = (pool) => {
               const client = clientData.rows[0];
               const authHeader = req.headers.authorization;
               
-              let notificationEndpoint = null;
+              // Determina quale notifica inviare basandosi sul ruolo di chi fa l'azione
+              const userRole = req.user?.ruolo; // Dal JWT token
               
-              // Determina quale notifica inviare
               if (oldStatus === 'aperto' && status === 'in_lavorazione') {
-                notificationEndpoint = '/api/email/notify-ticket-taken';
-              } else if (oldStatus === 'in_lavorazione' && status === 'risolto') {
-                notificationEndpoint = '/api/email/notify-ticket-resolved';
-              } else if (oldStatus === 'risolto' && status === 'chiuso') {
-                notificationEndpoint = '/api/email/notify-ticket-closed';
-              }
-              
-              if (notificationEndpoint) {
+                // Tecnico prende in carico → Notifica cliente
                 console.log(`📧 Invio notifica per cambio stato: ${oldStatus} → ${status}`);
                 
-                const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}${notificationEndpoint}`, {
+                const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-ticket-taken`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -316,6 +309,78 @@ module.exports = (pool) => {
                   console.log(`✅ Email inviata al cliente: ${client.email}`);
                 } else {
                   console.log(`⚠️ Errore invio email:`, emailResponse.status);
+                }
+                
+              } else if (oldStatus === 'in_lavorazione' && status === 'risolto') {
+                // Tecnico risolve → Notifica cliente
+                console.log(`📧 Invio notifica per cambio stato: ${oldStatus} → ${status}`);
+                
+                const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-ticket-resolved`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(authHeader ? { 'Authorization': authHeader } : {})
+                  },
+                  body: JSON.stringify({
+                    ticket: updatedTicket,
+                    clientEmail: client.email,
+                    clientName: `${client.nome} ${client.cognome}`
+                  })
+                });
+                
+                if (emailResponse.ok) {
+                  console.log(`✅ Email inviata al cliente: ${client.email}`);
+                } else {
+                  console.log(`⚠️ Errore invio email:`, emailResponse.status);
+                }
+                
+              } else if (oldStatus === 'risolto' && status === 'chiuso') {
+                // Chiusura ticket - dipende da chi chiude
+                if (userRole === 'cliente') {
+                  // Cliente chiude → Notifica tecnico
+                  console.log(`📧 Cliente ha chiuso il ticket - Notifica tecnico`);
+                  
+                  const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-technician-acceptance`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(authHeader ? { 'Authorization': authHeader } : {})
+                    },
+                    body: JSON.stringify({
+                      ticket: updatedTicket,
+                      clientEmail: client.email,
+                      clientName: `${client.nome} ${client.cognome}`
+                    })
+                  });
+                  
+                  if (emailResponse.ok) {
+                    console.log(`✅ Email accettazione inviata al tecnico`);
+                  } else {
+                    console.log(`⚠️ Errore invio email accettazione:`, emailResponse.status);
+                  }
+                  
+                } else if (userRole === 'tecnico') {
+                  // Tecnico chiude → Notifica cliente
+                  console.log(`📧 Tecnico ha chiuso il ticket - Notifica cliente`);
+                  
+                  const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-ticket-closed`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(authHeader ? { 'Authorization': authHeader } : {})
+                    },
+                    body: JSON.stringify({
+                      ticket: updatedTicket,
+                      clientEmail: client.email,
+                      clientName: `${client.nome} ${client.cognome}`
+                    })
+                  });
+                  
+                  if (emailResponse.ok) {
+                    console.log(`✅ Email chiusura inviata al cliente: ${client.email}`);
+                  } else {
+                    console.log(`⚠️ Errore invio email chiusura:`, emailResponse.status);
+                  }
                 }
               }
             }

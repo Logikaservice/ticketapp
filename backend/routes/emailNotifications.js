@@ -443,6 +443,130 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Notifica chiusura automatica a tecnico e cliente
+  router.post('/notify-automatic-closure', async (req, res) => {
+    try {
+      const { ticket, clientEmail, clientName } = req.body;
+      
+      console.log('⏰ RICEVUTA CHIUSURA AUTOMATICA:', {
+        ticket: ticket?.numero,
+        clientEmail,
+        clientName
+      });
+      
+      if (!ticket || !clientEmail) {
+        console.log('❌ Dati mancanti per chiusura automatica');
+        return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
+      }
+
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        return res.json({
+          success: false,
+          message: 'Sistema email non configurato'
+        });
+      }
+
+      const transporter = createTransporter();
+      
+      // Email al cliente
+      const clientMailOptions = {
+        from: process.env.EMAIL_USER,
+        to: clientEmail,
+        subject: `⏰ Chiusura Automatica Ticket ${ticket.numero} - ${ticket.titolo}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0;">⏰ TicketApp</h1>
+              <p style="margin: 10px 0 0 0;">Chiusura Automatica Ticket</p>
+            </div>
+            
+            <div style="padding: 30px; background: #f8f9fa;">
+              <h2 style="color: #333; margin-top: 0;">Ciao Cliente!</h2>
+              
+              <p>Il tuo ticket è stato automaticamente chiuso dopo 5 giorni:</p>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                <h3 style="color: #f59e0b; margin-top: 0;">📋 Dettagli Ticket</h3>
+                <p><strong>Numero:</strong> ${ticket.numero}</p>
+                <p><strong>Titolo:</strong> ${ticket.titolo}</p>
+                <p><strong>Stato:</strong> <span style="color: #f59e0b; font-weight: bold;">CHIUSO AUTOMATICAMENTE</span></p>
+                <p><strong>Priorità:</strong> ${ticket.priorita}</p>
+              </div>
+              
+              <div style="background: #fef3c7; border-radius: 8px; padding: 15px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                <p style="margin: 0; color: #92400e;">
+                  <strong>⏰ Chiusura Automatica:</strong><br>
+                  Il ticket è stato chiuso automaticamente dopo 5 giorni dalla risoluzione. Se hai ancora problemi, puoi creare un nuovo ticket.
+                </p>
+              </div>
+            </div>
+          </div>
+        `
+      };
+
+      // Email al tecnico
+      const technicianMailOptions = {
+        from: process.env.EMAIL_USER,
+        to: 'info@logikaservice.it',
+        subject: `⏰ Chiusura Automatica Ticket ${ticket.numero} - ${ticket.titolo}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0;">⏰ TicketApp</h1>
+              <p style="margin: 10px 0 0 0;">Chiusura Automatica Ticket</p>
+            </div>
+            
+            <div style="padding: 30px; background: #f8f9fa;">
+              <h2 style="color: #333; margin-top: 0;">Chiusura Automatica</h2>
+              
+              <p>Un ticket è stato automaticamente chiuso dopo 5 giorni:</p>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                <h3 style="color: #f59e0b; margin-top: 0;">📋 Dettagli Ticket</h3>
+                <p><strong>Numero:</strong> ${ticket.numero}</p>
+                <p><strong>Titolo:</strong> ${ticket.titolo}</p>
+                <p><strong>Cliente:</strong> ${clientName || 'Cliente'}</p>
+                <p><strong>Email Cliente:</strong> ${clientEmail}</p>
+                <p><strong>Stato:</strong> <span style="color: #f59e0b; font-weight: bold;">CHIUSO AUTOMATICAMENTE</span></p>
+              </div>
+              
+              <div style="background: #fef3c7; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #92400e;">
+                  <strong>⏰ Chiusura Automatica:</strong><br>
+                  Il ticket è stato chiuso automaticamente dopo 5 giorni dalla risoluzione. Il cliente non ha risposto.
+                </p>
+              </div>
+            </div>
+          </div>
+        `
+      };
+
+      // Invia entrambe le email
+      const [clientInfo, technicianInfo] = await Promise.all([
+        transporter.sendMail(clientMailOptions),
+        transporter.sendMail(technicianMailOptions)
+      ]);
+      
+      console.log('✅ Email chiusura automatica inviate:', {
+        client: clientInfo.messageId,
+        technician: technicianInfo.messageId
+      });
+      
+      res.json({
+        success: true,
+        messageId: { client: clientInfo.messageId, technician: technicianInfo.messageId },
+        message: 'Email chiusura automatica inviate con successo'
+      });
+
+    } catch (err) {
+      console.error('❌ Errore invio email chiusura automatica:', err);
+      res.status(500).json({ 
+        error: 'Errore invio email',
+        details: err.message 
+      });
+    }
+  });
+
   // ENDPOINT: Notifica tecnico di reclamo cliente su ticket risolto
   router.post('/notify-technician-complaint', async (req, res) => {
     try {

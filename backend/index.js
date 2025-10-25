@@ -266,10 +266,41 @@ app.post('/api/tickets/close-expired', async (req, res) => {
     
     console.log(`🔄 Chiusi automaticamente ${result.rows.length} ticket scaduti`);
     
-    // Log dei ticket chiusi
-    result.rows.forEach(ticket => {
+    // Log dei ticket chiusi e invia email di notifica
+    for (const ticket of result.rows) {
       console.log(`✅ Ticket ${ticket.numero} chiuso automaticamente (apertura: ${ticket.dataapertura})`);
-    });
+      
+      // Invia email di notifica per ogni ticket chiuso
+      try {
+        // Recupera i dati del cliente
+        const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [ticket.clienteid]);
+        
+        if (clientData.rows.length > 0 && clientData.rows[0].email) {
+          const client = clientData.rows[0];
+          
+          // Invia notifica email
+          const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-automatic-closure`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              ticket: ticket,
+              clientEmail: client.email,
+              clientName: `${client.nome} ${client.cognome}`
+            })
+          });
+          
+          if (emailResponse.ok) {
+            console.log(`✅ Email chiusura automatica inviata per ticket ${ticket.numero}`);
+          } else {
+            console.log(`⚠️ Errore invio email chiusura automatica per ticket ${ticket.numero}:`, emailResponse.status);
+          }
+        }
+      } catch (emailErr) {
+        console.log(`⚠️ Errore invio email chiusura automatica per ticket ${ticket.numero}:`, emailErr.message);
+      }
+    }
     
     res.json({
       success: true,
