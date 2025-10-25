@@ -777,6 +777,9 @@ export default function TicketApp() {
     } else if (type === 'changeStatus') {
       // Cambia stato ticket con invio email
       await changeStatus(data.id, data.status, handleOpenTimeLogger, true);
+    } else if (type === 'confirmTimeLogs') {
+      // Conferma timeLogs con invio email
+      await handleConfirmTimeLogs(data.timeLogs, true);
     }
     
     setPendingTicketAction(null);
@@ -797,6 +800,9 @@ export default function TicketApp() {
     } else if (type === 'changeStatus') {
       // Cambia stato ticket senza invio email
       await changeStatus(data.id, data.status, handleOpenTimeLogger, false);
+    } else if (type === 'confirmTimeLogs') {
+      // Conferma timeLogs senza invio email
+      await handleConfirmTimeLogs(data.timeLogs, false);
     }
     
     setPendingTicketAction(null);
@@ -812,6 +818,13 @@ export default function TicketApp() {
 
   const handleChangeStatus = (id, status) => {
     console.log('🔍 DEBUG: handleChangeStatus chiamata - id:', id, 'status:', status, 'ruolo:', currentUser.ruolo);
+    
+    // Se è un tecnico e il status è "risolto", apri prima il TimeLoggerModal
+    if (currentUser.ruolo === 'tecnico' && status === 'risolto') {
+      console.log('🔍 DEBUG: Status risolto - aprendo TimeLoggerModal prima del modal email');
+      handleOpenTimeLogger(tickets.find(t => t.id === id));
+      return;
+    }
     
     // Se è un tecnico, chiedi conferma per l'invio email
     if (currentUser.ruolo === 'tecnico') {
@@ -852,6 +865,32 @@ export default function TicketApp() {
   const handleInvoiceTicket = (id) => handleChangeStatus(id, 'fatturato');
 
   const wrappedHandleConfirmTimeLogs = () => {
+    // Se è un tecnico, mostra il modal di conferma email prima di procedere
+    if (currentUser.ruolo === 'tecnico') {
+      console.log('🔍 DEBUG: TimeLogs completati - mostrando modal di conferma email');
+      
+      const ticket = selectedTicket;
+      const clientName = ticket ? users.find(u => u.id === ticket.clienteid)?.azienda || 'Cliente' : 'Cliente';
+      
+      setPendingTicketAction({
+        type: 'confirmTimeLogs',
+        data: { timeLogs },
+        isEditing: false,
+        selectedClient: null
+      });
+      setModalState({ 
+        type: 'emailConfirm', 
+        data: { 
+          isEditing: false, 
+          clientName: clientName,
+          statusChange: true,
+          newStatus: 'risolto'
+        } 
+      });
+      return;
+    }
+    
+    // Se non è tecnico, procedi direttamente
     handleConfirmTimeLogs(timeLogs);
   };
 

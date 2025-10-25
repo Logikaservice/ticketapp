@@ -376,7 +376,7 @@ export const useTickets = (
     }
   };
 
-  const handleConfirmTimeLogs = async (timeLogs) => {
+  const handleConfirmTimeLogs = async (timeLogs, sendEmail = true) => {
     if (!selectedTicket) return;
     
     try {
@@ -408,14 +408,14 @@ export const useTickets = (
 
       if (!timelogsResponse.ok) throw new Error('Errore nel salvare i log');
 
-      // 2. Aggiorna lo stato a risolto
+      // 2. Aggiorna lo stato a risolto (con controllo invio email)
       const statusResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/status`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
           ...getAuthHeader()
         },
-        body: JSON.stringify({ status: 'risolto' })
+        body: JSON.stringify({ status: 'risolto', sendEmail })
       });
 
       if (!statusResponse.ok) throw new Error('Errore nell\'aggiornamento dello stato');
