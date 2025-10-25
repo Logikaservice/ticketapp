@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Send, User, Mail, Phone, Building, FileText, AlertTriangle } from 'lucide-react';
 
-const QuickRequestModal = ({ onClose, onSubmit }) => {
+const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
   const [formData, setFormData] = useState({
     nome: '',
     cognome: '',
@@ -13,6 +13,50 @@ const QuickRequestModal = ({ onClose, onSubmit }) => {
     priorita: 'media'
   });
   const [loading, setLoading] = useState(false);
+  const [aziendaLocked, setAziendaLocked] = useState(false);
+  const [aziendaSource, setAziendaSource] = useState('');
+
+  // Funzione per estrarre il dominio da un'email
+  const getEmailDomain = (email) => {
+    if (!email || !email.includes('@')) return null;
+    return email.split('@')[1]?.toLowerCase();
+  };
+
+  // Funzione per trovare un cliente esistente con lo stesso dominio
+  const findClientByDomain = (email) => {
+    const domain = getEmailDomain(email);
+    if (!domain) return null;
+    
+    return existingClients.find(client => {
+      const clientDomain = getEmailDomain(client.email);
+      return clientDomain === domain;
+    });
+  };
+
+  // Effetto per controllare l'email e bloccare l'azienda
+  useEffect(() => {
+    if (formData.email) {
+      const existingClient = findClientByDomain(formData.email);
+      
+      if (existingClient) {
+        // Blocca il campo azienda e imposta il valore
+        setAziendaLocked(true);
+        setAziendaSource(`Automaticamente rilevata da ${existingClient.email}`);
+        setFormData(prev => ({
+          ...prev,
+          azienda: existingClient.azienda || existingClient.nome + ' ' + existingClient.cognome
+        }));
+      } else {
+        // Sblocca il campo azienda
+        setAziendaLocked(false);
+        setAziendaSource('');
+      }
+    } else {
+      // Se l'email è vuota, sblocca tutto
+      setAziendaLocked(false);
+      setAziendaSource('');
+    }
+  }, [formData.email, existingClients]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -123,14 +167,29 @@ const QuickRequestModal = ({ onClose, onSubmit }) => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Azienda
+                {aziendaLocked && (
+                  <span className="text-xs text-blue-600 ml-2">
+                    (Auto-rilevata)
+                  </span>
+                )}
               </label>
               <input
                 type="text"
                 name="azienda"
                 value={formData.azienda}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                readOnly={aziendaLocked}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  aziendaLocked 
+                    ? 'bg-blue-50 border-blue-200 text-blue-800 cursor-not-allowed' 
+                    : 'border-gray-300'
+                }`}
               />
+              {aziendaLocked && aziendaSource && (
+                <p className="text-xs text-blue-600 mt-1">
+                  {aziendaSource}
+                </p>
+              )}
             </div>
           </div>
 

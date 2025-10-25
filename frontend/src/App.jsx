@@ -971,7 +971,7 @@ export default function TicketApp() {
             <Notification key={notif.id} notification={notif} handleClose={() => handleCloseNotification(notif.id)} />
           ))}
         </div>
-        <LoginScreen {...{ loginData, setLoginData, handleLogin, onQuickRequest: handleQuickRequest }} />
+        <LoginScreen {...{ loginData, setLoginData, handleLogin, onQuickRequest: handleQuickRequest, existingClients: users.filter(u => u.ruolo === 'cliente') }} />
       </>
     );
   }

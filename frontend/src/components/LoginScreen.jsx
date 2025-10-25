@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User } from 'lucide-react';
 import QuickRequestModal from './Modals/QuickRequestModal';
 
-const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest }) => {
+const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, existingClients = [] }) => {
   const [showQuickRequest, setShowQuickRequest] = useState(false);
 
   const handleQuickRequest = async (formData) => {
@@ -17,6 +17,7 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest }) =
         <QuickRequestModal
           onClose={() => setShowQuickRequest(false)}
           onSubmit={handleQuickRequest}
+          existingClients={existingClients}
         />
       )}
   <div className="min-h-screen bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center p-4">
