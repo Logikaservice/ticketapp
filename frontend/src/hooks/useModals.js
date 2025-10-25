@@ -33,7 +33,9 @@ export const useModals = (
   };
   
   const handleOpenForniture = (ticket) => {
+    console.log('🔍 DEBUG FORNITURE: handleOpenForniture chiamata per ticket:', ticket.id, ticket.numero);
     setFornitureModalTicket(ticket);
+    console.log('🔍 DEBUG FORNITURE: fornitureModalTicket impostato');
   };
   
   const handleViewTimeLog = (ticket) => {

@@ -7,6 +7,8 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
   const [nuovaQuantita, setNuovaQuantita] = useState(1);
   const [loading, setLoading] = useState(true);
 
+  console.log('🔍 DEBUG FORNITURE: FornitureModal renderizzato per ticket:', ticket?.id, ticket?.numero);
+
   useEffect(() => {
     fetchForniture();
   }, [ticket.id]);

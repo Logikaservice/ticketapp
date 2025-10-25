@@ -218,6 +218,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
             <button
               onClick={(e) => {
                 e.stopPropagation();
+                console.log('🔍 DEBUG FORNITURE: Pulsante cliccato per ticket:', ticket.id, ticket.numero);
                 handleOpenForniture(ticket);
               }}
               className={`absolute bottom-2 right-2 p-2 rounded-full shadow-lg transition-all ${
