@@ -267,17 +267,9 @@ module.exports = (pool) => {
       const currentTicket = currentTicketResult.rows[0];
       const oldStatus = currentTicket.stato;
       
-      // Aggiorna lo stato e traccia quando è stato risolto
-      let query, values;
-      if (status === 'risolto') {
-        // Se il ticket viene risolto, salva la data di risoluzione
-        query = 'UPDATE tickets SET stato = $1, data_risoluzione = NOW() WHERE id = $2 RETURNING *;';
-        values = [status, id];
-      } else {
-        query = 'UPDATE tickets SET stato = $1 WHERE id = $2 RETURNING *;';
-        values = [status, id];
-      }
-      const result = await client.query(query, values);
+      // Aggiorna lo stato (per ora senza tracciare data_risoluzione)
+      const query = 'UPDATE tickets SET stato = $1 WHERE id = $2 RETURNING *;';
+      const result = await client.query(query, [status, id]);
       client.release();
 
       if (result.rows.length > 0) {

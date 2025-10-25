@@ -252,14 +252,13 @@ app.post('/api/tickets/close-expired', async (req, res) => {
   try {
     const client = await pool.connect();
     
-    // Trova tutti i ticket risolti da più di 5 giorni
+    // Trova tutti i ticket risolti da più di 5 giorni (usando dataapertura come riferimento)
     const query = `
       UPDATE tickets 
-      SET stato = 'chiuso', data_chiusura_automatica = NOW()
+      SET stato = 'chiuso'
       WHERE stato = 'risolto' 
-      AND data_risoluzione IS NOT NULL 
-      AND data_risoluzione < NOW() - INTERVAL '5 days'
-      RETURNING id, numero, titolo, data_risoluzione;
+      AND dataapertura < NOW() - INTERVAL '5 days'
+      RETURNING id, numero, titolo, dataapertura;
     `;
     
     const result = await client.query(query);
@@ -269,7 +268,7 @@ app.post('/api/tickets/close-expired', async (req, res) => {
     
     // Log dei ticket chiusi
     result.rows.forEach(ticket => {
-      console.log(`✅ Ticket ${ticket.numero} chiuso automaticamente (risolto il ${ticket.data_risoluzione})`);
+      console.log(`✅ Ticket ${ticket.numero} chiuso automaticamente (apertura: ${ticket.dataapertura})`);
     });
     
     res.json({
