@@ -38,13 +38,16 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
     console.log('🔍 DEBUG FORNITURE: Ticket ID:', ticket.id);
     console.log('🔍 DEBUG FORNITURE: Materiale:', nuovoMateriale);
     console.log('🔍 DEBUG FORNITURE: Quantità:', nuovaQuantita);
+    
+    const authHeaders = getAuthHeader();
+    console.log('🔍 DEBUG FORNITURE: Auth headers:', authHeaders);
 
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          ...getAuthHeader()
+          ...authHeaders
         },
         body: JSON.stringify({ materiale: nuovoMateriale, quantita: nuovaQuantita })
       });
