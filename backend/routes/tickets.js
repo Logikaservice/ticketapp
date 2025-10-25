@@ -697,5 +697,96 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Richiesta assistenza veloce (senza login)
+  router.post('/quick-request', async (req, res) => {
+    const { titolo, descrizione, priorita, nomerichiedente, email, telefono, azienda } = req.body;
+    
+    console.log('🔍 DEBUG QUICK REQUEST: Ricevuta richiesta veloce');
+    console.log('🔍 DEBUG QUICK REQUEST: Dati:', { titolo, email, azienda });
+    
+    if (!titolo || !descrizione || !email || !nomerichiedente) {
+      return res.status(400).json({ error: 'Titolo, descrizione, email e nome sono obbligatori' });
+    }
+    
+    try {
+      const client = await pool.connect();
+      
+      // Genera numero ticket
+      const countResult = await client.query('SELECT COUNT(*) FROM tickets');
+      const count = parseInt(countResult.rows[0].count) + 1;
+      const numero = `TKT-2025-${count.toString().padStart(3, '0')}`;
+      
+      console.log(`✅ Numero ticket generato: ${numero}`);
+      
+      // Crea il ticket
+      const query = `
+        INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico, quick_request_data) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() AT TIME ZONE 'Europe/Rome', NOW(), NOW(), $9) 
+        RETURNING *;
+      `;
+      
+      const quickRequestData = JSON.stringify({
+        email,
+        telefono: telefono || null,
+        azienda: azienda || null,
+        isQuickRequest: true
+      });
+      
+      const values = [numero, null, titolo, descrizione, 'aperto', priorita, nomerichiedente, 'assistenza', quickRequestData];
+      const result = await client.query(query, values);
+      client.release();
+      
+      if (result.rows[0]) {
+        console.log(`✅ Ticket richiesta veloce creato: ID ${result.rows[0].id}`);
+        
+        // Invia notifica email ai tecnici
+        try {
+          const techniciansData = await pool.query('SELECT email, nome, cognome FROM users WHERE ruolo = \'tecnico\' AND email IS NOT NULL');
+          
+          for (const technician of techniciansData.rows) {
+            try {
+              const techEmailUrl = `${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-technician-quick-request`;
+              
+              const technicianEmailResponse = await fetch(techEmailUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  ticket: result.rows[0],
+                  technicianEmail: technician.email,
+                  technicianName: `${technician.nome} ${technician.cognome}`,
+                  requesterEmail: email,
+                  requesterName: nomerichiedente
+                })
+              });
+              
+              if (technicianEmailResponse.ok) {
+                console.log(`✅ Email notifica richiesta veloce inviata al tecnico: ${technician.email}`);
+              } else {
+                console.log(`⚠️ Errore invio email tecnico:`, technicianEmailResponse.status);
+              }
+            } catch (techEmailErr) {
+              console.log(`⚠️ Errore invio email tecnico ${technician.email}:`, techEmailErr.message);
+            }
+          }
+        } catch (techErr) {
+          console.log('⚠️ Errore invio email ai tecnici:', techErr.message);
+        }
+        
+        res.status(201).json({
+          success: true,
+          message: 'Richiesta inviata con successo',
+          ticket: result.rows[0]
+        });
+      } else {
+        res.status(500).json({ error: 'Errore nella creazione del ticket' });
+      }
+    } catch (err) {
+      console.error('Errore nella creazione della richiesta veloce:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   return router;
 };
