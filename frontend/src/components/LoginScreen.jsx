@@ -1,9 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from 'lucide-react';
 import QuickRequestModal from './Modals/QuickRequestModal';
 
 const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, existingClients = [] }) => {
   const [showQuickRequest, setShowQuickRequest] = useState(false);
+  const [clients, setClients] = useState(existingClients);
+
+  // Carica i clienti quando si apre il modal
+  useEffect(() => {
+    const fetchClients = async () => {
+      console.log('🔍 DEBUG AUTO-AZIENDA: LoginScreen - Inizio caricamento clienti');
+      console.log('🔍 DEBUG AUTO-AZIENDA: LoginScreen - API_URL:', process.env.REACT_APP_API_URL);
+      
+      if (!process.env.REACT_APP_API_URL) {
+        console.log('🔍 DEBUG AUTO-AZIENDA: LoginScreen - API_URL non definita');
+        return;
+      }
+      
+      try {
+        const url = process.env.REACT_APP_API_URL + '/api/users';
+        console.log('🔍 DEBUG AUTO-AZIENDA: LoginScreen - URL richiesta:', url);
+        
+        const usersResponse = await fetch(url);
+        
+        console.log('🔍 DEBUG AUTO-AZIENDA: LoginScreen - Response status:', usersResponse.status);
+        console.log('🔍 DEBUG AUTO-AZIENDA: LoginScreen - Response ok:', usersResponse.ok);
+        
+        if (usersResponse.ok) {
+          const allUsers = await usersResponse.json();
+          console.log('🔍 DEBUG AUTO-AZIENDA: LoginScreen - Tutti gli utenti ricevuti:', allUsers);
+          const clients = allUsers.filter(u => u.ruolo === 'cliente');
+          console.log('🔍 DEBUG AUTO-AZIENDA: LoginScreen - Clienti filtrati:', clients);
+          setClients(clients);
+        } else {
+          const errorText = await usersResponse.text();
+          console.log('🔍 DEBUG AUTO-AZIENDA: LoginScreen - Errore response:', usersResponse.status, errorText);
+        }
+      } catch (error) {
+        console.log('🔍 DEBUG AUTO-AZIENDA: LoginScreen - Errore caricamento clienti:', error);
+      }
+    };
+    
+    fetchClients();
+  }, []); // Esegue al mount del LoginScreen
 
   const handleQuickRequest = async (formData) => {
     if (onQuickRequest) {
@@ -13,13 +52,13 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
 
   return (
     <>
-      {showQuickRequest && (
-        <QuickRequestModal
-          onClose={() => setShowQuickRequest(false)}
-          onSubmit={handleQuickRequest}
-          existingClients={existingClients}
-        />
-      )}
+        {showQuickRequest && (
+          <QuickRequestModal
+            onClose={() => setShowQuickRequest(false)}
+            onSubmit={handleQuickRequest}
+            existingClients={clients}
+          />
+        )}
   <div className="min-h-screen bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center p-4">
     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
       <div className="text-center mb-8">
