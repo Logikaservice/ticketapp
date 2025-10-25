@@ -37,6 +37,9 @@ export const useTickets = (
       selfCreated: currentUser.ruolo === 'cliente' && clienteId === currentUser.id,
       sendEmail: sendEmail
     };
+    
+    console.log('🔍 DEBUG FRONTEND: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
+    console.log('🔍 DEBUG FRONTEND: ticketDaInviare =', JSON.stringify(ticketDaInviare, null, 2));
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`, {
         method: 'POST',
