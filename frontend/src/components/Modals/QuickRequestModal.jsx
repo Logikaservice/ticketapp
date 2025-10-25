@@ -15,6 +15,45 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
   const [loading, setLoading] = useState(false);
   const [aziendaLocked, setAziendaLocked] = useState(false);
   const [aziendaSource, setAziendaSource] = useState('');
+  const [clients, setClients] = useState(existingClients);
+
+  // Carica i clienti direttamente nel modal
+  useEffect(() => {
+    const fetchClients = async () => {
+      console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Inizio caricamento clienti');
+      console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - API_URL:', process.env.REACT_APP_API_URL);
+      
+      if (!process.env.REACT_APP_API_URL) {
+        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - API_URL non definita');
+        return;
+      }
+      
+      try {
+        const url = process.env.REACT_APP_API_URL + '/api/users';
+        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - URL richiesta:', url);
+        
+        const usersResponse = await fetch(url);
+        
+        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Response status:', usersResponse.status);
+        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Response ok:', usersResponse.ok);
+        
+        if (usersResponse.ok) {
+          const allUsers = await usersResponse.json();
+          console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Tutti gli utenti ricevuti:', allUsers);
+          const clients = allUsers.filter(u => u.ruolo === 'cliente');
+          console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Clienti filtrati:', clients);
+          setClients(clients);
+        } else {
+          const errorText = await usersResponse.text();
+          console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Errore response:', usersResponse.status, errorText);
+        }
+      } catch (error) {
+        console.log('🔍 DEBUG AUTO-AZIENDA: QuickRequestModal - Errore caricamento clienti:', error);
+      }
+    };
+    
+    fetchClients();
+  }, []); // Esegue al mount del modal
 
   // Funzione per estrarre il dominio da un'email
   const getEmailDomain = (email) => {
@@ -29,9 +68,9 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
     
     console.log('🔍 DEBUG AUTO-AZIENDA: Email inserita:', email);
     console.log('🔍 DEBUG AUTO-AZIENDA: Dominio estratto:', domain);
-    console.log('🔍 DEBUG AUTO-AZIENDA: Clienti esistenti:', existingClients);
+    console.log('🔍 DEBUG AUTO-AZIENDA: Clienti caricati localmente:', clients);
     
-    const foundClient = existingClients.find(client => {
+    const foundClient = clients.find(client => {
       const clientDomain = getEmailDomain(client.email);
       console.log('🔍 DEBUG AUTO-AZIENDA: Controllando cliente:', client.email, 'dominio:', clientDomain);
       return clientDomain === domain;
@@ -45,7 +84,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
   useEffect(() => {
     console.log('🔍 DEBUG AUTO-AZIENDA: useEffect triggered');
     console.log('🔍 DEBUG AUTO-AZIENDA: formData.email:', formData.email);
-    console.log('🔍 DEBUG AUTO-AZIENDA: existingClients length:', existingClients.length);
+    console.log('🔍 DEBUG AUTO-AZIENDA: clients length:', clients.length);
     
     if (formData.email) {
       const existingClient = findClientByDomain(formData.email);
@@ -71,7 +110,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
       setAziendaLocked(false);
       setAziendaSource('');
     }
-  }, [formData.email, existingClients]);
+  }, [formData.email, clients]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
