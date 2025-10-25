@@ -811,6 +811,8 @@ export default function TicketApp() {
   };
 
   const handleChangeStatus = (id, status) => {
+    console.log('🔍 DEBUG: handleChangeStatus chiamata - id:', id, 'status:', status, 'ruolo:', currentUser.ruolo);
+    
     // Se è un tecnico, chiedi conferma per l'invio email
     if (currentUser.ruolo === 'tecnico') {
       console.log('🔍 DEBUG: Cambio stato ticket - currentUser.ruolo =', currentUser.ruolo);
@@ -818,6 +820,8 @@ export default function TicketApp() {
       
       const ticket = tickets.find(t => t.id === id);
       const clientName = ticket ? users.find(u => u.id === ticket.clienteid)?.azienda || 'Cliente' : 'Cliente';
+      
+      console.log('🔍 DEBUG: Ticket trovato:', ticket?.id, 'Cliente:', clientName);
       
       setPendingTicketAction({
         type: 'changeStatus',
@@ -837,6 +841,7 @@ export default function TicketApp() {
       return;
     }
     
+    console.log('🔍 DEBUG: Utente non è tecnico, procedendo senza modal');
     changeStatus(id, status, handleOpenTimeLogger);
   };
 
