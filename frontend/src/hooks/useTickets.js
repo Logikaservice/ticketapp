@@ -267,15 +267,22 @@ export const useTickets = (
           
           // Se l'email non è disponibile nel ticket, recuperala dal database
           if (!clientEmail && ticket.clienteid) {
+            console.log('🔍 Tentativo recupero email per cliente ID:', ticket.clienteid);
             try {
               const clientData = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${ticket.clienteid}`, {
                 headers: getAuthHeader()
               });
               
+              console.log('📡 Risposta API users:', clientData.status);
+              
               if (clientData.ok) {
                 const client = await clientData.json();
                 clientEmail = client.email;
                 console.log('📧 Email recuperata dal database:', clientEmail);
+              } else {
+                console.log('❌ API users fallita:', clientData.status);
+                const errorText = await clientData.text();
+                console.log('📄 Dettagli errore API:', errorText);
               }
             } catch (dbErr) {
               console.log('⚠️ Errore recupero email dal database:', dbErr.message);

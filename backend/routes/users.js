@@ -25,6 +25,33 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Prende un singolo utente per ID
+  router.get('/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const client = await pool.connect();
+      const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda FROM users WHERE id = $1', [id]);
+      
+      if (result.rows.length === 0) {
+        client.release();
+        return res.status(404).json({ error: 'Utente non trovato' });
+      }
+      
+      const user = result.rows[0];
+      // Per il tecnico, mostra sempre la password in chiaro
+      const userWithPlainPassword = {
+        ...user,
+        password: user.password || ''
+      };
+      
+      client.release();
+      res.json(userWithPlainPassword);
+    } catch (err) {
+      console.error('Errore nel prendere l\'utente', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // ENDPOINT: Crea un nuovo cliente (utente) - SICURO con hash password
   router.post('/', async (req, res) => {
     const { email, password, telefono, azienda, ruolo, nome, cognome } = req.body;
