@@ -350,6 +350,99 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Notifica tecnico di accettazione ticket da parte del cliente
+  router.post('/notify-technician-acceptance', async (req, res) => {
+    try {
+      const { ticket, clientEmail, clientName } = req.body;
+      
+      console.log('✅ RICEVUTA ACCETTAZIONE:', {
+        ticket: ticket?.numero,
+        clientEmail,
+        clientName
+      });
+      
+      if (!ticket || !clientEmail) {
+        console.log('❌ Dati mancanti per accettazione');
+        return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
+      }
+
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        return res.json({
+          success: false,
+          message: 'Sistema email non configurato'
+        });
+      }
+
+      const transporter = createTransporter();
+      
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: 'info@logikaservice.it', // Invia al tecnico all'indirizzo corretto
+        subject: `✅ ACCETTATO Ticket ${ticket.numero} - ${ticket.titolo}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 20px; text-align: center;">
+              <h1 style="margin: 0;">✅ TicketApp</h1>
+              <p style="margin: 10px 0 0 0;">TICKET ACCETTATO - Cliente Soddisfatto</p>
+            </div>
+            
+            <div style="padding: 30px; background: #f8f9fa;">
+              <h2 style="color: #333; margin-top: 0;">🎉 Ticket Accettato!</h2>
+              
+              <p>Il cliente ha accettato la risoluzione del ticket:</p>
+              
+              <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #10b981;">
+                <h3 style="color: #10b981; margin-top: 0;">📋 Dettagli Ticket</h3>
+                <p><strong>Numero:</strong> ${ticket.numero}</p>
+                <p><strong>Titolo:</strong> ${ticket.titolo}</p>
+                <p><strong>Cliente:</strong> ${clientName || 'Cliente'}</p>
+                <p><strong>Email Cliente:</strong> ${clientEmail}</p>
+                <p><strong>Stato:</strong> <span style="color: #10b981; font-weight: bold;">CHIUSO</span></p>
+              </div>
+              
+              <div style="background: #d1fae5; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                <p style="margin: 0; color: #065f46;">
+                  <strong>✅ Cliente Soddisfatto!</strong><br>
+                  Il cliente ha confermato che il problema è stato risolto correttamente.
+                </p>
+              </div>
+              
+              <div style="background: #f0f9ff; border-radius: 8px; padding: 15px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+                <p style="margin: 0; color: #1e40af;">
+                  <strong>📊 Statistiche:</strong><br>
+                  Ticket completato con successo. Il cliente è soddisfatto del servizio.
+                </p>
+              </div>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
+                   style="background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
+                  🔗 Visualizza Ticket
+                </a>
+              </div>
+            </div>
+          </div>
+        `
+      };
+
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email accettazione tecnico inviata:', info.messageId);
+      
+      res.json({
+        success: true,
+        messageId: info.messageId,
+        message: 'Email accettazione tecnico inviata con successo'
+      });
+
+    } catch (err) {
+      console.error('❌ Errore invio email accettazione tecnico:', err);
+      res.status(500).json({ 
+        error: 'Errore invio email',
+        details: err.message 
+      });
+    }
+  });
+
   // ENDPOINT: Notifica tecnico di reclamo cliente su ticket risolto
   router.post('/notify-technician-complaint', async (req, res) => {
     try {
