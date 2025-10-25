@@ -1,7 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { User } from 'lucide-react';
+import QuickRequestModal from './Modals/QuickRequestModal';
 
-const LoginScreen = ({ loginData, setLoginData, handleLogin }) => (
+const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest }) => {
+  const [showQuickRequest, setShowQuickRequest] = useState(false);
+
+  const handleQuickRequest = async (formData) => {
+    if (onQuickRequest) {
+      await onQuickRequest(formData);
+    }
+  };
+
+  return (
+    <>
+      {showQuickRequest && (
+        <QuickRequestModal
+          onClose={() => setShowQuickRequest(false)}
+          onSubmit={handleQuickRequest}
+        />
+      )}
   <div className="min-h-screen bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center p-4">
     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
       <div className="text-center mb-8">
@@ -44,8 +61,23 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin }) => (
           Accedi
         </button>
       </div>
+      
+      {/* Pulsante Richiesta Assistenza Veloce */}
+      <div className="mt-6 text-center">
+        <button
+          onClick={() => setShowQuickRequest(true)}
+          className="text-sm text-blue-600 hover:text-blue-800 underline transition"
+        >
+          Richiesta Assistenza Veloce
+        </button>
+        <p className="text-xs text-gray-500 mt-1">
+          Invia una richiesta senza registrarti
+        </p>
+      </div>
     </div>
   </div>
-);
+    </>
+  );
+};
 
 export default LoginScreen;

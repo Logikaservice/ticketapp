@@ -825,6 +825,46 @@ export default function TicketApp() {
     setModalState({ type: null, data: null });
   };
 
+  // Gestione richiesta assistenza veloce
+  const handleQuickRequest = async (formData) => {
+    try {
+      const apiBase = process.env.REACT_APP_API_URL || 'https://ticketapp-4eqb.onrender.com';
+      
+      // Crea un ticket con i dati della richiesta veloce
+      const ticketData = {
+        clienteid: null, // Sarà gestito dal backend
+        titolo: formData.titolo,
+        descrizione: formData.descrizione,
+        stato: 'aperto',
+        priorita: formData.priorita,
+        nomerichiedente: `${formData.nome} ${formData.cognome}`,
+        categoria: 'assistenza',
+        // Dati aggiuntivi per richiesta veloce
+        quickRequest: true,
+        email: formData.email,
+        telefono: formData.telefono,
+        azienda: formData.azienda
+      };
+
+      const response = await fetch(`${apiBase}/api/tickets/quick-request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(ticketData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore nell\'invio della richiesta');
+      }
+
+      showNotification('Richiesta inviata con successo! Ti contatteremo presto.', 'success');
+    } catch (error) {
+      console.error('Errore richiesta veloce:', error);
+      showNotification('Errore nell\'invio della richiesta. Riprova più tardi.', 'error');
+    }
+  };
+
   const wrappedHandleCreateClient = () => {
     handleCreateClient(newClientData, () => {
       setNewClientData({ nome: '', cognome: '', email: '', password: '', telefono: '', azienda: '' });
@@ -931,7 +971,7 @@ export default function TicketApp() {
             <Notification key={notif.id} notification={notif} handleClose={() => handleCloseNotification(notif.id)} />
           ))}
         </div>
-        <LoginScreen {...{ loginData, setLoginData, handleLogin }} />
+        <LoginScreen {...{ loginData, setLoginData, handleLogin, onQuickRequest: handleQuickRequest }} />
       </>
     );
   }
