@@ -641,7 +641,14 @@ module.exports = (pool) => {
     const { id } = req.params;
     const { materiale, quantita } = req.body;
     
+    console.log('🔍 DEBUG BACKEND FORNITURE: Ricevuta richiesta POST');
+    console.log('🔍 DEBUG BACKEND FORNITURE: Ticket ID:', id);
+    console.log('🔍 DEBUG BACKEND FORNITURE: Materiale:', materiale);
+    console.log('🔍 DEBUG BACKEND FORNITURE: Quantità:', quantita);
+    console.log('🔍 DEBUG BACKEND FORNITURE: Body completo:', req.body);
+    
     if (!materiale || !quantita) {
+      console.log('🔍 DEBUG BACKEND FORNITURE: Errore - Materiale o quantità mancanti');
       return res.status(400).json({ error: 'Materiale e quantità sono obbligatori' });
     }
     
@@ -655,9 +662,12 @@ module.exports = (pool) => {
       const result = await client.query(query, [id, materiale, parseInt(quantita)]);
       client.release();
       
+      console.log('🔍 DEBUG BACKEND FORNITURE: Query eseguita con successo');
+      console.log('🔍 DEBUG BACKEND FORNITURE: Risultato:', result.rows[0]);
       console.log(`✅ Fornitura aggiunta al ticket ${id}`);
       res.status(201).json(result.rows[0]);
     } catch (err) {
+      console.error('🔍 DEBUG BACKEND FORNITURE: Errore nell\'aggiungere la fornitura:', err);
       console.error('Errore nell\'aggiungere la fornitura:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
