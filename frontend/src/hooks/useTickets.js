@@ -261,32 +261,32 @@ export const useTickets = (
           const complaintMessages = [savedMessage];
           console.log('📝 Messaggi reclamo:', complaintMessages);
           
-          const clientData = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${ticket.clienteid}`, {
-            headers: getAuthHeader()
+          // Usa i dati del cliente già disponibili nel ticket
+          const clientEmail = ticket.emailcliente || ticket.email;
+          const clientName = ticket.nomerichiedente || ticket.cliente || 'Cliente';
+          
+          console.log('👤 Dati cliente:', { clientEmail, clientName });
+          
+          const emailResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/email/notify-technician-complaint`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...getAuthHeader()
+            },
+            body: JSON.stringify({
+              ticket: { ...ticket, stato: newStatus },
+              clientEmail: clientEmail,
+              clientName: clientName,
+              complaintMessages: complaintMessages
+            })
           });
           
-          if (clientData.ok) {
-            const client = await clientData.json();
-            
-            const emailResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/email/notify-technician-complaint`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeader()
-              },
-              body: JSON.stringify({
-                ticket: { ...ticket, stato: newStatus },
-                clientEmail: client.email,
-                clientName: `${client.nome} ${client.cognome}`,
-                complaintMessages: complaintMessages
-              })
-            });
-            
-            if (emailResponse.ok) {
-              console.log('✅ Email reclamo inviata al tecnico');
-            } else {
-              console.log('⚠️ Errore invio email reclamo:', emailResponse.status);
-            }
+          if (emailResponse.ok) {
+            console.log('✅ Email reclamo inviata al tecnico');
+          } else {
+            console.log('⚠️ Errore invio email reclamo:', emailResponse.status);
+            const errorText = await emailResponse.text();
+            console.log('📄 Dettagli errore:', errorText);
           }
         } catch (emailErr) {
           console.log('⚠️ Errore invio email reclamo:', emailErr.message);
