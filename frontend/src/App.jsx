@@ -317,16 +317,34 @@ export default function TicketApp() {
   // ====================================================================
   useEffect(() => {
     const fetchClients = async () => {
-      if (!process.env.REACT_APP_API_URL) return;
+      console.log('🔍 DEBUG AUTO-AZIENDA: Inizio caricamento clienti');
+      console.log('🔍 DEBUG AUTO-AZIENDA: API_URL:', process.env.REACT_APP_API_URL);
+      
+      if (!process.env.REACT_APP_API_URL) {
+        console.log('🔍 DEBUG AUTO-AZIENDA: API_URL non definita');
+        return;
+      }
       
       try {
-        const usersResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users', {
+        const url = process.env.REACT_APP_API_URL + '/api/users';
+        console.log('🔍 DEBUG AUTO-AZIENDA: URL richiesta:', url);
+        
+        const usersResponse = await fetch(url, {
           headers: currentUser ? getAuthHeader() : {}
         });
+        
+        console.log('🔍 DEBUG AUTO-AZIENDA: Response status:', usersResponse.status);
+        console.log('🔍 DEBUG AUTO-AZIENDA: Response ok:', usersResponse.ok);
+        
         if (usersResponse.ok) {
           const allUsers = await usersResponse.json();
+          console.log('🔍 DEBUG AUTO-AZIENDA: Tutti gli utenti ricevuti:', allUsers);
           setUsers(allUsers);
-          console.log('🔍 DEBUG AUTO-AZIENDA: Clienti caricati:', allUsers.filter(u => u.ruolo === 'cliente'));
+          const clients = allUsers.filter(u => u.ruolo === 'cliente');
+          console.log('🔍 DEBUG AUTO-AZIENDA: Clienti filtrati:', clients);
+        } else {
+          const errorText = await usersResponse.text();
+          console.log('🔍 DEBUG AUTO-AZIENDA: Errore response:', usersResponse.status, errorText);
         }
       } catch (error) {
         console.log('🔍 DEBUG AUTO-AZIENDA: Errore caricamento clienti:', error);
