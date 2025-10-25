@@ -114,7 +114,6 @@ export default function TicketApp() {
     setLoginData,
     handleLogin,
     handleLogout,
-    handleAutoFillLogin,
     getAuthHeader
   } = useAuth(showNotification);
 
@@ -932,7 +931,7 @@ export default function TicketApp() {
             <Notification key={notif.id} notification={notif} handleClose={() => handleCloseNotification(notif.id)} />
           ))}
         </div>
-        <LoginScreen {...{ loginData, setLoginData, handleLogin, handleAutoFillLogin }} />
+        <LoginScreen {...{ loginData, setLoginData, handleLogin }} />
       </>
     );
   }

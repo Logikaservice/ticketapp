@@ -1,7 +1,7 @@
 import React from 'react';
 import { User } from 'lucide-react';
 
-const LoginScreen = ({ loginData, setLoginData, handleLogin, handleAutoFillLogin }) => (
+const LoginScreen = ({ loginData, setLoginData, handleLogin }) => (
   <div className="min-h-screen bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center p-4">
     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
       <div className="text-center mb-8">
@@ -43,25 +43,6 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, handleAutoFillLogin
         >
           Accedi
         </button>
-      </div>
-      
-      {/* Account di prova */}
-      <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-        <p className="text-xs font-semibold mb-2">Account di prova (dal DB):</p>
-        <div className="space-y-2 text-xs">
-          <button
-            onClick={() => handleAutoFillLogin('cliente')}
-            className="w-full text-left p-1 rounded-md hover:bg-gray-100 transition"
-          >
-            Cliente: cliente@example.com / cliente123
-          </button>
-          <button
-            onClick={() => handleAutoFillLogin('tecnico')}
-            className="w-full text-left p-1 rounded-md hover:bg-gray-100 transition"
-          >
-            Tecnico: tecnico@example.com / tecnico123
-          </button>
-        </div>
       </div>
     </div>
   </div>

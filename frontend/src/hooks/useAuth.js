@@ -125,13 +125,6 @@ export const useAuth = (showNotification) => {
     return token ? { 'Authorization': `Bearer ${token}` } : {};
   };
 
-  const handleAutoFillLogin = (ruolo) => {
-    if (ruolo === 'cliente') {
-      setLoginData({ email: 'cliente@example.com', password: 'cliente123' });
-    } else if (ruolo === 'tecnico') {
-      setLoginData({ email: 'tecnico@example.com', password: 'tecnico123' });
-    }
-  };
 
   return {
     isLoggedIn,
@@ -141,7 +134,6 @@ export const useAuth = (showNotification) => {
     setLoginData,
     handleLogin,
     handleLogout,
-    handleAutoFillLogin,
     getAuthHeader,
     token
   };
