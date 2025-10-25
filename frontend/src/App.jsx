@@ -570,6 +570,13 @@ export default function TicketApp() {
 
   const handleEditAlert = async (alertData) => {
     try {
+      console.log('🔍 DEBUG ALERTS: Tentativo di modifica avviso');
+      console.log('🔍 DEBUG ALERTS: Alert ID:', alertData.id);
+      console.log('🔍 DEBUG ALERTS: Alert title:', alertData.title);
+      
+      const authHeaders = getAuthHeader();
+      console.log('🔍 DEBUG ALERTS: Auth headers:', authHeaders);
+      
       const apiBase = process.env.REACT_APP_API_URL || 'https://ticketapp-4eqb.onrender.com';
       const formData = new FormData();
       formData.append('title', alertData.title);
@@ -592,11 +599,19 @@ export default function TicketApp() {
         headers: { 
           'x-user-role': 'tecnico',
           'x-user-id': currentUser?.id,
-          ...getAuthHeader()
+          ...authHeaders
         },
         body: formData
       });
-      if (!res.ok) throw new Error('Errore modifica avviso');
+      
+      console.log('🔍 DEBUG ALERTS: Response status:', res.status);
+      console.log('🔍 DEBUG ALERTS: Response ok:', res.ok);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('🔍 DEBUG ALERTS: Errore response:', res.status, errorText);
+        throw new Error('Errore modifica avviso');
+      }
       showNotification('Avviso modificato con successo!', 'success');
       setAlertsRefreshTrigger(prev => prev + 1); // Trigger refresh avvisi
     } catch (e) {
