@@ -27,18 +27,31 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
     const domain = getEmailDomain(email);
     if (!domain) return null;
     
-    return existingClients.find(client => {
+    console.log('🔍 DEBUG AUTO-AZIENDA: Email inserita:', email);
+    console.log('🔍 DEBUG AUTO-AZIENDA: Dominio estratto:', domain);
+    console.log('🔍 DEBUG AUTO-AZIENDA: Clienti esistenti:', existingClients);
+    
+    const foundClient = existingClients.find(client => {
       const clientDomain = getEmailDomain(client.email);
+      console.log('🔍 DEBUG AUTO-AZIENDA: Controllando cliente:', client.email, 'dominio:', clientDomain);
       return clientDomain === domain;
     });
+    
+    console.log('🔍 DEBUG AUTO-AZIENDA: Cliente trovato:', foundClient);
+    return foundClient;
   };
 
   // Effetto per controllare l'email e bloccare l'azienda
   useEffect(() => {
+    console.log('🔍 DEBUG AUTO-AZIENDA: useEffect triggered');
+    console.log('🔍 DEBUG AUTO-AZIENDA: formData.email:', formData.email);
+    console.log('🔍 DEBUG AUTO-AZIENDA: existingClients length:', existingClients.length);
+    
     if (formData.email) {
       const existingClient = findClientByDomain(formData.email);
       
       if (existingClient) {
+        console.log('🔍 DEBUG AUTO-AZIENDA: Cliente trovato, bloccando azienda');
         // Blocca il campo azienda e imposta il valore
         setAziendaLocked(true);
         setAziendaSource(`Automaticamente rilevata da ${existingClient.email}`);
@@ -47,11 +60,13 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
           azienda: existingClient.azienda || existingClient.nome + ' ' + existingClient.cognome
         }));
       } else {
+        console.log('🔍 DEBUG AUTO-AZIENDA: Nessun cliente trovato, sbloccando azienda');
         // Sblocca il campo azienda
         setAziendaLocked(false);
         setAziendaSource('');
       }
     } else {
+      console.log('🔍 DEBUG AUTO-AZIENDA: Email vuota, sbloccando tutto');
       // Se l'email è vuota, sblocca tutto
       setAziendaLocked(false);
       setAziendaSource('');
@@ -105,6 +120,23 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
               Informazioni Personali
             </h3>
             
+            {/* Email in alto su una riga separata */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email *
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="esempio@azienda.com"
+              />
+            </div>
+            
+            {/* Nome e Cognome in grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -135,35 +167,22 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Telefono
-                </label>
-                <input
-                  type="tel"
-                  name="telefono"
-                  value={formData.telefono}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+            {/* Telefono su una riga separata */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Telefono
+              </label>
+              <input
+                type="tel"
+                name="telefono"
+                value={formData.telefono}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="+39 123 456 7890"
+              />
             </div>
 
+            {/* Azienda su una riga separata */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Azienda
@@ -184,6 +203,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                     ? 'bg-blue-50 border-blue-200 text-blue-800 cursor-not-allowed' 
                     : 'border-gray-300'
                 }`}
+                placeholder="Nome dell'azienda"
               />
               {aziendaLocked && aziendaSource && (
                 <p className="text-xs text-blue-600 mt-1">
