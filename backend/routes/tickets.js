@@ -27,7 +27,9 @@ module.exports = (pool) => {
 
   // ENDPOINT: Crea un nuovo ticket
   router.post('/', async (req, res) => {
-    const { clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria } = req.body;
+    const { clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, sendEmail } = req.body;
+    console.log('🔍 DEBUG BACKEND: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
+    console.log('🔍 DEBUG BACKEND: Body completo =', JSON.stringify(req.body, null, 2));
     
     try {
       const client = await pool.connect();
@@ -72,12 +74,20 @@ module.exports = (pool) => {
       const result = await client.query(query, values);
       client.release();
       
-      // Invia notifica email al cliente
-      if (result.rows[0]) {
+      // Invia notifica email al cliente (solo se sendEmail è true o undefined)
+      console.log('🔍 DEBUG BACKEND: Controllo invio email - sendEmail =', sendEmail, 'tipo:', typeof sendEmail, 'result.rows[0] =', !!result.rows[0]);
+      console.log('🔍 DEBUG BACKEND: Condizione sendEmail !== false =', sendEmail !== false);
+      console.log('🔍 DEBUG BACKEND: sendEmail === false =', sendEmail === false);
+      console.log('🔍 DEBUG BACKEND: sendEmail === true =', sendEmail === true);
+      
+      // Controllo più rigoroso: invia email solo se sendEmail è esplicitamente true
+      // Se sendEmail è undefined (comportamento legacy), invia email per compatibilità
+      if (result.rows[0] && (sendEmail === true || sendEmail === undefined)) {
         try {
           console.log('📧 === INVIO NOTIFICA EMAIL CLIENTE ===');
           console.log('📧 Ticket creato:', result.rows[0].id, result.rows[0].titolo);
           console.log('📧 Cliente ID:', clienteid);
+          console.log('📧 SendEmail:', sendEmail);
           
           // Ottieni i dati del cliente
           const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [clienteid]);
@@ -130,6 +140,11 @@ module.exports = (pool) => {
         } catch (emailErr) {
           console.log('⚠️ Errore invio email notifica:', emailErr.message);
         }
+      } else if (result.rows[0] && sendEmail === false) {
+        console.log('🔍 DEBUG BACKEND: Email notifica NON inviata al cliente (sendEmail = false)');
+      } else {
+        console.log('🔍 DEBUG BACKEND: Email non inviata per altri motivi - sendEmail =', sendEmail, 'tipo:', typeof sendEmail, 'result.rows[0] =', !!result.rows[0]);
+        console.log('🔍 DEBUG BACKEND: Condizione finale - sendEmail === true =', sendEmail === true, 'sendEmail === undefined =', sendEmail === undefined);
       }
       
       // Invia notifica email ai tecnici
@@ -188,7 +203,7 @@ module.exports = (pool) => {
   // ENDPOINT: Modifica un ticket completo
   router.put('/:id', async (req, res) => {
     const { id } = req.params;
-    const { titolo, descrizione, categoria, priorita, nomerichiedente, clienteid, dataapertura } = req.body;
+    const { titolo, descrizione, categoria, priorita, nomerichiedente, clienteid, dataapertura, sendEmail } = req.body;
     
     try {
       const client = await pool.connect();
@@ -205,11 +220,15 @@ module.exports = (pool) => {
       if (result.rows.length > 0) {
         console.log(`✅ Ticket aggiornato: ID ${id}`);
         
-        // Invia notifica email per aggiornamento ticket
-        try {
-          const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [result.rows[0].clienteid]);
-          
-          if (clientData.rows.length > 0 && clientData.rows[0].email) {
+        // Invia notifica email per aggiornamento ticket (solo se sendEmail è true o undefined)
+        console.log('🔍 DEBUG BACKEND UPDATE: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
+        console.log('🔍 DEBUG BACKEND UPDATE: sendEmail === true =', sendEmail === true, 'sendEmail === undefined =', sendEmail === undefined);
+        
+        if (sendEmail === true || sendEmail === undefined) {
+          try {
+            const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [result.rows[0].clienteid]);
+            
+            if (clientData.rows.length > 0 && clientData.rows[0].email) {
             const client = clientData.rows[0];
             
             // Estrai il token JWT dall'header della richiesta originale
@@ -234,8 +253,11 @@ module.exports = (pool) => {
               console.log(`✅ Email aggiornamento inviata al cliente: ${client.email}`);
             }
           }
-        } catch (emailErr) {
-          console.log('⚠️ Errore invio email aggiornamento:', emailErr.message);
+          } catch (emailErr) {
+            console.log('⚠️ Errore invio email aggiornamento:', emailErr.message);
+          }
+        } else {
+          console.log('🔍 DEBUG BACKEND UPDATE: Email aggiornamento NON inviata al cliente (sendEmail =', sendEmail, 'tipo:', typeof sendEmail, ')');
         }
         
         res.json(result.rows[0]);
