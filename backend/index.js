@@ -227,9 +227,13 @@ const googleCalendarRoutes = require('./routes/googleCalendar')(pool);
 const googleAuthRoutes = require('./routes/googleAuth')(pool);
 const emailNotificationsRoutes = require('./routes/emailNotifications')(pool);
 const tempLoginRoutes = require('./routes/tempLogin')(pool);
+const temporarySuppliesRoutes = require('./routes/temporarySupplies')(pool);
 
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
+
+// Rotte per forniture temporanee (con autenticazione)
+app.use('/api/temporary-supplies', authenticateToken, temporarySuppliesRoutes);
 
 // Endpoint pubblico per ottenere solo i clienti (per auto-rilevamento azienda)
 app.get('/clients', async (req, res) => {

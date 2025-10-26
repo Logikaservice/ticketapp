@@ -1,0 +1,91 @@
+// hooks/useTemporarySupplies.js
+
+import { useState, useEffect } from 'react';
+
+export const useTemporarySupplies = (getAuthHeader) => {
+  const [temporarySupplies, setTemporarySupplies] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Carica tutte le forniture temporanee
+  const fetchTemporarySupplies = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/temporary-supplies`, {
+        headers: {
+          ...getAuthHeader()
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setTemporarySupplies(data);
+      } else {
+        console.error('Errore nel caricare le forniture temporanee');
+      }
+    } catch (error) {
+      console.error('Errore nel caricare le forniture temporanee:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Aggiungi una nuova fornitura temporanea
+  const addTemporarySupply = async (supplyData) => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/temporary-supplies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify(supplyData)
+      });
+
+      if (response.ok) {
+        const newSupply = await response.json();
+        setTemporarySupplies(prev => [...prev, newSupply]);
+        return newSupply;
+      } else {
+        throw new Error('Errore nell\'aggiungere la fornitura');
+      }
+    } catch (error) {
+      console.error('Errore nell\'aggiungere la fornitura:', error);
+      throw error;
+    }
+  };
+
+  // Rimuovi una fornitura temporanea
+  const removeTemporarySupply = async (supplyId) => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/temporary-supplies/${supplyId}`, {
+        method: 'DELETE',
+        headers: {
+          ...getAuthHeader()
+        }
+      });
+
+      if (response.ok) {
+        setTemporarySupplies(prev => prev.filter(supply => supply.id !== supplyId));
+        return true;
+      } else {
+        throw new Error('Errore nell\'eliminare la fornitura');
+      }
+    } catch (error) {
+      console.error('Errore nell\'eliminare la fornitura:', error);
+      throw error;
+    }
+  };
+
+  // Carica le forniture al mount
+  useEffect(() => {
+    fetchTemporarySupplies();
+  }, []);
+
+  return {
+    temporarySupplies,
+    loading,
+    fetchTemporarySupplies,
+    addTemporarySupply,
+    removeTemporarySupply
+  };
+};

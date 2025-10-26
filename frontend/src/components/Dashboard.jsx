@@ -4,6 +4,7 @@ import React, { useMemo, useEffect } from 'react';
 import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, X, Info, Users } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
+import TemporarySuppliesPanel from './TemporarySuppliesPanel';
 import { formatDate } from '../utils/formatters';
 
 const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, badge = null }) => {
@@ -167,7 +168,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
   );
 };
 
-const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger, getAuthHeader }) => {
+const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger, getAuthHeader, temporarySupplies, temporarySuppliesLoading, onAddTemporarySupply, onRemoveTemporarySupply }) => {
   // Stati per la ricerca
   const [searchTerm, setSearchTerm] = React.useState('');
   const [searchResults, setSearchResults] = React.useState([]);
@@ -471,7 +472,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
           <AlertsPanel 
             alerts={alerts}
             onDelete={currentUser?.ruolo === 'tecnico' ? deleteAlert : undefined}
@@ -486,7 +487,16 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             users={users || []}
           />
 
-          {/* Qui possiamo aggiungere altri contenuti; la lista completa è nella vista Ticket */}
+          {/* Sezione Forniture Temporanee - solo per tecnici */}
+          {currentUser?.ruolo === 'tecnico' && (
+            <TemporarySuppliesPanel
+              temporarySupplies={temporarySupplies || []}
+              loading={temporarySuppliesLoading}
+              onAddSupply={onAddTemporarySupply}
+              onRemoveSupply={onRemoveTemporarySupply}
+              users={users || []}
+            />
+          )}
         </div>
         <div>
           <TicketsCalendar 
