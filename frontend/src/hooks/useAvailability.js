@@ -1,12 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export const useAvailability = (getAuthHeader) => {
   const [unavailableDays, setUnavailableDays] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const lastLoadTime = useRef(0);
+  const LOAD_DEBOUNCE_MS = 5000; // 5 secondi di debounce
 
-  // Funzione per retry con backoff
-  const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
+  // Funzione per retry con backoff (ridotto per evitare sovraccarico)
+  const retryWithBackoff = async (fn, maxRetries = 2, baseDelay = 2000) => {
     for (let i = 0; i < maxRetries; i++) {
       try {
         return await fn();
@@ -21,6 +23,20 @@ export const useAvailability = (getAuthHeader) => {
 
   // Carica tutti i giorni non disponibili
   const loadUnavailableDays = async () => {
+    // Evita chiamate multiple simultanee
+    if (loading) {
+      console.log('🔄 AVAILABILITY: Caricamento già in corso, salto...');
+      return;
+    }
+    
+    // Debounce: evita chiamate troppo frequenti
+    const now = Date.now();
+    if (now - lastLoadTime.current < LOAD_DEBOUNCE_MS) {
+      console.log('🔄 AVAILABILITY: Troppo presto per ricaricare, salto...');
+      return;
+    }
+    lastLoadTime.current = now;
+    
     setLoading(true);
     setError(null);
     
@@ -29,18 +45,29 @@ export const useAvailability = (getAuthHeader) => {
       console.log('🔍 DEBUG AVAILABILITY: Tentativo con endpoint pubblico...');
       
       const response = await retryWithBackoff(async () => {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/availability/public`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json'
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout di 10 secondi
+        
+        try {
+          const res = await fetch(`${process.env.REACT_APP_API_URL}/api/availability/public`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
           }
-        });
-        
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          
+          return res;
+        } catch (err) {
+          clearTimeout(timeoutId);
+          throw err;
         }
-        
-        return res;
       });
       
       const data = await response.json();
@@ -56,19 +83,30 @@ export const useAvailability = (getAuthHeader) => {
         console.log('🔍 DEBUG AVAILABILITY: Auth headers:', authHeaders);
         
         const response = await retryWithBackoff(async () => {
-          const res = await fetch(`${process.env.REACT_APP_API_URL}/api/availability`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              ...authHeaders
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout di 10 secondi
+          
+          try {
+            const res = await fetch(`${process.env.REACT_APP_API_URL}/api/availability`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                ...authHeaders
+              },
+              signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (!res.ok) {
+              throw new Error(`HTTP ${res.status}: ${res.statusText}`);
             }
-          });
-          
-          if (!res.ok) {
-            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            
+            return res;
+          } catch (err) {
+            clearTimeout(timeoutId);
+            throw err;
           }
-          
-          return res;
         });
         
         const data = await response.json();
@@ -173,7 +211,7 @@ export const useAvailability = (getAuthHeader) => {
     if (getAuthHeader) {
       loadUnavailableDays();
     }
-  }, [getAuthHeader]);
+  }, []); // Rimuovo getAuthHeader dalla dipendenza per evitare chiamate eccessive
 
   return {
     unavailableDays,

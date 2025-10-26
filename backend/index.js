@@ -270,29 +270,47 @@ app.get('/api/health', async (req, res) => {
 
 // Endpoint pubblico per ottenere i giorni non disponibili (solo lettura)
 app.get('/api/availability/public', async (req, res) => {
+  let client;
   try {
-    const client = await pool.connect();
+    // Timeout per evitare connessioni bloccate
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Database timeout')), 8000);
+    });
     
-    // Crea la tabella se non esiste
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS unavailable_days (
-        id SERIAL PRIMARY KEY,
-        date DATE NOT NULL UNIQUE,
-        reason TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+    const dbPromise = (async () => {
+      client = await pool.connect();
+      
+      // Crea la tabella se non esiste
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS unavailable_days (
+          id SERIAL PRIMARY KEY,
+          date DATE NOT NULL UNIQUE,
+          reason TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      const result = await client.query(`
+        SELECT date, reason, created_at, updated_at 
+        FROM unavailable_days 
+        ORDER BY date ASC
+      `);
+      
+      return result.rows;
+    })();
     
-    const result = await client.query(`
-      SELECT date, reason, created_at, updated_at 
-      FROM unavailable_days 
-      ORDER BY date ASC
-    `);
+    const result = await Promise.race([dbPromise, timeoutPromise]);
     
-    client.release();
-    res.json(result.rows);
+    if (client) {
+      client.release();
+    }
+    
+    res.json(result);
   } catch (err) {
+    if (client) {
+      client.release();
+    }
     console.error('Errore nel recuperare i giorni non disponibili (pubblico):', err);
     res.status(500).json({ error: 'Errore interno del server' });
   }
