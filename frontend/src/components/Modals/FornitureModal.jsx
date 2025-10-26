@@ -16,7 +16,9 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
 
   const fetchForniture = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`, {
+        headers: getAuthHeader()
+      });
       if (response.ok) {
         const data = await response.json();
         setForniture(data);
