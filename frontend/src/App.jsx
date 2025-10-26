@@ -55,6 +55,7 @@ export default function TicketApp() {
     email: '', 
     telefono: '',
     azienda: '',
+    passwordAttuale: '',
     nuovaPassword: '' 
   });
   const [newClientData, setNewClientData] = useState({ 
@@ -523,6 +524,7 @@ export default function TicketApp() {
       email: currentUser.email || '', 
       telefono: currentUser.telefono || '',
       azienda: currentUser.azienda || '',
+      passwordAttuale: currentUser.password || '',
       nuovaPassword: '' 
     });
     setModalState({ type: 'settings' });

@@ -64,8 +64,21 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
 
           {/* Cambia Password - Sotto Email */}
           <div className="border-t pt-4">
-            <h3 className="text-sm font-bold mb-3">Cambia Password</h3>
+            <h3 className="text-sm font-bold mb-3">Gestione Password</h3>
             <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password Attuale</label>
+                <input
+                  type="text"
+                  value={settingsData.passwordAttuale}
+                  readOnly
+                  className="w-full px-3 py-2 border rounded-lg bg-gray-100 text-gray-600"
+                  placeholder="Password attuale"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Password attualmente in uso
+                </p>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nuova Password</label>
                 <input
