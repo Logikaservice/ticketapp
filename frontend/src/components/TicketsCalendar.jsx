@@ -63,11 +63,18 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
   const handleSaveAvailability = async () => {
     if (!availabilityDate) return;
     
+    console.log('🔍 DEBUG CALENDAR: Tentativo di salvare disponibilità per:', availabilityDate);
     const result = await setDayUnavailable(availabilityDate, availabilityReason);
+    console.log('🔍 DEBUG CALENDAR: Risultato salvataggio:', result);
+    
     if (result.success) {
       setShowAvailabilityModal(false);
       setAvailabilityDate(null);
       setAvailabilityReason('');
+      console.log('✅ CALENDAR: Giorno non disponibile salvato con successo');
+    } else {
+      console.error('❌ CALENDAR: Errore nel salvare:', result.error);
+      // Potresti aggiungere una notifica di errore qui
     }
   };
 

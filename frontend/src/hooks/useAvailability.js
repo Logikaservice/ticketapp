@@ -10,22 +10,33 @@ export const useAvailability = (getAuthHeader) => {
     setLoading(true);
     setError(null);
     try {
+      const authHeaders = getAuthHeader();
+      console.log('🔍 DEBUG AVAILABILITY: Auth headers:', authHeaders);
+      
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/availability`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeader()
+          ...authHeaders
         }
       });
       
+      console.log('🔍 DEBUG AVAILABILITY: Response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('🔍 DEBUG AVAILABILITY: Data received:', data);
         setUnavailableDays(data);
+      } else if (response.status === 401) {
+        console.error('❌ AVAILABILITY: Token non valido o scaduto');
+        setError('Token di autenticazione non valido. Effettua nuovamente il login.');
       } else {
-        throw new Error('Errore nel caricamento dei giorni non disponibili');
+        const errorText = await response.text();
+        console.error('❌ AVAILABILITY: Errore response:', response.status, errorText);
+        throw new Error(`Errore ${response.status}: ${errorText}`);
       }
     } catch (err) {
-      console.error('Errore nel caricamento dei giorni non disponibili:', err);
+      console.error('❌ AVAILABILITY: Errore nel caricamento dei giorni non disponibili:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -35,17 +46,24 @@ export const useAvailability = (getAuthHeader) => {
   // Aggiungi o aggiorna un giorno non disponibile
   const setDayUnavailable = async (date, reason = null) => {
     try {
+      const authHeaders = getAuthHeader();
+      console.log('🔍 DEBUG AVAILABILITY SAVE: Auth headers:', authHeaders);
+      console.log('🔍 DEBUG AVAILABILITY SAVE: Date:', date, 'Reason:', reason);
+      
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/availability`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeader()
+          ...authHeaders
         },
         body: JSON.stringify({ date, reason })
       });
 
+      console.log('🔍 DEBUG AVAILABILITY SAVE: Response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('🔍 DEBUG AVAILABILITY SAVE: Data received:', data);
         // Aggiorna la lista locale
         setUnavailableDays(prev => {
           const existing = prev.find(day => day.date === date);
@@ -56,11 +74,16 @@ export const useAvailability = (getAuthHeader) => {
           }
         });
         return { success: true, day: data.day };
+      } else if (response.status === 401) {
+        console.error('❌ AVAILABILITY SAVE: Token non valido o scaduto');
+        return { success: false, error: 'Token di autenticazione non valido. Effettua nuovamente il login.' };
       } else {
-        throw new Error('Errore nel salvare il giorno non disponibile');
+        const errorText = await response.text();
+        console.error('❌ AVAILABILITY SAVE: Errore response:', response.status, errorText);
+        return { success: false, error: `Errore ${response.status}: ${errorText}` };
       }
     } catch (err) {
-      console.error('Errore nel salvare il giorno non disponibile:', err);
+      console.error('❌ AVAILABILITY SAVE: Errore nel salvare il giorno non disponibile:', err);
       setError(err.message);
       return { success: false, error: err.message };
     }

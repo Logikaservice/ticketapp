@@ -4,10 +4,33 @@ const express = require('express');
 const router = express.Router();
 
 module.exports = (pool) => {
+  // Funzione per assicurarsi che la tabella esista
+  const ensureTableExists = async (client) => {
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS unavailable_days (
+          id SERIAL PRIMARY KEY,
+          date DATE NOT NULL UNIQUE,
+          reason TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✅ Tabella unavailable_days verificata/creata');
+    } catch (err) {
+      console.error('❌ Errore nella creazione della tabella unavailable_days:', err);
+      throw err;
+    }
+  };
+
   // ENDPOINT: Ottieni tutti i giorni non disponibili
   router.get('/', async (req, res) => {
     try {
       const client = await pool.connect();
+      
+      // Assicurati che la tabella esista
+      await ensureTableExists(client);
+      
       const result = await client.query(`
         SELECT date, reason, created_at, updated_at 
         FROM unavailable_days 
@@ -32,6 +55,9 @@ module.exports = (pool) => {
 
     try {
       const client = await pool.connect();
+      
+      // Assicurati che la tabella esista
+      await ensureTableExists(client);
       
       // Verifica se il giorno esiste già
       const existingDay = await client.query(
