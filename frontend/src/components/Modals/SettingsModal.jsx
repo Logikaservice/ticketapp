@@ -69,7 +69,7 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nuova Password</label>
                 <input
-                  type="password"
+                  type="text"
                   value={settingsData.nuovaPassword}
                   onChange={(e) => setSettingsData({ ...settingsData, nuovaPassword: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
