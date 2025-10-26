@@ -531,6 +531,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               }
             }}
             currentUser={currentUser}
+            getAuthHeader={getAuthHeader}
           />
         </div>
       </div>

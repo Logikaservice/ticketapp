@@ -1,15 +1,28 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, ExternalLink, X } from 'lucide-react';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
+import { useAvailability } from '../hooks/useAvailability';
 import { SYNC_STATES } from '../config/googleConfig';
 
-const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
+const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedDateTickets, setSelectedDateTickets] = useState([]);
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+  const [availabilityDate, setAvailabilityDate] = useState(null);
+  const [availabilityReason, setAvailabilityReason] = useState('');
   
   // Hook per Google Calendar
   const { syncTicketToCalendarBackend } = useGoogleCalendar();
+  
+  // Hook per gestire i giorni non disponibili
+  const { 
+    unavailableDays, 
+    isDateUnavailable, 
+    getUnavailableReason, 
+    setDayUnavailable, 
+    setDayAvailable 
+  } = useAvailability(getAuthHeader);
 
 
   // Funzione per gestire il click sui giorni
@@ -28,6 +41,41 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
       setSelectedDate(null);
       setSelectedDateTickets([]);
     }
+  };
+
+  // Funzione per gestire il click sui controlli di disponibilità
+  const handleAvailabilityClick = (day) => {
+    const dateString = day.dateKey;
+    const isUnavailable = isDateUnavailable(dateString);
+    
+    if (isUnavailable) {
+      // Se è già non disponibile, rimuovilo
+      setDayAvailable(dateString);
+    } else {
+      // Se è disponibile, apri il modal per impostarlo come non disponibile
+      setAvailabilityDate(dateString);
+      setAvailabilityReason(getUnavailableReason(dateString) || '');
+      setShowAvailabilityModal(true);
+    }
+  };
+
+  // Funzione per salvare la disponibilità
+  const handleSaveAvailability = async () => {
+    if (!availabilityDate) return;
+    
+    const result = await setDayUnavailable(availabilityDate, availabilityReason);
+    if (result.success) {
+      setShowAvailabilityModal(false);
+      setAvailabilityDate(null);
+      setAvailabilityReason('');
+    }
+  };
+
+  // Funzione per chiudere il modal
+  const handleCloseAvailabilityModal = () => {
+    setShowAvailabilityModal(false);
+    setAvailabilityDate(null);
+    setAvailabilityReason('');
   };
 
   // Funzione per gestire il click sui ticket nella lista
@@ -150,7 +198,9 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
         dateKey,
         isCurrentMonth,
         isToday,
-        tickets: ticketsByDate[dateKey] || {}
+        tickets: ticketsByDate[dateKey] || {},
+        isUnavailable: isDateUnavailable(dateKey),
+        unavailableReason: getUnavailableReason(dateKey)
       });
       
       current.setDate(current.getDate() + 1);
@@ -222,15 +272,23 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
             return (
               <div
                 key={index}
-                className={`min-h-[40px] p-1 border rounded cursor-pointer transition-all ${
+                className={`min-h-[40px] p-1 border rounded cursor-pointer transition-all relative ${
                   day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
                 } ${day.isToday ? 'ring-2 ring-blue-500' : ''} ${
                   isSelected ? 'ring-2 ring-green-500 bg-green-50' : ''
-                } ${hasTickets ? 'hover:bg-blue-50 hover:border-blue-300' : ''}`}
+                } ${hasTickets ? 'hover:bg-blue-50 hover:border-blue-300' : ''} ${
+                  day.isUnavailable ? 'bg-gray-800 text-white' : ''
+                }`}
                 onClick={() => handleDayClick(day)}
-                title={hasTickets ? `Click per vedere i ticket del ${day.date.toLocaleDateString('it-IT')}` : ''}
+                title={
+                  day.isUnavailable 
+                    ? `Non disponibile${day.unavailableReason ? ': ' + day.unavailableReason : ''}`
+                    : hasTickets 
+                      ? `Click per vedere i ticket del ${day.date.toLocaleDateString('it-IT')}`
+                      : ''
+                }
               >
-                <div className={`text-xs ${day.isCurrentMonth ? 'text-gray-900' : 'text-gray-400'}`}>
+                <div className={`text-xs ${day.isCurrentMonth ? (day.isUnavailable ? 'text-white' : 'text-gray-900') : 'text-gray-400'}`}>
                   {day.date.getDate()}
                 </div>
                 
@@ -244,6 +302,11 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
                     />
                   ))}
                 </div>
+                
+                {/* Indicatore giorno non disponibile */}
+                {day.isUnavailable && (
+                  <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" title="Non disponibile"></div>
+                )}
               </div>
             );
           })}
@@ -299,6 +362,40 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
           </div>
         )}
 
+        {/* Controlli disponibilità */}
+        <div className="mt-4 pt-4 border-t">
+          <div className="text-xs text-gray-600 mb-2">Gestione disponibilità (solo giorni del mese corrente):</div>
+          <div className="grid grid-cols-7 gap-1">
+            {calendarDays.filter(day => day.isCurrentMonth).map((day, index) => {
+              const isUnavailable = day.isUnavailable;
+              return (
+                <div
+                  key={index}
+                  className={`min-h-[30px] p-1 border rounded cursor-pointer transition-all flex items-center justify-center relative ${
+                    day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
+                  } ${isUnavailable ? 'bg-gray-800 text-white' : 'hover:bg-gray-100'}`}
+                  onClick={() => handleAvailabilityClick(day)}
+                  title={
+                    isUnavailable 
+                      ? `Rimuovi come non disponibile${day.unavailableReason ? ': ' + day.unavailableReason : ''}`
+                      : `Imposta come non disponibile`
+                  }
+                >
+                  <div className={`text-xs ${day.isCurrentMonth ? (isUnavailable ? 'text-white' : 'text-gray-900') : 'text-gray-400'}`}>
+                    {day.date.getDate()}
+                  </div>
+                  {isUnavailable && (
+                    <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="text-xs text-gray-500 mt-2">
+            Clicca sui giorni per impostare/rimuovere la disponibilità
+          </div>
+        </div>
+
         {/* Legenda */}
         <div className="mt-4 pt-4 border-t">
           <div className="text-xs text-gray-600 mb-2">Legenda:</div>
@@ -320,12 +417,63 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser }) => {
               <span>Bassa</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-              <span>Giorni con ticket</span>
+              <div className="w-2 h-2 rounded-full bg-gray-800"></div>
+              <span>Non disponibile</span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Modal per gestire la disponibilità */}
+      {showAvailabilityModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-[90vw]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Imposta giorno non disponibile</h3>
+              <button
+                onClick={handleCloseAvailabilityModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Data: {availabilityDate && new Date(availabilityDate).toLocaleDateString('it-IT')}
+              </label>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Motivo (opzionale)
+              </label>
+              <textarea
+                value={availabilityReason}
+                onChange={(e) => setAvailabilityReason(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows={3}
+                placeholder="Es: Vacanze, malattia, impegno personale..."
+              />
+            </div>
+            
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={handleCloseAvailabilityModal}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={handleSaveAvailability}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+              >
+                Imposta non disponibile
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

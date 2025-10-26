@@ -227,6 +227,7 @@ const googleCalendarRoutes = require('./routes/googleCalendar')(pool);
 const googleAuthRoutes = require('./routes/googleAuth')(pool);
 const emailNotificationsRoutes = require('./routes/emailNotifications')(pool);
 const tempLoginRoutes = require('./routes/tempLogin')(pool);
+const availabilityRoutes = require('./routes/availability')(pool);
 
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
@@ -382,6 +383,7 @@ app.use('/api/alerts', authenticateToken, alertsRoutes);
 app.use('/api', authenticateToken, googleCalendarRoutes);
 app.use('/api', authenticateToken, googleAuthRoutes);
 app.use('/api/email', authenticateToken, emailNotificationsRoutes);
+app.use('/api/availability', authenticateToken, availabilityRoutes);
 
 // Endpoint per chiusura automatica ticket (senza autenticazione per cron job)
 app.post('/api/tickets/close-expired', async (req, res) => {
@@ -490,6 +492,22 @@ app.post('/api/init-db', async (req, res) => {
       console.log("⚠️ Errore aggiunta colonna googlecalendareventid (potrebbe già esistere):", alterErr.message);
     }
     
+    // Crea tabella unavailable_days se non esiste
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS unavailable_days (
+          id SERIAL PRIMARY KEY,
+          date DATE NOT NULL UNIQUE,
+          reason TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Tabella unavailable_days creata/verificata");
+    } catch (unavailableErr) {
+      console.log("⚠️ Errore creazione tabella unavailable_days:", unavailableErr.message);
+    }
+    
     console.log("✅ Tabella alerts creata/verificata");
     res.json({ message: 'Database inizializzato con successo' });
   } catch (err) {
@@ -565,6 +583,22 @@ const startServer = async () => {
       console.log("✅ Colonna googlecalendareventid aggiunta alla tabella tickets (auto-init)");
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna googlecalendareventid (auto-init):", alterErr.message);
+    }
+    
+    // Crea tabella unavailable_days se non esiste (auto-init)
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS unavailable_days (
+          id SERIAL PRIMARY KEY,
+          date DATE NOT NULL UNIQUE,
+          reason TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Tabella unavailable_days creata/verificata (auto-init)");
+    } catch (unavailableErr) {
+      console.log("⚠️ Errore creazione tabella unavailable_days (auto-init):", unavailableErr.message);
     }
     
     app.listen(PORT, () => {
