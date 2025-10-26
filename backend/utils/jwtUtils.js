@@ -185,7 +185,8 @@ const generateLoginResponse = (user) => {
         nome: user.nome,
         cognome: user.cognome,
         telefono: user.telefono,
-        azienda: user.azienda
+        azienda: user.azienda,
+        password: user.password
       }
     };
     

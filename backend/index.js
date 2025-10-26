@@ -145,7 +145,7 @@ app.post('/api/login', async (req, res) => {
     client.release();
     
     if (isValidPassword) {
-      delete user.password;
+      // Non eliminare la password per permettere la visualizzazione nelle impostazioni
       console.log(`✅ Login riuscito per: ${email}`);
       
       // Ripristina JWT token e refresh token
@@ -169,7 +169,8 @@ app.post('/api/login', async (req, res) => {
             nome: user.nome,
             cognome: user.cognome,
             telefono: user.telefono,
-            azienda: user.azienda
+            azienda: user.azienda,
+            password: user.password
           }
         });
       }
