@@ -169,7 +169,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
   );
 };
 
-const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger, getAuthHeader, temporarySupplies, temporarySuppliesLoading, onRemoveTemporarySupply }) => {
+const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger, getAuthHeader, temporarySupplies, temporarySuppliesLoading, onRemoveTemporarySupply, onRefreshTemporarySupplies }) => {
   // Stati per la ricerca
   const [searchTerm, setSearchTerm] = React.useState('');
   const [searchResults, setSearchResults] = React.useState([]);
@@ -495,6 +495,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               loading={temporarySuppliesLoading}
               onRemoveSupply={onRemoveTemporarySupply}
               users={users || []}
+              onRefresh={onRefreshTemporarySupplies}
               onOpenTicket={(ticketId) => {
                 const ticket = tickets.find(t => t.id === ticketId);
                 if (ticket && handlers?.handleSelectTicket) {

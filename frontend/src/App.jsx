@@ -130,12 +130,12 @@ export default function TicketApp() {
     refreshTemporarySupplies
   } = useTemporarySuppliesFromTickets(getAuthHeader);
 
-  // Ricarica le forniture temporanee quando cambiano i ticket
-  useEffect(() => {
-    if (refreshTemporarySupplies && tickets.length > 0) {
+  // Funzione per ricaricare le forniture temporanee manualmente
+  const refreshTemporarySuppliesManual = () => {
+    if (refreshTemporarySupplies) {
       refreshTemporarySupplies();
     }
-  }, [tickets, refreshTemporarySupplies]);
+  };
 
   const {
     handleCreateClient,
@@ -1056,6 +1056,7 @@ export default function TicketApp() {
             temporarySupplies={temporarySupplies}
             temporarySuppliesLoading={temporarySuppliesLoading}
             onRemoveTemporarySupply={removeTemporarySupply}
+            onRefreshTemporarySupplies={refreshTemporarySuppliesManual}
             onOpenState={(state) => {
               setDashboardTargetState(state || 'aperto');
               setShowDashboard(false);

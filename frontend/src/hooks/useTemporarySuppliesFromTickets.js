@@ -8,6 +8,8 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
 
   // Carica tutte le forniture temporanee dai ticket
   const fetchTemporarySupplies = async () => {
+    if (!getAuthHeader) return; // Evita chiamate se non c'è autenticazione
+    
     try {
       setLoading(true);
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/forniture/all`, {
@@ -51,12 +53,10 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
     }
   };
 
-  // Carica le forniture al mount e quando cambia getAuthHeader
+  // Carica le forniture al mount
   useEffect(() => {
-    if (getAuthHeader) {
-      fetchTemporarySupplies();
-    }
-  }, [getAuthHeader]);
+    fetchTemporarySupplies();
+  }, []);
 
   return {
     temporarySupplies,

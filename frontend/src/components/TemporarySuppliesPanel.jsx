@@ -1,13 +1,14 @@
 // components/TemporarySuppliesPanel.jsx
 
 import React from 'react';
-import { Package, Trash2, User, FileText } from 'lucide-react';
+import { Package, Trash2, User, FileText, RefreshCw } from 'lucide-react';
 
 const TemporarySuppliesPanel = ({ 
   temporarySupplies = [], 
   loading, 
   onRemoveSupply, 
   users = [],
+  onRefresh,
   onOpenTicket,
   onEditSupply
 }) => {
@@ -28,8 +29,19 @@ const TemporarySuppliesPanel = ({
           <Package size={18} />
           Forniture Temporanee
         </h3>
-        <div className="text-xs text-gray-500">
-          {temporarySupplies.length} forniture attive
+        <div className="flex items-center gap-2">
+          <div className="text-xs text-gray-500">
+            {temporarySupplies.length} forniture attive
+          </div>
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              className="text-gray-500 hover:text-gray-700 p-1"
+              title="Aggiorna forniture"
+            >
+              <RefreshCw size={14} />
+            </button>
+          )}
         </div>
       </div>
 
