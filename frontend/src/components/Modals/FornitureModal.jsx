@@ -5,6 +5,7 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
   const [forniture, setForniture] = useState([]);
   const [nuovoMateriale, setNuovoMateriale] = useState('');
   const [nuovaQuantita, setNuovaQuantita] = useState(1);
+  const [nuovaNota, setNuovaNota] = useState('');
   const [loading, setLoading] = useState(true);
 
   console.log('🔍 DEBUG FORNITURE: FornitureModal renderizzato per ticket:', ticket?.id, ticket?.numero);
@@ -49,7 +50,7 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
           'Content-Type': 'application/json',
           ...authHeaders
         },
-        body: JSON.stringify({ materiale: nuovoMateriale, quantita: nuovaQuantita })
+        body: JSON.stringify({ materiale: nuovoMateriale, quantita: nuovaQuantita, nota: nuovaNota })
       });
 
       console.log('🔍 DEBUG FORNITURE: Response status:', response.status);
@@ -63,6 +64,7 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
         setForniture(updatedForniture);
         setNuovoMateriale('');
         setNuovaQuantita(1);
+        setNuovaNota('');
         
         // Aggiorna il badge immediatamente
         if (onFornitureCountChange) {
@@ -125,29 +127,38 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
         {isTecnico && (
           <div className="mb-6 p-4 border rounded-lg bg-gray-50">
             <h3 className="font-bold mb-3">Aggiungi Fornitura</h3>
-            <div className="flex gap-3">
+            <div className="space-y-3">
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={nuovoMateriale}
+                  onChange={(e) => setNuovoMateriale(e.target.value)}
+                  placeholder="Nome materiale"
+                  className="flex-1 px-3 py-2 border rounded-lg"
+                  onKeyPress={(e) => e.key === 'Enter' && handleAggiungi()}
+                />
+                <input
+                  type="number"
+                  min="1"
+                  value={nuovaQuantita}
+                  onChange={(e) => setNuovaQuantita(parseInt(e.target.value) || 1)}
+                  className="w-24 px-3 py-2 border rounded-lg"
+                />
+                <button
+                  onClick={handleAggiungi}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700"
+                >
+                  <Plus size={18} />
+                  Aggiungi
+                </button>
+              </div>
               <input
                 type="text"
-                value={nuovoMateriale}
-                onChange={(e) => setNuovoMateriale(e.target.value)}
-                placeholder="Nome materiale"
-                className="flex-1 px-3 py-2 border rounded-lg"
-                onKeyPress={(e) => e.key === 'Enter' && handleAggiungi()}
+                value={nuovaNota}
+                onChange={(e) => setNuovaNota(e.target.value)}
+                placeholder="Note aggiuntive (opzionale)"
+                className="w-full px-3 py-2 border rounded-lg"
               />
-              <input
-                type="number"
-                min="1"
-                value={nuovaQuantita}
-                onChange={(e) => setNuovaQuantita(parseInt(e.target.value) || 1)}
-                className="w-24 px-3 py-2 border rounded-lg"
-              />
-              <button
-                onClick={handleAggiungi}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700"
-              >
-                <Plus size={18} />
-                Aggiungi
-              </button>
             </div>
           </div>
         )}
@@ -171,6 +182,11 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
                   <div className="text-sm text-gray-500">
                     Quantità: {f.quantita} - Prestito: {new Date(f.data_prestito).toLocaleDateString('it-IT')}
                   </div>
+                  {f.nota && (
+                    <div className="text-sm text-blue-600 mt-1">
+                      Note: {f.nota}
+                    </div>
+                  )}
                 </div>
                 {isTecnico && (
                   <button

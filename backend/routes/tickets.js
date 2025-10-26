@@ -639,7 +639,7 @@ module.exports = (pool) => {
   // ENDPOINT: Aggiungi fornitura temporanea
   router.post('/:id/forniture', async (req, res) => {
     const { id } = req.params;
-    const { materiale, quantita } = req.body;
+    const { materiale, quantita, nota } = req.body;
     
     console.log('🔍 DEBUG BACKEND FORNITURE: Ricevuta richiesta POST');
     console.log('🔍 DEBUG BACKEND FORNITURE: Ticket ID:', id);
@@ -655,11 +655,11 @@ module.exports = (pool) => {
     try {
       const client = await pool.connect();
       const query = `
-        INSERT INTO forniture_temporanee (ticket_id, materiale, quantita) 
-        VALUES ($1, $2, $3) 
+        INSERT INTO forniture_temporanee (ticket_id, materiale, quantita, nota) 
+        VALUES ($1, $2, $3, $4) 
         RETURNING *;
       `;
-      const result = await client.query(query, [id, materiale, parseInt(quantita)]);
+      const result = await client.query(query, [id, materiale, parseInt(quantita), nota || '']);
       client.release();
       
       console.log('🔍 DEBUG BACKEND FORNITURE: Query eseguita con successo');

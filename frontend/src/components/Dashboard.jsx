@@ -494,6 +494,24 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               loading={temporarySuppliesLoading}
               onRemoveSupply={onRemoveTemporarySupply}
               users={users || []}
+              onOpenTicket={(ticketId) => {
+                const ticket = tickets.find(t => t.id === ticketId);
+                if (ticket && handlers?.handleSelectTicket) {
+                  handlers.handleSelectTicket(ticket);
+                  onOpenState && onOpenState(ticket.stato);
+                }
+              }}
+              onEditSupply={(supply) => {
+                const ticket = tickets.find(t => t.id === supply.ticket_id);
+                if (ticket && handlers?.handleSelectTicket) {
+                  handlers.handleSelectTicket(ticket);
+                  onOpenState && onOpenState(ticket.stato);
+                  // Apri il modal delle forniture per questo ticket
+                  setTimeout(() => {
+                    setModalState({ type: 'forniture', data: ticket });
+                  }, 100);
+                }
+              }}
             />
           )}
         </div>

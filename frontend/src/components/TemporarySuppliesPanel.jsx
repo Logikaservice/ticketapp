@@ -1,13 +1,15 @@
 // components/TemporarySuppliesPanel.jsx
 
 import React from 'react';
-import { Package, Trash2, User, FileText } from 'lucide-react';
+import { Package, Trash2, User, FileText, ExternalLink, Edit } from 'lucide-react';
 
 const TemporarySuppliesPanel = ({ 
   temporarySupplies = [], 
   loading, 
   onRemoveSupply, 
-  users = [] 
+  users = [],
+  onOpenTicket,
+  onEditSupply
 }) => {
   const handleRemove = async (supplyId) => {
     if (window.confirm('Sei sicuro di voler restituire questa fornitura?')) {
@@ -66,19 +68,41 @@ const TemporarySuppliesPanel = ({
                             Ticket #{supply.ticket_numero}: {supply.ticket_titolo}
                           </span>
                         </div>
+
+                        {supply.nota && (
+                          <div className="text-xs text-blue-600 mb-1">
+                            Note: {supply.nota}
+                          </div>
+                        )}
                         
                         <div className="text-xs text-gray-400">
                           Prestato il {new Date(supply.data_prestito).toLocaleDateString('it-IT')}
                         </div>
                       </div>
                       
-                      <button
-                        onClick={() => handleRemove(supply.id)}
-                        className="text-red-500 hover:text-red-700 p-1"
-                        title="Restituisci fornitura"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => onOpenTicket && onOpenTicket(supply.ticket_id)}
+                          className="text-blue-500 hover:text-blue-700 p-1"
+                          title="Apri ticket"
+                        >
+                          <ExternalLink size={14} />
+                        </button>
+                        <button
+                          onClick={() => onEditSupply && onEditSupply(supply)}
+                          className="text-green-500 hover:text-green-700 p-1"
+                          title="Modifica fornitura"
+                        >
+                          <Edit size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleRemove(supply.id)}
+                          className="text-red-500 hover:text-red-700 p-1"
+                          title="Restituisci fornitura"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
