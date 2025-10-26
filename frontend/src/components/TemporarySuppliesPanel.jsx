@@ -1,7 +1,7 @@
 // components/TemporarySuppliesPanel.jsx
 
 import React from 'react';
-import { Package, Trash2, User, FileText, ExternalLink, Edit } from 'lucide-react';
+import { Package, Trash2, User, FileText } from 'lucide-react';
 
 const TemporarySuppliesPanel = ({ 
   temporarySupplies = [], 
@@ -80,20 +80,20 @@ const TemporarySuppliesPanel = ({
                         </div>
                       </div>
                       
-                      <div className="flex gap-1">
+                      <div className="flex gap-2">
                         <button
                           onClick={() => onOpenTicket && onOpenTicket(supply.ticket_id)}
-                          className="text-blue-500 hover:text-blue-700 p-1"
+                          className="text-blue-500 hover:text-blue-700 px-2 py-1 text-xs font-medium border border-blue-300 rounded hover:bg-blue-50"
                           title="Apri ticket"
                         >
-                          <ExternalLink size={14} />
+                          Apri
                         </button>
                         <button
                           onClick={() => onEditSupply && onEditSupply(supply)}
-                          className="text-green-500 hover:text-green-700 p-1"
+                          className="text-green-500 hover:text-green-700 px-2 py-1 text-xs font-medium border border-green-300 rounded hover:bg-green-50"
                           title="Modifica fornitura"
                         >
-                          <Edit size={14} />
+                          Modifica
                         </button>
                         <button
                           onClick={() => handleRemove(supply.id)}

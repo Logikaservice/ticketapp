@@ -148,9 +148,10 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
                 </button>
                 <button 
                   onClick={() => onDelete && onDelete(avv.id)} 
-                  className="text-xs text-red-600 hover:underline"
+                  className="text-red-500 hover:text-red-700 p-1"
+                  title="Rimuovi avviso"
                 >
-                  Rimuovi
+                  <Trash2 size={14} />
                 </button>
               </div>
             )}

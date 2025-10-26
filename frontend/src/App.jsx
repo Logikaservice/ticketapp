@@ -126,8 +126,16 @@ export default function TicketApp() {
   const {
     temporarySupplies,
     loading: temporarySuppliesLoading,
-    removeTemporarySupply
+    removeTemporarySupply,
+    refreshTemporarySupplies
   } = useTemporarySuppliesFromTickets(getAuthHeader);
+
+  // Ricarica le forniture temporanee quando cambiano i ticket
+  useEffect(() => {
+    if (refreshTemporarySupplies && tickets.length > 0) {
+      refreshTemporarySupplies();
+    }
+  }, [tickets, refreshTemporarySupplies]);
 
   const {
     handleCreateClient,
