@@ -65,9 +65,8 @@ module.exports = (pool) => {
     }
 
     try {
-      // Hasha la password prima di salvarla
-      const hashedPassword = await hashPassword(password);
-      console.log(`🔐 Password hashata per nuovo utente: ${email}`);
+      // Salva la password in chiaro per permettere la visualizzazione
+      console.log(`🔓 Password salvata in chiaro per nuovo utente: ${email}`);
       
       const client = await pool.connect();
       const query = `
@@ -75,7 +74,7 @@ module.exports = (pool) => {
         VALUES ($1, $2, $3, $4, $5, $6, $7) 
         RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
       `;
-      const values = [email, hashedPassword, telefono || null, azienda, ruolo || 'cliente', nome, cognome];
+      const values = [email, password, telefono || null, azienda, ruolo || 'cliente', nome, cognome];
       const result = await client.query(query, values);
       client.release();
       

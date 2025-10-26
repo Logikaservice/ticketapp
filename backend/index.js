@@ -125,21 +125,12 @@ app.post('/api/login', async (req, res) => {
       console.log('🔐 Verifica password hashata');
       isValidPassword = await verifyPassword(password, storedPassword);
     } else {
-      // Password in chiaro (compatibilità con sistema esistente)
+      // Password in chiaro (sistema attuale)
       console.log('🔓 Verifica password in chiaro');
       isValidPassword = password === storedPassword;
       
-      // Se il login è valido, migra la password a hash
-      if (isValidPassword) {
-        try {
-          console.log('🔄 Migrazione password a hash');
-          const hashedPassword = await migratePassword(password);
-          await client.query('UPDATE users SET password = $1 WHERE id = $2', [hashedPassword, user.id]);
-          console.log(`✅ Password migrata per utente: ${email}`);
-        } catch (migrateErr) {
-          console.log('⚠️ Errore migrazione password:', migrateErr.message);
-        }
-      }
+      // Non migrare più le password - mantenere sempre in chiaro
+      console.log('🔓 Password mantenuta in chiaro per visualizzazione');
     }
     
     client.release();
