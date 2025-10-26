@@ -37,7 +37,7 @@ const AllModals = ({ modalState, closeModal, ...handlers }) => {
         );
         
       case 'settings':
-        return <SettingsModal closeModal={closeModal} {...handlers} />;
+        return <SettingsModal closeModal={closeModal} currentUser={handlers.currentUser} {...handlers} />;
         
       case 'urgentConfirm':
         return <UrgentConfirmModal closeModal={closeModal} {...handlers} />;

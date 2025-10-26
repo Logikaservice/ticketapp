@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, Settings } from 'lucide-react';
 
-const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, closeModal }) => {
+const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, closeModal, currentUser }) => {
 
 
   return (
@@ -62,9 +62,9 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
             />
           </div>
 
-          {/* Cambia Password - Sotto Email */}
+          {/* Gestione Password - Sotto Email */}
           <div className="border-t pt-4">
-            <h3 className="text-sm font-bold mb-3">Gestione Password</h3>
+            <h3 className="text-sm font-bold mb-3">Password</h3>
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Password Attuale</label>
@@ -79,19 +79,22 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
                   Password attualmente in uso
                 </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nuova Password</label>
-                <input
-                  type="text"
-                  value={settingsData.nuovaPassword}
-                  onChange={(e) => setSettingsData({ ...settingsData, nuovaPassword: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  placeholder="Lascia vuoto per non modificare"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Lascia vuoto se non vuoi cambiare la password
-                </p>
-              </div>
+              {/* Mostra campo nuova password solo per tecnici */}
+              {currentUser?.ruolo !== 'cliente' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nuova Password</label>
+                  <input
+                    type="text"
+                    value={settingsData.nuovaPassword}
+                    onChange={(e) => setSettingsData({ ...settingsData, nuovaPassword: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    placeholder="Lascia vuoto per non modificare"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Lascia vuoto se non vuoi cambiare la password
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
