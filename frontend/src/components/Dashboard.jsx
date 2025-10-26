@@ -168,7 +168,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
   );
 };
 
-const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger, getAuthHeader, temporarySupplies, temporarySuppliesLoading, onAddTemporarySupply, onRemoveTemporarySupply }) => {
+const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger, getAuthHeader, temporarySupplies, temporarySuppliesLoading, onRemoveTemporarySupply }) => {
   // Stati per la ricerca
   const [searchTerm, setSearchTerm] = React.useState('');
   const [searchResults, setSearchResults] = React.useState([]);
@@ -492,7 +492,6 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             <TemporarySuppliesPanel
               temporarySupplies={temporarySupplies || []}
               loading={temporarySuppliesLoading}
-              onAddSupply={onAddTemporarySupply}
               onRemoveSupply={onRemoveTemporarySupply}
               users={users || []}
             />

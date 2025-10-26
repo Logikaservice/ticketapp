@@ -697,6 +697,32 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Ottieni tutte le forniture temporanee da tutti i ticket
+  router.get('/forniture/all', async (req, res) => {
+    try {
+      const client = await pool.connect();
+      const query = `
+        SELECT 
+          ft.*,
+          t.numero as ticket_numero,
+          t.titolo as ticket_titolo,
+          u.azienda,
+          u.nome as cliente_nome
+        FROM forniture_temporanee ft
+        LEFT JOIN tickets t ON ft.ticket_id = t.id
+        LEFT JOIN users u ON t.clienteid = u.id
+        ORDER BY ft.data_prestito DESC
+      `;
+      const result = await client.query(query);
+      client.release();
+      
+      res.json(result.rows);
+    } catch (err) {
+      console.error('Errore nel recuperare tutte le forniture temporanee:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
 
   return router;
 };

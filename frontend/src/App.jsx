@@ -18,7 +18,7 @@ import { useTickets } from './hooks/useTickets';
 import { useTimeLogs } from './hooks/useTimeLogs';
 import { useReports } from './hooks/useReports';
 import { useModals } from './hooks/useModals';
-import { useTemporarySupplies } from './hooks/useTemporarySupplies';
+import { useTemporarySuppliesFromTickets } from './hooks/useTemporarySuppliesFromTickets';
 import { useGoogleCalendar } from './hooks/useGoogleCalendar';
 import GoogleCallback from './components/GoogleCallback';
 
@@ -122,13 +122,12 @@ export default function TicketApp() {
   // Hook per Google Calendar
   const { syncTicketToCalendarBackend } = useGoogleCalendar(getAuthHeader);
 
-  // Hook per forniture temporanee
+  // Hook per forniture temporanee dai ticket
   const {
     temporarySupplies,
     loading: temporarySuppliesLoading,
-    addTemporarySupply,
     removeTemporarySupply
-  } = useTemporarySupplies(getAuthHeader);
+  } = useTemporarySuppliesFromTickets(getAuthHeader);
 
   const {
     handleCreateClient,
@@ -1048,7 +1047,6 @@ export default function TicketApp() {
             getAuthHeader={getAuthHeader}
             temporarySupplies={temporarySupplies}
             temporarySuppliesLoading={temporarySuppliesLoading}
-            onAddTemporarySupply={addTemporarySupply}
             onRemoveTemporarySupply={removeTemporarySupply}
             onOpenState={(state) => {
               setDashboardTargetState(state || 'aperto');
