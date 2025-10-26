@@ -26,7 +26,14 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
 
 
   // Funzione per gestire il click sui giorni
-  const handleDayClick = (day) => {
+  const handleDayClick = (day, event) => {
+    // Se si tiene premuto Ctrl/Cmd, gestisci la disponibilità invece dei ticket
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      handleAvailabilityClick(day);
+      return;
+    }
+    
     const allTicketsForDay = [];
     
     // Raccoglie tutti i ticket del giorno selezionato
@@ -286,13 +293,13 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
                 } ${hasTickets ? 'hover:bg-blue-50 hover:border-blue-300' : ''} ${
                   day.isUnavailable ? 'bg-gray-800 text-white' : ''
                 }`}
-                onClick={() => handleDayClick(day)}
+                onClick={(e) => handleDayClick(day, e)}
                 title={
                   day.isUnavailable 
-                    ? `Non disponibile${day.unavailableReason ? ': ' + day.unavailableReason : ''}`
+                    ? `Non disponibile${day.unavailableReason ? ': ' + day.unavailableReason : ''} • Ctrl+Click per gestire disponibilità`
                     : hasTickets 
-                      ? `Click per vedere i ticket del ${day.date.toLocaleDateString('it-IT')}`
-                      : ''
+                      ? `Click per vedere i ticket del ${day.date.toLocaleDateString('it-IT')} • Ctrl+Click per gestire disponibilità`
+                      : `Ctrl+Click per gestire disponibilità`
                 }
               >
                 <div className={`text-xs ${day.isCurrentMonth ? (day.isUnavailable ? 'text-white' : 'text-gray-900') : 'text-gray-400'}`}>
@@ -371,9 +378,9 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
 
         {/* Controlli disponibilità */}
         <div className="mt-4 pt-4 border-t">
-          <div className="text-xs text-gray-600 mb-2">Gestione disponibilità (solo giorni del mese corrente):</div>
+          <div className="text-xs text-gray-600 mb-2">Gestione disponibilità (tutti i giorni visibili):</div>
           <div className="grid grid-cols-7 gap-1">
-            {calendarDays.filter(day => day.isCurrentMonth).map((day, index) => {
+            {calendarDays.map((day, index) => {
               const isUnavailable = day.isUnavailable;
               return (
                 <div
@@ -388,7 +395,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
                       : `Imposta come non disponibile`
                   }
                 >
-                  <div className={`text-xs ${day.isCurrentMonth ? (isUnavailable ? 'text-white' : 'text-gray-900') : 'text-gray-400'}`}>
+                  <div className={`text-xs ${day.isCurrentMonth ? (isUnavailable ? 'text-white' : 'text-gray-900') : (isUnavailable ? 'text-white' : 'text-gray-400')}`}>
                     {day.date.getDate()}
                   </div>
                   {isUnavailable && (
@@ -399,7 +406,9 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
             })}
           </div>
           <div className="text-xs text-gray-500 mt-2">
-            Clicca sui giorni per impostare/rimuovere la disponibilità
+            <div>• Clicca sui giorni qui sotto per impostare/rimuovere la disponibilità</div>
+            <div>• Oppure usa Ctrl+Click sui giorni del calendario principale</div>
+            <div>• Funziona per tutti i mesi (passati, presenti e futuri)</div>
           </div>
         </div>
 

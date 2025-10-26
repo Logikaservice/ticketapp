@@ -246,6 +246,58 @@ app.get('/clients', async (req, res) => {
   }
 });
 
+// Endpoint pubblico per testare la connessione al database
+app.get('/api/health', async (req, res) => {
+  try {
+    const client = await pool.connect();
+    await client.query('SELECT 1');
+    client.release();
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      database: 'connected'
+    });
+  } catch (err) {
+    console.error('Health check failed:', err);
+    res.status(500).json({ 
+      status: 'ERROR', 
+      timestamp: new Date().toISOString(),
+      database: 'disconnected',
+      error: err.message
+    });
+  }
+});
+
+// Endpoint pubblico per ottenere i giorni non disponibili (solo lettura)
+app.get('/api/availability/public', async (req, res) => {
+  try {
+    const client = await pool.connect();
+    
+    // Crea la tabella se non esiste
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS unavailable_days (
+        id SERIAL PRIMARY KEY,
+        date DATE NOT NULL UNIQUE,
+        reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    const result = await client.query(`
+      SELECT date, reason, created_at, updated_at 
+      FROM unavailable_days 
+      ORDER BY date ASC
+    `);
+    
+    client.release();
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Errore nel recuperare i giorni non disponibili (pubblico):', err);
+    res.status(500).json({ error: 'Errore interno del server' });
+  }
+});
+
 // Endpoint pubblico per richiesta assistenza veloce (senza login)
 app.post('/api/tickets/quick-request', async (req, res) => {
   console.log('🔍 DEBUG QUICK REQUEST: Endpoint chiamato');

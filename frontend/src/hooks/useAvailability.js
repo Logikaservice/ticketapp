@@ -5,39 +5,80 @@ export const useAvailability = (getAuthHeader) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Funzione per retry con backoff
+  const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (i === maxRetries - 1) throw error;
+        const delay = baseDelay * Math.pow(2, i);
+        console.log(`🔄 Retry ${i + 1}/${maxRetries} in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  };
+
   // Carica tutti i giorni non disponibili
   const loadUnavailableDays = async () => {
     setLoading(true);
     setError(null);
+    
     try {
-      const authHeaders = getAuthHeader();
-      console.log('🔍 DEBUG AVAILABILITY: Auth headers:', authHeaders);
+      // Prima prova con endpoint pubblico (più affidabile)
+      console.log('🔍 DEBUG AVAILABILITY: Tentativo con endpoint pubblico...');
       
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/availability`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders
+      const response = await retryWithBackoff(async () => {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/availability/public`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         }
+        
+        return res;
       });
       
-      console.log('🔍 DEBUG AVAILABILITY: Response status:', response.status);
+      const data = await response.json();
+      console.log('✅ AVAILABILITY: Data received from public endpoint:', data);
+      setUnavailableDays(data);
       
-      if (response.ok) {
+    } catch (publicError) {
+      console.warn('⚠️ AVAILABILITY: Endpoint pubblico fallito, provo con autenticazione...', publicError.message);
+      
+      try {
+        // Fallback: prova con endpoint autenticato
+        const authHeaders = getAuthHeader();
+        console.log('🔍 DEBUG AVAILABILITY: Auth headers:', authHeaders);
+        
+        const response = await retryWithBackoff(async () => {
+          const res = await fetch(`${process.env.REACT_APP_API_URL}/api/availability`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              ...authHeaders
+            }
+          });
+          
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          }
+          
+          return res;
+        });
+        
         const data = await response.json();
-        console.log('🔍 DEBUG AVAILABILITY: Data received:', data);
+        console.log('✅ AVAILABILITY: Data received from auth endpoint:', data);
         setUnavailableDays(data);
-      } else if (response.status === 401) {
-        console.error('❌ AVAILABILITY: Token non valido o scaduto');
-        setError('Token di autenticazione non valido. Effettua nuovamente il login.');
-      } else {
-        const errorText = await response.text();
-        console.error('❌ AVAILABILITY: Errore response:', response.status, errorText);
-        throw new Error(`Errore ${response.status}: ${errorText}`);
+        
+      } catch (authError) {
+        console.error('❌ AVAILABILITY: Entrambi gli endpoint falliti:', authError.message);
+        setError(`Errore nel caricamento: ${authError.message}`);
       }
-    } catch (err) {
-      console.error('❌ AVAILABILITY: Errore nel caricamento dei giorni non disponibili:', err);
-      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -50,38 +91,38 @@ export const useAvailability = (getAuthHeader) => {
       console.log('🔍 DEBUG AVAILABILITY SAVE: Auth headers:', authHeaders);
       console.log('🔍 DEBUG AVAILABILITY SAVE: Date:', date, 'Reason:', reason);
       
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/availability`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders
-        },
-        body: JSON.stringify({ date, reason })
+      const response = await retryWithBackoff(async () => {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/availability`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders
+          },
+          body: JSON.stringify({ date, reason })
+        });
+        
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        
+        return res;
       });
 
-      console.log('🔍 DEBUG AVAILABILITY SAVE: Response status:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('🔍 DEBUG AVAILABILITY SAVE: Data received:', data);
-        // Aggiorna la lista locale
-        setUnavailableDays(prev => {
-          const existing = prev.find(day => day.date === date);
-          if (existing) {
-            return prev.map(day => day.date === date ? data.day : day);
-          } else {
-            return [...prev, data.day];
-          }
-        });
-        return { success: true, day: data.day };
-      } else if (response.status === 401) {
-        console.error('❌ AVAILABILITY SAVE: Token non valido o scaduto');
-        return { success: false, error: 'Token di autenticazione non valido. Effettua nuovamente il login.' };
-      } else {
-        const errorText = await response.text();
-        console.error('❌ AVAILABILITY SAVE: Errore response:', response.status, errorText);
-        return { success: false, error: `Errore ${response.status}: ${errorText}` };
-      }
+      const data = await response.json();
+      console.log('✅ AVAILABILITY SAVE: Data received:', data);
+      
+      // Aggiorna la lista locale
+      setUnavailableDays(prev => {
+        const existing = prev.find(day => day.date === date);
+        if (existing) {
+          return prev.map(day => day.date === date ? data.day : day);
+        } else {
+          return [...prev, data.day];
+        }
+      });
+      
+      return { success: true, day: data.day };
+      
     } catch (err) {
       console.error('❌ AVAILABILITY SAVE: Errore nel salvare il giorno non disponibile:', err);
       setError(err.message);
