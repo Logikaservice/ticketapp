@@ -118,7 +118,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
   );
 
   // Raggruppa i ticket per data e priorità
-  const ticketsByDate = useMemo(() => {
+  const ticketsByDate = (() => {
     const grouped = {};
     
     // Aggiungi ticket
@@ -153,7 +153,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
     });
     
     return grouped;
-  }, [relevantTickets]);
+  })();
 
   // Funzione per ottenere il colore della priorità
   const getPriorityColor = (priorita) => {

@@ -1,6 +1,6 @@
 // src/components/TicketListContainer.jsx
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, PlayCircle, CheckCircle, Send, FileCheck2, Archive } from 'lucide-react';
 import TicketItem from './TicketItem';
 
@@ -23,7 +23,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
   });
   const [changedStates, setChangedStates] = useState([]);
 
-  const { displayTickets, ticketCounts, usersMap } = useMemo(() => {
+  const { displayTickets, ticketCounts, usersMap } = (() => {
     const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
 
     const filterTickets = () => {
@@ -67,7 +67,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
       ticketCounts: countTickets(relevantTicketsForCounts), 
       usersMap
     };
-  }, [tickets, users, currentUser, viewState, selectedClientFilter, selectedMonth, selectedYear]);
+  })();
 
   // Confronta contatori con ultima visita
   useEffect(() => {

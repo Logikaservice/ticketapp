@@ -1,6 +1,6 @@
 // src/components/Dashboard.jsx
 
-import React, { useMemo, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, X, Info, Users, Trash2 } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
@@ -174,21 +174,21 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   const [searchTerm, setSearchTerm] = React.useState('');
   const [searchResults, setSearchResults] = React.useState([]);
 
-  const visibleTickets = useMemo(() => {
+  const visibleTickets = (() => {
     if (currentUser?.ruolo === 'cliente') {
       return tickets.filter(t => t.clienteid === currentUser.id);
     }
     return tickets;
-  }, [tickets, currentUser]);
+  })();
 
-  const counts = useMemo(() => ({
+  const counts = (() => ({
     aperto: visibleTickets.filter(t => t.stato === 'aperto').length,
     in_lavorazione: visibleTickets.filter(t => t.stato === 'in_lavorazione').length,
     risolto: visibleTickets.filter(t => t.stato === 'risolto').length,
     chiuso: visibleTickets.filter(t => t.stato === 'chiuso').length,
     inviato: visibleTickets.filter(t => t.stato === 'inviato').length,
     fatturato: visibleTickets.filter(t => t.stato === 'fatturato').length
-  }), [visibleTickets]);
+  }))();
   // Evidenzia spostamenti basati su segnali esterni (eventi dal polling/azioni)
   const [activeHighlights, setActiveHighlights] = React.useState({});
   useEffect(() => {
