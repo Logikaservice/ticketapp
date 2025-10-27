@@ -204,6 +204,10 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
     const days = [];
     const current = new Date(startDate);
     
+    console.log('🔍 DEBUG CALENDAR GENERATION:');
+    console.log('  - Current month:', month + 1, year);
+    console.log('  - Start date:', startDate.toDateString());
+    
     // Genera 42 giorni (6 settimane)
     for (let i = 0; i < 42; i++) {
       // Usa la data locale per evitare problemi di fuso orario
@@ -215,6 +219,17 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
       
       const isCurrentMonth = current.getMonth() === currentDate.getMonth();
       const isToday = current.toDateString() === new Date().toDateString();
+      
+      // Debug per i giorni del 27 e 31 ottobre
+      if (dateKey.includes('2025-10-27') || dateKey.includes('2025-10-31')) {
+        console.log(`🔍 DEBUG DAY ${i}:`, {
+          dateKey,
+          date: current.toDateString(),
+          dayNumber: current.getDate(),
+          month: current.getMonth() + 1,
+          year: current.getFullYear()
+        });
+      }
       
       days.push({
         date: new Date(current),
@@ -398,11 +413,19 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
                   className={`min-h-[30px] p-1 border rounded cursor-pointer transition-all flex items-center justify-center relative ${
                     day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
                   } ${isUnavailable ? 'bg-gray-800 text-white' : 'hover:bg-gray-100'}`}
-                  onClick={() => handleAvailabilityClick(day)}
+                  onClick={() => {
+                    console.log('🔍 DEBUG GRID CLICK:');
+                    console.log('  - Index:', index);
+                    console.log('  - Day object:', day);
+                    console.log('  - DateKey:', day.dateKey);
+                    console.log('  - Date:', day.date);
+                    console.log('  - Date string:', day.date.toDateString());
+                    handleAvailabilityClick(day);
+                  }}
                   title={
                     isUnavailable 
                       ? `Rimuovi come non disponibile${day.unavailableReason ? ': ' + day.unavailableReason : ''}`
-                      : `Imposta come non disponibile`
+                      : `Imposta come non disponibile - ${day.dateKey}`
                   }
                 >
                   <div className={`text-xs ${day.isCurrentMonth ? (isUnavailable ? 'text-white' : 'text-gray-900') : (isUnavailable ? 'text-white' : 'text-gray-400')}`}>
