@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, ExternalLink, X } from 'lucide-react';
 import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { useAvailability } from '../hooks/useAvailability';
@@ -180,7 +180,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
   };
 
   // Genera i giorni del mese
-  const generateCalendarDays = useMemo(() => {
+  const generateCalendarDays = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     
@@ -224,7 +224,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
     }
     
     return days;
-  }, [currentDate, ticketsByDate, unavailableDays]);
+  };
 
   const calendarDays = generateCalendarDays();
 
