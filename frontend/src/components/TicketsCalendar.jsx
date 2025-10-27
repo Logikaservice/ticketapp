@@ -211,18 +211,31 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
     
     // Genera 42 giorni (6 settimane)
     for (let i = 0; i < 42; i++) {
-      // Usa la data locale per evitare problemi di fuso orario
-      // IMPORTANTE: Calcola dateKey PRIMA di modificare current
-      const year = current.getFullYear();
-      const month = String(current.getMonth() + 1).padStart(2, '0');
-      const day = String(current.getDate()).padStart(2, '0');
+      // Crea una copia della data corrente per evitare problemi di riferimento
+      const dayDate = new Date(startDate.getTime() + (i * 24 * 60 * 60 * 1000));
+      
+      // Calcola dateKey usando la data calcolata
+      const year = dayDate.getFullYear();
+      const month = String(dayDate.getMonth() + 1).padStart(2, '0');
+      const day = String(dayDate.getDate()).padStart(2, '0');
       const dateKey = `${year}-${month}-${day}`;
       
-      const isCurrentMonth = current.getMonth() === currentDate.getMonth();
-      const isToday = current.toDateString() === new Date().toDateString();
+      const isCurrentMonth = dayDate.getMonth() === currentDate.getMonth();
+      const isToday = dayDate.toDateString() === new Date().toDateString();
+      
+      // Debug per le date del 27 e 31 ottobre
+      if (dateKey.includes('2025-10-27') || dateKey.includes('2025-10-31')) {
+        console.log(`🔍 DEBUG CALENDAR GENERATION - Day ${i}:`, {
+          dateKey,
+          dayDate: dayDate.toDateString(),
+          dayNumber: dayDate.getDate(),
+          month: dayDate.getMonth() + 1,
+          year: dayDate.getFullYear()
+        });
+      }
       
       days.push({
-        date: new Date(current),
+        date: dayDate,
         dateKey,
         isCurrentMonth,
         isToday,
@@ -230,9 +243,6 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
         isUnavailable: isDateUnavailable(dateKey),
         unavailableReason: getUnavailableReason(dateKey)
       });
-      
-      // Incrementa la data DOPO aver calcolato dateKey
-      current.setDate(current.getDate() + 1);
     }
     
     return days;
