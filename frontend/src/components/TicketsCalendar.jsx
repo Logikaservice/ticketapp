@@ -53,13 +53,22 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
   // Funzione per gestire il click sui controlli di disponibilità
   const handleAvailabilityClick = (day) => {
     const dateString = day.dateKey;
+    console.log('🔍 DEBUG AVAILABILITY CLICK:');
+    console.log('  - Day object:', day);
+    console.log('  - DateKey:', dateString);
+    console.log('  - Day date:', day.date);
+    console.log('  - Day date string:', day.date.toDateString());
+    
     const isUnavailable = isDateUnavailable(dateString);
+    console.log('  - Is unavailable:', isUnavailable);
     
     if (isUnavailable) {
       // Se è già non disponibile, rimuovilo
+      console.log('  - Removing availability for:', dateString);
       setDayAvailable(dateString);
     } else {
       // Se è disponibile, apri il modal per impostarlo come non disponibile
+      console.log('  - Setting availability for:', dateString);
       setAvailabilityDate(dateString);
       setAvailabilityReason(getUnavailableReason(dateString) || '');
       setShowAvailabilityModal(true);
@@ -198,11 +207,11 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
     // Genera 42 giorni (6 settimane)
     for (let i = 0; i < 42; i++) {
       // Usa la data locale per evitare problemi di fuso orario
+      // IMPORTANTE: Calcola dateKey PRIMA di modificare current
       const year = current.getFullYear();
       const month = String(current.getMonth() + 1).padStart(2, '0');
       const day = String(current.getDate()).padStart(2, '0');
       const dateKey = `${year}-${month}-${day}`;
-      
       
       const isCurrentMonth = current.getMonth() === currentDate.getMonth();
       const isToday = current.toDateString() === new Date().toDateString();
@@ -217,6 +226,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
         unavailableReason: getUnavailableReason(dateKey)
       });
       
+      // Incrementa la data DOPO aver calcolato dateKey
       current.setDate(current.getDate() + 1);
     }
     
