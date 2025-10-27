@@ -11,6 +11,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [availabilityDate, setAvailabilityDate] = useState(null);
   const [availabilityReason, setAvailabilityReason] = useState('');
+  const [newUnavailableDaysInput, setNewUnavailableDaysInput] = useState('');
   
   // Hook per Google Calendar
   const { syncTicketToCalendarBackend } = useGoogleCalendar();
@@ -104,6 +105,54 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
     setShowAvailabilityModal(false);
     setAvailabilityDate(null);
     setAvailabilityReason('');
+  };
+
+  // Funzione per salvare i giorni non disponibili dall'input
+  const handleSaveNewUnavailableDays = async () => {
+    if (!newUnavailableDaysInput.trim()) {
+      alert('Inserisci almeno una data.');
+      return;
+    }
+
+    const datesToProcess = newUnavailableDaysInput.split(',').map(s => s.trim()).filter(Boolean);
+    let successCount = 0;
+    let errorCount = 0;
+
+    console.log('🔍 DEBUG: Elaborando date:', datesToProcess);
+
+    for (const dateString of datesToProcess) {
+      try {
+        // Tenta di parsare la data. Assumi formato YYYY-MM-DD
+        const parsedDate = new Date(dateString);
+        if (isNaN(parsedDate.getTime())) {
+          console.error(`❌ CALENDAR: Formato data non valido: ${dateString}`);
+          errorCount++;
+          continue;
+        }
+        const formattedDate = parsedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        console.log(`🔍 DEBUG: Salvando data: ${formattedDate}`);
+        
+        const result = await setDayUnavailable(formattedDate, 'Indicato dall\'utente');
+        if (result.success) {
+          successCount++;
+          console.log(`✅ CALENDAR: Data ${formattedDate} salvata con successo`);
+        } else {
+          errorCount++;
+          console.error(`❌ CALENDAR: Errore nel salvare ${formattedDate}:`, result.error);
+        }
+      } catch (e) {
+        console.error(`❌ CALENDAR: Errore durante l'elaborazione di ${dateString}:`, e);
+        errorCount++;
+      }
+    }
+
+    alert(`Operazione completata: ${successCount} date salvate, ${errorCount} errori.`);
+    setNewUnavailableDaysInput(''); // Pulisci l'input
+    // Ricarica i giorni non disponibili per aggiornare la UI
+    if (getAuthHeader) {
+      const { loadUnavailableDays } = useAvailability(getAuthHeader);
+      loadUnavailableDays();
+    }
   };
 
   // Funzione per gestire il click sui ticket nella lista
@@ -401,39 +450,41 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
           </div>
         )}
 
-        {/* Controlli disponibilità */}
+        {/* Input per giorni non disponibili */}
         <div className="mt-4 pt-4 border-t">
-          <div className="text-xs text-gray-600 mb-2">Gestione disponibilità (tutti i giorni visibili):</div>
-          <div className="grid grid-cols-7 gap-1">
-            {calendarDays.map((day, index) => {
-              const isUnavailable = day.isUnavailable;
-              return (
-                <div
-                  key={index}
-                  className={`min-h-[30px] p-1 border rounded cursor-pointer transition-all flex items-center justify-center relative ${
-                    day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-                  } ${isUnavailable ? 'bg-gray-800 text-white' : 'hover:bg-gray-100'}`}
-                  onClick={() => handleAvailabilityClick(day)}
-                  title={
-                    isUnavailable 
-                      ? `Rimuovi come non disponibile${day.unavailableReason ? ': ' + day.unavailableReason : ''}`
-                      : `Imposta come non disponibile - ${day.dateKey}`
-                  }
-                >
-                  <div className={`text-xs ${day.isCurrentMonth ? (isUnavailable ? 'text-white' : 'text-gray-900') : (isUnavailable ? 'text-white' : 'text-gray-400')}`}>
-                    {day.date.getDate()}
-                  </div>
-                  {isUnavailable && (
-                    <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <div className="text-xs text-gray-500 mt-2">
-            <div>• Clicca sui giorni qui sotto per impostare/rimuovere la disponibilità</div>
-            <div>• Oppure usa Ctrl+Click sui giorni del calendario principale</div>
-            <div>• Funziona per tutti i mesi (passati, presenti e futuri)</div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Giorni Non Disponibili</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">
+                Inserisci le date in cui non sarai presente (formato: YYYY-MM-DD)
+              </label>
+              <input
+                type="text"
+                className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Es: 2025-10-27, 2025-11-05, 2025-12-25"
+                value={newUnavailableDaysInput}
+                onChange={(e) => setNewUnavailableDaysInput(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveNewUnavailableDays}
+                className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                Salva Giorni Non Disponibili
+              </button>
+              <button
+                onClick={() => setNewUnavailableDaysInput('')}
+                className="px-3 py-1 bg-gray-500 text-white text-xs rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                Cancella
+              </button>
+            </div>
+            <div className="text-xs text-gray-500">
+              <div>• Formato: YYYY-MM-DD (es: 2025-10-27)</div>
+              <div>• Separa più date con virgola</div>
+              <div>• I giorni non disponibili appariranno in grigio nel calendario</div>
+            </div>
           </div>
         </div>
 
@@ -465,56 +516,6 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
         </div>
       </div>
 
-      {/* Modal per gestire la disponibilità */}
-      {showAvailabilityModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 max-w-[90vw]">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Imposta giorno non disponibile</h3>
-              <button
-                onClick={handleCloseAvailabilityModal}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Data: {availabilityDate && new Date(availabilityDate).toLocaleDateString('it-IT')}
-              </label>
-            </div>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Motivo (opzionale)
-              </label>
-              <textarea
-                value={availabilityReason}
-                onChange={(e) => setAvailabilityReason(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                rows={3}
-                placeholder="Es: Vacanze, malattia, impegno personale..."
-              />
-            </div>
-            
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={handleCloseAvailabilityModal}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={handleSaveAvailability}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-              >
-                Imposta non disponibile
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
