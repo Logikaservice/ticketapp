@@ -355,8 +355,8 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
                   day.isUnavailable ? 'bg-gray-800 text-white' : ''
                 }`}
                 onClick={(e) => {
-                  // Se si tiene premuto Ctrl/Cmd, gestisci la disponibilità
-                  if (e.ctrlKey || e.metaKey) {
+                  // Se si tiene premuto Ctrl/Cmd E l'utente è un tecnico, gestisci la disponibilità
+                  if ((e.ctrlKey || e.metaKey) && currentUser?.ruolo === 'tecnico') {
                     e.preventDefault();
                     handleCalendarDayClick(day);
                     return;
@@ -366,10 +366,10 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
                 }}
                 title={
                   day.isUnavailable 
-                    ? `Non disponibile${day.unavailableReason ? ': ' + day.unavailableReason : ''} • Ctrl+Click per impostare come disponibile`
+                    ? `Non disponibile${day.unavailableReason ? ': ' + day.unavailableReason : ''}${currentUser?.ruolo === 'tecnico' ? ' • Ctrl+Click per impostare come disponibile' : ''}`
                     : hasTickets 
-                      ? `Click per vedere i ticket del ${day.date.toLocaleDateString('it-IT')} • Ctrl+Click per impostare come non disponibile`
-                      : `Ctrl+Click per impostare come non disponibile`
+                      ? `Click per vedere i ticket del ${day.date.toLocaleDateString('it-IT')}${currentUser?.ruolo === 'tecnico' ? ' • Ctrl+Click per impostare come non disponibile' : ''}`
+                      : currentUser?.ruolo === 'tecnico' ? `Ctrl+Click per impostare come non disponibile` : ''
                 }
               >
                 <div className={`text-xs ${day.isCurrentMonth ? (day.isUnavailable ? 'text-white' : 'text-gray-900') : 'text-gray-400'}`}>
@@ -446,44 +446,57 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
           </div>
         )}
 
-        {/* Input per giorni non disponibili */}
-        <div className="mt-4 pt-4 border-t">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Giorni Non Disponibili</h3>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">
-                Inserisci le date in cui non sarai presente (formato: GG/MM/AAAA)
-              </label>
-              <input
-                type="text"
-                className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Es: 27/10/2025, 05/11/2025, 25/12/2025"
-                value={newUnavailableDaysInput}
-                onChange={(e) => setNewUnavailableDaysInput(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleSaveNewUnavailableDays}
-                className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                Salva Giorni Non Disponibili
-              </button>
-              <button
-                onClick={() => setNewUnavailableDaysInput('')}
-                className="px-3 py-1 bg-gray-500 text-white text-xs rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
-              >
-                Cancella
-              </button>
-            </div>
-            <div className="text-xs text-gray-500">
-              <div>• <strong>Ctrl+Click</strong> su una data del calendario per pre-compilare il campo</div>
-              <div>• Formato: GG/MM/AAAA (es: 27/10/2025)</div>
-              <div>• Separa più date con virgola</div>
-              <div>• I giorni non disponibili appariranno in grigio nel calendario</div>
+        {/* Input per giorni non disponibili - Solo per tecnici */}
+        {currentUser?.ruolo === 'tecnico' && (
+          <div className="mt-4 pt-4 border-t">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Giorni Non Disponibili</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">
+                  Inserisci le date in cui non sarai presente (formato: GG/MM/AAAA)
+                </label>
+                <input
+                  type="text"
+                  className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Es: 27/10/2025, 05/11/2025, 25/12/2025"
+                  value={newUnavailableDaysInput}
+                  onChange={(e) => setNewUnavailableDaysInput(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSaveNewUnavailableDays}
+                  className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  Salva Giorni Non Disponibili
+                </button>
+                <button
+                  onClick={() => setNewUnavailableDaysInput('')}
+                  className="px-3 py-1 bg-gray-500 text-white text-xs rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Cancella
+                </button>
+              </div>
+              <div className="text-xs text-gray-500">
+                <div>• <strong>Ctrl+Click</strong> su una data del calendario per pre-compilare il campo</div>
+                <div>• Formato: GG/MM/AAAA (es: 27/10/2025)</div>
+                <div>• Separa più date con virgola</div>
+                <div>• I giorni non disponibili appariranno in grigio nel calendario</div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Informazione per clienti sui giorni non disponibili */}
+        {currentUser?.ruolo === 'cliente' && (
+          <div className="mt-4 pt-4 border-t">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Giorni Non Disponibili</h3>
+            <div className="text-xs text-gray-600">
+              <div>• I giorni in grigio indicano quando il tecnico non è disponibile</div>
+              <div>• Per informazioni sui giorni non disponibili, contatta il supporto</div>
+            </div>
+          </div>
+        )}
 
         {/* Legenda */}
         <div className="mt-4 pt-4 border-t">
