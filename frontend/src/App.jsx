@@ -1014,21 +1014,10 @@ export default function TicketApp() {
 
       {!showDashboard && (
         <div
-          className="w-full bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 text-gray-700 shadow-lg text-center text-sm py-3 cursor-pointer relative overflow-hidden group hover:shadow-xl transition-all duration-300"
+          className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
           onClick={() => setShowDashboard(true)}
         >
-          {/* Effetto luce animato */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-30 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-all duration-1000 ease-out"></div>
-          
-          {/* Testo con effetto */}
-          <span className="relative z-10 font-medium tracking-wide group-hover:text-indigo-700 transition-colors duration-300">
-            Torna alla Dashboard
-          </span>
-          
-          {/* Icona animata */}
-          <span className="relative z-10 ml-2 inline-block group-hover:translate-x-1 transition-transform duration-300">
-            →
-          </span>
+          Torna alla Dashboard
         </div>
       )}
 
