@@ -143,10 +143,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
       alert(`✅ Operazione completata: ${successCount} date salvate${errorCount > 0 ? `, ${errorCount} errori` : ''}.`);
       setNewUnavailableDaysInput(''); // Pulisci l'input
       // Ricarica i giorni non disponibili per aggiornare la UI
-      if (getAuthHeader) {
-        const { loadUnavailableDays } = useAvailability(getAuthHeader);
-        loadUnavailableDays();
-      }
+      loadUnavailableDays();
     } else {
       alert(`❌ Nessuna data valida trovata. Usa il formato GG/MM/AAAA (es: 27/10/2025)`);
     }

@@ -15,7 +15,6 @@ export const useAvailability = (getAuthHeader) => {
       } catch (error) {
         if (i === maxRetries - 1) throw error;
         const delay = baseDelay * Math.pow(2, i);
-        console.log(`🔄 Retry ${i + 1}/${maxRetries} in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -25,14 +24,12 @@ export const useAvailability = (getAuthHeader) => {
   const loadUnavailableDays = async () => {
     // Evita chiamate multiple simultanee
     if (loading) {
-      console.log('🔄 AVAILABILITY: Caricamento già in corso, salto...');
       return;
     }
     
     // Debounce: evita chiamate troppo frequenti
     const now = Date.now();
     if (now - lastLoadTime.current < LOAD_DEBOUNCE_MS) {
-      console.log('🔄 AVAILABILITY: Troppo presto per ricaricare, salto...');
       return;
     }
     lastLoadTime.current = now;
@@ -42,7 +39,6 @@ export const useAvailability = (getAuthHeader) => {
     
     try {
       // Prima prova con endpoint pubblico (più affidabile)
-      console.log('🔍 DEBUG AVAILABILITY: Tentativo con endpoint pubblico...');
       
       const response = await retryWithBackoff(async () => {
         const controller = new AbortController();
@@ -71,16 +67,13 @@ export const useAvailability = (getAuthHeader) => {
       });
       
       const data = await response.json();
-      console.log('✅ AVAILABILITY: Data received from public endpoint:', data);
       setUnavailableDays(data);
       
     } catch (publicError) {
-      console.warn('⚠️ AVAILABILITY: Endpoint pubblico fallito, provo con autenticazione...', publicError.message);
       
       try {
         // Fallback: prova con endpoint autenticato
         const authHeaders = getAuthHeader();
-        console.log('🔍 DEBUG AVAILABILITY: Auth headers:', authHeaders);
         
         const response = await retryWithBackoff(async () => {
           const controller = new AbortController();
@@ -110,11 +103,9 @@ export const useAvailability = (getAuthHeader) => {
         });
         
         const data = await response.json();
-        console.log('✅ AVAILABILITY: Data received from auth endpoint:', data);
         setUnavailableDays(data);
         
       } catch (authError) {
-        console.error('❌ AVAILABILITY: Entrambi gli endpoint falliti:', authError.message);
         setError(`Errore nel caricamento: ${authError.message}`);
       }
     } finally {
@@ -126,8 +117,6 @@ export const useAvailability = (getAuthHeader) => {
   const setDayUnavailable = async (date, reason = null) => {
     try {
       const authHeaders = getAuthHeader();
-      console.log('🔍 DEBUG AVAILABILITY SAVE: Auth headers:', authHeaders);
-      console.log('🔍 DEBUG AVAILABILITY SAVE: Date:', date, 'Reason:', reason);
       
       const response = await retryWithBackoff(async () => {
         const res = await fetch(`${process.env.REACT_APP_API_URL}/api/availability`, {
@@ -147,7 +136,6 @@ export const useAvailability = (getAuthHeader) => {
       });
 
       const data = await response.json();
-      console.log('✅ AVAILABILITY SAVE: Data received:', data);
       
       // Aggiorna la lista locale
       setUnavailableDays(prev => {
@@ -162,7 +150,6 @@ export const useAvailability = (getAuthHeader) => {
       return { success: true, day: data.day };
       
     } catch (err) {
-      console.error('❌ AVAILABILITY SAVE: Errore nel salvare il giorno non disponibile:', err);
       setError(err.message);
       return { success: false, error: err.message };
     }
@@ -187,7 +174,6 @@ export const useAvailability = (getAuthHeader) => {
         throw new Error('Errore nel rimuovere il giorno non disponibile');
       }
     } catch (err) {
-      console.error('Errore nel rimuovere il giorno non disponibile:', err);
       setError(err.message);
       return { success: false, error: err.message };
     }
