@@ -386,10 +386,6 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
                   ))}
                 </div>
                 
-                {/* Indicatore giorno non disponibile */}
-                {day.isUnavailable && (
-                  <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" title="Non disponibile"></div>
-                )}
               </div>
             );
           })}
