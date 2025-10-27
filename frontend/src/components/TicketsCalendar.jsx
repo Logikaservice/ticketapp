@@ -53,15 +53,23 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
   // Funzione per gestire il click sui controlli di disponibilità
   const handleAvailabilityClick = (day) => {
     const dateString = day.dateKey;
-    console.log('🔍 DEBUG AVAILABILITY CLICK: Data selezionata:', dateString, 'Giorno:', day.date.getDate());
+    console.log('🔍 DEBUG AVAILABILITY CLICK:');
+    console.log('  - Data selezionata:', dateString);
+    console.log('  - Giorno numero:', day.date.getDate());
+    console.log('  - Mese:', day.date.getMonth() + 1);
+    console.log('  - Anno:', day.date.getFullYear());
+    console.log('  - Data completa:', day.date.toDateString());
+    console.log('  - Day object completo:', day);
     
     const isUnavailable = isDateUnavailable(dateString);
     
     if (isUnavailable) {
       // Se è già non disponibile, rimuovilo
+      console.log('  - Rimuovo disponibilità per:', dateString);
       setDayAvailable(dateString);
     } else {
       // Se è disponibile, apri il modal per impostarlo come non disponibile
+      console.log('  - Imposto disponibilità per:', dateString);
       setAvailabilityDate(dateString);
       setAvailabilityReason(getUnavailableReason(dateString) || '');
       setShowAvailabilityModal(true);
@@ -72,7 +80,11 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
   const handleSaveAvailability = async () => {
     if (!availabilityDate) return;
     
-    console.log('🔍 DEBUG CALENDAR: Tentativo di salvare disponibilità per:', availabilityDate);
+    console.log('🔍 DEBUG CALENDAR SAVE:');
+    console.log('  - Data da salvare:', availabilityDate);
+    console.log('  - Motivo:', availabilityReason);
+    console.log('  - Data formattata per display:', new Date(availabilityDate).toLocaleDateString('it-IT'));
+    
     const result = await setDayUnavailable(availabilityDate, availabilityReason);
     console.log('🔍 DEBUG CALENDAR: Risultato salvataggio:', result);
     
