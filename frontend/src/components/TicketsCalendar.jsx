@@ -51,61 +51,22 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
     }
   };
 
-  // Funzione per gestire il click sui controlli di disponibilità
-  const handleAvailabilityClick = (day) => {
-    const dateString = day.dateKey;
-    console.log('🔍 DEBUG AVAILABILITY CLICK:');
-    console.log('  - Data selezionata:', dateString);
-    console.log('  - Giorno numero:', day.date.getDate());
-    console.log('  - Mese:', day.date.getMonth() + 1);
-    console.log('  - Anno:', day.date.getFullYear());
-    console.log('  - Data completa:', day.date.toDateString());
-    console.log('  - Day object completo:', day);
+  // Funzione per gestire il click sui giorni del calendario
+  const handleCalendarDayClick = (day) => {
+    // Converti la dataKey in formato italiano DD/MM/YYYY
+    const date = new Date(day.dateKey);
+    const dayStr = String(date.getDate()).padStart(2, '0');
+    const monthStr = String(date.getMonth() + 1).padStart(2, '0');
+    const yearStr = date.getFullYear();
+    const italianDate = `${dayStr}/${monthStr}/${yearStr}`;
     
-    const isUnavailable = isDateUnavailable(dateString);
-    
-    if (isUnavailable) {
-      // Se è già non disponibile, rimuovilo
-      console.log('  - Rimuovo disponibilità per:', dateString);
-      setDayAvailable(dateString);
-    } else {
-      // Se è disponibile, apri il modal per impostarlo come non disponibile
-      console.log('  - Imposto disponibilità per:', dateString);
-      setAvailabilityDate(dateString);
-      setAvailabilityReason(getUnavailableReason(dateString) || '');
-      setShowAvailabilityModal(true);
-    }
+    // Pre-compila il campo con la data selezionata
+    setNewUnavailableDaysInput(italianDate);
   };
 
-  // Funzione per salvare la disponibilità
-  const handleSaveAvailability = async () => {
-    if (!availabilityDate) return;
-    
-    console.log('🔍 DEBUG CALENDAR SAVE:');
-    console.log('  - Data da salvare:', availabilityDate);
-    console.log('  - Motivo:', availabilityReason);
-    console.log('  - Data formattata per display:', new Date(availabilityDate).toLocaleDateString('it-IT'));
-    
-    const result = await setDayUnavailable(availabilityDate, availabilityReason);
-    console.log('🔍 DEBUG CALENDAR: Risultato salvataggio:', result);
-    
-    if (result.success) {
-      setShowAvailabilityModal(false);
-      setAvailabilityDate(null);
-      setAvailabilityReason('');
-      console.log('✅ CALENDAR: Giorno non disponibile salvato con successo');
-    } else {
-      console.error('❌ CALENDAR: Errore nel salvare:', result.error);
-      // Potresti aggiungere una notifica di errore qui
-    }
-  };
+  // Funzione per salvare la disponibilità (rimossa - non più necessaria)
 
-  // Funzione per chiudere il modal
-  const handleCloseAvailabilityModal = () => {
-    setShowAvailabilityModal(false);
-    setAvailabilityDate(null);
-    setAvailabilityReason('');
-  };
+  // Funzione per chiudere il modal (rimossa - non più necessaria)
 
   // Funzione per convertire formato italiano DD/MM/YYYY a YYYY-MM-DD
   const convertItalianDateToISO = (dateString) => {
@@ -157,31 +118,23 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
     let successCount = 0;
     let errorCount = 0;
 
-    console.log('🔍 DEBUG: Elaborando date:', datesToProcess);
-
     for (const dateString of datesToProcess) {
       try {
         // Converti dal formato italiano DD/MM/YYYY al formato ISO YYYY-MM-DD
         const isoDate = convertItalianDateToISO(dateString);
         
         if (!isoDate) {
-          console.error(`❌ CALENDAR: Formato data non valido: ${dateString}. Usa il formato GG/MM/AAAA`);
           errorCount++;
           continue;
         }
         
-        console.log(`🔍 DEBUG: Convertendo ${dateString} -> ${isoDate}`);
-        
         const result = await setDayUnavailable(isoDate, 'Indicato dall\'utente');
         if (result.success) {
           successCount++;
-          console.log(`✅ CALENDAR: Data ${isoDate} salvata con successo`);
         } else {
           errorCount++;
-          console.error(`❌ CALENDAR: Errore nel salvare ${isoDate}:`, result.error);
         }
       } catch (e) {
-        console.error(`❌ CALENDAR: Errore durante l'elaborazione di ${dateString}:`, e);
         errorCount++;
       }
     }
@@ -316,16 +269,6 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
       const isCurrentMonth = dayDate.getMonth() === currentDate.getMonth();
       const isToday = dayDate.toDateString() === new Date().toDateString();
       
-      // Debug per le date del 27 e 31 ottobre
-      if (dateKey.includes('2025-10-27') || dateKey.includes('2025-10-31')) {
-        console.log(`🔍 DEBUG CALENDAR GENERATION - Day ${i}:`, {
-          dateKey,
-          dayDate: dayDate.toDateString(),
-          dayNumber: dayDate.getDate(),
-          month: dayDate.getMonth() + 1,
-          year: dayDate.getFullYear()
-        });
-      }
       
       days.push({
         date: dayDate,
@@ -411,13 +354,22 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
                 } ${hasTickets ? 'hover:bg-blue-50 hover:border-blue-300' : ''} ${
                   day.isUnavailable ? 'bg-gray-800 text-white' : ''
                 }`}
-                onClick={(e) => handleDayClick(day, e)}
+                onClick={(e) => {
+                  // Se si tiene premuto Ctrl/Cmd, gestisci la disponibilità
+                  if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    handleCalendarDayClick(day);
+                    return;
+                  }
+                  // Altrimenti gestisci i ticket normalmente
+                  handleDayClick(day, e);
+                }}
                 title={
                   day.isUnavailable 
-                    ? `Non disponibile${day.unavailableReason ? ': ' + day.unavailableReason : ''} • Ctrl+Click per gestire disponibilità`
+                    ? `Non disponibile${day.unavailableReason ? ': ' + day.unavailableReason : ''} • Ctrl+Click per impostare come disponibile`
                     : hasTickets 
-                      ? `Click per vedere i ticket del ${day.date.toLocaleDateString('it-IT')} • Ctrl+Click per gestire disponibilità`
-                      : `Ctrl+Click per gestire disponibilità`
+                      ? `Click per vedere i ticket del ${day.date.toLocaleDateString('it-IT')} • Ctrl+Click per impostare come non disponibile`
+                      : `Ctrl+Click per impostare come non disponibile`
                 }
               >
                 <div className={`text-xs ${day.isCurrentMonth ? (day.isUnavailable ? 'text-white' : 'text-gray-900') : 'text-gray-400'}`}>
@@ -525,6 +477,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
               </button>
             </div>
             <div className="text-xs text-gray-500">
+              <div>• <strong>Ctrl+Click</strong> su una data del calendario per pre-compilare il campo</div>
               <div>• Formato: GG/MM/AAAA (es: 27/10/2025)</div>
               <div>• Separa più date con virgola</div>
               <div>• I giorni non disponibili appariranno in grigio nel calendario</div>
