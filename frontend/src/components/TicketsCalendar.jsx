@@ -283,6 +283,10 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
   };
 
   const calendarDays = generateCalendarDays();
+  
+  // Debug temporaneo per vedere i giorni non disponibili
+  console.log('🔍 DEBUG: unavailableDays:', unavailableDays);
+  console.log('🔍 DEBUG: calendarDays with unavailable:', calendarDays.filter(day => day.isUnavailable));
 
   // Navigazione mese
   const goToPreviousMonth = () => {
@@ -383,6 +387,13 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
                       title={`${getPriorityName(priorita)}: ${tickets.length} ticket`}
                     />
                   ))}
+                  {/* Punto nero per giorni non disponibili */}
+                  {day.isUnavailable && (
+                    <div
+                      className="w-2 h-2 rounded-full bg-gray-800"
+                      title={`Non disponibile${day.unavailableReason ? ': ' + day.unavailableReason : ''}`}
+                    />
+                  )}
                 </div>
                 
                 {/* Indicatore giorno non disponibile */}
