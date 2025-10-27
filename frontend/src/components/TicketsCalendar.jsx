@@ -284,17 +284,6 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
 
   const calendarDays = generateCalendarDays();
   
-  // Debug temporaneo per vedere i giorni non disponibili
-  console.log('🔍 DEBUG: unavailableDays:', unavailableDays);
-  console.log('🔍 DEBUG: calendarDays with unavailable:', calendarDays.filter(day => day.isUnavailable));
-  
-  // Debug dettagliato per il confronto delle date
-  if (unavailableDays.length > 0) {
-    console.log('🔍 DEBUG: First unavailable day:', unavailableDays[0]);
-    console.log('🔍 DEBUG: Checking date 2025-10-27:', isDateUnavailable('2025-10-27'));
-    console.log('🔍 DEBUG: Sample calendar dateKey:', calendarDays[0]?.dateKey);
-    console.log('🔍 DEBUG: Sample calendar isUnavailable:', calendarDays[0]?.isUnavailable);
-  }
 
   // Navigazione mese
   const goToPreviousMonth = () => {

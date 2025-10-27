@@ -182,7 +182,10 @@ export const useAvailability = (getAuthHeader) => {
   // Verifica se una data è non disponibile
   const isDateUnavailable = (date) => {
     const dateString = typeof date === 'string' ? date : date.toISOString().split('T')[0];
-    return unavailableDays.some(day => day.date === dateString);
+    return unavailableDays.some(day => {
+      const dayDatePart = day.date.split('T')[0]; // Estrae solo la parte YYYY-MM-DD
+      return dayDatePart === dateString; // Confronto esatto
+    });
   };
 
   // Ottieni il motivo per cui una data è non disponibile
