@@ -347,11 +347,11 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
               <div
                 key={index}
                 className={`min-h-[40px] p-1 border rounded cursor-pointer transition-all relative ${
-                  day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
+                  day.isCurrentMonth ? (day.isUnavailable ? 'bg-gray-800 text-white' : 'bg-white') : 'bg-gray-50'
                 } ${day.isToday ? 'ring-2 ring-blue-500' : ''} ${
                   isSelected ? 'ring-2 ring-green-500 bg-green-50' : ''
                 } ${hasTickets ? 'hover:bg-blue-50 hover:border-blue-300' : ''} ${
-                  day.isUnavailable ? 'bg-gray-800 text-white' : ''
+                  day.isUnavailable ? 'hover:bg-gray-700' : ''
                 }`}
                 onClick={(e) => {
                   // Se si tiene premuto Ctrl/Cmd E l'utente è un tecnico, gestisci la disponibilità
@@ -371,7 +371,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
                       : currentUser?.ruolo === 'tecnico' ? `Ctrl+Click per impostare come non disponibile` : ''
                 }
               >
-                <div className={`text-xs ${day.isCurrentMonth ? (day.isUnavailable ? 'text-white' : 'text-gray-900') : 'text-gray-400'}`}>
+                <div className={`text-xs font-medium ${day.isCurrentMonth ? (day.isUnavailable ? 'text-white' : 'text-gray-900') : 'text-gray-400'}`}>
                   {day.date.getDate()}
                 </div>
                 
@@ -526,7 +526,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
             </div>
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-full bg-gray-800"></div>
-              <span>Non disponibile</span>
+              <span>Non disponibile (sfondo scuro)</span>
             </div>
           </div>
         </div>
