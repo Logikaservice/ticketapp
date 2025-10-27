@@ -107,6 +107,45 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
     setAvailabilityReason('');
   };
 
+  // Funzione per convertire formato italiano DD/MM/YYYY a YYYY-MM-DD
+  const convertItalianDateToISO = (dateString) => {
+    // Rimuovi spazi e controlla se è nel formato DD/MM/YYYY
+    const cleanDate = dateString.trim();
+    
+    // Verifica se contiene le barre
+    if (!cleanDate.includes('/')) {
+      return null;
+    }
+    
+    const parts = cleanDate.split('/');
+    if (parts.length !== 3) {
+      return null;
+    }
+    
+    const [day, month, year] = parts;
+    
+    // Verifica che siano numeri
+    if (isNaN(day) || isNaN(month) || isNaN(year)) {
+      return null;
+    }
+    
+    // Verifica che il giorno sia tra 1-31, mese 1-12
+    if (day < 1 || day > 31 || month < 1 || month > 12) {
+      return null;
+    }
+    
+    // Crea la data nel formato YYYY-MM-DD
+    const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    
+    // Verifica che la data sia valida
+    const testDate = new Date(isoDate);
+    if (isNaN(testDate.getTime())) {
+      return null;
+    }
+    
+    return isoDate;
+  };
+
   // Funzione per salvare i giorni non disponibili dall'input
   const handleSaveNewUnavailableDays = async () => {
     if (!newUnavailableDaysInput.trim()) {
@@ -122,23 +161,24 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
 
     for (const dateString of datesToProcess) {
       try {
-        // Tenta di parsare la data. Assumi formato YYYY-MM-DD
-        const parsedDate = new Date(dateString);
-        if (isNaN(parsedDate.getTime())) {
-          console.error(`❌ CALENDAR: Formato data non valido: ${dateString}`);
+        // Converti dal formato italiano DD/MM/YYYY al formato ISO YYYY-MM-DD
+        const isoDate = convertItalianDateToISO(dateString);
+        
+        if (!isoDate) {
+          console.error(`❌ CALENDAR: Formato data non valido: ${dateString}. Usa il formato GG/MM/AAAA`);
           errorCount++;
           continue;
         }
-        const formattedDate = parsedDate.toISOString().split('T')[0]; // YYYY-MM-DD
-        console.log(`🔍 DEBUG: Salvando data: ${formattedDate}`);
         
-        const result = await setDayUnavailable(formattedDate, 'Indicato dall\'utente');
+        console.log(`🔍 DEBUG: Convertendo ${dateString} -> ${isoDate}`);
+        
+        const result = await setDayUnavailable(isoDate, 'Indicato dall\'utente');
         if (result.success) {
           successCount++;
-          console.log(`✅ CALENDAR: Data ${formattedDate} salvata con successo`);
+          console.log(`✅ CALENDAR: Data ${isoDate} salvata con successo`);
         } else {
           errorCount++;
-          console.error(`❌ CALENDAR: Errore nel salvare ${formattedDate}:`, result.error);
+          console.error(`❌ CALENDAR: Errore nel salvare ${isoDate}:`, result.error);
         }
       } catch (e) {
         console.error(`❌ CALENDAR: Errore durante l'elaborazione di ${dateString}:`, e);
@@ -146,12 +186,16 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
       }
     }
 
-    alert(`Operazione completata: ${successCount} date salvate, ${errorCount} errori.`);
-    setNewUnavailableDaysInput(''); // Pulisci l'input
-    // Ricarica i giorni non disponibili per aggiornare la UI
-    if (getAuthHeader) {
-      const { loadUnavailableDays } = useAvailability(getAuthHeader);
-      loadUnavailableDays();
+    if (successCount > 0) {
+      alert(`✅ Operazione completata: ${successCount} date salvate${errorCount > 0 ? `, ${errorCount} errori` : ''}.`);
+      setNewUnavailableDaysInput(''); // Pulisci l'input
+      // Ricarica i giorni non disponibili per aggiornare la UI
+      if (getAuthHeader) {
+        const { loadUnavailableDays } = useAvailability(getAuthHeader);
+        loadUnavailableDays();
+      }
+    } else {
+      alert(`❌ Nessuna data valida trovata. Usa il formato GG/MM/AAAA (es: 27/10/2025)`);
     }
   };
 
@@ -456,12 +500,12 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
           <div className="space-y-3">
             <div>
               <label className="block text-xs text-gray-600 mb-1">
-                Inserisci le date in cui non sarai presente (formato: YYYY-MM-DD)
+                Inserisci le date in cui non sarai presente (formato: GG/MM/AAAA)
               </label>
               <input
                 type="text"
                 className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Es: 2025-10-27, 2025-11-05, 2025-12-25"
+                placeholder="Es: 27/10/2025, 05/11/2025, 25/12/2025"
                 value={newUnavailableDaysInput}
                 onChange={(e) => setNewUnavailableDaysInput(e.target.value)}
               />
@@ -481,7 +525,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
               </button>
             </div>
             <div className="text-xs text-gray-500">
-              <div>• Formato: YYYY-MM-DD (es: 2025-10-27)</div>
+              <div>• Formato: GG/MM/AAAA (es: 27/10/2025)</div>
               <div>• Separa più date con virgola</div>
               <div>• I giorni non disponibili appariranno in grigio nel calendario</div>
             </div>
