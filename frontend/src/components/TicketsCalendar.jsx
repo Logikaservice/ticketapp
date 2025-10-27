@@ -22,7 +22,8 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
     isDateUnavailable, 
     getUnavailableReason, 
     setDayUnavailable, 
-    setDayAvailable 
+    setDayAvailable,
+    loadUnavailableDays
   } = useAvailability(getAuthHeader);
 
 
