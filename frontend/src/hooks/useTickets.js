@@ -139,6 +139,18 @@ export const useTickets = (
       
       closeModal();
       showNotification('Ticket aggiornato con successo!', 'success');
+      
+      // Sincronizzazione automatica con Google Calendar per aggiornamenti ticket
+      if (googleCalendarSync && typeof googleCalendarSync === 'function') {
+        try {
+          console.log('Sincronizzazione automatica aggiornamento ticket #' + ticketSalvato.id + ' con Google Calendar');
+          await googleCalendarSync(ticketSalvato, 'update');
+          console.log('Ticket #' + ticketSalvato.id + ' aggiornato automaticamente in Google Calendar');
+        } catch (err) {
+          console.error('Errore sincronizzazione automatica aggiornamento ticket #' + ticketSalvato.id + ':', err);
+          // Non mostriamo errore all'utente per non interrompere il flusso
+        }
+      }
     } catch (error) {
       showNotification(error.message || 'Impossibile aggiornare il ticket.', 'error');
     }
@@ -357,6 +369,18 @@ export const useTickets = (
       setTickets(prevTickets => prevTickets.map(t => (t.id === id ? updatedTicket : t)));
       showNotification('Stato del ticket aggiornato!', 'success');
       
+      // Sincronizzazione automatica con Google Calendar per cambio stato
+      if (googleCalendarSync && typeof googleCalendarSync === 'function') {
+        try {
+          console.log('Sincronizzazione automatica cambio stato ticket #' + updatedTicket.id + ' con Google Calendar');
+          await googleCalendarSync(updatedTicket, 'update');
+          console.log('Ticket #' + updatedTicket.id + ' aggiornato automaticamente in Google Calendar');
+        } catch (err) {
+          console.error('Errore sincronizzazione automatica cambio stato ticket #' + updatedTicket.id + ':', err);
+          // Non mostriamo errore all'utente per non interrompere il flusso
+        }
+      }
+      
       // La logica delle email è ora gestita dal backend in base al ruolo dell'utente
       
       // Glow immediato (senza frecce): stato precedente diminuisce, nuovo aumenta
@@ -431,6 +455,19 @@ export const useTickets = (
         if (updatedTicket) {
           console.log('✅ Ticket aggiornato con timeLogs:', updatedTicket.timelogs);
           setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
+          
+          // Sincronizzazione automatica con Google Calendar per conferma timeLogs
+          if (googleCalendarSync && typeof googleCalendarSync === 'function') {
+            try {
+              console.log('Sincronizzazione automatica conferma timeLogs ticket #' + updatedTicket.id + ' con Google Calendar');
+              await googleCalendarSync(updatedTicket, 'update');
+              console.log('Ticket #' + updatedTicket.id + ' aggiornato automaticamente in Google Calendar');
+            } catch (err) {
+              console.error('Errore sincronizzazione automatica conferma timeLogs ticket #' + updatedTicket.id + ':', err);
+              // Non mostriamo errore all'utente per non interrompere il flusso
+            }
+          }
+          
           // Glow immediato per in_lavorazione -> risolto
           try {
             window.dispatchEvent(new CustomEvent('dashboard-highlight', { detail: { state: 'in_lavorazione', type: 'down' } }));

@@ -135,9 +135,34 @@ module.exports = (pool) => {
         endDate: endDate.toISOString()
       });
 
+      // Funzione helper per formattare date e ore
+      const formatDateTime = (date) => {
+        return date.toLocaleString('it-IT', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Europe/Rome'
+        });
+      };
+
+      // Costruisci la descrizione dettagliata
+      let description = `TITOLO: ${ticket.titolo}\n`;
+      description += `PRIORITÀ: ${ticket.priorita.toUpperCase()}\n`;
+      description += `STATO: ${ticket.stato.toUpperCase()}\n`;
+      description += `DESCRIZIONE: ${ticket.descrizione}\n`;
+      description += `APERTURA: ${formatDateTime(startDate)}\n`;
+      
+      // Aggiungi data di chiusura se il ticket è chiuso
+      if (ticket.stato === 'chiuso' && ticket.dataChiusura) {
+        const chiusuraDate = new Date(ticket.dataChiusura);
+        description += `CHIUSURA: ${formatDateTime(chiusuraDate)}\n`;
+      }
+
       const event = {
-        summary: `${ticket.numero} - ${ticket.titolo}`,
-        description: `Ticket: ${ticket.numero}\nTitolo: ${ticket.titolo}\nCliente: ${ticket.cliente}\nPriorità: ${ticket.priorita}\nStato: ${ticket.stato}\nDescrizione: ${ticket.descrizione}\nData apertura: ${startDate.toLocaleDateString('it-IT')}`,
+        summary: `Ticket ${ticket.numero} - ${ticket.cliente}`,
+        description: description,
         start: {
           dateTime: startDate.toISOString(),
           timeZone: 'Europe/Rome'
