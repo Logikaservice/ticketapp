@@ -10,7 +10,8 @@ const TemporarySuppliesPanel = ({
   users = [],
   onRefresh,
   onOpenTicket,
-  onEditSupply
+  onEditSupply,
+  isReadOnly = false
 }) => {
   const handleRemove = async (supplyId) => {
     if (window.confirm('Sei sicuro di voler restituire questa fornitura?')) {
@@ -33,7 +34,7 @@ const TemporarySuppliesPanel = ({
           <div className="text-xs text-gray-500">
             {temporarySupplies.length} forniture attive
           </div>
-          {onRefresh && (
+          {onRefresh && !isReadOnly && (
             <button
               onClick={onRefresh}
               className="text-gray-500 hover:text-gray-700 p-1"
@@ -100,20 +101,24 @@ const TemporarySuppliesPanel = ({
                         >
                           Apri
                         </button>
-                        <button
-                          onClick={() => onEditSupply && onEditSupply(supply)}
-                          className="text-green-500 hover:text-green-700 px-2 py-1 text-xs font-medium border border-green-300 rounded hover:bg-green-50"
-                          title="Modifica fornitura"
-                        >
-                          Modifica
-                        </button>
-                        <button
-                          onClick={() => handleRemove(supply.id)}
-                          className="text-red-500 hover:text-red-700 p-1"
-                          title="Restituisci fornitura"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        {!isReadOnly && (
+                          <>
+                            <button
+                              onClick={() => onEditSupply && onEditSupply(supply)}
+                              className="text-green-500 hover:text-green-700 px-2 py-1 text-xs font-medium border border-green-300 rounded hover:bg-green-50"
+                              title="Modifica fornitura"
+                            >
+                              Modifica
+                            </button>
+                            <button
+                              onClick={() => handleRemove(supply.id)}
+                              className="text-red-500 hover:text-red-700 p-1"
+                              title="Restituisci fornitura"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

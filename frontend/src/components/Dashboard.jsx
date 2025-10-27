@@ -488,34 +488,33 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             users={users || []}
           />
 
-          {/* Sezione Forniture Temporanee - solo per tecnici */}
-          {currentUser?.ruolo === 'tecnico' && (
-            <TemporarySuppliesPanel
-              temporarySupplies={temporarySupplies || []}
-              loading={temporarySuppliesLoading}
-              onRemoveSupply={onRemoveTemporarySupply}
-              users={users || []}
-              onRefresh={onRefreshTemporarySupplies}
-              onOpenTicket={(ticketId) => {
-                const ticket = tickets.find(t => t.id === ticketId);
-                if (ticket && handlers?.handleSelectTicket) {
-                  handlers.handleSelectTicket(ticket);
-                  onOpenState && onOpenState(ticket.stato);
-                }
-              }}
-              onEditSupply={(supply) => {
-                const ticket = tickets.find(t => t.id === supply.ticket_id);
-                if (ticket && handlers?.handleSelectTicket) {
-                  handlers.handleSelectTicket(ticket);
-                  onOpenState && onOpenState(ticket.stato);
-                  // Apri il modal delle forniture per questo ticket
-                  setTimeout(() => {
-                    setModalState({ type: 'forniture', data: ticket });
-                  }, 100);
-                }
-              }}
-            />
-          )}
+          {/* Sezione Forniture Temporanee - per tutti gli utenti */}
+          <TemporarySuppliesPanel
+            temporarySupplies={temporarySupplies || []}
+            loading={temporarySuppliesLoading}
+            onRemoveSupply={currentUser?.ruolo === 'tecnico' ? onRemoveTemporarySupply : null}
+            users={users || []}
+            onRefresh={currentUser?.ruolo === 'tecnico' ? onRefreshTemporarySupplies : null}
+            onOpenTicket={(ticketId) => {
+              const ticket = tickets.find(t => t.id === ticketId);
+              if (ticket && handlers?.handleSelectTicket) {
+                handlers.handleSelectTicket(ticket);
+                onOpenState && onOpenState(ticket.stato);
+              }
+            }}
+            onEditSupply={currentUser?.ruolo === 'tecnico' ? (supply) => {
+              const ticket = tickets.find(t => t.id === supply.ticket_id);
+              if (ticket && handlers?.handleSelectTicket) {
+                handlers.handleSelectTicket(ticket);
+                onOpenState && onOpenState(ticket.stato);
+                // Apri il modal delle forniture per questo ticket
+                setTimeout(() => {
+                  setModalState({ type: 'forniture', data: ticket });
+                }, 100);
+              }
+            } : null}
+            isReadOnly={currentUser?.ruolo !== 'tecnico'}
+          />
         </div>
         <div>
           <TicketsCalendar 
