@@ -150,6 +150,45 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
     }
   };
 
+  // Funzione per rendere disponibili (rimuovere lo sfondo scuro) i giorni indicati nell'input
+  const handleUnsetUnavailableDays = async () => {
+    if (!newUnavailableDaysInput.trim()) {
+      alert('Seleziona una data con Ctrl+Click o inseriscila nel campo.');
+      return;
+    }
+
+    const datesToProcess = newUnavailableDaysInput.split(',').map(s => s.trim()).filter(Boolean);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const dateString of datesToProcess) {
+      try {
+        const isoDate = convertItalianDateToISO(dateString);
+        if (!isoDate) {
+          errorCount++;
+          continue;
+        }
+
+        const result = await setDayAvailable(isoDate);
+        if (result.success) {
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      } catch (e) {
+        errorCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      alert(`✅ Operazione completata: ${successCount} date rese disponibili${errorCount > 0 ? `, ${errorCount} errori` : ''}.`);
+      // Non puliamo l'input: richiesta esplicita di non cancellare il campo compilato
+      loadUnavailableDays();
+    } else {
+      alert('❌ Nessuna data valida trovata da rendere disponibile. Usa il formato GG/MM/AAAA');
+    }
+  };
+
   // Funzione per gestire il click sui ticket nella lista
   const handleTicketClick = (ticket) => {
     // Chiude la lista
@@ -466,7 +505,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
                   Salva Giorni Non Disponibili
                 </button>
                 <button
-                  onClick={() => setNewUnavailableDaysInput('')}
+                  onClick={handleUnsetUnavailableDays}
                   className="px-3 py-1 bg-gray-500 text-white text-xs rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
                 >
                   Cancella
