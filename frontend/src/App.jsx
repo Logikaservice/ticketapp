@@ -1130,7 +1130,7 @@ export default function TicketApp() {
       {modalState.type === 'newTicket' && (
         <NewTicketModal
           onClose={closeModal}
-          onSave={wrappedHandleCreateTicket}
+          onSave={isEditingTicket ? wrappedHandleUpdateTicket : wrappedHandleCreateTicket}
           newTicketData={newTicketData}
           setNewTicketData={setNewTicketData}
           isEditingTicket={isEditingTicket}
