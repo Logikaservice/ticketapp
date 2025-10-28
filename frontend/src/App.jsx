@@ -876,9 +876,22 @@ export default function TicketApp() {
       // Cambia stato ticket con invio email
       await changeStatus(data.id, data.status, handleOpenTimeLogger, true);
       
+      // Mostra l'effetto di evidenziazione per le card coinvolte
+      const originCardState = getTicketOriginCard(data.id);
+      const destinationCardState = data.status;
+      
+      // Evidenzia la card di destinazione (verde - riceve ticket)
+      window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+        detail: { state: destinationCardState, type: 'up', direction: 'forward' } 
+      }));
+      
+      // Evidenzia la card di origine (rosso - perde ticket)
+      window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+        detail: { state: originCardState, type: 'down', direction: 'forward' } 
+      }));
+      
       // Mantieni sempre la card di origine del ticket dopo il cambio stato
       // Solo se la card diventa vuota, torna alla dashboard
-      const originCardState = getTicketOriginCard(data.id);
       const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
       
       if (ticketsInOriginCard > 0) {
@@ -893,10 +906,23 @@ export default function TicketApp() {
       // Conferma timeLogs con invio email
       await handleConfirmTimeLogs(data.timeLogs, true);
       
-      // Mantieni sempre la card di origine del ticket dopo il cambio stato
-      // Solo se la card diventa vuota, torna alla dashboard
+      // Mostra l'effetto di evidenziazione per le card coinvolte
       if (selectedTicket) {
         const originCardState = getTicketOriginCard(selectedTicket.id);
+        const destinationCardState = 'risolto'; // TimeLogs porta sempre a risolto
+        
+        // Evidenzia la card di destinazione (verde - riceve ticket)
+        window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+          detail: { state: destinationCardState, type: 'up', direction: 'forward' } 
+        }));
+        
+        // Evidenzia la card di origine (rosso - perde ticket)
+        window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+          detail: { state: originCardState, type: 'down', direction: 'forward' } 
+        }));
+        
+        // Mantieni sempre la card di origine del ticket dopo il cambio stato
+        // Solo se la card diventa vuota, torna alla dashboard
         const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
         
         if (ticketsInOriginCard > 0) {
@@ -929,9 +955,22 @@ export default function TicketApp() {
       // Cambia stato ticket senza invio email
       await changeStatus(data.id, data.status, handleOpenTimeLogger, false);
       
+      // Mostra l'effetto di evidenziazione per le card coinvolte
+      const originCardState = getTicketOriginCard(data.id);
+      const destinationCardState = data.status;
+      
+      // Evidenzia la card di destinazione (verde - riceve ticket)
+      window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+        detail: { state: destinationCardState, type: 'up', direction: 'forward' } 
+      }));
+      
+      // Evidenzia la card di origine (rosso - perde ticket)
+      window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+        detail: { state: originCardState, type: 'down', direction: 'forward' } 
+      }));
+      
       // Mantieni sempre la card di origine del ticket dopo il cambio stato
       // Solo se la card diventa vuota, torna alla dashboard
-      const originCardState = getTicketOriginCard(data.id);
       const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
       
       if (ticketsInOriginCard > 0) {
@@ -946,10 +985,23 @@ export default function TicketApp() {
       // Conferma timeLogs senza invio email
       await handleConfirmTimeLogs(data.timeLogs, false);
       
-      // Mantieni sempre la card di origine del ticket dopo il cambio stato
-      // Solo se la card diventa vuota, torna alla dashboard
+      // Mostra l'effetto di evidenziazione per le card coinvolte
       if (selectedTicket) {
         const originCardState = getTicketOriginCard(selectedTicket.id);
+        const destinationCardState = 'risolto'; // TimeLogs porta sempre a risolto
+        
+        // Evidenzia la card di destinazione (verde - riceve ticket)
+        window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+          detail: { state: destinationCardState, type: 'up', direction: 'forward' } 
+        }));
+        
+        // Evidenzia la card di origine (rosso - perde ticket)
+        window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+          detail: { state: originCardState, type: 'down', direction: 'forward' } 
+        }));
+        
+        // Mantieni sempre la card di origine del ticket dopo il cambio stato
+        // Solo se la card diventa vuota, torna alla dashboard
         const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
         
         if (ticketsInOriginCard > 0) {
@@ -1055,9 +1107,22 @@ export default function TicketApp() {
     console.log('🔍 DEBUG: Utente non è tecnico, procedendo senza modal');
     changeStatus(id, status, handleOpenTimeLogger);
     
+    // Mostra l'effetto di evidenziazione per le card coinvolte
+    const originCardState = getTicketOriginCard(id);
+    const destinationCardState = status;
+    
+    // Evidenzia la card di destinazione (verde - riceve ticket)
+    window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+      detail: { state: destinationCardState, type: 'up', direction: 'forward' } 
+    }));
+    
+    // Evidenzia la card di origine (rosso - perde ticket)
+    window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+      detail: { state: originCardState, type: 'down', direction: 'forward' } 
+    }));
+    
     // Mantieni sempre la card di origine del ticket dopo il cambio stato
     // Solo se la card diventa vuota, torna alla dashboard
-    const originCardState = getTicketOriginCard(id);
     const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
     
     if (ticketsInOriginCard > 0) {
@@ -1105,10 +1170,23 @@ export default function TicketApp() {
     // Se non è tecnico, procedi direttamente
     handleConfirmTimeLogs(timeLogs);
     
-    // Mantieni sempre la card di origine del ticket dopo il cambio stato
-    // Solo se la card diventa vuota, torna alla dashboard
+    // Mostra l'effetto di evidenziazione per le card coinvolte
     if (selectedTicket) {
       const originCardState = getTicketOriginCard(selectedTicket.id);
+      const destinationCardState = 'risolto'; // TimeLogs porta sempre a risolto
+      
+      // Evidenzia la card di destinazione (verde - riceve ticket)
+      window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+        detail: { state: destinationCardState, type: 'up', direction: 'forward' } 
+      }));
+      
+      // Evidenzia la card di origine (rosso - perde ticket)
+      window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+        detail: { state: originCardState, type: 'down', direction: 'forward' } 
+      }));
+      
+      // Mantieni sempre la card di origine del ticket dopo il cambio stato
+      // Solo se la card diventa vuota, torna alla dashboard
       const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
       
       if (ticketsInOriginCard > 0) {
