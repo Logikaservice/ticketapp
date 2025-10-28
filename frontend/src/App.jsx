@@ -735,23 +735,30 @@ export default function TicketApp() {
   };
 
   const wrappedHandleCreateTicket = () => {
+    console.log('🔍 DEBUG: wrappedHandleCreateTicket chiamata');
+    console.log('🔍 DEBUG: currentUser.ruolo =', currentUser.ruolo);
+    console.log('🔍 DEBUG: isEditingTicket =', isEditingTicket);
+    
     // Se descrizione vuota, chiedi conferma
     if (!newTicketData.descrizione || newTicketData.descrizione.trim() === '') {
+      console.log('🔍 DEBUG: Descrizione vuota, mostrando modal conferma');
       setModalState({ type: 'emptyDescriptionConfirm' });
       return;
     }
     // Se priorità URGENTE e stiamo creando (non edit), mostra conferma
     if (!isEditingTicket && newTicketData.priorita === 'urgente') {
+      console.log('🔍 DEBUG: Priorità urgente, mostrando modal conferma');
       setModalState({ type: 'urgentConfirm' });
       return;
     }
     
     // Chiedi conferma per l'invio email SOLO per i tecnici
     if (currentUser.ruolo === 'tecnico') {
-      console.log('🔍 DEBUG: currentUser.ruolo =', currentUser.ruolo);
-      console.log('🔍 DEBUG: Mostrando modal di conferma email per tecnico');
+      console.log('🔍 DEBUG: Tecnico - mostrando modal di conferma email');
+      console.log('🔍 DEBUG: selectedClientForNewTicket =', selectedClientForNewTicket);
       
       const clientName = users.find(u => u.id === parseInt(selectedClientForNewTicket))?.azienda || 'Cliente';
+      console.log('🔍 DEBUG: clientName =', clientName);
         
       setPendingTicketAction({
         type: 'create',
@@ -766,6 +773,7 @@ export default function TicketApp() {
           clientName: clientName 
         } 
       });
+      console.log('🔍 DEBUG: Modal state impostato a emailConfirm');
       return;
     }
     
