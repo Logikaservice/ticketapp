@@ -27,7 +27,15 @@ module.exports = (pool) => {
 
   // ENDPOINT: Crea un nuovo ticket
   router.post('/', async (req, res) => {
-    const { clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, sendEmail } = req.body;
+    let { clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, sendEmail } = req.body;
+    
+    // Conversione esplicita di sendEmail a boolean
+    if (sendEmail === 'false' || sendEmail === '0') {
+      sendEmail = false;
+    } else if (sendEmail === 'true' || sendEmail === '1') {
+      sendEmail = true;
+    }
+    
     console.log('🔍 DEBUG BACKEND: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
     console.log('🔍 DEBUG BACKEND: Body completo =', JSON.stringify(req.body, null, 2));
     
@@ -207,7 +215,14 @@ module.exports = (pool) => {
   // ENDPOINT: Modifica un ticket completo
   router.put('/:id', async (req, res) => {
     const { id } = req.params;
-    const { titolo, descrizione, categoria, priorita, nomerichiedente, clienteid, dataapertura, sendEmail } = req.body;
+    let { titolo, descrizione, categoria, priorita, nomerichiedente, clienteid, dataapertura, sendEmail } = req.body;
+    
+    // Conversione esplicita di sendEmail a boolean
+    if (sendEmail === 'false' || sendEmail === '0') {
+      sendEmail = false;
+    } else if (sendEmail === 'true' || sendEmail === '1') {
+      sendEmail = true;
+    }
     
     try {
       const client = await pool.connect();
@@ -277,7 +292,15 @@ module.exports = (pool) => {
   // ENDPOINT: Aggiorna lo stato di un ticket
   router.patch('/:id/status', async (req, res) => {
     const { id } = req.params;
-    const { status, sendEmail } = req.body;
+    let { status, sendEmail } = req.body;
+    
+    // Conversione esplicita di sendEmail a boolean
+    if (sendEmail === 'false' || sendEmail === '0') {
+      sendEmail = false;
+    } else if (sendEmail === 'true' || sendEmail === '1') {
+      sendEmail = true;
+    }
+    
     console.log('🔍 DEBUG BACKEND STATUS: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
     console.log('🔍 DEBUG BACKEND STATUS: req.body completo =', JSON.stringify(req.body));
     console.log('🔍 DEBUG BACKEND STATUS: sendEmail === false =', sendEmail === false);
