@@ -775,32 +775,11 @@ export default function TicketApp() {
   };
 
   const wrappedHandleUpdateTicket = () => {
-    // Chiedi conferma per l'invio email SOLO per i tecnici
-    if (currentUser.ruolo === 'tecnico') {
-      console.log('🔍 DEBUG: Aggiornamento ticket - currentUser.ruolo =', currentUser.ruolo);
-      console.log('🔍 DEBUG: Mostrando modal di conferma email per aggiornamento');
-      
-      const clientName = users.find(u => u.id === parseInt(selectedClientForNewTicket))?.azienda || 'Cliente';
-        
-      setPendingTicketAction({
-        type: 'update',
-        data: newTicketData,
-        isEditing: isEditingTicket,
-        selectedClient: selectedClientForNewTicket
-      });
-      setModalState({ 
-        type: 'emailConfirm', 
-        data: { 
-          isEditing: true, 
-          clientName: clientName 
-        } 
-      });
-      return;
-    }
-    
-    // Per i clienti, aggiorna direttamente il ticket con invio email obbligatorio
-    console.log('🔍 DEBUG: Cliente - aggiornamento ticket con email obbligatoria');
-    updateTicket(newTicketData, isEditingTicket, selectedClientForNewTicket, true);
+    // Per le modifiche dei dettagli del ticket (non cambi di stato), 
+    // aggiorna direttamente senza modal di conferma email
+    console.log('🔍 DEBUG: Modifica dettagli ticket - currentUser.ruolo =', currentUser.ruolo);
+    console.log('🔍 DEBUG: Aggiornamento diretto senza modal email');
+    updateTicket(newTicketData, isEditingTicket, selectedClientForNewTicket, false);
   };
 
   // Gestione conferma email
