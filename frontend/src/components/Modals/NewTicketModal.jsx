@@ -129,35 +129,56 @@ const NewTicketModal = ({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Data Apertura</label>
               <input
-                type="date"
+                type="text"
+                placeholder="DD/MM/YYYY (es: 15/03/2025)"
                 value={(() => {
                   const v = newTicketData.dataapertura;
                   if (!v) return '';
-                  // Se già in formato YYYY-MM-DD
-                  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
-                  // Se ISO 8601 con orario
-                  if (typeof v === 'string' && v.includes('T')) return v.split('T')[0];
-                  // Se in formato DD/MM/YYYY
-                  if (typeof v === 'string' && v.includes('/')) {
-                    const [dd, mm, yyyy] = v.split('/');
-                    if (dd && mm && yyyy) return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+                  
+                  // Se già in formato DD/MM/YYYY, restituisci così
+                  if (typeof v === 'string' && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v)) return v;
+                  
+                  // Se in formato YYYY-MM-DD, converti in DD/MM/YYYY
+                  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+                    const [yyyy, mm, dd] = v.split('-');
+                    return `${dd}/${mm}/${yyyy}`;
                   }
-                  // Fallback: prova Date()
+                  
+                  // Se ISO 8601 con orario, estrai data e converti
+                  if (typeof v === 'string' && v.includes('T')) {
+                    const datePart = v.split('T')[0];
+                    const [yyyy, mm, dd] = datePart.split('-');
+                    return `${dd}/${mm}/${yyyy}`;
+                  }
+                  
+                  // Fallback: prova Date() e converti in DD/MM/YYYY
                   const d = new Date(v);
                   if (!isNaN(d.getTime())) {
-                    const y = d.getFullYear();
-                    const m = String(d.getMonth() + 1).padStart(2, '0');
                     const day = String(d.getDate()).padStart(2, '0');
-                    return `${y}-${m}-${day}`;
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const year = d.getFullYear();
+                    return `${day}/${month}/${year}`;
                   }
+                  
                   return '';
                 })()}
                 onChange={(e) => {
-                  // Conserva sempre in formato YYYY-MM-DD
-                  setNewTicketData({ ...newTicketData, dataapertura: e.target.value });
+                  const inputValue = e.target.value;
+                  
+                  // Se l'input è nel formato DD/MM/YYYY, converti in YYYY-MM-DD per il database
+                  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(inputValue)) {
+                    const [dd, mm, yyyy] = inputValue.split('/');
+                    const isoDate = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+                    setNewTicketData({ ...newTicketData, dataapertura: isoDate });
+                  } else if (inputValue === '') {
+                    // Se vuoto, salva vuoto
+                    setNewTicketData({ ...newTicketData, dataapertura: '' });
+                  }
+                  // Altrimenti non fare nulla (l'utente sta ancora digitando)
                 }}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
+              <p className="text-xs text-gray-500 mt-1">Formato: DD/MM/YYYY (es: 15/03/2025)</p>
             </div>
           )}
 
