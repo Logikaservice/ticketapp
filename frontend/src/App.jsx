@@ -890,17 +890,30 @@ export default function TicketApp() {
         detail: { state: originCardState, type: 'down', direction: 'forward' } 
       }));
       
-      // Mantieni sempre la card di origine del ticket dopo il cambio stato
-      // Solo se la card diventa vuota, torna alla dashboard
-      const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-      
-      if (ticketsInOriginCard > 0) {
-        // Se ci sono ancora ticket nella card di origine, rimani lì
-        setShowDashboard(false);
-        setDashboardTargetState(originCardState);
-      } else {
-        // Se la card di origine è vuota, torna alla dashboard
+      // Se non siamo nella dashboard, vai temporaneamente alla dashboard per mostrare le animazioni
+      if (!showDashboard) {
         setShowDashboard(true);
+        setDashboardTargetState(originCardState);
+        // Dopo 2 secondi, torna alla card di origine se non è vuota
+        setTimeout(() => {
+          const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+          if (ticketsInOriginCard > 0) {
+            setShowDashboard(false);
+            setDashboardTargetState(originCardState);
+          }
+        }, 2000);
+      } else {
+        // Se siamo già nella dashboard, mantieni la logica normale
+        const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+        
+        if (ticketsInOriginCard > 0) {
+          // Se ci sono ancora ticket nella card di origine, rimani lì
+          setShowDashboard(false);
+          setDashboardTargetState(originCardState);
+        } else {
+          // Se la card di origine è vuota, torna alla dashboard
+          setShowDashboard(true);
+        }
       }
     } else if (type === 'confirmTimeLogs') {
       // Conferma timeLogs con invio email
@@ -921,17 +934,30 @@ export default function TicketApp() {
           detail: { state: originCardState, type: 'down', direction: 'forward' } 
         }));
         
-        // Mantieni sempre la card di origine del ticket dopo il cambio stato
-        // Solo se la card diventa vuota, torna alla dashboard
-        const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-        
-        if (ticketsInOriginCard > 0) {
-          // Se ci sono ancora ticket nella card di origine, rimani lì
-          setShowDashboard(false);
-          setDashboardTargetState(originCardState);
-        } else {
-          // Se la card di origine è vuota, torna alla dashboard
+        // Se non siamo nella dashboard, vai temporaneamente alla dashboard per mostrare le animazioni
+        if (!showDashboard) {
           setShowDashboard(true);
+          setDashboardTargetState(originCardState);
+          // Dopo 2 secondi, torna alla card di origine se non è vuota
+          setTimeout(() => {
+            const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+            if (ticketsInOriginCard > 0) {
+              setShowDashboard(false);
+              setDashboardTargetState(originCardState);
+            }
+          }, 2000);
+        } else {
+          // Se siamo già nella dashboard, mantieni la logica normale
+          const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+          
+          if (ticketsInOriginCard > 0) {
+            // Se ci sono ancora ticket nella card di origine, rimani lì
+            setShowDashboard(false);
+            setDashboardTargetState(originCardState);
+          } else {
+            // Se la card di origine è vuota, torna alla dashboard
+            setShowDashboard(true);
+          }
         }
       }
     }
@@ -969,17 +995,30 @@ export default function TicketApp() {
         detail: { state: originCardState, type: 'down', direction: 'forward' } 
       }));
       
-      // Mantieni sempre la card di origine del ticket dopo il cambio stato
-      // Solo se la card diventa vuota, torna alla dashboard
-      const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-      
-      if (ticketsInOriginCard > 0) {
-        // Se ci sono ancora ticket nella card di origine, rimani lì
-        setShowDashboard(false);
-        setDashboardTargetState(originCardState);
-      } else {
-        // Se la card di origine è vuota, torna alla dashboard
+      // Se non siamo nella dashboard, vai temporaneamente alla dashboard per mostrare le animazioni
+      if (!showDashboard) {
         setShowDashboard(true);
+        setDashboardTargetState(originCardState);
+        // Dopo 2 secondi, torna alla card di origine se non è vuota
+        setTimeout(() => {
+          const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+          if (ticketsInOriginCard > 0) {
+            setShowDashboard(false);
+            setDashboardTargetState(originCardState);
+          }
+        }, 2000);
+      } else {
+        // Se siamo già nella dashboard, mantieni la logica normale
+        const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+        
+        if (ticketsInOriginCard > 0) {
+          // Se ci sono ancora ticket nella card di origine, rimani lì
+          setShowDashboard(false);
+          setDashboardTargetState(originCardState);
+        } else {
+          // Se la card di origine è vuota, torna alla dashboard
+          setShowDashboard(true);
+        }
       }
     } else if (type === 'confirmTimeLogs') {
       // Conferma timeLogs senza invio email
@@ -1000,17 +1039,30 @@ export default function TicketApp() {
           detail: { state: originCardState, type: 'down', direction: 'forward' } 
         }));
         
-        // Mantieni sempre la card di origine del ticket dopo il cambio stato
-        // Solo se la card diventa vuota, torna alla dashboard
-        const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-        
-        if (ticketsInOriginCard > 0) {
-          // Se ci sono ancora ticket nella card di origine, rimani lì
-          setShowDashboard(false);
-          setDashboardTargetState(originCardState);
-        } else {
-          // Se la card di origine è vuota, torna alla dashboard
+        // Se non siamo nella dashboard, vai temporaneamente alla dashboard per mostrare le animazioni
+        if (!showDashboard) {
           setShowDashboard(true);
+          setDashboardTargetState(originCardState);
+          // Dopo 2 secondi, torna alla card di origine se non è vuota
+          setTimeout(() => {
+            const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+            if (ticketsInOriginCard > 0) {
+              setShowDashboard(false);
+              setDashboardTargetState(originCardState);
+            }
+          }, 2000);
+        } else {
+          // Se siamo già nella dashboard, mantieni la logica normale
+          const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+          
+          if (ticketsInOriginCard > 0) {
+            // Se ci sono ancora ticket nella card di origine, rimani lì
+            setShowDashboard(false);
+            setDashboardTargetState(originCardState);
+          } else {
+            // Se la card di origine è vuota, torna alla dashboard
+            setShowDashboard(true);
+          }
         }
       }
     }
@@ -1121,17 +1173,30 @@ export default function TicketApp() {
       detail: { state: originCardState, type: 'down', direction: 'forward' } 
     }));
     
-    // Mantieni sempre la card di origine del ticket dopo il cambio stato
-    // Solo se la card diventa vuota, torna alla dashboard
-    const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-    
-    if (ticketsInOriginCard > 0) {
-      // Se ci sono ancora ticket nella card di origine, rimani lì
-      setShowDashboard(false);
-      setDashboardTargetState(originCardState);
-    } else {
-      // Se la card di origine è vuota, torna alla dashboard
+    // Se non siamo nella dashboard, vai temporaneamente alla dashboard per mostrare le animazioni
+    if (!showDashboard) {
       setShowDashboard(true);
+      setDashboardTargetState(originCardState);
+      // Dopo 2 secondi, torna alla card di origine se non è vuota
+      setTimeout(() => {
+        const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+        if (ticketsInOriginCard > 0) {
+          setShowDashboard(false);
+          setDashboardTargetState(originCardState);
+        }
+      }, 2000);
+    } else {
+      // Se siamo già nella dashboard, mantieni la logica normale
+      const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+      
+      if (ticketsInOriginCard > 0) {
+        // Se ci sono ancora ticket nella card di origine, rimani lì
+        setShowDashboard(false);
+        setDashboardTargetState(originCardState);
+      } else {
+        // Se la card di origine è vuota, torna alla dashboard
+        setShowDashboard(true);
+      }
     }
   };
 
@@ -1185,17 +1250,30 @@ export default function TicketApp() {
         detail: { state: originCardState, type: 'down', direction: 'forward' } 
       }));
       
-      // Mantieni sempre la card di origine del ticket dopo il cambio stato
-      // Solo se la card diventa vuota, torna alla dashboard
-      const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-      
-      if (ticketsInOriginCard > 0) {
-        // Se ci sono ancora ticket nella card di origine, rimani lì
-        setShowDashboard(false);
-        setDashboardTargetState(originCardState);
-      } else {
-        // Se la card di origine è vuota, torna alla dashboard
+      // Se non siamo nella dashboard, vai temporaneamente alla dashboard per mostrare le animazioni
+      if (!showDashboard) {
         setShowDashboard(true);
+        setDashboardTargetState(originCardState);
+        // Dopo 2 secondi, torna alla card di origine se non è vuota
+        setTimeout(() => {
+          const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+          if (ticketsInOriginCard > 0) {
+            setShowDashboard(false);
+            setDashboardTargetState(originCardState);
+          }
+        }, 2000);
+      } else {
+        // Se siamo già nella dashboard, mantieni la logica normale
+        const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+        
+        if (ticketsInOriginCard > 0) {
+          // Se ci sono ancora ticket nella card di origine, rimani lì
+          setShowDashboard(false);
+          setDashboardTargetState(originCardState);
+        } else {
+          // Se la card di origine è vuota, torna alla dashboard
+          setShowDashboard(true);
+        }
       }
     }
   };
