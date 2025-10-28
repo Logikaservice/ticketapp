@@ -130,16 +130,30 @@ const NewTicketModal = ({
               <label className="block text-sm font-medium text-gray-700 mb-1">Data Apertura</label>
               <input
                 type="date"
-                value={newTicketData.dataapertura ? (() => {
-                  // Gestione corretta della data per evitare problemi di fuso orario
-                  const date = new Date(newTicketData.dataapertura);
-                  const year = date.getFullYear();
-                  const month = String(date.getMonth() + 1).padStart(2, '0');
-                  const day = String(date.getDate()).padStart(2, '0');
-                  return `${year}-${month}-${day}`;
-                })() : ''}
+                value={(() => {
+                  const v = newTicketData.dataapertura;
+                  if (!v) return '';
+                  // Se già in formato YYYY-MM-DD
+                  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+                  // Se ISO 8601 con orario
+                  if (typeof v === 'string' && v.includes('T')) return v.split('T')[0];
+                  // Se in formato DD/MM/YYYY
+                  if (typeof v === 'string' && v.includes('/')) {
+                    const [dd, mm, yyyy] = v.split('/');
+                    if (dd && mm && yyyy) return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+                  }
+                  // Fallback: prova Date()
+                  const d = new Date(v);
+                  if (!isNaN(d.getTime())) {
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${day}`;
+                  }
+                  return '';
+                })()}
                 onChange={(e) => {
-                  // Salva la data nel formato corretto per il database (YYYY-MM-DD)
+                  // Conserva sempre in formato YYYY-MM-DD
                   setNewTicketData({ ...newTicketData, dataapertura: e.target.value });
                 }}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
