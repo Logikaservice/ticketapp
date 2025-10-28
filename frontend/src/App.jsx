@@ -854,6 +854,13 @@ export default function TicketApp() {
     } else if (type === 'changeStatus') {
       // Cambia stato ticket con invio email
       await changeStatus(data.id, data.status, handleOpenTimeLogger, true);
+      
+      // Mantieni lo stato della card corrente dopo il cambio stato
+      if (data.status === 'fatturato') {
+        // Se il ticket è stato fatturato, rimani nella card "Chiuso" per vedere il risultato
+        setShowDashboard(false);
+        setDashboardTargetState('chiuso');
+      }
     } else if (type === 'confirmTimeLogs') {
       // Conferma timeLogs con invio email
       await handleConfirmTimeLogs(data.timeLogs, true);
@@ -877,6 +884,13 @@ export default function TicketApp() {
     } else if (type === 'changeStatus') {
       // Cambia stato ticket senza invio email
       await changeStatus(data.id, data.status, handleOpenTimeLogger, false);
+      
+      // Mantieni lo stato della card corrente dopo il cambio stato
+      if (data.status === 'fatturato') {
+        // Se il ticket è stato fatturato, rimani nella card "Chiuso" per vedere il risultato
+        setShowDashboard(false);
+        setDashboardTargetState('chiuso');
+      }
     } else if (type === 'confirmTimeLogs') {
       // Conferma timeLogs senza invio email
       await handleConfirmTimeLogs(data.timeLogs, false);
