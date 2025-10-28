@@ -839,6 +839,27 @@ export default function TicketApp() {
     updateTicket(newTicketData, isEditingTicket, selectedClientForNewTicket, false);
   };
 
+  // Funzione per determinare la card corrente
+  const getCurrentCardState = () => {
+    // Se non siamo nella dashboard, usa dashboardTargetState
+    if (!showDashboard && dashboardTargetState) {
+      return dashboardTargetState;
+    }
+    
+    // Se siamo nella dashboard, determina la card basata sui ticket selezionati
+    // Per ora, ritorna 'aperto' come default
+    return 'aperto';
+  };
+
+  // Funzione per determinare la card di origine del ticket
+  const getTicketOriginCard = (ticketId) => {
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (ticket) {
+      return ticket.stato;
+    }
+    return 'aperto'; // Default
+  };
+
   // Gestione conferma email
   const handleConfirmEmail = async () => {
     if (!pendingTicketAction) return;
@@ -855,15 +876,38 @@ export default function TicketApp() {
       // Cambia stato ticket con invio email
       await changeStatus(data.id, data.status, handleOpenTimeLogger, true);
       
-      // Mantieni lo stato della card corrente dopo il cambio stato
-      if (data.status === 'fatturato' || data.status === 'inviato') {
-        // Se il ticket è stato fatturato o inviato, rimani nella card "Chiuso" per vedere il risultato
+      // Mantieni sempre la card di origine del ticket dopo il cambio stato
+      // Solo se la card diventa vuota, torna alla dashboard
+      const originCardState = getTicketOriginCard(data.id);
+      const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+      
+      if (ticketsInOriginCard > 0) {
+        // Se ci sono ancora ticket nella card di origine, rimani lì
         setShowDashboard(false);
-        setDashboardTargetState('chiuso');
+        setDashboardTargetState(originCardState);
+      } else {
+        // Se la card di origine è vuota, torna alla dashboard
+        setShowDashboard(true);
       }
     } else if (type === 'confirmTimeLogs') {
       // Conferma timeLogs con invio email
       await handleConfirmTimeLogs(data.timeLogs, true);
+      
+      // Mantieni sempre la card di origine del ticket dopo il cambio stato
+      // Solo se la card diventa vuota, torna alla dashboard
+      if (selectedTicket) {
+        const originCardState = getTicketOriginCard(selectedTicket.id);
+        const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+        
+        if (ticketsInOriginCard > 0) {
+          // Se ci sono ancora ticket nella card di origine, rimani lì
+          setShowDashboard(false);
+          setDashboardTargetState(originCardState);
+        } else {
+          // Se la card di origine è vuota, torna alla dashboard
+          setShowDashboard(true);
+        }
+      }
     }
     
     setPendingTicketAction(null);
@@ -885,15 +929,38 @@ export default function TicketApp() {
       // Cambia stato ticket senza invio email
       await changeStatus(data.id, data.status, handleOpenTimeLogger, false);
       
-      // Mantieni lo stato della card corrente dopo il cambio stato
-      if (data.status === 'fatturato' || data.status === 'inviato') {
-        // Se il ticket è stato fatturato o inviato, rimani nella card "Chiuso" per vedere il risultato
+      // Mantieni sempre la card di origine del ticket dopo il cambio stato
+      // Solo se la card diventa vuota, torna alla dashboard
+      const originCardState = getTicketOriginCard(data.id);
+      const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+      
+      if (ticketsInOriginCard > 0) {
+        // Se ci sono ancora ticket nella card di origine, rimani lì
         setShowDashboard(false);
-        setDashboardTargetState('chiuso');
+        setDashboardTargetState(originCardState);
+      } else {
+        // Se la card di origine è vuota, torna alla dashboard
+        setShowDashboard(true);
       }
     } else if (type === 'confirmTimeLogs') {
       // Conferma timeLogs senza invio email
       await handleConfirmTimeLogs(data.timeLogs, false);
+      
+      // Mantieni sempre la card di origine del ticket dopo il cambio stato
+      // Solo se la card diventa vuota, torna alla dashboard
+      if (selectedTicket) {
+        const originCardState = getTicketOriginCard(selectedTicket.id);
+        const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+        
+        if (ticketsInOriginCard > 0) {
+          // Se ci sono ancora ticket nella card di origine, rimani lì
+          setShowDashboard(false);
+          setDashboardTargetState(originCardState);
+        } else {
+          // Se la card di origine è vuota, torna alla dashboard
+          setShowDashboard(true);
+        }
+      }
     }
     
     setPendingTicketAction(null);
@@ -987,6 +1054,20 @@ export default function TicketApp() {
     
     console.log('🔍 DEBUG: Utente non è tecnico, procedendo senza modal');
     changeStatus(id, status, handleOpenTimeLogger);
+    
+    // Mantieni sempre la card di origine del ticket dopo il cambio stato
+    // Solo se la card diventa vuota, torna alla dashboard
+    const originCardState = getTicketOriginCard(id);
+    const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+    
+    if (ticketsInOriginCard > 0) {
+      // Se ci sono ancora ticket nella card di origine, rimani lì
+      setShowDashboard(false);
+      setDashboardTargetState(originCardState);
+    } else {
+      // Se la card di origine è vuota, torna alla dashboard
+      setShowDashboard(true);
+    }
   };
 
   const handleReopenInLavorazione = (id) => handleChangeStatus(id, 'in_lavorazione');
@@ -1023,6 +1104,22 @@ export default function TicketApp() {
     
     // Se non è tecnico, procedi direttamente
     handleConfirmTimeLogs(timeLogs);
+    
+    // Mantieni sempre la card di origine del ticket dopo il cambio stato
+    // Solo se la card diventa vuota, torna alla dashboard
+    if (selectedTicket) {
+      const originCardState = getTicketOriginCard(selectedTicket.id);
+      const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
+      
+      if (ticketsInOriginCard > 0) {
+        // Se ci sono ancora ticket nella card di origine, rimani lì
+        setShowDashboard(false);
+        setDashboardTargetState(originCardState);
+      } else {
+        // Se la card di origine è vuota, torna alla dashboard
+        setShowDashboard(true);
+      }
+    }
   };
 
   const handleOpenTicketFromModal = (ticket) => {
