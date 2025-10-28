@@ -167,7 +167,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           {currentUser.ruolo === 'cliente' && viewState === 'inviato' && handlers.handleGenerateSentReport && (
             <div className="mt-3 flex gap-3 items-end">
               <button
-                onClick={handlers.handleGenerateSentReport}
+                onClick={() => handlers.handleGenerateSentReport(displayTickets)}
                 className="flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-gray-600 hover:bg-gray-700 whitespace-nowrap"
               >
                 <FileText size={18} />
@@ -271,7 +271,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
             <div className="mt-3 flex gap-3 items-end">
               {viewState === 'inviato' && handlers.handleGenerateSentReport && (
                 <button
-                  onClick={handlers.handleGenerateSentReport}
+                  onClick={() => handlers.handleGenerateSentReport(displayTickets)}
                   className="flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-gray-600 hover:bg-gray-700 whitespace-nowrap"
                 >
                   <FileText size={18} />
@@ -280,7 +280,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
               )}
               {viewState === 'fatturato' && handlers.handleGenerateInvoiceReport && (
                 <button
-                  onClick={handlers.handleGenerateInvoiceReport}
+                  onClick={() => handlers.handleGenerateInvoiceReport(displayTickets)}
                   className="flex items-center gap-2 px-4 py-2 text-white rounded-lg bg-indigo-600 hover:bg-indigo-700 whitespace-nowrap"
                 >
                   <FileText size={18} />
