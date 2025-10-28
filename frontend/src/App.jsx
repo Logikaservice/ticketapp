@@ -774,6 +774,7 @@ export default function TicketApp() {
         } 
       });
       console.log('🔍 DEBUG: Modal state impostato a emailConfirm');
+      console.log('🔍 DEBUG: modalState dopo setModalState =', { type: 'emailConfirm', data: { isEditing: isEditingTicket, clientName: clientName } });
       return;
     }
     

@@ -10,6 +10,7 @@ import ManageAlertsModal from './ManageAlertsModal';
 import EmailConfirmModal from './EmailConfirmModal';
 
 const AllModals = ({ modalState, closeModal, ...handlers }) => {
+  console.log('🔍 DEBUG AllModals: modalState =', modalState);
   if (!modalState.type) return null;
 
   const renderModalContent = () => {
