@@ -125,7 +125,7 @@ const NewTicketModal = ({
             />
           </div>
 
-          {isEditingTicket && currentUser.ruolo === 'tecnico' && (
+          {currentUser.ruolo === 'tecnico' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Data Apertura</label>
               <input

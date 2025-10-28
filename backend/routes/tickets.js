@@ -27,7 +27,7 @@ module.exports = (pool) => {
 
   // ENDPOINT: Crea un nuovo ticket
   router.post('/', async (req, res) => {
-    let { clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, sendEmail } = req.body;
+    let { clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, sendEmail } = req.body;
     
     // Conversione esplicita di sendEmail a boolean
     if (sendEmail === 'false' || sendEmail === '0') {
@@ -37,6 +37,7 @@ module.exports = (pool) => {
     }
     
     console.log('🔍 DEBUG BACKEND: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
+    console.log('🔍 DEBUG BACKEND: dataapertura =', dataapertura, 'tipo:', typeof dataapertura);
     console.log('🔍 DEBUG BACKEND: Body completo =', JSON.stringify(req.body, null, 2));
     
     try {
@@ -73,12 +74,15 @@ module.exports = (pool) => {
       
       console.log(`✅ ID ticket generato: ${numero}`);
       
+      // Gestisci dataapertura: usa quella fornita o la data corrente
+      const dataAperturaValue = dataapertura || new Date().toISOString();
+      
       const query = `
         INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() AT TIME ZONE 'Europe/Rome', NOW(), NOW()) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()) 
         RETURNING *;
       `;
-      const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza'];
+      const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza', dataAperturaValue];
       const result = await client.query(query, values);
       client.release();
       
