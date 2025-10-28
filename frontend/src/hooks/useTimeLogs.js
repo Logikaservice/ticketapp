@@ -1,7 +1,7 @@
 // src/hooks/useTimeLogs.js
 
 import { useState } from 'react';
-import { getInitialMaterial, getInitialTimeLog } from '../utils/helpers';
+import { getInitialMaterial, getInitialTimeLog, getInitialOfferta } from '../utils/helpers';
 
 export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showNotification, getAuthHeader) => {
   const [timeLogs, setTimeLogs] = useState([]);
@@ -15,7 +15,10 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
           id: Date.now() + Math.random(), 
           materials: Array.isArray(lg.materials) 
             ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) 
-            : [getInitialMaterial()] 
+            : [getInitialMaterial()],
+          offerte: Array.isArray(lg.offerte) 
+            ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() })) 
+            : [getInitialOfferta()]
         })) 
       : [getInitialTimeLog()];
     setTimeLogs(initialLogs);
@@ -30,7 +33,10 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
           id: Date.now() + Math.random(), 
           materials: Array.isArray(lg.materials) 
             ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) 
-            : [getInitialMaterial()] 
+            : [getInitialMaterial()],
+          offerte: Array.isArray(lg.offerte) 
+            ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() })) 
+            : [getInitialOfferta()]
         })) 
       : [];
     setTimeLogs(initialLogs);
@@ -94,6 +100,53 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
     ));
   };
 
+  // Modifica un'offerta
+  const handleOffertaChange = (logId, offertaId, field, value) => {
+    setTimeLogs(prev => prev.map(log => {
+      if (log.id !== logId) return log;
+
+      const coerceValue = (fieldName, raw) => {
+        if (fieldName === 'descrizione') return raw; // testo libero
+        if (fieldName === 'qta') return parseInt(raw) || 0;
+        if (fieldName === 'sconto') return parseFloat(raw) || 0;
+        if (fieldName === 'totale') return parseFloat(raw) || 0;
+        return raw;
+      };
+
+      const newOfferta = { ...log.offerte.find(o => o.id === offertaId), [field]: coerceValue(field, value) };
+      
+      // Calcola il totale automaticamente se qta o sconto cambiano
+      if (field === 'qta' || field === 'sconto') {
+        const qta = field === 'qta' ? coerceValue('qta', value) : newOfferta.qta;
+        const sconto = field === 'sconto' ? coerceValue('sconto', value) : newOfferta.sconto;
+        // Assumendo che il costo base sia 1€ per ora (puoi modificare questa logica)
+        const costoBase = 1;
+        newOfferta.totale = (costoBase * qta * (1 - sconto / 100));
+      }
+
+      return {
+        ...log,
+        offerte: log.offerte.map(o =>
+          o.id === offertaId ? newOfferta : o
+        )
+      };
+    }));
+  };
+
+  // Aggiungi un'offerta
+  const handleAddOfferta = (logId) => {
+    setTimeLogs(prev => prev.map(log => 
+      log.id === logId ? { ...log, offerte: [...log.offerte, getInitialOfferta()] } : log
+    ));
+  };
+
+  // Rimuovi un'offerta
+  const handleRemoveOfferta = (logId, offertaId) => {
+    setTimeLogs(prev => prev.map(log => 
+      log.id === logId ? { ...log, offerte: log.offerte.filter(o => o.id !== offertaId) } : log
+    ));
+  };
+
   // Salva le modifiche ai timeLogs
   const handleSaveTimeLogs = async () => {
     if (!selectedTicket) {
@@ -117,6 +170,13 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
           nome: m.nome,
           quantita: parseInt(m.quantita) || 1,
           costo: parseFloat(m.costo) || 0
+        })),
+        offerte: log.offerte.map(o => ({
+          dataOfferta: o.dataOfferta,
+          qta: parseInt(o.qta) || 1,
+          sconto: parseFloat(o.sconto) || 0,
+          totale: parseFloat(o.totale) || 0,
+          descrizione: o.descrizione
         }))
       }));
 
@@ -151,7 +211,8 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       const refreshedLogs = updatedLogs.length > 0 ? updatedLogs.map(lg => ({ 
         ...lg, 
         id: Date.now() + Math.random(), 
-        materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()] 
+        materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()],
+        offerte: Array.isArray(lg.offerte) ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() })) : [getInitialOfferta()]
       })) : [];
       setTimeLogs(refreshedLogs);
       
@@ -175,6 +236,9 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
     handleMaterialChange,
     handleAddMaterial,
     handleRemoveMaterial,
+    handleOffertaChange,
+    handleAddOfferta,
+    handleRemoveOfferta,
     handleSaveTimeLogs
   };
 };

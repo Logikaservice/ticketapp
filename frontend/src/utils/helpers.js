@@ -17,6 +17,15 @@ export const getInitialMaterial = () => ({
   costo: 0.00
 });
 
+export const getInitialOfferta = () => ({
+  id: Date.now() + Math.random(),
+  dataOfferta: new Date().toISOString().substring(0, 10),
+  qta: 1,
+  sconto: 0,
+  totale: 0,
+  descrizione: ''
+});
+
 export const getInitialTimeLog = () => ({
   id: Date.now(),
   data: new Date().toISOString().substring(0, 10),
@@ -25,6 +34,7 @@ export const getInitialTimeLog = () => ({
   descrizione: '',
   modalita: 'Telefonica',
   materials: [getInitialMaterial()],
+  offerte: [getInitialOfferta()],
   oreIntervento: 1.0,
   costoUnitario: 0,
   sconto: 0

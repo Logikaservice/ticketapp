@@ -420,6 +420,13 @@ export const useTickets = (
           nome: m.nome,
           quantita: parseInt(m.quantita) || 1,
           costo: parseFloat(m.costo) || 0
+        })),
+        offerte: log.offerte.map(o => ({
+          dataOfferta: o.dataOfferta,
+          qta: parseInt(o.qta) || 1,
+          sconto: parseFloat(o.sconto) || 0,
+          totale: parseFloat(o.totale) || 0,
+          descrizione: o.descrizione
         }))
       }));
 

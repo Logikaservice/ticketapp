@@ -182,6 +182,9 @@ export default function TicketApp() {
     handleMaterialChange,
     handleAddMaterial,
     handleRemoveMaterial,
+    handleOffertaChange,
+    handleAddOfferta,
+    handleRemoveOfferta,
     handleSaveTimeLogs
   } = useTimeLogs(selectedTicket, setTickets, setSelectedTicket, showNotification, getAuthHeader);
 
@@ -1413,6 +1416,9 @@ export default function TicketApp() {
         handleMaterialChange={handleMaterialChange}
         handleAddMaterial={handleAddMaterial}
         handleRemoveMaterial={handleRemoveMaterial}
+        handleOffertaChange={handleOffertaChange}
+        handleAddOfferta={handleAddOfferta}
+        handleRemoveOfferta={handleRemoveOfferta}
         handleConfirmTimeLogs={wrappedHandleConfirmTimeLogs}
         handleSaveTimeLogs={handleSaveTimeLogs}
         currentUser={currentUser}
