@@ -58,8 +58,8 @@ const TimeLoggerModal = ({
           const total = (costPerHour * (1 - (discount / 100))) * hours;
 
           return (
-            <div key={log.id} className="p-4 border-2 border-blue-200 rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50 relative shadow-sm">
-              <h3 className="mb-3 flex justify-between text-blue-800 font-bold items-center">
+            <div key={log.id} className="pt-0 pb-4 px-4 border-2 border-blue-200 rounded-lg bg-white relative shadow-sm">
+              <h3 className="mb-3 flex justify-between text-blue-800 font-bold items-center bg-gradient-to-r from-blue-50 to-cyan-50 p-3 -m-4 mb-4 rounded-t-lg border-b border-blue-200">
                 <span className="flex items-center gap-2">
                   <Wrench size={20} />
                   Intervento #{index + 1}
