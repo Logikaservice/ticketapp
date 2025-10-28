@@ -19,6 +19,7 @@ export const getInitialMaterial = () => ({
 
 export const getInitialOfferta = () => ({
   id: Date.now() + Math.random(),
+  numeroOfferta: '',
   dataOfferta: new Date().toISOString().substring(0, 10),
   qta: 1,
   sconto: 0,

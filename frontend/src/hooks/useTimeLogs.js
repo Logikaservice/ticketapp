@@ -106,7 +106,7 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       if (log.id !== logId) return log;
 
       const coerceValue = (fieldName, raw) => {
-        if (fieldName === 'descrizione') return raw; // testo libero
+        if (fieldName === 'descrizione' || fieldName === 'numeroOfferta') return raw; // testo libero
         if (fieldName === 'qta') return parseInt(raw) || 0;
         if (fieldName === 'sconto') return parseFloat(raw) || 0;
         if (fieldName === 'totale') return parseFloat(raw) || 0;
@@ -172,6 +172,7 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
           costo: parseFloat(m.costo) || 0
         })),
         offerte: log.offerte.map(o => ({
+          numeroOfferta: o.numeroOfferta,
           dataOfferta: o.dataOfferta,
           qta: parseInt(o.qta) || 1,
           sconto: parseFloat(o.sconto) || 0,

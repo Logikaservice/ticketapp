@@ -308,7 +308,19 @@ const TimeLoggerModal = ({
                     )}
                   </div>
 
-                  <div className="grid md:grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-5 gap-4 mb-4">
+                    <div>
+                      <label className="block text-xs mb-1 text-gray-600">Offerta n°</label>
+                      <input
+                        type="text"
+                        value={offerta.numeroOfferta}
+                        onChange={(e) => handleOffertaChange(log.id, offerta.id, 'numeroOfferta', e.target.value)}
+                        placeholder="es. OFF-001"
+                        disabled={fieldsDisabled}
+                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
+
                     <div>
                       <label className="block text-xs mb-1 text-gray-600">Data Offerta</label>
                       <input

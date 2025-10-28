@@ -422,6 +422,7 @@ export const useTickets = (
           costo: parseFloat(m.costo) || 0
         })),
         offerte: log.offerte.map(o => ({
+          numeroOfferta: o.numeroOfferta,
           dataOfferta: o.dataOfferta,
           qta: parseInt(o.qta) || 1,
           sconto: parseFloat(o.sconto) || 0,
