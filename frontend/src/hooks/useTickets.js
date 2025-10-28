@@ -114,6 +114,9 @@ export const useTickets = (
       sendEmail: sendEmail
     };
     
+    console.log('🔍 DEBUG FRONTEND UPDATE: ticketAggiornato =', JSON.stringify(ticketAggiornato, null, 2));
+    console.log('🔍 DEBUG FRONTEND UPDATE: dataapertura =', newTicketData.dataapertura, 'tipo:', typeof newTicketData.dataapertura);
+    
     try {
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${isEditingTicket}`, {
         method: 'PUT',

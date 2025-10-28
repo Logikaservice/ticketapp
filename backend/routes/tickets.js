@@ -217,6 +217,10 @@ module.exports = (pool) => {
     const { id } = req.params;
     let { titolo, descrizione, categoria, priorita, nomerichiedente, clienteid, dataapertura, sendEmail } = req.body;
     
+    // Log di debug per la data di apertura
+    console.log('🔍 DEBUG BACKEND UPDATE: dataapertura ricevuta =', dataapertura, 'tipo:', typeof dataapertura);
+    console.log('🔍 DEBUG BACKEND UPDATE: body completo =', JSON.stringify(req.body, null, 2));
+    
     // Conversione esplicita di sendEmail a boolean
     if (sendEmail === 'false' || sendEmail === '0') {
       sendEmail = false;
@@ -238,6 +242,7 @@ module.exports = (pool) => {
 
       if (result.rows.length > 0) {
         console.log(`✅ Ticket aggiornato: ID ${id}`);
+        console.log('🔍 DEBUG BACKEND UPDATE: dataapertura salvata nel DB =', result.rows[0].dataapertura);
         
         // Invia notifica email per aggiornamento ticket (solo se sendEmail è true o undefined)
         console.log('🔍 DEBUG BACKEND UPDATE: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
