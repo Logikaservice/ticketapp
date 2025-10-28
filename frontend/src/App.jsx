@@ -524,7 +524,8 @@ export default function TicketApp() {
       descrizione: '',
       categoria: 'assistenza',
       priorita: 'media',
-      nomerichiedente: nomeRichiedente
+      nomerichiedente: nomeRichiedente,
+      dataapertura: '' // Inizializza dataapertura vuota per nuovi ticket
     });
     setIsEditingTicket(null);
     setSelectedClientForNewTicket('');
