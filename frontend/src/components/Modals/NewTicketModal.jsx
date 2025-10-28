@@ -1,6 +1,6 @@
 // src/components/Modals/NewTicketModal.jsx
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { X, Save, FilePlus } from 'lucide-react';
 
 const NewTicketModal = ({
@@ -14,38 +14,6 @@ const NewTicketModal = ({
   selectedClientForNewTicket,
   setSelectedClientForNewTicket
 }) => {
-  // Stato locale per l'input della data in formato italiano (DD/MM/YYYY)
-  const [dateAperturaText, setDateAperturaText] = useState('');
-
-  // Inizializza/sincronizza lo stato locale quando cambia il dato sorgente
-  useEffect(() => {
-    const v = newTicketData?.dataapertura;
-    if (!v) { setDateAperturaText(''); return; }
-    // Se già DD/MM/YYYY
-    if (typeof v === 'string' && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v)) { setDateAperturaText(v); return; }
-    // YYYY-MM-DD
-    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
-      const [yyyy, mm, dd] = v.split('-');
-      setDateAperturaText(`${dd}/${mm}/${yyyy}`);
-      return;
-    }
-    // ISO con orario
-    if (typeof v === 'string' && v.includes('T')) {
-      const [yyyy, mm, dd] = v.split('T')[0].split('-');
-      setDateAperturaText(`${dd}/${mm}/${yyyy}`);
-      return;
-    }
-    // Fallback Date()
-    const d = new Date(v);
-    if (!isNaN(d.getTime())) {
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const year = d.getFullYear();
-      setDateAperturaText(`${day}/${month}/${year}`);
-      return;
-    }
-    setDateAperturaText('');
-  }, [newTicketData?.dataapertura]);
   // Ordina alfabeticamente i clienti per nome azienda (case-insensitive, locale IT)
   const sortedClienti = (clientiAttivi || []).slice().sort((a, b) => {
     const aName = a.azienda || '';
@@ -161,35 +129,44 @@ const NewTicketModal = ({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Data Apertura</label>
               <input
-                type="text"
-                placeholder="DD/MM/YYYY (es: 15/03/2025)"
-                value={dateAperturaText}
-                onChange={(e) => {
-                  const inputValue = e.target.value;
-                  setDateAperturaText(inputValue);
+                type="date"
+                value={(() => {
+                  const v = newTicketData.dataapertura;
+                  if (!v) return '';
                   
-                  // Se l'input è nel formato DD/MM/YYYY, converti in YYYY-MM-DD per il database
-                  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(inputValue)) {
-                    const [dd, mm, yyyy] = inputValue.split('/');
-                    const isoDate = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
-                    setNewTicketData({ ...newTicketData, dataapertura: isoDate });
-                  } else if (inputValue === '') {
-                    // Se vuoto, salva vuoto
-                    setNewTicketData({ ...newTicketData, dataapertura: '' });
+                  // Se è già in formato YYYY-MM-DD, usa direttamente
+                  if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+                    return v;
                   }
-                  // Altrimenti non fare nulla (l'utente sta ancora digitando)
-                }}
-                onBlur={() => {
-                  // Se perde il focus e il testo è valido, assicurati di sincronizzare
-                  if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateAperturaText)) {
-                    const [dd, mm, yyyy] = dateAperturaText.split('/');
-                    const isoDate = `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
-                    setNewTicketData({ ...newTicketData, dataapertura: isoDate });
+                  
+                  // Se è in formato DD/MM/YYYY, converti in YYYY-MM-DD
+                  if (typeof v === 'string' && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v)) {
+                    const [dd, mm, yyyy] = v.split('/');
+                    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
                   }
+                  
+                  // Se ISO con orario, estrai solo la data
+                  if (typeof v === 'string' && v.includes('T')) {
+                    return v.split('T')[0];
+                  }
+                  
+                  // Fallback: prova Date() e converti in YYYY-MM-DD
+                  const d = new Date(v);
+                  if (!isNaN(d.getTime())) {
+                    const year = d.getFullYear();
+                    const month = String(d.getMonth() + 1).padStart(2, '0');
+                    const day = String(d.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                  }
+                  
+                  return '';
+                })()}
+                onChange={(e) => {
+                  // Il campo date restituisce sempre YYYY-MM-DD
+                  setNewTicketData({ ...newTicketData, dataapertura: e.target.value });
                 }}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-              <p className="text-xs text-gray-500 mt-1">Formato: DD/MM/YYYY (es: 15/03/2025)</p>
             </div>
           )}
 
