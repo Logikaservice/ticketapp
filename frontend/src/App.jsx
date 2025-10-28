@@ -716,9 +716,32 @@ export default function TicketApp() {
     }
   };
   const handleConfirmUrgentCreation = async () => {
-    // Conferma creazione URGENTE: procede alla normale creazione e chiude le modali
-    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket);
-    // Resetta form e chiudi qualsiasi modale residua
+    // Conferma creazione URGENTE: per i tecnici mostra modal email, per clienti crea direttamente
+    
+    // Per i tecnici, mostra il modal di conferma email anche per priorità urgente
+    if (currentUser.ruolo === 'tecnico') {
+      console.log('🔍 DEBUG: Priorità urgente confermata - mostrando modal email per tecnico');
+      
+      const clientName = users.find(u => u.id === parseInt(selectedClientForNewTicket))?.azienda || 'Cliente';
+        
+      setPendingTicketAction({
+        type: 'create',
+        data: newTicketData,
+        isEditing: isEditingTicket,
+        selectedClient: selectedClientForNewTicket
+      });
+      setModalState({ 
+        type: 'emailConfirm', 
+        data: { 
+          isEditing: isEditingTicket, 
+          clientName: clientName 
+        } 
+      });
+      return;
+    }
+    
+    // Per i clienti, crea direttamente il ticket con invio email obbligatorio
+    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true);
     resetNewTicketData();
     setModalState({ type: null, data: null });
   };
@@ -730,7 +753,31 @@ export default function TicketApp() {
       setModalState({ type: 'urgentConfirm' });
       return;
     }
-    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket);
+    
+    // Per i tecnici, mostra il modal di conferma email anche dopo descrizione vuota
+    if (currentUser.ruolo === 'tecnico') {
+      console.log('🔍 DEBUG: Descrizione vuota confermata - mostrando modal email per tecnico');
+      
+      const clientName = users.find(u => u.id === parseInt(selectedClientForNewTicket))?.azienda || 'Cliente';
+        
+      setPendingTicketAction({
+        type: 'create',
+        data: newTicketData,
+        isEditing: isEditingTicket,
+        selectedClient: selectedClientForNewTicket
+      });
+      setModalState({ 
+        type: 'emailConfirm', 
+        data: { 
+          isEditing: isEditingTicket, 
+          clientName: clientName 
+        } 
+      });
+      return;
+    }
+    
+    // Per i clienti, crea direttamente il ticket con invio email obbligatorio
+    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true);
     resetNewTicketData();
     setModalState({ type: null, data: null });
   };
