@@ -27,7 +27,7 @@ module.exports = (pool) => {
 
   // ENDPOINT: Crea un nuovo ticket
   router.post('/', async (req, res) => {
-    let { clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, sendEmail } = req.body;
+    let { clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, sendEmail } = req.body;
     
     // Conversione esplicita di sendEmail a boolean
     if (sendEmail === 'false' || sendEmail === '0') {
@@ -37,6 +37,7 @@ module.exports = (pool) => {
     }
     
     console.log('🔍 DEBUG BACKEND: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
+    console.log('🔍 DEBUG BACKEND: dataapertura =', dataapertura, 'tipo:', typeof dataapertura);
     console.log('🔍 DEBUG BACKEND: Body completo =', JSON.stringify(req.body, null, 2));
     
     try {
@@ -73,12 +74,28 @@ module.exports = (pool) => {
       
       console.log(`✅ ID ticket generato: ${numero}`);
       
+      // Gestisci dataapertura: valida e usa se fornita, altrimenti usa data corrente
+      let dataAperturaValue;
+      if (dataapertura && typeof dataapertura === 'string' && dataapertura.trim() !== '') {
+        // Valida formato YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dataapertura)) {
+          dataAperturaValue = dataapertura + 'T00:00:00+02:00'; // Aggiungi orario e timezone
+          console.log('🔍 DEBUG BACKEND: Usando dataapertura personalizzata:', dataAperturaValue);
+        } else {
+          dataAperturaValue = new Date().toISOString();
+          console.log('🔍 DEBUG BACKEND: dataapertura non valida, usando data corrente:', dataAperturaValue);
+        }
+      } else {
+        dataAperturaValue = new Date().toISOString();
+        console.log('🔍 DEBUG BACKEND: Nessuna dataapertura fornita, usando data corrente:', dataAperturaValue);
+      }
+      
       const query = `
         INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() AT TIME ZONE 'Europe/Rome', NOW(), NOW()) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()) 
         RETURNING *;
       `;
-      const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza'];
+      const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza', dataAperturaValue];
       const result = await client.query(query, values);
       client.release();
       
