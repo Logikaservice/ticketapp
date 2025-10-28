@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Clock, Check, Plus, Copy, Trash2, Users, Eye, Edit, Save } from 'lucide-react';
+import { X, Clock, Check, Plus, Copy, Trash2, Users, Eye, Edit, Save, Wrench } from 'lucide-react';
 import { calculateDurationHours } from '../../utils/helpers';
 
 const TimeLoggerModal = ({
@@ -58,9 +58,12 @@ const TimeLoggerModal = ({
           const total = (costPerHour * (1 - (discount / 100))) * hours;
 
           return (
-            <div key={log.id} className="p-4 border rounded-lg bg-white relative">
-              <h3 className="mb-3 flex justify-between">
-                Intervento #{index + 1}
+            <div key={log.id} className="p-4 border-2 border-blue-200 rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50 relative shadow-sm">
+              <h3 className="mb-3 flex justify-between text-blue-800 font-bold items-center">
+                <span className="flex items-center gap-2">
+                  <Wrench size={20} />
+                  Intervento #{index + 1}
+                </span>
                 {!fieldsDisabled && (
                   <div className="flex gap-2">
                     {timeLogs.length > 1 && (
