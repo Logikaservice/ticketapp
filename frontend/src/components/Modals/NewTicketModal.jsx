@@ -130,8 +130,18 @@ const NewTicketModal = ({
               <label className="block text-sm font-medium text-gray-700 mb-1">Data Apertura</label>
               <input
                 type="date"
-                value={newTicketData.dataapertura ? new Date(newTicketData.dataapertura).toISOString().substring(0, 10) : ''}
-                onChange={(e) => setNewTicketData({ ...newTicketData, dataapertura: e.target.value })}
+                value={newTicketData.dataapertura ? (() => {
+                  // Gestione corretta della data per evitare problemi di fuso orario
+                  const date = new Date(newTicketData.dataapertura);
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  return `${year}-${month}-${day}`;
+                })() : ''}
+                onChange={(e) => {
+                  // Salva la data nel formato corretto per il database (YYYY-MM-DD)
+                  setNewTicketData({ ...newTicketData, dataapertura: e.target.value });
+                }}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
