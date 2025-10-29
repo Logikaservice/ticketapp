@@ -517,6 +517,38 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           />
         </div>
         <div>
+          {/* Pulsante temporaneo per sincronizzazione massa Google Calendar */}
+          {currentUser?.ruolo === 'tecnico' && (
+            <div className="mb-4">
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/sync-google-calendar/bulk-sync-google-calendar`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader()
+                      },
+                      body: JSON.stringify({})
+                    });
+                    
+                    if (response.ok) {
+                      const result = await response.json();
+                      alert(`Sincronizzazione completata!\nAggiornati: ${result.updated} ticket\nErrori: ${result.errors} ticket`);
+                    } else {
+                      alert('Errore durante la sincronizzazione');
+                    }
+                  } catch (err) {
+                    alert('Errore: ' + err.message);
+                  }
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+              >
+                🔄 Sincronizza Calendario Google
+              </button>
+            </div>
+          )}
+          
           <TicketsCalendar 
             tickets={tickets}
             onTicketClick={(ticket) => {
