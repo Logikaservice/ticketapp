@@ -35,7 +35,7 @@ export const getInitialTimeLog = () => ({
   descrizione: '',
   modalita: 'Telefonica',
   materials: [getInitialMaterial()],
-  offerte: [getInitialOfferta()],
+  offerte: [],
   oreIntervento: 1.0,
   costoUnitario: 0,
   sconto: 0

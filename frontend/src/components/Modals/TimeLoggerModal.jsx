@@ -292,22 +292,25 @@ const TimeLoggerModal = ({
           </button>
         )}
 
-        {/* Sezione Come da Offerta */}
-        {timeLogs.map((log, logIndex) => (
-          <div key={log.id} className="p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50">
+        {/* Sezione Come da Offerta - GLOBALE (non legata agli Interventi) */}
+        {(() => {
+          const offertaOwner = timeLogs[0];
+          if (!offertaOwner) return null;
+          return (
+          <div className="p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50">
             <h3 className="text-lg font-bold text-purple-800 mb-4 flex items-center gap-2">
               <Users size={20} />
-              Come da Offerta - Intervento #{logIndex + 1}
+              Come da Offerta
             </h3>
             
             <div className="space-y-4">
-              {log.offerte && log.offerte.map((offerta, offertaIndex) => (
+              {offertaOwner.offerte && offertaOwner.offerte.map((offerta, offertaIndex) => (
                 <div key={offerta.id} className="p-4 bg-white rounded-lg border border-purple-200">
                   <div className="flex justify-between items-center mb-3">
                     <h4 className="font-semibold text-purple-700">Offerta #{offertaIndex + 1}</h4>
-                    {!fieldsDisabled && log.offerte.length > 1 && (
+                    {!fieldsDisabled && offertaOwner.offerte.length > 1 && (
                       <button
-                        onClick={() => handleRemoveOfferta(log.id, offerta.id)}
+                        onClick={() => handleRemoveOfferta(offertaOwner.id, offerta.id)}
                         className="text-red-500 p-1 hover:bg-red-50 rounded"
                       >
                         <Trash2 size={16} />
@@ -321,7 +324,7 @@ const TimeLoggerModal = ({
                       <input
                         type="text"
                         value={offerta.numeroOfferta}
-                        onChange={(e) => handleOffertaChange(log.id, offerta.id, 'numeroOfferta', e.target.value)}
+                        onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'numeroOfferta', e.target.value)}
                         placeholder="es. OFF-001"
                         disabled={fieldsDisabled}
                         className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -333,7 +336,7 @@ const TimeLoggerModal = ({
                       <input
                         type="date"
                         value={offerta.dataOfferta}
-                        onChange={(e) => handleOffertaChange(log.id, offerta.id, 'dataOfferta', e.target.value)}
+                        onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'dataOfferta', e.target.value)}
                         disabled={fieldsDisabled}
                         className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                       />
@@ -346,7 +349,7 @@ const TimeLoggerModal = ({
                         min="1"
                         step="0.25"
                         value={offerta.qta}
-                        onChange={(e) => handleOffertaChange(log.id, offerta.id, 'qta', e.target.value)}
+                        onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'qta', e.target.value)}
                         disabled={fieldsDisabled}
                         className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                       />
@@ -360,7 +363,7 @@ const TimeLoggerModal = ({
                         max="100"
                         step="0.01"
                         value={offerta.sconto}
-                        onChange={(e) => handleOffertaChange(log.id, offerta.id, 'sconto', e.target.value)}
+                        onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'sconto', e.target.value)}
                         disabled={fieldsDisabled}
                         className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                       />
@@ -379,7 +382,7 @@ const TimeLoggerModal = ({
                     <textarea
                       rows="2"
                       value={offerta.descrizione}
-                      onChange={(e) => handleOffertaChange(log.id, offerta.id, 'descrizione', e.target.value)}
+                      onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'descrizione', e.target.value)}
                       placeholder="Descrizione dell'offerta..."
                       disabled={fieldsDisabled}
                       className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
@@ -390,7 +393,7 @@ const TimeLoggerModal = ({
 
               {!fieldsDisabled && (
                 <button
-                  onClick={() => handleAddOfferta(log.id)}
+                  onClick={() => handleAddOfferta(offertaOwner.id)}
                   className="w-full text-purple-600 text-sm font-medium flex items-center justify-center gap-2 p-2 border border-purple-300 rounded-lg hover:bg-purple-50"
                 >
                   <Plus size={16} />
@@ -399,7 +402,8 @@ const TimeLoggerModal = ({
               )}
             </div>
           </div>
-        ))}
+          );
+        })()}
 
         <div className="flex gap-3 pt-4 border-t">
           <button onClick={closeModal} className="flex-1 px-4 py-3 border rounded-lg">

@@ -18,7 +18,7 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
             : [getInitialMaterial()],
           offerte: Array.isArray(lg.offerte) 
             ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() })) 
-            : [getInitialOfferta()]
+            : []
         })) 
       : [getInitialTimeLog()];
     setTimeLogs(initialLogs);
@@ -36,7 +36,7 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
             : [getInitialMaterial()],
           offerte: Array.isArray(lg.offerte) 
             ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() })) 
-            : [getInitialOfferta()]
+            : []
         })) 
       : [];
     setTimeLogs(initialLogs);
@@ -213,7 +213,7 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
         ...lg, 
         id: Date.now() + Math.random(), 
         materials: Array.isArray(lg.materials) ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) : [getInitialMaterial()],
-        offerte: Array.isArray(lg.offerte) ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() })) : [getInitialOfferta()]
+        offerte: Array.isArray(lg.offerte) ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() })) : []
       })) : [];
       setTimeLogs(refreshedLogs);
       
