@@ -150,10 +150,21 @@ const TimeLoggerModal = ({
               <textarea
                 rows="3"
                 value={log.descrizione}
-                onChange={(e) => handleTimeLogChange(log.id, 'descrizione', e.target.value)}
+                onChange={(e) => {
+                  // Auto-resize textarea on input
+                  e.currentTarget.style.height = 'auto';
+                  e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                  handleTimeLogChange(log.id, 'descrizione', e.target.value);
+                }}
+                onInput={(e) => {
+                  // Ensure height adjusts also on paste/undo
+                  e.currentTarget.style.height = 'auto';
+                  e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                }}
                 placeholder="Descrizione"
                 disabled={fieldsDisabled}
-                className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
+                className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden"
+                style={{height: 'auto'}}
               />
 
               <div className="mt-5 border-t pt-4">
