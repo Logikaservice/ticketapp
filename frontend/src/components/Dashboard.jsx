@@ -523,7 +523,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               <button
                 onClick={async () => {
                   try {
-                    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/sync-google-calendar/bulk-sync-google-calendar`, {
+                    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/bulk-sync-google-calendar`, {
                       method: 'POST',
                       headers: {
                         'Content-Type': 'application/json',

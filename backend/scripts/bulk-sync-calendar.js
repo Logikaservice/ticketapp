@@ -5,11 +5,11 @@
  * Aggiorna i titoli degli eventi con i nomi delle aziende corrette
  */
 
-const fetch = require('node-fetch');
+// Usa fetch nativo di Node.js (disponibile dalla versione 18+)
 
 // Configurazione
-const API_URL = process.env.API_URL || 'http://localhost:5000';
-const ENDPOINT = '/api/sync-google-calendar/bulk-sync-google-calendar';
+const API_URL = process.env.API_URL || 'https://ticketapp-backend-ton5.onrender.com';
+const ENDPOINT = '/api/bulk-sync-google-calendar';
 
 async function bulkSyncCalendar() {
   try {
