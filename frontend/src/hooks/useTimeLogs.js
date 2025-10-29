@@ -160,8 +160,9 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       const logsToSave = timeLogs.map(log => ({
         modalita: log.modalita,
         data: log.data,
-        oraInizio: log.oraInizio,
-        oraFine: log.oraFine,
+        oraInizio: log.eventoGiornaliero ? '' : log.oraInizio,
+        oraFine: log.eventoGiornaliero ? '' : log.oraFine,
+        eventoGiornaliero: !!log.eventoGiornaliero,
         descrizione: log.descrizione,
         oreIntervento: parseFloat(log.oreIntervento) || 0,
         costoUnitario: parseFloat(log.costoUnitario) || 0,

@@ -87,7 +87,7 @@ const TimeLoggerModal = ({
               {/* Sezione Intervento racchiusa */}
               <div className="p-4 bg-white rounded-lg border border-blue-200">
 
-              <div className="grid md:grid-cols-4 gap-4 mb-4">
+              <div className="grid md:grid-cols-5 gap-4 mb-4">
                 <div>
                   <label className="block text-xs mb-1">Modalità</label>
                   <select
@@ -125,7 +125,7 @@ const TimeLoggerModal = ({
                       const duration = calculateDurationHours(start, log.oraFine);
                       setTimeLogs(p => p.map(l => l.id === log.id ? { ...l, oraInizio: start, oreIntervento: duration.toFixed(2) } : l));
                     }}
-                    disabled={fieldsDisabled}
+                    disabled={fieldsDisabled || log.eventoGiornaliero}
                     className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
                 </div>
@@ -141,9 +141,26 @@ const TimeLoggerModal = ({
                       const duration = calculateDurationHours(log.oraInizio, end);
                       setTimeLogs(p => p.map(l => l.id === log.id ? { ...l, oraFine: end, oreIntervento: duration.toFixed(2) } : l));
                     }}
-                    disabled={fieldsDisabled}
+                    disabled={fieldsDisabled || log.eventoGiornaliero}
                     className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
+                </div>
+
+                <div className="flex items-end">
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={!!log.eventoGiornaliero}
+                      onChange={(e) => setTimeLogs(p => p.map(l => l.id === log.id ? {
+                        ...l,
+                        eventoGiornaliero: e.target.checked,
+                        // se diventa giornaliero, azzero gli orari per non inviarli
+                        ...(e.target.checked ? { oraInizio: '', oraFine: '', oreIntervento: 0 } : {})
+                      } : l))}
+                      className="accent-blue-600"
+                    />
+                    Evento giornaliero
+                  </label>
                 </div>
               </div>
 

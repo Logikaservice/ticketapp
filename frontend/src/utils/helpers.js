@@ -34,6 +34,7 @@ export const getInitialTimeLog = () => ({
   oraFine: '10:00',
   descrizione: '',
   modalita: 'Telefonica',
+  eventoGiornaliero: false,
   materials: [getInitialMaterial()],
   offerte: [],
   oreIntervento: 1.0,
