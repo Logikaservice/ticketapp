@@ -534,7 +534,22 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                     
                     if (response.ok) {
                       const result = await response.json();
-                      alert(`Sincronizzazione completata!\nAggiornati: ${result.updated} ticket\nErrori: ${result.errors} ticket`);
+                      // Stampa dettagli errori in console per debug
+                      if (result?.errorDetails && Array.isArray(result.errorDetails)) {
+                        console.group('Dettagli errori sincronizzazione Google Calendar');
+                        result.errorDetails.forEach(e => console.error(`Ticket #${e?.numero || e?.ticketId}: ${e?.error}`));
+                        console.groupEnd();
+                      }
+
+                      const errorLines = (result?.errorDetails || [])
+                        .map(e => `- ${e?.numero || e?.ticketId}: ${e?.error}`)
+                        .join('\n');
+
+                      const details = result?.errors > 0 && errorLines
+                        ? `\n\nDettagli errori:\n${errorLines}`
+                        : '';
+
+                      alert(`Sincronizzazione completata!\nAggiornati: ${result.updated} ticket\nErrori: ${result.errors} ticket${details}`);
                     } else {
                       alert('Errore durante la sincronizzazione');
                     }
