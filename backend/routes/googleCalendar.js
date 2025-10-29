@@ -147,6 +147,20 @@ module.exports = (pool) => {
         });
       };
 
+      // Recupera il nome dell'azienda dal clienteid
+      let clientName = 'Cliente Sconosciuto';
+      if (ticket.clienteid) {
+        try {
+          const clientQuery = 'SELECT azienda FROM users WHERE id = $1';
+          const clientResult = await pool.query(clientQuery, [ticket.clienteid]);
+          if (clientResult.rows.length > 0) {
+            clientName = clientResult.rows[0].azienda || 'Cliente Sconosciuto';
+          }
+        } catch (err) {
+          console.error('Errore recupero nome cliente:', err);
+        }
+      }
+
       // Costruisci la descrizione dettagliata
       let description = `TITOLO: ${ticket.titolo}\n`;
       description += `PRIORITÀ: ${ticket.priorita.toUpperCase()}\n`;
@@ -161,7 +175,7 @@ module.exports = (pool) => {
       }
 
       const event = {
-        summary: `Ticket ${ticket.numero} - ${ticket.cliente}`,
+        summary: `Ticket ${ticket.numero} - ${clientName}`,
         description: description,
         start: {
           dateTime: startDate.toISOString(),
