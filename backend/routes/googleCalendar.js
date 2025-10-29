@@ -711,5 +711,180 @@ module.exports = (pool) => {
         }
       });
 
-      return router;
-    };
+  // ENDPOINT: Sincronizza tutti i ticket esistenti con Google Calendar (aggiorna i titoli)
+  router.post('/bulk-sync-google-calendar', async (req, res) => {
+    try {
+      console.log('=== RICHIESTA SINCRONIZZAZIONE MASSA GOOGLE CALENDAR ===');
+      
+      // Verifica che le credenziali Service Account siano configurate
+      if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+        console.log('ERRORE: Credenziali Google Service Account non configurate');
+        return res.json({
+          success: false,
+          message: 'Google Service Account non configurato'
+        });
+      }
+
+      // Inizializza Google Auth
+      const authInstance = getAuth();
+      if (!authInstance) {
+        console.log('ERRORE: Google Auth non disponibile');
+        return res.json({
+          success: false,
+          message: 'Google Auth non configurato'
+        });
+      }
+
+      const authClient = await authInstance.getClient();
+      const calendar = google.calendar({ version: 'v3', auth: authClient });
+
+      // Recupera tutti i ticket dal database
+      const client = await pool.connect();
+      const ticketsResult = await client.query(`
+        SELECT t.*, u.azienda 
+        FROM tickets t 
+        LEFT JOIN users u ON t.clienteid = u.id 
+        WHERE t.googlecalendareventid IS NOT NULL 
+        ORDER BY t.dataapertura DESC
+      `);
+      client.release();
+
+      const tickets = ticketsResult.rows;
+      console.log(`Trovati ${tickets.length} ticket con eventi Google Calendar da aggiornare`);
+
+      if (tickets.length === 0) {
+        return res.json({
+          success: true,
+          message: 'Nessun ticket con eventi Google Calendar trovato',
+          updated: 0
+        });
+      }
+
+      // Trova il calendario TicketApp
+      let calendarId = 'primary';
+      try {
+        const calendarList = await calendar.calendarList.list();
+        const ticketAppCalendar = calendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
+        if (ticketAppCalendar) {
+          calendarId = ticketAppCalendar.id;
+          console.log('Trovato TicketApp Test Calendar:', calendarId);
+        }
+      } catch (err) {
+        console.log('Errore ricerca calendario:', err.message);
+      }
+
+      let updatedCount = 0;
+      let errorCount = 0;
+      const errors = [];
+
+      // Funzione helper per formattare date e ore
+      const formatDateTime = (date) => {
+        return date.toLocaleString('it-IT', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Europe/Rome'
+        });
+      };
+
+      // Funzione per ottenere il colore della priorità
+      const getPriorityColorId = (priorita) => {
+        switch (priorita?.toLowerCase()) {
+          case 'urgente': return '11'; // Rosso
+          case 'alta': return '6'; // Arancione
+          case 'media': return '5'; // Giallo
+          case 'bassa': return '10'; // Verde
+          default: return '1'; // Blu
+        }
+      };
+
+      // Aggiorna ogni ticket
+      for (const ticket of tickets) {
+        try {
+          console.log(`Aggiornando ticket #${ticket.numero} (${ticket.azienda || 'Cliente Sconosciuto'})...`);
+          
+          // Prepara le date
+          const startDate = new Date(ticket.dataapertura);
+          const endDate = new Date(startDate.getTime() + (2 * 60 * 60 * 1000)); // +2 ore
+
+          // Costruisci la descrizione dettagliata
+          let description = `TITOLO: ${ticket.titolo}\n`;
+          description += `PRIORITÀ: ${ticket.priorita.toUpperCase()}\n`;
+          description += `STATO: ${ticket.stato.toUpperCase()}\n`;
+          description += `DESCRIZIONE: ${ticket.descrizione}\n`;
+          description += `APERTURA: ${formatDateTime(startDate)}\n`;
+          
+          // Aggiungi data di chiusura se il ticket è chiuso
+          if (ticket.stato === 'chiuso' && ticket.dataChiusura) {
+            const chiusuraDate = new Date(ticket.dataChiusura);
+            description += `CHIUSURA: ${formatDateTime(chiusuraDate)}\n`;
+          }
+
+          const event = {
+            summary: `Ticket ${ticket.numero} - ${ticket.azienda || 'Cliente Sconosciuto'}`,
+            description: description,
+            start: {
+              dateTime: startDate.toISOString(),
+              timeZone: 'Europe/Rome'
+            },
+            end: {
+              dateTime: endDate.toISOString(),
+              timeZone: 'Europe/Rome'
+            },
+            colorId: getPriorityColorId(ticket.priorita),
+            source: {
+              title: 'TicketApp',
+              url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
+            }
+          };
+
+          // Aggiorna l'evento su Google Calendar
+          await calendar.events.update({
+            calendarId: calendarId,
+            eventId: ticket.googlecalendareventid,
+            resource: event
+          });
+
+          console.log(`✅ Ticket #${ticket.numero} aggiornato con successo`);
+          updatedCount++;
+          
+          // Piccola pausa per evitare rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+        } catch (err) {
+          console.error(`❌ Errore aggiornamento ticket #${ticket.numero}:`, err.message);
+          errors.push({
+            ticketId: ticket.id,
+            numero: ticket.numero,
+            error: err.message
+          });
+          errorCount++;
+        }
+      }
+
+      console.log(`=== SINCRONIZZAZIONE MASSA COMPLETATA ===`);
+      console.log(`Aggiornati: ${updatedCount}`);
+      console.log(`Errori: ${errorCount}`);
+
+      res.json({
+        success: true,
+        message: `Sincronizzazione massa completata`,
+        updated: updatedCount,
+        errors: errorCount,
+        errorDetails: errors
+      });
+
+    } catch (err) {
+      console.error('Errore sincronizzazione massa Google Calendar:', err);
+      res.status(500).json({
+        success: false,
+        message: 'Errore interno del server',
+        error: err.message
+      });
+    }
+  });
+
+  return router;
+};
