@@ -339,3 +339,116 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
 
   return html;
 };
+
+// Genera HTML di stampa per un singolo ticket
+export const generateSingleTicketHTML = (ticket, options = {}) => {
+  const {
+    includeTimeLogs = false,
+    clienteName = '',
+    companyName = 'TicketApp'
+  } = options;
+
+  const dataApertura = formatDate(ticket.dataapertura);
+  const dataChiusura = ticket.datachiusura ? formatDate(ticket.datachiusura) : 'N/A';
+
+  let html = `
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticket ${ticket.numero}</title>
+  <style>
+    @page { margin: 15mm; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 11pt; color: #000; }
+    .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 16px; }
+    .header h1 { margin: 0; font-size: 18pt; }
+    .meta { display: flex; justify-content: space-between; margin: 6px 0; }
+    .section { margin: 12px 0; }
+    .section h2 { font-size: 12pt; margin: 0 0 6px; }
+    .box { background: #fafafa; border-left: 3px solid #4a90e2; padding: 8px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { padding: 6px; border-bottom: 1px solid #ddd; font-size: 10pt; }
+    thead th { background: #f5f5f5; text-align: left; }
+    .footer { margin-top: 16px; font-size: 9pt; color: #666; text-align: right; }
+    @media print { body { padding: 0; } }
+  </style>
+  <script>
+    function triggerPrint() { setTimeout(() => window.print(), 200); }
+    window.onload = triggerPrint;
+  </script>
+</head>
+<body>
+  <div class="header">
+    <h1>${companyName} - Ticket ${ticket.numero}</h1>
+  </div>
+
+  <div class="meta">
+    <div><strong>Stato:</strong> ${ticket.stato.replace('_',' ')}</div>
+    <div><strong>Priorità:</strong> ${ticket.priorita}</div>
+  </div>
+  <div class="meta">
+    <div><strong>Data apertura:</strong> ${dataApertura}</div>
+    <div><strong>Data chiusura:</strong> ${dataChiusura}</div>
+  </div>
+  <div class="meta">
+    <div><strong>Cliente:</strong> ${clienteName || 'N/A'}</div>
+    <div><strong>Richiedente:</strong> ${ticket.nomerichiedente || 'N/A'}</div>
+  </div>
+
+  <div class="section">
+    <h2>Titolo</h2>
+    <div class="box">${ticket.titolo || ''}</div>
+  </div>
+
+  <div class="section">
+    <h2>Descrizione</h2>
+    <div class="box">${ticket.descrizione || ''}</div>
+  </div>
+`;
+
+  if (includeTimeLogs && Array.isArray(ticket.timelogs) && ticket.timelogs.length > 0) {
+    html += `
+  <div class="section">
+    <h2>Registro Intervento</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 35%">Data/Ora</th>
+          <th style="width: 20%">Modalità</th>
+          <th style="width: 15%">Ore</th>
+          <th style="width: 30%">Descrizione</th>
+        </tr>
+      </thead>
+      <tbody>
+    `;
+
+    ticket.timelogs.forEach((log) => {
+      const dataIt = formatDateItalian(log.data);
+      const oraInizio = log.oraInizio || '';
+      const oraFine = log.oraFine || '';
+      html += `
+        <tr>
+          <td>${dataIt} ${oraInizio}${oraFine ? ' - ' + oraFine : ''}</td>
+          <td>${log.modalita || ''}</td>
+          <td>${log.oreIntervento || ''}</td>
+          <td>${(log.descrizione || '').replace(/\n/g,'<br>')}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+      </tbody>
+    </table>
+  </div>
+    `;
+  }
+
+  html += `
+  <div class="footer">Generato il ${new Date().toLocaleString('it-IT')}</div>
+</body>
+</html>
+`;
+
+  return html;
+};

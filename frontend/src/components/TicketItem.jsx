@@ -1,8 +1,9 @@
 import React from 'react';
-import { User, Settings, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon, Package, Eye } from 'lucide-react';
+import { User, Settings, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon, Package, Eye, Printer } from 'lucide-react';
 import { getStatoColor, getPrioritaColor, getPrioritaBgClass, getPrioritySolidBgClass, getStatoIcon } from '../utils/colors';
 import { formatDate } from '../utils/formatters';
 import ChatInterface from './ChatInterface';
+import { generateSingleTicketHTML } from '../utils/reportGenerator';
 
 const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, getUnreadCount }) => {
   // console.log debug rimosso
@@ -28,6 +29,19 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
   
   const unreadCount = getUnreadCount ? getUnreadCount(ticket) : 0;
   const hasUnread = unreadCount > 0;
+
+  const handlePrint = (e) => {
+    e.stopPropagation();
+    const includeTimeLogs = ticket.stato === 'risolto' || ticket.stato === 'chiuso' || ticket.stato === 'inviato' || ticket.stato === 'fatturato';
+    const clienteName = cliente?.azienda || `${cliente?.nome || ''} ${cliente?.cognome || ''}`.trim();
+    const html = generateSingleTicketHTML(ticket, { includeTimeLogs, clienteName });
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+    }
+  };
 
   return (
     <>
@@ -103,6 +117,14 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
             </div>
 
             <div className="flex gap-1">
+              {/* Stampa ticket */}
+              <button
+                onClick={handlePrint}
+                title="Stampa ticket"
+                className="p-1 rounded-full text-gray-600 hover:bg-gray-100"
+              >
+                <Printer size={18} />
+              </button>
               {currentUser.ruolo === 'tecnico' && (
                 <>
                   <button
