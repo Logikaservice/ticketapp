@@ -398,30 +398,51 @@ app.post('/api/tickets/quick-request', async (req, res) => {
     client.release();
     
     if (result.rows[0]) {
-      // Invia notifica email ai tecnici
+      const createdTicket = result.rows[0];
+      const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`;
+
+      // 1) Email al cliente che ha inviato la richiesta
+      try {
+        const clientEmailUrl = `${baseUrl}/api/public-email/notify-ticket-created`;
+        const clientEmailResponse = await fetch(clientEmailUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ticket: createdTicket,
+            clientEmail: email,
+            clientName: nomerichiedente,
+            clientAzienda: azienda || null,
+            isSelfCreated: true
+          })
+        });
+        if (clientEmailResponse.ok) {
+          console.log(`✅ Email di conferma inviata al richiedente: ${email}`);
+        } else {
+          console.log('⚠️ Invio email al richiedente non riuscito:', clientEmailResponse.status);
+        }
+      } catch (clientEmailErr) {
+        console.log('⚠️ Errore invio email al richiedente:', clientEmailErr.message);
+      }
+
+      // 2) Email ai tecnici
       try {
         const techniciansData = await pool.query('SELECT email, nome, cognome FROM users WHERE ruolo = \'tecnico\' AND email IS NOT NULL');
-        
         for (const technician of techniciansData.rows) {
           try {
-            const techEmailUrl = `${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-technician-quick-request`;
-            
+            const techEmailUrl = `${baseUrl}/api/public-email/notify-technician-new-ticket`;
             const technicianEmailResponse = await fetch(techEmailUrl, {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                ticket: result.rows[0],
+                ticket: createdTicket,
                 technicianEmail: technician.email,
-                technicianName: `${technician.nome} ${technician.cognome}`,
-                requesterEmail: email,
-                requesterName: nomerichiedente
+                technicianName: `${technician.nome} ${technician.cognome}`
               })
             });
-            
             if (technicianEmailResponse.ok) {
-              console.log(`✅ Email notifica richiesta veloce inviata al tecnico: ${technician.email}`);
+              console.log(`✅ Email notifica inviata al tecnico: ${technician.email}`);
+            } else {
+              console.log(`⚠️ Invio email al tecnico ${technician.email} non riuscito:`, technicianEmailResponse.status);
             }
           } catch (techEmailErr) {
             console.log(`⚠️ Errore invio email tecnico ${technician.email}:`, techEmailErr.message);
@@ -430,11 +451,11 @@ app.post('/api/tickets/quick-request', async (req, res) => {
       } catch (techErr) {
         console.log('⚠️ Errore invio email ai tecnici:', techErr.message);
       }
-      
+
       res.status(201).json({
         success: true,
         message: 'Richiesta inviata con successo',
-        ticket: result.rows[0]
+        ticket: createdTicket
       });
     } else {
       res.status(500).json({ error: 'Errore nella creazione del ticket' });
@@ -453,6 +474,8 @@ app.use('/api/alerts', authenticateToken, alertsRoutes);
 app.use('/api', authenticateToken, googleCalendarRoutes);
 app.use('/api', authenticateToken, googleAuthRoutes);
 app.use('/api/email', authenticateToken, emailNotificationsRoutes);
+// Endpoint pubblico per invii server-to-server (es. quick-request senza login)
+app.use('/api/public-email', emailNotificationsRoutes);
 app.use('/api/availability', authenticateToken, availabilityRoutes);
 
 // Endpoint per chiusura automatica ticket (senza autenticazione per cron job)
