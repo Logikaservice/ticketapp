@@ -895,12 +895,7 @@ export default function TicketApp() {
       // Mantieni la vista corrente senza rimbalzi
       setDashboardTargetState(originCardState);
 
-      // Feedback locale sul ticket aggiornato
-      try {
-        const updated = tickets.find(t => t.id === data.id);
-        const updatedId = updated ? updated.id : data.id;
-        window.dispatchEvent(new CustomEvent('ticket-status-updated', { detail: { id: updatedId } }));
-      } catch {}
+      // Feedback locale rimosso (niente eventi aggiuntivi)
     } else if (type === 'confirmTimeLogs') {
       // Conferma timeLogs con invio email
       await handleConfirmTimeLogs(data.timeLogs, true);
@@ -923,12 +918,7 @@ export default function TicketApp() {
         // Mantieni la vista corrente senza rimbalzi
         setDashboardTargetState(originCardState);
 
-        // Feedback locale sul ticket aggiornato
-        try {
-          const updated = tickets.find(t => t.id === selectedTicket.id);
-          const updatedId = updated ? updated.id : selectedTicket.id;
-          window.dispatchEvent(new CustomEvent('ticket-status-updated', { detail: { id: updatedId } }));
-        } catch {}
+        // Feedback locale rimosso (niente eventi aggiuntivi)
       }
     }
     
@@ -968,12 +958,7 @@ export default function TicketApp() {
       // Mantieni la vista corrente senza rimbalzi
       setDashboardTargetState(originCardState);
 
-      // Feedback locale sul ticket aggiornato
-      try {
-        const updated = tickets.find(t => t.id === data.id);
-        const updatedId = updated ? updated.id : data.id;
-        window.dispatchEvent(new CustomEvent('ticket-status-updated', { detail: { id: updatedId } }));
-      } catch {}
+      // Feedback locale rimosso (niente eventi aggiuntivi)
     } else if (type === 'confirmTimeLogs') {
       // Conferma timeLogs senza invio email
       await handleConfirmTimeLogs(data.timeLogs, false);
@@ -996,12 +981,7 @@ export default function TicketApp() {
         // Mantieni la vista corrente senza rimbalzi
         setDashboardTargetState(originCardState);
 
-        // Feedback locale sul ticket aggiornato
-        try {
-          const updated = tickets.find(t => t.id === selectedTicket.id);
-          const updatedId = updated ? updated.id : selectedTicket.id;
-          window.dispatchEvent(new CustomEvent('ticket-status-updated', { detail: { id: updatedId } }));
-        } catch {}
+        // Feedback locale rimosso (niente eventi aggiuntivi)
       }
     }
     
@@ -1115,12 +1095,7 @@ export default function TicketApp() {
     // Aggiorniamo solo il target per eventuali evidenziazioni
     setDashboardTargetState(originCardState);
 
-    // Feedback locale sul ticket aggiornato (glow/flash breve)
-    try {
-      const updated = tickets.find(t => t.id === id);
-      const updatedId = updated ? updated.id : id;
-      window.dispatchEvent(new CustomEvent('ticket-status-updated', { detail: { id: updatedId } }));
-    } catch {}
+    // Nessun feedback locale aggiuntivo
   };
 
   const handleReopenInLavorazione = (id) => handleChangeStatus(id, 'in_lavorazione');
