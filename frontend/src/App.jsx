@@ -333,7 +333,7 @@ export default function TicketApp() {
   }, [isLoggedIn, currentUser]);
 
 
-  // Riceve eventi per glow/frecce della dashboard
+  // Riceve eventi per glow/frecce della dashboard (senza cambiare vista)
   useEffect(() => {
     const handler = (e) => {
       const { state, type } = e.detail || {};
@@ -343,8 +343,7 @@ export default function TicketApp() {
       setTimeout(() => {
         setDashboardHighlights((prev) => ({ ...prev, [state]: null }));
       }, 10000);
-      // Vai in dashboard e focalizza lo stato relativo
-      setShowDashboard(true);
+      // Aggiorna solo il target per la dashboard, senza navigare
       setDashboardTargetState(state);
     };
     window.addEventListener('dashboard-highlight', handler);
@@ -355,7 +354,7 @@ export default function TicketApp() {
     const focusHandler = (e) => {
       const { state } = e.detail || {};
       if (!state) return;
-      setShowDashboard(true);
+      // Aggiorna solo il target per la dashboard, senza navigare
       setDashboardTargetState(state);
     };
     window.addEventListener('dashboard-focus', focusHandler);
