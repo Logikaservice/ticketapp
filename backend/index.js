@@ -419,11 +419,12 @@ app.post('/api/tickets/quick-request', async (req, res) => {
           const mailOptions = {
             from: emailUser,
             to: email,
-            subject: `🎫 Ticket Creato #${createdTicket.numero} - ${createdTicket.titolo}`,
+            subject: `Ticket creato #${createdTicket.numero} - ${createdTicket.titolo}`,
+            text: `Ciao ${azienda || 'Cliente'},\n\nIl tuo ticket è stato creato con successo.\n\nNumero: ${createdTicket.numero}\nTitolo: ${createdTicket.titolo}\nDescrizione: ${createdTicket.descrizione}\nPriorità: ${createdTicket.priorita}\nStato: ${createdTicket.stato}\nData apertura: ${new Date(createdTicket.dataapertura).toLocaleDateString('it-IT')}\n\nGrazie,\nTicketApp`,
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                 <div style="background: linear-gradient(135deg, #4caf50 0%, #45a049 100%); color: white; padding: 20px; text-align: center;">
-                  <h1 style="margin: 0;">🎫 TicketApp</h1>
+                  <h1 style="margin: 0;">TicketApp</h1>
                   <p style="margin: 10px 0 0 0;">Ticket Creato con Successo</p>
                 </div>
                 <div style="padding: 30px; background: #f8f9fa;">
@@ -451,6 +452,17 @@ app.post('/api/tickets/quick-request', async (req, res) => {
           
           const info = await transporter.sendMail(mailOptions);
           console.log(`✅ Email di conferma inviata al richiedente: ${email} (${info.messageId})`);
+          console.log('📧 accepted:', info.accepted, 'rejected:', info.rejected);
+          if (Array.isArray(info.rejected) && info.rejected.length > 0) {
+            console.log('⚠️ Email cliente rifiutata, ritento con subject/testo semplificato...');
+            const fallbackInfo = await transporter.sendMail({
+              from: emailUser,
+              to: email,
+              subject: `Conferma creazione ticket ${createdTicket.numero}`,
+              text: `Il tuo ticket ${createdTicket.numero} è stato creato con successo. Titolo: ${createdTicket.titolo}.`,
+            });
+            console.log('📧 Fallback accepted:', fallbackInfo.accepted, 'rejected:', fallbackInfo.rejected);
+          }
         } else {
           console.log('⚠️ Configurazione email mancante per invio email al richiedente');
         }
