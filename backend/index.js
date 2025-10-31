@@ -232,6 +232,9 @@ const availabilityRoutes = require('./routes/availability')(pool);
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
 
+// Endpoint pubblico per invii email server-to-server (es. quick-request senza login)
+// DEVE essere montato PRIMA di qualsiasi route protetta che inizia con /api
+app.use('/api/public-email', emailNotificationsRoutes);
 
 // Endpoint pubblico per ottenere solo i clienti (per auto-rilevamento azienda)
 app.get('/clients', async (req, res) => {
@@ -399,57 +402,125 @@ app.post('/api/tickets/quick-request', async (req, res) => {
     
     if (result.rows[0]) {
       const createdTicket = result.rows[0];
-      const baseUrl = process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`;
-
+      
+      // Invia email direttamente senza passare attraverso HTTP
       // 1) Email al cliente che ha inviato la richiesta
       try {
-        const clientEmailUrl = `${baseUrl}/api/public-email/notify-ticket-created`;
-        const clientEmailResponse = await fetch(clientEmailUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ticket: createdTicket,
-            clientEmail: email,
-            clientName: nomerichiedente,
-            clientAzienda: azienda || null,
-            isSelfCreated: true
-          })
-        });
-        if (clientEmailResponse.ok) {
-          console.log(`✅ Email di conferma inviata al richiedente: ${email}`);
+        const nodemailer = require('nodemailer');
+        const emailUser = process.env.EMAIL_USER;
+        const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
+        
+        if (emailUser && emailPass) {
+          const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: { user: emailUser, pass: emailPass }
+          });
+          
+          const mailOptions = {
+            from: emailUser,
+            to: email,
+            subject: `🎫 Ticket Creato #${createdTicket.numero} - ${createdTicket.titolo}`,
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: linear-gradient(135deg, #4caf50 0%, #45a049 100%); color: white; padding: 20px; text-align: center;">
+                  <h1 style="margin: 0;">🎫 TicketApp</h1>
+                  <p style="margin: 10px 0 0 0;">Ticket Creato con Successo</p>
+                </div>
+                <div style="padding: 30px; background: #f8f9fa;">
+                  <h2 style="color: #333; margin-top: 0;">Ciao ${azienda || 'Cliente'}!</h2>
+                  <p>Hai creato con successo un nuovo ticket di assistenza:</p>
+                  <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #4caf50;">
+                    <h3 style="color: #4caf50; margin-top: 0;">📋 Dettagli Ticket</h3>
+                    <p><strong>Numero:</strong> ${createdTicket.numero}</p>
+                    <p><strong>Titolo:</strong> ${createdTicket.titolo}</p>
+                    <p><strong>Descrizione:</strong> ${createdTicket.descrizione}</p>
+                    <p><strong>Priorità:</strong> ${createdTicket.priorita.toUpperCase()}</p>
+                    <p><strong>Stato:</strong> ${createdTicket.stato}</p>
+                    <p><strong>Data apertura:</strong> ${new Date(createdTicket.dataapertura).toLocaleDateString('it-IT')}</p>
+                  </div>
+                  <div style="background: #e8f5e8; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                    <p style="margin: 0; color: #2e7d32;">
+                      <strong>✅ Il tuo ticket è stato creato e aggiunto al calendario!</strong><br>
+                      Il nostro team tecnico lo esaminerà al più presto.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            `
+          };
+          
+          const info = await transporter.sendMail(mailOptions);
+          console.log(`✅ Email di conferma inviata al richiedente: ${email} (${info.messageId})`);
         } else {
-          console.log('⚠️ Invio email al richiedente non riuscito:', clientEmailResponse.status);
+          console.log('⚠️ Configurazione email mancante per invio email al richiedente');
         }
       } catch (clientEmailErr) {
         console.log('⚠️ Errore invio email al richiedente:', clientEmailErr.message);
+        console.error(clientEmailErr);
       }
 
       // 2) Email ai tecnici
       try {
         const techniciansData = await pool.query('SELECT email, nome, cognome FROM users WHERE ruolo = \'tecnico\' AND email IS NOT NULL');
-        for (const technician of techniciansData.rows) {
-          try {
-            const techEmailUrl = `${baseUrl}/api/public-email/notify-technician-new-ticket`;
-            const technicianEmailResponse = await fetch(techEmailUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ticket: createdTicket,
-                technicianEmail: technician.email,
-                technicianName: `${technician.nome} ${technician.cognome}`
-              })
-            });
-            if (technicianEmailResponse.ok) {
-              console.log(`✅ Email notifica inviata al tecnico: ${technician.email}`);
-            } else {
-              console.log(`⚠️ Invio email al tecnico ${technician.email} non riuscito:`, technicianEmailResponse.status);
+        const nodemailer = require('nodemailer');
+        const emailUser = process.env.EMAIL_USER;
+        const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
+        
+        if (emailUser && emailPass) {
+          const transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: { user: emailUser, pass: emailPass }
+          });
+          
+          for (const technician of techniciansData.rows) {
+            try {
+              const mailOptions = {
+                from: emailUser,
+                to: technician.email,
+                subject: `🎫 Nuovo Ticket #${createdTicket.numero} - ${createdTicket.titolo}`,
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 20px; text-align: center;">
+                      <h1 style="margin: 0;">🎫 TicketApp</h1>
+                      <p style="margin: 10px 0 0 0;">Nuovo Ticket di Assistenza</p>
+                    </div>
+                    <div style="padding: 30px; background: #f8f9fa;">
+                      <h2 style="color: #333; margin-top: 0;">Ciao ${technician.nome || 'Tecnico'}!</h2>
+                      <p>È stato creato un nuovo ticket di assistenza:</p>
+                      <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #3b82f6;">
+                        <h3 style="color: #3b82f6; margin-top: 0;">📋 Dettagli Ticket</h3>
+                        <p><strong>Numero:</strong> ${createdTicket.numero}</p>
+                        <p><strong>Titolo:</strong> ${createdTicket.titolo}</p>
+                        <p><strong>Descrizione:</strong> ${createdTicket.descrizione}</p>
+                        <p><strong>Priorità:</strong> ${createdTicket.priorita.toUpperCase()}</p>
+                        <p><strong>Stato:</strong> ${createdTicket.stato}</p>
+                        <p><strong>Data apertura:</strong> ${new Date(createdTicket.dataapertura).toLocaleDateString('it-IT')}</p>
+                        <p><strong>Richiedente:</strong> ${createdTicket.nomerichiedente}</p>
+                      </div>
+                      <div style="background: #e0f2f7; border-radius: 8px; padding: 15px; margin: 20px 0;">
+                        <p style="margin: 0; color: #0288d1;">
+                          <strong>🔔 Nuovo ticket da gestire!</strong><br>
+                          Il ticket è stato aggiunto al calendario e richiede la tua attenzione.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                `
+              };
+              
+              const info = await transporter.sendMail(mailOptions);
+              console.log(`✅ Email notifica inviata al tecnico: ${technician.email} (${info.messageId})`);
+            } catch (techEmailErr) {
+              console.log(`⚠️ Errore invio email tecnico ${technician.email}:`, techEmailErr.message);
+              console.error(techEmailErr);
             }
-          } catch (techEmailErr) {
-            console.log(`⚠️ Errore invio email tecnico ${technician.email}:`, techEmailErr.message);
           }
+        } else {
+          console.log('⚠️ Configurazione email mancante per invio email ai tecnici');
         }
       } catch (techErr) {
         console.log('⚠️ Errore invio email ai tecnici:', techErr.message);
+        console.error(techErr);
       }
 
       res.status(201).json({
@@ -467,6 +538,10 @@ app.post('/api/tickets/quick-request', async (req, res) => {
   }
 });
 
+// Endpoint pubblico per invii server-to-server (es. quick-request senza login)
+// DEVE essere montato PRIMA di qualsiasi app.use('/api', authenticateToken, ...)
+app.use('/api/public-email', emailNotificationsRoutes);
+
 // Rotte protette con autenticazione JWT
 app.use('/api/users', authenticateToken, usersRoutes);
 app.use('/api/tickets', authenticateToken, ticketsRoutes);
@@ -474,8 +549,6 @@ app.use('/api/alerts', authenticateToken, alertsRoutes);
 app.use('/api', authenticateToken, googleCalendarRoutes);
 app.use('/api', authenticateToken, googleAuthRoutes);
 app.use('/api/email', authenticateToken, emailNotificationsRoutes);
-// Endpoint pubblico per invii server-to-server (es. quick-request senza login)
-app.use('/api/public-email', emailNotificationsRoutes);
 app.use('/api/availability', authenticateToken, availabilityRoutes);
 
 // Endpoint per chiusura automatica ticket (senza autenticazione per cron job)
