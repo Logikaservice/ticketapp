@@ -441,53 +441,15 @@ module.exports = (pool) => {
               const userRole = req.user?.ruolo; // Dal JWT token
               
               if (oldStatus === 'aperto' && status === 'in_lavorazione') {
-                // Tecnico prende in carico → Notifica cliente
-                console.log(`📧 Invio notifica per cambio stato: ${oldStatus} → ${status}`);
-                
-                const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-ticket-taken`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    ...(authHeader ? { 'Authorization': authHeader } : {})
-                  },
-                  body: JSON.stringify({
-                    ticket: updatedTicket,
-                    clientEmail: client.email,
-                    clientName: `${client.nome} ${client.cognome}`
-                  })
-                });
-                
-                if (emailResponse.ok) {
-                  console.log(`✅ Email inviata al cliente: ${client.email}`);
-                } else {
-                  console.log(`⚠️ Errore invio email:`, emailResponse.status);
-                }
+                // Tecnico prende in carico → Notifica SOLO amministratori (NON il cliente)
+                console.log(`📧 Invio notifica amministratori per cambio stato: ${oldStatus} → ${status}`);
                 
                 // Notifica amministratori quando tecnico prende in carico
                 await sendEmailToAdmins(updatedTicket, client.azienda, client.email, 'Ticket preso in carico', 'preso in carico dal tecnico');
                 
               } else if (oldStatus === 'in_lavorazione' && status === 'risolto') {
-                // Tecnico risolve → Notifica cliente
-                console.log(`📧 Invio notifica per cambio stato: ${oldStatus} → ${status}`);
-                
-                const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-ticket-resolved`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    ...(authHeader ? { 'Authorization': authHeader } : {})
-                  },
-                  body: JSON.stringify({
-                    ticket: updatedTicket,
-                    clientEmail: client.email,
-                    clientName: `${client.nome} ${client.cognome}`
-                  })
-                });
-                
-                if (emailResponse.ok) {
-                  console.log(`✅ Email inviata al cliente: ${client.email}`);
-                } else {
-                  console.log(`⚠️ Errore invio email:`, emailResponse.status);
-                }
+                // Tecnico risolve → Notifica SOLO amministratori (NON il cliente)
+                console.log(`📧 Invio notifica amministratori per cambio stato: ${oldStatus} → ${status}`);
                 
                 // Notifica amministratori quando tecnico risolve
                 await sendEmailToAdmins(updatedTicket, client.azienda, client.email, 'Ticket risolto', 'risolto dal tecnico');
@@ -518,27 +480,8 @@ module.exports = (pool) => {
                   }
                   
                 } else if (userRole === 'tecnico') {
-                  // Tecnico chiude → Notifica cliente
-                  console.log(`📧 Tecnico ha chiuso il ticket - Notifica cliente`);
-                  
-                  const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-ticket-closed`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      ...(authHeader ? { 'Authorization': authHeader } : {})
-                    },
-                    body: JSON.stringify({
-                      ticket: updatedTicket,
-                      clientEmail: client.email,
-                      clientName: `${client.nome} ${client.cognome}`
-                    })
-                  });
-                  
-                  if (emailResponse.ok) {
-                    console.log(`✅ Email chiusura inviata al cliente: ${client.email}`);
-                  } else {
-                    console.log(`⚠️ Errore invio email chiusura:`, emailResponse.status);
-                  }
+                  // Tecnico chiude → Notifica SOLO amministratori (NON il cliente)
+                  console.log(`📧 Tecnico ha chiuso il ticket - Notifica amministratori`);
                   
                   // Notifica amministratori quando tecnico chiude
                   await sendEmailToAdmins(updatedTicket, client.azienda, client.email, 'Ticket chiuso', 'chiuso dal tecnico');
