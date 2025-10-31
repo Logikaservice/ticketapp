@@ -321,72 +321,52 @@ app.get('/api/availability/public', async (req, res) => {
 
 // Endpoint pubblico per richiesta assistenza veloce (senza login)
 app.post('/api/tickets/quick-request', async (req, res) => {
-  console.log('🔍 DEBUG QUICK REQUEST: Endpoint chiamato');
   const { titolo, descrizione, priorita, nomerichiedente, email, telefono, azienda } = req.body;
   
-  console.log('🔍 DEBUG QUICK REQUEST: Dati ricevuti:', { titolo, descrizione, priorita, nomerichiedente, email, telefono, azienda });
-  
   if (!titolo || !descrizione || !email || !nomerichiedente) {
-    console.log('🔍 DEBUG QUICK REQUEST: Campi obbligatori mancanti');
     return res.status(400).json({ error: 'Titolo, descrizione, email e nome sono obbligatori' });
   }
   
   try {
-    console.log('🔍 DEBUG QUICK REQUEST: Connessione al database');
     const client = await pool.connect();
     
     let clienteid = null;
     
-    // 1. Controlla se esiste già un cliente con la stessa azienda
-    if (azienda) {
-      console.log('🔍 DEBUG QUICK REQUEST: Controllo azienda esistente:', azienda);
-      const existingClient = await client.query(
-        'SELECT id FROM users WHERE azienda = $1 AND ruolo = \'cliente\' LIMIT 1', 
-        [azienda]
-      );
-      
-      console.log('🔍 DEBUG QUICK REQUEST: Risultato ricerca cliente:', existingClient.rows);
-      
-      if (existingClient.rows.length > 0) {
-        // Azienda riconosciuta: usa il cliente esistente
-        clienteid = existingClient.rows[0].id;
-        console.log(`✅ Azienda riconosciuta: ${azienda} -> Cliente ID: ${clienteid}`);
-      } else {
-        // Azienda non riconosciuta: crea nuovo cliente
-        console.log('🔍 DEBUG QUICK REQUEST: Creazione nuovo cliente');
-        const newClientQuery = `
-          INSERT INTO users (email, password, telefono, azienda, ruolo, nome, cognome) 
-          VALUES ($1, $2, $3, $4, $5, $6, $7) 
-          RETURNING id;
-        `;
-        const newClientValues = [
-          email, 
-          'quick_request_' + Date.now(), // Password temporanea
-          telefono || null, 
-          azienda, 
-          'cliente', 
-          nomerichiedente.split(' ')[0] || nomerichiedente, // Nome
-          nomerichiedente.split(' ').slice(1).join(' ') || '' // Cognome
-        ];
-        
-        console.log('🔍 DEBUG QUICK REQUEST: Valori nuovo cliente:', newClientValues);
-        const newClientResult = await client.query(newClientQuery, newClientValues);
-        clienteid = newClientResult.rows[0].id;
-        console.log(`✅ Nuovo cliente creato: ${azienda} -> Cliente ID: ${clienteid}`);
-      }
+    // Controlla se esiste già un cliente con questa email esatta
+    const existingByEmail = await client.query(
+      'SELECT id FROM users WHERE email = $1 AND ruolo = \'cliente\' LIMIT 1',
+      [email]
+    );
+    
+    if (existingByEmail.rows.length > 0) {
+      // Email esistente: usa il cliente esistente
+      clienteid = existingByEmail.rows[0].id;
     } else {
-      console.log('🔍 DEBUG QUICK REQUEST: Nessuna azienda specificata');
+      // Email non esistente: crea sempre un nuovo cliente (anche se l'azienda esiste già)
+      const newClientQuery = `
+        INSERT INTO users (email, password, telefono, azienda, ruolo, nome, cognome) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7) 
+        RETURNING id;
+      `;
+      const newClientValues = [
+        email, 
+        'quick_request_' + Date.now(),
+        telefono || null, 
+        azienda || null, 
+        'cliente', 
+        nomerichiedente.split(' ')[0] || nomerichiedente,
+        nomerichiedente.split(' ').slice(1).join(' ') || ''
+      ];
+      const newClientResult = await client.query(newClientQuery, newClientValues);
+      clienteid = newClientResult.rows[0].id;
     }
     
     // Genera numero ticket
-    console.log('🔍 DEBUG QUICK REQUEST: Generazione numero ticket');
     const countResult = await client.query('SELECT COUNT(*) FROM tickets');
     const count = parseInt(countResult.rows[0].count) + 1;
     const numero = `TKT-2025-${count.toString().padStart(3, '0')}`;
-    console.log('🔍 DEBUG QUICK REQUEST: Numero ticket generato:', numero);
     
     // Crea il ticket
-    console.log('🔍 DEBUG QUICK REQUEST: Creazione ticket');
     const query = `
       INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico) 
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() AT TIME ZONE 'Europe/Rome', NOW(), NOW()) 
@@ -394,10 +374,7 @@ app.post('/api/tickets/quick-request', async (req, res) => {
     `;
     
     const values = [numero, clienteid, titolo, descrizione, 'aperto', priorita, nomerichiedente, 'assistenza'];
-    console.log('🔍 DEBUG QUICK REQUEST: Valori ticket:', values);
-    console.log('🔍 DEBUG QUICK REQUEST: Query SQL:', query);
     const result = await client.query(query, values);
-    console.log('🔍 DEBUG QUICK REQUEST: Ticket creato:', result.rows[0]);
     client.release();
     
     if (result.rows[0]) {
@@ -450,25 +427,10 @@ app.post('/api/tickets/quick-request', async (req, res) => {
             `
           };
           
-          const info = await transporter.sendMail(mailOptions);
-          console.log(`✅ Email di conferma inviata al richiedente: ${email} (${info.messageId})`);
-          console.log('📧 accepted:', info.accepted, 'rejected:', info.rejected);
-          if (Array.isArray(info.rejected) && info.rejected.length > 0) {
-            console.log('⚠️ Email cliente rifiutata, ritento con subject/testo semplificato...');
-            const fallbackInfo = await transporter.sendMail({
-              from: emailUser,
-              to: email,
-              subject: `Conferma creazione ticket ${createdTicket.numero}`,
-              text: `Il tuo ticket ${createdTicket.numero} è stato creato con successo. Titolo: ${createdTicket.titolo}.`,
-            });
-            console.log('📧 Fallback accepted:', fallbackInfo.accepted, 'rejected:', fallbackInfo.rejected);
-          }
-        } else {
-          console.log('⚠️ Configurazione email mancante per invio email al richiedente');
+          await transporter.sendMail(mailOptions);
         }
       } catch (clientEmailErr) {
-        console.log('⚠️ Errore invio email al richiedente:', clientEmailErr.message);
-        console.error(clientEmailErr);
+        console.error('Errore invio email al richiedente:', clientEmailErr);
       }
 
       // 2) Email ai tecnici
@@ -520,19 +482,14 @@ app.post('/api/tickets/quick-request', async (req, res) => {
                 `
               };
               
-              const info = await transporter.sendMail(mailOptions);
-              console.log(`✅ Email notifica inviata al tecnico: ${technician.email} (${info.messageId})`);
+              await transporter.sendMail(mailOptions);
             } catch (techEmailErr) {
-              console.log(`⚠️ Errore invio email tecnico ${technician.email}:`, techEmailErr.message);
-              console.error(techEmailErr);
+              console.error('Errore invio email tecnico:', techEmailErr);
             }
           }
-        } else {
-          console.log('⚠️ Configurazione email mancante per invio email ai tecnici');
         }
       } catch (techErr) {
-        console.log('⚠️ Errore invio email ai tecnici:', techErr.message);
-        console.error(techErr);
+        console.error('Errore invio email ai tecnici:', techErr);
       }
 
       res.status(201).json({
@@ -544,8 +501,7 @@ app.post('/api/tickets/quick-request', async (req, res) => {
       res.status(500).json({ error: 'Errore nella creazione del ticket' });
     }
   } catch (err) {
-    console.error('🔍 DEBUG QUICK REQUEST: ERRORE:', err);
-    console.error('🔍 DEBUG QUICK REQUEST: Stack trace:', err.stack);
+    console.error('Errore quick request:', err);
     res.status(500).json({ error: 'Errore interno del server' });
   }
 });
