@@ -344,6 +344,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
 export const generateSingleTicketHTML = (ticket, options = {}) => {
   const {
     includeTimeLogs = false,
+    includeChat = true,
     clienteName = '',
     companyName = 'TicketApp'
   } = options;
@@ -433,6 +434,41 @@ export const generateSingleTicketHTML = (ticket, options = {}) => {
           <td>${log.modalita || ''}</td>
           <td>${log.oreIntervento || ''}</td>
           <td>${(log.descrizione || '').replace(/\n/g,'<br>')}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+      </tbody>
+    </table>
+  </div>
+    `;
+  }
+
+  if (includeChat && Array.isArray(ticket.messaggi) && ticket.messaggi.length > 0) {
+    html += `
+  <div class="section">
+    <h2>Conversazione</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 20%">Autore</th>
+          <th style="width: 20%">Data</th>
+          <th style="width: 60%">Messaggio</th>
+        </tr>
+      </thead>
+      <tbody>
+    `;
+
+    ticket.messaggi.forEach((m) => {
+      const dataMsg = formatDate(m.data);
+      const autore = m.reclamo ? `RECLAMO - ${m.autore}` : m.autore;
+      const contenuto = (m.contenuto || '').replace(/\n/g, '<br>');
+      html += `
+        <tr>
+          <td>${autore}</td>
+          <td>${dataMsg}</td>
+          <td>${contenuto}</td>
         </tr>
       `;
     });

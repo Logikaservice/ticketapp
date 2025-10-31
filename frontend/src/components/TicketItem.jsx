@@ -34,7 +34,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
     e.stopPropagation();
     const includeTimeLogs = ticket.stato === 'risolto' || ticket.stato === 'chiuso' || ticket.stato === 'inviato' || ticket.stato === 'fatturato';
     const clienteName = cliente?.azienda || `${cliente?.nome || ''} ${cliente?.cognome || ''}`.trim();
-    const html = generateSingleTicketHTML(ticket, { includeTimeLogs, clienteName });
+    const html = generateSingleTicketHTML(ticket, { includeTimeLogs, includeChat: true, clienteName });
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.open();
