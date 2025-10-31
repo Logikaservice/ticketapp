@@ -289,7 +289,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     try {
       const res = await fetch(`${apiBase}/api/alerts/${id}`, {
         method: 'DELETE',
-        headers: { 'x-user-role': 'tecnico' }
+        headers: { 
+          ...getAuthHeader(),
+          'x-user-role': 'tecnico' 
+        }
       });
       if (!res.ok) throw new Error('Errore eliminazione avviso');
       fetchAlerts();
