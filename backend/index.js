@@ -433,7 +433,91 @@ app.post('/api/tickets/quick-request', async (req, res) => {
         console.error('Errore invio email al richiedente:', clientEmailErr);
       }
 
-      // 2) Email ai tecnici
+      // 2) Email agli amministratori dell'azienda (se presenti e diversi dal cliente stesso)
+      if (azienda) {
+        try {
+          // Trova tutti gli amministratori dell'azienda (admin_companies contiene l'azienda)
+          // Usa ?| per controllare se l'array JSONB contiene il valore specificato
+          const adminsResult = await pool.query(
+            `SELECT id, email, nome, cognome, admin_companies 
+             FROM users 
+             WHERE ruolo = 'cliente' 
+             AND email IS NOT NULL 
+             AND admin_companies ?| $1::text[]`,
+            [[azienda]]
+          );
+          
+          if (adminsResult.rows.length > 0) {
+            const nodemailer = require('nodemailer');
+            const emailUser = process.env.EMAIL_USER;
+            const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
+            
+            if (emailUser && emailPass) {
+              const transporter = nodemailer.createTransport({
+                service: 'gmail',
+                auth: { user: emailUser, pass: emailPass }
+              });
+              
+              for (const admin of adminsResult.rows) {
+                // Evita doppio invio se l'amministratore è lo stesso cliente che ha creato il ticket
+                if (admin.email === email) {
+                  continue;
+                }
+                
+                // Verifica che l'amministratore abbia email valida
+                if (!admin.email || !admin.email.includes('@')) {
+                  continue;
+                }
+                
+                try {
+                  const mailOptions = {
+                    from: emailUser,
+                    to: admin.email,
+                    subject: `👑 Notifica Amministratore - Nuovo Ticket #${createdTicket.numero}`,
+                    text: `Ciao ${admin.nome || 'Amministratore'},\n\nUn nuovo ticket è stato creato da ${nomerichiedente} (${email}) per l'azienda ${azienda}.\n\nNumero: ${createdTicket.numero}\nTitolo: ${createdTicket.titolo}\nDescrizione: ${createdTicket.descrizione}\nPriorità: ${createdTicket.priorita}\nStato: ${createdTicket.stato}\nData apertura: ${new Date(createdTicket.dataapertura).toLocaleDateString('it-IT')}\n\nGrazie,\nTicketApp`,
+                    html: `
+                      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                        <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; text-align: center;">
+                          <h1 style="margin: 0;">👑 TicketApp</h1>
+                          <p style="margin: 10px 0 0 0;">Notifica Amministratore</p>
+                        </div>
+                        <div style="padding: 30px; background: #f8f9fa;">
+                          <h2 style="color: #333; margin-top: 0;">Ciao ${admin.nome || 'Amministratore'}!</h2>
+                          <p>Un nuovo ticket è stato creato da <strong>${nomerichiedente}</strong> (${email}) per l'azienda <strong>${azienda}</strong>.</p>
+                          <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                            <h3 style="color: #f59e0b; margin-top: 0;">📋 Dettagli Ticket</h3>
+                            <p><strong>Numero:</strong> ${createdTicket.numero}</p>
+                            <p><strong>Titolo:</strong> ${createdTicket.titolo}</p>
+                            <p><strong>Descrizione:</strong> ${createdTicket.descrizione}</p>
+                            <p><strong>Priorità:</strong> ${createdTicket.priorita.toUpperCase()}</p>
+                            <p><strong>Stato:</strong> ${createdTicket.stato}</p>
+                            <p><strong>Data apertura:</strong> ${new Date(createdTicket.dataapertura).toLocaleDateString('it-IT')}</p>
+                            <p><strong>Creato da:</strong> ${nomerichiedente} (${email})</p>
+                          </div>
+                          <div style="background: #fef3c7; border-radius: 8px; padding: 15px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                            <p style="margin: 0; color: #92400e;">
+                              <strong>👑 Notifica Amministratore:</strong><br>
+                              Ricevi questa email perché sei amministratore dell'azienda ${azienda}.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    `
+                  };
+                  
+                  await transporter.sendMail(mailOptions);
+                } catch (adminEmailErr) {
+                  console.error(`Errore invio email amministratore ${admin.email}:`, adminEmailErr);
+                }
+              }
+            }
+          }
+        } catch (adminErr) {
+          console.error('Errore invio email agli amministratori:', adminErr);
+        }
+      }
+
+      // 3) Email ai tecnici
       try {
         const techniciansData = await pool.query('SELECT email, nome, cognome FROM users WHERE ruolo = \'tecnico\' AND email IS NOT NULL');
         const nodemailer = require('nodemailer');
@@ -626,6 +710,14 @@ app.post('/api/init-db', async (req, res) => {
       console.log("⚠️ Errore aggiunta colonna googlecalendareventid (potrebbe già esistere):", alterErr.message);
     }
     
+    // Aggiungi colonna admin_companies alla tabella users se non esiste
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_companies JSONB DEFAULT '[]'::jsonb`);
+      console.log("✅ Colonna admin_companies aggiunta alla tabella users");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonna admin_companies (potrebbe già esistere):", alterErr.message);
+    }
+    
     // Crea tabella unavailable_days se non esiste
     try {
       await pool.query(`
@@ -717,6 +809,14 @@ const startServer = async () => {
       console.log("✅ Colonna googlecalendareventid aggiunta alla tabella tickets (auto-init)");
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna googlecalendareventid (auto-init):", alterErr.message);
+    }
+    
+    // Aggiungi colonna admin_companies alla tabella users se non esiste (auto-init)
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_companies JSONB DEFAULT '[]'::jsonb`);
+      console.log("✅ Colonna admin_companies aggiunta alla tabella users (auto-init)");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonna admin_companies (auto-init):", alterErr.message);
     }
     
     // Crea tabella unavailable_days se non esiste (auto-init)

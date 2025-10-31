@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X, Edit2, Save, Trash2, Mail, Phone, Building, Lock, ChevronRight, ChevronDown } from 'lucide-react';
+import { X, Edit2, Save, Trash2, Mail, Phone, Building, Lock, ChevronRight, ChevronDown, Crown } from 'lucide-react';
 
 const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }) => {
   const [editingId, setEditingId] = useState(null);
@@ -51,6 +51,12 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
     });
   };
 
+  // Helper per verificare se un cliente è admin della sua azienda
+  const isAdminOfCompany = (cliente, azienda) => {
+    if (!cliente.admin_companies || !Array.isArray(cliente.admin_companies)) return false;
+    return cliente.admin_companies.includes(azienda);
+  };
+
   const handleStartEdit = (cliente) => {
     setEditingId(cliente.id);
     setEditData({
@@ -59,7 +65,9 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
       email: cliente.email || '',
       telefono: cliente.telefono || '',
       azienda: cliente.azienda || '',
-      password: cliente.password || '' // Password attuale editabile
+      password: cliente.password || '', // Password attuale editabile
+      isAdmin: isAdminOfCompany(cliente, cliente.azienda || ''),
+      admin_companies: cliente.admin_companies || []
     });
   };
 
@@ -69,6 +77,30 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
     if (!dataToSend.password || dataToSend.password.trim() === '') {
       delete dataToSend.password;
     }
+    
+    // Gestione admin_companies: se isAdmin è true, aggiungi l'azienda all'array, altrimenti rimuovila
+    if (dataToSend.azienda) {
+      const currentAdminCompanies = Array.isArray(dataToSend.admin_companies) ? [...dataToSend.admin_companies] : [];
+      const aziendaCurrent = dataToSend.azienda.trim();
+      
+      if (dataToSend.isAdmin) {
+        // Aggiungi l'azienda se non è già presente
+        if (!currentAdminCompanies.includes(aziendaCurrent)) {
+          currentAdminCompanies.push(aziendaCurrent);
+        }
+      } else {
+        // Rimuovi l'azienda se è presente
+        const index = currentAdminCompanies.indexOf(aziendaCurrent);
+        if (index > -1) {
+          currentAdminCompanies.splice(index, 1);
+        }
+      }
+      
+      dataToSend.admin_companies = currentAdminCompanies;
+    }
+    
+    // Rimuovi isAdmin dal dataToSend (è solo per UI)
+    delete dataToSend.isAdmin;
     
     onUpdateClient(id, dataToSend);
     setEditingId(null);
@@ -263,6 +295,27 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                                   />
                                 </div>
                                 
+                                {/* Checkbox Cliente Amministratore */}
+                                <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                  <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={editData.isAdmin || false}
+                                      onChange={(e) => setEditData({ ...editData, isAdmin: e.target.checked })}
+                                      className="w-4 h-4 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500"
+                                    />
+                                    <div className="flex items-center gap-2">
+                                      <Crown size={16} className="text-yellow-600" />
+                                      <span className="text-xs font-medium text-gray-700">
+                                        Cliente Amministratore per questa azienda
+                                      </span>
+                                    </div>
+                                  </label>
+                                  <p className="text-xs text-gray-500 mt-1 ml-6">
+                                    L'amministratore riceverà email quando altri clienti dell'azienda creano ticket o quando cambia lo stato dei loro ticket.
+                                  </p>
+                                </div>
+                                
                                 <div className="flex gap-2 justify-end">
                                   <button
                                     onClick={handleCancel}
@@ -288,8 +341,11 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                                       {cliente.nome ? cliente.nome.charAt(0).toUpperCase() : '?'}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <h4 className="text-sm font-bold text-gray-800 truncate">
+                                      <h4 className="text-sm font-bold text-gray-800 truncate flex items-center gap-1">
                                         {cliente.nome} {cliente.cognome}
+                                        {isAdminOfCompany(cliente, azienda) && (
+                                          <Crown size={14} className="text-yellow-600 flex-shrink-0" title="Amministratore" />
+                                        )}
                                       </h4>
                                       <p className="text-xs text-gray-600 truncate">
                                         {cliente.email || 'N/D'}

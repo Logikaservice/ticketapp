@@ -355,11 +355,86 @@ module.exports = (pool) => {
         
         if (oldStatus !== status && (sendEmail === true || sendEmail === undefined)) {
           try {
-            // Ottieni i dati del cliente
-            const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [updatedTicket.clienteid]);
+            // Ottieni i dati del cliente (con azienda)
+            const clientData = await pool.query('SELECT email, nome, cognome, azienda FROM users WHERE id = $1', [updatedTicket.clienteid]);
             
             if (clientData.rows.length > 0 && clientData.rows[0].email) {
               const client = clientData.rows[0];
+              
+              // Funzione helper per inviare email agli amministratori dell'azienda
+              const sendEmailToAdmins = async (ticket, clientAzienda, clientEmail, subjectPrefix, statusDescription) => {
+                if (!clientAzienda) return;
+                
+                try {
+                  // Trova tutti gli amministratori dell'azienda
+                  const adminsResult = await pool.query(
+                    `SELECT id, email, nome, cognome 
+                     FROM users 
+                     WHERE ruolo = 'cliente' 
+                     AND email IS NOT NULL 
+                     AND email != $1
+                     AND admin_companies ?| $2::text[]`,
+                    [clientEmail, [clientAzienda]]
+                  );
+                  
+                  if (adminsResult.rows.length > 0) {
+                    const nodemailer = require('nodemailer');
+                    const emailUser = process.env.EMAIL_USER;
+                    const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
+                    
+                    if (emailUser && emailPass) {
+                      const transporter = nodemailer.createTransport({
+                        service: 'gmail',
+                        auth: { user: emailUser, pass: emailPass }
+                      });
+                      
+                      for (const admin of adminsResult.rows) {
+                        if (!admin.email || !admin.email.includes('@')) continue;
+                        
+                        try {
+                          const mailOptions = {
+                            from: emailUser,
+                            to: admin.email,
+                            subject: `👑 ${subjectPrefix} Ticket #${ticket.numero}`,
+                            text: `Ciao ${admin.nome || 'Amministratore'},\n\nIl ticket #${ticket.numero} (${ticket.titolo}) per l'azienda ${clientAzienda} è stato ${statusDescription}.\n\nNumero: ${ticket.numero}\nTitolo: ${ticket.titolo}\nStato: ${ticket.stato}\nCliente: ${client.nome} ${client.cognome} (${client.email})\n\nGrazie,\nTicketApp`,
+                            html: `
+                              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                                <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 20px; text-align: center;">
+                                  <h1 style="margin: 0;">👑 TicketApp</h1>
+                                  <p style="margin: 10px 0 0 0;">Notifica Amministratore</p>
+                                </div>
+                                <div style="padding: 30px; background: #f8f9fa;">
+                                  <h2 style="color: #333; margin-top: 0;">Ciao ${admin.nome || 'Amministratore'}!</h2>
+                                  <p>Il ticket #${ticket.numero} (<strong>${ticket.titolo}</strong>) per l'azienda <strong>${clientAzienda}</strong> è stato <strong>${statusDescription}</strong>.</p>
+                                  <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                                    <h3 style="color: #f59e0b; margin-top: 0;">📋 Dettagli Ticket</h3>
+                                    <p><strong>Numero:</strong> ${ticket.numero}</p>
+                                    <p><strong>Titolo:</strong> ${ticket.titolo}</p>
+                                    <p><strong>Stato:</strong> ${ticket.stato}</p>
+                                    <p><strong>Cliente:</strong> ${client.nome} ${client.cognome} (${client.email})</p>
+                                  </div>
+                                  <div style="background: #fef3c7; border-radius: 8px; padding: 15px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                                    <p style="margin: 0; color: #92400e;">
+                                      <strong>👑 Notifica Amministratore:</strong><br>
+                                      Ricevi questa email perché sei amministratore dell'azienda ${clientAzienda}.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            `
+                          };
+                          
+                          await transporter.sendMail(mailOptions);
+                        } catch (adminEmailErr) {
+                          console.error(`Errore invio email amministratore ${admin.email}:`, adminEmailErr);
+                        }
+                      }
+                    }
+                  }
+                } catch (adminErr) {
+                  console.error('Errore invio email agli amministratori:', adminErr);
+                }
+              };
               const authHeader = req.headers.authorization;
               
               // Determina quale notifica inviare basandosi sul ruolo di chi fa l'azione
@@ -388,6 +463,9 @@ module.exports = (pool) => {
                   console.log(`⚠️ Errore invio email:`, emailResponse.status);
                 }
                 
+                // Notifica amministratori quando tecnico prende in carico
+                await sendEmailToAdmins(updatedTicket, client.azienda, client.email, 'Ticket preso in carico', 'preso in carico dal tecnico');
+                
               } else if (oldStatus === 'in_lavorazione' && status === 'risolto') {
                 // Tecnico risolve → Notifica cliente
                 console.log(`📧 Invio notifica per cambio stato: ${oldStatus} → ${status}`);
@@ -410,6 +488,9 @@ module.exports = (pool) => {
                 } else {
                   console.log(`⚠️ Errore invio email:`, emailResponse.status);
                 }
+                
+                // Notifica amministratori quando tecnico risolve
+                await sendEmailToAdmins(updatedTicket, client.azienda, client.email, 'Ticket risolto', 'risolto dal tecnico');
                 
               } else if (oldStatus === 'risolto' && status === 'chiuso') {
                 // Chiusura ticket - dipende da chi chiude
@@ -458,6 +539,9 @@ module.exports = (pool) => {
                   } else {
                     console.log(`⚠️ Errore invio email chiusura:`, emailResponse.status);
                   }
+                  
+                  // Notifica amministratori quando tecnico chiude
+                  await sendEmailToAdmins(updatedTicket, client.azienda, client.email, 'Ticket chiuso', 'chiuso dal tecnico');
                 }
               }
             }

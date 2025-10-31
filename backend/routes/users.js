@@ -9,7 +9,7 @@ module.exports = (pool) => {
   router.get('/', async (req, res) => {
     try {
       const client = await pool.connect();
-      const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda FROM users');
+      const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies FROM users');
       
       // Per il tecnico, mostra sempre la password in chiaro
       const usersWithPlainPasswords = result.rows.map(user => ({
@@ -30,7 +30,7 @@ module.exports = (pool) => {
     try {
       const { id } = req.params;
       const client = await pool.connect();
-      const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda FROM users WHERE id = $1', [id]);
+      const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies FROM users WHERE id = $1', [id]);
       
       if (result.rows.length === 0) {
         client.release();
@@ -70,9 +70,9 @@ module.exports = (pool) => {
       
       const client = await pool.connect();
       const query = `
-        INSERT INTO users (email, password, telefono, azienda, ruolo, nome, cognome) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7) 
-        RETURNING id, email, ruolo, nome, cognome, telefono, azienda;
+        INSERT INTO users (email, password, telefono, azienda, ruolo, nome, cognome, admin_companies) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, '[]'::jsonb) 
+        RETURNING id, email, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, '[]'::jsonb) as admin_companies;
       `;
       const values = [email, password, telefono || null, azienda, ruolo || 'cliente', nome, cognome];
       const result = await client.query(query, values);
@@ -111,31 +111,57 @@ module.exports = (pool) => {
   // ENDPOINT: Aggiorna un utente/cliente - SICURO con hash password
   router.patch('/:id', async (req, res) => {
     const { id } = req.params;
-    const { nome, cognome, email, telefono, azienda, password } = req.body;
+    const { nome, cognome, email, telefono, azienda, password, admin_companies } = req.body;
     
     try {
       const client = await pool.connect();
       
       let query, values;
+      
+      // Converti admin_companies in JSONB se fornito
+      const adminCompaniesJsonb = admin_companies !== undefined && admin_companies !== null 
+        ? JSON.stringify(Array.isArray(admin_companies) ? admin_companies : []) 
+        : null;
+      
       if (password && password.trim() !== '') {
         // Salva la password in chiaro per il tecnico (non hashata)
         console.log(`🔓 Password salvata in chiaro per aggiornamento utente ID: ${id}`);
         
-        query = `
-          UPDATE users 
-          SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, password = $6
-          WHERE id = $7 
-          RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password;
-        `;
-        values = [nome, cognome, email, telefono, azienda, password, id];
+        if (adminCompaniesJsonb !== null) {
+          query = `
+            UPDATE users 
+            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, password = $6, admin_companies = $7::jsonb
+            WHERE id = $8 
+            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies;
+          `;
+          values = [nome, cognome, email, telefono, azienda, password, adminCompaniesJsonb, id];
+        } else {
+          query = `
+            UPDATE users 
+            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, password = $6
+            WHERE id = $7 
+            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies;
+          `;
+          values = [nome, cognome, email, telefono, azienda, password, id];
+        }
       } else {
-        query = `
-          UPDATE users 
-          SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5 
-          WHERE id = $6 
-          RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password;
-        `;
-        values = [nome, cognome, email, telefono, azienda, id];
+        if (adminCompaniesJsonb !== null) {
+          query = `
+            UPDATE users 
+            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, admin_companies = $6::jsonb
+            WHERE id = $7 
+            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies;
+          `;
+          values = [nome, cognome, email, telefono, azienda, adminCompaniesJsonb, id];
+        } else {
+          query = `
+            UPDATE users 
+            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5
+            WHERE id = $6 
+            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies;
+          `;
+          values = [nome, cognome, email, telefono, azienda, id];
+        }
       }
       
       const result = await client.query(query, values);
