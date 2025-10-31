@@ -368,9 +368,10 @@ export const generateSingleTicketHTML = (ticket, options = {}) => {
     .section { margin: 12px 0; }
     .section h2 { font-size: 12pt; margin: 0 0 6px; }
     .box { background: #fafafa; border-left: 3px solid #4a90e2; padding: 8px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-    th, td { padding: 6px; border-bottom: 1px solid #ddd; font-size: 10pt; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; table-layout: fixed; }
+    th, td { padding: 6px; border-bottom: 1px solid #ddd; font-size: 10pt; word-wrap: break-word; }
     thead th { background: #f5f5f5; text-align: left; }
+    td.descrizione-cell { white-space: normal; word-wrap: break-word; overflow-wrap: break-word; }
     .footer { margin-top: 16px; font-size: 9pt; color: #666; text-align: right; }
     @media print { body { padding: 0; } }
   </style>
@@ -415,10 +416,10 @@ export const generateSingleTicketHTML = (ticket, options = {}) => {
     <table>
       <thead>
         <tr>
-          <th style="width: 35%">Data/Ora</th>
-          <th style="width: 20%">Modalità</th>
-          <th style="width: 15%">Ore</th>
-          <th style="width: 30%">Descrizione</th>
+          <th style="width: 18%">Data/Ora</th>
+          <th style="width: 12%">Modalità</th>
+          <th style="width: 8%">Ore</th>
+          <th style="width: 62%">Descrizione</th>
         </tr>
       </thead>
       <tbody>
@@ -430,10 +431,10 @@ export const generateSingleTicketHTML = (ticket, options = {}) => {
       const oraFine = log.oraFine || '';
       html += `
         <tr>
-          <td>${dataIt} ${oraInizio}${oraFine ? ' - ' + oraFine : ''}</td>
-          <td>${log.modalita || ''}</td>
-          <td>${log.oreIntervento || ''}</td>
-          <td>${(log.descrizione || '').replace(/\n/g,'<br>')}</td>
+          <td style="font-size: 9pt;">${dataIt} ${oraInizio}${oraFine ? ' - ' + oraFine : ''}</td>
+          <td style="font-size: 9pt;">${log.modalita || ''}</td>
+          <td style="font-size: 9pt; text-align: center;">${log.oreIntervento || ''}</td>
+          <td class="descrizione-cell" style="font-size: 10pt;">${(log.descrizione || '').replace(/\n/g,'<br>')}</td>
         </tr>
       `;
     });
