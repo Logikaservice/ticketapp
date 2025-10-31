@@ -25,6 +25,18 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
   } = handlers;
 
   const isTicketOpen = ticket.stato === 'aperto';
+  const [justUpdated, setJustUpdated] = React.useState(false);
+
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (e?.detail?.id === ticket.id) {
+        setJustUpdated(true);
+        setTimeout(() => setJustUpdated(false), 900);
+      }
+    };
+    window.addEventListener('ticket-status-updated', handler);
+    return () => window.removeEventListener('ticket-status-updated', handler);
+  }, [ticket.id]);
   const canDelete = currentUser.ruolo === 'tecnico' || (currentUser.ruolo === 'cliente' && isTicketOpen);
   
   const unreadCount = getUnreadCount ? getUnreadCount(ticket) : 0;
@@ -48,10 +60,11 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
       <div
         data-ticket-id={ticket.id}
         onClick={() => handleSelectTicket(ticket)}
-        className={'cursor-pointer border-b relative overflow-hidden transition-all ' + 
+        className={'cursor-pointer border-b relative overflow-hidden transition-shadow transition-colors ' + 
   (ticket.isNew ? 'bg-yellow-50 border-yellow-300 animate-pulse-slow shadow-md hover:bg-yellow-100' : 
    selectedTicket?.id === ticket.id ? 'bg-blue-100 border-blue-300' : 'bg-white hover:bg-gray-50') + ' ' +
-  (hasUnread && selectedTicket?.id !== ticket.id ? 'border-l-4 border-yellow-400 shadow-lg animate-pulse-slow bg-yellow-50' : '')}
+  (hasUnread && selectedTicket?.id !== ticket.id ? 'border-l-4 border-yellow-400 shadow-lg animate-pulse-slow bg-yellow-50' : '') + ' ' +
+  (justUpdated ? 'ring-2 ring-green-400 ring-offset-2 ring-offset-white bg-green-50' : '')}
       >
         <div className="p-4 pl-5 relative">
           <div className={'absolute top-0 left-0 h-full w-1 ' + getPrioritySolidBgClass(ticket.priorita)}></div>

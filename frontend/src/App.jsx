@@ -1179,6 +1179,13 @@ export default function TicketApp() {
     // Mantieni la vista corrente senza rimbalzi: niente switch temporaneo alla dashboard
     // Aggiorniamo solo il target per eventuali evidenziazioni
     setDashboardTargetState(originCardState);
+
+    // Feedback locale sul ticket aggiornato (glow/flash breve)
+    try {
+      const updated = tickets.find(t => t.id === id);
+      const updatedId = updated ? updated.id : id;
+      window.dispatchEvent(new CustomEvent('ticket-status-updated', { detail: { id: updatedId } }));
+    } catch {}
   };
 
   const handleReopenInLavorazione = (id) => handleChangeStatus(id, 'in_lavorazione');
