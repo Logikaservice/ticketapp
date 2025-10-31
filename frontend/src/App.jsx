@@ -893,31 +893,15 @@ export default function TicketApp() {
         detail: { state: originCardState, type: 'down', direction: 'forward' } 
       }));
       
-      // Se non siamo nella dashboard, vai temporaneamente alla dashboard per mostrare le animazioni
-      if (!showDashboard) {
-        setShowDashboard(true);
-        setDashboardTargetState(originCardState);
-        // Dopo 2 secondi, torna alla card di origine se non è vuota
-        setTimeout(() => {
-          const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-          if (ticketsInOriginCard > 0) {
-            setShowDashboard(false);
-            setDashboardTargetState(originCardState);
-          }
-        }, 2000);
-      } else {
-        // Se siamo già nella dashboard, mantieni la logica normale
-        const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-        
-        if (ticketsInOriginCard > 0) {
-          // Se ci sono ancora ticket nella card di origine, rimani lì
-          setShowDashboard(false);
-          setDashboardTargetState(originCardState);
-        } else {
-          // Se la card di origine è vuota, torna alla dashboard
-          setShowDashboard(true);
-        }
-      }
+      // Mantieni la vista corrente senza rimbalzi
+      setDashboardTargetState(originCardState);
+
+      // Feedback locale sul ticket aggiornato
+      try {
+        const updated = tickets.find(t => t.id === data.id);
+        const updatedId = updated ? updated.id : data.id;
+        window.dispatchEvent(new CustomEvent('ticket-status-updated', { detail: { id: updatedId } }));
+      } catch {}
     } else if (type === 'confirmTimeLogs') {
       // Conferma timeLogs con invio email
       await handleConfirmTimeLogs(data.timeLogs, true);
@@ -937,31 +921,15 @@ export default function TicketApp() {
           detail: { state: originCardState, type: 'down', direction: 'forward' } 
         }));
         
-        // Se non siamo nella dashboard, vai temporaneamente alla dashboard per mostrare le animazioni
-        if (!showDashboard) {
-          setShowDashboard(true);
-          setDashboardTargetState(originCardState);
-          // Dopo 2 secondi, torna alla card di origine se non è vuota
-          setTimeout(() => {
-            const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-            if (ticketsInOriginCard > 0) {
-              setShowDashboard(false);
-              setDashboardTargetState(originCardState);
-            }
-          }, 2000);
-        } else {
-          // Se siamo già nella dashboard, mantieni la logica normale
-          const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-          
-          if (ticketsInOriginCard > 0) {
-            // Se ci sono ancora ticket nella card di origine, rimani lì
-            setShowDashboard(false);
-            setDashboardTargetState(originCardState);
-          } else {
-            // Se la card di origine è vuota, torna alla dashboard
-            setShowDashboard(true);
-          }
-        }
+        // Mantieni la vista corrente senza rimbalzi
+        setDashboardTargetState(originCardState);
+
+        // Feedback locale sul ticket aggiornato
+        try {
+          const updated = tickets.find(t => t.id === selectedTicket.id);
+          const updatedId = updated ? updated.id : selectedTicket.id;
+          window.dispatchEvent(new CustomEvent('ticket-status-updated', { detail: { id: updatedId } }));
+        } catch {}
       }
     }
     
@@ -998,31 +966,15 @@ export default function TicketApp() {
         detail: { state: originCardState, type: 'down', direction: 'forward' } 
       }));
       
-      // Se non siamo nella dashboard, vai temporaneamente alla dashboard per mostrare le animazioni
-      if (!showDashboard) {
-        setShowDashboard(true);
-        setDashboardTargetState(originCardState);
-        // Dopo 2 secondi, torna alla card di origine se non è vuota
-        setTimeout(() => {
-          const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-          if (ticketsInOriginCard > 0) {
-            setShowDashboard(false);
-            setDashboardTargetState(originCardState);
-          }
-        }, 2000);
-      } else {
-        // Se siamo già nella dashboard, mantieni la logica normale
-        const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-        
-        if (ticketsInOriginCard > 0) {
-          // Se ci sono ancora ticket nella card di origine, rimani lì
-          setShowDashboard(false);
-          setDashboardTargetState(originCardState);
-        } else {
-          // Se la card di origine è vuota, torna alla dashboard
-          setShowDashboard(true);
-        }
-      }
+      // Mantieni la vista corrente senza rimbalzi
+      setDashboardTargetState(originCardState);
+
+      // Feedback locale sul ticket aggiornato
+      try {
+        const updated = tickets.find(t => t.id === data.id);
+        const updatedId = updated ? updated.id : data.id;
+        window.dispatchEvent(new CustomEvent('ticket-status-updated', { detail: { id: updatedId } }));
+      } catch {}
     } else if (type === 'confirmTimeLogs') {
       // Conferma timeLogs senza invio email
       await handleConfirmTimeLogs(data.timeLogs, false);
@@ -1042,31 +994,15 @@ export default function TicketApp() {
           detail: { state: originCardState, type: 'down', direction: 'forward' } 
         }));
         
-        // Se non siamo nella dashboard, vai temporaneamente alla dashboard per mostrare le animazioni
-        if (!showDashboard) {
-          setShowDashboard(true);
-          setDashboardTargetState(originCardState);
-          // Dopo 2 secondi, torna alla card di origine se non è vuota
-          setTimeout(() => {
-            const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-            if (ticketsInOriginCard > 0) {
-              setShowDashboard(false);
-              setDashboardTargetState(originCardState);
-            }
-          }, 2000);
-        } else {
-          // Se siamo già nella dashboard, mantieni la logica normale
-          const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-          
-          if (ticketsInOriginCard > 0) {
-            // Se ci sono ancora ticket nella card di origine, rimani lì
-            setShowDashboard(false);
-            setDashboardTargetState(originCardState);
-          } else {
-            // Se la card di origine è vuota, torna alla dashboard
-            setShowDashboard(true);
-          }
-        }
+        // Mantieni la vista corrente senza rimbalzi
+        setDashboardTargetState(originCardState);
+
+        // Feedback locale sul ticket aggiornato
+        try {
+          const updated = tickets.find(t => t.id === selectedTicket.id);
+          const updatedId = updated ? updated.id : selectedTicket.id;
+          window.dispatchEvent(new CustomEvent('ticket-status-updated', { detail: { id: updatedId } }));
+        } catch {}
       }
     }
     
@@ -1238,31 +1174,15 @@ export default function TicketApp() {
         detail: { state: originCardState, type: 'down', direction: 'forward' } 
       }));
       
-      // Se non siamo nella dashboard, vai temporaneamente alla dashboard per mostrare le animazioni
-      if (!showDashboard) {
-        setShowDashboard(true);
-        setDashboardTargetState(originCardState);
-        // Dopo 2 secondi, torna alla card di origine se non è vuota
-        setTimeout(() => {
-          const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-          if (ticketsInOriginCard > 0) {
-            setShowDashboard(false);
-            setDashboardTargetState(originCardState);
-          }
-        }, 2000);
-      } else {
-        // Se siamo già nella dashboard, mantieni la logica normale
-        const ticketsInOriginCard = tickets.filter(t => t.stato === originCardState).length;
-        
-        if (ticketsInOriginCard > 0) {
-          // Se ci sono ancora ticket nella card di origine, rimani lì
-          setShowDashboard(false);
-          setDashboardTargetState(originCardState);
-        } else {
-          // Se la card di origine è vuota, torna alla dashboard
-          setShowDashboard(true);
-        }
-      }
+      // Mantieni la vista corrente senza rimbalzi
+      setDashboardTargetState(originCardState);
+
+      // Feedback locale sul ticket aggiornato
+      try {
+        const updated = tickets.find(t => t.id === selectedTicket.id);
+        const updatedId = updated ? updated.id : selectedTicket.id;
+        window.dispatchEvent(new CustomEvent('ticket-status-updated', { detail: { id: updatedId } }));
+      } catch {}
     }
   };
 
