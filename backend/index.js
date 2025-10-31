@@ -319,6 +319,24 @@ app.get('/api/availability/public', async (req, res) => {
   }
 });
 
+// Funzione helper per generare il footer HTML con link al login
+const getEmailFooter = () => {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com';
+  return `
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
+      <p style="color: #6b7280; font-size: 11px; margin: 0 0 8px 0;">
+        <a href="${frontendUrl}" 
+           style="color: #4caf50; text-decoration: none; font-weight: 500; font-size: 12px;">
+          🔐 Accedi al sistema TicketApp
+        </a>
+      </p>
+      <p style="color: #9ca3af; font-size: 10px; margin: 0;">
+        Questa email è stata inviata automaticamente dal sistema TicketApp
+      </p>
+    </div>
+  `;
+};
+
 // Endpoint pubblico per richiesta assistenza veloce (senza login)
 app.post('/api/tickets/quick-request', async (req, res) => {
   const { titolo, descrizione, priorita, nomerichiedente, email, telefono, azienda } = req.body;
@@ -422,6 +440,7 @@ app.post('/api/tickets/quick-request', async (req, res) => {
                       Il nostro team tecnico lo esaminerà al più presto.
                     </p>
                   </div>
+                  ${getEmailFooter()}
                 </div>
               </div>
             `
@@ -500,6 +519,7 @@ app.post('/api/tickets/quick-request', async (req, res) => {
                               Ricevi questa email perché sei amministratore dell'azienda ${azienda}.
                             </p>
                           </div>
+                          ${getEmailFooter()}
                         </div>
                       </div>
                     `
@@ -561,6 +581,7 @@ app.post('/api/tickets/quick-request', async (req, res) => {
                           Il ticket è stato aggiunto al calendario e richiede la tua attenzione.
                         </p>
                       </div>
+                      ${getEmailFooter()}
                     </div>
                   </div>
                 `

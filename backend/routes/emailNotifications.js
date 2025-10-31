@@ -5,6 +5,24 @@ const nodemailer = require('nodemailer');
 
 module.exports = (pool) => {
   const router = express.Router();
+  
+  // Funzione helper per generare il footer HTML con link al login
+  const getEmailFooter = () => {
+    const frontendUrl = process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com';
+    return `
+      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
+        <p style="color: #6b7280; font-size: 11px; margin: 0 0 8px 0;">
+          <a href="${frontendUrl}" 
+             style="color: #4caf50; text-decoration: none; font-weight: 500; font-size: 12px;">
+            🔐 Accedi al sistema TicketApp
+          </a>
+        </p>
+        <p style="color: #9ca3af; font-size: 10px; margin: 0;">
+          Questa email è stata inviata automaticamente dal sistema TicketApp
+        </p>
+      </div>
+    `;
+  };
 
   // Configurazione email transporter - supporta EMAIL_PASSWORD o EMAIL_PASS
   const createTransporter = () => {
@@ -100,12 +118,7 @@ module.exports = (pool) => {
                 </a>
               </div>
               
-              <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-              
-              <p style="color: #666; font-size: 14px; margin: 0;">
-                Questa email è stata inviata automaticamente dal sistema TicketApp.<br>
-                Per assistenza, contatta il tuo tecnico di riferimento.
-              </p>
+              ${getEmailFooter()}
             </div>
           </div>
         `
@@ -185,6 +198,7 @@ module.exports = (pool) => {
                   Riceverai aggiornamenti non appena ci saranno novità.
                 </p>
               </div>
+              ${getEmailFooter()}
             </div>
           </div>
         `
@@ -263,6 +277,7 @@ module.exports = (pool) => {
                   Questo ticket sarà automaticamente chiuso tra 5 giorni. Dopo la chiusura automatica non potrai più reclamare o richiedere modifiche.
                 </p>
               </div>
+              ${getEmailFooter()}
             </div>
           </div>
         `
@@ -334,6 +349,7 @@ module.exports = (pool) => {
                   Se hai nuovi problemi, puoi sempre creare un nuovo ticket.
                 </p>
               </div>
+              ${getEmailFooter()}
             </div>
           </div>
         `
@@ -427,6 +443,8 @@ module.exports = (pool) => {
                   🔗 Visualizza Ticket
                 </a>
               </div>
+              
+              ${getEmailFooter()}
             </div>
           </div>
         `
@@ -506,6 +524,7 @@ module.exports = (pool) => {
                   Il ticket è stato chiuso automaticamente dopo 5 giorni dalla risoluzione. Se hai ancora problemi, puoi creare un nuovo ticket.
                 </p>
               </div>
+              ${getEmailFooter()}
             </div>
           </div>
         `
@@ -543,6 +562,7 @@ module.exports = (pool) => {
                   Il ticket è stato chiuso automaticamente dopo 5 giorni dalla risoluzione. Il cliente non ha risposto.
                 </p>
               </div>
+              ${getEmailFooter()}
             </div>
           </div>
         `
@@ -651,6 +671,7 @@ ${formattedComplaints}
                   🔗 Gestisci Ticket
                 </a>
               </div>
+              ${getEmailFooter()}
             </div>
           </div>
         `
@@ -725,6 +746,7 @@ ${formattedComplaints}
                   🔗 Accedi al Sistema
                 </a>
               </div>
+              ${getEmailFooter()}
             </div>
           </div>
         `
@@ -831,12 +853,7 @@ ${formattedComplaints}
                 </a>
               </div>
               
-              <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-              
-              <p style="color: #666; font-size: 14px; margin: 0;">
-                Questa email è stata inviata automaticamente dal sistema TicketApp.<br>
-                Per assistenza, contatta il nostro team tecnico.
-              </p>
+              ${getEmailFooter()}
             </div>
           </div>
         `
@@ -1010,12 +1027,7 @@ ${formattedComplaints}
                 </a>
               </div>
               
-              <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-              
-              <p style="color: #666; font-size: 14px; margin: 0;">
-                Questa email è stata inviata automaticamente dal sistema TicketApp.<br>
-                Per assistenza, contatta il supporto tecnico.
-              </p>
+              ${getEmailFooter()}
             </div>
           </div>
         `
@@ -1140,12 +1152,7 @@ ${formattedComplaints}
                 </p>
               </div>
               
-              <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
-              
-              <p style="color: #666; font-size: 14px; margin: 0;">
-                Questo messaggio è stato inviato automaticamente dal sistema TicketApp per testare le notifiche email.<br>
-                Se ricevi questo messaggio, significa che le notifiche per i ticket funzionano correttamente.
-              </p>
+              ${getEmailFooter()}
             </div>
           </div>
         `
