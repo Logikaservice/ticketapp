@@ -6,19 +6,23 @@ const nodemailer = require('nodemailer');
 module.exports = (pool) => {
   const router = express.Router();
 
-  // Configurazione email transporter - Solo Gmail
+  // Configurazione email transporter - supporta EMAIL_PASSWORD o EMAIL_PASS
   const createTransporter = () => {
+    const emailUser = process.env.EMAIL_USER;
+    const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
     console.log('🔧 Creazione transporter email...');
-    console.log('EMAIL_USER:', process.env.EMAIL_USER);
-    console.log('EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? 'Configurato' : 'Mancante');
+    console.log('EMAIL_USER:', emailUser);
+    console.log('EMAIL_PASS/PASSWORD configurata:', emailPass ? 'Sì' : 'No');
+    
+    if (!emailUser || !emailPass) {
+      console.log('❌ Configurazione email mancante');
+      return null;
+    }
     
     console.log('📧 Configurazione Gmail');
     return nodemailer.createTransport({
       service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD
-      }
+      auth: { user: emailUser, pass: emailPass }
     });
   };
 
@@ -41,7 +45,7 @@ module.exports = (pool) => {
       }
 
       // Verifica che le credenziali email siano configurate
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      if (!process.env.EMAIL_USER || !(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS)) {
         console.log('⚠️ Credenziali email non configurate');
         return res.json({
           success: false,
@@ -51,6 +55,9 @@ module.exports = (pool) => {
 
       console.log('🔧 Creazione transporter...');
       const transporter = createTransporter();
+      if (!transporter) {
+        return res.status(500).json({ error: 'Configurazione email mancante' });
+      }
       
       // Template email
       const mailOptions = {
@@ -139,7 +146,7 @@ module.exports = (pool) => {
         return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
       }
 
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      if (!process.env.EMAIL_USER || !(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS)) {
         return res.json({
           success: false,
           message: 'Sistema email non configurato'
@@ -210,7 +217,7 @@ module.exports = (pool) => {
         return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
       }
 
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      if (!process.env.EMAIL_USER || !(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS)) {
         return res.json({
           success: false,
           message: 'Sistema email non configurato'
@@ -288,7 +295,7 @@ module.exports = (pool) => {
         return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
       }
 
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      if (!process.env.EMAIL_USER || !(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS)) {
         return res.json({
           success: false,
           message: 'Sistema email non configurato'
@@ -366,7 +373,7 @@ module.exports = (pool) => {
         return res.status(400).json({ error: 'Ticket e email cliente sono obbligatori' });
       }
 
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      if (!process.env.EMAIL_USER || !(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS)) {
         return res.json({
           success: false,
           message: 'Sistema email non configurato'
@@ -863,13 +870,13 @@ ${formattedComplaints}
         return res.status(400).json({ error: 'Email di test obbligatoria' });
       }
 
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      if (!process.env.EMAIL_USER || !(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS)) {
         return res.json({
           success: false,
           message: 'Credenziali email non configurate',
           details: {
             EMAIL_USER: process.env.EMAIL_USER ? 'Configurato' : 'Mancante',
-            EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? 'Configurato' : 'Mancante'
+            EMAIL_PASSWORD: (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS) ? 'Configurato' : 'Mancante'
           }
         });
       }
@@ -1070,17 +1077,17 @@ ${formattedComplaints}
         return res.status(400).json({ error: 'Email di test richiesta' });
       }
 
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      if (!process.env.EMAIL_USER || !(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS)) {
         console.log('❌ Configurazione email mancante:', {
           EMAIL_USER: process.env.EMAIL_USER ? 'Configurato' : 'MANCANTE',
-          EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? 'Configurato' : 'MANCANTE'
+          EMAIL_PASSWORD: (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS) ? 'Configurato' : 'MANCANTE'
         });
         return res.status(500).json({ 
           error: 'Sistema email non configurato',
           details: 'EMAIL_USER o EMAIL_PASSWORD mancanti nelle variabili d\'ambiente',
           config: {
             EMAIL_USER: process.env.EMAIL_USER ? 'Configurato' : 'MANCANTE',
-            EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? 'Configurato' : 'MANCANTE'
+            EMAIL_PASSWORD: (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS) ? 'Configurato' : 'MANCANTE'
           }
         });
       }
