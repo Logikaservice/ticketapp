@@ -23,6 +23,8 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
   });
   const [changedStates, setChangedStates] = useState([]);
   
+  const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
+  
   // Stati per il dropdown clienti ad albero
   const [isDropdownOpen1, setIsDropdownOpen1] = useState(false);
   const [isDropdownOpen2, setIsDropdownOpen2] = useState(false);
@@ -251,8 +253,6 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
     localStorage.setItem(`lastSeenCounts_${currentUser.id}`, JSON.stringify(newLastSeen));
     setChangedStates(prev => prev.filter(s => s !== status));
   };
-
-  const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
   
   return (
     <>
