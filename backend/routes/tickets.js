@@ -26,7 +26,15 @@ module.exports = (pool) => {
   router.get('/', async (req, res) => {
     try {
       const client = await pool.connect();
-      const result = await client.query('SELECT * FROM tickets ORDER BY dataapertura DESC');
+      // JOIN con users per includere l'azienda del cliente
+      const result = await client.query(`
+        SELECT 
+          t.*,
+          u.azienda as cliente_azienda
+        FROM tickets t
+        LEFT JOIN users u ON t.clienteid = u.id
+        ORDER BY t.dataapertura DESC
+      `);
       
       // Parse dei campi JSON
       const tickets = result.rows.map(ticket => ({

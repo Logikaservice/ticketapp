@@ -432,12 +432,24 @@ export default function TicketApp() {
                            Array.isArray(currentUser.admin_companies) && 
                            currentUser.admin_companies.length > 0;
             
-            if (isAdmin && users && users.length > 0) {
-              // Trova il cliente del ticket (confronta come numeri)
-              const ticketClient = users.find(u => Number(u.id) === ticketClienteId);
-              if (ticketClient && ticketClient.azienda) {
+            if (isAdmin) {
+              // Usa l'azienda del cliente direttamente dal ticket (se disponibile) o cerca in users
+              let ticketAzienda = null;
+              
+              // Prima prova a usare l'azienda dal ticket (se è stata aggiunta dal backend)
+              if (ticket.cliente_azienda) {
+                ticketAzienda = ticket.cliente_azienda;
+              } else if (users && users.length > 0) {
+                // Altrimenti cerca in users
+                const ticketClient = users.find(u => Number(u.id) === ticketClienteId);
+                if (ticketClient && ticketClient.azienda) {
+                  ticketAzienda = ticketClient.azienda;
+                }
+              }
+              
+              if (ticketAzienda) {
                 // Verifica se l'azienda del ticket è tra quelle di cui è amministratore
-                return currentUser.admin_companies.includes(ticketClient.azienda);
+                return currentUser.admin_companies.includes(ticketAzienda);
               }
             }
             
