@@ -416,6 +416,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   const levelToColor = (level) => {
     if (level === 'danger') return 'border-red-300 bg-red-50 text-red-800';
     if (level === 'info') return 'border-blue-300 bg-blue-50 text-blue-800';
+    if (level === 'features') return 'border-green-300 bg-green-50 text-green-800';
     return 'border-yellow-300 bg-yellow-50 text-yellow-800';
   };
   const addAlert = async () => {
