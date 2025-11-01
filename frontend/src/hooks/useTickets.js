@@ -14,7 +14,8 @@ export const useTickets = (
     isEditingTicket,
     handleUpdateTicket,
     selectedClientForNewTicket,
-    sendEmail = true
+    sendEmail = true,
+    photos = []
   ) => {
     if (isEditingTicket) {
       handleUpdateTicket();
@@ -39,15 +40,42 @@ export const useTickets = (
     };
     
     console.log('🔍 DEBUG FRONTEND: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
-    console.log('🔍 DEBUG FRONTEND: ticketDaInviare =', JSON.stringify(ticketDaInviare, null, 2));
+    console.log('🔍 DEBUG FRONTEND: photos =', photos.length, 'foto');
+    
     try {
+      // Se ci sono foto, usa FormData, altrimenti JSON
+      let body;
+      let headers = { ...getAuthHeader() };
+      
+      if (photos && photos.length > 0) {
+        const formData = new FormData();
+        formData.append('clienteid', ticketDaInviare.clienteid || '');
+        formData.append('titolo', ticketDaInviare.titolo || '');
+        formData.append('descrizione', ticketDaInviare.descrizione || '');
+        formData.append('stato', ticketDaInviare.stato || 'aperto');
+        formData.append('priorita', ticketDaInviare.priorita || 'media');
+        formData.append('nomerichiedente', ticketDaInviare.nomerichiedente || '');
+        formData.append('categoria', ticketDaInviare.categoria || 'assistenza');
+        formData.append('dataapertura', ticketDaInviare.dataapertura || '');
+        formData.append('sendEmail', sendEmail ? 'true' : 'false');
+        
+        // Aggiungi le foto
+        photos.forEach(photo => {
+          formData.append('photos', photo);
+        });
+        
+        body = formData;
+        // NON includere Content-Type per FormData - il browser lo imposta automaticamente
+        delete headers['Content-Type'];
+      } else {
+        body = JSON.stringify(ticketDaInviare);
+        headers['Content-Type'] = 'application/json';
+      }
+      
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...getAuthHeader()
-        },
-        body: JSON.stringify(ticketDaInviare)
+        headers: headers,
+        body: body
       });
       if (!response.ok) throw new Error('Errore del server.');
       const savedTicket = await response.json();

@@ -1,7 +1,7 @@
 // src/components/Modals/NewTicketModal.jsx
 
-import React, { useState, useMemo } from 'react';
-import { X, Save, FilePlus, ChevronDown, ChevronRight, Crown, Building, Mail } from 'lucide-react';
+import React, { useState, useMemo, useRef } from 'react';
+import { X, Save, FilePlus, ChevronDown, ChevronRight, Crown, Building, Mail, Camera, Image as ImageIcon } from 'lucide-react';
 
 const NewTicketModal = ({
   newTicketData,
@@ -19,6 +19,8 @@ const NewTicketModal = ({
     // Aziende collassate di default (vuoto = tutte collassate)
     return new Set();
   });
+  const [photos, setPhotos] = useState([]);
+  const fileInputRef = useRef(null);
 
   // Helper per verificare se un cliente è admin della sua azienda
   const isAdminOfCompany = (cliente) => {
@@ -89,6 +91,24 @@ const NewTicketModal = ({
   const selectedClientName = selectedClient 
     ? `${selectedClient.azienda || 'Senza azienda'}${selectedClient.email ? ` - ${selectedClient.email}` : ''}`
     : 'Seleziona un cliente';
+
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    if (imageFiles.length !== files.length) {
+      alert('Solo file immagine sono permessi');
+      return;
+    }
+    setPhotos(imageFiles);
+  };
+
+  const removePhoto = (index) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveWithPhotos = () => {
+    onSave(photos);
+  };
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
@@ -350,6 +370,45 @@ const NewTicketModal = ({
             </div>
           )}
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Foto (opzionale)
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:bg-gray-50 transition flex items-center justify-center gap-2"
+            >
+              <Camera size={18} />
+              {photos.length > 0 ? `${photos.length} foto selezionate` : 'Seleziona foto'}
+            </button>
+            {photos.length > 0 && (
+              <div className="mt-2 space-y-2">
+                {photos.map((photo, index) => (
+                  <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                    <ImageIcon size={16} className="text-gray-600" />
+                    <span className="text-sm text-gray-700 flex-1 truncate">{photo.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(index)}
+                      className="text-red-600 hover:text-red-800 text-sm"
+                    >
+                      Rimuovi
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
 
         {/* Footer con i pulsanti */}
@@ -362,7 +421,7 @@ const NewTicketModal = ({
               Annulla
             </button>
             <button
-              onClick={onSave}
+              onClick={handleSaveWithPhotos}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
             >
               <Save size={18} />

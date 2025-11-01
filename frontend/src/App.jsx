@@ -931,7 +931,7 @@ export default function TicketApp() {
     }
     
     // Per i clienti, crea direttamente il ticket con invio email obbligatorio
-    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true);
+    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, []);
     resetNewTicketData();
     setModalState({ type: null, data: null });
   };
@@ -967,7 +967,7 @@ export default function TicketApp() {
     }
     
     // Per i clienti, crea direttamente il ticket con invio email obbligatorio
-    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true);
+    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, []);
     resetNewTicketData();
     setModalState({ type: null, data: null });
   };
@@ -1109,7 +1109,7 @@ export default function TicketApp() {
     
     // Per i clienti, crea direttamente il ticket con invio email obbligatorio
     console.log('🔍 DEBUG: Cliente - creazione ticket con email obbligatoria');
-    createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true);
+    createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, []);
   };
 
   const wrappedHandleUpdateTicket = () => {
@@ -1269,32 +1269,28 @@ export default function TicketApp() {
   };
 
   // Gestione richiesta assistenza veloce
-  const handleQuickRequest = async (formData) => {
+  const handleQuickRequest = async (formData, photos = []) => {
     try {
       const apiBase = process.env.REACT_APP_API_URL || 'https://ticketapp-4eqb.onrender.com';
       
-      // Crea un ticket con i dati della richiesta veloce
-      const ticketData = {
-        clienteid: null, // Sarà gestito dal backend
-        titolo: formData.titolo,
-        descrizione: formData.descrizione,
-        stato: 'aperto',
-        priorita: formData.priorita,
-        nomerichiedente: `${formData.nome} ${formData.cognome}`,
-        categoria: 'assistenza',
-        // Dati aggiuntivi per richiesta veloce
-        quickRequest: true,
-        email: formData.email,
-        telefono: formData.telefono,
-        azienda: formData.azienda
-      };
+      // Crea FormData per supportare sia i dati che le foto
+      const formDataToSend = new FormData();
+      formDataToSend.append('titolo', formData.titolo);
+      formDataToSend.append('descrizione', formData.descrizione);
+      formDataToSend.append('priorita', formData.priorita);
+      formDataToSend.append('nomerichiedente', `${formData.nome} ${formData.cognome}`);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('telefono', formData.telefono || '');
+      formDataToSend.append('azienda', formData.azienda || '');
+      
+      // Aggiungi le foto se presenti
+      photos.forEach(photo => {
+        formDataToSend.append('photos', photo);
+      });
 
       const response = await fetch(`${apiBase}/api/tickets/quick-request`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(ticketData)
+        body: formDataToSend
       });
 
       if (!response.ok) {

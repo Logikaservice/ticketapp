@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Send, User, Mail, Phone, Building, FileText, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Send, User, Mail, Phone, Building, FileText, AlertTriangle, Camera, Image as ImageIcon } from 'lucide-react';
 
 const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
   const [formData, setFormData] = useState({
@@ -16,6 +16,8 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
   const [aziendaLocked, setAziendaLocked] = useState(false);
   const [aziendaSource, setAziendaSource] = useState('');
   const [clients, setClients] = useState(existingClients);
+  const [photos, setPhotos] = useState([]);
+  const fileInputRef = useRef(null);
 
   // Carica i clienti direttamente nel modal
   useEffect(() => {
@@ -80,12 +82,26 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
     }
   }, [formData.email, clients]);
 
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    if (imageFiles.length !== files.length) {
+      alert('Solo file immagine sono permessi');
+      return;
+    }
+    setPhotos(imageFiles);
+  };
+
+  const removePhoto = (index) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     
     try {
-      await onSubmit(formData);
+      await onSubmit(formData, photos);
       onClose();
     } catch (error) {
       console.error('Errore invio richiesta:', error);
@@ -275,6 +291,45 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                 <option value="alta">Alta</option>
                 <option value="urgente">Urgente</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Foto (opzionale)
+              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:bg-gray-50 transition flex items-center justify-center gap-2"
+              >
+                <Camera size={18} />
+                {photos.length > 0 ? `${photos.length} foto selezionate` : 'Seleziona foto'}
+              </button>
+              {photos.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  {photos.map((photo, index) => (
+                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+                      <ImageIcon size={16} className="text-gray-600" />
+                      <span className="text-sm text-gray-700 flex-1 truncate">{photo.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(index)}
+                        className="text-red-600 hover:text-red-800 text-sm"
+                      >
+                        Rimuovi
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

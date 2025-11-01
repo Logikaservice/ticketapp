@@ -66,9 +66,25 @@ module.exports = (pool, uploadTicketPhotos) => {
     }
   });
 
-  // ENDPOINT: Crea un nuovo ticket
-  router.post('/', async (req, res) => {
-    let { clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, sendEmail } = req.body;
+  // ENDPOINT: Crea un nuovo ticket (gestisce sia JSON che multipart/form-data)
+  router.post('/', uploadTicketPhotos.array('photos', 10), async (req, res) => {
+    // Gestisce sia JSON che multipart/form-data
+    let clienteid = req.body.clienteid;
+    let titolo = req.body.titolo;
+    let descrizione = req.body.descrizione;
+    let stato = req.body.stato;
+    let priorita = req.body.priorita;
+    let nomerichiedente = req.body.nomerichiedente;
+    let categoria = req.body.categoria;
+    let dataapertura = req.body.dataapertura;
+    let sendEmail = req.body.sendEmail;
+    const photos = req.files || [];
+    
+    // Se clienteid è una stringa, convertila a numero
+    if (clienteid && typeof clienteid === 'string') {
+      clienteid = parseInt(clienteid);
+      if (isNaN(clienteid)) clienteid = null;
+    }
     
     // Conversione esplicita di sendEmail a boolean
     if (sendEmail === 'false' || sendEmail === '0') {
@@ -131,12 +147,25 @@ module.exports = (pool, uploadTicketPhotos) => {
         console.log('🔍 DEBUG BACKEND: Nessuna dataapertura fornita, usando data corrente:', dataAperturaValue);
       }
       
+      // Salva le foto se presenti
+      let photosArray = [];
+      if (photos && photos.length > 0) {
+        photosArray = photos.map(file => ({
+          filename: file.filename,
+          originalName: file.originalname,
+          path: `/uploads/tickets/photos/${file.filename}`,
+          size: file.size,
+          mimetype: file.mimetype,
+          uploadedAt: new Date().toISOString()
+        }));
+      }
+      
       const query = `
-        INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW()) 
+        INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico, photos) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10) 
         RETURNING *;
       `;
-      const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza', dataAperturaValue];
+      const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza', dataAperturaValue, photosArray.length > 0 ? JSON.stringify(photosArray) : null];
       const result = await client.query(query, values);
       client.release();
       

@@ -388,8 +388,16 @@ const getEmailFooter = () => {
 };
 
 // Endpoint pubblico per richiesta assistenza veloce (senza login)
-app.post('/api/tickets/quick-request', async (req, res) => {
-  const { titolo, descrizione, priorita, nomerichiedente, email, telefono, azienda } = req.body;
+app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), async (req, res) => {
+  // Gestisce sia JSON che multipart/form-data
+  const titolo = req.body.titolo;
+  const descrizione = req.body.descrizione;
+  const priorita = req.body.priorita;
+  const nomerichiedente = req.body.nomerichiedente;
+  const email = req.body.email;
+  const telefono = req.body.telefono;
+  const azienda = req.body.azienda;
+  const photos = req.files || [];
   
   if (!titolo || !descrizione || !email || !nomerichiedente) {
     return res.status(400).json({ error: 'Titolo, descrizione, email e nome sono obbligatori' });
@@ -434,14 +442,27 @@ app.post('/api/tickets/quick-request', async (req, res) => {
     const count = parseInt(countResult.rows[0].count) + 1;
     const numero = `TKT-2025-${count.toString().padStart(3, '0')}`;
     
+    // Salva le foto se presenti
+    let photosArray = [];
+    if (photos && photos.length > 0) {
+      photosArray = photos.map(file => ({
+        filename: file.filename,
+        originalName: file.originalname,
+        path: `/uploads/tickets/photos/${file.filename}`,
+        size: file.size,
+        mimetype: file.mimetype,
+        uploadedAt: new Date().toISOString()
+      }));
+    }
+    
     // Crea il ticket
     const query = `
-      INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() AT TIME ZONE 'Europe/Rome', NOW(), NOW()) 
+      INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico, photos) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() AT TIME ZONE 'Europe/Rome', NOW(), NOW(), $9) 
       RETURNING *;
     `;
     
-    const values = [numero, clienteid, titolo, descrizione, 'aperto', priorita, nomerichiedente, 'assistenza'];
+    const values = [numero, clienteid, titolo, descrizione, 'aperto', priorita, nomerichiedente, 'assistenza', photosArray.length > 0 ? JSON.stringify(photosArray) : null];
     const result = await client.query(query, values);
     client.release();
     
