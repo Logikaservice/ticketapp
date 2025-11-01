@@ -9,6 +9,53 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
   const [localPhotos, setLocalPhotos] = useState(photos || []);
 
   const canManagePhotos = ticket?.stato && ['aperto', 'in_lavorazione', 'risolto'].includes(ticket.stato);
+  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+  const handleFileSelect = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    // Verifica che siano tutte immagini
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    if (imageFiles.length !== files.length) {
+      alert('Solo file immagine sono permessi');
+      return;
+    }
+
+    if (!onUploadPhotos) {
+      console.error('onUploadPhotos non è disponibile');
+      alert('Errore: funzione di upload non disponibile');
+      return;
+    }
+
+    if (!ticket || !ticket.id) {
+      console.error('Ticket ID non disponibile');
+      alert('Errore: ticket non valido');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      console.log('🔄 Caricamento foto...', imageFiles.length, 'file');
+      const uploadedPhotos = await onUploadPhotos(ticket.id, imageFiles);
+      console.log('✅ Foto caricate:', uploadedPhotos);
+      setLocalPhotos(uploadedPhotos);
+      
+      // Vai all'ultima foto caricata
+      if (uploadedPhotos.length > localPhotos.length) {
+        setCurrentPhotoIndex(uploadedPhotos.length - 1);
+      }
+    } catch (error) {
+      console.error('❌ Errore upload:', error);
+      alert('Errore durante il caricamento: ' + (error.message || 'Errore sconosciuto'));
+    } finally {
+      setIsUploading(false);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   if (!localPhotos || localPhotos.length === 0) {
     return (
@@ -52,7 +99,6 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
   }
 
   const currentPhoto = localPhotos[currentPhotoIndex];
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
   const handleDelete = async () => {
     if (!window.confirm('Sei sicuro di voler eliminare questa foto?')) return;
@@ -161,52 +207,6 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    }
-  };
-
-  const handleFileSelect = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    // Verifica che siano tutte immagini
-    const imageFiles = files.filter(file => file.type.startsWith('image/'));
-    if (imageFiles.length !== files.length) {
-      alert('Solo file immagine sono permessi');
-      return;
-    }
-
-    if (!onUploadPhotos) {
-      console.error('onUploadPhotos non è disponibile');
-      alert('Errore: funzione di upload non disponibile');
-      return;
-    }
-
-    if (!ticket || !ticket.id) {
-      console.error('Ticket ID non disponibile');
-      alert('Errore: ticket non valido');
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      console.log('🔄 Caricamento foto...', imageFiles.length, 'file');
-      const uploadedPhotos = await onUploadPhotos(ticket.id, imageFiles);
-      console.log('✅ Foto caricate:', uploadedPhotos);
-      setLocalPhotos(uploadedPhotos);
-      
-      // Vai all'ultima foto caricata
-      if (uploadedPhotos.length > localPhotos.length) {
-        setCurrentPhotoIndex(uploadedPhotos.length - 1);
-      }
-    } catch (error) {
-      console.error('❌ Errore upload:', error);
-      alert('Errore durante il caricamento: ' + (error.message || 'Errore sconosciuto'));
-    } finally {
-      setIsUploading(false);
-      // Reset input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 
