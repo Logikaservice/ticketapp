@@ -327,7 +327,9 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               return true;
             }
             // Se l'avviso ha clienti specifici, controlla se include questo amministratore
-            return alert.clients.includes(currentUser.id);
+            // Converte gli ID a numeri per il confronto (gestisce sia stringhe che numeri)
+            const userId = Number(currentUser.id);
+            return alert.clients.some(clientId => Number(clientId) === userId);
           });
         }
       }
