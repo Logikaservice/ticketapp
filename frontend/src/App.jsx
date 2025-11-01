@@ -393,7 +393,45 @@ export default function TicketApp() {
           const usersResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users', {
             headers: getAuthHeader()
           });
-          if (usersResponse.ok) setUsers(await usersResponse.json());
+          if (usersResponse.ok) {
+            const usersData = await usersResponse.json();
+            setUsers(usersData);
+            
+            // Ri-applica la logica per i nuovi ticket dopo aver caricato users (per amministratori)
+            if (isAdmin && (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico')) {
+              const unseenKey2 = currentUser ? `unseenNewTicketIds_${currentUser.id}` : null;
+              const unseen2 = unseenKey2 ? getSetFromStorage(unseenKey2) : new Set();
+              const alreadyNotifiedKey2 = currentUser ? `notifiedTicketIds_${currentUser.id}` : null;
+              const alreadyNotified2 = alreadyNotifiedKey2 ? getSetFromStorage(alreadyNotifiedKey2) : new Set();
+              const newlyNotifiedAfterUsers = [];
+              
+              ticketsWithForniture.forEach(t => {
+                const appliesToUser = getAppliesToUserInitial(t);
+                if (appliesToUser && t.stato === 'aperto' && !unseen2.has(t.id)) {
+                  unseen2.add(t.id);
+                  if (!alreadyNotified2.has(t.id)) {
+                    alreadyNotified2.add(t.id);
+                    newlyNotifiedAfterUsers.push(t);
+                  }
+                }
+              });
+              
+              if (unseenKey2) saveSetToStorage(unseenKey2, unseen2);
+              if (alreadyNotifiedKey2) saveSetToStorage(alreadyNotifiedKey2, alreadyNotified2);
+              
+              // Aggiorna tickets con flag isNew corretto
+              const updatedTickets = ticketsWithForniture.map(t => {
+                const appliesToUser = getAppliesToUserInitial(t);
+                return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseen2.has(t.id) };
+              });
+              setTickets(updatedTickets);
+              
+              // Mostra notifiche per i nuovi ticket rilevati dopo il caricamento di users
+              newlyNotifiedAfterUsers.forEach(t => {
+                showNotification(`Nuovo ticket ${t.numero}: ${t.titolo}`, 'warning', 8000, t.id);
+              });
+            }
+          }
         }
         
         // Mostra modale se ci sono messaggi non letti
