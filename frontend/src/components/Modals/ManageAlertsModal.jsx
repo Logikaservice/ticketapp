@@ -16,6 +16,10 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
 
   const [selectedClients, setSelectedClients] = useState([]);
   const [showClientSelector, setShowClientSelector] = useState(false);
+  const [expandedCompanies, setExpandedCompanies] = useState(() => {
+    // Aziende collassate di default (vuoto = tutte collassate)
+    return new Set();
+  });
 
   // Reset form when modal opens/closes or when editing
   useEffect(() => {
