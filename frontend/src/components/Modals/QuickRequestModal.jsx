@@ -141,6 +141,9 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="esempio@azienda.com"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Utilizzare la mail aziendale e non quella personale
+              </p>
             </div>
             
             {/* Nome e Cognome in grid */}
