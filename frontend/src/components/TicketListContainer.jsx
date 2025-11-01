@@ -1,7 +1,7 @@
 // src/components/TicketListContainer.jsx
 
-import React, { useState, useEffect } from 'react';
-import { FileText, PlayCircle, CheckCircle, Send, FileCheck2, Archive } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FileText, PlayCircle, CheckCircle, Send, FileCheck2, Archive, ChevronDown, ChevronRight, Crown, Building, Mail } from 'lucide-react';
 import TicketItem from './TicketItem';
 
 // ====================================================================
@@ -22,6 +22,89 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
     return saved ? JSON.parse(saved) : {};
   });
   const [changedStates, setChangedStates] = useState([]);
+  
+  // Stati per il dropdown clienti ad albero
+  const [isDropdownOpen1, setIsDropdownOpen1] = useState(false);
+  const [isDropdownOpen2, setIsDropdownOpen2] = useState(false);
+  const [expandedCompanies, setExpandedCompanies] = useState(() => {
+    const companies = new Set(clientiAttivi.map(c => c.azienda || 'Senza azienda'));
+    return companies;
+  });
+
+  // Helper per verificare se un cliente è admin della sua azienda
+  const isAdminOfCompany = (cliente) => {
+    if (!cliente.admin_companies || !Array.isArray(cliente.admin_companies)) return false;
+    const azienda = cliente.azienda || '';
+    return cliente.admin_companies.includes(azienda);
+  };
+
+  // Raggruppa clienti per azienda, con amministratori per primi
+  const clientiPerAzienda = useMemo(() => {
+    const grouped = {};
+    clientiAttivi.forEach(cliente => {
+      const azienda = cliente.azienda || 'Senza azienda';
+      if (!grouped[azienda]) {
+        grouped[azienda] = [];
+      }
+      grouped[azienda].push(cliente);
+    });
+    
+    // Ordina i clienti dentro ogni azienda: prima gli amministratori, poi gli altri
+    Object.keys(grouped).forEach(azienda => {
+      grouped[azienda].sort((a, b) => {
+        const aIsAdmin = isAdminOfCompany(a);
+        const bIsAdmin = isAdminOfCompany(b);
+        
+        // Prima gli amministratori
+        if (aIsAdmin && !bIsAdmin) return -1;
+        if (!aIsAdmin && bIsAdmin) return 1;
+        
+        // Poi ordina per nome
+        const nomeA = `${a.nome || ''} ${a.cognome || ''}`.trim().toLowerCase();
+        const nomeB = `${b.nome || ''} ${b.cognome || ''}`.trim().toLowerCase();
+        return nomeA.localeCompare(nomeB);
+      });
+    });
+    
+    // Ordina le aziende alfabeticamente
+    return Object.keys(grouped)
+      .sort((a, b) => {
+        if (a === 'Senza azienda') return 1;
+        if (b === 'Senza azienda') return -1;
+        return a.toLowerCase().localeCompare(b.toLowerCase());
+      })
+      .reduce((acc, azienda) => {
+        acc[azienda] = grouped[azienda];
+        return acc;
+      }, {});
+  }, [clientiAttivi]);
+
+  const toggleCompany = (azienda) => {
+    setExpandedCompanies(prev => {
+      const next = new Set(prev);
+      if (next.has(azienda)) {
+        next.delete(azienda);
+      } else {
+        next.add(azienda);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectClient = (clientId, dropdownNum) => {
+    setSelectedClientFilter(clientId === 'all' ? 'all' : clientId.toString());
+    if (dropdownNum === 1) setIsDropdownOpen1(false);
+    if (dropdownNum === 2) setIsDropdownOpen2(false);
+  };
+
+  const selectedClient = selectedClientFilter !== 'all' 
+    ? clientiAttivi.find(c => c.id.toString() === selectedClientFilter)
+    : null;
+  const selectedClientName = selectedClientFilter === 'all'
+    ? 'Tutti i clienti'
+    : selectedClient
+      ? `${selectedClient.azienda || 'Senza azienda'}${selectedClient.email ? ` - ${selectedClient.email}` : ''}`
+      : 'Tutti i clienti';
 
   const { displayTickets, ticketCounts, usersMap } = (() => {
     const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
@@ -332,27 +415,138 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                   Genera Lista Fatture
                 </button>
               )}
-              <div className="flex-1">
+              <div className="flex-1 relative">
                 <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
-                <select
-                  value={selectedClientFilter}
-                  onChange={(e) => setSelectedClientFilter(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  <option value="all">Tutti i clienti</option>
-                  {clientiAttivi
-                    .slice()
-                    .sort((a, b) => (a.azienda || '').localeCompare(b.azienda || '', 'it', { sensitivity: 'base' }))
-                    .map(c => {
-                      const ticketsForThisClient = displayTickets.filter(t => t.clienteid === c.id).length;
-                      return (
-                        <option key={c.id} value={c.id}>
-                          {c.azienda} ({ticketsForThisClient})
-                        </option>
-                      );
-                    })
-                  }
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsDropdownOpen1(!isDropdownOpen1)}
+                    className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition"
+                  >
+                    <span className={selectedClientFilter === 'all' ? 'text-gray-500' : 'text-gray-900'}>
+                      {selectedClientFilter !== 'all' && selectedClient && (
+                        <span className="flex items-center gap-2">
+                          {isAdminOfCompany(selectedClient) && <Crown size={16} className="text-yellow-500" />}
+                        </span>
+                      )}
+                      {selectedClientName}
+                    </span>
+                    <ChevronDown 
+                      size={20} 
+                      className={`text-gray-400 transition-transform ${isDropdownOpen1 ? 'rotate-180' : ''}`} 
+                    />
+                  </button>
+
+                  {isDropdownOpen1 && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setIsDropdownOpen1(false)}
+                      ></div>
+                      <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectClient('all', 1)}
+                          className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
+                            selectedClientFilter === 'all'
+                              ? 'bg-blue-50 border-blue-500' 
+                              : 'border-transparent'
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <span className={`text-sm font-medium ${selectedClientFilter === 'all' ? 'text-blue-700' : 'text-gray-900'}`}>
+                              Tutti i clienti
+                            </span>
+                          </div>
+                          {selectedClientFilter === 'all' && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                          )}
+                        </button>
+                        {Object.entries(clientiPerAzienda).map(([azienda, clientiAzienda]) => {
+                          const isExpanded = expandedCompanies.has(azienda);
+                          const isNoCompany = azienda === 'Senza azienda';
+                          
+                          return (
+                            <div key={azienda} className="border-b border-gray-100 last:border-b-0">
+                              <button
+                                type="button"
+                                onClick={() => toggleCompany(azienda)}
+                                className="w-full px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center justify-between text-left"
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                    {isNoCompany ? <Building size={12} /> : azienda.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h3 className="text-sm font-bold text-gray-800 truncate">
+                                      {isNoCompany ? 'Senza azienda' : azienda}
+                                    </h3>
+                                    <p className="text-xs text-gray-600">
+                                      {clientiAzienda.length} {clientiAzienda.length === 1 ? 'cliente' : 'clienti'}
+                                    </p>
+                                  </div>
+                                </div>
+                                {isExpanded ? (
+                                  <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
+                                ) : (
+                                  <ChevronRight size={16} className="text-gray-500 flex-shrink-0" />
+                                )}
+                              </button>
+                              
+                              {isExpanded && (
+                                <div className="bg-gray-50">
+                                  {clientiAzienda.map((cliente) => {
+                                    const isAdmin = isAdminOfCompany(cliente);
+                                    const isSelected = cliente.id.toString() === selectedClientFilter;
+                                    const ticketsForThisClient = displayTickets.filter(t => t.clienteid === cliente.id).length;
+                                    
+                                    return (
+                                      <button
+                                        key={cliente.id}
+                                        type="button"
+                                        onClick={() => handleSelectClient(cliente.id, 1)}
+                                        className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
+                                          isSelected 
+                                            ? 'bg-blue-50 border-blue-500' 
+                                            : 'border-transparent'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                          {isAdmin && (
+                                            <Crown size={16} className="text-yellow-500 flex-shrink-0" />
+                                          )}
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                              <span className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>
+                                                {cliente.nome} {cliente.cognome}
+                                              </span>
+                                              <span className="text-xs text-gray-500">({ticketsForThisClient})</span>
+                                            </div>
+                                            {cliente.email && (
+                                              <div className="flex items-center gap-1 mt-0.5">
+                                                <Mail size={12} className="text-gray-400" />
+                                                <span className="text-xs text-gray-600 truncate">
+                                                  {cliente.email}
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                        {isSelected && (
+                                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-2">Mese</label>
@@ -402,27 +596,138 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           {/* Filtri per tecnico (negli altri stati) */}
           {currentUser.ruolo === 'tecnico' && !['inviato', 'fatturato'].includes(viewState) && (
             <div className="mt-3 flex flex-col md:flex-row md:items-end md:gap-4">
-              <div className="flex-1">
+              <div className="flex-1 relative">
                 <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
-                <select
-                  value={selectedClientFilter}
-                  onChange={(e) => setSelectedClientFilter(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  <option value="all">Tutti i clienti</option>
-                  {clientiAttivi
-                    .slice()
-                    .sort((a, b) => (a.azienda || '').localeCompare(b.azienda || '', 'it', { sensitivity: 'base' }))
-                    .map(c => {
-                      const ticketsForThisClient = displayTickets.filter(t => t.clienteid === c.id).length;
-                      return (
-                        <option key={c.id} value={c.id}>
-                          {c.azienda} ({ticketsForThisClient})
-                        </option>
-                      );
-                    })
-                  }
-                </select>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsDropdownOpen2(!isDropdownOpen2)}
+                    className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition"
+                  >
+                    <span className={selectedClientFilter === 'all' ? 'text-gray-500' : 'text-gray-900'}>
+                      {selectedClientFilter !== 'all' && selectedClient && (
+                        <span className="flex items-center gap-2">
+                          {isAdminOfCompany(selectedClient) && <Crown size={16} className="text-yellow-500" />}
+                        </span>
+                      )}
+                      {selectedClientName}
+                    </span>
+                    <ChevronDown 
+                      size={20} 
+                      className={`text-gray-400 transition-transform ${isDropdownOpen2 ? 'rotate-180' : ''}`} 
+                    />
+                  </button>
+
+                  {isDropdownOpen2 && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setIsDropdownOpen2(false)}
+                      ></div>
+                      <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleSelectClient('all', 2)}
+                          className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
+                            selectedClientFilter === 'all'
+                              ? 'bg-blue-50 border-blue-500' 
+                              : 'border-transparent'
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <span className={`text-sm font-medium ${selectedClientFilter === 'all' ? 'text-blue-700' : 'text-gray-900'}`}>
+                              Tutti i clienti
+                            </span>
+                          </div>
+                          {selectedClientFilter === 'all' && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                          )}
+                        </button>
+                        {Object.entries(clientiPerAzienda).map(([azienda, clientiAzienda]) => {
+                          const isExpanded = expandedCompanies.has(azienda);
+                          const isNoCompany = azienda === 'Senza azienda';
+                          
+                          return (
+                            <div key={azienda} className="border-b border-gray-100 last:border-b-0">
+                              <button
+                                type="button"
+                                onClick={() => toggleCompany(azienda)}
+                                className="w-full px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center justify-between text-left"
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                    {isNoCompany ? <Building size={12} /> : azienda.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h3 className="text-sm font-bold text-gray-800 truncate">
+                                      {isNoCompany ? 'Senza azienda' : azienda}
+                                    </h3>
+                                    <p className="text-xs text-gray-600">
+                                      {clientiAzienda.length} {clientiAzienda.length === 1 ? 'cliente' : 'clienti'}
+                                    </p>
+                                  </div>
+                                </div>
+                                {isExpanded ? (
+                                  <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
+                                ) : (
+                                  <ChevronRight size={16} className="text-gray-500 flex-shrink-0" />
+                                )}
+                              </button>
+                              
+                              {isExpanded && (
+                                <div className="bg-gray-50">
+                                  {clientiAzienda.map((cliente) => {
+                                    const isAdmin = isAdminOfCompany(cliente);
+                                    const isSelected = cliente.id.toString() === selectedClientFilter;
+                                    const ticketsForThisClient = displayTickets.filter(t => t.clienteid === cliente.id).length;
+                                    
+                                    return (
+                                      <button
+                                        key={cliente.id}
+                                        type="button"
+                                        onClick={() => handleSelectClient(cliente.id, 2)}
+                                        className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
+                                          isSelected 
+                                            ? 'bg-blue-50 border-blue-500' 
+                                            : 'border-transparent'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                          {isAdmin && (
+                                            <Crown size={16} className="text-yellow-500 flex-shrink-0" />
+                                          )}
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                              <span className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>
+                                                {cliente.nome} {cliente.cognome}
+                                              </span>
+                                              <span className="text-xs text-gray-500">({ticketsForThisClient})</span>
+                                            </div>
+                                            {cliente.email && (
+                                              <div className="flex items-center gap-1 mt-0.5">
+                                                <Mail size={12} className="text-gray-400" />
+                                                <span className="text-xs text-gray-600 truncate">
+                                                  {cliente.email}
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                        {isSelected && (
+                                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-2">Mese</label>
