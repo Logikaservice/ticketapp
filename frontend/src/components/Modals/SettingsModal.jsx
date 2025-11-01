@@ -42,14 +42,25 @@ const SettingsModal = ({ settingsData, setSettingsData, handleUpdateSettings, cl
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-            <input
-              type="text"
-              value={settingsData.nome}
-              onChange={(e) => setSettingsData({ ...settingsData, nome: e.target.value })}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+              <input
+                type="text"
+                value={settingsData.nome}
+                onChange={(e) => setSettingsData({ ...settingsData, nome: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cognome</label>
+              <input
+                type="text"
+                value={settingsData.cognome || ''}
+                onChange={(e) => setSettingsData({ ...settingsData, cognome: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+              />
+            </div>
           </div>
 
           <div>

@@ -53,6 +53,7 @@ export default function TicketApp() {
   });
   const [settingsData, setSettingsData] = useState({ 
     nome: '', 
+    cognome: '',
     email: '', 
     telefono: '',
     azienda: '',
@@ -721,6 +722,7 @@ export default function TicketApp() {
   const openSettings = () => {
     setSettingsData({ 
       nome: currentUser.nome || '', 
+      cognome: currentUser.cognome || '',
       email: currentUser.email || '', 
       telefono: currentUser.telefono || '',
       azienda: currentUser.azienda || '',
@@ -845,6 +847,7 @@ export default function TicketApp() {
       // Prepara i dati da inviare
       const updateData = {
         nome: settingsData.nome,
+        cognome: settingsData.cognome || '',
         email: settingsData.email,
         telefono: settingsData.telefono || null,
         azienda: settingsData.azienda || null
@@ -884,9 +887,11 @@ export default function TicketApp() {
       // Resetta i dati delle impostazioni
       setSettingsData({
         nome: updatedUser.nome || '',
+        cognome: updatedUser.cognome || '',
         email: updatedUser.email || '',
         telefono: updatedUser.telefono || '',
         azienda: updatedUser.azienda || '',
+        passwordAttuale: updatedUser.password || '',
         nuovaPassword: ''
       });
       
