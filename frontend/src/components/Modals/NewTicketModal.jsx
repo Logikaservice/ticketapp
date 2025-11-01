@@ -16,9 +16,8 @@ const NewTicketModal = ({
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [expandedCompanies, setExpandedCompanies] = useState(() => {
-    // Espandi tutte le aziende di default
-    const companies = new Set(clientiAttivi.map(c => c.azienda || 'Senza azienda'));
-    return companies;
+    // Aziende collassate di default (vuoto = tutte collassate)
+    return new Set();
   });
 
   // Helper per verificare se un cliente è admin della sua azienda
