@@ -106,6 +106,67 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
     onClose();
   };
 
+  // Helper per verificare se un cliente è admin della sua azienda
+  const isAdminOfCompany = (cliente) => {
+    if (!cliente.admin_companies || !Array.isArray(cliente.admin_companies)) return false;
+    const azienda = cliente.azienda || '';
+    return cliente.admin_companies.includes(azienda);
+  };
+
+  // Raggruppa clienti per azienda, con amministratori per primi
+  const clientiPerAzienda = useMemo(() => {
+    const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
+    const grouped = {};
+    clientiAttivi.forEach(cliente => {
+      const azienda = cliente.azienda || 'Senza azienda';
+      if (!grouped[azienda]) {
+        grouped[azienda] = [];
+      }
+      grouped[azienda].push(cliente);
+    });
+    
+    // Ordina i clienti dentro ogni azienda: prima gli amministratori, poi gli altri
+    Object.keys(grouped).forEach(azienda => {
+      grouped[azienda].sort((a, b) => {
+        const aIsAdmin = isAdminOfCompany(a);
+        const bIsAdmin = isAdminOfCompany(b);
+        
+        // Prima gli amministratori
+        if (aIsAdmin && !bIsAdmin) return -1;
+        if (!aIsAdmin && bIsAdmin) return 1;
+        
+        // Poi ordina per nome
+        const nomeA = `${a.nome || ''} ${a.cognome || ''}`.trim().toLowerCase();
+        const nomeB = `${b.nome || ''} ${b.cognome || ''}`.trim().toLowerCase();
+        return nomeA.localeCompare(nomeB);
+      });
+    });
+    
+    // Ordina le aziende alfabeticamente
+    return Object.keys(grouped)
+      .sort((a, b) => {
+        if (a === 'Senza azienda') return 1;
+        if (b === 'Senza azienda') return -1;
+        return a.toLowerCase().localeCompare(b.toLowerCase());
+      })
+      .reduce((acc, azienda) => {
+        acc[azienda] = grouped[azienda];
+        return acc;
+      }, {});
+  }, [users]);
+
+  const toggleCompany = (azienda) => {
+    setExpandedCompanies(prev => {
+      const next = new Set(prev);
+      if (next.has(azienda)) {
+        next.delete(azienda);
+      } else {
+        next.add(azienda);
+      }
+      return next;
+    });
+  };
+
   const handleClientToggle = (clientId) => {
     if (clientId === 'all') {
       // Se tutti sono selezionati, deseleziona tutti, altrimenti seleziona tutti
