@@ -420,8 +420,10 @@ export default function TicketApp() {
           }
           
           if (currentUser.ruolo === 'cliente') {
-            // Se è il proprio ticket, sempre visibile
-            if (ticket.clienteid === currentUser.id) {
+            // Se è il proprio ticket, sempre visibile (confronta come numeri)
+            const ticketClienteId = Number(ticket.clienteid);
+            const currentUserId = Number(currentUser.id);
+            if (ticketClienteId === currentUserId) {
               return true;
             }
             
@@ -430,9 +432,9 @@ export default function TicketApp() {
                            Array.isArray(currentUser.admin_companies) && 
                            currentUser.admin_companies.length > 0;
             
-            if (isAdmin) {
-              // Trova il cliente del ticket
-              const ticketClient = users.find(u => u.id === ticket.clienteid);
+            if (isAdmin && users && users.length > 0) {
+              // Trova il cliente del ticket (confronta come numeri)
+              const ticketClient = users.find(u => Number(u.id) === ticketClienteId);
               if (ticketClient && ticketClient.azienda) {
                 // Verifica se l'azienda del ticket è tra quelle di cui è amministratore
                 return currentUser.admin_companies.includes(ticketClient.azienda);
