@@ -560,35 +560,57 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               }}
             />
             
-            {/* Lista risultati ricerca */}
+            {/* Lista risultati ricerca avanzata */}
             {searchTerm && searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
-                {searchResults.map((ticket) => (
-                  <div
-                    key={ticket.id}
-                    className="px-3 py-2 hover:bg-gray-50 cursor-pointer border-b last:border-b-0"
-                    onClick={() => {
-                      if (handlers?.handleSelectTicket) {
-                        handlers.handleSelectTicket(ticket);
-                      }
-                      if (onOpenState) {
-                        onOpenState(ticket.stato);
-                      }
-                      setSearchTerm('');
-                      setSearchResults([]);
-                    }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium text-sm">{ticket.numero}</div>
-                        <div className="text-xs text-gray-600 truncate">{ticket.titolo}</div>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {ticket.stato}
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+                {searchResults.map((ticket) => {
+                  // Trova dove si trova il termine di ricerca per evidenziarlo
+                  const getMatchHint = (ticket, searchTerm) => {
+                    const searchLower = searchTerm.toLowerCase();
+                    if (ticket.numero?.toLowerCase().includes(searchLower)) return 'Numero ticket';
+                    if (ticket.titolo?.toLowerCase().includes(searchLower)) return 'Titolo';
+                    if (ticket.descrizione?.toLowerCase().includes(searchLower)) return 'Descrizione';
+                    if (ticket.nomerichiedente?.toLowerCase().includes(searchLower)) return 'Richiedente';
+                    if (ticket.messaggi && Array.isArray(ticket.messaggi) && ticket.messaggi.some(m => 
+                      m.contenuto?.toLowerCase().includes(searchLower)
+                    )) return 'Messaggi';
+                    if (ticket.timelogs && Array.isArray(ticket.timelogs) && ticket.timelogs.some(log => 
+                      log.descrizione?.toLowerCase().includes(searchLower)
+                    )) return 'Registro intervento';
+                    return 'Trovato';
+                  };
+                  
+                  return (
+                    <div
+                      key={ticket.id}
+                      className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b last:border-b-0 transition"
+                      onClick={() => {
+                        if (handlers?.handleSelectTicket) {
+                          handlers.handleSelectTicket(ticket);
+                        }
+                        if (onOpenState) {
+                          onOpenState(ticket.stato);
+                        }
+                        setSearchTerm('');
+                        setSearchResults([]);
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm text-gray-900">{ticket.numero}</div>
+                          <div className="text-xs text-gray-700 truncate mt-0.5">{ticket.titolo}</div>
+                          <div className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                            <span className="text-gray-400">•</span>
+                            <span>{getMatchHint(ticket, searchTerm)}</span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-500 whitespace-nowrap">
+                          {ticket.stato}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             
