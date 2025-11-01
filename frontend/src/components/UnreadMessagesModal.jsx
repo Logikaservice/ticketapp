@@ -1,9 +1,15 @@
 import React from 'react';
 import { X, MessageCircle, AlertCircle, AlertTriangle } from 'lucide-react';
 
-const UnreadMessagesModal = ({ tickets, getUnreadCount, onClose, onOpenTicket }) => {
+const UnreadMessagesModal = ({ tickets, getUnreadCount, onClose, onOpenTicket, currentUser }) => {
   // Filtra solo i ticket con messaggi non letti
-  const unreadTickets = tickets.filter(t => getUnreadCount(t) > 0);
+  // Per i clienti: mostra solo i ticket che appartengono a loro
+  let filteredTickets = tickets;
+  if (currentUser?.ruolo === 'cliente') {
+    filteredTickets = tickets.filter(t => t.clienteid === currentUser.id);
+  }
+  
+  const unreadTickets = filteredTickets.filter(t => getUnreadCount(t) > 0);
   
   if (unreadTickets.length === 0) return null;
 

@@ -462,8 +462,14 @@ export default function TicketApp() {
         setPrevTicketStates(nextMap);
         
         // Controlla se ci sono nuovi messaggi
+        // Per i clienti: controlla solo i ticket che appartengono a loro
+        let ticketsToCheck = ticketsWithForniture;
+        if (currentUser?.ruolo === 'cliente') {
+          ticketsToCheck = ticketsWithForniture.filter(t => t.clienteid === currentUser.id);
+        }
+        
         let hasNewMessages = false;
-        ticketsWithForniture.forEach(ticket => {
+        ticketsToCheck.forEach(ticket => {
           const previousCount = previousUnreadCounts[ticket.id] || 0;
           const currentCount = getUnreadCount(ticket);
           
@@ -477,9 +483,9 @@ export default function TicketApp() {
           setShowUnreadModal(true);
         }
         
-        // Aggiorna conteggi
+        // Aggiorna conteggi solo per i ticket rilevanti
         const newCounts = {};
-        ticketsWithForniture.forEach(t => {
+        ticketsToCheck.forEach(t => {
           newCounts[t.id] = getUnreadCount(t);
         });
         setPreviousUnreadCounts(newCounts);
@@ -1357,6 +1363,7 @@ export default function TicketApp() {
           getUnreadCount={getUnreadCount}
           onClose={() => setShowUnreadModal(false)}
           onOpenTicket={handleOpenTicketFromModal}
+          currentUser={currentUser}
         />
       )}
     </div>
