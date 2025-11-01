@@ -100,22 +100,66 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
                 <div className="text-xs text-gray-500 flex items-center gap-1">
                   <Users size={12} />
                   <span>
-                    {avv.clients && Array.isArray(avv.clients) && avv.clients.length > 0 
-                      ? avv.clients.length === 1 
-                        ? `Condiviso con 1 cliente`
-                        : `Condiviso con ${avv.clients.length} clienti`
-                      : 'Condiviso con tutti i clienti'
-                    }
+                    {(() => {
+                      // Parsa clients se necessario
+                      let clients = [];
+                      try {
+                        if (avv.clients) {
+                          if (Array.isArray(avv.clients)) {
+                            clients = avv.clients;
+                          } else if (typeof avv.clients === 'string') {
+                            clients = JSON.parse(avv.clients);
+                          } else {
+                            clients = avv.clients;
+                          }
+                          if (!Array.isArray(clients)) {
+                            clients = [];
+                          }
+                        }
+                      } catch (e) {
+                        clients = [];
+                      }
+                      
+                      // Se ci sono clienti specifici, mostra il numero
+                      if (clients.length > 0) {
+                        return clients.length === 1 
+                          ? `Condiviso con 1 cliente`
+                          : `Condiviso con ${clients.length} clienti`;
+                      }
+                      // Se non ci sono clienti specifici, è per tutti gli amministratori
+                      return 'Condiviso con tutti gli amministratori';
+                    })()}
                   </span>
                 </div>
-                {avv.clients && Array.isArray(avv.clients) && avv.clients.length > 0 && avv.clients.length <= 3 && users && users.length > 0 && (
-                  <div className="text-xs text-blue-600">
-                    ({avv.clients.map(c => {
-                      const user = users.find(u => u.id === c);
-                      return user ? (user.azienda || `${user.nome} ${user.cognome}`) : 'Cliente';
-                    }).join(', ')})
-                  </div>
-                )}
+                {(() => {
+                  // Parsa clients per la lista dettagliata
+                  let clients = [];
+                  try {
+                    if (avv.clients) {
+                      if (Array.isArray(avv.clients)) {
+                        clients = avv.clients;
+                      } else if (typeof avv.clients === 'string') {
+                        clients = JSON.parse(avv.clients);
+                      } else {
+                        clients = avv.clients;
+                      }
+                      if (!Array.isArray(clients)) {
+                        clients = [];
+                      }
+                    }
+                  } catch (e) {
+                    clients = [];
+                  }
+                  
+                  return clients.length > 0 && clients.length <= 3 && users && users.length > 0 ? (
+                    <div className="text-xs text-blue-600">
+                      ({clients.map(c => {
+                        const user = users.find(u => u.id === c);
+                        return user ? (user.azienda || `${user.nome} ${user.cognome}`) : 'Cliente';
+                      }).join(', ')})
+                    </div>
+                  ) : null;
+                })()}
               </div>
               
               {/* Visualizza allegati se presenti */}
@@ -239,18 +283,55 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       if (!res.ok) throw new Error('Errore caricamento avvisi');
       const allAlerts = await res.json();
       
-      // Filtra gli avvisi in base al ruolo dell'utente
-      let filteredAlerts = allAlerts;
-      if (currentUser?.ruolo === 'cliente') {
-        filteredAlerts = allAlerts.filter(alert => {
-          // Se l'avviso non ha clienti specifici, è per tutti
-          if (!alert.clients || !Array.isArray(alert.clients) || alert.clients.length === 0) {
-            return true;
+      // Parsa correttamente il campo clients se è una stringa JSON
+      const parsedAlerts = allAlerts.map(alert => {
+        let clients = [];
+        try {
+          if (alert.clients) {
+            if (Array.isArray(alert.clients)) {
+              clients = alert.clients;
+            } else if (typeof alert.clients === 'string') {
+              clients = JSON.parse(alert.clients);
+            } else {
+              clients = alert.clients;
+            }
+            if (!Array.isArray(clients)) {
+              clients = [];
+            }
           }
-          // Se l'avviso ha clienti specifici, controlla se include questo cliente
-          return alert.clients.includes(currentUser.id);
-        });
+        } catch (e) {
+          console.error('Errore parsing clients alert:', e);
+          clients = [];
+        }
+        return { ...alert, clients };
+      });
+      
+      // Filtra gli avvisi in base al ruolo dell'utente
+      let filteredAlerts = parsedAlerts;
+      if (currentUser?.ruolo === 'cliente') {
+        // Verifica se il cliente è un amministratore (ha admin_companies)
+        const isAdmin = currentUser.admin_companies && 
+                       Array.isArray(currentUser.admin_companies) && 
+                       currentUser.admin_companies.length > 0;
+        
+        // Solo gli amministratori vedono gli avvisi (non tutti i clienti)
+        if (!isAdmin) {
+          filteredAlerts = [];
+        } else {
+          // L'amministratore vede gli avvisi che:
+          // 1. Non hanno clienti specifici (sono per tutti gli amministratori)
+          // 2. Hanno clienti specifici e includono questo amministratore
+          filteredAlerts = parsedAlerts.filter(alert => {
+            // Se l'avviso non ha clienti specifici, è visibile agli amministratori
+            if (!alert.clients || !Array.isArray(alert.clients) || alert.clients.length === 0) {
+              return true;
+            }
+            // Se l'avviso ha clienti specifici, controlla se include questo amministratore
+            return alert.clients.includes(currentUser.id);
+          });
+        }
       }
+      // I tecnici vedono tutti gli avvisi (non serve filtro)
       
       setAlerts(filteredAlerts);
     } catch (e) {

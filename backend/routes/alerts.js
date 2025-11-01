@@ -43,7 +43,62 @@ module.exports = function createAlertsRouter(pool) {
       const { rows } = await pool.query(
         'SELECT id, title, body, level, ticket_id as "ticketId", created_at as "createdAt", created_by as "createdBy", clients, is_permanent as "isPermanent", days_to_expire as "daysToExpire", attachments FROM alerts ORDER BY created_at DESC'
       );
-      res.json(rows);
+      
+      // Parsa correttamente il campo clients (JSONB) per ogni avviso
+      const parsedRows = rows.map(row => {
+        let clients = [];
+        try {
+          if (row.clients) {
+            // Se è già un array, usalo direttamente
+            if (Array.isArray(row.clients)) {
+              clients = row.clients;
+            } 
+            // Se è una stringa JSON, parsala
+            else if (typeof row.clients === 'string') {
+              clients = JSON.parse(row.clients);
+            }
+            // Se è un oggetto JSONB di PostgreSQL, può già essere un array
+            else {
+              clients = row.clients;
+            }
+            // Assicurati che sia un array
+            if (!Array.isArray(clients)) {
+              clients = [];
+            }
+          }
+        } catch (e) {
+          console.error('Errore parsing clients:', e);
+          clients = [];
+        }
+        
+        // Parsa anche attachments se necessario
+        let attachments = [];
+        try {
+          if (row.attachments) {
+            if (Array.isArray(row.attachments)) {
+              attachments = row.attachments;
+            } else if (typeof row.attachments === 'string') {
+              attachments = JSON.parse(row.attachments);
+            } else {
+              attachments = row.attachments;
+            }
+            if (!Array.isArray(attachments)) {
+              attachments = [];
+            }
+          }
+        } catch (e) {
+          console.error('Errore parsing attachments:', e);
+          attachments = [];
+        }
+        
+        return {
+          ...row,
+          clients: clients,
+          attachments: attachments
+        };
+      });
+      
+      res.json(parsedRows);
     } catch (err) {
       console.error('Errore GET /alerts:', err);
       res.status(500).json({ error: 'Errore nel recupero degli avvisi' });
