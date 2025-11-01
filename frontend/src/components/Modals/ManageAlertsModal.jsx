@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, AlertTriangle, Users, Calendar, Clock, Info, AlertCircle, AlertTriangle as AlertTriangleIcon, Image, Trash2, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, AlertTriangle, Users, Calendar, Clock, Info, AlertCircle, AlertTriangle as AlertTriangleIcon, Image, Trash2, Sparkles, ChevronDown, ChevronRight, Crown, Building, Mail } from 'lucide-react';
 
 const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAlert }) => {
   const [formData, setFormData] = useState({
@@ -205,12 +205,12 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
           {/* Contenuto */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Contenuto</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               {[
-                { value: 'info', label: 'Informazione', icon: <Info size={20} />, color: 'text-blue-600' },
-                { value: 'warning', label: 'Avviso', icon: <AlertCircle size={20} />, color: 'text-yellow-600' },
-                { value: 'danger', label: 'Critico', icon: <AlertTriangleIcon size={20} />, color: 'text-red-600' },
-                { value: 'features', label: 'Nuove funzionalità', icon: <Sparkles size={20} />, color: 'text-green-600' }
+                { value: 'info', label: 'Informazione', icon: <Info size={20} />, color: 'text-blue-600', bgColor: 'bg-blue-600' },
+                { value: 'warning', label: 'Avviso', icon: <AlertCircle size={20} />, color: 'text-yellow-600', bgColor: 'bg-yellow-600' },
+                { value: 'danger', label: 'Critico', icon: <AlertTriangleIcon size={20} />, color: 'text-red-600', bgColor: 'bg-red-600' },
+                { value: 'features', label: 'Nuove funzionalità', icon: <Sparkles size={20} />, color: 'text-green-600', bgColor: 'bg-green-600' }
               ].map(priority => (
                 <button
                   key={priority.value}
@@ -218,8 +218,8 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                   onClick={() => setFormData(prev => ({ ...prev, priority: priority.value }))}
                   className={`p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-2 ${
                     formData.priority === priority.value
-                      ? getPriorityColor(priority.value)
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? `${priority.bgColor} border-gray-300 text-white`
+                      : 'border-gray-200 hover:border-gray-300 bg-white'
                   }`}
                 >
                   <div className={formData.priority === priority.value ? 'text-white' : priority.color}>
@@ -238,86 +238,154 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
           {/* Clienti */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Destinatari</label>
-            <div className="space-y-3 relative">
+            <div className="relative">
               <button
                 type="button"
                 onClick={() => setShowClientSelector(!showClientSelector)}
-                className="w-full p-3 border rounded-lg hover:bg-gray-50 flex items-center justify-between focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-purple-500 focus:border-transparent hover:border-purple-400 transition"
               >
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  <span>
-                    {selectedClients.length === 0 
-                      ? 'Seleziona clienti...' 
-                      : selectedClients.length === users.filter(u => u.ruolo === 'cliente').length
-                        ? 'Tutti i clienti'
-                        : `${selectedClients.length} clienti selezionati`
-                    }
-                  </span>
-                </div>
-                <div className="text-gray-400">▼</div>
+                <span className={
+                  selectedClients.length === 0 
+                    ? 'text-gray-500' 
+                    : 'text-gray-900'
+                }>
+                  {selectedClients.length === 0 
+                    ? 'Seleziona clienti...' 
+                    : selectedClients.length === users.filter(u => u.ruolo === 'cliente').length
+                      ? 'Tutti i clienti'
+                      : `${selectedClients.length} clienti selezionati`
+                  }
+                </span>
+                <ChevronDown 
+                  size={20} 
+                  className={`text-gray-400 transition-transform ${showClientSelector ? 'rotate-180' : ''}`} 
+                />
               </button>
 
               {showClientSelector && (
                 <>
-                  {/* Overlay per chiudere cliccando fuori */}
                   <div 
-                    className="fixed inset-0 z-[55] bg-black/20" 
+                    className="fixed inset-0 z-[55]" 
                     onClick={() => setShowClientSelector(false)}
                   />
-                  <div className="fixed z-[60] bg-white border border-gray-200 rounded-lg shadow-2xl p-3 space-y-2 max-h-60 overflow-y-auto" 
-                       style={{
-                         top: '50%',
-                         left: '50%',
-                         transform: 'translate(-50%, -50%)',
-                         width: '400px',
-                         maxWidth: '90vw'
-                       }}>
-                  <button
-                    type="button"
-                    onClick={() => handleClientToggle('all')}
-                    className={`w-full text-left p-2 rounded hover:bg-gray-50 ${
-                      selectedClients.length === users.filter(u => u.ruolo === 'cliente').length
-                        ? 'bg-blue-50 text-blue-700'
-                        : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={selectedClients.length === users.filter(u => u.ruolo === 'cliente').length}
-                        readOnly
-                        className="rounded"
-                      />
-                      <span className="font-medium">Tutti i clienti</span>
-                    </div>
-                  </button>
-                  
-                  {users.filter(u => u.ruolo === 'cliente').sort((a, b) => {
-                    const aName = a.azienda || '';
-                    const bName = b.azienda || '';
-                    return aName.localeCompare(bName, 'it', { sensitivity: 'base' });
-                  }).map(client => (
-                    <button
-                      key={client.id}
-                      type="button"
-                      onClick={() => handleClientToggle(client.id)}
-                      className={`w-full text-left p-2 rounded hover:bg-gray-50 ${
-                        selectedClients.includes(client.id) ? 'bg-blue-50 text-blue-700' : ''
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedClients.includes(client.id)}
-                          readOnly
-                          className="rounded"
-                        />
-                        <span className="font-medium">{client.azienda || 'Azienda non specificata'}</span>
-                        <span className="text-sm text-gray-500">({client.nome} {client.cognome})</span>
+                  <div className="absolute z-[60] w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto">
+                    {Object.keys(clientiPerAzienda).length === 0 ? (
+                      <div className="p-4 text-center text-gray-500">
+                        Nessun cliente disponibile
                       </div>
-                    </button>
-                  ))}
+                    ) : (
+                      <>
+                        {/* Opzione "Tutti i clienti" */}
+                        <button
+                          type="button"
+                          onClick={() => handleClientToggle('all')}
+                          className={`w-full px-4 py-2.5 text-left hover:bg-purple-50 transition flex items-center gap-3 border-b border-gray-100 ${
+                            selectedClients.length === users.filter(u => u.ruolo === 'cliente').length
+                              ? 'bg-purple-50 border-purple-300' 
+                              : ''
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedClients.length === users.filter(u => u.ruolo === 'cliente').length}
+                            readOnly
+                            className="rounded"
+                          />
+                          <span className="font-medium text-gray-900">Tutti i clienti</span>
+                        </button>
+
+                        {Object.entries(clientiPerAzienda).map(([azienda, clientiAzienda]) => {
+                          const isExpanded = expandedCompanies.has(azienda);
+                          const isNoCompany = azienda === 'Senza azienda';
+                          
+                          return (
+                            <div key={azienda} className="border-b border-gray-100 last:border-b-0">
+                              {/* Header Azienda - Espandibile */}
+                              <button
+                                type="button"
+                                onClick={() => toggleCompany(azienda)}
+                                className="w-full px-3 py-2 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 transition-all flex items-center justify-between text-left"
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-violet-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                    {isNoCompany ? <Building size={12} /> : azienda.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h3 className="text-sm font-bold text-gray-800 truncate">
+                                      {isNoCompany ? 'Senza azienda' : azienda}
+                                    </h3>
+                                    <p className="text-xs text-gray-600">
+                                      {clientiAzienda.length} {clientiAzienda.length === 1 ? 'cliente' : 'clienti'}
+                                    </p>
+                                  </div>
+                                </div>
+                                {isExpanded ? (
+                                  <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
+                                ) : (
+                                  <ChevronRight size={16} className="text-gray-500 flex-shrink-0" />
+                                )}
+                              </button>
+                              
+                              {/* Clienti dell'azienda - Espansi/Collassati */}
+                              {isExpanded && (
+                                <div className="bg-gray-50">
+                                  {clientiAzienda.map((cliente) => {
+                                    const isAdmin = isAdminOfCompany(cliente);
+                                    const isSelected = selectedClients.includes(cliente.id);
+                                    
+                                    return (
+                                      <button
+                                        key={cliente.id}
+                                        type="button"
+                                        onClick={() => handleClientToggle(cliente.id)}
+                                        className={`w-full px-4 py-2.5 text-left hover:bg-purple-50 transition flex items-center gap-3 border-l-2 ${
+                                          isSelected 
+                                            ? 'bg-purple-50 border-purple-500' 
+                                            : 'border-transparent'
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isSelected}
+                                          readOnly
+                                          className="rounded"
+                                        />
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                          {/* Spazio fisso per la corona */}
+                                          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                                            {isAdmin && (
+                                              <Crown size={16} className="text-yellow-500" />
+                                            )}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                              <span className={`text-sm font-medium ${isSelected ? 'text-purple-700' : 'text-gray-900'}`}>
+                                                {cliente.nome} {cliente.cognome}
+                                              </span>
+                                            </div>
+                                            {cliente.email && (
+                                              <div className="flex items-center gap-1 mt-0.5">
+                                                <Mail size={12} className="text-gray-400" />
+                                                <span className="text-xs text-gray-600 truncate">
+                                                  {cliente.email}
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                        {isSelected && (
+                                          <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0"></div>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </>
+                    )}
                   </div>
                 </>
               )}
