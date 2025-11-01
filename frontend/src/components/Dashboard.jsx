@@ -280,14 +280,54 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
   const roleLabel = currentUser?.ruolo === 'tecnico' ? 'Tecnico' : 'Cliente';
 
-  // Effetto per la ricerca in tempo reale
+  // Funzione di ricerca avanzata che cerca in tutti i campi del ticket
+  const advancedSearch = (ticket, searchTerm) => {
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    // Ricerca base: numero, titolo, id, descrizione
+    if (
+      ticket.numero?.toLowerCase().includes(searchLower) ||
+      ticket.titolo?.toLowerCase().includes(searchLower) ||
+      ticket.id?.toString().includes(searchTerm) ||
+      ticket.descrizione?.toLowerCase().includes(searchLower) ||
+      ticket.nomerichiedente?.toLowerCase().includes(searchLower)
+    ) {
+      return true;
+    }
+    
+    // Ricerca nei messaggi (chat)
+    if (ticket.messaggi && Array.isArray(ticket.messaggi)) {
+      const foundInMessages = ticket.messaggi.some(message =>
+        message.contenuto?.toLowerCase().includes(searchLower) ||
+        message.autore?.toLowerCase().includes(searchLower)
+      );
+      if (foundInMessages) return true;
+    }
+    
+    // Ricerca nei timelogs (registro intervento)
+    if (ticket.timelogs && Array.isArray(ticket.timelogs)) {
+      const foundInTimeLogs = ticket.timelogs.some(log =>
+        log.descrizione?.toLowerCase().includes(searchLower) ||
+        log.modalita?.toLowerCase().includes(searchLower) ||
+        (log.materials && Array.isArray(log.materials) && log.materials.some(m => 
+          m.nome?.toLowerCase().includes(searchLower)
+        )) ||
+        (log.offerte && Array.isArray(log.offerte) && log.offerte.some(o => 
+          o.descrizione?.toLowerCase().includes(searchLower) ||
+          o.numeroOfferta?.toLowerCase().includes(searchLower)
+        ))
+      );
+      if (foundInTimeLogs) return true;
+    }
+    
+    return false;
+  };
+
+  // Effetto per la ricerca avanzata in tempo reale
   React.useEffect(() => {
     if (searchTerm.trim().length >= 2) {
       const results = visibleTickets.filter(ticket => 
-        ticket.numero?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ticket.titolo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ticket.id?.toString().includes(searchTerm) ||
-        ticket.descrizione?.toLowerCase().includes(searchTerm.toLowerCase())
+        advancedSearch(ticket, searchTerm)
       ).slice(0, 10); // Limita a 10 risultati
       
       setSearchResults(results);
@@ -492,12 +532,12 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">Dashboard Riepilogo ({roleLabel})</h2>
         <div className="flex items-center gap-4">
-          {/* Campo ricerca veloce */}
+          {/* Campo ricerca avanzata */}
           <div className="relative">
             <input
               type="text"
-              placeholder="Cerca ticket (es. TKT-2025-254)"
-              className="w-64 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Ricerca Avanzata (numero, titolo, descrizione, messaggi, interventi...)"
+              className="w-80 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyPress={(e) => {
