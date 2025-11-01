@@ -202,9 +202,12 @@ const NewTicketModal = ({
                                         }`}
                                       >
                                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                                          {isAdmin && (
-                                            <Crown size={16} className="text-yellow-500 flex-shrink-0" />
-                                          )}
+                                          {/* Spazio fisso per la corona: sempre presente, visibile solo se admin */}
+                                          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                                            {isAdmin && (
+                                              <Crown size={16} className="text-yellow-500" />
+                                            )}
+                                          </div>
                                           <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2">
                                               <span className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>
