@@ -220,6 +220,30 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
   const visibleTickets = (() => {
     if (currentUser?.ruolo === 'cliente') {
+      // Verifica se è amministratore
+      const isAdmin = currentUser.admin_companies && 
+                     Array.isArray(currentUser.admin_companies) && 
+                     currentUser.admin_companies.length > 0;
+      
+      if (isAdmin) {
+        // Se è amministratore, mostra i ticket di tutti i clienti delle sue aziende
+        const companyNames = currentUser.admin_companies;
+        const companyClients = users.filter(u => 
+          u.ruolo === 'cliente' && 
+          u.azienda && 
+          companyNames.includes(u.azienda)
+        );
+        const companyClientIds = companyClients.map(c => c.id);
+        
+        if (companyClientIds.length > 0) {
+          return tickets.filter(t => {
+            const ticketClientId = Number(t.clienteid);
+            return companyClientIds.some(id => Number(id) === ticketClientId);
+          });
+        }
+      }
+      
+      // Non è amministratore, mostra solo i suoi ticket
       return tickets.filter(t => t.clienteid === currentUser.id);
     }
     return tickets;

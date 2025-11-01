@@ -26,10 +26,43 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
   const { displayTickets, ticketCounts, usersMap } = (() => {
     const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
 
+    // Funzione helper per trovare tutti i clienti ID di cui l'utente è amministratore
+    const getCompanyClientIds = () => {
+      if (currentUser.ruolo !== 'cliente') return null;
+      
+      // Verifica se è amministratore
+      const isAdmin = currentUser.admin_companies && 
+                     Array.isArray(currentUser.admin_companies) && 
+                     currentUser.admin_companies.length > 0;
+      
+      if (!isAdmin) return null;
+      
+      // Trova tutti i clienti che appartengono alle aziende di cui è amministratore
+      const companyNames = currentUser.admin_companies;
+      const companyClients = users.filter(u => 
+        u.ruolo === 'cliente' && 
+        u.azienda && 
+        companyNames.includes(u.azienda)
+      );
+      
+      return companyClients.map(c => c.id);
+    };
+
     const filterTickets = () => {
       let filtered = tickets;
       if (currentUser.ruolo === 'cliente') {
-        filtered = tickets.filter(t => t.clienteid === currentUser.id);
+        // Se è amministratore, mostra i ticket di tutti i clienti della sua azienda
+        const companyClientIds = getCompanyClientIds();
+        if (companyClientIds && companyClientIds.length > 0) {
+          // Include sia i ticket del cliente stesso che quelli degli altri clienti dell'azienda
+          filtered = tickets.filter(t => {
+            const ticketClientId = Number(t.clienteid);
+            return companyClientIds.some(id => Number(id) === ticketClientId);
+          });
+        } else {
+          // Non è amministratore, mostra solo i suoi ticket
+          filtered = tickets.filter(t => t.clienteid === currentUser.id);
+        }
       } else {
         if (selectedClientFilter !== 'all') {
           filtered = tickets.filter(t => t.clienteid === parseInt(selectedClientFilter));
@@ -58,9 +91,21 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
       fatturato: arr.filter(t => t.stato === 'fatturato').length
     });
 
-    const relevantTicketsForCounts = currentUser.ruolo === 'cliente'
-      ? tickets.filter(t => t.clienteid === currentUser.id)
-      : tickets;
+    // Per i conteggi, usa la stessa logica
+    const relevantTicketsForCounts = (() => {
+      if (currentUser.ruolo === 'cliente') {
+        const companyClientIds = getCompanyClientIds();
+        if (companyClientIds && companyClientIds.length > 0) {
+          return tickets.filter(t => {
+            const ticketClientId = Number(t.clienteid);
+            return companyClientIds.some(id => Number(id) === ticketClientId);
+          });
+        } else {
+          return tickets.filter(t => t.clienteid === currentUser.id);
+        }
+      }
+      return tickets;
+    })();
 
     return { 
       displayTickets: filterTickets(), 
