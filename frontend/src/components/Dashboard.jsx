@@ -309,29 +309,26 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       // Filtra gli avvisi in base al ruolo dell'utente
       let filteredAlerts = parsedAlerts;
       if (currentUser?.ruolo === 'cliente') {
+        const userId = Number(currentUser.id);
+        
         // Verifica se il cliente è un amministratore (ha admin_companies)
         const isAdmin = currentUser.admin_companies && 
                        Array.isArray(currentUser.admin_companies) && 
                        currentUser.admin_companies.length > 0;
         
-        // Solo gli amministratori vedono gli avvisi (non tutti i clienti)
-        if (!isAdmin) {
-          filteredAlerts = [];
-        } else {
-          // L'amministratore vede gli avvisi che:
-          // 1. Non hanno clienti specifici (sono per tutti gli amministratori)
-          // 2. Hanno clienti specifici e includono questo amministratore
-          filteredAlerts = parsedAlerts.filter(alert => {
-            // Se l'avviso non ha clienti specifici, è visibile agli amministratori
-            if (!alert.clients || !Array.isArray(alert.clients) || alert.clients.length === 0) {
-              return true;
-            }
-            // Se l'avviso ha clienti specifici, controlla se include questo amministratore
-            // Converte gli ID a numeri per il confronto (gestisce sia stringhe che numeri)
-            const userId = Number(currentUser.id);
+        // Filtra gli avvisi:
+        // 1. Se l'avviso ha clienti specifici: il cliente lo vede solo se è nella lista (anche se non è amministratore)
+        // 2. Se l'avviso NON ha clienti specifici: solo gli amministratori lo vedono
+        filteredAlerts = parsedAlerts.filter(alert => {
+          // Se l'avviso ha clienti specifici
+          if (alert.clients && Array.isArray(alert.clients) && alert.clients.length > 0) {
+            // Il cliente vede l'avviso solo se è nella lista dei clienti specifici
             return alert.clients.some(clientId => Number(clientId) === userId);
-          });
-        }
+          }
+          
+          // Se l'avviso NON ha clienti specifici (è per tutti), solo gli amministratori lo vedono
+          return isAdmin;
+        });
       }
       // I tecnici vedono tutti gli avvisi (non serve filtro)
       

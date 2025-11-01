@@ -174,6 +174,26 @@ const generateLoginResponse = (user) => {
     const token = generateToken(user);
     const refreshToken = generateRefreshToken(user);
     
+    // Assicurati che admin_companies sia incluso e sia un array
+    let adminCompanies = [];
+    try {
+      if (user.admin_companies) {
+        if (Array.isArray(user.admin_companies)) {
+          adminCompanies = user.admin_companies;
+        } else if (typeof user.admin_companies === 'string') {
+          adminCompanies = JSON.parse(user.admin_companies);
+        } else {
+          adminCompanies = user.admin_companies;
+        }
+        if (!Array.isArray(adminCompanies)) {
+          adminCompanies = [];
+        }
+      }
+    } catch (e) {
+      console.error('Errore parsing admin_companies:', e);
+      adminCompanies = [];
+    }
+    
     const response = {
       success: true,
       token,
@@ -186,7 +206,8 @@ const generateLoginResponse = (user) => {
         cognome: user.cognome,
         telefono: user.telefono,
         azienda: user.azienda,
-        password: user.password
+        password: user.password,
+        admin_companies: adminCompanies
       }
     };
     

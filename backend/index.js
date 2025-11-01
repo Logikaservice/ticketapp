@@ -102,8 +102,8 @@ app.post('/api/login', async (req, res) => {
   try {
     const client = await pool.connect();
     
-    // Prima cerca l'utente per email
-    const result = await client.query('SELECT * FROM users WHERE email = $1', [email]);
+    // Prima cerca l'utente per email, includendo admin_companies
+    const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies FROM users WHERE email = $1', [email]);
     console.log('Utenti trovati:', result.rows.length);
     
     if (result.rows.length === 0) {
@@ -151,6 +151,25 @@ app.post('/api/login', async (req, res) => {
         console.error('❌ Errore generazione JWT:', jwtErr);
         console.error('❌ Stack trace JWT:', jwtErr.stack);
         // Fallback senza JWT se c'è errore
+        // Assicurati che admin_companies sia incluso
+        let adminCompanies = [];
+        try {
+          if (user.admin_companies) {
+            if (Array.isArray(user.admin_companies)) {
+              adminCompanies = user.admin_companies;
+            } else if (typeof user.admin_companies === 'string') {
+              adminCompanies = JSON.parse(user.admin_companies);
+            } else {
+              adminCompanies = user.admin_companies;
+            }
+            if (!Array.isArray(adminCompanies)) {
+              adminCompanies = [];
+            }
+          }
+        } catch (e) {
+          adminCompanies = [];
+        }
+        
         res.json({
           success: true,
           user: {
@@ -161,7 +180,8 @@ app.post('/api/login', async (req, res) => {
             cognome: user.cognome,
             telefono: user.telefono,
             azienda: user.azienda,
-            password: user.password
+            password: user.password,
+            admin_companies: adminCompanies
           }
         });
       }
