@@ -1,7 +1,7 @@
 // src/components/Dashboard.jsx
 
 import React, { useEffect } from 'react';
-import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, X, Info, Users, Trash2 } from 'lucide-react';
+import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, X, Info, Users, Trash2, Sparkles } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
@@ -74,6 +74,8 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
               return 'border-yellow-300 bg-yellow-50 text-yellow-800';
             case 'info':
               return 'border-blue-300 bg-blue-50 text-blue-800';
+            case 'features':
+              return 'border-green-300 bg-green-50 text-green-800';
             default:
               return 'border-yellow-300 bg-yellow-50 text-yellow-800';
           }
@@ -88,6 +90,8 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
                   <AlertTriangle size={16} className="text-red-600" />
                 ) : avv.level === 'info' ? (
                   <Info size={16} className="text-blue-600" />
+                ) : avv.level === 'features' ? (
+                  <Sparkles size={16} className="text-green-600" />
                 ) : (
                   <AlertTriangle size={16} className="text-yellow-600" />
                 )}

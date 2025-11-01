@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, AlertTriangle, Users, Calendar, Clock, Info, AlertCircle, AlertTriangle as AlertTriangleIcon, Image, Trash2 } from 'lucide-react';
+import { X, AlertTriangle, Users, Calendar, Clock, Info, AlertCircle, AlertTriangle as AlertTriangleIcon, Image, Trash2, Sparkles } from 'lucide-react';
 
 const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAlert }) => {
   const [formData, setFormData] = useState({
@@ -132,6 +132,7 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
       case 'danger': return 'text-red-600 bg-red-50 border-red-200';
       case 'warning': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
       case 'info': return 'text-blue-600 bg-blue-50 border-blue-200';
+      case 'features': return 'text-green-600 bg-green-50 border-green-200';
       default: return 'text-gray-600 bg-gray-50 border-gray-200';
     }
   };
@@ -141,6 +142,7 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
       case 'danger': return '🔴';
       case 'warning': return '🟡';
       case 'info': return '🔵';
+      case 'features': return '✨';
       default: return '⚪';
     }
   };
@@ -200,14 +202,15 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
             />
           </div>
 
-          {/* Priorità */}
+          {/* Contenuto */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Priorità</label>
-            <div className="grid grid-cols-3 gap-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Contenuto</label>
+            <div className="grid grid-cols-2 gap-3">
               {[
                 { value: 'info', label: 'Informazione', icon: <Info size={20} />, color: 'text-blue-600' },
                 { value: 'warning', label: 'Avviso', icon: <AlertCircle size={20} />, color: 'text-yellow-600' },
-                { value: 'danger', label: 'Critico', icon: <AlertTriangleIcon size={20} />, color: 'text-red-600' }
+                { value: 'danger', label: 'Critico', icon: <AlertTriangleIcon size={20} />, color: 'text-red-600' },
+                { value: 'features', label: 'Nuove funzionalità', icon: <Sparkles size={20} />, color: 'text-green-600' }
               ].map(priority => (
                 <button
                   key={priority.value}
