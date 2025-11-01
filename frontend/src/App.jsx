@@ -313,7 +313,13 @@ export default function TicketApp() {
         ticketsWithForniture.forEach(t => { if (t && t.id) initMap[t.id] = t.stato; });
         setPrevTicketStates(initMap);
 
-        if (currentUser.ruolo === 'tecnico') {
+        // Carica users per tecnici e per clienti amministratori (devono vedere i clienti della loro azienda)
+        const isAdmin = currentUser.ruolo === 'cliente' && 
+                       currentUser.admin_companies && 
+                       Array.isArray(currentUser.admin_companies) && 
+                       currentUser.admin_companies.length > 0;
+        
+        if (currentUser.ruolo === 'tecnico' || isAdmin) {
           const usersResponse = await fetch(process.env.REACT_APP_API_URL + '/api/users', {
             headers: getAuthHeader()
           });
