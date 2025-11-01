@@ -14,6 +14,13 @@ const NewTicketModal = ({
   selectedClientForNewTicket,
   setSelectedClientForNewTicket
 }) => {
+  // Helper per verificare se un cliente è admin della sua azienda
+  const isAdminOfCompany = (cliente) => {
+    if (!cliente.admin_companies || !Array.isArray(cliente.admin_companies)) return false;
+    const azienda = cliente.azienda || '';
+    return cliente.admin_companies.includes(azienda);
+  };
+
   // Ordina alfabeticamente i clienti per nome azienda (case-insensitive, locale IT)
   const sortedClienti = (clientiAttivi || []).slice().sort((a, b) => {
     const aName = a.azienda || '';
@@ -56,9 +63,17 @@ const NewTicketModal = ({
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="" disabled>Seleziona un cliente</option>
-                {sortedClienti.map(c => (
-                  <option key={c.id} value={c.id}>{c.azienda}</option>
-                ))}
+                {sortedClienti.map(c => {
+                  const isAdmin = isAdminOfCompany(c);
+                  const aziendaText = c.azienda || 'Senza azienda';
+                  const emailText = c.email ? ` - ${c.email}` : '';
+                  const adminIcon = isAdmin ? '👑 ' : '';
+                  const displayText = `${adminIcon}${aziendaText}${emailText}`;
+                  
+                  return (
+                    <option key={c.id} value={c.id}>{displayText}</option>
+                  );
+                })}
               </select>
             </div>
           )}
