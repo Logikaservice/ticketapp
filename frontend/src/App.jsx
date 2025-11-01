@@ -1149,7 +1149,8 @@ export default function TicketApp() {
     
     if (type === 'create') {
       // Crea ticket con invio email
-      await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, true);
+      const photos = pendingTicketAction?.photos || [];
+      await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, true, photos);
     } else if (type === 'update') {
       // Aggiorna ticket con invio email
       await updateTicket(data, isEditing, selectedClient, true);
