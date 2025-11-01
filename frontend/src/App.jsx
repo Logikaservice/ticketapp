@@ -975,20 +975,29 @@ export default function TicketApp() {
   // Funzione per caricare foto a un ticket
   const handleUploadTicketPhotos = async (ticketId, photos) => {
     try {
+      console.log('🔄 handleUploadTicketPhotos chiamata:', ticketId, photos.length, 'foto');
+      
       const formData = new FormData();
       photos.forEach(photo => {
         formData.append('photos', photo);
       });
 
-      // Non includere Content-Type nell'header, lasciare che il browser lo imposti automaticamente per FormData
-      const headers = { ...getAuthHeader() };
-      delete headers['Content-Type'];
+      // Per FormData, NON includere Content-Type nell'header - il browser lo imposta automaticamente con il boundary
+      const authHeader = getAuthHeader();
+      const headers = {};
+      if (authHeader.Authorization) {
+        headers['Authorization'] = authHeader.Authorization;
+      }
 
+      console.log('🔄 Chiamata API:', `${process.env.REACT_APP_API_URL}/api/tickets/${ticketId}/photos`);
+      
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticketId}/photos`, {
         method: 'POST',
         headers: headers,
         body: formData
       });
+
+      console.log('📡 Risposta API:', response.status, response.statusText);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

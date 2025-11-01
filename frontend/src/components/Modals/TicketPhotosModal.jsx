@@ -175,9 +175,23 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
       return;
     }
 
+    if (!onUploadPhotos) {
+      console.error('onUploadPhotos non è disponibile');
+      alert('Errore: funzione di upload non disponibile');
+      return;
+    }
+
+    if (!ticket || !ticket.id) {
+      console.error('Ticket ID non disponibile');
+      alert('Errore: ticket non valido');
+      return;
+    }
+
     setIsUploading(true);
     try {
+      console.log('🔄 Caricamento foto...', imageFiles.length, 'file');
       const uploadedPhotos = await onUploadPhotos(ticket.id, imageFiles);
+      console.log('✅ Foto caricate:', uploadedPhotos);
       setLocalPhotos(uploadedPhotos);
       
       // Vai all'ultima foto caricata
@@ -185,7 +199,8 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
         setCurrentPhotoIndex(uploadedPhotos.length - 1);
       }
     } catch (error) {
-      console.error('Errore upload:', error);
+      console.error('❌ Errore upload:', error);
+      alert('Errore durante il caricamento: ' + (error.message || 'Errore sconosciuto'));
     } finally {
       setIsUploading(false);
       // Reset input
