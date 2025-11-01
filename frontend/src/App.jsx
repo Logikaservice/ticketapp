@@ -449,15 +449,30 @@ export default function TicketApp() {
           // Aggiungi nuovi ID non presenti nello stato precedente
           const prevIds = new Set(tickets.map(t => t.id));
           const newlyDetected = [];
+          
+          // Crea un Set per tracciare quali ticket erano già stati notificati (per evitare doppie notifiche)
+          const alreadyNotifiedKey = currentUser ? `notifiedTicketIds_${currentUser.id}` : null;
+          const alreadyNotified = alreadyNotifiedKey ? getSetFromStorage(alreadyNotifiedKey) : new Set();
+          const newlyNotified = [];
+          
           ticketsWithForniture.forEach(t => {
             const appliesToUser = getAppliesToUser(t);
             if (appliesToUser && t.stato === 'aperto' && !prevIds.has(t.id)) {
               unseenP.add(t.id);
               newlyDetected.push(t.id);
+              
+              // Mostra notifica solo se non è già stata mostrata prima
+              if (!alreadyNotified.has(t.id)) {
+                alreadyNotified.add(t.id);
+                newlyNotified.push(t);
+              }
             }
           });
+          
           if (newlyDetected.length > 0) dbg('Rilevati nuovi ticket per', currentUser.ruolo, 'IDs:', newlyDetected);
           if (unseenKeyP) saveSetToStorage(unseenKeyP, unseenP);
+          if (alreadyNotifiedKey) saveSetToStorage(alreadyNotifiedKey, alreadyNotified);
+          
           polled = ticketsWithForniture.map(t => {
             const appliesToUser = getAppliesToUser(t);
             return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseenP.has(t.id) };
@@ -466,16 +481,15 @@ export default function TicketApp() {
             const flagged = polled.filter(t => t.isNew).map(t => t.id);
             if (flagged.length > 0) dbg('Flag giallo per IDs:', flagged);
           }
-        }
-        setTickets(polled);
-        // Toast a scomparsa per ciascun nuovo ticket (cliccabile per aprire)
-        if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
-          polled.filter(t => t.isNew).forEach(t => {
-            dbg('Mostro toast per ticket', t.id);
+          
+          // Toast a scomparsa per ciascun nuovo ticket rilevato per la prima volta (cliccabile per aprire)
+          newlyNotified.forEach(t => {
+            dbg('Mostro toast per nuovo ticket', t.id);
             // Toast giallo (warning) per nuovo ticket, cliccabile
             showNotification(`Nuovo ticket ${t.numero}: ${t.titolo}`, 'warning', 8000, t.id);
           });
         }
+        setTickets(polled);
         // Highlights reali: confronta stati precedenti vs attuali
         const nextMap = {};
         ticketsWithForniture.forEach(t => { if (t && t.id) nextMap[t.id] = t.stato; });
@@ -537,7 +551,7 @@ export default function TicketApp() {
     const localNewHandler = () => { doPoll(); };
     window.addEventListener('new-ticket-local', localNewHandler);
     return () => { clearInterval(interval); window.removeEventListener('new-ticket-local', localNewHandler); };
-  }, [isLoggedIn, tickets, showUnreadModal, currentUser, previousUnreadCounts]);
+  }, [isLoggedIn, tickets, showUnreadModal, currentUser, previousUnreadCounts, users]);
 
   // Listener per apertura ticket da toast
   useEffect(() => {
