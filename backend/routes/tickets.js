@@ -2,8 +2,10 @@
 
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs');
 
-module.exports = (pool) => {
+module.exports = (pool, uploadTicketPhotos) => {
   // Funzione helper per generare il footer HTML con link al login
   const getEmailFooter = () => {
     const frontendUrl = process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com';
@@ -37,11 +39,24 @@ module.exports = (pool) => {
       `);
       
       // Parse dei campi JSON
-      const tickets = result.rows.map(ticket => ({
-        ...ticket,
-        timelogs: ticket.timelogs ? (typeof ticket.timelogs === 'string' ? JSON.parse(ticket.timelogs) : ticket.timelogs) : null,
-        messaggi: ticket.messaggi ? (typeof ticket.messaggi === 'string' ? JSON.parse(ticket.messaggi) : ticket.messaggi) : []
-      }));
+      const tickets = result.rows.map(ticket => {
+        let photos = [];
+        try {
+          if (ticket.photos) {
+            photos = typeof ticket.photos === 'string' ? JSON.parse(ticket.photos) : ticket.photos;
+            if (!Array.isArray(photos)) photos = [];
+          }
+        } catch (e) {
+          photos = [];
+        }
+        
+        return {
+          ...ticket,
+          timelogs: ticket.timelogs ? (typeof ticket.timelogs === 'string' ? JSON.parse(ticket.timelogs) : ticket.timelogs) : null,
+          messaggi: ticket.messaggi ? (typeof ticket.messaggi === 'string' ? JSON.parse(ticket.messaggi) : ticket.messaggi) : [],
+          photos: photos
+        };
+      });
       
       client.release();
       res.json(tickets);
@@ -822,6 +837,125 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Upload foto per ticket
+  router.post('/:id/photos', uploadTicketPhotos.array('photos', 10), async (req, res) => {
+    try {
+      const ticketId = parseInt(req.params.id);
+      
+      // Verifica che il ticket esista
+      const ticketCheck = await pool.query('SELECT id, stato FROM tickets WHERE id = $1', [ticketId]);
+      if (ticketCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Ticket non trovato' });
+      }
+      
+      const ticket = ticketCheck.rows[0];
+      
+      // Verifica che lo stato permetta l'upload foto
+      const allowedStates = ['aperto', 'in_lavorazione', 'risolto'];
+      if (!allowedStates.includes(ticket.stato)) {
+        return res.status(403).json({ error: 'Non puoi aggiungere foto a ticket in stato: ' + ticket.stato });
+      }
+      
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'Nessuna foto caricata' });
+      }
+      
+      // Recupera le foto esistenti
+      const currentTicket = await pool.query('SELECT photos FROM tickets WHERE id = $1', [ticketId]);
+      let existingPhotos = [];
+      try {
+        if (currentTicket.rows[0].photos) {
+          existingPhotos = typeof currentTicket.rows[0].photos === 'string' 
+            ? JSON.parse(currentTicket.rows[0].photos) 
+            : currentTicket.rows[0].photos;
+          if (!Array.isArray(existingPhotos)) existingPhotos = [];
+        }
+      } catch (e) {
+        existingPhotos = [];
+      }
+      
+      // Aggiungi le nuove foto
+      const newPhotos = req.files.map(file => ({
+        filename: file.filename,
+        originalName: file.originalname,
+        path: `/uploads/tickets/photos/${file.filename}`,
+        size: file.size,
+        mimetype: file.mimetype,
+        uploadedAt: new Date().toISOString()
+      }));
+      
+      const updatedPhotos = [...existingPhotos, ...newPhotos];
+      
+      // Salva nel database
+      await pool.query(
+        'UPDATE tickets SET photos = $1 WHERE id = $2',
+        [JSON.stringify(updatedPhotos), ticketId]
+      );
+      
+      res.json({ 
+        success: true, 
+        message: `${newPhotos.length} foto caricata/e con successo`,
+        photos: updatedPhotos
+      });
+    } catch (err) {
+      console.error('Errore upload foto ticket:', err);
+      res.status(500).json({ error: 'Errore durante il caricamento delle foto' });
+    }
+  });
+
+  // ENDPOINT: Elimina foto di un ticket
+  router.delete('/:id/photos/:photoFilename', async (req, res) => {
+    try {
+      const ticketId = parseInt(req.params.id);
+      const photoFilename = req.params.photoFilename;
+      
+      // Recupera le foto esistenti
+      const ticketResult = await pool.query('SELECT photos FROM tickets WHERE id = $1', [ticketId]);
+      if (ticketResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Ticket non trovato' });
+      }
+      
+      let photos = [];
+      try {
+        if (ticketResult.rows[0].photos) {
+          photos = typeof ticketResult.rows[0].photos === 'string' 
+            ? JSON.parse(ticketResult.rows[0].photos) 
+            : ticketResult.rows[0].photos;
+          if (!Array.isArray(photos)) photos = [];
+        }
+      } catch (e) {
+        photos = [];
+      }
+      
+      // Trova e rimuovi la foto
+      const photoIndex = photos.findIndex(p => p.filename === photoFilename);
+      if (photoIndex === -1) {
+        return res.status(404).json({ error: 'Foto non trovata' });
+      }
+      
+      const photoToDelete = photos[photoIndex];
+      
+      // Elimina il file dal filesystem
+      const photoPath = path.join(__dirname, '..', 'uploads', 'tickets', 'photos', photoFilename);
+      if (fs.existsSync(photoPath)) {
+        fs.unlinkSync(photoPath);
+      }
+      
+      // Rimuovi dalla lista
+      photos.splice(photoIndex, 1);
+      
+      // Salva nel database
+      await pool.query(
+        'UPDATE tickets SET photos = $1 WHERE id = $2',
+        [JSON.stringify(photos), ticketId]
+      );
+      
+      res.json({ success: true, message: 'Foto eliminata con successo', photos: photos });
+    } catch (err) {
+      console.error('Errore eliminazione foto ticket:', err);
+      res.status(500).json({ error: 'Errore durante l\'eliminazione della foto' });
+    }
+  });
 
   return router;
 };

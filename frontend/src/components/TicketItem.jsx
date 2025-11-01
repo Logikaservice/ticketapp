@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Settings, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon, Package, Eye, Printer } from 'lucide-react';
+import { User, Settings, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon, Package, Eye, Printer, Image as ImageIcon, Upload } from 'lucide-react';
 import { getStatoColor, getPrioritaColor, getPrioritaBgClass, getPrioritySolidBgClass, getStatoIcon } from '../utils/colors';
 import { formatDate } from '../utils/formatters';
 import ChatInterface from './ChatInterface';
@@ -21,7 +21,9 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
     handleInvoiceTicket,
     handleDeleteTicket,
     handleSendMessage,
-    showNotification
+    showNotification,
+    handleUploadTicketPhotos,
+    setPhotosModalTicket
   } = handlers;
 
   const isTicketOpen = ticket.stato === 'aperto';
@@ -29,6 +31,12 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
   
   const unreadCount = getUnreadCount ? getUnreadCount(ticket) : 0;
   const hasUnread = unreadCount > 0;
+  
+  // Stati che permettono l'upload/visualizzazione foto
+  const allowedPhotoStates = ['aperto', 'in_lavorazione', 'risolto'];
+  const canManagePhotos = allowedPhotoStates.includes(ticket.stato);
+  const photos = ticket.photos || [];
+  const hasPhotos = photos.length > 0;
 
   const handlePrint = (e) => {
     e.stopPropagation();
@@ -117,6 +125,29 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
             </div>
 
             <div className="flex gap-1">
+              {/* Foto ticket - solo per stati consentiti */}
+              {canManagePhotos && (
+                <button
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    setPhotosModalTicket(ticket);
+                  }}
+                  title={hasPhotos ? `Visualizza foto (${photos.length})` : 'Aggiungi foto'}
+                  className={`p-1 rounded-full relative ${
+                    hasPhotos 
+                      ? 'text-purple-600 hover:bg-purple-100' 
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <ImageIcon size={18} />
+                  {hasPhotos && (
+                    <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      {photos.length}
+                    </span>
+                  )}
+                </button>
+              )}
+              
               {/* Stampa ticket */}
               <button
                 onClick={handlePrint}

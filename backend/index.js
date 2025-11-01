@@ -35,7 +35,7 @@ app.use(cors({
 app.use(express.json());
 
 // --- CONFIGURAZIONE MULTER PER UPLOAD FILE ---
-const storage = multer.diskStorage({
+const storageAlerts = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadPath = path.join(__dirname, 'uploads', 'alerts');
     if (!fs.existsSync(uploadPath)) {
@@ -49,10 +49,40 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({
-  storage: storage,
+const uploadAlerts = multer({
+  storage: storageAlerts,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accetta solo immagini
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo file immagine sono permessi!'), false);
+    }
+  }
+});
+
+// Configurazione Multer per foto ticket
+const storageTicketPhotos = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, 'uploads', 'tickets', 'photos');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `ticket-photo-${uniqueSuffix}${path.extname(file.originalname)}`);
+  }
+});
+
+const uploadTicketPhotos = multer({
+  storage: storageTicketPhotos,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit per foto ticket
   },
   fileFilter: (req, file, cb) => {
     // Accetta solo immagini
@@ -241,7 +271,7 @@ const { authenticateToken, requireRole } = require('./middleware/authMiddleware'
 
 // --- IMPORTA LE ROUTES ---
 const usersRoutes = require('./routes/users')(pool);
-const ticketsRoutes = require('./routes/tickets')(pool);
+const ticketsRoutes = require('./routes/tickets')(pool, uploadTicketPhotos);
 const alertsRoutes = require('./routes/alerts')(pool);
 const googleCalendarRoutes = require('./routes/googleCalendar')(pool);
 const googleAuthRoutes = require('./routes/googleAuth')(pool);
@@ -751,6 +781,14 @@ app.post('/api/init-db', async (req, res) => {
       console.log("⚠️ Errore aggiunta colonna googlecalendareventid (potrebbe già esistere):", alterErr.message);
     }
     
+    // Aggiungi colonna photos alla tabella tickets se non esiste (JSONB per array di foto)
+    try {
+      await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'::jsonb`);
+      console.log("✅ Colonna photos aggiunta alla tabella tickets");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonna photos (potrebbe già esistere):", alterErr.message);
+    }
+    
     // Aggiungi colonna admin_companies alla tabella users se non esiste
     try {
       await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_companies JSONB DEFAULT '[]'::jsonb`);
@@ -850,6 +888,14 @@ const startServer = async () => {
       console.log("✅ Colonna googlecalendareventid aggiunta alla tabella tickets (auto-init)");
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna googlecalendareventid (auto-init):", alterErr.message);
+    }
+    
+    // Aggiungi colonna photos alla tabella tickets se non esiste (JSONB per array di foto)
+    try {
+      await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'::jsonb`);
+      console.log("✅ Colonna photos aggiunta alla tabella tickets (auto-init)");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonna photos (auto-init):", alterErr.message);
     }
     
     // Aggiungi colonna admin_companies alla tabella users se non esiste (auto-init)

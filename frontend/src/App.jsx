@@ -12,6 +12,7 @@ import NewClientModal from './components/Modals/NewClientModal';
 import NewTicketModal from './components/Modals/NewTicketModal';
 import FornitureModal from './components/Modals/FornitureModal';
 import UnreadMessagesModal from './components/UnreadMessagesModal';
+import TicketPhotosModal from './components/Modals/TicketPhotosModal';
 import { useAuth } from './hooks/useAuth';
 import { useClients } from './hooks/useClients';
 import { useTickets } from './hooks/useTickets';
@@ -72,6 +73,7 @@ export default function TicketApp() {
   const [selectedClientForNewTicket, setSelectedClientForNewTicket] = useState('');
   const [showUnreadModal, setShowUnreadModal] = useState(false);
   const [fornitureModalTicket, setFornitureModalTicket] = useState(null);
+  const [photosModalTicket, setPhotosModalTicket] = useState(null);
   const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
   const [showDashboard, setShowDashboard] = useState(true);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
@@ -970,6 +972,88 @@ export default function TicketApp() {
     setModalState({ type: null, data: null });
   };
 
+  // Funzione per caricare foto a un ticket
+  const handleUploadTicketPhotos = async (ticketId, photos) => {
+    try {
+      const formData = new FormData();
+      photos.forEach(photo => {
+        formData.append('photos', photo);
+      });
+
+      // Non includere Content-Type nell'header, lasciare che il browser lo imposti automaticamente per FormData
+      const headers = { ...getAuthHeader() };
+      delete headers['Content-Type'];
+
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticketId}/photos`, {
+        method: 'POST',
+        headers: headers,
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Errore durante il caricamento delle foto');
+      }
+
+      const result = await response.json();
+      
+      // Aggiorna il ticket nella lista
+      setTickets(prev => prev.map(t => 
+        t.id === ticketId 
+          ? { ...t, photos: result.photos } 
+          : t
+      ));
+
+      // Aggiorna anche selectedTicket se è quello corretto
+      if (selectedTicket && selectedTicket.id === ticketId) {
+        setSelectedTicket({ ...selectedTicket, photos: result.photos });
+      }
+
+      showNotification(result.message || 'Foto caricate con successo', 'success');
+      return result.photos;
+    } catch (error) {
+      console.error('Errore upload foto:', error);
+      showNotification(error.message || 'Errore durante il caricamento delle foto', 'error');
+      throw error;
+    }
+  };
+
+  // Funzione per eliminare foto di un ticket
+  const handleDeleteTicketPhoto = async (ticketId, photoFilename) => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticketId}/photos/${photoFilename}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Errore durante l\'eliminazione della foto');
+      }
+
+      const result = await response.json();
+      
+      // Aggiorna il ticket nella lista
+      setTickets(prev => prev.map(t => 
+        t.id === ticketId 
+          ? { ...t, photos: result.photos } 
+          : t
+      ));
+
+      // Aggiorna anche selectedTicket se è quello corretto
+      if (selectedTicket && selectedTicket.id === ticketId) {
+        setSelectedTicket({ ...selectedTicket, photos: result.photos });
+      }
+
+      showNotification(result.message || 'Foto eliminata con successo', 'success');
+      return result.photos;
+    } catch (error) {
+      console.error('Errore eliminazione foto:', error);
+      showNotification(error.message || 'Errore durante l\'eliminazione della foto', 'error');
+      throw error;
+    }
+  };
+
   const wrappedHandleCreateTicket = () => {
     console.log('🔍 DEBUG: wrappedHandleCreateTicket chiamata');
     console.log('🔍 DEBUG: currentUser.ruolo =', currentUser.ruolo);
@@ -1418,7 +1502,10 @@ export default function TicketApp() {
               showNotification,
               handleSendMessage,
               handleGenerateSentReport,
-              handleGenerateInvoiceReport
+              handleGenerateInvoiceReport,
+              handleUploadTicketPhotos,
+              handleDeleteTicketPhoto,
+              setPhotosModalTicket
             }}
             getUnreadCount={getUnreadCount}
             externalHighlights={dashboardHighlights}
@@ -1455,7 +1542,10 @@ export default function TicketApp() {
               showNotification,
               handleSendMessage,
               handleGenerateSentReport,
-              handleGenerateInvoiceReport
+              handleGenerateInvoiceReport,
+              handleUploadTicketPhotos,
+              handleDeleteTicketPhoto,
+              setPhotosModalTicket
             }}
             showFilters={true}
             externalViewState={dashboardTargetState}
@@ -1543,6 +1633,34 @@ export default function TicketApp() {
           getUnreadCount={getUnreadCount}
           onClose={() => setShowUnreadModal(false)}
           onOpenTicket={handleOpenTicketFromModal}
+          currentUser={currentUser}
+        />
+      )}
+
+      {photosModalTicket && (
+        <TicketPhotosModal
+          ticket={photosModalTicket}
+          photos={photosModalTicket.photos || []}
+          onClose={() => {
+            // Aggiorna il ticket dal database prima di chiudere
+            const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
+            if (updatedTicket) {
+              setPhotosModalTicket(null);
+            } else {
+              setPhotosModalTicket(null);
+            }
+          }}
+          onUploadPhotos={handleUploadTicketPhotos}
+          onDeletePhoto={async (photoFilename) => {
+            const updatedPhotos = await handleDeleteTicketPhoto(photosModalTicket.id, photoFilename);
+            // Aggiorna il ticket nel modal
+            const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
+            if (updatedTicket) {
+              setPhotosModalTicket({ ...updatedTicket, photos: updatedPhotos });
+            }
+            return updatedPhotos;
+          }}
+          getAuthHeader={getAuthHeader}
           currentUser={currentUser}
         />
       )}
