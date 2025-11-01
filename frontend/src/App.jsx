@@ -412,12 +412,45 @@ export default function TicketApp() {
         let polled = ticketsWithForniture;
         const unseenKeyP = currentUser ? `unseenNewTicketIds_${currentUser.id}` : null;
         const unseenP = unseenKeyP ? getSetFromStorage(unseenKeyP) : new Set();
+        
+        // Funzione helper per verificare se un ticket è visibile all'utente
+        const getAppliesToUser = (ticket) => {
+          if (currentUser.ruolo === 'tecnico') {
+            return true; // I tecnici vedono tutti i ticket
+          }
+          
+          if (currentUser.ruolo === 'cliente') {
+            // Se è il proprio ticket, sempre visibile
+            if (ticket.clienteid === currentUser.id) {
+              return true;
+            }
+            
+            // Se è amministratore, controlla se il ticket appartiene a un cliente della sua azienda
+            const isAdmin = currentUser.admin_companies && 
+                           Array.isArray(currentUser.admin_companies) && 
+                           currentUser.admin_companies.length > 0;
+            
+            if (isAdmin) {
+              // Trova il cliente del ticket
+              const ticketClient = users.find(u => u.id === ticket.clienteid);
+              if (ticketClient && ticketClient.azienda) {
+                // Verifica se l'azienda del ticket è tra quelle di cui è amministratore
+                return currentUser.admin_companies.includes(ticketClient.azienda);
+              }
+            }
+            
+            return false;
+          }
+          
+          return false;
+        };
+        
         if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
           // Aggiungi nuovi ID non presenti nello stato precedente
           const prevIds = new Set(tickets.map(t => t.id));
           const newlyDetected = [];
           ticketsWithForniture.forEach(t => {
-            const appliesToUser = currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id;
+            const appliesToUser = getAppliesToUser(t);
             if (appliesToUser && t.stato === 'aperto' && !prevIds.has(t.id)) {
               unseenP.add(t.id);
               newlyDetected.push(t.id);
@@ -426,7 +459,7 @@ export default function TicketApp() {
           if (newlyDetected.length > 0) dbg('Rilevati nuovi ticket per', currentUser.ruolo, 'IDs:', newlyDetected);
           if (unseenKeyP) saveSetToStorage(unseenKeyP, unseenP);
           polled = ticketsWithForniture.map(t => {
-            const appliesToUser = currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id;
+            const appliesToUser = getAppliesToUser(t);
             return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseenP.has(t.id) };
           });
           if (debugNewTickets()) {
