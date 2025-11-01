@@ -293,18 +293,88 @@ export default function TicketApp() {
         // Evidenzia nuovi ticket (persistente finché non aperto) - baseline al primo login
         let withNewFlag = ticketsWithForniture;
         const unseenKey = currentUser ? `unseenNewTicketIds_${currentUser.id}` : null;
-        const bootKey = currentUser ? `newTicketsBootstrapped_${currentUser.id}` : null;
         const unseen = unseenKey ? getSetFromStorage(unseenKey) : new Set();
-        if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
-          // Al primo caricamento non aggiungiamo nuovi, solo mostriamo quelli già in unseen
-          if (bootKey && !localStorage.getItem(bootKey)) {
-            localStorage.setItem(bootKey, '1');
-          } else {
-            // Dopo il bootstrap, aggiungeremo tramite polling
+        
+        // Funzione helper per verificare se un ticket è visibile all'utente (uguale a quella del polling)
+        const getAppliesToUserInitial = (ticket) => {
+          if (currentUser.ruolo === 'tecnico') {
+            return true; // I tecnici vedono tutti i ticket
           }
+          
+          if (currentUser.ruolo === 'cliente') {
+            // Se è il proprio ticket, sempre visibile (confronta come numeri)
+            const ticketClienteId = Number(ticket.clienteid);
+            const currentUserId = Number(currentUser.id);
+            if (ticketClienteId === currentUserId) {
+              return true;
+            }
+            
+            // Se è amministratore, controlla se il ticket appartiene a un cliente della sua azienda
+            const isAdmin = currentUser.admin_companies && 
+                           Array.isArray(currentUser.admin_companies) && 
+                           currentUser.admin_companies.length > 0;
+            
+            if (isAdmin) {
+              // Usa l'azienda del cliente direttamente dal ticket (se disponibile) o cerca in users
+              let ticketAzienda = null;
+              
+              // Prima prova a usare l'azienda dal ticket (se è stata aggiunta dal backend)
+              if (ticket.cliente_azienda) {
+                ticketAzienda = ticket.cliente_azienda;
+              } else if (users && users.length > 0) {
+                // Altrimenti cerca in users
+                const ticketClient = users.find(u => Number(u.id) === ticketClienteId);
+                if (ticketClient && ticketClient.azienda) {
+                  ticketAzienda = ticketClient.azienda;
+                }
+              }
+              
+              if (ticketAzienda) {
+                // Verifica se l'azienda del ticket è tra quelle di cui è amministratore
+                return currentUser.admin_companies.includes(ticketAzienda);
+              }
+            }
+            
+            return false;
+          }
+          
+          return false;
+        };
+        
+        // Crea un Set per tracciare quali ticket erano già stati notificati (per evitare doppie notifiche)
+        const alreadyNotifiedKey = currentUser ? `notifiedTicketIds_${currentUser.id}` : null;
+        const alreadyNotified = alreadyNotifiedKey ? getSetFromStorage(alreadyNotifiedKey) : new Set();
+        const newlyNotifiedInitial = [];
+        
+        if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
+          // Al primo caricamento, rileva nuovi ticket (aperti) che non erano già in unseen
+          ticketsWithForniture.forEach(t => {
+            const appliesToUser = getAppliesToUserInitial(t);
+            if (appliesToUser && t.stato === 'aperto' && !unseen.has(t.id)) {
+              // Aggiungi a unseen
+              unseen.add(t.id);
+              
+              // Mostra notifica solo se non è già stata mostrata prima
+              if (!alreadyNotified.has(t.id)) {
+                alreadyNotified.add(t.id);
+                newlyNotifiedInitial.push(t);
+              }
+            }
+          });
+          
+          // Salva unseen e alreadyNotified
+          if (unseenKey) saveSetToStorage(unseenKey, unseen);
+          if (alreadyNotifiedKey) saveSetToStorage(alreadyNotifiedKey, alreadyNotified);
+          
+          // Applica flag isNew ai ticket
           withNewFlag = ticketsWithForniture.map(t => {
-            const appliesToUser = currentUser.ruolo === 'tecnico' || t.clienteid === currentUser.id;
+            const appliesToUser = getAppliesToUserInitial(t);
             return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseen.has(t.id) };
+          });
+          
+          // Mostra notifiche per i nuovi ticket rilevati al primo caricamento
+          newlyNotifiedInitial.forEach(t => {
+            showNotification(`Nuovo ticket ${t.numero}: ${t.titolo}`, 'warning', 8000, t.id);
           });
         }
         setTickets(withNewFlag);
