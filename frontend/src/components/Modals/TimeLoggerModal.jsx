@@ -384,13 +384,6 @@ const TimeLoggerModal = ({
                     </div>
 
                     <div className="col-span-2 min-w-[120px]">
-                      <label className="block text-xs mb-1 text-gray-600">Costo Scontato (€)</label>
-                      <div className="p-2.5 bg-purple-50 rounded-lg font-bold text-purple-800">
-                        {((parseFloat(offerta.costoUnitario) || 0) * (1 - ((parseFloat(offerta.sconto) || 0) / 100))).toFixed(2)}€
-                      </div>
-                    </div>
-
-                    <div className="col-span-2 min-w-[120px]">
                       <label className="block text-xs mb-1 text-gray-600">Costo Unit. (€/h)</label>
                       <input
                         type="number"
