@@ -415,17 +415,17 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                   Genera Lista Fatture
                 </button>
               )}
-              <div className="flex-1 relative">
+              <div className="flex-1 min-w-0 relative">
                 <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setIsDropdownOpen1(!isDropdownOpen1)}
-                    className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition"
+                    className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition min-w-0"
                   >
-                    <span className={selectedClientFilter === 'all' ? 'text-gray-500' : 'text-gray-900'}>
+                    <span className={`${selectedClientFilter === 'all' ? 'text-gray-500' : 'text-gray-900'} truncate flex-1 min-w-0`}>
                       {selectedClientFilter !== 'all' && selectedClient && (
-                        <span className="flex items-center gap-2">
+                        <span className="flex items-center gap-2 flex-shrink-0">
                           {isAdminOfCompany(selectedClient) && <Crown size={16} className="text-yellow-500" />}
                         </span>
                       )}
@@ -551,12 +551,12 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                   )}
                 </div>
               </div>
-              <div className="flex-1">
+              <div className="w-36 md:w-40 flex-shrink-0">
                 <label className="block text-sm font-medium mb-2">Mese</label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-2 py-2 border rounded-lg text-sm"
                 >
                   <option value="all">Tutti i mesi</option>
                   <option value="1">Gennaio</option>
@@ -573,12 +573,12 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                   <option value="12">Dicembre</option>
                 </select>
               </div>
-              <div className="flex-1">
+              <div className="w-36 md:w-40 flex-shrink-0">
                 <label className="block text-sm font-medium mb-2">Anno</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-2 py-2 border rounded-lg text-sm"
                 >
                   <option value="all">Tutti gli anni</option>
                   {(() => {
@@ -599,17 +599,17 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           {/* Filtri per tecnico (negli altri stati) */}
           {currentUser.ruolo === 'tecnico' && !['inviato', 'fatturato'].includes(viewState) && (
             <div className="mt-3 flex flex-col md:flex-row md:items-end md:gap-4">
-              <div className="flex-1 relative">
+              <div className="flex-1 min-w-0 relative">
                 <label className="block text-sm font-medium mb-2">Filtra per cliente</label>
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setIsDropdownOpen2(!isDropdownOpen2)}
-                    className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition"
+                    className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition min-w-0"
                   >
-                    <span className={selectedClientFilter === 'all' ? 'text-gray-500' : 'text-gray-900'}>
+                    <span className={`${selectedClientFilter === 'all' ? 'text-gray-500' : 'text-gray-900'} truncate flex-1 min-w-0`}>
                       {selectedClientFilter !== 'all' && selectedClient && (
-                        <span className="flex items-center gap-2">
+                        <span className="flex items-center gap-2 flex-shrink-0">
                           {isAdminOfCompany(selectedClient) && <Crown size={16} className="text-yellow-500" />}
                         </span>
                       )}
@@ -735,12 +735,12 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                   )}
                 </div>
               </div>
-              <div className="flex-1">
+              <div className="w-36 md:w-40 flex-shrink-0">
                 <label className="block text-sm font-medium mb-2">Mese</label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-2 py-2 border rounded-lg text-sm"
                 >
                   <option value="all">Tutti i mesi</option>
                   <option value="1">Gennaio</option>
@@ -757,12 +757,12 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                   <option value="12">Dicembre</option>
                 </select>
               </div>
-              <div className="flex-1">
+              <div className="w-36 md:w-40 flex-shrink-0">
                 <label className="block text-sm font-medium mb-2">Anno</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-2 py-2 border rounded-lg text-sm"
                 >
                   <option value="all">Tutti gli anni</option>
                   {(() => {
