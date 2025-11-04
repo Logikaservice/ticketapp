@@ -22,9 +22,11 @@ export const getInitialOfferta = () => ({
   numeroOfferta: '',
   dataOfferta: new Date().toISOString().substring(0, 10),
   qta: 1,
+  costoUnitario: 0,
   sconto: 0,
   totale: 0,
-  descrizione: ''
+  descrizione: '',
+  allegati: []
 });
 
 export const getInitialTimeLog = () => ({

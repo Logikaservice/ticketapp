@@ -108,6 +108,7 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       const coerceValue = (fieldName, raw) => {
         if (fieldName === 'descrizione' || fieldName === 'numeroOfferta') return raw; // testo libero
         if (fieldName === 'qta') return parseInt(raw) || 0;
+        if (fieldName === 'costoUnitario') return parseFloat(raw) || 0;
         if (fieldName === 'sconto') return parseFloat(raw) || 0;
         if (fieldName === 'totale') return parseFloat(raw) || 0;
         return raw;
@@ -115,13 +116,13 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
 
       const newOfferta = { ...log.offerte.find(o => o.id === offertaId), [field]: coerceValue(field, value) };
       
-      // Calcola il totale automaticamente se qta o sconto cambiano
-      if (field === 'qta' || field === 'sconto') {
-        const qta = field === 'qta' ? coerceValue('qta', value) : newOfferta.qta;
-        const sconto = field === 'sconto' ? coerceValue('sconto', value) : newOfferta.sconto;
-        // Assumendo che il costo base sia 1€ per ora (puoi modificare questa logica)
-        const costoBase = 1;
-        newOfferta.totale = (costoBase * qta * (1 - sconto / 100));
+      // Calcola il totale automaticamente quando cambiano qta, sconto o costoUnitario
+      if (['qta', 'sconto', 'costoUnitario'].includes(field)) {
+        const qta = field === 'qta' ? coerceValue('qta', value) : (parseInt(newOfferta.qta) || 0);
+        const sconto = field === 'sconto' ? coerceValue('sconto', value) : (parseFloat(newOfferta.sconto) || 0);
+        const costoUnit = field === 'costoUnitario' ? coerceValue('costoUnitario', value) : (parseFloat(newOfferta.costoUnitario) || 0);
+        const costoScontato = costoUnit * (1 - sconto / 100);
+        newOfferta.totale = (costoScontato * qta);
       }
 
       return {

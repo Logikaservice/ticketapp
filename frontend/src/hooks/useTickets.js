@@ -452,10 +452,12 @@ export const useTickets = (
         offerte: log.offerte.map(o => ({
           numeroOfferta: o.numeroOfferta,
           dataOfferta: o.dataOfferta,
+          costoUnitario: parseFloat(o.costoUnitario) || 0,
           qta: parseInt(o.qta) || 1,
           sconto: parseFloat(o.sconto) || 0,
           totale: parseFloat(o.totale) || 0,
-          descrizione: o.descrizione
+          descrizione: o.descrizione,
+          allegati: Array.isArray(o.allegati) ? o.allegati : []
         }))
       }));
 

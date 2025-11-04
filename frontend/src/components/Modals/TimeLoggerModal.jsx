@@ -346,7 +346,7 @@ const TimeLoggerModal = ({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-5 gap-4 mb-4">
+                  <div className="grid grid-cols-6 gap-4 mb-4">
                     <div>
                       <label className="block text-xs mb-1 text-gray-600">Offerta n°</label>
                       <input
@@ -378,6 +378,26 @@ const TimeLoggerModal = ({
                         step="0.25"
                         value={offerta.qta}
                         onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'qta', e.target.value)}
+                        disabled={fieldsDisabled}
+                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs mb-1 text-gray-600">Costo Scontato (€)</label>
+                      <div className="p-2.5 bg-purple-50 rounded-lg font-bold text-purple-800">
+                        {((parseFloat(offerta.costoUnitario) || 0) * (1 - ((parseFloat(offerta.sconto) || 0) / 100))).toFixed(2)}€
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs mb-1 text-gray-600">Costo Unit. (€/h)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={offerta.costoUnitario || 0}
+                        onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'costoUnitario', e.target.value)}
                         disabled={fieldsDisabled}
                         className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                       />
