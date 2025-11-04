@@ -178,6 +178,12 @@ const TimeLoggerModal = ({
                   e.currentTarget.style.height = 'auto';
                   e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                 }}
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = 'auto';
+                    el.style.height = `${el.scrollHeight}px`;
+                  }
+                }}
                 placeholder="Descrizione"
                 disabled={fieldsDisabled}
                 className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden"
