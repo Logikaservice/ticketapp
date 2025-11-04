@@ -459,13 +459,13 @@ export const generateSingleTicketHTML = (ticket, options = {}) => {
     <table>
       <thead>
         <tr>
-          <th style="width: 14%">Offerta n°</th>
-          <th style="width: 12%">Data</th>
-          <th style="width: 8%">Qta</th>
-          <th style="width: 14%">Costo Unit. (€)</th>
-          <th style="width: 10%">Sconto %</th>
-          <th style="width: 14%">Totale (€)</th>
-          <th style="width: 28%">Descrizione</th>
+          <th style="width: 10%">Offerta n°</th>
+          <th style="width: 10%">Data</th>
+          <th style="width: 6%">Qta</th>
+          <th style="width: 12%">Costo Unit. (€)</th>
+          <th style="width: 8%">Sconto %</th>
+          <th style="width: 12%">Totale (€)</th>
+          <th style="width: 42%">Descrizione</th>
         </tr>
       </thead>
       <tbody>
