@@ -423,17 +423,15 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                     onClick={() => setIsDropdownOpen1(!isDropdownOpen1)}
                     className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition min-w-0"
                   >
-                    <span className={`${selectedClientFilter === 'all' ? 'text-gray-500' : 'text-gray-900'} truncate flex-1 min-w-0`}>
-                      {selectedClientFilter !== 'all' && selectedClient && (
-                        <span className="flex items-center gap-2 flex-shrink-0">
-                          {isAdminOfCompany(selectedClient) && <Crown size={16} className="text-yellow-500" />}
-                        </span>
+                    <span className={`${selectedClientFilter === 'all' ? 'text-gray-500' : 'text-gray-900'} flex items-center gap-2 flex-1 min-w-0`}>
+                      {selectedClientFilter !== 'all' && selectedClient && isAdminOfCompany(selectedClient) && (
+                        <Crown size={16} className="text-yellow-500 flex-shrink-0" />
                       )}
-                      {selectedClientName}
+                      <span className="truncate">{selectedClientName}</span>
                     </span>
                     <ChevronDown 
                       size={20} 
-                      className={`text-gray-400 transition-transform ${isDropdownOpen1 ? 'rotate-180' : ''}`} 
+                      className={`text-gray-400 transition-transform flex-shrink-0 ${isDropdownOpen1 ? 'rotate-180' : ''}`} 
                     />
                   </button>
 
@@ -607,17 +605,15 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                     onClick={() => setIsDropdownOpen2(!isDropdownOpen2)}
                     className="w-full px-3 py-2 border rounded-lg bg-white text-left flex items-center justify-between focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition min-w-0"
                   >
-                    <span className={`${selectedClientFilter === 'all' ? 'text-gray-500' : 'text-gray-900'} truncate flex-1 min-w-0`}>
-                      {selectedClientFilter !== 'all' && selectedClient && (
-                        <span className="flex items-center gap-2 flex-shrink-0">
-                          {isAdminOfCompany(selectedClient) && <Crown size={16} className="text-yellow-500" />}
-                        </span>
+                    <span className={`${selectedClientFilter === 'all' ? 'text-gray-500' : 'text-gray-900'} flex items-center gap-2 flex-1 min-w-0`}>
+                      {selectedClientFilter !== 'all' && selectedClient && isAdminOfCompany(selectedClient) && (
+                        <Crown size={16} className="text-yellow-500 flex-shrink-0" />
                       )}
-                      {selectedClientName}
+                      <span className="truncate">{selectedClientName}</span>
                     </span>
                     <ChevronDown 
                       size={20} 
-                      className={`text-gray-400 transition-transform ${isDropdownOpen2 ? 'rotate-180' : ''}`} 
+                      className={`text-gray-400 transition-transform flex-shrink-0 ${isDropdownOpen2 ? 'rotate-180' : ''}`} 
                     />
                   </button>
 
