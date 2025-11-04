@@ -14,7 +14,12 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
           ...lg, 
           id: Date.now() + Math.random(), 
           materials: Array.isArray(lg.materials) 
-            ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) 
+            ? lg.materials.map(m => ({ 
+                ...m, 
+                id: Date.now() + Math.random(), 
+                quantita: parseInt(m.quantita) || 0,
+                costo: parseFloat(m.costo) || 0
+              })) 
             : [getInitialMaterial()],
           offerte: Array.isArray(lg.offerte) 
             ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() })) 
@@ -32,7 +37,12 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
           ...lg, 
           id: Date.now() + Math.random(), 
           materials: Array.isArray(lg.materials) 
-            ? lg.materials.map(m => ({ ...m, id: Date.now() + Math.random() })) 
+            ? lg.materials.map(m => ({ 
+                ...m, 
+                id: Date.now() + Math.random(),
+                quantita: parseInt(m.quantita) || 0,
+                costo: parseFloat(m.costo) || 0
+              })) 
             : [getInitialMaterial()],
           offerte: Array.isArray(lg.offerte) 
             ? lg.offerte.map(o => ({ ...o, id: Date.now() + Math.random() })) 
