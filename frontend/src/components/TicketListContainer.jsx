@@ -301,12 +301,12 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                 <FileText size={18} />
                 Genera Report
               </button>
-              <div className="flex-1">
+              <div className="w-36 md:w-40 flex-shrink-0">
                 <label className="block text-sm font-medium mb-2">Mese</label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-2 py-2 border rounded-lg text-sm"
                 >
                   <option value="all">Tutti i mesi</option>
                   <option value="1">Gennaio</option>
@@ -323,12 +323,12 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                   <option value="12">Dicembre</option>
                 </select>
               </div>
-              <div className="flex-1">
+              <div className="w-36 md:w-40 flex-shrink-0">
                 <label className="block text-sm font-medium mb-2">Anno</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-2 py-2 border rounded-lg text-sm"
                 >
                   <option value="all">Tutti gli anni</option>
                   {(() => {
@@ -349,12 +349,12 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           {/* Filtri per cliente (altri stati) */}
           {currentUser.ruolo === 'cliente' && viewState !== 'inviato' && (
             <div className="mt-3 flex flex-col md:flex-row md:items-end md:gap-4">
-              <div className="flex-1">
+              <div className="w-36 md:w-40 flex-shrink-0">
                 <label className="block text-sm font-medium mb-2">Mese</label>
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-2 py-2 border rounded-lg text-sm"
                 >
                   <option value="all">Tutti i mesi</option>
                   <option value="1">Gennaio</option>
@@ -371,12 +371,12 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                   <option value="12">Dicembre</option>
                 </select>
               </div>
-              <div className="flex-1">
+              <div className="w-36 md:w-40 flex-shrink-0">
                 <label className="block text-sm font-medium mb-2">Anno</label>
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-2 py-2 border rounded-lg text-sm"
                 >
                   <option value="all">Tutti gli anni</option>
                   {(() => {
