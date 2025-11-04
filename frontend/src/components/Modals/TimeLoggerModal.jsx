@@ -267,7 +267,7 @@ const TimeLoggerModal = ({
                         <label className="block text-xs mb-1">Qta</label>
                         <input
                           type="number"
-                          min="1"
+                          min="0"
                           value={m.quantita}
                           onChange={(e) => handleMaterialChange(log.id, m.id, 'quantita', e.target.value)}
                           disabled={fieldsDisabled}

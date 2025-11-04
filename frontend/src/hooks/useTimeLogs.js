@@ -170,7 +170,7 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
         sconto: parseFloat(log.sconto) || 0,
         materials: log.materials.map(m => ({
           nome: m.nome,
-          quantita: parseInt(m.quantita) || 1,
+          quantita: parseInt(m.quantita) || 0,
           costo: parseFloat(m.costo) || 0
         })),
         offerte: log.offerte.map(o => ({

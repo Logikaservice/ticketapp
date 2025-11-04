@@ -29,7 +29,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
           log.materials.forEach(m => {
             const nomeMateriale = (m.nome || '').trim();
             if (nomeMateriale && nomeMateriale !== '0' && nomeMateriale !== '') {
-              totalMateriali += (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1);
+              totalMateriali += (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 0);
             }
           });
         }
@@ -240,7 +240,7 @@ export const generateReportHTML = (tickets, reportTitle, reportType, users) => {
         const costoMaterialiLog = (log.materials || []).reduce((sum, m) => {
           const nomeMateriale = (m.nome || '').trim();
           if (nomeMateriale && nomeMateriale !== '0' && nomeMateriale !== '') {
-            return sum + (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 1);
+            return sum + (parseFloat(m.costo) || 0) * (parseInt(m.quantita) || 0);
           }
           return sum;
         }, 0);

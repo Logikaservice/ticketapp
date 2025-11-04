@@ -13,7 +13,7 @@ export const calculateDurationHours = (start, end) => {
 export const getInitialMaterial = () => ({
   id: Date.now() + Math.random(),
   nome: '',
-  quantita: 1,
+  quantita: 0,
   costo: 0.00
 });
 
