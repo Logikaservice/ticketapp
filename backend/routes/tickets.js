@@ -5,7 +5,7 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 
-module.exports = (pool, uploadTicketPhotos) => {
+module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
   // Funzione helper per generare il footer HTML con link al login
   const getEmailFooter = () => {
     const frontendUrl = process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com';
@@ -691,6 +691,43 @@ module.exports = (pool, uploadTicketPhotos) => {
       }
     } catch (err) {
       console.error('❌ Errore nel salvare i timelogs:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // Upload documento per Offerta (ritorna metadati, nessuna scrittura DB qui)
+  router.post('/:id/offerte/attachments', uploadOffertaDocs.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Nessun file caricato' });
+      }
+      const f = req.file;
+      const meta = {
+        filename: f.filename,
+        originalName: f.originalname,
+        path: `/uploads/tickets/offerte/${f.filename}`,
+        size: f.size,
+        mimetype: f.mimetype,
+        uploadedAt: new Date().toISOString()
+      };
+      res.json(meta);
+    } catch (err) {
+      console.error('Errore upload allegato offerta:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // Eliminazione documento allegato (solo filesystem)
+  router.delete('/:id/offerte/attachments/:filename', async (req, res) => {
+    try {
+      const { filename } = req.params;
+      const filePath = path.join(__dirname, '..', 'uploads', 'tickets', 'offerte', filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Errore delete allegato offerta:', err);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });

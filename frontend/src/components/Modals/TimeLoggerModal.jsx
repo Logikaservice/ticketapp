@@ -346,8 +346,8 @@ const TimeLoggerModal = ({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-6 gap-4 mb-4">
-                    <div>
+                  <div className="grid grid-cols-12 gap-3 mb-4">
+                    <div className="col-span-2 min-w-[110px]">
                       <label className="block text-xs mb-1 text-gray-600">Offerta n°</label>
                       <input
                         type="text"
@@ -359,7 +359,7 @@ const TimeLoggerModal = ({
                       />
                     </div>
 
-                    <div>
+                    <div className="col-span-2 min-w-[140px]">
                       <label className="block text-xs mb-1 text-gray-600">Data Offerta</label>
                       <input
                         type="date"
@@ -370,7 +370,7 @@ const TimeLoggerModal = ({
                       />
                     </div>
 
-                    <div>
+                    <div className="col-span-1 min-w-[80px]">
                       <label className="block text-xs mb-1 text-gray-600">Qta (Ore)</label>
                       <input
                         type="number"
@@ -383,14 +383,14 @@ const TimeLoggerModal = ({
                       />
                     </div>
 
-                    <div>
+                    <div className="col-span-2 min-w-[120px]">
                       <label className="block text-xs mb-1 text-gray-600">Costo Scontato (€)</label>
                       <div className="p-2.5 bg-purple-50 rounded-lg font-bold text-purple-800">
                         {((parseFloat(offerta.costoUnitario) || 0) * (1 - ((parseFloat(offerta.sconto) || 0) / 100))).toFixed(2)}€
                       </div>
                     </div>
 
-                    <div>
+                    <div className="col-span-2 min-w-[120px]">
                       <label className="block text-xs mb-1 text-gray-600">Costo Unit. (€/h)</label>
                       <input
                         type="number"
@@ -403,7 +403,7 @@ const TimeLoggerModal = ({
                       />
                     </div>
 
-                    <div>
+                    <div className="col-span-1 min-w-[90px]">
                       <label className="block text-xs mb-1 text-gray-600">Sconto (%)</label>
                       <input
                         type="number"
@@ -417,11 +417,82 @@ const TimeLoggerModal = ({
                       />
                     </div>
 
-                    <div>
+                    <div className="col-span-2 min-w-[110px]">
                       <label className="block text-xs mb-1 text-gray-600">Totale (€)</label>
                       <div className="p-2.5 bg-purple-100 rounded-lg font-bold text-purple-800">
                         {offerta.totale.toFixed(2)}€
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Allegati Offerta */}
+                  <div className="mt-3">
+                    <label className="block text-xs mb-1 text-gray-600">Allegati Offerta</label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {!fieldsDisabled && (
+                        <label className="px-3 py-1.5 border border-purple-300 text-purple-700 rounded-md text-xs cursor-pointer hover:bg-purple-50">
+                          Carica documento
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const file = e.target.files && e.target.files[0];
+                              if (!file) return;
+                              try {
+                                const fd = new FormData();
+                                fd.append('file', file);
+                                const res = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/offerte/attachments`, {
+                                  method: 'POST',
+                                  headers: { ...(window.localStorage.getItem('token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('token')}` } : {}) },
+                                  body: fd
+                                });
+                                if (!res.ok) throw new Error('Upload fallito');
+                                const meta = await res.json();
+                                // Inserisce subito l'allegato nell'offerta locale; il salvataggio persistente avverrà con "Salva Modifiche"
+                                setTimeLogs(prev => prev.map(l => l.id === offertaOwner.id ? {
+                                  ...l,
+                                  offerte: l.offerte.map(o => o.id === offerta.id ? { ...o, allegati: [...(o.allegati || []), meta] } : o)
+                                } : l));
+                              } catch (err) {
+                                console.error('Upload allegato offerta fallito:', err);
+                                alert('Caricamento allegato fallito');
+                              } finally {
+                                e.target.value = '';
+                              }
+                            }}
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                          />
+                        </label>
+                      )}
+
+                      {(offerta.allegati || []).map((al, idx) => (
+                        <div key={idx} className="flex items-center gap-2 px-2 py-1 bg-purple-50 border border-purple-200 rounded text-xs">
+                          <a href={`${process.env.REACT_APP_API_URL}${al.path}`} target="_blank" rel="noreferrer" className="text-purple-700 hover:underline max-w-[180px] truncate">{al.originalName || al.filename}</a>
+                          {!fieldsDisabled && (
+                            <button
+                              className="text-red-500"
+                              onClick={async () => {
+                                try {
+                                  const res = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/offerte/attachments/${encodeURIComponent(al.filename)}`, {
+                                    method: 'DELETE',
+                                    headers: { ...(window.localStorage.getItem('token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('token')}` } : {}) }
+                                  });
+                                  if (!res.ok) throw new Error('Eliminazione fallita');
+                                  setTimeLogs(prev => prev.map(l => l.id === offertaOwner.id ? {
+                                    ...l,
+                                    offerte: l.offerte.map(o => o.id === offerta.id ? { ...o, allegati: (o.allegati || []).filter(x => x.filename !== al.filename) } : o)
+                                  } : l));
+                                } catch (err) {
+                                  console.error('Elimina allegato offerta fallito:', err);
+                                  alert('Eliminazione allegato fallita');
+                                }
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
 
