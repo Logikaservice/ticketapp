@@ -494,10 +494,20 @@ const TimeLoggerModal = ({
                     <textarea
                       rows="2"
                       value={offerta.descrizione}
-                      onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'descrizione', e.target.value)}
+                      onChange={(e) => {
+                        // auto-resize
+                        e.currentTarget.style.height = 'auto';
+                        e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                        handleOffertaChange(offertaOwner.id, offerta.id, 'descrizione', e.target.value);
+                      }}
+                      onInput={(e) => {
+                        e.currentTarget.style.height = 'auto';
+                        e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                      }}
                       placeholder="Descrizione dell'offerta..."
                       disabled={fieldsDisabled}
-                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
+                      className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed resize-none overflow-hidden"
+                      style={{ height: 'auto' }}
                     />
                   </div>
                 </div>
