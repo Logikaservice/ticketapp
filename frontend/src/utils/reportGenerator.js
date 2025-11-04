@@ -446,6 +446,56 @@ export const generateSingleTicketHTML = (ticket, options = {}) => {
     `;
   }
 
+  // Sezione Offerta: raccoglie tutte le offerte presenti nei timelogs
+  const allOfferte = Array.isArray(ticket.timelogs)
+    ? ticket.timelogs.flatMap(tl => Array.isArray(tl.offerte) ? tl.offerte : [])
+    : [];
+
+  if (allOfferte.length > 0) {
+    const totaleGenerale = allOfferte.reduce((sum, o) => sum + (parseFloat(o.totale) || 0), 0);
+    html += `
+  <div class="section">
+    <h2>Come da Offerta</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 14%">Offerta n°</th>
+          <th style="width: 12%">Data</th>
+          <th style="width: 8%">Qta</th>
+          <th style="width: 14%">Costo Unit. (€)</th>
+          <th style="width: 10%">Sconto %</th>
+          <th style="width: 14%">Totale (€)</th>
+          <th style="width: 28%">Descrizione</th>
+        </tr>
+      </thead>
+      <tbody>
+    `;
+
+    allOfferte.forEach((o) => {
+      const dataIt = o.dataOfferta ? formatDateItalian(o.dataOfferta) : '';
+      html += `
+        <tr>
+          <td>${o.numeroOfferta || ''}</td>
+          <td>${dataIt}</td>
+          <td style="text-align:center;">${o.qta ?? ''}</td>
+          <td style="text-align:right;">${(parseFloat(o.costoUnitario) || 0).toFixed(2)}</td>
+          <td style="text-align:center;">${(parseFloat(o.sconto) || 0).toFixed(2)}</td>
+          <td style="text-align:right; font-weight:700;">${(parseFloat(o.totale) || 0).toFixed(2)}</td>
+          <td class="descrizione-cell">${(o.descrizione || '').replace(/\n/g,'<br>')}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+      </tbody>
+    </table>
+    <div class="footer" style="text-align: right; margin-top: 8px;">
+      <strong>Totale Generale Offerta: € ${totaleGenerale.toFixed(2)}</strong>
+    </div>
+  </div>
+    `;
+  }
+
   if (includeChat && Array.isArray(ticket.messaggi) && ticket.messaggi.length > 0) {
     html += `
   <div class="section">
