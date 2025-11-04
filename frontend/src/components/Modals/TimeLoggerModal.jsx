@@ -346,32 +346,32 @@ const TimeLoggerModal = ({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-12 gap-3 mb-4">
-                    <div className="col-span-2 min-w-[110px]">
-                      <label className="block text-xs mb-1 text-gray-600">Offerta n°</label>
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-3 items-end mb-4">
+                    <div className="md:col-span-3 min-w-[110px]">
+                      <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Offerta n°</label>
                       <input
                         type="text"
                         value={offerta.numeroOfferta}
                         onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'numeroOfferta', e.target.value)}
-                        placeholder="es. OFF-001"
+                        placeholder="OFF-001"
                         disabled={fieldsDisabled}
-                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
                       />
                     </div>
 
-                    <div className="col-span-2 min-w-[140px]">
-                      <label className="block text-xs mb-1 text-gray-600">Data Offerta</label>
+                    <div className="md:col-span-2 min-w-[120px]">
+                      <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Data</label>
                       <input
                         type="date"
                         value={offerta.dataOfferta}
                         onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'dataOfferta', e.target.value)}
                         disabled={fieldsDisabled}
-                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
                       />
                     </div>
 
-                    <div className="col-span-1 min-w-[80px]">
-                      <label className="block text-xs mb-1 text-gray-600">Qta (Ore)</label>
+                    <div className="md:col-span-1 min-w-[70px]">
+                      <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Qta</label>
                       <input
                         type="number"
                         min="1"
@@ -379,12 +379,12 @@ const TimeLoggerModal = ({
                         value={offerta.qta}
                         onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'qta', e.target.value)}
                         disabled={fieldsDisabled}
-                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
                       />
                     </div>
 
-                    <div className="col-span-2 min-w-[120px]">
-                      <label className="block text-xs mb-1 text-gray-600">Costo Unit. (€/h)</label>
+                    <div className="md:col-span-2 min-w-[110px]">
+                      <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Costo Unit.</label>
                       <input
                         type="number"
                         min="0"
@@ -392,12 +392,12 @@ const TimeLoggerModal = ({
                         value={offerta.costoUnitario || 0}
                         onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'costoUnitario', e.target.value)}
                         disabled={fieldsDisabled}
-                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
                       />
                     </div>
 
-                    <div className="col-span-1 min-w-[90px]">
-                      <label className="block text-xs mb-1 text-gray-600">Sconto (%)</label>
+                    <div className="md:col-span-1 min-w-[80px]">
+                      <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Sconto %</label>
                       <input
                         type="number"
                         min="0"
@@ -406,13 +406,13 @@ const TimeLoggerModal = ({
                         value={offerta.sconto}
                         onChange={(e) => handleOffertaChange(offertaOwner.id, offerta.id, 'sconto', e.target.value)}
                         disabled={fieldsDisabled}
-                        className="w-full px-3 py-2 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        className="w-full px-2 py-1.5 border rounded-lg text-xs disabled:bg-gray-100 disabled:cursor-not-allowed"
                       />
                     </div>
 
-                    <div className="col-span-2 min-w-[110px]">
-                      <label className="block text-xs mb-1 text-gray-600">Totale (€)</label>
-                      <div className="p-2.5 bg-purple-100 rounded-lg font-bold text-purple-800">
+                    <div className="md:col-span-3 min-w-[110px]">
+                      <label className="block text-xs mb-1 text-gray-600 whitespace-nowrap">Totale</label>
+                      <div className="px-2 py-1.5 bg-purple-100 rounded-lg font-bold text-purple-800 text-sm">
                         {offerta.totale.toFixed(2)}€
                       </div>
                     </div>
