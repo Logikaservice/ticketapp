@@ -275,7 +275,7 @@ const TimeLoggerModal = ({
                         />
                       </div>
 
-                      <div className="col-span-2">
+                      <div className="col-span-1">
                         <label className="block text-xs mb-1">Costo (€)</label>
                         <input
                           type="number"
@@ -285,6 +285,13 @@ const TimeLoggerModal = ({
                           disabled={fieldsDisabled}
                           className="w-full px-2 py-1 border rounded-lg text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
                         />
+                      </div>
+
+                      <div className="col-span-1">
+                        <label className="block text-xs mb-1">Totale (€)</label>
+                        <div className="p-2 bg-purple-100 rounded-lg font-bold text-purple-800 text-right">
+                          {(((parseFloat(m.quantita) || 0) * (parseFloat(m.costo) || 0)).toFixed(2))}
+                        </div>
                       </div>
 
                       <div className="col-span-1 pt-4 text-right">
