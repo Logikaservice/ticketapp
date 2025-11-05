@@ -120,8 +120,9 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
 
   // Suggerimenti Azienda: mostra suggerimenti solo da 5 caratteri in su
   useEffect(() => {
-    const term = (formData.azienda || '').trim().toLowerCase();
-    if (term.length < 5) {
+    const raw = (formData.azienda || '');
+    const term = raw.toLowerCase();
+    if (raw.length < 5) {
       setAziendaSuggestions([]);
       setShowAziendaSuggestions(false);
       return;
@@ -218,7 +219,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                   placeholder="Nome dell'azienda"
                 />
                 {showAziendaSuggestions && (
-                  <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto">
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto">
                     {aziendaSuggestions.map((sug, idx) => (
                       <button
                         key={idx}
