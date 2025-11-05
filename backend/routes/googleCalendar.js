@@ -805,8 +805,33 @@ module.exports = (pool) => {
         try {
           console.log(`Aggiornando ticket #${ticket.numero} (${ticket.azienda || 'Cliente Sconosciuto'})...`);
           
-          // Prepara le date
-          const startDate = new Date(ticket.dataapertura);
+          // Prepara le date (robusto come nel singolo endpoint)
+          let startDate;
+          if (ticket.dataapertura) {
+            if (typeof ticket.dataapertura === 'string') {
+              if (ticket.dataapertura.includes('T') && ticket.dataapertura.includes('+')) {
+                startDate = new Date(ticket.dataapertura);
+              } else if (ticket.dataapertura.includes('T')) {
+                startDate = new Date(ticket.dataapertura + '+02:00');
+              } else {
+                startDate = new Date(ticket.dataapertura + 'T00:00:00+02:00');
+              }
+            } else {
+              // Oggetto Date o altro tipo: fallback
+              try { startDate = new Date(ticket.dataapertura); } catch { startDate = new Date(); }
+            }
+            if (!startDate || isNaN(startDate.getTime())) {
+              startDate = new Date();
+            }
+          } else if (ticket.created_at) {
+            startDate = new Date(ticket.created_at);
+            if (isNaN(startDate.getTime())) {
+              startDate = new Date();
+            }
+          } else {
+            startDate = new Date();
+          }
+
           const endDate = new Date(startDate.getTime() + (2 * 60 * 60 * 1000)); // +2 ore
 
           // Costruisci la descrizione dettagliata
