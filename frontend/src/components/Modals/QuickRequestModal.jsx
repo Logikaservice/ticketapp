@@ -213,7 +213,6 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                   name="azienda"
                   value={formData.azienda}
                   onChange={handleChange}
-                  onFocus={() => { if (aziendaSuggestions.length > 0) setShowAziendaSuggestions(true); }}
                   onBlur={() => setTimeout(() => setShowAziendaSuggestions(false), 150)}
                   readOnly={aziendaLocked}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
