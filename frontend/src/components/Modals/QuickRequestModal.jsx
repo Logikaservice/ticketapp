@@ -162,6 +162,36 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
               </p>
             </div>
             
+            {/* Azienda subito sotto Email */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Azienda
+                {aziendaLocked && (
+                  <span className="text-xs text-blue-600 ml-2">
+                    (Auto-rilevata)
+                  </span>
+                )}
+              </label>
+              <input
+                type="text"
+                name="azienda"
+                value={formData.azienda}
+                onChange={handleChange}
+                readOnly={aziendaLocked}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  aziendaLocked 
+                    ? 'bg-blue-50 border-blue-200 text-blue-800 cursor-not-allowed' 
+                    : 'border-gray-300'
+                }`}
+                placeholder="Nome dell'azienda"
+              />
+              {aziendaLocked && aziendaSource && (
+                <p className="text-xs text-blue-600 mt-1">
+                  {aziendaSource}
+                </p>
+              )}
+            </div>
+
             {/* Nome e Cognome in grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -207,36 +237,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                 placeholder="+39 123 456 7890"
               />
             </div>
-
-            {/* Azienda su una riga separata */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Azienda
-                {aziendaLocked && (
-                  <span className="text-xs text-blue-600 ml-2">
-                    (Auto-rilevata)
-                  </span>
-                )}
-              </label>
-              <input
-                type="text"
-                name="azienda"
-                value={formData.azienda}
-                onChange={handleChange}
-                readOnly={aziendaLocked}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  aziendaLocked 
-                    ? 'bg-blue-50 border-blue-200 text-blue-800 cursor-not-allowed' 
-                    : 'border-gray-300'
-                }`}
-                placeholder="Nome dell'azienda"
-              />
-              {aziendaLocked && aziendaSource && (
-                <p className="text-xs text-blue-600 mt-1">
-                  {aziendaSource}
-                </p>
-              )}
-            </div>
+            
           </div>
 
           {/* Dettagli Richiesta */}
