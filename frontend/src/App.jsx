@@ -189,7 +189,7 @@ export default function TicketApp() {
     handleAddOfferta,
     handleRemoveOfferta,
     handleSaveTimeLogs
-  } = useTimeLogs(selectedTicket, setTickets, setSelectedTicket, showNotification, getAuthHeader);
+  } = useTimeLogs(selectedTicket, setTickets, setSelectedTicket, showNotification, getAuthHeader, syncTicketToCalendarBackend);
 
   const {
     handleGenerateSentReport,

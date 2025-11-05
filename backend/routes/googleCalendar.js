@@ -161,12 +161,65 @@ module.exports = (pool) => {
         }
       }
 
-      // Costruisci la descrizione dettagliata
+      // Costruisci la descrizione dettagliata (include registro intervento, materiali e offerte)
       let description = `TITOLO: ${ticket.titolo}\n`;
-      description += `PRIORITÀ: ${ticket.priorita.toUpperCase()}\n`;
-      description += `STATO: ${ticket.stato.toUpperCase()}\n`;
-      description += `DESCRIZIONE: ${ticket.descrizione}\n`;
+      description += `PRIORITÀ: ${ticket.priorita?.toUpperCase()}\n`;
+      description += `STATO: ${ticket.stato?.toUpperCase()}\n`;
+      description += `DESCRIZIONE: ${ticket.descrizione || ''}\n`;
       description += `APERTURA: ${formatDateTime(startDate)}\n`;
+
+      // Se disponibile, aggiungi il registro intervento con dettagli
+      try {
+        let timelogs = ticket.timelogs;
+        if (typeof timelogs === 'string') {
+          try { timelogs = JSON.parse(timelogs); } catch { timelogs = []; }
+        }
+        if (Array.isArray(timelogs) && timelogs.length > 0) {
+          description += `\n— REGISTRO INTERVENTO —\n`;
+          timelogs.forEach((log, idx) => {
+            const modalita = log.modalita || '';
+            const dataLog = log.data || '';
+            const oraInizio = log.oraInizio || '';
+            const oraFine = log.oraFine || '';
+            const desc = (log.descrizione || '').replace(/\n/g, ' ');
+            const ore = parseFloat(log.oreIntervento) || 0;
+            const costoUnit = parseFloat(log.costoUnitario) || 0;
+            const sconto = parseFloat(log.sconto) || 0;
+            const lavoroTot = ore * costoUnit * (1 - sconto / 100);
+
+            // Materiali
+            const materials = Array.isArray(log.materials) ? log.materials : [];
+            const matsStr = materials
+              .filter(m => m && m.nome)
+              .map(m => {
+                const q = parseFloat(m.quantita) || 0;
+                const c = parseFloat(m.costo) || 0;
+                return `${m.nome} x${q} (${(q * c).toFixed(2)}€)`;
+              })
+              .join(', ');
+            const matsTot = materials.reduce((sum, m) => sum + ((parseFloat(m.quantita) || 0) * (parseFloat(m.costo) || 0)), 0);
+
+            // Offerte
+            const offerte = Array.isArray(log.offerte) ? log.offerte : [];
+            const offerteStr = offerte
+              .map(o => {
+                const tot = parseFloat(o.totale) || 0;
+                return `${o.numeroOfferta || 'Offerta'}: ${tot.toFixed(2)}€`;
+              })
+              .join(', ');
+            const offerteTot = offerte.reduce((sum, o) => sum + (parseFloat(o.totale) || 0), 0);
+
+            const totaleLog = lavoroTot + matsTot + offerteTot;
+
+            description += `#${idx + 1} ${modalita} — ${dataLog} ${oraInizio ? `(${oraInizio}` : ''}${oraFine ? `-${oraFine})` : (oraInizio ? ')' : '')}\n`;
+            if (desc) description += `  Descrizione: ${desc}\n`;
+            description += `  Lavoro: ${ore}h x ${(costoUnit || 0).toFixed(2)}€ (-${(sconto || 0)}%) = ${lavoroTot.toFixed(2)}€\n`;
+            if (matsStr) description += `  Materiali: ${matsStr} — Tot: ${matsTot.toFixed(2)}€\n`;
+            if (offerteStr) description += `  Offerte: ${offerteStr} — Tot: ${offerteTot.toFixed(2)}€\n`;
+            description += `  Totale riga: ${totaleLog.toFixed(2)}€\n`;
+          });
+        }
+      } catch (_) {}
       
       // Aggiungi data di chiusura se il ticket è chiuso
       if (ticket.stato === 'chiuso' && ticket.dataChiusura) {
@@ -834,12 +887,62 @@ module.exports = (pool) => {
 
           const endDate = new Date(startDate.getTime() + (2 * 60 * 60 * 1000)); // +2 ore
 
-          // Costruisci la descrizione dettagliata
+          // Costruisci la descrizione dettagliata (include registro intervento, materiali e offerte)
           let description = `TITOLO: ${ticket.titolo}\n`;
-          description += `PRIORITÀ: ${ticket.priorita.toUpperCase()}\n`;
-          description += `STATO: ${ticket.stato.toUpperCase()}\n`;
-          description += `DESCRIZIONE: ${ticket.descrizione}\n`;
+          description += `PRIORITÀ: ${ticket.priorita?.toUpperCase()}\n`;
+          description += `STATO: ${ticket.stato?.toUpperCase()}\n`;
+          description += `DESCRIZIONE: ${ticket.descrizione || ''}\n`;
           description += `APERTURA: ${formatDateTime(startDate)}\n`;
+
+          try {
+            let timelogs = ticket.timelogs;
+            if (typeof timelogs === 'string') {
+              try { timelogs = JSON.parse(timelogs); } catch { timelogs = []; }
+            }
+            if (Array.isArray(timelogs) && timelogs.length > 0) {
+              description += `\n— REGISTRO INTERVENTO —\n`;
+              timelogs.forEach((log, idx) => {
+                const modalita = log.modalita || '';
+                const dataLog = log.data || '';
+                const oraInizio = log.oraInizio || '';
+                const oraFine = log.oraFine || '';
+                const desc = (log.descrizione || '').replace(/\n/g, ' ');
+                const ore = parseFloat(log.oreIntervento) || 0;
+                const costoUnit = parseFloat(log.costoUnitario) || 0;
+                const sconto = parseFloat(log.sconto) || 0;
+                const lavoroTot = ore * costoUnit * (1 - sconto / 100);
+
+                const materials = Array.isArray(log.materials) ? log.materials : [];
+                const matsStr = materials
+                  .filter(m => m && m.nome)
+                  .map(m => {
+                    const q = parseFloat(m.quantita) || 0;
+                    const c = parseFloat(m.costo) || 0;
+                    return `${m.nome} x${q} (${(q * c).toFixed(2)}€)`;
+                  })
+                  .join(', ');
+                const matsTot = materials.reduce((sum, m) => sum + ((parseFloat(m.quantita) || 0) * (parseFloat(m.costo) || 0)), 0);
+
+                const offerte = Array.isArray(log.offerte) ? log.offerte : [];
+                const offerteStr = offerte
+                  .map(o => {
+                    const tot = parseFloat(o.totale) || 0;
+                    return `${o.numeroOfferta || 'Offerta'}: ${tot.toFixed(2)}€`;
+                  })
+                  .join(', ');
+                const offerteTot = offerte.reduce((sum, o) => sum + (parseFloat(o.totale) || 0), 0);
+
+                const totaleLog = lavoroTot + matsTot + offerteTot;
+
+                description += `#${idx + 1} ${modalita} — ${dataLog} ${oraInizio ? `(${oraInizio}` : ''}${oraFine ? `-${oraFine})` : (oraInizio ? ')' : '')}\n`;
+                if (desc) description += `  Descrizione: ${desc}\n`;
+                description += `  Lavoro: ${ore}h x ${(costoUnit || 0).toFixed(2)}€ (-${(sconto || 0)}%) = ${lavoroTot.toFixed(2)}€\n`;
+                if (matsStr) description += `  Materiali: ${matsStr} — Tot: ${matsTot.toFixed(2)}€\n`;
+                if (offerteStr) description += `  Offerte: ${offerteStr} — Tot: ${offerteTot.toFixed(2)}€\n`;
+                description += `  Totale riga: ${totaleLog.toFixed(2)}€\n`;
+              });
+            }
+          } catch (_) {}
           
           // Aggiungi data di chiusura se il ticket è chiuso
           if (ticket.stato === 'chiuso' && ticket.dataChiusura) {

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { getInitialMaterial, getInitialTimeLog, getInitialOfferta } from '../utils/helpers';
 
-export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showNotification, getAuthHeader) => {
+export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showNotification, getAuthHeader, googleCalendarSync) => {
   const [timeLogs, setTimeLogs] = useState([]);
 
   // Inizializza timeLogs da un ticket
@@ -230,6 +230,17 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       setTimeLogs(refreshedLogs);
       
       console.log('[SAVE-TIMELOGS] ✅ Salvataggio completato');
+      
+      // Sincronizzazione immediata con Google Calendar includendo registro intervento
+      if (googleCalendarSync && typeof googleCalendarSync === 'function') {
+        try {
+          console.log('[SAVE-TIMELOGS] Sincronizzazione Google Calendar...');
+          await googleCalendarSync(updatedTicket, 'update');
+          console.log('[SAVE-TIMELOGS] ✅ Sincronizzazione Google Calendar completata');
+        } catch (e) {
+          console.error('[SAVE-TIMELOGS] ⚠️ Errore sincronizzazione Google Calendar:', e);
+        }
+      }
       showNotification('Modifiche salvate con successo!', 'success');
     } catch (error) {
       console.error('[SAVE-TIMELOGS] ❌ Errore:', error);
