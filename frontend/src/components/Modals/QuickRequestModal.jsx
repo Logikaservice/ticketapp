@@ -118,7 +118,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
     });
   };
 
-  // Suggerimenti Azienda: mostra lista completa se campo vuoto, filtra mentre si digita
+  // Suggerimenti Azienda: mostra suggerimenti solo da 5 caratteri in su
   useEffect(() => {
     if (aziendaLocked) {
       setAziendaSuggestions([]);
@@ -126,6 +126,11 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
       return;
     }
     const term = (formData.azienda || '').trim().toLowerCase();
+    if (term.length < 5) {
+      setAziendaSuggestions([]);
+      setShowAziendaSuggestions(false);
+      return;
+    }
     // Costruisci lista aziende uniche dai clienti
     const aziendeSet = new Set();
     const aziende = [];
@@ -136,13 +141,6 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
         aziende.push(az);
       }
     });
-    if (term.length === 0) {
-      // Campo vuoto: mostra lista completa (limitata)
-      const full = aziende.slice(0, 50);
-      setAziendaSuggestions(full);
-      setShowAziendaSuggestions(full.length > 0);
-      return;
-    }
     // Matching semplice: substring case-insensitive
     const matches = aziende.filter(az => az.toLowerCase().includes(term)).slice(0, 20);
     setAziendaSuggestions(matches);
