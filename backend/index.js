@@ -702,6 +702,24 @@ app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), a
   }
 });
 
+// Endpoint pubblico: elenco clienti (id, email, azienda, nome, cognome)
+// Usato per suggerimenti 'Azienda' nella Richiesta Assistenza Veloce
+app.get('/clients', async (req, res) => {
+  try {
+    const client = await pool.connect();
+    const result = await client.query(
+      `SELECT id, email, azienda, nome, cognome
+       FROM users
+       WHERE ruolo = 'cliente'`
+    );
+    client.release();
+    res.json(result.rows || []);
+  } catch (err) {
+    console.error('Errore nel recuperare la lista clienti:', err);
+    res.status(500).json([]);
+  }
+});
+
 // Endpoint pubblico per invii server-to-server (es. quick-request senza login)
 // DEVE essere montato PRIMA di qualsiasi app.use('/api', authenticateToken, ...)
 app.use('/api/public-email', emailNotificationsRoutes);

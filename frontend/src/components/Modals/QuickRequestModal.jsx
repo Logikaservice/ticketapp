@@ -18,14 +18,15 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
   const [clients, setClients] = useState(existingClients);
   const [photos, setPhotos] = useState([]);
   const fileInputRef = useRef(null);
+  const [aziendaSuggestions, setAziendaSuggestions] = useState([]);
+  const [showAziendaSuggestions, setShowAziendaSuggestions] = useState(false);
 
   // Carica i clienti direttamente nel modal
   useEffect(() => {
     const fetchClients = async () => {
-      if (!process.env.REACT_APP_API_URL) return;
-      
       try {
-        const url = process.env.REACT_APP_API_URL + '/clients';
+        const base = process.env.REACT_APP_API_URL || '';
+        const url = base + '/clients';
         const clientsResponse = await fetch(url);
         
         if (clientsResponse.ok) {
@@ -117,6 +118,42 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
     });
   };
 
+  // Suggerimenti Azienda dopo 4 caratteri
+  useEffect(() => {
+    if (aziendaLocked) {
+      setAziendaSuggestions([]);
+      setShowAziendaSuggestions(false);
+      return;
+    }
+    const term = (formData.azienda || '').trim().toLowerCase();
+    if (term.length < 4) {
+      setAziendaSuggestions([]);
+      setShowAziendaSuggestions(false);
+      return;
+    }
+    // Costruisci lista aziende uniche dai clienti
+    const aziendeSet = new Set();
+    const aziende = [];
+    clients.forEach(c => {
+      const az = (c.azienda || '').trim();
+      if (az && !aziendeSet.has(az)) {
+        aziendeSet.add(az);
+        aziende.push(az);
+      }
+    });
+    // Matching semplice: substring case-insensitive
+    const matches = aziende
+      .filter(az => az.toLowerCase().includes(term))
+      .slice(0, 6);
+    setAziendaSuggestions(matches);
+    setShowAziendaSuggestions(matches.length > 0);
+  }, [formData.azienda, clients, aziendaLocked]);
+
+  const handlePickAzienda = (value) => {
+    setFormData(prev => ({ ...prev, azienda: value }));
+    setShowAziendaSuggestions(false);
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -172,19 +209,39 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                   </span>
                 )}
               </label>
-              <input
-                type="text"
-                name="azienda"
-                value={formData.azienda}
-                onChange={handleChange}
-                readOnly={aziendaLocked}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  aziendaLocked 
-                    ? 'bg-blue-50 border-blue-200 text-blue-800 cursor-not-allowed' 
-                    : 'border-gray-300'
-                }`}
-                placeholder="Nome dell'azienda"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  name="azienda"
+                  value={formData.azienda}
+                  onChange={handleChange}
+                  onFocus={() => { if (aziendaSuggestions.length > 0) setShowAziendaSuggestions(true); }}
+                  onBlur={() => setTimeout(() => setShowAziendaSuggestions(false), 150)}
+                  readOnly={aziendaLocked}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    aziendaLocked 
+                      ? 'bg-blue-50 border-blue-200 text-blue-800 cursor-not-allowed' 
+                      : 'border-gray-300'
+                  }`}
+                  placeholder="Nome dell'azienda"
+                />
+                {showAziendaSuggestions && (
+                  <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-auto">
+                    {aziendaSuggestions.map((sug, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handlePickAzienda(sug)}
+                        className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm"
+                        title={sug}
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               {aziendaLocked && aziendaSource && (
                 <p className="text-xs text-blue-600 mt-1">
                   {aziendaSource}
