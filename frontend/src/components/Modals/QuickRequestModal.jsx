@@ -120,11 +120,6 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
 
   // Suggerimenti Azienda: mostra suggerimenti solo da 5 caratteri in su
   useEffect(() => {
-    if (aziendaLocked) {
-      setAziendaSuggestions([]);
-      setShowAziendaSuggestions(false);
-      return;
-    }
     const term = (formData.azienda || '').trim().toLowerCase();
     if (term.length < 5) {
       setAziendaSuggestions([]);
@@ -145,7 +140,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
     const matches = aziende.filter(az => az.toLowerCase().includes(term)).slice(0, 20);
     setAziendaSuggestions(matches);
     setShowAziendaSuggestions(matches.length > 0);
-  }, [formData.azienda, clients, aziendaLocked]);
+  }, [formData.azienda, clients]);
 
   const handlePickAzienda = (value) => {
     setFormData(prev => ({ ...prev, azienda: value }));
@@ -214,7 +209,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                   value={formData.azienda}
                   onChange={handleChange}
                   onBlur={() => setTimeout(() => setShowAziendaSuggestions(false), 150)}
-                  readOnly={aziendaLocked}
+                  readOnly={false}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     aziendaLocked 
                       ? 'bg-blue-50 border-blue-200 text-blue-800 cursor-not-allowed' 
