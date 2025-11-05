@@ -423,13 +423,48 @@ module.exports = (pool) => {
           }
         }
         
-      } else if (action === 'update' && ticket.googleCalendarEventId) {
-        result = await calendar.events.update({
-          calendarId: calendarId,
-          eventId: ticket.googleCalendarEventId,
-          resource: event
-        });
-      } else if (action === 'delete' && ticket.googleCalendarEventId) {
+      } else if (action === 'update') {
+        // Normalizza eventId da payload o DB
+        let eventId = ticket.googleCalendarEventId || ticket.googlecalendareventid;
+        if (!eventId && ticket.id) {
+          try {
+            const dbRes = await pool.query('SELECT googlecalendareventid FROM tickets WHERE id = $1', [ticket.id]);
+            eventId = dbRes.rows?.[0]?.googlecalendareventid || null;
+          } catch (e) {}
+        }
+
+        if (eventId) {
+          result = await calendar.events.update({
+            calendarId: calendarId,
+            eventId: eventId,
+            resource: event
+          });
+        } else {
+          // Se non esiste ancora un evento, crealo
+          result = await calendar.events.insert({
+            calendarId: calendarId,
+            resource: event,
+            sendUpdates: 'none',
+            conferenceDataVersion: 0
+          });
+          if (result.data?.id && ticket.id) {
+            try {
+              await pool.query('UPDATE tickets SET googlecalendareventid = $1 WHERE id = $2', [result.data.id, ticket.id]);
+            } catch (_) {}
+          }
+        }
+      } else if (action === 'delete') {
+        // Normalizza eventId da payload o DB
+        let eventId = ticket.googleCalendarEventId || ticket.googlecalendareventid;
+        if (!eventId && ticket.id) {
+          try {
+            const dbRes = await pool.query('SELECT googlecalendareventid FROM tickets WHERE id = $1', [ticket.id]);
+            eventId = dbRes.rows?.[0]?.googlecalendareventid || null;
+          } catch (e) {}
+        }
+        if (!eventId) {
+          return res.status(400).json({ error: 'ID evento mancante per cancellazione' });
+        }
         // Per la cancellazione, devo trovare il calendario corretto
         let deleteCalendarId = 'primary'; // Default
         
@@ -451,9 +486,9 @@ module.exports = (pool) => {
         // Cancella l'evento da Google Calendar
         result = await calendar.events.delete({
           calendarId: deleteCalendarId,
-          eventId: ticket.googleCalendarEventId
+          eventId
         });
-        console.log('Evento cancellato da Google Calendar:', ticket.googleCalendarEventId, 'dal calendario:', deleteCalendarId);
+        console.log('Evento cancellato da Google Calendar:', eventId, 'dal calendario:', deleteCalendarId);
       } else {
         return res.status(400).json({ error: 'Azione non valida o ID evento mancante' });
       }
