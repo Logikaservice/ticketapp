@@ -265,7 +265,18 @@ export const useTickets = (
     if (!msg.trim()) return;
     const ticket = tickets.find(t => t.id === id);
     if (!ticket) return;
-    const autore = currentUser.ruolo === 'cliente' ? ticket.nomerichiedente : 'Tecnico';
+    
+    // Determina l'autore del messaggio in base a chi sta scrivendo
+    let autore;
+    if (currentUser.ruolo === 'tecnico') {
+      autore = 'Tecnico';
+    } else if (currentUser.ruolo === 'cliente') {
+      // Usa sempre il nome di chi sta scrivendo, non sempre il nomerichiedente del ticket
+      autore = `${currentUser.nome} ${currentUser.cognome || ''}`.trim() || ticket.nomerichiedente;
+    } else {
+      autore = 'Tecnico'; // fallback
+    }
+    
     const messageData = { autore, contenuto: msg, reclamo: isReclamo };
     try {
       const messageResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}/messages`, {

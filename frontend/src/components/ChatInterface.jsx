@@ -212,16 +212,47 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
               </div>
             )}
 
-            <div className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-left' : 'text-right'}>
-              <div 
-                ref={editingMessageId === m.id ? messageContainerRef : null}
-                className={'inline-block max-w-[80%] rounded-xl shadow p-3 relative ' + (
-                  m.reclamo 
-                    ? 'bg-red-50 border-2 border-red-500'
-                    : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
-                      ? 'bg-gray-100'
-                      : 'bg-green-600 text-white'
-                )}
+            {(() => {
+              // Determina il tipo di messaggio per il colore
+              const isReclamo = m.reclamo;
+              const isTecnico = m.autore === 'Tecnico';
+              const isRichiedenteOriginale = m.autore === ticket.nomerichiedente || m.autore === 'Cliente';
+              const isAmministratore = !isTecnico && !isRichiedenteOriginale && currentUser?.ruolo === 'cliente';
+              
+              // Determina il colore del messaggio
+              let messageColorClass = '';
+              let textColorClass = '';
+              let alignmentClass = '';
+              
+              if (isReclamo) {
+                messageColorClass = 'bg-red-50 border-2 border-red-500';
+                textColorClass = 'text-red-900';
+                alignmentClass = 'text-left';
+              } else if (isTecnico) {
+                messageColorClass = 'bg-green-600 text-white';
+                textColorClass = 'text-white';
+                alignmentClass = 'text-right';
+              } else if (isRichiedenteOriginale) {
+                messageColorClass = 'bg-gray-100';
+                textColorClass = 'text-gray-800';
+                alignmentClass = 'text-left';
+              } else if (isAmministratore) {
+                // Amministratore che scrive (non è il richiedente originale)
+                messageColorClass = 'bg-blue-100 border-2 border-blue-300';
+                textColorClass = 'text-blue-900';
+                alignmentClass = 'text-left';
+              } else {
+                // Fallback
+                messageColorClass = 'bg-gray-100';
+                textColorClass = 'text-gray-800';
+                alignmentClass = 'text-left';
+              }
+              
+              return (
+                <div className={alignmentClass}>
+                  <div 
+                    ref={editingMessageId === m.id ? messageContainerRef : null}
+                    className={`inline-block max-w-[80%] rounded-xl shadow p-3 relative ${messageColorClass}`}
               >
                 {/* Pulsanti modifica ed elimina */}
                 {editingMessageId === m.id ? (
@@ -299,26 +330,24 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                         <Trash2 size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-red-600' : 'text-white'} />
                       </button>
                     )}
-                    <div className={'flex items-center gap-1 text-xs mb-1 ' + (
-                      m.autore === ticket.nomerichiedente || m.autore === 'Cliente' 
-                        ? 'text-gray-600' 
-                        : 'text-white/80'
-                    )}>
+                    <div className={`flex items-center gap-1 text-xs mb-1 ${isTecnico ? 'text-white/80' : isAmministratore ? 'text-blue-700' : 'text-gray-600'}`}>
                       <span className={m.reclamo ? 'text-red-700 font-bold' : 'font-medium'}>
                         {m.reclamo ? '⚠️ RECLAMO - ' : ''}{m.autore}
                         {m.modificato && <span className="text-xs opacity-75 ml-1">(modificato)</span>}
                       </span>
                     </div>
-                    <div className={'text-sm whitespace-pre-wrap ' + (m.reclamo ? 'text-red-900 font-medium' : '')}>
+                    <div className={`text-sm whitespace-pre-wrap ${m.reclamo ? 'text-red-900 font-medium' : textColorClass}`}>
                       {m.contenuto}
                     </div>
-                    <div className={'text-xs opacity-75 mt-1 flex items-center gap-2 ' + (
+                    <div className={`text-xs opacity-75 mt-1 flex items-center gap-2 ${
                       m.reclamo 
                         ? 'text-red-700'
-                        : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
-                          ? 'text-gray-500'
-                          : 'text-white/60'
-                    )}>
+                        : isTecnico
+                          ? 'text-white/60'
+                          : isAmministratore
+                            ? 'text-blue-600'
+                            : 'text-gray-500'
+                    }`}>
                       <span>{formatDate(m.data)}</span>
                       {/* Spunte di lettura (come WhatsApp) */}
                       {(() => {
@@ -329,14 +358,14 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                           // Una spunta grigia
                           return (
                             <span className="flex items-center ml-1">
-                              <Check size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-gray-500' : 'text-white/60'} />
+                              <Check size={14} className={isTecnico ? 'text-white/60' : isAmministratore ? 'text-blue-600' : 'text-gray-500'} />
                             </span>
                           );
                         } else if (readStatus === 'delivered') {
                           // Una spunta grigia (consegnato ma non letto)
                           return (
                             <span className="flex items-center ml-1">
-                              <Check size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-gray-500' : 'text-white/60'} />
+                              <Check size={14} className={isTecnico ? 'text-white/60' : isAmministratore ? 'text-blue-600' : 'text-gray-500'} />
                             </span>
                           );
                         } else if (readStatus === 'read') {
@@ -354,7 +383,9 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                   </>
                 )}
               </div>
-            </div>
+                </div>
+              );
+            })()}
           </React.Fragment>
         ))}
         
