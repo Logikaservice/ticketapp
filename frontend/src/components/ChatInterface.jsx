@@ -213,8 +213,8 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
               )}>
                 {/* Pulsanti modifica ed elimina */}
                 {editingMessageId === m.id ? (
-                  // Modalità modifica
-                  <div className="space-y-3 w-full">
+                  // Modalità modifica - mantiene la stessa larghezza del messaggio originale
+                  <div className="space-y-3" style={{ width: '100%', minWidth: '300px' }}>
                     <textarea
                       ref={editingTextareaRef}
                       value={editingContent}
@@ -229,7 +229,7 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                         e.currentTarget.style.height = 'auto';
                         e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
                       }}
-                      className={`w-full px-4 py-3 border-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden ${
+                      className={`w-full px-4 py-3 border-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden whitespace-pre-wrap ${
                         m.reclamo 
                           ? 'bg-red-50 border-red-500 text-red-900'
                           : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
@@ -238,7 +238,7 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                       }`}
                       rows={1}
                       autoFocus
-                      style={{ height: 'auto', minHeight: '60px' }}
+                      style={{ height: 'auto', minHeight: '60px', width: '100%' }}
                     />
                     <div className="flex gap-2 justify-end">
                       <button
