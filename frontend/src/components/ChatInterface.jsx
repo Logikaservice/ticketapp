@@ -7,6 +7,7 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingContent, setEditingContent] = useState('');
   const messagesEndRef = useRef(null);
+  const editingTextareaRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -15,6 +16,14 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
   useEffect(() => {
     scrollToBottom();
   }, [ticket.messaggi]);
+
+  // Auto-resize textarea quando si apre la modifica
+  useEffect(() => {
+    if (editingMessageId && editingTextareaRef.current) {
+      editingTextareaRef.current.style.height = 'auto';
+      editingTextareaRef.current.style.height = `${editingTextareaRef.current.scrollHeight}px`;
+    }
+  }, [editingMessageId, editingContent]);
 
   const onSendMessage = (isReclamo) => {
     if (!isReclamo) isReclamo = false;
@@ -37,6 +46,13 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
   const handleStartEdit = (message) => {
     setEditingMessageId(message.id);
     setEditingContent(message.contenuto);
+    // Auto-resize dopo un breve delay per assicurarsi che il DOM sia aggiornato
+    setTimeout(() => {
+      if (editingTextareaRef.current) {
+        editingTextareaRef.current.style.height = 'auto';
+        editingTextareaRef.current.style.height = `${editingTextareaRef.current.scrollHeight}px`;
+      }
+    }, 0);
   };
 
   const handleCancelEdit = () => {
@@ -200,18 +216,29 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                   // Modalità modifica
                   <div className="space-y-3 w-full">
                     <textarea
+                      ref={editingTextareaRef}
                       value={editingContent}
-                      onChange={(e) => setEditingContent(e.target.value)}
-                      className={`w-full px-4 py-3 border-2 rounded-lg text-sm min-h-[100px] focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y ${
+                      onChange={(e) => {
+                        setEditingContent(e.target.value);
+                        // Auto-resize textarea on input
+                        e.currentTarget.style.height = 'auto';
+                        e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                      }}
+                      onInput={(e) => {
+                        // Ensure height adjusts also on paste/undo
+                        e.currentTarget.style.height = 'auto';
+                        e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+                      }}
+                      className={`w-full px-4 py-3 border-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden ${
                         m.reclamo 
                           ? 'bg-red-50 border-red-500 text-red-900'
                           : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
                             ? 'bg-gray-100 border-gray-300 text-gray-900'
                             : 'bg-blue-50 border-blue-300 text-gray-900'
                       }`}
-                      rows={Math.max(3, Math.ceil(editingContent.split('\n').length))}
+                      rows={1}
                       autoFocus
-                      style={{ minHeight: '100px' }}
+                      style={{ height: 'auto', minHeight: '60px' }}
                     />
                     <div className="flex gap-2 justify-end">
                       <button
