@@ -198,28 +198,35 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                 {/* Pulsanti modifica ed elimina */}
                 {editingMessageId === m.id ? (
                   // Modalità modifica
-                  <div className="space-y-2">
+                  <div className="space-y-3 w-full">
                     <textarea
                       value={editingContent}
                       onChange={(e) => setEditingContent(e.target.value)}
-                      className="w-full px-2 py-1 border rounded text-sm"
-                      rows={3}
+                      className={`w-full px-4 py-3 border-2 rounded-lg text-sm min-h-[100px] focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y ${
+                        m.reclamo 
+                          ? 'bg-red-50 border-red-500 text-red-900'
+                          : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
+                            ? 'bg-gray-100 border-gray-300 text-gray-900'
+                            : 'bg-blue-50 border-blue-300 text-gray-900'
+                      }`}
+                      rows={Math.max(3, Math.ceil(editingContent.split('\n').length))}
                       autoFocus
+                      style={{ minHeight: '100px' }}
                     />
                     <div className="flex gap-2 justify-end">
                       <button
                         onClick={handleCancelEdit}
-                        className="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded transition-colors flex items-center gap-1"
+                        className="px-3 py-2 text-sm bg-gray-200 hover:bg-gray-300 rounded transition-colors flex items-center gap-1"
                       >
-                        <XIcon size={12} />
+                        <XIcon size={14} />
                         Annulla
                       </button>
                       <button
                         onClick={handleSaveEdit}
                         disabled={!editingContent.trim()}
-                        className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                        className="px-3 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                       >
-                        <Save size={12} />
+                        <Save size={14} />
                         Salva
                       </button>
                     </div>
