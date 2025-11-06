@@ -352,7 +352,7 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                         <Trash2 size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-red-600' : 'text-white'} />
                       </button>
                     )}
-                    <div className={`flex items-center gap-1 text-xs mb-1 ${isTecnico ? 'text-white/80' : isAmministratore ? 'text-blue-700' : 'text-gray-600'}`}>
+                    <div className={`flex items-center gap-1 text-xs mb-1 ${isTecnico ? 'text-white/80' : isAmministratore ? 'text-blue-700' : 'text-gray-600'} ${canEditMessage(m) && handleUpdateMessage ? 'pr-8' : ''}`}>
                       <span className={m.reclamo ? 'text-red-700 font-bold' : 'font-medium'}>
                         {m.reclamo ? '⚠️ RECLAMO - ' : ''}{m.autore}
                         {isAmministratore && <Crown size={12} className="inline-block ml-1 text-yellow-600" title="Amministratore" />}
