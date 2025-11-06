@@ -291,19 +291,18 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                             </span>
                           );
                         } else if (readStatus === 'delivered') {
-                          // Due spunte grigie
+                          // Una spunta grigia (consegnato ma non letto)
                           return (
                             <span className="flex items-center ml-1">
                               <Check size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-gray-500' : 'text-white/60'} />
-                              <Check size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-gray-500' : 'text-white/60'} style={{ marginLeft: '-8px' }} />
                             </span>
                           );
                         } else if (readStatus === 'read') {
-                          // Due spunte blu
+                          // Due spunte verdi
                           return (
                             <span className="flex items-center ml-1">
-                              <Check size={14} className="text-blue-500" />
-                              <Check size={14} className="text-blue-500" style={{ marginLeft: '-8px' }} />
+                              <Check size={14} className="text-green-500" />
+                              <Check size={14} className="text-green-500" style={{ marginLeft: '-8px' }} />
                             </span>
                           );
                         }
