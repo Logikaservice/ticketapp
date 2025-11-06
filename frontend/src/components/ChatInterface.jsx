@@ -220,7 +220,7 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                     ? 'bg-red-50 border-2 border-red-500'
                     : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
                       ? 'bg-gray-100'
-                      : 'bg-blue-600 text-white'
+                      : 'bg-green-600 text-white'
                 )}
               >
                 {/* Pulsanti modifica ed elimina */}

@@ -730,10 +730,10 @@ export default function TicketApp() {
         setPrevTicketStates(nextMap);
         
         // Controlla se ci sono nuovi messaggi
-        // Per i clienti: controlla solo i ticket che appartengono a loro
+        // Per i clienti: controlla solo i ticket che appartengono a loro e che sono aperti
         let ticketsToCheck = ticketsWithForniture;
         if (currentUser?.ruolo === 'cliente') {
-          ticketsToCheck = ticketsWithForniture.filter(t => t.clienteid === currentUser.id);
+          ticketsToCheck = ticketsWithForniture.filter(t => t.clienteid === currentUser.id && t.stato === 'aperto');
         }
         
         let hasNewMessages = false;

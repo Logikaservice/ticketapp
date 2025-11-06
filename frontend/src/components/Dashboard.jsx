@@ -260,8 +260,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         }
       }
       
-      // Non è amministratore, mostra solo i suoi ticket
-      return tickets.filter(t => t.clienteid === currentUser.id);
+      // Non è amministratore, mostra solo i suoi ticket aperti
+      return tickets.filter(t => t.clienteid === currentUser.id && t.stato === 'aperto');
     }
     return tickets;
   })();
