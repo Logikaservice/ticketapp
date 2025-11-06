@@ -796,6 +796,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                   selectedTicket={selectedTicket}
                   handlers={handlers}
                   getUnreadCount={getUnreadCount}
+                  users={users}
                 />
               ))
           )}

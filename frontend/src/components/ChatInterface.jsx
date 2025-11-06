@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, MessageSquare, Check, AlertTriangle, Clock, Calendar, Trash2, Edit2, Save, X as XIcon } from 'lucide-react';
+import { X, MessageSquare, Check, AlertTriangle, Clock, Calendar, Trash2, Edit2, Save, X as XIcon, Crown } from 'lucide-react';
 import { formatDate, formatTimeLogDate } from '../utils/formatters';
 
-const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessage, handleDeleteMessage, handleUpdateMessage, handleChangeStatus }) => {
+const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessage, handleDeleteMessage, handleUpdateMessage, handleChangeStatus, users = [] }) => {
   const [newMessage, setNewMessage] = useState('');
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingContent, setEditingContent] = useState('');
@@ -39,8 +39,21 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
       return true; // Il tecnico può modificare tutti i messaggi
     }
     if (currentUser.ruolo === 'cliente') {
-      // Il cliente può modificare solo i propri messaggi
-      return message.autore === ticket.nomerichiedente || message.autore === 'Cliente';
+      // Verifica se è amministratore
+      const isAdmin = currentUser.admin_companies && 
+                     Array.isArray(currentUser.admin_companies) && 
+                     currentUser.admin_companies.length > 0;
+      
+      // Costruisci il nome completo dell'utente corrente
+      const currentUserName = `${currentUser.nome} ${currentUser.cognome || ''}`.trim();
+      
+      if (isAdmin) {
+        // L'amministratore può modificare solo i propri messaggi (confronta con il suo nome)
+        return message.autore === currentUserName;
+      } else {
+        // Il cliente non amministratore può modificare solo i propri messaggi
+        return message.autore === ticket.nomerichiedente || message.autore === 'Cliente' || message.autore === currentUserName;
+      }
     }
     return false;
   };
@@ -217,7 +230,16 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
               const isReclamo = m.reclamo;
               const isTecnico = m.autore === 'Tecnico';
               const isRichiedenteOriginale = m.autore === ticket.nomerichiedente || m.autore === 'Cliente';
-              const isAmministratore = !isTecnico && !isRichiedenteOriginale && currentUser?.ruolo === 'cliente';
+              
+              // Verifica se l'autore del messaggio è un amministratore
+              const messageAuthor = users.find(u => {
+                const fullName = `${u.nome} ${u.cognome || ''}`.trim();
+                return fullName === m.autore;
+              });
+              const isAmministratore = messageAuthor && 
+                                       messageAuthor.admin_companies && 
+                                       Array.isArray(messageAuthor.admin_companies) && 
+                                       messageAuthor.admin_companies.length > 0;
               
               // Determina il colore del messaggio
               let messageColorClass = '';
@@ -333,6 +355,7 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                     <div className={`flex items-center gap-1 text-xs mb-1 ${isTecnico ? 'text-white/80' : isAmministratore ? 'text-blue-700' : 'text-gray-600'}`}>
                       <span className={m.reclamo ? 'text-red-700 font-bold' : 'font-medium'}>
                         {m.reclamo ? '⚠️ RECLAMO - ' : ''}{m.autore}
+                        {isAmministratore && <Crown size={12} className="inline-block ml-1 text-yellow-600" title="Amministratore" />}
                         {m.modificato && <span className="text-xs opacity-75 ml-1">(modificato)</span>}
                       </span>
                     </div>

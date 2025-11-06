@@ -5,7 +5,7 @@ import { formatDate } from '../utils/formatters';
 import ChatInterface from './ChatInterface';
 import { generateSingleTicketHTML } from '../utils/reportGenerator';
 
-const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, getUnreadCount }) => {
+const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, getUnreadCount, users = [] }) => {
   // console.log debug rimosso
   
   const {
@@ -332,6 +332,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
             handleDeleteMessage={handleDeleteMessage}
             handleUpdateMessage={handleUpdateMessage}
             handleChangeStatus={handleChangeStatus}
+            users={users}
           />
         </div>
       )}
