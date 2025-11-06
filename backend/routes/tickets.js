@@ -649,6 +649,49 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
     }
   });
 
+  // ENDPOINT: Elimina un messaggio da un ticket
+  router.delete('/:id/messages/:messageId', async (req, res) => {
+    const { id, messageId } = req.params;
+    
+    try {
+      const client = await pool.connect();
+      const ticketResult = await client.query('SELECT messaggi FROM tickets WHERE id = $1', [id]);
+      
+      if (ticketResult.rows.length === 0) {
+        client.release();
+        return res.status(404).json({ error: 'Ticket non trovato' });
+      }
+      
+      let messaggi = ticketResult.rows[0].messaggi || [];
+      
+      // Parsa messaggi se è una stringa JSON
+      if (typeof messaggi === 'string') {
+        messaggi = JSON.parse(messaggi);
+      }
+      
+      // Filtra il messaggio da eliminare
+      const messageIdNum = parseInt(messageId);
+      const initialLength = messaggi.length;
+      messaggi = messaggi.filter(m => {
+        const mId = typeof m.id === 'number' ? m.id : parseInt(m.id);
+        return mId !== messageIdNum;
+      });
+      
+      if (messaggi.length === initialLength) {
+        client.release();
+        return res.status(404).json({ error: 'Messaggio non trovato' });
+      }
+      
+      await client.query('UPDATE tickets SET messaggi = $1 WHERE id = $2', [JSON.stringify(messaggi), id]);
+      client.release();
+      
+      res.status(200).json({ success: true, message: 'Messaggio eliminato con successo' });
+    } catch (err) {
+      console.error('Errore nell\'eliminare il messaggio:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // ENDPOINT: Marca i messaggi come letti
   router.patch('/:id/mark-read', async (req, res) => {
     const { id } = req.params;

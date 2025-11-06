@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, MessageSquare, Check, AlertTriangle, Clock, Calendar } from 'lucide-react';
+import { X, MessageSquare, Check, AlertTriangle, Clock, Calendar, Trash2 } from 'lucide-react';
 import { formatDate, formatTimeLogDate } from '../utils/formatters';
 
-const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessage, handleChangeStatus }) => {
+const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessage, handleDeleteMessage, handleChangeStatus }) => {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef(null);
 
@@ -120,13 +120,27 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
             )}
 
             <div className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-left' : 'text-right'}>
-              <div className={'inline-block max-w-[80%] rounded-xl shadow p-3 ' + (
+              <div className={'inline-block max-w-[80%] rounded-xl shadow p-3 relative ' + (
                 m.reclamo 
                   ? 'bg-red-50 border-2 border-red-500'
                   : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
                     ? 'bg-gray-100'
                     : 'bg-blue-600 text-white'
               )}>
+                {/* Pulsante elimina messaggio - solo per tecnici */}
+                {currentUser.ruolo === 'tecnico' && handleDeleteMessage && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Sei sicuro di voler eliminare questo messaggio?')) {
+                        handleDeleteMessage(ticket.id, m.id);
+                      }
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded hover:bg-red-200 transition-colors"
+                    title="Elimina messaggio"
+                  >
+                    <Trash2 size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-red-600' : 'text-white'} />
+                  </button>
+                )}
                 <div className={'flex items-center gap-1 text-xs mb-1 ' + (
                   m.autore === ticket.nomerichiedente || m.autore === 'Cliente' 
                     ? 'text-gray-600' 

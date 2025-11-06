@@ -377,6 +377,43 @@ export const useTickets = (
     }
   };
 
+  const handleDeleteMessage = async (ticketId, messageId) => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticketId}/messages/${messageId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Errore nell\'eliminazione del messaggio');
+      }
+      
+      // Aggiorna lo stato locale rimuovendo il messaggio
+      setTickets(prevTickets => prevTickets.map(t => {
+        if (t.id === ticketId) {
+          const updatedMessaggi = (t.messaggi || []).filter(m => {
+            const mId = typeof m.id === 'number' ? m.id : parseInt(m.id);
+            return mId !== parseInt(messageId);
+          });
+          const updatedTicket = { ...t, messaggi: updatedMessaggi };
+          if (selectedTicket?.id === ticketId) {
+            setSelectedTicket(updatedTicket);
+          }
+          return updatedTicket;
+        }
+        return t;
+      }));
+      
+      showNotification('Messaggio eliminato con successo.', 'success');
+    } catch (error) {
+      console.error('Errore nell\'eliminazione del messaggio:', error);
+      showNotification('Errore nell\'eliminazione del messaggio.', 'error');
+    }
+  };
+
   const handleChangeStatus = async (id, status, handleOpenTimeLogger, sendEmail = true) => {
     if (status === 'risolto' && currentUser.ruolo === 'tecnico') {
       const ticket = tickets.find(tk => tk.id === id);
@@ -531,6 +568,7 @@ export const useTickets = (
     handleDeleteTicket,
     handleSelectTicket,
     handleSendMessage,
+    handleDeleteMessage,
     handleChangeStatus,
     handleConfirmTimeLogs
   };
