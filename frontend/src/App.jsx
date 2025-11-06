@@ -555,6 +555,35 @@ export default function TicketApp() {
         const unseenKeyP = currentUser ? `unseenNewTicketIds_${currentUser.id}` : null;
         const unseenP = unseenKeyP ? getSetFromStorage(unseenKeyP) : new Set();
         
+        // Rimuovi dal localStorage i ticket che sono stati già letti (basandosi su last_read_by_client/tecnico)
+        if (unseenKeyP && unseenP.size > 0) {
+          const cleanedUnseenP = new Set();
+          unseenP.forEach(ticketId => {
+            const ticket = ticketsWithForniture.find(t => t.id === ticketId);
+            if (ticket) {
+              // Verifica se il ticket è stato già letto dall'utente corrente
+              const isRead = currentUser.ruolo === 'cliente' 
+                ? ticket.last_read_by_client 
+                : ticket.last_read_by_tecnico;
+              
+              // Se il ticket è stato letto, non aggiungerlo a cleanedUnseenP
+              if (!isRead) {
+                cleanedUnseenP.add(ticketId);
+              }
+            } else {
+              // Se il ticket non esiste più, non aggiungerlo
+            }
+          });
+          
+          // Aggiorna il localStorage con i ticket non letti
+          if (cleanedUnseenP.size !== unseenP.size) {
+            saveSetToStorage(unseenKeyP, cleanedUnseenP);
+            // Aggiorna unseenP per usarlo nelle logiche successive
+            unseenP.clear();
+            cleanedUnseenP.forEach(id => unseenP.add(id));
+          }
+        }
+        
         // Funzione helper per verificare se un ticket è visibile all'utente
         const getAppliesToUser = (ticket) => {
           if (currentUser.ruolo === 'tecnico') {
