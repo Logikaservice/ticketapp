@@ -384,7 +384,13 @@ export default function TicketApp() {
           // Al primo caricamento, rileva nuovi ticket (aperti) che non erano già in unseen
           ticketsWithForniture.forEach(t => {
             const appliesToUser = getAppliesToUserInitial(t);
-            if (appliesToUser && t.stato === 'aperto' && !unseen.has(t.id)) {
+            // Verifica se il ticket è stato già letto dall'utente corrente
+            const isRead = currentUser.ruolo === 'cliente' 
+              ? t.last_read_by_client 
+              : t.last_read_by_tecnico;
+            
+            // Aggiungi a unseen solo se è aperto, non è già in unseen, e non è stato ancora letto
+            if (appliesToUser && t.stato === 'aperto' && !unseen.has(t.id) && !isRead) {
               // Aggiungi a unseen
               unseen.add(t.id);
               
@@ -400,10 +406,14 @@ export default function TicketApp() {
           if (unseenKey) saveSetToStorage(unseenKey, unseen);
           if (alreadyNotifiedKey) saveSetToStorage(alreadyNotifiedKey, alreadyNotified);
           
-          // Applica flag isNew ai ticket
+          // Applica flag isNew ai ticket (solo se non sono stati ancora letti)
           withNewFlag = ticketsWithForniture.map(t => {
             const appliesToUser = getAppliesToUserInitial(t);
-            return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseen.has(t.id) };
+            // Verifica se il ticket è stato già letto dall'utente corrente
+            const isRead = currentUser.ruolo === 'cliente' 
+              ? t.last_read_by_client 
+              : t.last_read_by_tecnico;
+            return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseen.has(t.id) && !isRead };
           });
           
           // Mostra notifiche per i nuovi ticket rilevati al primo caricamento
@@ -441,7 +451,13 @@ export default function TicketApp() {
               
               ticketsWithForniture.forEach(t => {
                 const appliesToUser = getAppliesToUserInitial(t);
-                if (appliesToUser && t.stato === 'aperto' && !unseen2.has(t.id)) {
+                // Verifica se il ticket è stato già letto dall'utente corrente
+                const isRead = currentUser.ruolo === 'cliente' 
+                  ? t.last_read_by_client 
+                  : t.last_read_by_tecnico;
+                
+                // Aggiungi a unseen2 solo se è aperto, non è già in unseen2, e non è stato ancora letto
+                if (appliesToUser && t.stato === 'aperto' && !unseen2.has(t.id) && !isRead) {
                   unseen2.add(t.id);
                   if (!alreadyNotified2.has(t.id)) {
                     alreadyNotified2.add(t.id);
@@ -453,10 +469,14 @@ export default function TicketApp() {
               if (unseenKey2) saveSetToStorage(unseenKey2, unseen2);
               if (alreadyNotifiedKey2) saveSetToStorage(alreadyNotifiedKey2, alreadyNotified2);
               
-              // Aggiorna tickets con flag isNew corretto
+              // Aggiorna tickets con flag isNew corretto (solo se non sono stati ancora letti)
               const updatedTickets = ticketsWithForniture.map(t => {
                 const appliesToUser = getAppliesToUserInitial(t);
-                return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseen2.has(t.id) };
+                // Verifica se il ticket è stato già letto dall'utente corrente
+                const isRead = currentUser.ruolo === 'cliente' 
+                  ? t.last_read_by_client 
+                  : t.last_read_by_tecnico;
+                return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseen2.has(t.id) && !isRead };
               });
               setTickets(updatedTickets);
               
@@ -642,7 +662,13 @@ export default function TicketApp() {
           
           ticketsWithForniture.forEach(t => {
             const appliesToUser = getAppliesToUser(t);
-            if (appliesToUser && t.stato === 'aperto' && !prevIds.has(t.id)) {
+            // Verifica se il ticket è stato già letto dall'utente corrente
+            const isRead = currentUser.ruolo === 'cliente' 
+              ? t.last_read_by_client 
+              : t.last_read_by_tecnico;
+            
+            // Aggiungi a unseenP solo se è aperto, non è già presente nello stato precedente, e non è stato ancora letto
+            if (appliesToUser && t.stato === 'aperto' && !prevIds.has(t.id) && !isRead) {
               unseenP.add(t.id);
               newlyDetected.push(t.id);
               
@@ -660,7 +686,11 @@ export default function TicketApp() {
           
           polled = ticketsWithForniture.map(t => {
             const appliesToUser = getAppliesToUser(t);
-            return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseenP.has(t.id) };
+            // Verifica se il ticket è stato già letto dall'utente corrente
+            const isRead = currentUser.ruolo === 'cliente' 
+              ? t.last_read_by_client 
+              : t.last_read_by_tecnico;
+            return { ...t, isNew: appliesToUser && t.stato === 'aperto' && unseenP.has(t.id) && !isRead };
           });
           if (debugNewTickets()) {
             const flagged = polled.filter(t => t.isNew).map(t => t.id);
