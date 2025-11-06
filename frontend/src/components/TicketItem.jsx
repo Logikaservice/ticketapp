@@ -22,6 +22,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
     handleDeleteTicket,
     handleSendMessage,
     handleDeleteMessage,
+    handleUpdateMessage,
     showNotification,
     handleUploadTicketPhotos,
     setPhotosModalTicket
@@ -329,6 +330,7 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
             setSelectedTicket={handleSelectTicket}
             handleSendMessage={handleSendMessage}
             handleDeleteMessage={handleDeleteMessage}
+            handleUpdateMessage={handleUpdateMessage}
             handleChangeStatus={handleChangeStatus}
           />
         </div>

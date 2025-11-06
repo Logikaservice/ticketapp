@@ -692,6 +692,69 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
     }
   });
 
+  // ENDPOINT: Aggiorna un messaggio in un ticket
+  router.patch('/:id/messages/:messageId', async (req, res) => {
+    const { id, messageId } = req.params;
+    const { contenuto } = req.body;
+    
+    if (!contenuto || !contenuto.trim()) {
+      return res.status(400).json({ error: 'Il contenuto del messaggio è obbligatorio' });
+    }
+    
+    try {
+      const client = await pool.connect();
+      const ticketResult = await client.query('SELECT messaggi FROM tickets WHERE id = $1', [id]);
+      
+      if (ticketResult.rows.length === 0) {
+        client.release();
+        return res.status(404).json({ error: 'Ticket non trovato' });
+      }
+      
+      let messaggi = ticketResult.rows[0].messaggi || [];
+      
+      // Parsa messaggi se è una stringa JSON
+      if (typeof messaggi === 'string') {
+        messaggi = JSON.parse(messaggi);
+      }
+      
+      // Trova e aggiorna il messaggio
+      const messageIdNum = parseInt(messageId);
+      let messageFound = false;
+      
+      messaggi = messaggi.map(m => {
+        const mId = typeof m.id === 'number' ? m.id : parseInt(m.id);
+        if (mId === messageIdNum) {
+          messageFound = true;
+          return {
+            ...m,
+            contenuto: contenuto.trim(),
+            modificato: true,
+            dataModifica: new Date().toISOString()
+          };
+        }
+        return m;
+      });
+      
+      if (!messageFound) {
+        client.release();
+        return res.status(404).json({ error: 'Messaggio non trovato' });
+      }
+      
+      await client.query('UPDATE tickets SET messaggi = $1 WHERE id = $2', [JSON.stringify(messaggi), id]);
+      client.release();
+      
+      const updatedMessage = messaggi.find(m => {
+        const mId = typeof m.id === 'number' ? m.id : parseInt(m.id);
+        return mId === messageIdNum;
+      });
+      
+      res.status(200).json(updatedMessage);
+    } catch (err) {
+      console.error('Errore nell\'aggiornare il messaggio:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // ENDPOINT: Marca i messaggi come letti
   router.patch('/:id/mark-read', async (req, res) => {
     const { id } = req.params;

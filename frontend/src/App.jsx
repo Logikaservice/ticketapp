@@ -160,6 +160,7 @@ export default function TicketApp() {
     handleSelectTicket,
     handleSendMessage,
     handleDeleteMessage,
+    handleUpdateMessage,
     handleChangeStatus: changeStatus,
     handleConfirmTimeLogs
   } = useTickets(
@@ -1526,6 +1527,7 @@ export default function TicketApp() {
               showNotification,
               handleSendMessage,
               handleDeleteMessage,
+              handleUpdateMessage,
               handleGenerateSentReport,
               handleGenerateInvoiceReport,
               handleUploadTicketPhotos,
@@ -1567,6 +1569,7 @@ export default function TicketApp() {
               showNotification,
               handleSendMessage,
               handleDeleteMessage,
+              handleUpdateMessage,
               handleGenerateSentReport,
               handleGenerateInvoiceReport,
               handleUploadTicketPhotos,

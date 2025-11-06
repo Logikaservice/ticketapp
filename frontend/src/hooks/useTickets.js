@@ -414,6 +414,54 @@ export const useTickets = (
     }
   };
 
+  const handleUpdateMessage = async (ticketId, messageId, newContent) => {
+    if (!newContent || !newContent.trim()) {
+      showNotification('Il contenuto del messaggio non può essere vuoto.', 'error');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticketId}/messages/${messageId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify({ contenuto: newContent.trim() })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Errore nell\'aggiornamento del messaggio');
+      }
+      
+      const updatedMessage = await response.json();
+      
+      // Aggiorna lo stato locale aggiornando il messaggio
+      setTickets(prevTickets => prevTickets.map(t => {
+        if (t.id === ticketId) {
+          const updatedMessaggi = (t.messaggi || []).map(m => {
+            const mId = typeof m.id === 'number' ? m.id : parseInt(m.id);
+            if (mId === parseInt(messageId)) {
+              return updatedMessage;
+            }
+            return m;
+          });
+          const updatedTicket = { ...t, messaggi: updatedMessaggi };
+          if (selectedTicket?.id === ticketId) {
+            setSelectedTicket(updatedTicket);
+          }
+          return updatedTicket;
+        }
+        return t;
+      }));
+      
+      showNotification('Messaggio modificato con successo.', 'success');
+    } catch (error) {
+      console.error('Errore nell\'aggiornamento del messaggio:', error);
+      showNotification('Errore nell\'aggiornamento del messaggio.', 'error');
+    }
+  };
+
   const handleChangeStatus = async (id, status, handleOpenTimeLogger, sendEmail = true) => {
     if (status === 'risolto' && currentUser.ruolo === 'tecnico') {
       const ticket = tickets.find(tk => tk.id === id);
@@ -569,6 +617,7 @@ export const useTickets = (
     handleSelectTicket,
     handleSendMessage,
     handleDeleteMessage,
+    handleUpdateMessage,
     handleChangeStatus,
     handleConfirmTimeLogs
   };

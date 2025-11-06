@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, MessageSquare, Check, AlertTriangle, Clock, Calendar, Trash2 } from 'lucide-react';
+import { X, MessageSquare, Check, AlertTriangle, Clock, Calendar, Trash2, Edit2, Save, X as XIcon } from 'lucide-react';
 import { formatDate, formatTimeLogDate } from '../utils/formatters';
 
-const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessage, handleDeleteMessage, handleChangeStatus }) => {
+const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessage, handleDeleteMessage, handleUpdateMessage, handleChangeStatus }) => {
   const [newMessage, setNewMessage] = useState('');
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingContent, setEditingContent] = useState('');
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -18,6 +20,36 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
     if (!isReclamo) isReclamo = false;
     handleSendMessage(ticket.id, newMessage, isReclamo);
     setNewMessage('');
+  };
+
+  // Verifica se l'utente può modificare il messaggio
+  const canEditMessage = (message) => {
+    if (currentUser.ruolo === 'tecnico') {
+      return true; // Il tecnico può modificare tutti i messaggi
+    }
+    if (currentUser.ruolo === 'cliente') {
+      // Il cliente può modificare solo i propri messaggi
+      return message.autore === ticket.nomerichiedente || message.autore === 'Cliente';
+    }
+    return false;
+  };
+
+  const handleStartEdit = (message) => {
+    setEditingMessageId(message.id);
+    setEditingContent(message.contenuto);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingContent('');
+  };
+
+  const handleSaveEdit = () => {
+    if (editingContent.trim() && handleUpdateMessage) {
+      handleUpdateMessage(ticket.id, editingMessageId, editingContent);
+      setEditingMessageId(null);
+      setEditingContent('');
+    }
   };
 
   return (
@@ -127,41 +159,85 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                     ? 'bg-gray-100'
                     : 'bg-blue-600 text-white'
               )}>
-                {/* Pulsante elimina messaggio - solo per tecnici */}
-                {currentUser.ruolo === 'tecnico' && handleDeleteMessage && (
-                  <button
-                    onClick={() => {
-                      if (window.confirm('Sei sicuro di voler eliminare questo messaggio?')) {
-                        handleDeleteMessage(ticket.id, m.id);
-                      }
-                    }}
-                    className="absolute top-2 right-2 p-1 rounded hover:bg-red-200 transition-colors"
-                    title="Elimina messaggio"
-                  >
-                    <Trash2 size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-red-600' : 'text-white'} />
-                  </button>
+                {/* Pulsanti modifica ed elimina */}
+                {editingMessageId === m.id ? (
+                  // Modalità modifica
+                  <div className="space-y-2">
+                    <textarea
+                      value={editingContent}
+                      onChange={(e) => setEditingContent(e.target.value)}
+                      className="w-full px-2 py-1 border rounded text-sm"
+                      rows={3}
+                      autoFocus
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        onClick={handleCancelEdit}
+                        className="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded transition-colors flex items-center gap-1"
+                      >
+                        <XIcon size={12} />
+                        Annulla
+                      </button>
+                      <button
+                        onClick={handleSaveEdit}
+                        disabled={!editingContent.trim()}
+                        className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                      >
+                        <Save size={12} />
+                        Salva
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // Modalità visualizzazione
+                  <>
+                    {/* Pulsanti azioni - solo se l'utente può modificare/eliminare */}
+                    {canEditMessage(m) && handleUpdateMessage && (
+                      <button
+                        onClick={() => handleStartEdit(m)}
+                        className="absolute top-2 right-2 p-1 rounded hover:bg-blue-200 transition-colors"
+                        title="Modifica messaggio"
+                      >
+                        <Edit2 size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-blue-600' : 'text-white'} />
+                      </button>
+                    )}
+                    {currentUser.ruolo === 'tecnico' && handleDeleteMessage && (
+                      <button
+                        onClick={() => {
+                          if (window.confirm('Sei sicuro di voler eliminare questo messaggio?')) {
+                            handleDeleteMessage(ticket.id, m.id);
+                          }
+                        }}
+                        className={`absolute ${canEditMessage(m) && handleUpdateMessage ? 'top-2 right-10' : 'top-2 right-2'} p-1 rounded hover:bg-red-200 transition-colors`}
+                        title="Elimina messaggio"
+                      >
+                        <Trash2 size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-red-600' : 'text-white'} />
+                      </button>
+                    )}
+                    <div className={'flex items-center gap-1 text-xs mb-1 ' + (
+                      m.autore === ticket.nomerichiedente || m.autore === 'Cliente' 
+                        ? 'text-gray-600' 
+                        : 'text-white/80'
+                    )}>
+                      <span className={m.reclamo ? 'text-red-700 font-bold' : 'font-medium'}>
+                        {m.reclamo ? '⚠️ RECLAMO - ' : ''}{m.autore}
+                        {m.modificato && <span className="text-xs opacity-75 ml-1">(modificato)</span>}
+                      </span>
+                    </div>
+                    <div className={'text-sm whitespace-pre-wrap ' + (m.reclamo ? 'text-red-900 font-medium' : '')}>
+                      {m.contenuto}
+                    </div>
+                    <div className={'text-xs opacity-75 mt-1 ' + (
+                      m.reclamo 
+                        ? 'text-red-700'
+                        : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
+                          ? 'text-gray-500'
+                          : 'text-white/60'
+                    )}>
+                      {formatDate(m.data)}
+                    </div>
+                  </>
                 )}
-                <div className={'flex items-center gap-1 text-xs mb-1 ' + (
-                  m.autore === ticket.nomerichiedente || m.autore === 'Cliente' 
-                    ? 'text-gray-600' 
-                    : 'text-white/80'
-                )}>
-                  <span className={m.reclamo ? 'text-red-700 font-bold' : 'font-medium'}>
-                    {m.reclamo ? '⚠️ RECLAMO - ' : ''}{m.autore}
-                  </span>
-                </div>
-                <div className={'text-sm whitespace-pre-wrap ' + (m.reclamo ? 'text-red-900 font-medium' : '')}>
-                  {m.contenuto}
-                </div>
-                <div className={'text-xs opacity-75 mt-1 ' + (
-                  m.reclamo 
-                    ? 'text-red-700'
-                    : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
-                      ? 'text-gray-500'
-                      : 'text-white/60'
-                )}>
-                  {formatDate(m.data)}
-                </div>
               </div>
             </div>
           </React.Fragment>
