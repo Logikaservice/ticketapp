@@ -52,6 +52,42 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
     }
   };
 
+  // Determina lo stato di lettura del messaggio (come WhatsApp)
+  const getMessageReadStatus = (message) => {
+    // Solo per i messaggi che ho inviato io
+    const isMyMessage = (currentUser.ruolo === 'tecnico' && message.autore === 'Tecnico') ||
+                        (currentUser.ruolo === 'cliente' && (message.autore === ticket.nomerichiedente || message.autore === 'Cliente'));
+    
+    if (!isMyMessage) {
+      return null; // Non mostrare spunte per i messaggi dell'altro utente
+    }
+
+    const messageDate = new Date(message.data);
+    let lastReadDate = null;
+
+    // Determina quando l'altro utente ha letto i messaggi
+    if (currentUser.ruolo === 'tecnico') {
+      // Sono tecnico, controllo quando il cliente ha letto
+      lastReadDate = ticket.last_read_by_client ? new Date(ticket.last_read_by_client) : null;
+    } else {
+      // Sono cliente, controllo quando il tecnico ha letto
+      lastReadDate = ticket.last_read_by_tecnico ? new Date(ticket.last_read_by_tecnico) : null;
+    }
+
+    if (!lastReadDate) {
+      // L'altro utente non ha ancora aperto la chat
+      return 'sent'; // Una spunta grigia
+    }
+
+    if (lastReadDate >= messageDate) {
+      // L'altro utente ha letto questo messaggio
+      return 'read'; // Due spunte blu
+    }
+
+    // L'altro utente ha aperto la chat ma non ha ancora letto questo messaggio
+    return 'delivered'; // Due spunte grigie
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-lg border-t">
       <div className="p-4 border-b flex items-center justify-between bg-blue-50 rounded-t-xl">
@@ -227,14 +263,45 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                     <div className={'text-sm whitespace-pre-wrap ' + (m.reclamo ? 'text-red-900 font-medium' : '')}>
                       {m.contenuto}
                     </div>
-                    <div className={'text-xs opacity-75 mt-1 ' + (
+                    <div className={'text-xs opacity-75 mt-1 flex items-center gap-2 ' + (
                       m.reclamo 
                         ? 'text-red-700'
                         : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
                           ? 'text-gray-500'
                           : 'text-white/60'
                     )}>
-                      {formatDate(m.data)}
+                      <span>{formatDate(m.data)}</span>
+                      {/* Spunte di lettura (come WhatsApp) */}
+                      {(() => {
+                        const readStatus = getMessageReadStatus(m);
+                        if (!readStatus) return null;
+                        
+                        if (readStatus === 'sent') {
+                          // Una spunta grigia
+                          return (
+                            <span className="flex items-center ml-1">
+                              <Check size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-gray-500' : 'text-white/60'} />
+                            </span>
+                          );
+                        } else if (readStatus === 'delivered') {
+                          // Due spunte grigie
+                          return (
+                            <span className="flex items-center ml-1">
+                              <Check size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-gray-500' : 'text-white/60'} />
+                              <Check size={14} className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-gray-500' : 'text-white/60'} style={{ marginLeft: '-8px' }} />
+                            </span>
+                          );
+                        } else if (readStatus === 'read') {
+                          // Due spunte blu
+                          return (
+                            <span className="flex items-center ml-1">
+                              <Check size={14} className="text-blue-500" />
+                              <Check size={14} className="text-blue-500" style={{ marginLeft: '-8px' }} />
+                            </span>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                   </>
                 )}
