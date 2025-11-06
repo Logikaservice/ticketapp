@@ -721,6 +721,22 @@ export default function TicketApp() {
   // APERTURA MODALI
   // ====================================================================
   const openNewTicketModal = () => { resetNewTicketData(); setModalState({ type: 'newTicket' }); };
+  
+  // Funzione per creare un ticket da un avviso
+  const handleCreateTicketFromAlert = (alert) => {
+    const nomeRichiedente = currentUser?.ruolo === 'cliente' ? `${currentUser.nome} ${currentUser.cognome || ''}`.trim() : '';
+    setNewTicketData({
+      titolo: `Ticket da avviso: ${alert.title}`,
+      descrizione: `Avviso: ${alert.title}\n\n${alert.body}`,
+      categoria: 'assistenza',
+      priorita: 'media',
+      nomerichiedente: nomeRichiedente,
+      dataapertura: ''
+    });
+    setIsEditingTicket(null);
+    setSelectedClientForNewTicket('');
+    setModalState({ type: 'newTicket' });
+  };
   const openSettings = () => {
     setSettingsData({ 
       nome: currentUser.nome || '', 
@@ -1492,6 +1508,7 @@ export default function TicketApp() {
             selectedTicket={selectedTicket}
             setSelectedTicket={setSelectedTicket}
             setModalState={setModalState}
+            onCreateTicketFromAlert={handleCreateTicketFromAlert}
             handlers={{
               handleSelectTicket,
               handleOpenEditModal,

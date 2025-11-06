@@ -39,7 +39,7 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, bad
 };
 
 
-const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManageAlerts, onEditAlert, currentUser, users = [] }) => {
+const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDelete, isEditable, onManageAlerts, onEditAlert, currentUser, users = [] }) => {
   // Verifica di sicurezza per users
   if (!users || !Array.isArray(users)) {
     users = [];
@@ -185,6 +185,19 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
                   </div>
                 </div>
               )}
+              
+              {/* Pulsante per creare ticket dall'avviso - solo per clienti */}
+              {currentUser?.ruolo === 'cliente' && onCreateTicketFromAlert && (
+                <div className="mt-3">
+                  <button
+                    onClick={() => onCreateTicketFromAlert(avv)}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  >
+                    <FileText size={14} />
+                    Crea Ticket da questo Avviso
+                  </button>
+                </div>
+              )}
             </div>
             {isEditable && (
               <div className="flex items-center gap-2">
@@ -217,7 +230,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onDelete, isEditable, onManage
   );
 };
 
-const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger, getAuthHeader, temporarySupplies, temporarySuppliesLoading, onRemoveTemporarySupply, onRefreshTemporarySupplies }) => {
+const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelectedTicket, setModalState, onCreateTicketFromAlert, handlers, getUnreadCount, onOpenState, externalHighlights, alertsRefreshTrigger, getAuthHeader, temporarySupplies, temporarySuppliesLoading, onRemoveTemporarySupply, onRefreshTemporarySupplies }) => {
   // Stati per la ricerca
   const [searchTerm, setSearchTerm] = React.useState('');
   const [searchResults, setSearchResults] = React.useState([]);
@@ -656,6 +669,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               if (!t || !t.id) return;
               // Integrazione futura: handlers.handleSelectTicket
             }}
+            onCreateTicketFromAlert={onCreateTicketFromAlert}
             onManageAlerts={() => setModalState({ type: 'manageAlerts', data: null })}
             onEditAlert={handleEditAlertClick}
             currentUser={currentUser}
