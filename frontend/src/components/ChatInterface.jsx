@@ -6,8 +6,10 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
   const [newMessage, setNewMessage] = useState('');
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingContent, setEditingContent] = useState('');
+  const [editingWidth, setEditingWidth] = useState(null);
   const messagesEndRef = useRef(null);
   const editingTextareaRef = useRef(null);
+  const messageContainerRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -43,9 +45,14 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
     return false;
   };
 
-  const handleStartEdit = (message) => {
+  const handleStartEdit = (message, containerElement) => {
     setEditingMessageId(message.id);
     setEditingContent(message.contenuto);
+    // Salva la larghezza del contenitore del messaggio originale
+    if (containerElement) {
+      const width = containerElement.offsetWidth;
+      setEditingWidth(width);
+    }
     // Auto-resize dopo un breve delay per assicurarsi che il DOM sia aggiornato
     setTimeout(() => {
       if (editingTextareaRef.current) {
@@ -58,6 +65,7 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
   const handleCancelEdit = () => {
     setEditingMessageId(null);
     setEditingContent('');
+    setEditingWidth(null);
   };
 
   const handleSaveEdit = () => {
@@ -65,6 +73,7 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
       handleUpdateMessage(ticket.id, editingMessageId, editingContent);
       setEditingMessageId(null);
       setEditingContent('');
+      setEditingWidth(null);
     }
   };
 
@@ -204,17 +213,20 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
             )}
 
             <div className={m.autore === ticket.nomerichiedente || m.autore === 'Cliente' ? 'text-left' : 'text-right'}>
-              <div className={'inline-block max-w-[80%] rounded-xl shadow p-3 relative ' + (
-                m.reclamo 
-                  ? 'bg-red-50 border-2 border-red-500'
-                  : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
-                    ? 'bg-gray-100'
-                    : 'bg-blue-600 text-white'
-              )}>
+              <div 
+                ref={editingMessageId === m.id ? messageContainerRef : null}
+                className={'inline-block max-w-[80%] rounded-xl shadow p-3 relative ' + (
+                  m.reclamo 
+                    ? 'bg-red-50 border-2 border-red-500'
+                    : m.autore === ticket.nomerichiedente || m.autore === 'Cliente'
+                      ? 'bg-gray-100'
+                      : 'bg-blue-600 text-white'
+                )}
+              >
                 {/* Pulsanti modifica ed elimina */}
                 {editingMessageId === m.id ? (
                   // Modalità modifica - mantiene la stessa larghezza del messaggio originale
-                  <div className="space-y-3" style={{ width: '100%', minWidth: '300px' }}>
+                  <div className="space-y-3" style={{ width: editingWidth ? `${editingWidth}px` : '100%', minWidth: '300px' }}>
                     <textarea
                       ref={editingTextareaRef}
                       value={editingContent}
@@ -264,7 +276,10 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
                     {/* Pulsanti azioni - solo se l'utente può modificare/eliminare */}
                     {canEditMessage(m) && handleUpdateMessage && (
                       <button
-                        onClick={() => handleStartEdit(m)}
+                        onClick={(e) => {
+                          const container = e.currentTarget.closest('.inline-block');
+                          handleStartEdit(m, container);
+                        }}
                         className="absolute top-2 right-2 p-1 rounded hover:bg-blue-200 transition-colors"
                         title="Modifica messaggio"
                       >
