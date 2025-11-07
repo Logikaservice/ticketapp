@@ -39,21 +39,28 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
       console.log('🔄 Caricamento foto...', imageFiles.length, 'file');
       const uploadedPhotos = await onUploadPhotos(ticket.id, imageFiles);
       console.log('✅ Foto caricate:', uploadedPhotos);
-      setLocalPhotos(uploadedPhotos);
       
-      // Vai all'ultima foto caricata
-      if (uploadedPhotos.length > localPhotos.length) {
-        setCurrentPhotoIndex(uploadedPhotos.length - 1);
-      }
+      // Usa setTimeout per evitare aggiornamenti di stato durante il render
+      setTimeout(() => {
+        setLocalPhotos(uploadedPhotos);
+        
+        // Vai all'ultima foto caricata
+        if (uploadedPhotos.length > localPhotos.length) {
+          setCurrentPhotoIndex(uploadedPhotos.length - 1);
+        }
+      }, 0);
     } catch (error) {
       console.error('❌ Errore upload:', error);
-      alert('Errore durante il caricamento: ' + (error.message || 'Errore sconosciuto'));
+      // Non mostrare alert, la notifica è già gestita da handleUploadTicketPhotos
     } finally {
-      setIsUploading(false);
-      // Reset input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      // Usa setTimeout per evitare aggiornamenti di stato durante il render
+      setTimeout(() => {
+        setIsUploading(false);
+        // Reset input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }, 0);
     }
   };
 

@@ -1117,23 +1117,30 @@ export default function TicketApp() {
 
       const result = await response.json();
       
-      // Aggiorna il ticket nella lista
-      setTickets(prev => prev.map(t => 
-        t.id === ticketId 
-          ? { ...t, photos: result.photos } 
-          : t
-      ));
+      // Usa setTimeout per evitare aggiornamenti di stato durante il render
+      setTimeout(() => {
+        // Aggiorna il ticket nella lista
+        setTickets(prev => prev.map(t => 
+          t.id === ticketId 
+            ? { ...t, photos: result.photos } 
+            : t
+        ));
 
-      // Aggiorna anche selectedTicket se è quello corretto
-      if (selectedTicket && selectedTicket.id === ticketId) {
-        setSelectedTicket({ ...selectedTicket, photos: result.photos });
-      }
+        // Aggiorna anche selectedTicket se è quello corretto
+        if (selectedTicket && selectedTicket.id === ticketId) {
+          setSelectedTicket({ ...selectedTicket, photos: result.photos });
+        }
 
-      showNotification(result.message || 'Foto caricate con successo', 'success');
+        showNotification(result.message || 'Foto caricate con successo', 'success');
+      }, 0);
+      
       return result.photos;
     } catch (error) {
       console.error('Errore upload foto:', error);
-      showNotification(error.message || 'Errore durante il caricamento delle foto', 'error');
+      // Usa setTimeout per evitare aggiornamenti di stato durante il render
+      setTimeout(() => {
+        showNotification(error.message || 'Errore durante il caricamento delle foto', 'error');
+      }, 0);
       throw error;
     }
   };
