@@ -10,6 +10,7 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
   const messagesEndRef = useRef(null);
   const editingTextareaRef = useRef(null);
   const messageContainerRef = useRef(null);
+  const messageInputRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -27,10 +28,31 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
     }
   }, [editingMessageId, editingContent]);
 
+  // Auto-resize textarea di inserimento nuovo messaggio
+  useEffect(() => {
+    if (messageInputRef.current) {
+      const textarea = messageInputRef.current;
+      const minHeight = 48;
+      const maxHeight = 200;
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+      textarea.style.height = `${newHeight}px`;
+      textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
+    }
+  }, [newMessage]);
+
   const onSendMessage = (isReclamo) => {
+    const messageToSend = newMessage.trim();
+    if (!messageToSend) {
+      return;
+    }
     if (!isReclamo) isReclamo = false;
-    handleSendMessage(ticket.id, newMessage, isReclamo);
+    handleSendMessage(ticket.id, messageToSend, isReclamo);
     setNewMessage('');
+    if (messageInputRef.current) {
+      const textarea = messageInputRef.current;
+      textarea.style.height = 'auto';
+    }
   };
 
   // Verifica se l'utente può modificare il messaggio
@@ -458,13 +480,22 @@ const ChatInterface = ({ ticket, currentUser, setSelectedTicket, handleSendMessa
           ) : (
             <>
               <div className="flex gap-2">
-                <input
-                  type="text"
+                <textarea
+                  ref={messageInputRef}
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && onSendMessage(false)}
-                  placeholder="Scrivi messaggio..."
-                  className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (newMessage.trim()) {
+                        onSendMessage(false);
+                      }
+                    }
+                  }}
+                  placeholder="Scrivi messaggio... (Invio per inviare, Shift+Invio per nuova riga)"
+                  rows={1}
+                  className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden text-sm whitespace-pre-wrap"
+                  style={{ minHeight: '48px', maxHeight: '200px' }}
                 />
                 <button
                   onClick={() => onSendMessage(false)}
