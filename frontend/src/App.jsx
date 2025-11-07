@@ -855,7 +855,7 @@ export default function TicketApp() {
   };
 
   const handleConfirmAlertEmail = async (emailOption) => {
-    // emailOption può essere: 'all', 'admins', 'none'
+    // emailOption può essere: 'all', 'admins', 'none', oppure { option: 'company', company: 'nomeAzienda' }
     if (pendingAlertData) {
       await handleSaveAlert(pendingAlertData, emailOption);
       setPendingAlertData(null);
@@ -879,7 +879,14 @@ export default function TicketApp() {
       formData.append('isPermanent', alertData.isPermanent);
       formData.append('daysToExpire', alertData.daysToExpire);
       formData.append('created_by', currentUser?.nome + ' ' + currentUser?.cognome);
-      formData.append('emailOption', emailOption); // 'all', 'admins', 'none'
+      
+      // Gestisci emailOption che può essere una stringa o un oggetto { option: 'company', company: 'nomeAzienda' }
+      if (typeof emailOption === 'object' && emailOption.option === 'company') {
+        formData.append('emailOption', 'company');
+        formData.append('emailCompany', emailOption.company);
+      } else {
+        formData.append('emailOption', emailOption); // 'all', 'admins', 'none'
+      }
       
       // Aggiungi i file selezionati
       if (alertData.files && alertData.files.length > 0) {

@@ -1,11 +1,32 @@
 import React from 'react';
-import { Mail, Users, Crown, X } from 'lucide-react';
+import { Mail, Users, Crown, X, Building } from 'lucide-react';
 
-const AlertEmailConfirmModal = ({ onConfirm, onCancel }) => {
+const AlertEmailConfirmModal = ({ onConfirm, onCancel, users = [] }) => {
   const [selectedOption, setSelectedOption] = React.useState('all');
+  const [selectedCompany, setSelectedCompany] = React.useState('');
+
+  // Estrai lista aziende uniche dai clienti
+  const companies = React.useMemo(() => {
+    const clienti = users.filter(u => u.ruolo === 'cliente');
+    const aziendeSet = new Set();
+    clienti.forEach(c => {
+      if (c.azienda && c.azienda.trim() !== '') {
+        aziendeSet.add(c.azienda);
+      }
+    });
+    return Array.from(aziendeSet).sort((a, b) => a.localeCompare(b));
+  }, [users]);
 
   const handleConfirm = () => {
-    onConfirm(selectedOption);
+    if (selectedOption === 'company') {
+      if (!selectedCompany) {
+        alert('Seleziona un\'azienda');
+        return;
+      }
+      onConfirm({ option: 'company', company: selectedCompany });
+    } else {
+      onConfirm(selectedOption);
+    }
   };
 
   return (
@@ -75,7 +96,49 @@ const AlertEmailConfirmModal = ({ onConfirm, onCancel }) => {
           </div>
         </button>
 
-        {/* Opzione 3: Non inviare */}
+        {/* Opzione 3: Per azienda */}
+        <button
+          type="button"
+          onClick={() => setSelectedOption('company')}
+          className={`w-full px-4 py-3 border-2 rounded-lg text-left transition flex items-center gap-3 ${
+            selectedOption === 'company'
+              ? 'border-purple-500 bg-purple-50'
+              : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+          }`}
+        >
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+            selectedOption === 'company'
+              ? 'border-purple-500 bg-purple-500'
+              : 'border-gray-300'
+          }`}>
+            {selectedOption === 'company' && (
+              <div className="w-2 h-2 rounded-full bg-white" />
+            )}
+          </div>
+          <Building size={20} className="text-purple-600" />
+          <div className="flex-1">
+            <div className="font-semibold text-gray-900">Per azienda</div>
+            <div className="text-xs text-gray-600">Seleziona un'azienda specifica</div>
+          </div>
+        </button>
+
+        {/* Selettore azienda (mostrato solo se "Per azienda" è selezionato) */}
+        {selectedOption === 'company' && (
+          <div className="ml-8 mt-2">
+            <select
+              value={selectedCompany}
+              onChange={(e) => setSelectedCompany(e.target.value)}
+              className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
+            >
+              <option value="">Seleziona un'azienda...</option>
+              {companies.map(azienda => (
+                <option key={azienda} value={azienda}>{azienda}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Opzione 4: Non inviare */}
         <button
           type="button"
           onClick={() => setSelectedOption('none')}

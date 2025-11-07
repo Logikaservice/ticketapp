@@ -86,6 +86,7 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
           <AlertEmailConfirmModal 
             onConfirm={handlers.onConfirmAlertEmail}
             onCancel={handlers.onCancelAlertEmail}
+            users={handlers.users}
           />
         );
         

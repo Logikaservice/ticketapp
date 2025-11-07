@@ -108,7 +108,7 @@ module.exports = function createAlertsRouter(pool) {
   // POST /api/alerts - crea avviso (solo tecnico)
   router.post('/', upload.array('attachments', 5), async (req, res) => {
     try {
-      const { title, body, level, ticketId, createdBy, clients, isPermanent, daysToExpire, emailOption } = req.body || {};
+      const { title, body, level, ticketId, createdBy, clients, isPermanent, daysToExpire, emailOption, emailCompany } = req.body || {};
       if (!title || !body) return res.status(400).json({ error: 'title e body sono obbligatori' });
 
       // Controllo ruolo semplice da body (in attesa di auth reale)
@@ -239,6 +239,13 @@ module.exports = function createAlertsRouter(pool) {
                 );
                 recipients = adminsResult.rows;
               }
+            } else if (emailOption === 'company' && emailCompany) {
+              // Invia a tutti i clienti dell'azienda specificata
+              const companyClientsResult = await pool.query(
+                'SELECT email, nome, cognome, azienda, admin_companies FROM users WHERE ruolo = $1 AND azienda = $2 AND email IS NOT NULL AND email != \'\'',
+                ['cliente', emailCompany]
+              );
+              recipients = companyClientsResult.rows;
             }
 
             // Invia email a tutti i destinatari
