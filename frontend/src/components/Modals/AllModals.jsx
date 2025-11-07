@@ -9,7 +9,7 @@ import ReportModal from './ReportModal';
 import ManageAlertsModal from './ManageAlertsModal';
 import EmailConfirmModal from './EmailConfirmModal';
 
-const AllModals = ({ modalState, closeModal, ...handlers }) => {
+const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...handlers }) => {
   if (!modalState.type) return null;
 
   const renderModalContent = () => {
@@ -43,7 +43,7 @@ const AllModals = ({ modalState, closeModal, ...handlers }) => {
         return <UrgentConfirmModal closeModal={closeModal} {...handlers} />;
         
       case 'emptyDescriptionConfirm':
-        return <EmptyDescriptionConfirmModal closeModal={closeModal} {...handlers} />;
+        return <EmptyDescriptionConfirmModal closeModal={closeEmptyDescriptionModal || closeModal} {...handlers} />;
         
       case 'reportHTML':
         return (

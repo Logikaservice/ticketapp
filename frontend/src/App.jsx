@@ -153,6 +153,11 @@ export default function TicketApp() {
     setModalState({ type: null, data: null });
   };
 
+  // Funzione per chiudere solo il modal di conferma descrizione vuota e tornare al modal del nuovo ticket
+  const closeEmptyDescriptionModal = () => {
+    setModalState({ type: 'newTicket' });
+  };
+
   const {
     handleCreateTicket: createTicket,
     handleUpdateTicket: updateTicket,
@@ -1674,6 +1679,7 @@ export default function TicketApp() {
       <AllModals
         modalState={modalState}
         closeModal={closeModal}
+        closeEmptyDescriptionModal={closeEmptyDescriptionModal}
         handleUpdateSettings={handleUpdateSettings}
         handleConfirmUrgentCreation={handleConfirmUrgentCreation}
         handleConfirmEmptyDescription={handleConfirmEmptyDescription}
