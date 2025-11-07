@@ -108,7 +108,7 @@ module.exports = function createAlertsRouter(pool) {
   // POST /api/alerts - crea avviso (solo tecnico)
   router.post('/', upload.array('attachments', 5), async (req, res) => {
     try {
-      const { title, body, level, ticketId, createdBy, clients, isPermanent, daysToExpire, emailOption, emailCompany } = req.body || {};
+      const { title, body, level, ticketId, createdBy, clients, isPermanent, daysToExpire, emailOption, emailCompany, emailCompanies } = req.body || {};
       if (!title || !body) return res.status(400).json({ error: 'title e body sono obbligatori' });
 
       // Controllo ruolo semplice da body (in attesa di auth reale)
@@ -239,13 +239,36 @@ module.exports = function createAlertsRouter(pool) {
                 );
                 recipients = adminsResult.rows;
               }
-            } else if (emailOption === 'company' && emailCompany) {
-              // Invia a tutti i clienti dell'azienda specificata
-              const companyClientsResult = await pool.query(
-                'SELECT email, nome, cognome, azienda, admin_companies FROM users WHERE ruolo = $1 AND azienda = $2 AND email IS NOT NULL AND email != \'\'',
-                ['cliente', emailCompany]
-              );
-              recipients = companyClientsResult.rows;
+            } else if (emailOption === 'company') {
+              // Gestisci array di aziende (nuovo formato) o singola azienda (formato legacy)
+              let companiesToSend = [];
+              
+              if (emailCompanies) {
+                // Nuovo formato: array di aziende
+                try {
+                  const parsedCompanies = typeof emailCompanies === 'string' 
+                    ? JSON.parse(emailCompanies) 
+                    : emailCompanies;
+                  if (Array.isArray(parsedCompanies) && parsedCompanies.length > 0) {
+                    companiesToSend = parsedCompanies;
+                  }
+                } catch (e) {
+                  console.error('Errore parsing emailCompanies:', e);
+                }
+              } else if (emailCompany) {
+                // Formato legacy: singola azienda
+                companiesToSend = [emailCompany];
+              }
+              
+              if (companiesToSend.length > 0) {
+                // Invia a tutti i clienti delle aziende specificate
+                const placeholders = companiesToSend.map((_, index) => `$${index + 2}`).join(', ');
+                const companyClientsResult = await pool.query(
+                  `SELECT email, nome, cognome, azienda, admin_companies FROM users WHERE ruolo = $1 AND azienda IN (${placeholders}) AND email IS NOT NULL AND email != ''`,
+                  ['cliente', ...companiesToSend]
+                );
+                recipients = companyClientsResult.rows;
+              }
             }
 
             // Invia email a tutti i destinatari

@@ -880,10 +880,10 @@ export default function TicketApp() {
       formData.append('daysToExpire', alertData.daysToExpire);
       formData.append('created_by', currentUser?.nome + ' ' + currentUser?.cognome);
       
-      // Gestisci emailOption che può essere una stringa o un oggetto { option: 'company', company: 'nomeAzienda' }
+      // Gestisci emailOption che può essere una stringa o un oggetto { option: 'company', companies: ['azienda1', 'azienda2'] }
       if (typeof emailOption === 'object' && emailOption.option === 'company') {
         formData.append('emailOption', 'company');
-        formData.append('emailCompany', emailOption.company);
+        formData.append('emailCompanies', JSON.stringify(emailOption.companies));
       } else {
         formData.append('emailOption', emailOption); // 'all', 'admins', 'none'
       }

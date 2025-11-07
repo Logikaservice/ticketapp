@@ -3,7 +3,7 @@ import { Mail, Users, Crown, X, Building } from 'lucide-react';
 
 const AlertEmailConfirmModal = ({ onConfirm, onCancel, users = [] }) => {
   const [selectedOption, setSelectedOption] = React.useState('all');
-  const [selectedCompany, setSelectedCompany] = React.useState('');
+  const [selectedCompanies, setSelectedCompanies] = React.useState(new Set());
 
   // Estrai lista aziende uniche dai clienti
   const companies = React.useMemo(() => {
@@ -17,13 +17,33 @@ const AlertEmailConfirmModal = ({ onConfirm, onCancel, users = [] }) => {
     return Array.from(aziendeSet).sort((a, b) => a.localeCompare(b));
   }, [users]);
 
+  const handleToggleCompany = (azienda) => {
+    setSelectedCompanies(prev => {
+      const next = new Set(prev);
+      if (next.has(azienda)) {
+        next.delete(azienda);
+      } else {
+        next.add(azienda);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllCompanies = () => {
+    if (selectedCompanies.size === companies.length) {
+      setSelectedCompanies(new Set());
+    } else {
+      setSelectedCompanies(new Set(companies));
+    }
+  };
+
   const handleConfirm = () => {
     if (selectedOption === 'company') {
-      if (!selectedCompany) {
-        alert('Seleziona un\'azienda');
+      if (selectedCompanies.size === 0) {
+        alert('Seleziona almeno un\'azienda');
         return;
       }
-      onConfirm({ option: 'company', company: selectedCompany });
+      onConfirm({ option: 'company', companies: Array.from(selectedCompanies) });
     } else {
       onConfirm(selectedOption);
     }
@@ -47,7 +67,10 @@ const AlertEmailConfirmModal = ({ onConfirm, onCancel, users = [] }) => {
         {/* Opzione 1: Invia a tutti */}
         <button
           type="button"
-          onClick={() => setSelectedOption('all')}
+          onClick={() => {
+            setSelectedOption('all');
+            setSelectedCompanies(new Set());
+          }}
           className={`w-full px-4 py-3 border-2 rounded-lg text-left transition flex items-center gap-3 ${
             selectedOption === 'all'
               ? 'border-purple-500 bg-purple-50'
@@ -73,7 +96,10 @@ const AlertEmailConfirmModal = ({ onConfirm, onCancel, users = [] }) => {
         {/* Opzione 2: Solo amministratori */}
         <button
           type="button"
-          onClick={() => setSelectedOption('admins')}
+          onClick={() => {
+            setSelectedOption('admins');
+            setSelectedCompanies(new Set());
+          }}
           className={`w-full px-4 py-3 border-2 rounded-lg text-left transition flex items-center gap-3 ${
             selectedOption === 'admins'
               ? 'border-purple-500 bg-purple-50'
@@ -118,30 +144,59 @@ const AlertEmailConfirmModal = ({ onConfirm, onCancel, users = [] }) => {
           <Building size={20} className="text-purple-600" />
           <div className="flex-1">
             <div className="font-semibold text-gray-900">Per azienda</div>
-            <div className="text-xs text-gray-600">Seleziona un'azienda specifica</div>
+            <div className="text-xs text-gray-600">Seleziona una o più aziende specifiche</div>
           </div>
         </button>
 
-        {/* Selettore azienda (mostrato solo se "Per azienda" è selezionato) */}
+        {/* Lista checkbox aziende (mostrata solo se "Per azienda" è selezionato) */}
         {selectedOption === 'company' && (
-          <div className="ml-8 mt-2">
-            <select
-              value={selectedCompany}
-              onChange={(e) => setSelectedCompany(e.target.value)}
-              className="w-full px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white"
-            >
-              <option value="">Seleziona un'azienda...</option>
-              {companies.map(azienda => (
-                <option key={azienda} value={azienda}>{azienda}</option>
-              ))}
-            </select>
+          <div className="ml-8 mt-2 mb-4 max-h-60 overflow-y-auto border border-purple-200 rounded-lg p-3 bg-purple-50">
+            {companies.length > 0 ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleSelectAllCompanies}
+                  className="w-full text-left px-2 py-1 mb-2 text-sm font-semibold text-purple-700 hover:bg-purple-100 rounded transition"
+                >
+                  {selectedCompanies.size === companies.length ? 'Deseleziona tutte' : 'Seleziona tutte'}
+                </button>
+                <div className="space-y-2">
+                  {companies.map(azienda => (
+                    <label
+                      key={azienda}
+                      className="flex items-center gap-2 px-2 py-1 hover:bg-purple-100 rounded cursor-pointer transition"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedCompanies.has(azienda)}
+                        onChange={() => handleToggleCompany(azienda)}
+                        className="w-4 h-4 text-purple-600 border-purple-300 rounded focus:ring-purple-500"
+                      />
+                      <span className="text-sm text-gray-700">{azienda}</span>
+                    </label>
+                  ))}
+                </div>
+                {selectedCompanies.size > 0 && (
+                  <div className="mt-2 pt-2 border-t border-purple-300 text-xs text-purple-700 font-semibold">
+                    {selectedCompanies.size} azienda{selectedCompanies.size > 1 ? 'e' : ''} selezionata{selectedCompanies.size > 1 ? 'e' : ''}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-sm text-gray-500 text-center py-2">
+                Nessuna azienda disponibile
+              </div>
+            )}
           </div>
         )}
 
         {/* Opzione 4: Non inviare */}
         <button
           type="button"
-          onClick={() => setSelectedOption('none')}
+          onClick={() => {
+            setSelectedOption('none');
+            setSelectedCompanies(new Set());
+          }}
           className={`w-full px-4 py-3 border-2 rounded-lg text-left transition flex items-center gap-3 ${
             selectedOption === 'none'
               ? 'border-purple-500 bg-purple-50'
