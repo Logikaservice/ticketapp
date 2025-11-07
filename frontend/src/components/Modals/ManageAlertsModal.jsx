@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, AlertTriangle, Users, Calendar, Clock, Info, AlertCircle, AlertTriangle as AlertTriangleIcon, Image, Trash2, Sparkles, ChevronDown, ChevronRight, Crown, Building, Mail } from 'lucide-react';
 
-const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAlert }) => {
+const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAlert, onRequestEmailConfirm }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -104,10 +104,17 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
 
     if (editingAlert) {
       onEdit(alertData);
+      onClose();
     } else {
-      onSave(alertData);
+      // Per nuovi avvisi, mostra il modal di conferma email
+      if (onRequestEmailConfirm) {
+        onRequestEmailConfirm(alertData);
+      } else {
+        // Fallback se onRequestEmailConfirm non è disponibile
+        onSave(alertData);
+        onClose();
+      }
     }
-    onClose();
   };
 
   // Helper per verificare se un cliente è admin della sua azienda

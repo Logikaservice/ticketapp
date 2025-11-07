@@ -81,6 +81,7 @@ export default function TicketApp() {
   const [prevTicketStates, setPrevTicketStates] = useState({});
   const [alertsRefreshTrigger, setAlertsRefreshTrigger] = useState(0);
   const [pendingTicketAction, setPendingTicketAction] = useState(null);
+  const [pendingAlertData, setPendingAlertData] = useState(null);
 
   // Helpers per localStorage (nuovi ticket non ancora aperti dall'utente)
   const getSetFromStorage = (key) => {
@@ -848,7 +849,26 @@ export default function TicketApp() {
   const openNewClientModal = () => setModalState({ type: 'newClient' });
 
   // Funzioni per gestione avvisi
-  const handleSaveAlert = async (alertData) => {
+  const handleRequestEmailConfirm = (alertData) => {
+    setPendingAlertData(alertData);
+    setModalState({ type: 'alertEmailConfirm' });
+  };
+
+  const handleConfirmAlertEmail = async (emailOption) => {
+    // emailOption può essere: 'all', 'admins', 'none'
+    if (pendingAlertData) {
+      await handleSaveAlert(pendingAlertData, emailOption);
+      setPendingAlertData(null);
+      setModalState({ type: 'manageAlerts' });
+    }
+  };
+
+  const handleCancelAlertEmail = () => {
+    setPendingAlertData(null);
+    setModalState({ type: 'manageAlerts' });
+  };
+
+  const handleSaveAlert = async (alertData, emailOption = 'none') => {
     try {
       const apiBase = process.env.REACT_APP_API_URL || 'https://ticketapp-4eqb.onrender.com';
       const formData = new FormData();
@@ -859,6 +879,7 @@ export default function TicketApp() {
       formData.append('isPermanent', alertData.isPermanent);
       formData.append('daysToExpire', alertData.daysToExpire);
       formData.append('created_by', currentUser?.nome + ' ' + currentUser?.cognome);
+      formData.append('emailOption', emailOption); // 'all', 'admins', 'none'
       
       // Aggiungi i file selezionati
       if (alertData.files && alertData.files.length > 0) {
@@ -877,6 +898,12 @@ export default function TicketApp() {
         body: formData
       });
       if (!res.ok) throw new Error('Errore creazione avviso');
+      
+      const result = await res.json();
+      
+      // Chiudi il modal degli avvisi
+      setModalState({ type: null, data: null });
+      
       showNotification('Avviso creato con successo!', 'success');
       setAlertsRefreshTrigger(prev => prev + 1); // Trigger refresh avvisi
     } catch (e) {
@@ -1713,6 +1740,9 @@ export default function TicketApp() {
         onEditAlert={handleEditAlert}
         onConfirmEmail={handleConfirmEmail}
         onCancelEmail={handleCancelEmail}
+        onRequestEmailConfirm={handleRequestEmailConfirm}
+        onConfirmAlertEmail={handleConfirmAlertEmail}
+        onCancelAlertEmail={handleCancelAlertEmail}
       />
 
       {modalState.type === 'manageClients' && (

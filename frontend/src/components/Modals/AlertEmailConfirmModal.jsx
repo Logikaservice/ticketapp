@@ -1,0 +1,125 @@
+import React from 'react';
+import { Mail, Users, Crown, X } from 'lucide-react';
+
+const AlertEmailConfirmModal = ({ onConfirm, onCancel }) => {
+  const [selectedOption, setSelectedOption] = React.useState('all');
+
+  const handleConfirm = () => {
+    onConfirm(selectedOption);
+  };
+
+  return (
+    <div className="bg-white rounded-xl max-w-md w-full p-6">
+      <div className="text-center mb-4">
+        <Mail size={48} className="text-purple-600 mx-auto mb-3" />
+        <h2 className="text-xl font-bold">Invio Email Avviso</h2>
+      </div>
+
+      <div className="text-sm mb-6 p-3 border border-purple-200 bg-purple-50 rounded-lg">
+        <p className="font-semibold text-purple-800">Scegli i destinatari:</p>
+        <p className="mt-1 text-purple-700">
+          Seleziona a chi inviare l'email per questo avviso.
+        </p>
+      </div>
+
+      <div className="space-y-3 mb-6">
+        {/* Opzione 1: Invia a tutti */}
+        <button
+          type="button"
+          onClick={() => setSelectedOption('all')}
+          className={`w-full px-4 py-3 border-2 rounded-lg text-left transition flex items-center gap-3 ${
+            selectedOption === 'all'
+              ? 'border-purple-500 bg-purple-50'
+              : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+          }`}
+        >
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+            selectedOption === 'all'
+              ? 'border-purple-500 bg-purple-500'
+              : 'border-gray-300'
+          }`}>
+            {selectedOption === 'all' && (
+              <div className="w-2 h-2 rounded-full bg-white" />
+            )}
+          </div>
+          <Users size={20} className="text-purple-600" />
+          <div className="flex-1">
+            <div className="font-semibold text-gray-900">Invia a tutti</div>
+            <div className="text-xs text-gray-600">Amministratori e clienti</div>
+          </div>
+        </button>
+
+        {/* Opzione 2: Solo amministratori */}
+        <button
+          type="button"
+          onClick={() => setSelectedOption('admins')}
+          className={`w-full px-4 py-3 border-2 rounded-lg text-left transition flex items-center gap-3 ${
+            selectedOption === 'admins'
+              ? 'border-purple-500 bg-purple-50'
+              : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+          }`}
+        >
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+            selectedOption === 'admins'
+              ? 'border-purple-500 bg-purple-500'
+              : 'border-gray-300'
+          }`}>
+            {selectedOption === 'admins' && (
+              <div className="w-2 h-2 rounded-full bg-white" />
+            )}
+          </div>
+          <Crown size={20} className="text-purple-600" />
+          <div className="flex-1">
+            <div className="font-semibold text-gray-900">Solo amministratori</div>
+            <div className="text-xs text-gray-600">Solo clienti amministratori</div>
+          </div>
+        </button>
+
+        {/* Opzione 3: Non inviare */}
+        <button
+          type="button"
+          onClick={() => setSelectedOption('none')}
+          className={`w-full px-4 py-3 border-2 rounded-lg text-left transition flex items-center gap-3 ${
+            selectedOption === 'none'
+              ? 'border-purple-500 bg-purple-50'
+              : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+          }`}
+        >
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+            selectedOption === 'none'
+              ? 'border-purple-500 bg-purple-500'
+              : 'border-gray-300'
+          }`}>
+            {selectedOption === 'none' && (
+              <div className="w-2 h-2 rounded-full bg-white" />
+            )}
+          </div>
+          <X size={20} className="text-gray-600" />
+          <div className="flex-1">
+            <div className="font-semibold text-gray-900">Non inviare</div>
+            <div className="text-xs text-gray-600">Nessuna email verrà inviata</div>
+          </div>
+        </button>
+      </div>
+
+      <div className="flex gap-3">
+        <button
+          onClick={onCancel}
+          className="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition"
+        >
+          Annulla
+        </button>
+        <button
+          onClick={handleConfirm}
+          className="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg font-bold flex items-center justify-center gap-2 hover:bg-purple-700 transition"
+        >
+          <Mail size={18} />
+          Conferma
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default AlertEmailConfirmModal;
+

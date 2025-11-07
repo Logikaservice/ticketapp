@@ -108,7 +108,7 @@ module.exports = function createAlertsRouter(pool) {
   // POST /api/alerts - crea avviso (solo tecnico)
   router.post('/', upload.array('attachments', 5), async (req, res) => {
     try {
-      const { title, body, level, ticketId, createdBy, clients, isPermanent, daysToExpire } = req.body || {};
+      const { title, body, level, ticketId, createdBy, clients, isPermanent, daysToExpire, emailOption } = req.body || {};
       if (!title || !body) return res.status(400).json({ error: 'title e body sono obbligatori' });
 
       // Controllo ruolo semplice da body (in attesa di auth reale)
@@ -135,6 +135,97 @@ module.exports = function createAlertsRouter(pool) {
         'INSERT INTO alerts (title, body, level, ticket_id, created_by, clients, is_permanent, days_to_expire, attachments) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, title, body, level, ticket_id as "ticketId", created_at as "createdAt", created_by as "createdBy", clients, is_permanent as "isPermanent", days_to_expire as "daysToExpire", attachments',
         [title, body, level || 'warning', ticketId || null, createdBy || null, JSON.stringify(clients || []), isPermanent !== false, daysToExpire || 7, JSON.stringify(attachments)]
       );
+      
+      // Gestione invio email in base all'opzione selezionata
+      if (emailOption && emailOption !== 'none') {
+        try {
+          const nodemailer = require('nodemailer');
+          const emailUser = process.env.EMAIL_USER;
+          const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
+          
+          if (emailUser && emailPass) {
+            const transporter = nodemailer.createTransport({
+              service: 'gmail',
+              auth: { user: emailUser, pass: emailPass }
+            });
+
+            // Determina i destinatari in base all'opzione
+            let recipients = [];
+            if (emailOption === 'all') {
+              // Invia a tutti i clienti
+              const allClientsResult = await pool.query(
+                'SELECT email, nome, cognome, azienda, admin_companies FROM users WHERE ruolo = $1 AND email IS NOT NULL AND email != \'\'',
+                ['cliente']
+              );
+              recipients = allClientsResult.rows;
+            } else if (emailOption === 'admins') {
+              // Invia solo agli amministratori
+              const adminsResult = await pool.query(
+                'SELECT email, nome, cognome, azienda, admin_companies FROM users WHERE ruolo = $1 AND admin_companies IS NOT NULL AND jsonb_array_length(admin_companies::jsonb) > 0 AND email IS NOT NULL AND email != \'\'',
+                ['cliente']
+              );
+              recipients = adminsResult.rows;
+            }
+
+            // Invia email a tutti i destinatari
+            const frontendUrl = process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com';
+            const levelColors = {
+              'info': '#3b82f6',
+              'warning': '#f59e0b',
+              'danger': '#ef4444',
+              'features': '#10b981'
+            };
+            const levelLabels = {
+              'info': 'Informazione',
+              'warning': 'Avviso',
+              'danger': 'Critico',
+              'features': 'Nuove funzionalità'
+            };
+            const color = levelColors[level] || levelColors['warning'];
+            const label = levelLabels[level] || levelLabels['warning'];
+
+            for (const recipient of recipients) {
+              if (!recipient.email || !recipient.email.includes('@')) continue;
+              
+              try {
+                const mailOptions = {
+                  from: emailUser,
+                  to: recipient.email,
+                  subject: `[${label}] ${title}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                      <div style="background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%); padding: 20px; border-radius: 8px 8px 0 0; color: white;">
+                        <h1 style="margin: 0; font-size: 24px;">${title}</h1>
+                        <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">${label}</p>
+                      </div>
+                      <div style="background: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+                        <div style="white-space: pre-wrap; line-height: 1.6; color: #374151;">${body}</div>
+                        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
+                          <a href="${frontendUrl}" style="display: inline-block; padding: 12px 24px; background: ${color}; color: white; text-decoration: none; border-radius: 6px; font-weight: 500;">Accedi al sistema TicketApp</a>
+                        </div>
+                        <p style="margin-top: 20px; text-align: center; color: #9ca3af; font-size: 12px;">
+                          Questa email è stata inviata automaticamente dal sistema TicketApp
+                        </p>
+                      </div>
+                    </div>
+                  `
+                };
+                
+                await transporter.sendMail(mailOptions);
+                console.log(`📧 Email inviata a ${recipient.email} per avviso "${title}"`);
+              } catch (emailErr) {
+                console.error(`❌ Errore invio email a ${recipient.email}:`, emailErr);
+              }
+            }
+            
+            console.log(`📧 Invio email completato per avviso "${title}" - ${recipients.length} destinatari`);
+          }
+        } catch (emailErr) {
+          console.error('❌ Errore gestione invio email avviso:', emailErr);
+          // Non bloccare la creazione dell'avviso se l'invio email fallisce
+        }
+      }
+      
       res.status(201).json(rows[0]);
     } catch (err) {
       console.error('Errore POST /alerts:', err);
