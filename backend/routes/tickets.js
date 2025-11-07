@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
 
 module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
   // Funzione helper per generare il footer HTML con link al login
@@ -1010,7 +1011,30 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
   });
 
   // ENDPOINT: Upload foto per ticket
-  router.post('/:id/photos', uploadTicketPhotos.array('photos', 10), async (req, res) => {
+  router.post('/:id/photos', (req, res, next) => {
+    // Middleware per gestire errori di Multer
+    uploadTicketPhotos.array('photos', 10)(req, res, (err) => {
+      if (err) {
+        console.error('Errore Multer upload foto:', err);
+        if (err instanceof multer.MulterError) {
+          if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ error: 'File troppo grande. Dimensione massima: 10MB' });
+          }
+          if (err.code === 'LIMIT_FILE_COUNT') {
+            return res.status(400).json({ error: 'Troppi file. Massimo 10 foto per volta' });
+          }
+          if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+            return res.status(400).json({ error: 'Campo file non valido' });
+          }
+        }
+        if (err.message && err.message.includes('Solo file immagine')) {
+          return res.status(400).json({ error: 'Solo file immagine sono permessi' });
+        }
+        return res.status(500).json({ error: 'Errore durante il caricamento delle foto: ' + err.message });
+      }
+      next();
+    });
+  }, async (req, res) => {
     try {
       const ticketId = parseInt(req.params.id);
       
@@ -1071,7 +1095,12 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
       });
     } catch (err) {
       console.error('Errore upload foto ticket:', err);
-      res.status(500).json({ error: 'Errore durante il caricamento delle foto' });
+      console.error('Stack trace:', err.stack);
+      const errorMessage = err.message || 'Errore durante il caricamento delle foto';
+      res.status(500).json({ 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      });
     }
   });
 
