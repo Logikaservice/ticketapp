@@ -151,20 +151,94 @@ module.exports = function createAlertsRouter(pool) {
 
             // Determina i destinatari in base all'opzione
             let recipients = [];
+            
+            // Parsa i clienti selezionati (possono essere una stringa JSON o un array)
+            let selectedClientsIds = [];
+            try {
+              if (clients) {
+                let parsedClients = clients;
+                if (typeof clients === 'string') {
+                  parsedClients = JSON.parse(clients);
+                }
+                if (Array.isArray(parsedClients)) {
+                  // Se è un array di ID, usalo direttamente
+                  selectedClientsIds = parsedClients.map(c => typeof c === 'object' ? c.id || c : c).filter(id => id != null);
+                } else if (typeof parsedClients === 'object' && parsedClients !== null) {
+                  // Se è un oggetto, prova a estrarre gli ID
+                  selectedClientsIds = [parsedClients.id || parsedClients].filter(id => id != null);
+                }
+              }
+            } catch (e) {
+              console.error('Errore parsing clients:', e);
+              selectedClientsIds = [];
+            }
+            
             if (emailOption === 'all') {
-              // Invia a tutti i clienti
-              const allClientsResult = await pool.query(
-                'SELECT email, nome, cognome, azienda, admin_companies FROM users WHERE ruolo = $1 AND email IS NOT NULL AND email != \'\'',
-                ['cliente']
-              );
-              recipients = allClientsResult.rows;
+              if (selectedClientsIds.length > 0) {
+                // Se ci sono clienti selezionati, invia a tutti i clienti delle loro aziende
+                // Prima ottieni le aziende dei clienti selezionati
+                const selectedClientsResult = await pool.query(
+                  'SELECT DISTINCT azienda FROM users WHERE id = ANY($1::int[]) AND azienda IS NOT NULL AND azienda != \'\'',
+                  [selectedClientsIds]
+                );
+                const selectedCompanies = selectedClientsResult.rows.map(r => r.azienda);
+                
+                if (selectedCompanies.length > 0) {
+                  // Invia a tutti i clienti delle aziende selezionate
+                  const allClientsResult = await pool.query(
+                    'SELECT email, nome, cognome, azienda, admin_companies FROM users WHERE ruolo = $1 AND azienda = ANY($2::text[]) AND email IS NOT NULL AND email != \'\'',
+                    ['cliente', selectedCompanies]
+                  );
+                  recipients = allClientsResult.rows;
+                } else {
+                  // Se non ci sono aziende, invia solo ai clienti selezionati
+                  const allClientsResult = await pool.query(
+                    'SELECT email, nome, cognome, azienda, admin_companies FROM users WHERE id = ANY($1::int[]) AND email IS NOT NULL AND email != \'\'',
+                    [selectedClientsIds]
+                  );
+                  recipients = allClientsResult.rows;
+                }
+              } else {
+                // Se non ci sono clienti selezionati, invia a tutti i clienti
+                const allClientsResult = await pool.query(
+                  'SELECT email, nome, cognome, azienda, admin_companies FROM users WHERE ruolo = $1 AND email IS NOT NULL AND email != \'\'',
+                  ['cliente']
+                );
+                recipients = allClientsResult.rows;
+              }
             } else if (emailOption === 'admins') {
-              // Invia solo agli amministratori
-              const adminsResult = await pool.query(
-                'SELECT email, nome, cognome, azienda, admin_companies FROM users WHERE ruolo = $1 AND admin_companies IS NOT NULL AND jsonb_array_length(admin_companies::jsonb) > 0 AND email IS NOT NULL AND email != \'\'',
-                ['cliente']
-              );
-              recipients = adminsResult.rows;
+              if (selectedClientsIds.length > 0) {
+                // Se ci sono clienti selezionati, invia solo agli amministratori delle loro aziende
+                // Prima ottieni le aziende dei clienti selezionati
+                const selectedClientsResult = await pool.query(
+                  'SELECT DISTINCT azienda FROM users WHERE id = ANY($1::int[]) AND azienda IS NOT NULL AND azienda != \'\'',
+                  [selectedClientsIds]
+                );
+                const selectedCompanies = selectedClientsResult.rows.map(r => r.azienda);
+                
+                if (selectedCompanies.length > 0) {
+                  // Invia solo agli amministratori delle aziende selezionate
+                  const adminsResult = await pool.query(
+                    'SELECT email, nome, cognome, azienda, admin_companies FROM users WHERE ruolo = $1 AND azienda = ANY($2::text[]) AND admin_companies IS NOT NULL AND jsonb_array_length(admin_companies::jsonb) > 0 AND email IS NOT NULL AND email != \'\'',
+                    ['cliente', selectedCompanies]
+                  );
+                  recipients = adminsResult.rows;
+                } else {
+                  // Se non ci sono aziende, invia solo agli amministratori tra i clienti selezionati
+                  const adminsResult = await pool.query(
+                    'SELECT email, nome, cognome, azienda, admin_companies FROM users WHERE id = ANY($1::int[]) AND admin_companies IS NOT NULL AND jsonb_array_length(admin_companies::jsonb) > 0 AND email IS NOT NULL AND email != \'\'',
+                    [selectedClientsIds]
+                  );
+                  recipients = adminsResult.rows;
+                }
+              } else {
+                // Se non ci sono clienti selezionati, invia a tutti gli amministratori
+                const adminsResult = await pool.query(
+                  'SELECT email, nome, cognome, azienda, admin_companies FROM users WHERE ruolo = $1 AND admin_companies IS NOT NULL AND jsonb_array_length(admin_companies::jsonb) > 0 AND email IS NOT NULL AND email != \'\'',
+                  ['cliente']
+                );
+                recipients = adminsResult.rows;
+              }
             }
 
             // Invia email a tutti i destinatari
