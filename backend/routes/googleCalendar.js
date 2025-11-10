@@ -423,6 +423,123 @@ module.exports = (pool) => {
           }
         }
         
+        // Crea eventi separati per ogni intervento (timelog)
+        try {
+          let timelogs = ticket.timelogs;
+          if (typeof timelogs === 'string') {
+            try { timelogs = JSON.parse(timelogs); } catch { timelogs = []; }
+          }
+          if (Array.isArray(timelogs) && timelogs.length > 0) {
+            console.log(`Creazione eventi per ${timelogs.length} interventi...`);
+            
+            for (const [idx, log] of timelogs.entries()) {
+              if (!log.data) {
+                console.log(`Intervento #${idx + 1} senza data, saltato`);
+                continue;
+              }
+              
+              // Prepara data e ora dell'intervento
+              let interventoStartDate;
+              let interventoEndDate;
+              
+              if (log.data.includes('T')) {
+                // Se ha già timestamp completo
+                interventoStartDate = new Date(log.data);
+              } else {
+                // Se è solo data, aggiungi l'ora di inizio
+                const oraInizio = log.oraInizio || '09:00';
+                interventoStartDate = new Date(log.data + 'T' + oraInizio + ':00+02:00');
+              }
+              
+              if (isNaN(interventoStartDate.getTime())) {
+                console.log(`Intervento #${idx + 1} data non valida, saltato`);
+                continue;
+              }
+              
+              // Calcola data fine: usa oraFine se disponibile, altrimenti aggiungi le ore di intervento
+              if (log.oraFine) {
+                const oraFine = log.oraFine;
+                const dateStr = log.data.includes('T') ? log.data.split('T')[0] : log.data;
+                interventoEndDate = new Date(dateStr + 'T' + oraFine + ':00+02:00');
+              } else {
+                const ore = parseFloat(log.oreIntervento) || 1;
+                interventoEndDate = new Date(interventoStartDate.getTime() + ore * 60 * 60 * 1000);
+              }
+              
+              if (isNaN(interventoEndDate.getTime())) {
+                interventoEndDate = new Date(interventoStartDate.getTime() + 60 * 60 * 1000); // Default 1 ora
+              }
+              
+              // Costruisci descrizione intervento
+              const modalita = log.modalita || 'Intervento';
+              const descIntervento = log.descrizione || '';
+              const oreIntervento = parseFloat(log.oreIntervento) || 0;
+              
+              let descInterventoText = `INTERVENTO ESEGUITO\n`;
+              descInterventoText += `Ticket: #${ticket.numero}\n`;
+              descInterventoText += `Cliente: ${clientName}\n`;
+              descInterventoText += `Modalità: ${modalita}\n`;
+              descInterventoText += `Ore: ${oreIntervento}h\n`;
+              if (descIntervento) {
+                descInterventoText += `Descrizione: ${descIntervento}\n`;
+              }
+              
+              // Materiali
+              if (log.materials && Array.isArray(log.materials) && log.materials.length > 0) {
+                const materials = log.materials.filter(m => m && m.nome && m.nome.trim() !== '0' && m.nome.trim() !== '');
+                if (materials.length > 0) {
+                  descInterventoText += `\nMateriali:\n`;
+                  materials.forEach(m => {
+                    const q = parseFloat(m.quantita) || 0;
+                    const c = parseFloat(m.costo) || 0;
+                    descInterventoText += `- ${m.nome} x${q} (€${(q * c).toFixed(2)})\n`;
+                  });
+                }
+              }
+              
+              // Crea evento per l'intervento
+              const interventoEvent = {
+                summary: `🔧 Intervento: Ticket #${ticket.numero} - ${modalita}`,
+                description: descInterventoText,
+                start: {
+                  dateTime: interventoStartDate.toISOString(),
+                  timeZone: 'Europe/Rome'
+                },
+                end: {
+                  dateTime: interventoEndDate.toISOString(),
+                  timeZone: 'Europe/Rome'
+                },
+                colorId: '10', // Colore viola per gli interventi
+                source: {
+                  title: 'TicketApp - Intervento',
+                  url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
+                },
+                extendedProperties: {
+                  private: {
+                    ticketId: ticket.id.toString(),
+                    timelogIndex: idx.toString(),
+                    isIntervento: 'true'
+                  }
+                }
+              };
+              
+              try {
+                const interventoResult = await calendar.events.insert({
+                  calendarId: calendarId,
+                  resource: interventoEvent,
+                  sendUpdates: 'none',
+                  conferenceDataVersion: 0
+                });
+                console.log(`✅ Evento intervento #${idx + 1} creato: ${interventoResult.data.id}`);
+              } catch (interventoErr) {
+                console.log(`⚠️ Errore creazione evento intervento #${idx + 1}:`, interventoErr.message);
+              }
+            }
+          }
+        } catch (interventiErr) {
+          console.log('⚠️ Errore creazione eventi interventi:', interventiErr.message);
+        }
+        
       } else if (action === 'update') {
         // Normalizza eventId da payload o DB
         let eventId = ticket.googleCalendarEventId || ticket.googlecalendareventid;
@@ -452,6 +569,171 @@ module.exports = (pool) => {
               await pool.query('UPDATE tickets SET googlecalendareventid = $1 WHERE id = $2', [result.data.id, ticket.id]);
             } catch (_) {}
           }
+        }
+        
+        // Aggiorna/Crea eventi per gli interventi (timelogs)
+        try {
+          let timelogs = ticket.timelogs;
+          if (typeof timelogs === 'string') {
+            try { timelogs = JSON.parse(timelogs); } catch { timelogs = []; }
+          }
+          if (Array.isArray(timelogs) && timelogs.length > 0) {
+            console.log(`Aggiornamento/Creazione eventi per ${timelogs.length} interventi...`);
+            
+            // Cerca eventi esistenti per questo ticket
+            let existingInterventiEvents = [];
+            try {
+              const eventsList = await calendar.events.list({
+                calendarId: calendarId,
+                timeMin: new Date(new Date().getFullYear() - 1, 0, 1).toISOString(),
+                timeMax: new Date(new Date().getFullYear() + 1, 11, 31).toISOString(),
+                maxResults: 2500,
+                singleEvents: true
+              });
+              
+              existingInterventiEvents = eventsList.data.items?.filter(e => 
+                e.extendedProperties?.private?.ticketId === ticket.id.toString() &&
+                e.extendedProperties?.private?.isIntervento === 'true'
+              ) || [];
+              console.log(`Trovati ${existingInterventiEvents.length} eventi intervento esistenti per ticket #${ticket.id}`);
+            } catch (searchErr) {
+              console.log('⚠️ Errore ricerca eventi intervento esistenti:', searchErr.message);
+            }
+            
+            for (const [idx, log] of timelogs.entries()) {
+              if (!log.data) {
+                continue;
+              }
+              
+              // Prepara data e ora dell'intervento
+              let interventoStartDate;
+              let interventoEndDate;
+              
+              if (log.data.includes('T')) {
+                interventoStartDate = new Date(log.data);
+              } else {
+                const oraInizio = log.oraInizio || '09:00';
+                interventoStartDate = new Date(log.data + 'T' + oraInizio + ':00+02:00');
+              }
+              
+              if (isNaN(interventoStartDate.getTime())) {
+                continue;
+              }
+              
+              if (log.oraFine) {
+                const oraFine = log.oraFine;
+                const dateStr = log.data.includes('T') ? log.data.split('T')[0] : log.data;
+                interventoEndDate = new Date(dateStr + 'T' + oraFine + ':00+02:00');
+              } else {
+                const ore = parseFloat(log.oreIntervento) || 1;
+                interventoEndDate = new Date(interventoStartDate.getTime() + ore * 60 * 60 * 1000);
+              }
+              
+              if (isNaN(interventoEndDate.getTime())) {
+                interventoEndDate = new Date(interventoStartDate.getTime() + 60 * 60 * 1000);
+              }
+              
+              const modalita = log.modalita || 'Intervento';
+              const descIntervento = log.descrizione || '';
+              const oreIntervento = parseFloat(log.oreIntervento) || 0;
+              
+              let descInterventoText = `INTERVENTO ESEGUITO\n`;
+              descInterventoText += `Ticket: #${ticket.numero}\n`;
+              descInterventoText += `Cliente: ${clientName}\n`;
+              descInterventoText += `Modalità: ${modalita}\n`;
+              descInterventoText += `Ore: ${oreIntervento}h\n`;
+              if (descIntervento) {
+                descInterventoText += `Descrizione: ${descIntervento}\n`;
+              }
+              
+              if (log.materials && Array.isArray(log.materials) && log.materials.length > 0) {
+                const materials = log.materials.filter(m => m && m.nome && m.nome.trim() !== '0' && m.nome.trim() !== '');
+                if (materials.length > 0) {
+                  descInterventoText += `\nMateriali:\n`;
+                  materials.forEach(m => {
+                    const q = parseFloat(m.quantita) || 0;
+                    const c = parseFloat(m.costo) || 0;
+                    descInterventoText += `- ${m.nome} x${q} (€${(q * c).toFixed(2)})\n`;
+                  });
+                }
+              }
+              
+              const interventoEvent = {
+                summary: `🔧 Intervento: Ticket #${ticket.numero} - ${modalita}`,
+                description: descInterventoText,
+                start: {
+                  dateTime: interventoStartDate.toISOString(),
+                  timeZone: 'Europe/Rome'
+                },
+                end: {
+                  dateTime: interventoEndDate.toISOString(),
+                  timeZone: 'Europe/Rome'
+                },
+                colorId: '10', // Colore viola per gli interventi
+                source: {
+                  title: 'TicketApp - Intervento',
+                  url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
+                },
+                extendedProperties: {
+                  private: {
+                    ticketId: ticket.id.toString(),
+                    timelogIndex: idx.toString(),
+                    isIntervento: 'true'
+                  }
+                }
+              };
+              
+              // Cerca se esiste già un evento per questo intervento
+              const existingEvent = existingInterventiEvents.find(e => 
+                e.extendedProperties?.private?.timelogIndex === idx.toString()
+              );
+              
+              try {
+                if (existingEvent) {
+                  // Aggiorna evento esistente
+                  await calendar.events.update({
+                    calendarId: calendarId,
+                    eventId: existingEvent.id,
+                    resource: interventoEvent,
+                    sendUpdates: 'none'
+                  });
+                  console.log(`✅ Evento intervento #${idx + 1} aggiornato: ${existingEvent.id}`);
+                } else {
+                  // Crea nuovo evento
+                  const interventoResult = await calendar.events.insert({
+                    calendarId: calendarId,
+                    resource: interventoEvent,
+                    sendUpdates: 'none',
+                    conferenceDataVersion: 0
+                  });
+                  console.log(`✅ Evento intervento #${idx + 1} creato: ${interventoResult.data.id}`);
+                }
+              } catch (interventoErr) {
+                console.log(`⚠️ Errore aggiornamento/creazione evento intervento #${idx + 1}:`, interventoErr.message);
+              }
+            }
+            
+            // Rimuovi eventi intervento che non esistono più nei timelogs
+            const validIndices = timelogs.map((_, idx) => idx.toString());
+            const eventsToDelete = existingInterventiEvents.filter(e => 
+              !validIndices.includes(e.extendedProperties?.private?.timelogIndex)
+            );
+            
+            for (const eventToDelete of eventsToDelete) {
+              try {
+                await calendar.events.delete({
+                  calendarId: calendarId,
+                  eventId: eventToDelete.id,
+                  sendUpdates: 'none'
+                });
+                console.log(`✅ Evento intervento rimosso: ${eventToDelete.id}`);
+              } catch (deleteErr) {
+                console.log(`⚠️ Errore rimozione evento intervento:`, deleteErr.message);
+              }
+            }
+          }
+        } catch (interventiErr) {
+          console.log('⚠️ Errore aggiornamento eventi interventi:', interventiErr.message);
         }
       } else if (action === 'delete') {
         // Normalizza eventId da payload o DB
@@ -489,6 +771,39 @@ module.exports = (pool) => {
           eventId
         });
         console.log('Evento cancellato da Google Calendar:', eventId, 'dal calendario:', deleteCalendarId);
+        
+        // Cancella anche tutti gli eventi intervento associati a questo ticket
+        try {
+          const eventsList = await calendar.events.list({
+            calendarId: deleteCalendarId,
+            timeMin: new Date(new Date().getFullYear() - 1, 0, 1).toISOString(),
+            timeMax: new Date(new Date().getFullYear() + 1, 11, 31).toISOString(),
+            maxResults: 2500,
+            singleEvents: true
+          });
+          
+          const interventiEvents = eventsList.data.items?.filter(e => 
+            e.extendedProperties?.private?.ticketId === ticket.id.toString() &&
+            e.extendedProperties?.private?.isIntervento === 'true'
+          ) || [];
+          
+          console.log(`Trovati ${interventiEvents.length} eventi intervento da cancellare per ticket #${ticket.id}`);
+          
+          for (const interventoEvent of interventiEvents) {
+            try {
+              await calendar.events.delete({
+                calendarId: deleteCalendarId,
+                eventId: interventoEvent.id,
+                sendUpdates: 'none'
+              });
+              console.log(`✅ Evento intervento cancellato: ${interventoEvent.id}`);
+            } catch (deleteErr) {
+              console.log(`⚠️ Errore cancellazione evento intervento:`, deleteErr.message);
+            }
+          }
+        } catch (interventiErr) {
+          console.log('⚠️ Errore cancellazione eventi intervento:', interventiErr.message);
+        }
       } else {
         return res.status(400).json({ error: 'Azione non valida o ID evento mancante' });
       }
