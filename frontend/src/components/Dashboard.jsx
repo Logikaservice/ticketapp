@@ -1,7 +1,7 @@
 // src/components/Dashboard.jsx
 
 import React, { useEffect } from 'react';
-import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, X, Info, Users, Trash2, Sparkles } from 'lucide-react';
+import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, X, Info, Users, Trash2, Sparkles, Building } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
@@ -234,6 +234,77 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   // Stati per la ricerca
   const [searchTerm, setSearchTerm] = React.useState('');
   const [searchResults, setSearchResults] = React.useState([]);
+  
+  // Stati per la ricerca per azienda (solo tecnico)
+  const [selectedCompany, setSelectedCompany] = React.useState('');
+  const [companyTickets, setCompanyTickets] = React.useState([]);
+  
+  // Estrai lista aziende uniche dai clienti
+  const companies = React.useMemo(() => {
+    if (currentUser?.ruolo !== 'tecnico') return [];
+    const clienti = users.filter(u => u.ruolo === 'cliente');
+    const aziendeSet = new Set();
+    clienti.forEach(c => {
+      if (c.azienda && c.azienda.trim() !== '') {
+        aziendeSet.add(c.azienda);
+      }
+    });
+    return Array.from(aziendeSet).sort((a, b) => a.localeCompare(b));
+  }, [users, currentUser]);
+  
+  // Filtra i ticket per azienda selezionata
+  React.useEffect(() => {
+    if (currentUser?.ruolo !== 'tecnico' || !selectedCompany) {
+      setCompanyTickets([]);
+      return;
+    }
+    
+    // Trova tutti i clienti dell'azienda selezionata
+    const companyClients = users.filter(u => 
+      u.ruolo === 'cliente' && 
+      u.azienda === selectedCompany
+    );
+    const companyClientIds = companyClients.map(c => c.id);
+    
+    // Filtra i ticket di questi clienti
+    const filtered = tickets.filter(t => {
+      const ticketClientId = Number(t.clienteid);
+      return companyClientIds.some(id => Number(id) === ticketClientId);
+    });
+    
+    setCompanyTickets(filtered);
+  }, [selectedCompany, tickets, users, currentUser]);
+  
+  // Raggruppa i ticket per stato
+  const companyTicketsByState = React.useMemo(() => {
+    const grouped = {
+      aperto: [],
+      in_lavorazione: [],
+      risolto: [],
+      chiuso: [],
+      inviato: [],
+      fatturato: []
+    };
+    
+    companyTickets.forEach(ticket => {
+      const stato = ticket.stato || 'aperto';
+      if (grouped[stato]) {
+        grouped[stato].push(ticket);
+      }
+    });
+    
+    return grouped;
+  }, [companyTickets]);
+  
+  const companyCounts = React.useMemo(() => ({
+    aperto: companyTicketsByState.aperto.length,
+    in_lavorazione: companyTicketsByState.in_lavorazione.length,
+    risolto: companyTicketsByState.risolto.length,
+    chiuso: companyTicketsByState.chiuso.length,
+    inviato: companyTicketsByState.inviato.length,
+    fatturato: companyTicketsByState.fatturato.length,
+    totale: companyTickets.length
+  }), [companyTicketsByState, companyTickets.length]);
 
   const visibleTickets = (() => {
     if (currentUser?.ruolo === 'cliente') {
@@ -550,6 +621,34 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold">Dashboard Riepilogo ({roleLabel})</h2>
         <div className="flex items-center gap-4">
+          {/* Ricerca per azienda (solo tecnico) */}
+          {currentUser?.ruolo === 'tecnico' && (
+            <div className="relative">
+              <div className="flex items-center gap-2">
+                <Building size={18} className="text-gray-500" />
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => setSelectedCompany(e.target.value)}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                >
+                  <option value="">Cerca per Azienda...</option>
+                  {companies.map(azienda => (
+                    <option key={azienda} value={azienda}>{azienda}</option>
+                  ))}
+                </select>
+                {selectedCompany && (
+                  <button
+                    onClick={() => setSelectedCompany('')}
+                    className="px-2 py-2 text-gray-500 hover:text-gray-700 transition"
+                    title="Rimuovi filtro"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          
           {/* Campo ricerca avanzata */}
           <div className="relative">
             <input
@@ -642,6 +741,155 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           <div className="text-sm text-gray-500">Oggi: {formatDate(new Date().toISOString())}</div>
         </div>
       </div>
+
+      {/* Sezione ricerca per azienda (solo tecnico) */}
+      {currentUser?.ruolo === 'tecnico' && selectedCompany && (
+        <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Building size={24} className="text-purple-600" />
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Ticket per Azienda: {selectedCompany}</h3>
+                <p className="text-sm text-gray-600">Totale ticket: {companyCounts.totale}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setSelectedCompany('')}
+              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-white rounded-lg transition"
+            >
+              Chiudi
+            </button>
+          </div>
+          
+          {/* Statistiche per stato */}
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-4">
+            <div className="p-3 bg-white rounded-lg border border-purple-200 text-center">
+              <div className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
+                <FileText size={12} />
+                <span>Aperti</span>
+              </div>
+              <div className="text-3xl font-extrabold text-blue-600">{companyCounts.aperto}</div>
+            </div>
+            <div className="p-3 bg-white rounded-lg border border-purple-200 text-center">
+              <div className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
+                <PlayCircle size={12} />
+                <span>In Lavorazione</span>
+              </div>
+              <div className="text-3xl font-extrabold text-yellow-600">{companyCounts.in_lavorazione}</div>
+            </div>
+            <div className="p-3 bg-white rounded-lg border border-purple-200 text-center">
+              <div className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
+                <CheckCircle size={12} />
+                <span>Risolti</span>
+              </div>
+              <div className="text-3xl font-extrabold text-green-600">{companyCounts.risolto}</div>
+            </div>
+            <div className="p-3 bg-white rounded-lg border border-purple-200 text-center">
+              <div className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
+                <Archive size={12} />
+                <span>Chiusi</span>
+              </div>
+              <div className="text-3xl font-extrabold text-gray-600">{companyCounts.chiuso}</div>
+            </div>
+            <div className="p-3 bg-white rounded-lg border border-purple-200 text-center">
+              <div className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
+                <Send size={12} />
+                <span>Inviati</span>
+              </div>
+              <div className="text-3xl font-extrabold text-indigo-600">{companyCounts.inviato}</div>
+            </div>
+            <div className="p-3 bg-white rounded-lg border border-purple-200 text-center">
+              <div className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
+                <FileCheck2 size={12} />
+                <span>Fatturati</span>
+              </div>
+              <div className="text-3xl font-extrabold text-purple-600">{companyCounts.fatturato}</div>
+            </div>
+          </div>
+          
+          {/* Lista ticket raggruppati per stato */}
+          <div className="space-y-4">
+            {Object.entries(companyTicketsByState).map(([stato, ticketsStato]) => {
+              if (ticketsStato.length === 0) return null;
+              
+              const statoLabels = {
+                aperto: 'Aperti',
+                in_lavorazione: 'In Lavorazione',
+                risolto: 'Risolti',
+                chiuso: 'Chiusi',
+                inviato: 'Inviati',
+                fatturato: 'Fatturati'
+              };
+              
+              const statoColors = {
+                aperto: 'bg-blue-50 border-blue-200 text-blue-800',
+                in_lavorazione: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+                risolto: 'bg-green-50 border-green-200 text-green-800',
+                chiuso: 'bg-gray-50 border-gray-200 text-gray-800',
+                inviato: 'bg-indigo-50 border-indigo-200 text-indigo-800',
+                fatturato: 'bg-purple-50 border-purple-200 text-purple-800'
+              };
+              
+              return (
+                <div key={stato} className={`border rounded-lg p-4 ${statoColors[stato] || statoColors.aperto}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-bold text-lg">{statoLabels[stato] || stato} ({ticketsStato.length})</h4>
+                    <button
+                      onClick={() => {
+                        if (onOpenState) {
+                          onOpenState(stato);
+                        }
+                      }}
+                      className="text-xs px-2 py-1 bg-white rounded hover:bg-opacity-80 transition"
+                    >
+                      Vedi tutti →
+                    </button>
+                  </div>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {ticketsStato.slice(0, 10).map(ticket => {
+                      const cliente = users.find(u => Number(u.id) === Number(ticket.clienteid));
+                      return (
+                        <div
+                          key={ticket.id}
+                          onClick={() => {
+                            if (handlers?.handleSelectTicket) {
+                              handlers.handleSelectTicket(ticket);
+                            }
+                            if (onOpenState) {
+                              onOpenState(ticket.stato);
+                            }
+                          }}
+                          className="p-2 bg-white rounded cursor-pointer hover:shadow-md transition"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-sm">{ticket.numero}</div>
+                              <div className="text-xs text-gray-600 truncate mt-0.5">{ticket.titolo}</div>
+                              {cliente && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Cliente: {cliente.nome} {cliente.cognome} ({cliente.email})
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500 whitespace-nowrap">
+                              {ticket.datacreazione ? formatDate(ticket.datacreazione) : '-'}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {ticketsStato.length > 10 && (
+                      <div className="text-xs text-center text-gray-500 pt-2">
+                        ... e altri {ticketsStato.length - 10} ticket
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Stat menu style */}
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-6">
