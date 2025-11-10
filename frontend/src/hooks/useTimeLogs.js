@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { getInitialMaterial, getInitialTimeLog, getInitialOfferta } from '../utils/helpers';
 
-export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showNotification, getAuthHeader, googleCalendarSync) => {
+export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showNotification, getAuthHeader, googleCalendarSync, setModalState) => {
   const [timeLogs, setTimeLogs] = useState([]);
 
   // Inizializza timeLogs da un ticket
@@ -242,6 +242,11 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
         }
       }
       showNotification('Modifiche salvate con successo!', 'success');
+      
+      // Mostra modal per chiedere se inviare la mail
+      if (setModalState) {
+        setModalState({ type: 'sendEmailConfirm', data: updatedTicket });
+      }
     } catch (error) {
       console.error('[SAVE-TIMELOGS] ❌ Errore:', error);
       showNotification(error.message || 'Errore nel salvare le modifiche.', 'error');

@@ -9,6 +9,7 @@ import ReportModal from './ReportModal';
 import ManageAlertsModal from './ManageAlertsModal';
 import EmailConfirmModal from './EmailConfirmModal';
 import AlertEmailConfirmModal from './AlertEmailConfirmModal';
+import SendEmailConfirmModal from './SendEmailConfirmModal';
 
 const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...handlers }) => {
   if (!modalState.type) return null;
@@ -87,6 +88,15 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             onConfirm={handlers.onConfirmAlertEmail}
             onCancel={handlers.onCancelAlertEmail}
             users={handlers.users}
+          />
+        );
+        
+      case 'sendEmailConfirm':
+        return (
+          <SendEmailConfirmModal 
+            onConfirm={handlers.onConfirmSendEmail}
+            onCancel={handlers.onCancelSendEmail}
+            ticket={modalState.data}
           />
         );
         

@@ -197,7 +197,7 @@ export default function TicketApp() {
     handleAddOfferta,
     handleRemoveOfferta,
     handleSaveTimeLogs
-  } = useTimeLogs(selectedTicket, setTickets, setSelectedTicket, showNotification, getAuthHeader, syncTicketToCalendarBackend);
+  } = useTimeLogs(selectedTicket, setTickets, setSelectedTicket, showNotification, getAuthHeader, syncTicketToCalendarBackend, setModalState);
 
   const {
     handleGenerateSentReport,
@@ -866,6 +866,79 @@ export default function TicketApp() {
   const handleCancelAlertEmail = () => {
     setPendingAlertData(null);
     setModalState({ type: 'manageAlerts' });
+  };
+
+  // Gestione invio email dopo salvataggio intervento
+  const handleConfirmSendEmail = async (ticket) => {
+    try {
+      const client = users.find(u => u.id === ticket.clienteid);
+      if (!client || !client.email) {
+        showNotification('Cliente non trovato o email non disponibile', 'error');
+        setModalState({ type: null, data: null });
+        return;
+      }
+
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/email/notify-ticket-resolved`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify({
+          ticket: ticket,
+          clientEmail: client.email,
+          clientName: `${client.nome} ${client.cognome}`
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore nell\'invio dell\'email');
+      }
+
+      showNotification('Email inviata con successo!', 'success');
+      setModalState({ type: null, data: null });
+    } catch (error) {
+      console.error('Errore invio email:', error);
+      showNotification(error.message || 'Errore nell\'invio dell\'email', 'error');
+      setModalState({ type: null, data: null });
+    }
+  };
+
+  const handleCancelSendEmail = () => {
+    setModalState({ type: null, data: null });
+  };
+
+  // Funzione per rinviare la mail di notifica ticket risolto
+  const handleResendEmail = async (ticket) => {
+    try {
+      const client = users.find(u => u.id === ticket.clienteid);
+      if (!client || !client.email) {
+        showNotification('Cliente non trovato o email non disponibile', 'error');
+        return;
+      }
+
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/email/notify-ticket-resolved`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify({
+          ticket: ticket,
+          clientEmail: client.email,
+          clientName: `${client.nome} ${client.cognome}`
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore nell\'invio dell\'email');
+      }
+
+      showNotification('Email inviata con successo!', 'success');
+    } catch (error) {
+      console.error('Errore invio email:', error);
+      showNotification(error.message || 'Errore nell\'invio dell\'email', 'error');
+    }
   };
 
   const handleSaveAlert = async (alertData, emailOption = 'none') => {
@@ -1666,7 +1739,8 @@ export default function TicketApp() {
               handleGenerateInvoiceReport,
               handleUploadTicketPhotos,
               handleDeleteTicketPhoto,
-              setPhotosModalTicket
+              setPhotosModalTicket,
+              handleResendEmail
             }}
             getUnreadCount={getUnreadCount}
             externalHighlights={dashboardHighlights}
@@ -1708,7 +1782,8 @@ export default function TicketApp() {
               handleGenerateInvoiceReport,
               handleUploadTicketPhotos,
               handleDeleteTicketPhoto,
-              setPhotosModalTicket
+              setPhotosModalTicket,
+              handleResendEmail
             }}
             showFilters={true}
             externalViewState={dashboardTargetState}
@@ -1748,8 +1823,10 @@ export default function TicketApp() {
         onConfirmEmail={handleConfirmEmail}
         onCancelEmail={handleCancelEmail}
         onRequestEmailConfirm={handleRequestEmailConfirm}
-        onConfirmAlertEmail={handleConfirmAlertEmail}
-        onCancelAlertEmail={handleCancelAlertEmail}
+          onConfirmAlertEmail={handleConfirmAlertEmail}
+          onCancelAlertEmail={handleCancelAlertEmail}
+          onConfirmSendEmail={handleConfirmSendEmail}
+          onCancelSendEmail={handleCancelSendEmail}
       />
 
       {modalState.type === 'manageClients' && (

@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Settings, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon, Package, Eye, Printer, Image as ImageIcon, Upload } from 'lucide-react';
+import { User, Settings, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon, Package, Eye, Printer, Image as ImageIcon, Upload, Mail } from 'lucide-react';
 import { getStatoColor, getPrioritaColor, getPrioritaBgClass, getPrioritySolidBgClass, getStatoIcon } from '../utils/colors';
 import { formatDate } from '../utils/formatters';
 import ChatInterface from './ChatInterface';
@@ -25,7 +25,8 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
     handleUpdateMessage,
     showNotification,
     handleUploadTicketPhotos,
-    setPhotosModalTicket
+    setPhotosModalTicket,
+    handleResendEmail
   } = handlers;
 
   const isTicketOpen = ticket.stato === 'aperto';
@@ -172,6 +173,13 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
 
                   {ticket.stato === 'risolto' && (
                     <>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleResendEmail && handleResendEmail(ticket); }}
+                        title="Rinvia email"
+                        className="p-1 rounded-full text-blue-500 hover:bg-blue-100"
+                      >
+                        <Mail size={18} />
+                      </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); handleReopenInLavorazione(ticket.id); }}
                         title="Riapri"
