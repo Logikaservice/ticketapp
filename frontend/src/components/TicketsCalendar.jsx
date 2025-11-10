@@ -212,7 +212,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
     relevantStates.includes(ticket.stato)
   );
 
-  // Raggruppa i ticket per data e priorità
+  // Raggruppa i ticket per data e priorità, e gli interventi per data
   const ticketsByDate = (() => {
     const grouped = {};
     
@@ -247,6 +247,51 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
       grouped[dateKey][ticket.priorita].push(ticket);
     });
     
+    // Aggiungi interventi (timelogs) per data
+    relevantTickets.forEach(ticket => {
+      if (!ticket.timelogs || !Array.isArray(ticket.timelogs)) {
+        return;
+      }
+      
+      ticket.timelogs.forEach(timelog => {
+        if (!timelog.data) {
+          return;
+        }
+        
+        // Estrai la data dall'intervento
+        let dateKey;
+        
+        if (timelog.data.includes('T')) {
+          const dateOnly = timelog.data.split('T')[0];
+          dateKey = dateOnly;
+        } else {
+          dateKey = timelog.data;
+        }
+        
+        if (!grouped[dateKey]) {
+          grouped[dateKey] = {};
+        }
+        
+        // Usa una priorità speciale per gli interventi
+        const interventiKey = 'intervento';
+        if (!grouped[dateKey][interventiKey]) {
+          grouped[dateKey][interventiKey] = [];
+        }
+        
+        // Aggiungi il ticket con riferimento all'intervento
+        // Evita duplicati: controlla se il ticket è già presente
+        const existingTicket = grouped[dateKey][interventiKey].find(t => t.id === ticket.id);
+        if (!existingTicket) {
+          grouped[dateKey][interventiKey].push({
+            ...ticket,
+            isIntervento: true,
+            timelogData: timelog.data,
+            timelogModalita: timelog.modalita
+          });
+        }
+      });
+    });
+    
     return grouped;
   })();
 
@@ -258,6 +303,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
       case 'media': return 'bg-blue-500';
       case 'bassa': return 'bg-gray-500';
       case 'google': return 'bg-green-500';
+      case 'intervento': return 'bg-purple-500';
       default: return 'bg-gray-500';
     }
   };
@@ -270,6 +316,7 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
       case 'media': return 'Media';
       case 'bassa': return 'Bassa';
       case 'google': return 'Google Calendar';
+      case 'intervento': return 'Intervento';
       default: return 'Sconosciuta';
     }
   };
@@ -451,9 +498,9 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
             <div className="space-y-2 max-h-60 overflow-y-auto">
               {selectedDateTickets.map((ticket) => (
                 <div
-                  key={ticket.id}
+                  key={`${ticket.id}-${ticket.isIntervento ? 'intervento' : 'ticket'}`}
                   className={`p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
-                    getPriorityColor(ticket.priorita).replace('bg-', 'border-l-4 border-l-')
+                    getPriorityColor(ticket.isIntervento ? 'intervento' : ticket.priorita).replace('bg-', 'border-l-4 border-l-')
                   }`}
                   onClick={() => handleTicketClick(ticket)}
                 >
@@ -461,13 +508,18 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">#{ticket.numero}</span>
-                        <span className={`px-2 py-1 text-xs rounded-full text-white ${getPriorityColor(ticket.priorita)}`}>
-                          {getPriorityName(ticket.priorita)}
+                        <span className={`px-2 py-1 text-xs rounded-full text-white ${getPriorityColor(ticket.isIntervento ? 'intervento' : ticket.priorita)}`}>
+                          {ticket.isIntervento ? 'Intervento' : getPriorityName(ticket.priorita)}
                         </span>
+                        {ticket.isIntervento && ticket.timelogModalita && (
+                          <span className="text-xs text-gray-600 italic">
+                            ({ticket.timelogModalita})
+                          </span>
+                        )}
                       </div>
                       <div className="text-sm text-gray-700 mt-1">{ticket.titolo}</div>
                       <div className="text-xs text-gray-500 mt-1">
-                        Cliente: {ticket.cliente} • Stato: {ticket.stato}
+                        {ticket.isIntervento ? 'Intervento eseguito' : `Cliente: ${ticket.cliente} • Stato: ${ticket.stato}`}
                       </div>
                     </div>
                     <div className="text-xs text-gray-400">
@@ -551,6 +603,10 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-full bg-gray-500"></div>
               <span>Bassa</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+              <span>Intervento</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-4 h-4 rounded bg-gray-300 border border-gray-400"></div>
