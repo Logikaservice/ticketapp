@@ -446,6 +446,66 @@ export const generateSingleTicketHTML = (ticket, options = {}) => {
     `;
   }
 
+  // Sezione Materiali: raccoglie tutti i materiali presenti nei timelogs (solo se includeTimeLogs è true)
+  const allMaterials = (includeTimeLogs && Array.isArray(ticket.timelogs))
+    ? ticket.timelogs.flatMap(tl => {
+        if (Array.isArray(tl.materials)) {
+          return tl.materials.map(m => {
+            const nomeMateriale = (m.nome || '').trim();
+            // Filtra solo materiali validi (con nome non vuoto)
+            if (nomeMateriale && nomeMateriale !== '0' && nomeMateriale !== '') {
+              return {
+                nome: nomeMateriale,
+                quantita: parseInt(m.quantita) || 0,
+                costo: parseFloat(m.costo) || 0,
+                totale: (parseInt(m.quantita) || 0) * (parseFloat(m.costo) || 0)
+              };
+            }
+            return null;
+          }).filter(m => m !== null);
+        }
+        return [];
+      })
+    : [];
+
+  if (allMaterials.length > 0) {
+    const totaleMateriali = allMaterials.reduce((sum, m) => sum + m.totale, 0);
+    html += `
+  <div class="section">
+    <h2>Materiali Utilizzati</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 50%">Nome Materiale</th>
+          <th style="width: 10%; text-align: center;">Quantità</th>
+          <th style="width: 20%; text-align: right;">Costo Unitario (€)</th>
+          <th style="width: 20%; text-align: right;">Totale (€)</th>
+        </tr>
+      </thead>
+      <tbody>
+    `;
+
+    allMaterials.forEach((m) => {
+      html += `
+        <tr>
+          <td>${m.nome}</td>
+          <td style="text-align: center;">${m.quantita}</td>
+          <td style="text-align: right;">€ ${m.costo.toFixed(2)}</td>
+          <td style="text-align: right; font-weight: 700;">€ ${m.totale.toFixed(2)}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+      </tbody>
+    </table>
+    <div class="footer" style="text-align: right; margin-top: 8px;">
+      <strong>Totale Materiali: € ${totaleMateriali.toFixed(2)}</strong>
+    </div>
+  </div>
+    `;
+  }
+
   // Sezione Offerta: raccoglie tutte le offerte presenti nei timelogs
   const allOfferte = Array.isArray(ticket.timelogs)
     ? ticket.timelogs.flatMap(tl => Array.isArray(tl.offerte) ? tl.offerte : [])
