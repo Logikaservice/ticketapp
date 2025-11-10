@@ -412,9 +412,23 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
       const currentTicket = currentTicketResult.rows[0];
       const oldStatus = currentTicket.stato;
       
-      // Aggiorna lo stato (per ora senza tracciare data_risoluzione)
-      const query = 'UPDATE tickets SET stato = $1 WHERE id = $2 RETURNING *;';
-      const result = await client.query(query, [status, id]);
+      // Aggiorna lo stato e traccia data_risoluzione se il ticket viene risolto
+      let updateQuery = 'UPDATE tickets SET stato = $1';
+      let queryParams = [status];
+      
+      // Se il ticket viene risolto, salva la data di risoluzione
+      if (status === 'risolto' && oldStatus !== 'risolto') {
+        updateQuery += ', data_risoluzione = NOW()';
+      }
+      
+      // Se il ticket viene chiuso, salva la data di chiusura
+      if (status === 'chiuso' && oldStatus !== 'chiuso') {
+        updateQuery += ', datachiusura = NOW()';
+      }
+      
+      updateQuery += ' WHERE id = $' + (queryParams.length + 1) + ' RETURNING *;';
+      queryParams.push(id);
+      const result = await client.query(updateQuery, queryParams);
       client.release();
 
       if (result.rows.length > 0) {

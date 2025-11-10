@@ -733,68 +733,81 @@ app.use('/api', authenticateToken, googleAuthRoutes);
 app.use('/api/email', authenticateToken, emailNotificationsRoutes);
 app.use('/api/availability', authenticateToken, availabilityRoutes);
 
-// Endpoint per chiusura automatica ticket (senza autenticazione per cron job)
-app.post('/api/tickets/close-expired', async (req, res) => {
+// Funzione per chiusura automatica ticket risolti da più di 5 giorni
+const closeExpiredTickets = async () => {
   try {
     const client = await pool.connect();
     
-    // Trova tutti i ticket risolti da più di 5 giorni (usando dataapertura come riferimento)
+    // Trova tutti i ticket risolti da più di 5 giorni (usando data_risoluzione come riferimento)
     const query = `
       UPDATE tickets 
-      SET stato = 'chiuso'
+      SET stato = 'chiuso', datachiusura = NOW()
       WHERE stato = 'risolto' 
-      AND dataapertura < NOW() - INTERVAL '5 days'
-      RETURNING id, numero, titolo, dataapertura;
+      AND data_risoluzione IS NOT NULL
+      AND data_risoluzione < NOW() - INTERVAL '5 days'
+      RETURNING id, numero, titolo, data_risoluzione, clienteid;
     `;
     
     const result = await client.query(query);
     client.release();
     
-    console.log(`🔄 Chiusi automaticamente ${result.rows.length} ticket scaduti`);
-    
-    // Log dei ticket chiusi e invia email di notifica
-    for (const ticket of result.rows) {
-      console.log(`✅ Ticket ${ticket.numero} chiuso automaticamente (apertura: ${ticket.dataapertura})`);
+    if (result.rows.length > 0) {
+      console.log(`🔄 Chiusi automaticamente ${result.rows.length} ticket scaduti`);
       
-      // Invia email di notifica per ogni ticket chiuso
-      try {
-        // Recupera i dati del cliente
-        const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [ticket.clienteid]);
+      // Log dei ticket chiusi e invia email di notifica
+      for (const ticket of result.rows) {
+        console.log(`✅ Ticket ${ticket.numero} chiuso automaticamente (risolto il: ${ticket.data_risoluzione})`);
         
-        if (clientData.rows.length > 0 && clientData.rows[0].email) {
-          const client = clientData.rows[0];
+        // Invia email di notifica per ogni ticket chiuso
+        try {
+          // Recupera i dati del cliente
+          const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [ticket.clienteid]);
           
-          // Invia notifica email
-          const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-automatic-closure`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              ticket: ticket,
-              clientEmail: client.email,
-              clientName: `${client.nome} ${client.cognome}`
-            })
-          });
-          
-          if (emailResponse.ok) {
-            console.log(`✅ Email chiusura automatica inviata per ticket ${ticket.numero}`);
-          } else {
-            console.log(`⚠️ Errore invio email chiusura automatica per ticket ${ticket.numero}:`, emailResponse.status);
+          if (clientData.rows.length > 0 && clientData.rows[0].email) {
+            const client = clientData.rows[0];
+            
+            // Invia notifica email
+            const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-automatic-closure`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                ticket: ticket,
+                clientEmail: client.email,
+                clientName: `${client.nome} ${client.cognome}`
+              })
+            });
+            
+            if (emailResponse.ok) {
+              console.log(`✅ Email chiusura automatica inviata per ticket ${ticket.numero}`);
+            } else {
+              console.log(`⚠️ Errore invio email chiusura automatica per ticket ${ticket.numero}:`, emailResponse.status);
+            }
           }
+        } catch (emailErr) {
+          console.log(`⚠️ Errore invio email chiusura automatica per ticket ${ticket.numero}:`, emailErr.message);
         }
-      } catch (emailErr) {
-        console.log(`⚠️ Errore invio email chiusura automatica per ticket ${ticket.numero}:`, emailErr.message);
       }
     }
-    
+  } catch (err) {
+    console.error('❌ Errore chiusura automatica ticket:', err);
+  }
+};
+
+// Avvia chiusura automatica ogni ora
+setInterval(closeExpiredTickets, 60 * 60 * 1000); // Ogni ora
+// Esegui anche all'avvio del server
+setTimeout(closeExpiredTickets, 5000); // Dopo 5 secondi dall'avvio
+
+// Endpoint per chiusura automatica ticket (senza autenticazione per cron job)
+app.post('/api/tickets/close-expired', async (req, res) => {
+  try {
+    await closeExpiredTickets();
     res.json({
       success: true,
-      closedCount: result.rows.length,
-      closedTickets: result.rows,
-      message: `Chiusi automaticamente ${result.rows.length} ticket scaduti`
+      message: 'Chiusura automatica ticket eseguita'
     });
-    
   } catch (err) {
     console.error('❌ Errore chiusura automatica ticket:', err);
     res.status(500).json({ error: 'Errore interno del server' });
@@ -846,6 +859,14 @@ app.post('/api/init-db', async (req, res) => {
       console.log("✅ Colonna photos aggiunta alla tabella tickets");
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna photos (potrebbe già esistere):", alterErr.message);
+    }
+    
+    // Aggiungi colonna data_risoluzione alla tabella tickets se non esiste
+    try {
+      await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS data_risoluzione TIMESTAMP`);
+      console.log("✅ Colonna data_risoluzione aggiunta alla tabella tickets");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonna data_risoluzione (potrebbe già esistere):", alterErr.message);
     }
     
     // Aggiungi colonna admin_companies alla tabella users se non esiste
