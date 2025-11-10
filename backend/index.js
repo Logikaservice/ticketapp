@@ -795,10 +795,36 @@ const closeExpiredTickets = async () => {
   }
 };
 
+// Funzione per aggiornare data_risoluzione per ticket già risolti che non ce l'hanno
+const updateMissingDataRisoluzione = async () => {
+  try {
+    const client = await pool.connect();
+    // Per i ticket già risolti che non hanno data_risoluzione, usa dataapertura come fallback
+    const updateQuery = `
+      UPDATE tickets 
+      SET data_risoluzione = dataapertura
+      WHERE stato = 'risolto' 
+      AND data_risoluzione IS NULL
+      AND dataapertura IS NOT NULL;
+    `;
+    const result = await client.query(updateQuery);
+    client.release();
+    if (result.rowCount > 0) {
+      console.log(`✅ Aggiornata data_risoluzione per ${result.rowCount} ticket già risolti`);
+    }
+  } catch (err) {
+    console.error('❌ Errore aggiornamento data_risoluzione:', err);
+  }
+};
+
 // Avvia chiusura automatica ogni ora
 setInterval(closeExpiredTickets, 60 * 60 * 1000); // Ogni ora
 // Esegui anche all'avvio del server
-setTimeout(closeExpiredTickets, 5000); // Dopo 5 secondi dall'avvio
+setTimeout(() => {
+  updateMissingDataRisoluzione().then(() => {
+    setTimeout(closeExpiredTickets, 2000); // Dopo 2 secondi dall'aggiornamento
+  });
+}, 5000); // Dopo 5 secondi dall'avvio
 
 // Endpoint per chiusura automatica ticket (senza autenticazione per cron job)
 app.post('/api/tickets/close-expired', async (req, res) => {
