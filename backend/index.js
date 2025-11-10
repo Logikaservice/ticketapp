@@ -978,6 +978,14 @@ const startServer = async () => {
       console.log("⚠️ Errore aggiunta colonna photos (auto-init):", alterErr.message);
     }
     
+    // Aggiungi colonna data_risoluzione alla tabella tickets se non esiste
+    try {
+      await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS data_risoluzione TIMESTAMP`);
+      console.log("✅ Colonna data_risoluzione aggiunta alla tabella tickets (auto-init)");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonna data_risoluzione (auto-init):", alterErr.message);
+    }
+    
     // Aggiungi colonna admin_companies alla tabella users se non esiste (auto-init)
     try {
       await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_companies JSONB DEFAULT '[]'::jsonb`);
