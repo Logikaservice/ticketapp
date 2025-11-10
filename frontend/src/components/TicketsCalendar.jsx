@@ -4,7 +4,7 @@ import { useGoogleCalendar } from '../hooks/useGoogleCalendar';
 import { useAvailability } from '../hooks/useAvailability';
 import { SYNC_STATES } from '../config/googleConfig';
 
-const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader }) => {
+const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, users = [] }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedDateTickets, setSelectedDateTickets] = useState([]);
@@ -204,12 +204,58 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader })
   // Calendario disponibile per tutti (tecnici e clienti)
   // I clienti vedranno solo i loro ticket
 
+  // Funzione helper per verificare se un ticket è visibile all'utente
+  const getAppliesToUser = (ticket) => {
+    if (currentUser.ruolo === 'tecnico') {
+      return true; // I tecnici vedono tutti i ticket
+    }
+    
+    if (currentUser.ruolo === 'cliente') {
+      // Se è il proprio ticket, sempre visibile (confronta come numeri)
+      const ticketClienteId = Number(ticket.clienteid);
+      const currentUserId = Number(currentUser.id);
+      if (ticketClienteId === currentUserId) {
+        return true;
+      }
+      
+      // Se è amministratore, controlla se il ticket appartiene a un cliente della sua azienda
+      const isAdmin = currentUser.admin_companies && 
+                     Array.isArray(currentUser.admin_companies) && 
+                     currentUser.admin_companies.length > 0;
+      
+      if (isAdmin) {
+        // Usa l'azienda del cliente direttamente dal ticket (se disponibile) o cerca in users
+        let ticketAzienda = null;
+        
+        // Prima prova a usare l'azienda dal ticket (se è stata aggiunta dal backend)
+        if (ticket.cliente_azienda) {
+          ticketAzienda = ticket.cliente_azienda;
+        } else if (users && users.length > 0) {
+          // Altrimenti cerca in users
+          const ticketClient = users.find(u => Number(u.id) === ticketClienteId);
+          if (ticketClient && ticketClient.azienda) {
+            ticketAzienda = ticketClient.azienda;
+          }
+        }
+        
+        if (ticketAzienda) {
+          // Verifica se l'azienda del ticket è tra quelle di cui è amministratore
+          return currentUser.admin_companies.includes(ticketAzienda);
+        }
+      }
+      
+      return false;
+    }
+    
+    return false;
+  };
+
   // Stati da considerare
   const relevantStates = SYNC_STATES;
   
-  // Filtra i ticket per stati rilevanti
+  // Filtra i ticket per stati rilevanti E visibilità per l'utente corrente
   const relevantTickets = tickets.filter(ticket => 
-    relevantStates.includes(ticket.stato)
+    relevantStates.includes(ticket.stato) && getAppliesToUser(ticket)
   );
 
   // Raggruppa i ticket per data e priorità, e gli interventi per data

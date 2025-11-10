@@ -1000,7 +1000,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             </div>
           )}
           
-          <TicketsCalendar 
+          <TicketsCalendar
+            users={users} 
             tickets={tickets}
             onTicketClick={(ticket) => {
               // Naviga alla sezione corretta e seleziona il ticket
