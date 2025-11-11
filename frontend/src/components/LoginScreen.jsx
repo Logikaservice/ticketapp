@@ -32,8 +32,28 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
             existingClients={clients}
           />
         )}
-  <div className="fixed inset-0 bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center p-2 sm:p-4" style={{ overflow: 'hidden', width: '100vw', height: '100vh' }}>
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-4 sm:p-6 md:p-8" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
+  <div 
+    className="fixed inset-0 bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center p-2 sm:p-4" 
+    style={{ 
+      overflow: 'hidden', 
+      width: '100vw', 
+      height: '100vh',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      margin: 0,
+      padding: 0
+    }}
+  >
+    <div 
+      className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-4 sm:p-6 md:p-8 mx-auto" 
+      style={{ 
+        maxHeight: 'calc(100vh - 2rem)',
+        margin: 'auto'
+      }}
+    >
       <div className="text-center mb-4 sm:mb-6">
         <div className="bg-blue-100 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3">
           <User size={24} className="sm:w-7 sm:h-7 md:w-8 md:h-8 text-blue-600" />
