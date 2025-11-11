@@ -7,9 +7,9 @@ html {
   transform: scale(0.9);
   transform-origin: top left;
   width: 111.11%; /* Compensa la riduzione al 90% (100/0.9) */
-  height: 100vh; /* Usa viewport height invece di 111.11% per evitare scrollbar */
+  height: 111.11vh; /* Compensa lo zoom per coprire tutta l'altezza */
   overflow-x: hidden; /* Nasconde barre di scorrimento orizzontali */
-  overflow-y: hidden; /* Nasconde barra di scorrimento verticale quando non necessario */
+  overflow-y: auto; /* Permette scorrimento verticale quando necessario */
 }
 
 /* Sfondo fisso che copre tutta la pagina anche con zoom */
@@ -18,18 +18,18 @@ html::before {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 111.11vw; /* Compensa lo zoom del 90% (100/0.9) */
+  height: 111.11vh; /* Compensa lo zoom del 90% (100/0.9) */
   background: #f3f4f6;
   z-index: -1;
-  transform: scale(1.111); /* Compensa lo zoom del 90% (1/0.9) */
+  transform: scale(0.9); /* Applica lo stesso zoom dell'html */
   transform-origin: top left;
 }
 
 body {
   width: 111.11vw; /* Compensa lo zoom del 90% (100/0.9) */
-  min-height: 100vh; /* Usa viewport height invece di 111.11vh */
-  height: 100vh; /* Usa viewport height invece di 111.11vh */
+  min-height: 111.11vh; /* Compensa lo zoom del 90% (100/0.9) */
+  height: auto; /* Altezza automatica basata sul contenuto */
   margin: 0;
   padding: 0;
   overflow-x: hidden; /* Nasconde barre di scorrimento orizzontali */
