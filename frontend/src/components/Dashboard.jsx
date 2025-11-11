@@ -359,19 +359,6 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     setActiveHighlights(externalHighlights);
   }, [externalHighlights]);
 
-  // Badge NEW elegante su 'Aperti' quando arriva evento 'dashboard-new'
-  const [showNewBadge, setShowNewBadge] = React.useState(false);
-  useEffect(() => {
-    const handler = (e) => {
-      const { state } = e.detail || {};
-      if (state === 'aperto') {
-        setShowNewBadge(true);
-        setTimeout(() => setShowNewBadge(false), 4000);
-      }
-    };
-    window.addEventListener('dashboard-new', handler);
-    return () => window.removeEventListener('dashboard-new', handler);
-  }, []);
 
   const roleLabel = currentUser?.ruolo === 'tecnico' ? 'Tecnico' : 'Cliente';
 
