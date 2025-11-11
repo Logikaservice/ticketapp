@@ -45,16 +45,9 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
           />
         )}
   <div 
-    className="fixed bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center" 
+    className="fixed inset-0 bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center" 
     style={{ 
       overflow: 'hidden', 
-      width: '100vw',
-      height: '100vh',
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
       margin: 0,
       padding: '1rem',
       boxSizing: 'border-box',
