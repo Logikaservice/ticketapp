@@ -47,14 +47,17 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser }) => {
         return { ...alert, clients };
       });
       
+      // Filtra solo gli avvisi di tipo "features" (Nuove funzionalità)
+      const featuresAlerts = parsedAlerts.filter(alert => alert.level === 'features');
+      
       // Ordina per data di creazione (più recenti prima)
-      parsedAlerts.sort((a, b) => {
+      featuresAlerts.sort((a, b) => {
         const dateA = new Date(a.createdAt || a.created_at);
         const dateB = new Date(b.createdAt || b.created_at);
         return dateB - dateA;
       });
       
-      setAlerts(parsedAlerts);
+      setAlerts(featuresAlerts);
     } catch (e) {
       console.error('Errore caricamento avvisi:', e);
     } finally {
@@ -120,12 +123,12 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser }) => {
         {/* Header */}
         <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-purple-50 to-blue-50">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Clock size={24} className="text-purple-600" />
+            <div className="p-2 bg-green-100 rounded-lg">
+              <Sparkles size={24} className="text-green-600" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Cronologia Avvisi</h2>
-              <p className="text-sm text-gray-600 mt-1">Visualizza tutti gli avvisi creati nel sistema</p>
+              <h2 className="text-2xl font-bold text-gray-900">Nuove Funzionalità</h2>
+              <p className="text-sm text-gray-600 mt-1">Cronologia delle migliorie e sviluppi del progetto</p>
             </div>
           </div>
           <button
@@ -145,8 +148,9 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser }) => {
             </div>
           ) : alerts.length === 0 ? (
             <div className="text-center py-12">
-              <Clock size={48} className="text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg">Nessun avviso presente</p>
+              <Sparkles size={48} className="text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 text-lg">Nessuna nuova funzionalità ancora pubblicata</p>
+              <p className="text-sm text-gray-500 mt-2">Le nuove funzionalità verranno mostrate qui</p>
             </div>
           ) : (
             <div className="space-y-4">

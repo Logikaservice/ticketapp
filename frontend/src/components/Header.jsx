@@ -1,7 +1,7 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Clock } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles } from 'lucide-react';
 
 const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
@@ -113,10 +113,10 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
             {currentUser?.ruolo === 'tecnico' && (
               <button 
                 onClick={openAlertsHistory} 
-                className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition"
-                title="Cronologia Avvisi"
+                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition"
+                title="Nuove Funzionalità"
               >
-                <Clock size={18} />
+                <Sparkles size={18} />
               </button>
             )}
             
