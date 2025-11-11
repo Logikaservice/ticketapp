@@ -16,26 +16,56 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
   // Nascondi scrollbar quando si è nel login e assicura che lo sfondo copra tutto
   React.useEffect(() => {
     // Nascondi scrollbar
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.height = '100vh';
-    document.body.style.height = '100vh';
-    document.body.style.width = '100vw';
-    document.body.style.margin = '0';
-    document.body.style.padding = '0';
-    document.body.style.backgroundColor = 'transparent';
-    document.documentElement.style.backgroundColor = 'transparent';
+    const html = document.documentElement;
+    const body = document.body;
+    
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    html.style.height = '100vh';
+    html.style.minHeight = '100vh';
+    body.style.height = '100vh';
+    body.style.minHeight = '100vh';
+    body.style.width = '100vw';
+    body.style.minWidth = '100vw';
+    body.style.margin = '0';
+    body.style.padding = '0';
+    body.style.backgroundColor = 'transparent';
+    html.style.backgroundColor = 'transparent';
+    
+    // Assicura che #root copra tutto
+    const root = document.getElementById('root');
+    if (root) {
+      root.style.height = '100vh';
+      root.style.minHeight = '100vh';
+      root.style.width = '100vw';
+      root.style.minWidth = '100vw';
+      root.style.margin = '0';
+      root.style.padding = '0';
+      root.style.backgroundColor = 'transparent';
+    }
     
     return () => {
-      document.documentElement.style.overflow = '';
-      document.body.style.overflow = '';
-      document.documentElement.style.height = '';
-      document.body.style.height = '';
-      document.body.style.width = '';
-      document.body.style.margin = '';
-      document.body.style.padding = '';
-      document.body.style.backgroundColor = '';
-      document.documentElement.style.backgroundColor = '';
+      html.style.overflow = '';
+      body.style.overflow = '';
+      html.style.height = '';
+      html.style.minHeight = '';
+      body.style.height = '';
+      body.style.minHeight = '';
+      body.style.width = '';
+      body.style.minWidth = '';
+      body.style.margin = '';
+      body.style.padding = '';
+      body.style.backgroundColor = '';
+      html.style.backgroundColor = '';
+      if (root) {
+        root.style.height = '';
+        root.style.minHeight = '';
+        root.style.width = '';
+        root.style.minWidth = '';
+        root.style.margin = '';
+        root.style.padding = '';
+        root.style.backgroundColor = '';
+      }
     };
   }, []);
 
@@ -52,12 +82,15 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
     className="fixed bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center" 
     style={{ 
       overflow: 'hidden', 
+      position: 'fixed',
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      width: '100%',
-      height: '100%',
+      width: '100vw',
+      height: '100vh',
+      minWidth: '100vw',
+      minHeight: '100vh',
       margin: 0,
       padding: '1rem',
       boxSizing: 'border-box',
