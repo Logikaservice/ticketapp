@@ -46,11 +46,14 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
     const includeTimeLogs = ticket.stato === 'risolto' || ticket.stato === 'chiuso' || ticket.stato === 'inviato' || ticket.stato === 'fatturato';
     const clienteName = cliente?.azienda || `${cliente?.nome || ''} ${cliente?.cognome || ''}`.trim();
     const html = generateSingleTicketHTML(ticket, { includeTimeLogs, includeChat: true, clienteName });
-    const printWindow = window.open('', '_blank');
+    // Usa about:blank per assicurarsi che si apra in una nuova scheda
+    const printWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
     if (printWindow) {
       printWindow.document.open();
       printWindow.document.write(html);
       printWindow.document.close();
+      // Focus sulla nuova scheda
+      printWindow.focus();
     }
   };
 

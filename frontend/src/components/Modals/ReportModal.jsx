@@ -5,13 +5,16 @@ import { X, Printer } from 'lucide-react';
 
 const ReportModal = ({ closeModal, htmlContent, title }) => {
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+    // Usa about:blank per assicurarsi che si apra in una nuova scheda
+    const printWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    }
   };
 
   return (

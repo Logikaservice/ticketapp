@@ -162,7 +162,8 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
   };
 
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
+    // Usa about:blank per assicurarsi che si apra in una nuova scheda
+    const printWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
     if (printWindow && currentPhoto) {
       const html = `
         <!DOCTYPE html>
