@@ -13,13 +13,25 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
     }
   };
 
-  // Nascondi scrollbar quando si è nel login
+  // Nascondi scrollbar quando si è nel login e assicura che lo sfondo copra tutto
   React.useEffect(() => {
+    // Nascondi scrollbar
     document.documentElement.style.overflow = 'hidden';
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.height = '100vh';
+    document.body.style.height = '100vh';
+    document.body.style.width = '100vw';
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
+    
     return () => {
       document.documentElement.style.overflow = '';
       document.body.style.overflow = '';
+      document.documentElement.style.height = '';
+      document.body.style.height = '';
+      document.body.style.width = '';
+      document.body.style.margin = '';
+      document.body.style.padding = '';
     };
   }, []);
 
@@ -33,7 +45,7 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
           />
         )}
   <div 
-    className="fixed inset-0 bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center p-2 sm:p-4" 
+    className="fixed bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center" 
     style={{ 
       overflow: 'hidden', 
       width: '100vw', 
@@ -44,7 +56,9 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
       right: 0,
       bottom: 0,
       margin: 0,
-      padding: 0
+      padding: '1rem',
+      boxSizing: 'border-box',
+      zIndex: 0
     }}
   >
     <div 
