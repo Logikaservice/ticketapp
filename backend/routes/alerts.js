@@ -131,9 +131,27 @@ module.exports = function createAlertsRouter(pool) {
         }));
       }
 
+      // Gestione clients: può essere già una stringa JSON o un array/oggetto
+      let clientsJson = '[]';
+      try {
+        if (clients) {
+          if (typeof clients === 'string') {
+            // Se è già una stringa, verifica che sia JSON valido
+            JSON.parse(clients);
+            clientsJson = clients;
+          } else {
+            // Se è un oggetto/array, stringificalo
+            clientsJson = JSON.stringify(clients);
+          }
+        }
+      } catch (e) {
+        console.error('Errore parsing clients:', e);
+        clientsJson = '[]';
+      }
+
       const { rows } = await pool.query(
         'INSERT INTO alerts (title, body, level, ticket_id, created_by, clients, is_permanent, days_to_expire, attachments) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, title, body, level, ticket_id as "ticketId", created_at as "createdAt", created_by as "createdBy", clients, is_permanent as "isPermanent", days_to_expire as "daysToExpire", attachments',
-        [title, body, level || 'warning', ticketId || null, createdBy || null, JSON.stringify(clients || []), isPermanent !== false, daysToExpire || 7, JSON.stringify(attachments)]
+        [title, body, level || 'warning', ticketId || null, createdBy || null, clientsJson, isPermanent !== false, daysToExpire || 7, JSON.stringify(attachments)]
       );
       
       // Gestione invio email in base all'opzione selezionata
