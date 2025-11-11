@@ -35,6 +35,10 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
   const unreadCount = getUnreadCount ? getUnreadCount(ticket) : 0;
   const hasUnread = unreadCount > 0;
   
+  // Controlla se ci sono messaggi (anche se letti)
+  const hasMessages = ticket.messaggi && Array.isArray(ticket.messaggi) && ticket.messaggi.length > 0;
+  const messagesCount = hasMessages ? ticket.messaggi.length : 0;
+  
   // Stati che permettono l'upload/visualizzazione foto
   const allowedPhotoStates = ['aperto', 'in_lavorazione', 'risolto'];
   const canManagePhotos = allowedPhotoStates.includes(ticket.stato);
@@ -46,14 +50,21 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
     const includeTimeLogs = ticket.stato === 'risolto' || ticket.stato === 'chiuso' || ticket.stato === 'inviato' || ticket.stato === 'fatturato';
     const clienteName = cliente?.azienda || `${cliente?.nome || ''} ${cliente?.cognome || ''}`.trim();
     const html = generateSingleTicketHTML(ticket, { includeTimeLogs, includeChat: true, clienteName });
-    // Usa about:blank per assicurarsi che si apra in una nuova scheda
-    const printWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
+    
+    // Crea un blob URL per aprire l'HTML in una nuova scheda
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const printWindow = window.open(url, '_blank', 'noopener,noreferrer');
+    
+    // Pulisci l'URL dopo che la finestra è stata aperta
     if (printWindow) {
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
-      // Focus sulla nuova scheda
-      printWindow.focus();
+      printWindow.addEventListener('load', () => {
+        URL.revokeObjectURL(url);
+      });
+      // Fallback: pulisci l'URL dopo 10 secondi anche se l'evento load non viene chiamato
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 10000);
     }
   };
 
@@ -90,6 +101,13 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                 {hasUnread && (
                   <span className="px-2 py-0.5 text-xs rounded-full bg-yellow-500 text-white font-bold flex items-center gap-1 animate-bounce">
                     💬 {unreadCount}
+                  </span>
+                )}
+                
+                {/* Badge per presenza di commenti (anche se letti) */}
+                {hasMessages && !hasUnread && (
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-medium flex items-center gap-1" title={`${messagesCount} commento${messagesCount !== 1 ? 'i' : ''}`}>
+                    💬 {messagesCount}
                   </span>
                 )}
               </div>
