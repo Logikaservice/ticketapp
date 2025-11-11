@@ -1224,24 +1224,28 @@ export default function TicketApp() {
 
       const result = await response.json();
       
-      // Ritorna i risultati immediatamente, gli aggiornamenti di stato verranno gestiti dal componente chiamante
-      // Usa requestAnimationFrame per deferire gli aggiornamenti di stato
+      // Ritorna i risultati immediatamente
+      // Usa requestAnimationFrame multipli per deferire completamente gli aggiornamenti di stato
       requestAnimationFrame(() => {
         setTimeout(() => {
-          // Aggiorna il ticket nella lista
-          setTickets(prev => prev.map(t => 
-            t.id === ticketId 
-              ? { ...t, photos: result.photos } 
-              : t
-          ));
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              // Aggiorna il ticket nella lista
+              setTickets(prev => prev.map(t => 
+                t.id === ticketId 
+                  ? { ...t, photos: result.photos } 
+                  : t
+              ));
 
-          // Aggiorna anche selectedTicket se è quello corretto
-          if (selectedTicket && selectedTicket.id === ticketId) {
-            setSelectedTicket({ ...selectedTicket, photos: result.photos });
-          }
+              // Aggiorna anche selectedTicket se è quello corretto
+              if (selectedTicket && selectedTicket.id === ticketId) {
+                setSelectedTicket({ ...selectedTicket, photos: result.photos });
+              }
 
-          showNotification(result.message || 'File caricati con successo', 'success');
-        }, 0);
+              showNotification(result.message || 'File caricati con successo', 'success');
+            }, 10);
+          });
+        }, 10);
       });
       
       return result.photos;

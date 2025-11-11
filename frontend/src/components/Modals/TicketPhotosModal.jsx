@@ -41,45 +41,56 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
       return;
     }
 
-    // Usa setTimeout per deferire l'aggiornamento di stato
-    setTimeout(() => {
-      setIsUploading(true);
-      
-      // Avvia l'upload in modo asincrono
-      (async () => {
-        try {
-          console.log('🔄 Caricamento file...', files.length, 'file');
-          const uploadedPhotos = await onUploadPhotos(ticket.id, files);
-          console.log('✅ File caricati:', uploadedPhotos);
-          
-          // Usa setTimeout per evitare aggiornamenti di stato durante il render
-          setTimeout(() => {
-            setLocalPhotos(uploadedPhotos);
+    // Usa requestAnimationFrame + setTimeout per deferire completamente l'aggiornamento di stato
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        setIsUploading(true);
+        
+        // Avvia l'upload in modo asincrono
+        (async () => {
+          try {
+            console.log('🔄 Caricamento file...', files.length, 'file');
+            const uploadedPhotos = await onUploadPhotos(ticket.id, files);
+            console.log('✅ File caricati:', uploadedPhotos);
             
-            // Vai all'ultimo file caricato
-            if (uploadedPhotos.length > localPhotos.length) {
-              setCurrentPhotoIndex(uploadedPhotos.length - 1);
-            }
-            
-            setIsUploading(false);
-            // Reset input
-            if (fileInputRef.current) {
-              fileInputRef.current.value = '';
-            }
-          }, 0);
-        } catch (error) {
-          console.error('❌ Errore upload:', error);
-          // Usa setTimeout per evitare aggiornamenti di stato durante il render
-          setTimeout(() => {
-            setIsUploading(false);
-            // Reset input
-            if (fileInputRef.current) {
-              fileInputRef.current.value = '';
-            }
-          }, 0);
-        }
-      })();
-    }, 0);
+            // NON aggiornare localPhotos qui - verrà aggiornato automaticamente tramite useEffect quando photos prop cambia
+            // Usa requestAnimationFrame + setTimeout multipli per deferire completamente
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                requestAnimationFrame(() => {
+                  setTimeout(() => {
+                    setIsUploading(false);
+                    // Reset input
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
+                    
+                    // Aggiorna l'indice solo se necessario, dopo che le props si sono aggiornate
+                    setTimeout(() => {
+                      if (uploadedPhotos.length > localPhotos.length) {
+                        setCurrentPhotoIndex(uploadedPhotos.length - 1);
+                      }
+                    }, 100);
+                  }, 10);
+                });
+              }, 10);
+            });
+          } catch (error) {
+            console.error('❌ Errore upload:', error);
+            // Usa requestAnimationFrame + setTimeout per evitare aggiornamenti di stato durante il render
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                setIsUploading(false);
+                // Reset input
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = '';
+                }
+              }, 10);
+            });
+          }
+        })();
+      }, 0);
+    });
   };
 
   if (!localPhotos || localPhotos.length === 0) {
@@ -235,8 +246,13 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
   };
 
   // Aggiorna localPhotos quando photos cambia da props
+  // Usa requestAnimationFrame per evitare conflitti durante il rendering
   React.useEffect(() => {
-    setLocalPhotos(photos || []);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        setLocalPhotos(photos || []);
+      }, 0);
+    });
   }, [photos]);
 
   const canDelete = currentUser?.ruolo === 'tecnico' || 
