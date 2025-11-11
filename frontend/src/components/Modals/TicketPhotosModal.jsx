@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Printer, Trash2, Image as ImageIcon, Download, Upload, File } from 'lucide-react';
+import { X, Printer, Trash2, Image as ImageIcon, Download, Paperclip, File } from 'lucide-react';
 
 const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPhotos, getAuthHeader, currentUser }) => {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -93,7 +93,7 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                   disabled={isUploading}
                   className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 mx-auto"
                 >
-                  <Upload size={18} />
+                  <Paperclip size={18} />
                   {isUploading ? 'Caricamento...' : 'Carica File'}
                 </button>
               </>
@@ -361,7 +361,7 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                     disabled={isUploading}
                     className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
                   >
-                    <Upload size={18} />
+                    <Paperclip size={18} />
                     {isUploading ? 'Caricamento...' : 'Carica'}
                   </button>
                 </>
