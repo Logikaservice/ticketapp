@@ -48,8 +48,8 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
     className="fixed bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center" 
     style={{ 
       overflow: 'hidden', 
-      width: '100vw', 
-      height: '100vh',
+      width: '111.11vw', 
+      height: '111.11vh',
       position: 'fixed',
       top: 0,
       left: 0,
@@ -58,7 +58,9 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
       margin: 0,
       padding: '1rem',
       boxSizing: 'border-box',
-      zIndex: 0
+      zIndex: 0,
+      transform: 'scale(0.9)',
+      transformOrigin: 'top left'
     }}
   >
     <div 
