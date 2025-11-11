@@ -82,16 +82,9 @@ const storageTicketPhotos = multer.diskStorage({
 const uploadTicketPhotos = multer({
   storage: storageTicketPhotos,
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit per foto ticket
-  },
-  fileFilter: (req, file, cb) => {
-    // Accetta solo immagini
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Solo file immagine sono permessi!'), false);
-    }
+    fileSize: 1 * 1024 * 1024 // 1MB limit per file ticket
   }
+  // Rimossa restrizione fileFilter: accetta qualsiasi tipo di file
 });
 
 // Configurazione Multer per documenti Offerta (qualsiasi tipo comune)

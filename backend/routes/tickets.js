@@ -1032,17 +1032,14 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
         console.error('Errore Multer upload foto:', err);
         if (err instanceof multer.MulterError) {
           if (err.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).json({ error: 'File troppo grande. Dimensione massima: 10MB' });
+            return res.status(400).json({ error: 'File troppo grande. Dimensione massima: 1MB' });
           }
           if (err.code === 'LIMIT_FILE_COUNT') {
-            return res.status(400).json({ error: 'Troppi file. Massimo 10 foto per volta' });
+            return res.status(400).json({ error: 'Troppi file. Massimo 10 file per volta' });
           }
           if (err.code === 'LIMIT_UNEXPECTED_FILE') {
             return res.status(400).json({ error: 'Campo file non valido' });
           }
-        }
-        if (err.message && err.message.includes('Solo file immagine')) {
-          return res.status(400).json({ error: 'Solo file immagine sono permessi' });
         }
         return res.status(500).json({ error: 'Errore durante il caricamento delle foto: ' + err.message });
       }

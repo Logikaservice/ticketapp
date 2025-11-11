@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Printer, Trash2, Image as ImageIcon, Download, Upload, Camera } from 'lucide-react';
+import { X, Printer, Trash2, Image as ImageIcon, Download, Upload, File } from 'lucide-react';
 
 const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPhotos, getAuthHeader, currentUser }) => {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -15,10 +15,17 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    // Verifica che siano tutte immagini
-    const imageFiles = files.filter(file => file.type.startsWith('image/'));
-    if (imageFiles.length !== files.length) {
-      alert('Solo file immagine sono permessi');
+    // Verifica dimensione file (massimo 1MB per file)
+    const maxSize = 1 * 1024 * 1024; // 1MB in bytes
+    const oversizedFiles = files.filter(file => file.size > maxSize);
+    
+    if (oversizedFiles.length > 0) {
+      const fileNames = oversizedFiles.map(f => f.name).join(', ');
+      alert(`I seguenti file superano il limite di 1MB e non possono essere caricati:\n${fileNames}\n\nDimensione massima consentita: 1MB per file`);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       return;
     }
 
@@ -36,15 +43,15 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
 
     setIsUploading(true);
     try {
-      console.log('🔄 Caricamento foto...', imageFiles.length, 'file');
-      const uploadedPhotos = await onUploadPhotos(ticket.id, imageFiles);
-      console.log('✅ Foto caricate:', uploadedPhotos);
+      console.log('🔄 Caricamento file...', files.length, 'file');
+      const uploadedPhotos = await onUploadPhotos(ticket.id, files);
+      console.log('✅ File caricati:', uploadedPhotos);
       
       // Usa setTimeout per evitare aggiornamenti di stato durante il render
       setTimeout(() => {
         setLocalPhotos(uploadedPhotos);
         
-        // Vai all'ultima foto caricata
+        // Vai all'ultimo file caricato
         if (uploadedPhotos.length > localPhotos.length) {
           setCurrentPhotoIndex(uploadedPhotos.length - 1);
         }
@@ -69,15 +76,14 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-6">
           <div className="text-center py-8">
-            <ImageIcon size={64} className="mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-500 text-lg mb-4">Nessuna foto disponibile per questo ticket</p>
+            <File size={64} className="mx-auto text-gray-300 mb-4" />
+            <p className="text-gray-500 text-lg mb-4">Nessun file disponibile per questo ticket</p>
             
             {canManagePhotos && onUploadPhotos && (
               <>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
                   multiple
                   onChange={handleFileSelect}
                   className="hidden"
@@ -87,8 +93,8 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                   disabled={isUploading}
                   className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50 mx-auto"
                 >
-                  <Camera size={18} />
-                  {isUploading ? 'Caricamento...' : 'Carica Foto'}
+                  <Upload size={18} />
+                  {isUploading ? 'Caricamento...' : 'Carica File'}
                 </button>
               </>
             )}
@@ -108,7 +114,7 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
   const currentPhoto = localPhotos[currentPhotoIndex];
 
   const handleDelete = async () => {
-    if (!window.confirm('Sei sicuro di voler eliminare questa foto?')) return;
+    if (!window.confirm('Sei sicuro di voler eliminare questo file?')) return;
     
     setIsDeleting(true);
     try {
@@ -116,18 +122,18 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
       const updatedPhotos = await onDeletePhoto(currentPhoto.filename);
       setLocalPhotos(updatedPhotos);
       
-      // Se era l'ultima foto, chiudi il modal
+      // Se era l'ultimo file, chiudi il modal
       if (updatedPhotos.length === 0) {
         onClose();
         return;
       }
       
-      // Altrimenti vai alla foto precedente o successiva
+      // Altrimenti vai al file precedente o successivo
       if (currentPhotoIndex >= updatedPhotos.length) {
         setCurrentPhotoIndex(Math.max(0, updatedPhotos.length - 1));
       }
     } catch (error) {
-      console.error('Errore eliminazione foto:', error);
+      console.error('Errore eliminazione file:', error);
     } finally {
       setIsDeleting(false);
     }
@@ -140,7 +146,7 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
         <!DOCTYPE html>
         <html>
           <head>
-            <title>Foto Ticket ${ticket?.numero || ''}</title>
+            <title>File Ticket ${ticket?.numero || ''}</title>
             <style>
               body {
                 margin: 0;
@@ -181,7 +187,7 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
           <body>
             <div class="header">
               <h1>Ticket ${ticket?.numero || ''} - ${ticket?.titolo || ''}</h1>
-              <p>Foto ${currentPhotoIndex + 1} di ${localPhotos.length}</p>
+              <p>File ${currentPhotoIndex + 1} di ${localPhotos.length}</p>
             </div>
             <div class="photo-container">
               <img src="${apiUrl}${currentPhoto.path}" alt="${currentPhoto.originalName}" />
@@ -233,8 +239,8 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold flex items-center gap-2">
-                <ImageIcon size={24} />
-                Foto Ticket {ticket?.numero || ''}
+                <File size={24} />
+                File Ticket {ticket?.numero || ''}
               </h2>
               <p className="text-purple-100 text-sm mt-1">
                 {currentPhotoIndex + 1} di {localPhotos.length}
@@ -251,41 +257,75 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
 
         {/* Content */}
         <div className="flex-1 overflow-hidden flex">
-          {/* Foto principale */}
+          {/* File principale */}
           <div className="flex-1 flex items-center justify-center bg-gray-900 p-4">
-            {currentPhoto && (
-              <img
-                src={`${apiUrl}${currentPhoto.path}`}
-                alt={currentPhoto.originalName}
-                className="max-w-full max-h-full object-contain"
-                onError={(e) => {
-                  e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2U1ZTdlYiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5FcnJvcmUgY2FyaWNhbWVudG88L3RleHQ+PC9zdmc+';
-                }}
-              />
-            )}
+            {currentPhoto && (() => {
+              // Verifica se è un'immagine basandosi sull'estensione o sul path
+              const isImage = currentPhoto.originalName?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i) || 
+                             currentPhoto.path?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
+              
+              if (isImage) {
+                return (
+                  <img
+                    src={`${apiUrl}${currentPhoto.path}`}
+                    alt={currentPhoto.originalName}
+                    className="max-w-full max-h-full object-contain"
+                    onError={(e) => {
+                      e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2U1ZTdlYiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5FcnJvcmUgY2FyaWNhbWVudG88L3RleHQ+PC9zdmc+';
+                    }}
+                  />
+                );
+              } else {
+                // Per file non immagine, mostra un'icona e link di download
+                return (
+                  <div className="flex flex-col items-center justify-center text-white">
+                    <File size={120} className="mb-4 text-gray-400" />
+                    <p className="text-lg font-semibold mb-2">{currentPhoto.originalName}</p>
+                    <p className="text-sm text-gray-400 mb-4">File non visualizzabile</p>
+                    <a
+                      href={`${apiUrl}${currentPhoto.path}`}
+                      download={currentPhoto.originalName}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition flex items-center gap-2"
+                    >
+                      <Download size={18} />
+                      Scarica File
+                    </a>
+                  </div>
+                );
+              }
+            })()}
           </div>
 
           {/* Sidebar con miniatures */}
           {localPhotos.length > 1 && (
             <div className="w-32 border-l bg-gray-50 overflow-y-auto p-2">
               <div className="space-y-2">
-                {localPhotos.map((photo, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentPhotoIndex(index)}
-                    className={`w-full aspect-square rounded-lg overflow-hidden border-2 transition ${
-                      index === currentPhotoIndex
-                        ? 'border-blue-500 ring-2 ring-blue-300'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <img
-                      src={`${apiUrl}${photo.path}`}
-                      alt={photo.originalName}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
+                {localPhotos.map((photo, index) => {
+                  const isImage = photo.originalName?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i) || 
+                                 photo.path?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentPhotoIndex(index)}
+                      className={`w-full aspect-square rounded-lg overflow-hidden border-2 transition flex items-center justify-center ${
+                        index === currentPhotoIndex
+                          ? 'border-blue-500 ring-2 ring-blue-300'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      {isImage ? (
+                        <img
+                          src={`${apiUrl}${photo.path}`}
+                          alt={photo.originalName}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <File size={32} className="text-gray-400" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -306,13 +346,12 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Upload foto (solo per stati consentiti) */}
+              {/* Upload file (solo per stati consentiti) */}
               {canManagePhotos && onUploadPhotos && (
                 <>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
                     multiple
                     onChange={handleFileSelect}
                     className="hidden"
@@ -322,7 +361,7 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                     disabled={isUploading}
                     className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
                   >
-                    <Camera size={18} />
+                    <Upload size={18} />
                     {isUploading ? 'Caricamento...' : 'Carica'}
                   </button>
                 </>
@@ -366,7 +405,7 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                 Stampa
               </button>
 
-              {/* Elimina (solo per tecnici e stati consentiti) */}
+              {/* Elimina file (solo per tecnici e stati consentiti) */}
               {canDelete && (
                 <button
                   onClick={handleDelete}
