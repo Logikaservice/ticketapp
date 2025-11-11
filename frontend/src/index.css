@@ -163,3 +163,32 @@ body {
   to { opacity: 1; transform: translateX(0); }
 }
 .animate-slideInRight { animation: slideInRight 0.35s ease forwards; }
+
+/* ================================ */
+/*  Card Dashboard - Miglioramenti */
+/* ================================ */
+
+/* Bordi superiori colorati per stati */
+.border-top-blue { border-top: 3px solid #2563eb; }
+.border-top-yellow { border-top: 3px solid #f59e0b; }
+.border-top-green { border-top: 3px solid #10b981; }
+.border-top-gray { border-top: 3px solid #6b7280; }
+.border-top-indigo { border-top: 3px solid #6366f1; }
+.border-top-purple { border-top: 3px solid #8b5cf6; }
+
+/* Background gradient leggero per profondità */
+.bg-gradient-blue { background: linear-gradient(to bottom, rgba(37, 99, 235, 0.03), rgba(37, 99, 235, 0.01)); }
+.bg-gradient-yellow { background: linear-gradient(to bottom, rgba(245, 158, 11, 0.03), rgba(245, 158, 11, 0.01)); }
+.bg-gradient-green { background: linear-gradient(to bottom, rgba(16, 185, 129, 0.03), rgba(16, 185, 129, 0.01)); }
+.bg-gradient-gray { background: linear-gradient(to bottom, rgba(107, 114, 128, 0.03), rgba(107, 114, 128, 0.01)); }
+.bg-gradient-indigo { background: linear-gradient(to bottom, rgba(99, 102, 241, 0.03), rgba(99, 102, 241, 0.01)); }
+.bg-gradient-purple { background: linear-gradient(to bottom, rgba(139, 92, 246, 0.03), rgba(139, 92, 246, 0.01)); }
+
+/* Effetto hover per card */
+.card-hover {
+  transition: all 0.3s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+}

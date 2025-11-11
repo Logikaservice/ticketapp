@@ -7,7 +7,7 @@ import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
 import { formatDate } from '../utils/formatters';
 
-const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, badge = null }) => {
+const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, badge = null, cardKey = null }) => {
   const ringClass = highlight
     ? highlight.type === 'up'
       ? 'ring-pulse-green'
@@ -15,15 +15,28 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, bad
         ? 'ring-pulse-red'
         : 'ring-pulse-green'
     : '';
+  
+  // Mappa colori per ogni stato
+  const colorMap = {
+    'aperto': { border: 'border-top-blue', gradient: 'bg-gradient-blue' },
+    'in_lavorazione': { border: 'border-top-yellow', gradient: 'bg-gradient-yellow' },
+    'risolto': { border: 'border-top-green', gradient: 'bg-gradient-green' },
+    'chiuso': { border: 'border-top-gray', gradient: 'bg-gradient-gray' },
+    'inviato': { border: 'border-top-indigo', gradient: 'bg-gradient-indigo' },
+    'fatturato': { border: 'border-top-purple', gradient: 'bg-gradient-purple' }
+  };
+  
+  const colors = cardKey && colorMap[cardKey] ? colorMap[cardKey] : { border: '', gradient: '' };
+  
   return (
-    <button onClick={onClick} disabled={disabled} className={`text-center w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
-      <div className={`p-4 rounded-xl border bg-white relative ${ringClass}`}>
+    <button onClick={onClick} disabled={disabled} className={`card-hover text-center w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+      <div className={`p-5 rounded-xl border border-gray-200 bg-white relative overflow-hidden ${colors.border} ${colors.gradient} shadow-sm hover:shadow-lg ${ringClass}`}>
         {badge && (
           <span className="absolute -top-2 -right-2 text-[10px] font-bold bg-green-600 text-white px-2 py-[2px] rounded-full shadow-sm animate-new-float">
             {badge}
           </span>
         )}
-        <div className="text-sm text-gray-500 mb-1 flex items-center justify-center gap-2">{icon}<span>{title}</span></div>
+        <div className="text-xs font-medium text-gray-600 mb-3 flex items-center justify-center gap-2">{icon}<span>{title}</span></div>
         <div className="text-5xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
         {/* Frecce rimosse su richiesta */}
         {highlight && highlight.type === 'up' && (
@@ -608,12 +621,12 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   };
 
   const statCards = [
-    { key: 'aperto', title: 'Aperti', value: counts.aperto, icon: <FileText size={14} /> },
-    { key: 'in_lavorazione', title: 'In lavorazione', value: counts.in_lavorazione, icon: <PlayCircle size={14} /> },
-    { key: 'risolto', title: 'Risolti', value: counts.risolto, icon: <CheckCircle size={14} /> },
-    { key: 'chiuso', title: 'Chiusi', value: counts.chiuso, icon: <Archive size={14} /> },
-    { key: 'inviato', title: 'Inviati', value: counts.inviato, icon: <Send size={14} /> },
-    { key: 'fatturato', title: 'Fatturati', value: counts.fatturato, icon: <FileCheck2 size={14} /> }
+    { key: 'aperto', title: 'Aperti', value: counts.aperto, icon: <FileText size={18} /> },
+    { key: 'in_lavorazione', title: 'In lavorazione', value: counts.in_lavorazione, icon: <PlayCircle size={18} /> },
+    { key: 'risolto', title: 'Risolti', value: counts.risolto, icon: <CheckCircle size={18} /> },
+    { key: 'chiuso', title: 'Chiusi', value: counts.chiuso, icon: <Archive size={18} /> },
+    { key: 'inviato', title: 'Inviati', value: counts.inviato, icon: <Send size={18} /> },
+    { key: 'fatturato', title: 'Fatturati', value: counts.fatturato, icon: <FileCheck2 size={18} /> }
   ];
 
   return (
@@ -763,44 +776,44 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           
           {/* Statistiche per stato */}
           <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-4">
-            <div className="p-3 bg-white rounded-lg border border-purple-200 text-center">
-              <div className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
-                <FileText size={12} />
+            <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-blue bg-gradient-blue shadow-sm hover:shadow-lg text-center">
+              <div className="text-xs font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
+                <FileText size={18} />
                 <span>Aperti</span>
               </div>
               <div className="text-3xl font-extrabold text-blue-600">{companyCounts.aperto}</div>
             </div>
-            <div className="p-3 bg-white rounded-lg border border-purple-200 text-center">
-              <div className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
-                <PlayCircle size={12} />
+            <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-yellow bg-gradient-yellow shadow-sm hover:shadow-lg text-center">
+              <div className="text-xs font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
+                <PlayCircle size={18} />
                 <span>In Lavorazione</span>
               </div>
               <div className="text-3xl font-extrabold text-yellow-600">{companyCounts.in_lavorazione}</div>
             </div>
-            <div className="p-3 bg-white rounded-lg border border-purple-200 text-center">
-              <div className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
-                <CheckCircle size={12} />
+            <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-green bg-gradient-green shadow-sm hover:shadow-lg text-center">
+              <div className="text-xs font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
+                <CheckCircle size={18} />
                 <span>Risolti</span>
               </div>
               <div className="text-3xl font-extrabold text-green-600">{companyCounts.risolto}</div>
             </div>
-            <div className="p-3 bg-white rounded-lg border border-purple-200 text-center">
-              <div className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
-                <Archive size={12} />
+            <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-gray bg-gradient-gray shadow-sm hover:shadow-lg text-center">
+              <div className="text-xs font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
+                <Archive size={18} />
                 <span>Chiusi</span>
               </div>
               <div className="text-3xl font-extrabold text-gray-600">{companyCounts.chiuso}</div>
             </div>
-            <div className="p-3 bg-white rounded-lg border border-purple-200 text-center">
-              <div className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
-                <Send size={12} />
+            <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-indigo bg-gradient-indigo shadow-sm hover:shadow-lg text-center">
+              <div className="text-xs font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
+                <Send size={18} />
                 <span>Inviati</span>
               </div>
               <div className="text-3xl font-extrabold text-indigo-600">{companyCounts.inviato}</div>
             </div>
-            <div className="p-3 bg-white rounded-lg border border-purple-200 text-center">
-              <div className="text-xs text-gray-500 mb-1 flex items-center justify-center gap-1">
-                <FileCheck2 size={12} />
+            <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-purple bg-gradient-purple shadow-sm hover:shadow-lg text-center">
+              <div className="text-xs font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
+                <FileCheck2 size={18} />
                 <span>Fatturati</span>
               </div>
               <div className="text-3xl font-extrabold text-purple-600">{companyCounts.fatturato}</div>
@@ -902,6 +915,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             highlight={activeHighlights[sc.key]}
             disabled={sc.value === 0}
             badge={showNewBadge && sc.key === 'aperto' ? 'NEW' : null}
+            cardKey={sc.key}
             onClick={() => sc.value > 0 && onOpenState && onOpenState(sc.key)}
           />
         ))}
