@@ -10,21 +10,27 @@ html {
   height: 111.11%;
   overflow-x: hidden; /* Nasconde barre di scorrimento orizzontali */
   overflow-y: auto; /* Permette scorrimento verticale se necessario */
+  background: #f3f4f6; /* Sfondo grigio chiaro di fallback */
 }
 
 body {
   width: 100vw;
   min-height: 100vh;
+  height: 100vh;
   margin: 0;
   padding: 0;
   overflow-x: hidden; /* Nasconde barre di scorrimento orizzontali */
   overflow-y: auto; /* Permette scorrimento verticale se necessario */
+  background: #f3f4f6; /* Sfondo grigio chiaro di fallback */
+  position: relative;
 }
 
 #root {
   width: 100%;
   min-height: 100vh;
+  height: 100%;
   overflow-x: hidden;
+  position: relative;
 }
 
 /* Animazione personalizzata per messaggi non letti */
