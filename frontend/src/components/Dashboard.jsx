@@ -32,7 +32,7 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, bad
     <button onClick={onClick} disabled={disabled} className={`card-hover text-center w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
       <div className={`p-5 rounded-xl border border-gray-200 bg-white relative overflow-hidden ${colors.border} ${colors.gradient} shadow-sm hover:shadow-lg ${ringClass}`}>
         {badge && (
-          <span className="absolute -top-2 -right-2 text-[10px] font-bold bg-green-600 text-white px-2 py-[2px] rounded-full shadow-sm animate-new-float">
+          <span className="absolute -top-3 -right-3 text-xs font-extrabold bg-red-500 text-white px-3 py-1 rounded-full shadow-lg animate-new-badge z-10 border-2 border-white">
             {badge}
           </span>
         )}
