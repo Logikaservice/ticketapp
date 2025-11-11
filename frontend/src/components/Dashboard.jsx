@@ -36,7 +36,7 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, bad
             {badge}
           </span>
         )}
-        <div className="text-xs font-medium text-gray-600 mb-3 flex items-center justify-center gap-2">{icon}<span>{title}</span></div>
+        <div className="text-sm font-medium text-gray-600 mb-3 flex items-center justify-center gap-2">{icon}<span>{title}</span></div>
         <div className="text-5xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
         {/* Frecce rimosse su richiesta */}
         {highlight && highlight.type === 'up' && (
@@ -777,42 +777,42 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           {/* Statistiche per stato */}
           <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-4">
             <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-blue bg-gradient-blue shadow-sm hover:shadow-lg text-center">
-              <div className="text-xs font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
+              <div className="text-sm font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
                 <FileText size={18} />
                 <span>Aperti</span>
               </div>
               <div className="text-3xl font-extrabold text-blue-600">{companyCounts.aperto}</div>
             </div>
             <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-yellow bg-gradient-yellow shadow-sm hover:shadow-lg text-center">
-              <div className="text-xs font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
+              <div className="text-sm font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
                 <PlayCircle size={18} />
                 <span>In Lavorazione</span>
               </div>
               <div className="text-3xl font-extrabold text-yellow-600">{companyCounts.in_lavorazione}</div>
             </div>
             <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-green bg-gradient-green shadow-sm hover:shadow-lg text-center">
-              <div className="text-xs font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
+              <div className="text-sm font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
                 <CheckCircle size={18} />
                 <span>Risolti</span>
               </div>
               <div className="text-3xl font-extrabold text-green-600">{companyCounts.risolto}</div>
             </div>
             <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-gray bg-gradient-gray shadow-sm hover:shadow-lg text-center">
-              <div className="text-xs font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
+              <div className="text-sm font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
                 <Archive size={18} />
                 <span>Chiusi</span>
               </div>
               <div className="text-3xl font-extrabold text-gray-600">{companyCounts.chiuso}</div>
             </div>
             <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-indigo bg-gradient-indigo shadow-sm hover:shadow-lg text-center">
-              <div className="text-xs font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
+              <div className="text-sm font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
                 <Send size={18} />
                 <span>Inviati</span>
               </div>
               <div className="text-3xl font-extrabold text-indigo-600">{companyCounts.inviato}</div>
             </div>
             <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-purple bg-gradient-purple shadow-sm hover:shadow-lg text-center">
-              <div className="text-xs font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
+              <div className="text-sm font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
                 <FileCheck2 size={18} />
                 <span>Fatturati</span>
               </div>
