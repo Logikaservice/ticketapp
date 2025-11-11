@@ -35,6 +35,7 @@ body {
   overflow-x: hidden; /* Nasconde barre di scorrimento orizzontali */
   overflow-y: auto; /* Permette scorrimento verticale se necessario */
   position: relative;
+  background-color: transparent;
 }
 
 #root {
