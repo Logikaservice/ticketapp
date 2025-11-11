@@ -87,10 +87,10 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
       left: 0,
       right: 0,
       bottom: 0,
-      width: '100vw',
-      height: '100vh',
-      minWidth: '100vw',
-      minHeight: '100vh',
+      width: '111.11vw', /* Compensa lo zoom del 90% (100/0.9) */
+      height: '111.11vh', /* Compensa lo zoom del 90% (100/0.9) */
+      minWidth: '111.11vw',
+      minHeight: '111.11vh',
       margin: 0,
       padding: '1rem',
       boxSizing: 'border-box',
