@@ -7,7 +7,7 @@ import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
 import { formatDate } from '../utils/formatters';
 
-const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, badge = null, cardKey = null }) => {
+const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, cardKey = null }) => {
   const ringClass = highlight
     ? highlight.type === 'up'
       ? 'ring-pulse-green'
@@ -31,11 +31,6 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, bad
   return (
     <button onClick={onClick} disabled={disabled} className={`card-hover text-center w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
       <div className={`p-5 rounded-xl border border-gray-200 bg-white relative overflow-hidden ${colors.border} ${colors.gradient} shadow-sm hover:shadow-lg ${ringClass}`}>
-        {badge && (
-          <span className="absolute -top-3 -right-3 text-xs font-extrabold bg-red-500 text-white px-3 py-1 rounded-full shadow-lg animate-new-badge z-10 border-2 border-white">
-            {badge}
-          </span>
-        )}
         <div className="text-sm font-medium text-gray-600 mb-3 flex items-center justify-center gap-2">{icon}<span>{title}</span></div>
         <div className="text-5xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
         {/* Frecce rimosse su richiesta */}
@@ -45,7 +40,6 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, bad
         {highlight && highlight.type === 'down' && (
           <div className={`absolute left-4 right-4 -bottom-1 h-2 rounded-full bg-red-400 blur-md opacity-80`}></div>
         )}
-        {/* badge NEW ora gestito via prop 'badge' */}
       </div>
     </button>
   );
@@ -914,7 +908,6 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             value={sc.value}
             highlight={activeHighlights[sc.key]}
             disabled={sc.value === 0}
-            badge={showNewBadge && sc.key === 'aperto' ? 'NEW' : null}
             cardKey={sc.key}
             onClick={() => sc.value > 0 && onOpenState && onOpenState(sc.key)}
           />
