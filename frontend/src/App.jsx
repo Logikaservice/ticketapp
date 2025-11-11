@@ -1224,30 +1224,35 @@ export default function TicketApp() {
 
       const result = await response.json();
       
-      // Usa setTimeout per evitare aggiornamenti di stato durante il render
-      setTimeout(() => {
-        // Aggiorna il ticket nella lista
-        setTickets(prev => prev.map(t => 
-          t.id === ticketId 
-            ? { ...t, photos: result.photos } 
-            : t
-        ));
+      // Ritorna i risultati immediatamente, gli aggiornamenti di stato verranno gestiti dal componente chiamante
+      // Usa requestAnimationFrame per deferire gli aggiornamenti di stato
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          // Aggiorna il ticket nella lista
+          setTickets(prev => prev.map(t => 
+            t.id === ticketId 
+              ? { ...t, photos: result.photos } 
+              : t
+          ));
 
-        // Aggiorna anche selectedTicket se è quello corretto
-        if (selectedTicket && selectedTicket.id === ticketId) {
-          setSelectedTicket({ ...selectedTicket, photos: result.photos });
-        }
+          // Aggiorna anche selectedTicket se è quello corretto
+          if (selectedTicket && selectedTicket.id === ticketId) {
+            setSelectedTicket({ ...selectedTicket, photos: result.photos });
+          }
 
-        showNotification(result.message || 'File caricati con successo', 'success');
-      }, 0);
+          showNotification(result.message || 'File caricati con successo', 'success');
+        }, 0);
+      });
       
       return result.photos;
     } catch (error) {
       console.error('Errore upload file:', error);
-      // Usa setTimeout per evitare aggiornamenti di stato durante il render
-      setTimeout(() => {
-        showNotification(error.message || 'Errore durante il caricamento dei file', 'error');
-      }, 0);
+      // Usa requestAnimationFrame + setTimeout per evitare aggiornamenti di stato durante il render
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          showNotification(error.message || 'Errore durante il caricamento dei file', 'error');
+        }, 0);
+      });
       throw error;
     }
   };

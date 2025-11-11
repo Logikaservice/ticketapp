@@ -41,34 +41,45 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
       return;
     }
 
-    setIsUploading(true);
-    try {
-      console.log('🔄 Caricamento file...', files.length, 'file');
-      const uploadedPhotos = await onUploadPhotos(ticket.id, files);
-      console.log('✅ File caricati:', uploadedPhotos);
+    // Usa setTimeout per deferire l'aggiornamento di stato
+    setTimeout(() => {
+      setIsUploading(true);
       
-      // Usa setTimeout per evitare aggiornamenti di stato durante il render
-      setTimeout(() => {
-        setLocalPhotos(uploadedPhotos);
-        
-        // Vai all'ultimo file caricato
-        if (uploadedPhotos.length > localPhotos.length) {
-          setCurrentPhotoIndex(uploadedPhotos.length - 1);
+      // Avvia l'upload in modo asincrono
+      (async () => {
+        try {
+          console.log('🔄 Caricamento file...', files.length, 'file');
+          const uploadedPhotos = await onUploadPhotos(ticket.id, files);
+          console.log('✅ File caricati:', uploadedPhotos);
+          
+          // Usa setTimeout per evitare aggiornamenti di stato durante il render
+          setTimeout(() => {
+            setLocalPhotos(uploadedPhotos);
+            
+            // Vai all'ultimo file caricato
+            if (uploadedPhotos.length > localPhotos.length) {
+              setCurrentPhotoIndex(uploadedPhotos.length - 1);
+            }
+            
+            setIsUploading(false);
+            // Reset input
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
+          }, 0);
+        } catch (error) {
+          console.error('❌ Errore upload:', error);
+          // Usa setTimeout per evitare aggiornamenti di stato durante il render
+          setTimeout(() => {
+            setIsUploading(false);
+            // Reset input
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
+          }, 0);
         }
-      }, 0);
-    } catch (error) {
-      console.error('❌ Errore upload:', error);
-      // Non mostrare alert, la notifica è già gestita da handleUploadTicketPhotos
-    } finally {
-      // Usa setTimeout per evitare aggiornamenti di stato durante il render
-      setTimeout(() => {
-        setIsUploading(false);
-        // Reset input
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      }, 0);
-    }
+      })();
+    }, 0);
   };
 
   if (!localPhotos || localPhotos.length === 0) {
