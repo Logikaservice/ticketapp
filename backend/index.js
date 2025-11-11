@@ -842,7 +842,7 @@ app.post('/api/init-db', async (req, res) => {
         id SERIAL PRIMARY KEY,
         title TEXT NOT NULL,
         body TEXT NOT NULL,
-        level TEXT NOT NULL DEFAULT 'warning' CHECK (level IN ('warning', 'danger', 'info')),
+        level TEXT NOT NULL DEFAULT 'warning' CHECK (level IN ('warning', 'danger', 'info', 'features')),
         ticket_id INTEGER,
         created_by TEXT,
         clients JSONB DEFAULT '[]',
@@ -862,6 +862,17 @@ app.post('/api/init-db', async (req, res) => {
       console.log("✅ Colonne aggiunte alla tabella alerts esistente");
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonne (potrebbero già esistere):", alterErr.message);
+    }
+    
+    // Aggiorna il constraint CHECK per includere 'features' se la tabella esiste già
+    try {
+      // Rimuovi il constraint esistente (se presente)
+      await pool.query(`ALTER TABLE alerts DROP CONSTRAINT IF EXISTS alerts_level_check`);
+      // Aggiungi il nuovo constraint con 'features'
+      await pool.query(`ALTER TABLE alerts ADD CONSTRAINT alerts_level_check CHECK (level IN ('warning', 'danger', 'info', 'features'))`);
+      console.log("✅ Constraint CHECK aggiornato per includere 'features'");
+    } catch (constraintErr) {
+      console.log("⚠️ Errore aggiornamento constraint (potrebbe non essere necessario):", constraintErr.message);
     }
     
     // Aggiungi colonna googlecalendareventid alla tabella tickets se non esiste
@@ -966,7 +977,7 @@ const startServer = async () => {
           id SERIAL PRIMARY KEY,
           title TEXT NOT NULL,
           body TEXT NOT NULL,
-          level TEXT NOT NULL DEFAULT 'warning' CHECK (level IN ('warning', 'danger', 'info')),
+          level TEXT NOT NULL DEFAULT 'warning' CHECK (level IN ('warning', 'danger', 'info', 'features')),
           ticket_id INTEGER,
           created_by TEXT,
           clients JSONB DEFAULT '[]',
@@ -977,6 +988,17 @@ const startServer = async () => {
         )
       `);
       console.log("✅ Tabella alerts inizializzata automaticamente");
+      
+      // Aggiorna il constraint CHECK per includere 'features' se la tabella esiste già
+      try {
+        // Rimuovi il constraint esistente (se presente)
+        await pool.query(`ALTER TABLE alerts DROP CONSTRAINT IF EXISTS alerts_level_check`);
+        // Aggiungi il nuovo constraint con 'features'
+        await pool.query(`ALTER TABLE alerts ADD CONSTRAINT alerts_level_check CHECK (level IN ('warning', 'danger', 'info', 'features'))`);
+        console.log("✅ Constraint CHECK aggiornato per includere 'features' (auto-init)");
+      } catch (constraintErr) {
+        console.log("⚠️ Errore aggiornamento constraint (auto-init):", constraintErr.message);
+      }
     } catch (initErr) {
       console.log("⚠️ Tabella alerts già esistente o errore:", initErr.message);
     }
