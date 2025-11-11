@@ -23,6 +23,8 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
     document.body.style.width = '100vw';
     document.body.style.margin = '0';
     document.body.style.padding = '0';
+    document.body.style.backgroundColor = 'transparent';
+    document.documentElement.style.backgroundColor = 'transparent';
     
     return () => {
       document.documentElement.style.overflow = '';
@@ -32,6 +34,8 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
       document.body.style.width = '';
       document.body.style.margin = '';
       document.body.style.padding = '';
+      document.body.style.backgroundColor = '';
+      document.documentElement.style.backgroundColor = '';
     };
   }, []);
 
