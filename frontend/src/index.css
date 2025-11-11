@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Zoom globale 90% di default */
+html {
+  transform: scale(0.9);
+  transform-origin: top left;
+  width: 111.11%; /* Compensa la riduzione al 90% (100/0.9) */
+  height: 111.11%;
+}
+
+body {
+  width: 100%;
+  height: 100%;
+}
+
 /* Animazione personalizzata per messaggi non letti */
 @keyframes pulse-slow {
   0%, 100% {
