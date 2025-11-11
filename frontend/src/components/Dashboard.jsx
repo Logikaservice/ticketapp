@@ -478,7 +478,24 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       }
       // I tecnici vedono tutti gli avvisi (non serve filtro)
       
-      setAlerts(filteredAlerts);
+      // Filtra gli avvisi temporanei scaduti (per tutti gli utenti)
+      const activeAlerts = filteredAlerts.filter(alert => {
+        // Se è permanente, mostralo sempre
+        if (alert.isPermanent) {
+          return true;
+        }
+        
+        // Se è temporaneo, verifica se è scaduto
+        const createdAt = new Date(alert.createdAt || alert.created_at);
+        const daysToExpire = alert.daysToExpire || 7;
+        const expirationDate = new Date(createdAt);
+        expirationDate.setDate(expirationDate.getDate() + daysToExpire);
+        
+        // Mostra solo se non è ancora scaduto
+        return new Date() <= expirationDate;
+      });
+      
+      setAlerts(activeAlerts);
     } catch (e) {
       console.error(e);
     }
