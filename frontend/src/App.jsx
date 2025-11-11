@@ -847,6 +847,7 @@ export default function TicketApp() {
   };
   const openManageClientsModal = () => setModalState({ type: 'manageClients' });
   const openNewClientModal = () => setModalState({ type: 'newClient' });
+  const openAlertsHistory = () => setModalState({ type: 'alertsHistory' });
 
   // Funzioni per gestione avvisi
   const handleRequestEmailConfirm = (alertData) => {
@@ -1704,7 +1705,7 @@ export default function TicketApp() {
         ))}
       </div>
       <Header
-        {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal }}
+        {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory }}
       />
 
       {!showDashboard && (

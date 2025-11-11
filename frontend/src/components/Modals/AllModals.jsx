@@ -10,6 +10,7 @@ import ManageAlertsModal from './ManageAlertsModal';
 import EmailConfirmModal from './EmailConfirmModal';
 import AlertEmailConfirmModal from './AlertEmailConfirmModal';
 import SendEmailConfirmModal from './SendEmailConfirmModal';
+import AlertsHistoryModal from './AlertsHistoryModal';
 
 const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...handlers }) => {
   if (!modalState.type) return null;
@@ -97,6 +98,15 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             onConfirm={handlers.onConfirmSendEmail}
             onCancel={handlers.onCancelSendEmail}
             ticket={modalState.data}
+          />
+        );
+        
+      case 'alertsHistory':
+        return (
+          <AlertsHistoryModal 
+            isOpen={true}
+            onClose={closeModal}
+            currentUser={handlers.currentUser}
           />
         );
         

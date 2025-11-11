@@ -1,9 +1,9 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Clock } from 'lucide-react';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const menuRef = useRef(null);
 
@@ -108,6 +108,16 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                   )}
                 </div>
               </>
+            )}
+            
+            {currentUser?.ruolo === 'tecnico' && (
+              <button 
+                onClick={openAlertsHistory} 
+                className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition"
+                title="Cronologia Avvisi"
+              >
+                <Clock size={18} />
+              </button>
             )}
             
             <button 
