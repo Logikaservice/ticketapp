@@ -107,6 +107,7 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             isOpen={true}
             onClose={closeModal}
             currentUser={handlers.currentUser}
+            getAuthHeader={handlers.getAuthHeader}
           />
         );
         

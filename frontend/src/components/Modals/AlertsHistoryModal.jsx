@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Clock, AlertTriangle, Info, Sparkles, Calendar, User, Building, FileImage, Mail } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';
-import { getAuthHeader } from '../../utils/auth';
 
-const AlertsHistoryModal = ({ isOpen, onClose, currentUser }) => {
+const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader }) => {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedAlert, setSelectedAlert] = useState(null);
