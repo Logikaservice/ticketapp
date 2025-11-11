@@ -1837,6 +1837,8 @@ export default function TicketApp() {
           onCancelAlertEmail={handleCancelAlertEmail}
           onConfirmSendEmail={handleConfirmSendEmail}
           onCancelSendEmail={handleCancelSendEmail}
+        getAuthHeader={getAuthHeader}
+        alertsRefreshTrigger={alertsRefreshTrigger}
       />
 
       {modalState.type === 'manageClients' && (

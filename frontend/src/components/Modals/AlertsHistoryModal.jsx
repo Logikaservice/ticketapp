@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Clock, AlertTriangle, Info, Sparkles, Calendar, User, Building, FileImage, Mail } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';
 
-const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader }) => {
+const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alertsRefreshTrigger }) => {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedAlert, setSelectedAlert] = useState(null);
@@ -12,7 +12,7 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader }) => 
     if (isOpen) {
       fetchAlerts();
     }
-  }, [isOpen]);
+  }, [isOpen, alertsRefreshTrigger]);
 
   const fetchAlerts = async () => {
     setLoading(true);

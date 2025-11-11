@@ -104,7 +104,31 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                 )}
                 {avv.title}
               </div>
-              <div className="text-sm mt-1">{avv.body}</div>
+              {avv.level === 'features' ? (
+                <div className="text-sm mt-1">
+                  <div className="line-clamp-4 whitespace-pre-wrap">{avv.body}</div>
+                  {(() => {
+                    // Controlla se il testo è troppo lungo o ha troppe righe
+                    const textLines = avv.body ? avv.body.split('\n').length : 0;
+                    const textLength = avv.body ? avv.body.length : 0;
+                    // Mostra "... altro" se ha più di 4 righe o più di ~300 caratteri
+                    const shouldShowMore = textLines > 4 || textLength > 300;
+                    return shouldShowMore && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setModalState({ type: 'alertsHistory' });
+                        }}
+                        className="text-green-600 hover:text-green-700 font-semibold text-sm mt-1"
+                      >
+                        ... altro
+                      </button>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <div className="text-sm mt-1 whitespace-pre-wrap">{avv.body}</div>
+              )}
               
               {/* Informazioni destinatari */}
               <div className="mt-2 flex items-center gap-2">

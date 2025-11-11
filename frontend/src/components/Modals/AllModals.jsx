@@ -108,6 +108,7 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             onClose={closeModal}
             currentUser={handlers.currentUser}
             getAuthHeader={handlers.getAuthHeader}
+            alertsRefreshTrigger={handlers.alertsRefreshTrigger}
           />
         );
         
