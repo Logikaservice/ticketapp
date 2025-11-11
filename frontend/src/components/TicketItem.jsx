@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Settings, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon, Package, Eye, Printer, Image as ImageIcon, Upload, Mail } from 'lucide-react';
+import { User, Settings, Check, CornerDownLeft, Euro, Trash2, AlertCircle, Zap, Calendar as CalIcon, Package, Eye, Printer, Paperclip, Upload, Mail } from 'lucide-react';
 import { getStatoColor, getPrioritaColor, getPrioritaBgClass, getPrioritySolidBgClass, getStatoIcon } from '../utils/colors';
 import { formatDate } from '../utils/formatters';
 import ChatInterface from './ChatInterface';
@@ -135,14 +135,14 @@ const TicketItem = ({ ticket, cliente, currentUser, selectedTicket, handlers, ge
                     e.stopPropagation(); 
                     setPhotosModalTicket(ticket);
                   }}
-                  title={hasPhotos ? `Visualizza foto (${photos.length})` : 'Aggiungi foto'}
+                  title={hasPhotos ? `Visualizza file (${photos.length})` : 'Aggiungi file'}
                   className={`p-1 rounded-full relative ${
                     hasPhotos 
                       ? 'text-purple-600 hover:bg-purple-100' 
                       : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
-                  <ImageIcon size={18} />
+                  <Paperclip size={18} />
                   {hasPhotos && (
                     <span className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                       {photos.length}
