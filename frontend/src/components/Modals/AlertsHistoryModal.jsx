@@ -47,33 +47,17 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader }) => 
       });
       
       // Filtra solo gli avvisi di tipo "features" (Nuove funzionalità)
+      // NOTA: Mostriamo TUTTI gli avvisi features, anche quelli scaduti, per mantenere la cronologia completa
       const featuresAlerts = parsedAlerts.filter(alert => alert.level === 'features');
       
-      // Filtra gli avvisi scaduti (solo per quelli temporanei)
-      const activeFeaturesAlerts = featuresAlerts.filter(alert => {
-        // Se è permanente, mostralo sempre
-        if (alert.isPermanent) {
-          return true;
-        }
-        
-        // Se è temporaneo, verifica se è scaduto
-        const createdAt = new Date(alert.createdAt || alert.created_at);
-        const daysToExpire = alert.daysToExpire || 7;
-        const expirationDate = new Date(createdAt);
-        expirationDate.setDate(expirationDate.getDate() + daysToExpire);
-        
-        // Mostra solo se non è ancora scaduto
-        return new Date() <= expirationDate;
-      });
-      
       // Ordina per data di creazione (più recenti prima)
-      activeFeaturesAlerts.sort((a, b) => {
+      featuresAlerts.sort((a, b) => {
         const dateA = new Date(a.createdAt || a.created_at);
         const dateB = new Date(b.createdAt || b.created_at);
         return dateB - dateA;
       });
       
-      setAlerts(activeFeaturesAlerts);
+      setAlerts(featuresAlerts);
     } catch (e) {
       console.error('Errore caricamento avvisi:', e);
     } finally {
