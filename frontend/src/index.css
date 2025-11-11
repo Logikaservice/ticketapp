@@ -10,7 +10,20 @@ html {
   height: 111.11%;
   overflow-x: hidden; /* Nasconde barre di scorrimento orizzontali */
   overflow-y: auto; /* Permette scorrimento verticale se necessario */
-  background: #f3f4f6; /* Sfondo grigio chiaro di fallback */
+}
+
+/* Sfondo fisso che copre tutta la pagina anche con zoom */
+html::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #f3f4f6;
+  z-index: -1;
+  transform: scale(1.111); /* Compensa lo zoom del 90% (1/0.9) */
+  transform-origin: top left;
 }
 
 body {
@@ -21,7 +34,6 @@ body {
   padding: 0;
   overflow-x: hidden; /* Nasconde barre di scorrimento orizzontali */
   overflow-y: auto; /* Permette scorrimento verticale se necessario */
-  background: #f3f4f6; /* Sfondo grigio chiaro di fallback */
   position: relative;
 }
 
