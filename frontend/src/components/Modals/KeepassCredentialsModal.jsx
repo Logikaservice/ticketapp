@@ -87,8 +87,16 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
         
         // Filtra ricorsivamente i children
         const filteredChildren = (group.children || []).map(child => filterGroup(child)).filter(child => {
-          // Mantieni gruppi che hanno entry valide O children validi
-          return (child.entries && child.entries.length > 0) || (child.children && child.children.length > 0);
+          // Mantieni gruppi che hanno entry valide O children validi (anche se i children non hanno entries)
+          const hasValidEntries = child.entries && child.entries.length > 0;
+          const hasValidChildren = child.children && child.children.length > 0;
+          const shouldKeep = hasValidEntries || hasValidChildren;
+          
+          if (!shouldKeep && (group.children || []).length > 0) {
+            console.log(`🗑️ Gruppo child "${child.name}" filtrato (no entries: ${!hasValidEntries}, no children: ${!hasValidChildren})`);
+          }
+          
+          return shouldKeep;
         });
         
         return {
@@ -100,8 +108,16 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
       
       // Applica il filtro a tutti i gruppi root
       const filteredGroups = (data.groups || []).map(group => filterGroup(group)).filter(group => {
-        // Mantieni gruppi che hanno entry valide O children validi
-        return (group.entries && group.entries.length > 0) || (group.children && group.children.length > 0);
+        // Mantieni gruppi che hanno entry valide O children validi (anche se i children non hanno entries)
+        const hasValidEntries = group.entries && group.entries.length > 0;
+        const hasValidChildren = group.children && group.children.length > 0;
+        const shouldKeep = hasValidEntries || hasValidChildren;
+        
+        if (!shouldKeep) {
+          console.log(`🗑️ Gruppo root "${group.name}" filtrato (no entries: ${!hasValidEntries}, no children: ${!hasValidChildren})`);
+        }
+        
+        return shouldKeep;
       });
       
       console.log('📊 Gruppi filtrati:', filteredGroups.length, 'gruppi root');
