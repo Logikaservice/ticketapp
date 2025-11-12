@@ -107,34 +107,27 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
               {avv.level === 'features' ? (
                 <div className="text-sm mt-1 text-justify">
                   {(() => {
-                    // Controlla se il testo è troppo lungo o ha troppe righe (massimo 5 righe)
-                    const textLines = avv.body ? avv.body.split('\n').length : 0;
+                    // Usa line-clamp per limitare visivamente a 5 righe
                     const textLength = avv.body ? avv.body.length : 0;
-                    const shouldShowMore = textLines > 5 || textLength > 300;
+                    const textLines = avv.body ? avv.body.split('\n').length : 0;
+                    const shouldShowMore = textLength > 200 || textLines > 3;
                     
                     if (shouldShowMore) {
-                      // Tronca il testo a 5 righe e aggiunge "... altro" inline sulla stessa riga
-                      const lines = avv.body ? avv.body.split('\n') : [];
-                      const first5Lines = lines.slice(0, 5).join('\n');
-                      const hasMore = lines.length > 5;
-                      
                       return (
-                        <div className="whitespace-pre-wrap">
-                          {first5Lines}
-                          {hasMore && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                if (setModalState) {
-                                  setModalState({ type: 'alertsHistory' });
-                                }
-                              }}
-                              className="text-green-600 hover:text-green-700 font-semibold text-sm inline ml-0.5 cursor-pointer"
-                            >
-                              ...altro
-                            </button>
-                          )}
+                        <div className="relative">
+                          <div className="line-clamp-5 whitespace-pre-wrap pr-12">{avv.body}</div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              if (setModalState) {
+                                setModalState({ type: 'alertsHistory' });
+                              }
+                            }}
+                            className="text-green-600 hover:text-green-700 font-semibold text-sm absolute bottom-0 right-0 bg-white pl-1 cursor-pointer"
+                          >
+                            ...altro
+                          </button>
                         </div>
                       );
                     } else {
