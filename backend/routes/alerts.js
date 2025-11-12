@@ -351,7 +351,12 @@ module.exports = function createAlertsRouter(pool) {
       res.status(201).json(rows[0]);
     } catch (err) {
       console.error('Errore POST /alerts:', err);
-      res.status(500).json({ error: 'Errore nella creazione dell\'avviso' });
+      // Fornisci un messaggio di errore più dettagliato per aiutare il debug
+      const errorMessage = err.message || 'Errore interno del server';
+      res.status(500).json({ 
+        error: 'Errore nella creazione dell\'avviso',
+        details: errorMessage
+      });
     }
   });
 

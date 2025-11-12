@@ -110,7 +110,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
               </>
             )}
             
-            {currentUser?.ruolo === 'tecnico' && (
+            {/* Pulsante Nuove Funzionalità - visibile sia per tecnici che per clienti */}
+            {(currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'cliente') && (
               <button 
                 onClick={openAlertsHistory} 
                 className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition"

@@ -230,8 +230,8 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                 </div>
               )}
               
-              {/* Pulsante per creare ticket dall'avviso - solo per clienti */}
-              {currentUser?.ruolo === 'cliente' && onCreateTicketFromAlert && (
+              {/* Pulsante per creare ticket dall'avviso - solo per clienti, escluso per avvisi "nuove funzionalità" */}
+              {currentUser?.ruolo === 'cliente' && onCreateTicketFromAlert && avv.level !== 'features' && (
                 <div className="mt-3">
                   <button
                     onClick={() => onCreateTicketFromAlert(avv)}
