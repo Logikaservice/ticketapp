@@ -90,9 +90,14 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
       const data = await response.json();
       console.log('✅ Password decifrata, lunghezza:', data.password?.length || 0);
       
+      if (data.warning) {
+        console.warn('⚠️', data.warning);
+        alert('Password vuota o non cifrata. Contatta il tecnico per reimportare il file XML.');
+      }
+      
       setVisiblePasswords(prev => ({
         ...prev,
-        [entryId]: data.password
+        [entryId]: data.password || ''
       }));
     } catch (err) {
       console.error('❌ Errore decifratura password:', err);

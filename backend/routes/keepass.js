@@ -615,9 +615,14 @@ module.exports = function createKeepassRouter(pool) {
       console.log('🔐 Password cifrata trovata, lunghezza:', encryptedPassword?.length || 0);
       console.log('🔐 Password cifrata (primi 50 caratteri):', encryptedPassword?.substring(0, 50) || 'vuota');
 
-      if (!encryptedPassword) {
+      if (!encryptedPassword || encryptedPassword.trim() === '') {
         console.warn('⚠️ Password cifrata vuota per entry:', entryId);
-        return res.json({ password: '' });
+        console.warn('⚠️ Questo significa che la password era vuota durante l\'import o non è stata cifrata correttamente');
+        console.warn('⚠️ Soluzione: reimporta il file XML KeePass per cifrare correttamente tutte le password');
+        return res.json({ 
+          password: '',
+          warning: 'Password vuota o non cifrata. Reimporta il file XML per correggere.'
+        });
       }
 
       console.log('🔓 Tentativo decifratura...');
