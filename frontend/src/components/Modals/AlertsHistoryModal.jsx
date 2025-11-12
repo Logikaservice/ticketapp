@@ -24,8 +24,11 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
       if (!res.ok) throw new Error('Errore caricamento avvisi');
       const allAlerts = await res.json();
       
+      // Filtra solo gli avvisi con level === 'features'
+      const featuresAlerts = allAlerts.filter(alert => alert.level === 'features');
+      
       // Parsa correttamente il campo clients
-      const parsedAlerts = allAlerts.map(alert => {
+      const parsedAlerts = featuresAlerts.map(alert => {
         let clients = [];
         try {
           if (alert.clients) {
@@ -120,12 +123,12 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
         {/* Header */}
         <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-purple-50 to-blue-50">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Clock size={24} className="text-purple-600" />
+            <div className="p-2 bg-green-100 rounded-lg">
+              <Sparkles size={24} className="text-green-600" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Cronologia Avvisi</h2>
-              <p className="text-sm text-gray-600 mt-1">Visualizza tutti gli avvisi creati nel sistema</p>
+              <h2 className="text-2xl font-bold text-gray-900">Nuove Funzionalità</h2>
+              <p className="text-sm text-gray-600 mt-1">Cronologia delle nuove funzionalità aggiunte al sistema</p>
             </div>
           </div>
           <button
