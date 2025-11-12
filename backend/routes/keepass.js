@@ -924,8 +924,10 @@ module.exports = function createKeepassRouter(pool) {
           const updates = {};
           
           // 1. Verifica password vuota o in formato errato
-          if (isPasswordEmpty(entry.password_encrypted)) {
-            console.log(`🗑️ Entry ${entry.id} ha password vuota o in formato errato, verrà eliminata`);
+          const isEmpty = isPasswordEmpty(entry.password_encrypted);
+          if (isEmpty) {
+            console.log(`🗑️ Entry ${entry.id} ("${entry.title || 'Senza titolo'}") ha password vuota o in formato errato, verrà eliminata`);
+            console.log(`   Tipo password: ${typeof entry.password_encrypted}, valore (primi 100 caratteri): ${String(entry.password_encrypted || '').substring(0, 100)}`);
             shouldDelete = true;
           }
           
