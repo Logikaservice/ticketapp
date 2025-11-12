@@ -113,23 +113,28 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                     const shouldShowMore = textLines > 4 || textLength > 300;
                     
                     if (shouldShowMore) {
-                      // Usa un approccio con line-clamp e pulsante inline
-                      const truncatedText = avv.body ? avv.body.substring(0, 300) : '';
+                      // Tronca il testo e aggiunge "... altro" inline sulla stessa riga
+                      const lines = avv.body ? avv.body.split('\n') : [];
+                      const first4Lines = lines.slice(0, 4).join('\n');
+                      const hasMore = lines.length > 4;
+                      
                       return (
-                        <div className="relative">
-                          <div className="line-clamp-4 whitespace-pre-wrap pr-16">{avv.body}</div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (setModalState) {
-                                setModalState({ type: 'alertsHistory' });
-                              }
-                            }}
-                            className="text-green-600 hover:text-green-700 font-semibold text-sm absolute bottom-0 right-0 bg-white pl-1"
-                          >
-                            ... altro
-                          </button>
-                        </div>
+                        <span className="whitespace-pre-wrap">
+                          {first4Lines}
+                          {hasMore && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (setModalState) {
+                                  setModalState({ type: 'alertsHistory' });
+                                }
+                              }}
+                              className="text-green-600 hover:text-green-700 font-semibold text-sm inline ml-0.5"
+                            >
+                              ...altro
+                            </button>
+                          )}
+                        </span>
                       );
                     } else {
                       return <div className="whitespace-pre-wrap">{avv.body}</div>;
