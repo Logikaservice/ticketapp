@@ -153,24 +153,41 @@ module.exports = function createKeepassRouter(pool) {
       let stringKey = '';
       let stringValue = '';
       
+      // Estrai la chiave
       if (s.Key) {
-        stringKey = Array.isArray(s.Key) ? s.Key[0] : s.Key;
-      } else if (s.$.Key) {
+        const keyValue = Array.isArray(s.Key) ? s.Key[0] : s.Key;
+        stringKey = typeof keyValue === 'string' ? keyValue : (keyValue?._ || keyValue?.$?.Key || String(keyValue || ''));
+      } else if (s.$ && s.$.Key) {
         stringKey = s.$.Key;
       }
       
+      // Estrai il valore - xml2js può restituire diversi formati:
+      // 1. Stringa semplice: "valore"
+      // 2. Oggetto con testo: { "_": "valore", "$": {...} }
+      // 3. Solo attributi: { "$": {...} }
       if (s.Value) {
         const value = Array.isArray(s.Value) ? s.Value[0] : s.Value;
-        // Assicurati che il valore sia una stringa
+        
         if (typeof value === 'string') {
+          // Caso 1: stringa semplice
           stringValue = value;
         } else if (value && typeof value === 'object') {
-          // Se è un oggetto, prova a estrarre il testo
-          stringValue = value._ || value.$?.Value || JSON.stringify(value);
+          // Caso 2 o 3: oggetto XML
+          // xml2js mette il testo in "_" quando ci sono attributi
+          if (value._ !== undefined) {
+            stringValue = typeof value._ === 'string' ? value._ : String(value._ || '');
+          } else if (value.$ && value.$.Value) {
+            // Alcuni parser mettono il valore negli attributi
+            stringValue = value.$.Value;
+          } else {
+            // Se non c'è testo, è probabilmente vuoto (solo attributi)
+            stringValue = '';
+          }
         } else {
           stringValue = String(value || '');
         }
-      } else if (s._) {
+      } else if (s._ !== undefined) {
+        // Valore diretto senza attributi
         stringValue = typeof s._ === 'string' ? s._ : String(s._ || '');
       }
       
