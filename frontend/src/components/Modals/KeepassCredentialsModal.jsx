@@ -288,36 +288,50 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
             </div>
           ) : (
             <div className="space-y-2">
-              {credentials.map(group => {
-                const isExpanded = expandedGroups.has(group.id);
-                const hasEntries = group.entries && group.entries.length > 0;
+              {/* Renderizza ricorsivamente i gruppi in struttura ad albero */}
+              {credentials.map(group => renderGroup(group, 0))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
-                return (
-                  <div key={group.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                    {/* Header Gruppo */}
-                    <button
-                      onClick={() => toggleGroup(group.id)}
-                      className="w-full px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 transition flex items-center justify-between text-left"
-                    >
-                      <div className="flex items-center gap-2">
-                        {hasEntries ? (
-                          isExpanded ? (
-                            <ChevronDown size={16} className="text-indigo-600" />
-                          ) : (
-                            <ChevronRight size={16} className="text-indigo-600" />
-                          )
-                        ) : (
-                          <div className="w-4" />
-                        )}
-                        <Key size={16} className="text-indigo-600" />
-                        <span className="font-semibold text-gray-800">{extractString(group.name)}</span>
-                        {hasEntries && (
-                          <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded">
-                            {group.entries.length} {group.entries.length === 1 ? 'credenziale' : 'credenziali'}
-                          </span>
-                        )}
-                      </div>
-                    </button>
+  // Funzione ricorsiva per renderizzare i gruppi in struttura ad albero
+  const renderGroup = (group, level = 0) => {
+    const isExpanded = expandedGroups.has(group.id);
+    const hasEntries = group.entries && group.entries.length > 0;
+    const hasChildren = group.children && group.children.length > 0;
+    const indentClass = level > 0 ? `ml-${level * 4}` : '';
+
+    return (
+      <div key={group.id} className={`${indentClass}`}>
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          {/* Header Gruppo */}
+          <button
+            onClick={() => toggleGroup(group.id)}
+            className="w-full px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 transition flex items-center justify-between text-left"
+            style={{ paddingLeft: `${1 + level * 1.5}rem` }}
+          >
+            <div className="flex items-center gap-2">
+              {(hasEntries || hasChildren) ? (
+                isExpanded ? (
+                  <ChevronDown size={16} className="text-indigo-600" />
+                ) : (
+                  <ChevronRight size={16} className="text-indigo-600" />
+                )
+              ) : (
+                <div className="w-4" />
+              )}
+              <Key size={16} className="text-indigo-600" />
+              <span className="font-semibold text-gray-800">{extractString(group.name)}</span>
+              {hasEntries && (
+                <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded">
+                  {group.entries.length} {group.entries.length === 1 ? 'credenziale' : 'credenziali'}
+                </span>
+              )}
+            </div>
+          </button>
 
                     {/* Entry del Gruppo */}
                     {isExpanded && hasEntries && (

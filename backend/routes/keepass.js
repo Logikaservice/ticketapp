@@ -673,7 +673,8 @@ module.exports = function createKeepassRouter(pool) {
             parent_id: row.parent_id,
             client_id: row.client_id,
             client_email: row.client_email || null,
-            entries: []
+            entries: [],
+            children: [] // Aggiungi array per i figli
           });
         }
 
@@ -689,9 +690,74 @@ module.exports = function createKeepassRouter(pool) {
         }
       });
 
-      const groups = Array.from(groupsMap.values());
+      // Costruisci la struttura ad albero
+      const rootGroups = [];
+      const allGroups = Array.from(groupsMap.values());
+      
+      allGroups.forEach(group => {
+        if (group.parent_id === null) {
+          // Gruppo root
+          rootGroups.push(group);
+        } else {
+          // Trova il gruppo padre e aggiungi questo come figlio
+          const parent = allGroups.find(g => g.id === group.parent_id);
+          if (parent) {
+            if (!parent.children) {
+              parent.children = [];
+            }
+            parent.children.push(group);
+          } else {
+            // Se il padre non esiste, è comunque un root
+            rootGroups.push(group);
+          }
+        }
+      });
+      
+      // Helper per estrarre stringa (riutilizzato)
+      const extractString = (value) => {
+        if (!value) return '';
+        if (typeof value === 'string') {
+          if (value.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(value);
+              return parsed._ !== undefined ? String(parsed._ || '') : value;
+            } catch {
+              return value;
+            }
+          }
+          return value;
+        }
+        if (typeof value === 'object') {
+          return value._ !== undefined ? String(value._ || '') : JSON.stringify(value);
+        }
+        return String(value || '');
+      };
+      
+      // Ordina ricorsivamente i gruppi e le entry
+      const sortGroups = (groups) => {
+        groups.sort((a, b) => {
+          const nameA = extractString(a.name).toLowerCase();
+          const nameB = extractString(b.name).toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+        
+        groups.forEach(group => {
+          if (group.children && group.children.length > 0) {
+            sortGroups(group.children);
+          }
+          if (group.entries && group.entries.length > 0) {
+            group.entries.sort((a, b) => {
+              const titleA = extractString(a.title).toLowerCase();
+              const titleB = extractString(b.title).toLowerCase();
+              return titleA.localeCompare(titleB);
+            });
+          }
+        });
+      };
+      
+      sortGroups(rootGroups);
 
-      res.json({ groups });
+      res.json({ groups: rootGroups });
     } catch (err) {
       console.error('Errore recupero credenziali:', err);
       res.status(500).json({ error: 'Errore nel recupero delle credenziali' });
