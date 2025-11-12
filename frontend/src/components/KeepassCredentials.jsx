@@ -62,9 +62,9 @@ const KeepassCredentials = ({ currentUser, getAuthHeader }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': authHeader['x-user-id'] || '',
-          'x-user-role': currentUser?.ruolo || '',
-          ...authHeader
+          ...authHeader,
+          'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
+          'x-user-role': currentUser?.ruolo || ''
         },
         body: JSON.stringify({ entryId })
       });

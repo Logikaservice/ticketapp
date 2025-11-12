@@ -545,13 +545,17 @@ module.exports = function createKeepassRouter(pool) {
   // POST /api/keepass/decrypt-password - Decifra password per visualizzazione (solo per il cliente proprietario)
   router.post('/decrypt-password', async (req, res) => {
     try {
-      const userId = req.headers['x-user-id'];
-      const role = (req.headers['x-user-role'] || '').toString();
+      // Usa req.user.id dal middleware authenticateToken invece di req.headers
+      const userId = req.user?.id || req.headers['x-user-id'];
+      const role = req.user?.ruolo || (req.headers['x-user-role'] || '').toString();
       const { entryId } = req.body;
 
       if (!userId || !entryId) {
+        console.error('❌ Parametri mancanti - userId:', userId, 'entryId:', entryId);
         return res.status(400).json({ error: 'Parametri mancanti' });
       }
+
+      console.log('🔓 Decifratura password per entry:', entryId, 'utente:', userId, 'ruolo:', role);
 
       // Verifica che l'entry appartenga al cliente (o che sia un tecnico)
       let query, params;
@@ -571,19 +575,31 @@ module.exports = function createKeepassRouter(pool) {
       const entryCheck = await pool.query(query, params);
 
       if (entryCheck.rows.length === 0) {
+        console.error('❌ Credenziale non trovata o non autorizzata - entryId:', entryId, 'userId:', userId);
         return res.status(404).json({ error: 'Credenziale non trovata o non autorizzata' });
       }
 
-      const decryptedPassword = decryptPassword(entryCheck.rows[0].password_encrypted);
+      const encryptedPassword = entryCheck.rows[0].password_encrypted;
+      console.log('🔐 Password cifrata trovata, lunghezza:', encryptedPassword?.length || 0);
+
+      if (!encryptedPassword) {
+        console.warn('⚠️ Password cifrata vuota per entry:', entryId);
+        return res.json({ password: '' });
+      }
+
+      const decryptedPassword = decryptPassword(encryptedPassword);
 
       if (!decryptedPassword) {
+        console.error('❌ Errore nella decifratura - encryptedPassword:', encryptedPassword?.substring(0, 50));
         return res.status(500).json({ error: 'Errore nella decifratura della password' });
       }
 
+      console.log('✅ Password decifrata con successo');
       res.json({ password: decryptedPassword });
     } catch (err) {
-      console.error('Errore decifratura password:', err);
-      res.status(500).json({ error: 'Errore nella decifratura della password' });
+      console.error('❌ Errore decifratura password:', err);
+      console.error('Stack:', err.stack);
+      res.status(500).json({ error: 'Errore nella decifratura della password', details: err.message });
     }
   });
 
