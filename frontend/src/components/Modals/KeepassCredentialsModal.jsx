@@ -447,8 +447,8 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
             </div>
           )}
 
-          {/* Sottogruppi (children) */}
-          {isExpanded && hasChildren && (
+          {/* Sottogruppi (children) - SEMPRE VISIBILI nella struttura gerarchica */}
+          {hasChildren && (
             <div className="bg-gray-50 border-t border-gray-200">
               <div className="space-y-2 p-2">
                 {group.children.map(childGroup => renderGroup(childGroup, level + 1))}
