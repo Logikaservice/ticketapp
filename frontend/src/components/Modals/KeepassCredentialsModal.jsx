@@ -293,6 +293,19 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
             </div>
           )}
         </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+            >
+              Chiudi
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -445,20 +458,6 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
       </div>
     );
   };
-};
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-            >
-              Chiudi
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 };
 
 export default KeepassCredentialsModal;
