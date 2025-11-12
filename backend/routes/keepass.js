@@ -726,9 +726,36 @@ module.exports = function createKeepassRouter(pool) {
         return res.status(404).json({ error: 'Credenziale non trovata o non autorizzata' });
       }
 
-      const encryptedPassword = entryCheck.rows[0].password_encrypted;
-      console.log('🔐 Password cifrata trovata, lunghezza:', encryptedPassword?.length || 0);
-      console.log('🔐 Password cifrata (primi 50 caratteri):', encryptedPassword?.substring(0, 50) || 'vuota');
+      let encryptedPassword = entryCheck.rows[0].password_encrypted;
+      console.log('🔐 Password cifrata trovata, tipo:', typeof encryptedPassword);
+      console.log('🔐 Password cifrata, lunghezza:', encryptedPassword?.length || 0);
+      
+      // Se la password è un oggetto (JSON salvato come stringa), prova a parsarla
+      if (typeof encryptedPassword === 'object' && encryptedPassword !== null) {
+        console.warn('⚠️ Password cifrata è un oggetto, provo a convertire...');
+        encryptedPassword = JSON.stringify(encryptedPassword);
+      }
+      
+      // Se è una stringa che inizia con '{', potrebbe essere JSON salvato come stringa
+      if (typeof encryptedPassword === 'string' && encryptedPassword.trim().startsWith('{')) {
+        console.warn('⚠️ Password cifrata sembra essere JSON, provo a parsare...');
+        try {
+          const parsed = JSON.parse(encryptedPassword);
+          // Se è un oggetto con campo _, estrai il valore
+          if (parsed._ !== undefined) {
+            encryptedPassword = String(parsed._ || '');
+            console.log('✅ Estratto valore da oggetto JSON, nuova lunghezza:', encryptedPassword.length);
+          } else {
+            console.warn('⚠️ Oggetto JSON senza campo _, uso stringa vuota');
+            encryptedPassword = '';
+          }
+        } catch (parseErr) {
+          console.error('❌ Errore parsing JSON password:', parseErr);
+          encryptedPassword = '';
+        }
+      }
+      
+      console.log('🔐 Password cifrata (primi 100 caratteri):', encryptedPassword?.substring(0, 100) || 'vuota');
 
       if (!encryptedPassword || encryptedPassword.trim() === '') {
         console.warn('⚠️ Password cifrata vuota per entry:', entryId);
@@ -740,14 +767,28 @@ module.exports = function createKeepassRouter(pool) {
         });
       }
 
+      // Verifica che sia nel formato corretto (iv:encrypted)
+      if (!encryptedPassword.includes(':')) {
+        console.error('❌ Password cifrata non è nel formato corretto (iv:encrypted)');
+        console.error('❌ Formato attuale:', encryptedPassword.substring(0, 100));
+        return res.json({ 
+          password: '',
+          warning: 'Password in formato non supportato. Reimporta il file XML per correggere.'
+        });
+      }
+
       console.log('🔓 Tentativo decifratura...');
       const decryptedPassword = decryptPassword(encryptedPassword);
-      console.log('🔓 Risultato decifratura:', decryptedPassword ? `lunghezza ${decryptedPassword.length}` : 'null/vuota');
+      console.log('🔓 Risultato decifratura:', decryptedPassword !== null ? `lunghezza ${decryptedPassword.length}` : 'null');
 
-      if (!decryptedPassword) {
-        console.error('❌ Errore nella decifratura - encryptedPassword:', encryptedPassword?.substring(0, 50));
+      // Restituisci stringa vuota invece di null se la decifratura restituisce null
+      if (decryptedPassword === null) {
+        console.error('❌ Errore nella decifratura - encryptedPassword (primi 100 caratteri):', encryptedPassword?.substring(0, 100));
         console.error('❌ Formato password cifrata:', encryptedPassword?.includes(':') ? 'formato corretto (iv:encrypted)' : 'formato errato');
-        return res.status(500).json({ error: 'Errore nella decifratura della password', details: 'La password potrebbe essere vuota o in un formato non supportato' });
+        return res.json({ 
+          password: '',
+          warning: 'Errore nella decifratura. La password potrebbe essere in un formato non supportato. Reimporta il file XML.'
+        });
       }
 
       console.log('✅ Password decifrata con successo, lunghezza:', decryptedPassword.length);
