@@ -42,13 +42,38 @@ module.exports = function createKeepassRouter(pool) {
 
   // Chiave di cifratura (in produzione dovrebbe essere in variabile d'ambiente)
   // Usa una chiave fissa per permettere la decifratura (in produzione usa variabile d'ambiente)
+  // AES-256 richiede una chiave di 32 bytes (64 caratteri hex)
   const ENCRYPTION_KEY = process.env.KEEPASS_ENCRYPTION_KEY || 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2';
   const ALGORITHM = 'aes-256-cbc';
   
   // Assicurati che la chiave sia esattamente 32 bytes (64 caratteri hex)
   const getEncryptionKey = () => {
-    const key = ENCRYPTION_KEY.length >= 64 ? ENCRYPTION_KEY.slice(0, 64) : ENCRYPTION_KEY.padEnd(64, '0');
-    return Buffer.from(key.slice(0, 64), 'hex');
+    let keyHex = ENCRYPTION_KEY;
+    
+    // Se la chiave non è in formato hex valido, genera una chiave valida
+    if (!/^[0-9a-fA-F]+$/.test(keyHex)) {
+      console.warn('⚠️ Chiave di cifratura non valida, genero una nuova chiave');
+      // Genera una chiave hex valida di 64 caratteri
+      keyHex = crypto.randomBytes(32).toString('hex');
+    }
+    
+    // Assicurati che sia esattamente 64 caratteri hex (32 bytes)
+    if (keyHex.length < 64) {
+      keyHex = keyHex.padEnd(64, '0');
+    } else if (keyHex.length > 64) {
+      keyHex = keyHex.slice(0, 64);
+    }
+    
+    const keyBuffer = Buffer.from(keyHex, 'hex');
+    
+    // Verifica che la chiave sia esattamente 32 bytes
+    if (keyBuffer.length !== 32) {
+      console.error('❌ Errore: chiave di cifratura non è 32 bytes, lunghezza:', keyBuffer.length);
+      // Genera una chiave valida come fallback
+      return crypto.randomBytes(32);
+    }
+    
+    return keyBuffer;
   };
 
   // Helper: Cifra password con AES (reversibile per visualizzazione)
