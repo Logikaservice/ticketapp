@@ -12,6 +12,7 @@ import AlertEmailConfirmModal from './AlertEmailConfirmModal';
 import SendEmailConfirmModal from './SendEmailConfirmModal';
 import AlertsHistoryModal from './AlertsHistoryModal';
 import ImportKeepassModal from './ImportKeepassModal';
+import KeepassCredentialsModal from './KeepassCredentialsModal';
 
 const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...handlers }) => {
   if (!modalState.type) return null;
@@ -121,6 +122,16 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             users={handlers.users}
             getAuthHeader={handlers.getAuthHeader}
             onSuccess={handlers.onKeepassImportSuccess}
+          />
+        );
+      
+      case 'keepassCredentials':
+        return (
+          <KeepassCredentialsModal 
+            isOpen={true}
+            onClose={closeModal}
+            currentUser={handlers.currentUser}
+            getAuthHeader={handlers.getAuthHeader}
           />
         );
       

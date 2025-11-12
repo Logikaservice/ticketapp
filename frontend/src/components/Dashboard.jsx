@@ -5,8 +5,8 @@ import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCh
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
-import KeepassCredentials from './KeepassCredentials';
 import { formatDate } from '../utils/formatters';
+import { Key } from 'lucide-react';
 
 const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, cardKey = null }) => {
   const ringClass = highlight
@@ -974,14 +974,6 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             setModalState={setModalState}
           />
 
-          {/* Sezione Credenziali KeePass - solo per clienti */}
-          {currentUser?.ruolo === 'cliente' && (
-            <KeepassCredentials 
-              currentUser={currentUser}
-              getAuthHeader={getAuthHeader}
-            />
-          )}
-
           {/* Sezione Forniture Temporanee - per tutti gli utenti */}
           <TemporarySuppliesPanel
             temporarySupplies={temporarySupplies || []}
@@ -1074,6 +1066,19 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             currentUser={currentUser}
             getAuthHeader={getAuthHeader}
           />
+          
+          {/* Pulsante Credenziali KeePass - solo per clienti */}
+          {currentUser?.ruolo === 'cliente' && (
+            <div className="mt-4">
+              <button
+                onClick={() => setModalState({ type: 'keepassCredentials' })}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition shadow-md"
+              >
+                <Key size={20} />
+                <span className="font-semibold">Credenziali KeePass</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
