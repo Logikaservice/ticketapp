@@ -114,7 +114,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
       }
 
       setMigrationResult(data.summary);
-      setSuccess(`Migrazione completata! ${data.summary.entriesUpdated} entry aggiornate, ${data.summary.entriesDeleted} eliminate, ${data.summary.groupsUpdated} gruppi aggiornati.`);
+      setSuccess(`Migrazione completata! ${data.summary.entriesUpdated} entry aggiornate, ${data.summary.groupsUpdated} gruppi aggiornati.`);
       
       if (onSuccess) onSuccess();
     } catch (err) {
@@ -233,7 +233,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                 </h3>
                 <p className="text-xs text-yellow-700 mb-3">
                   Aggiorna automaticamente tutte le credenziali già importate applicando le ultime correzioni:
-                  rimuove entry con password vuote, corregge titoli salvati come oggetti JSON, aggiorna tutti i clienti.
+                  corregge titoli e nomi salvati come oggetti JSON, aggiorna tutti i clienti. Le entry con password vuote vengono mantenute.
                 </p>
                 <button
                   type="button"
@@ -249,7 +249,6 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                     <p className="font-semibold text-gray-700 mb-1">Risultati:</p>
                     <ul className="space-y-1 text-gray-600">
                       <li>✅ Entry aggiornate: {migrationResult.entriesUpdated}</li>
-                      <li>🗑️ Entry eliminate: {migrationResult.entriesDeleted}</li>
                       <li>📁 Gruppi aggiornati: {migrationResult.groupsUpdated}</li>
                       <li>📊 Totale processate: {migrationResult.totalProcessed}</li>
                       {migrationResult.errors > 0 && (

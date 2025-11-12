@@ -847,7 +847,6 @@ module.exports = function createKeepassRouter(pool) {
       console.log(`📊 Trovate ${allEntries.rows.length} entry da verificare`);
       
       let updated = 0;
-      let deleted = 0;
       let errors = 0;
       const errorsList = [];
       
@@ -920,15 +919,12 @@ module.exports = function createKeepassRouter(pool) {
       for (const entry of allEntries.rows) {
         try {
           let needsUpdate = false;
-          let shouldDelete = false;
           const updates = {};
           
-          // 1. Verifica password vuota o in formato errato
+          // 1. Verifica password vuota (solo per logging, non eliminiamo)
           const isEmpty = isPasswordEmpty(entry.password_encrypted);
           if (isEmpty) {
-            console.log(`🗑️ Entry ${entry.id} ("${entry.title || 'Senza titolo'}") ha password vuota o in formato errato, verrà eliminata`);
-            console.log(`   Tipo password: ${typeof entry.password_encrypted}, valore (primi 100 caratteri): ${String(entry.password_encrypted || '').substring(0, 100)}`);
-            shouldDelete = true;
+            console.log(`ℹ️ Entry ${entry.id} ("${entry.title || 'Senza titolo'}") ha password vuota - verrà mantenuta ma non mostrata`);
           }
           
           // 2. Verifica e correggi titolo
@@ -959,12 +955,8 @@ module.exports = function createKeepassRouter(pool) {
             needsUpdate = true;
           }
           
-          // Esegui eliminazione o aggiornamento
-          if (shouldDelete) {
-            await client.query('DELETE FROM keepass_entries WHERE id = $1', [entry.id]);
-            deleted++;
-            console.log(`✅ Entry ${entry.id} eliminata (password vuota)`);
-          } else if (needsUpdate) {
+          // Esegui aggiornamento (NON eliminiamo entry con password vuote)
+          if (needsUpdate) {
             const updateFields = Object.keys(updates).map((key, idx) => `${key} = $${idx + 2}`).join(', ');
             const updateValues = Object.values(updates);
             await client.query(
@@ -972,7 +964,7 @@ module.exports = function createKeepassRouter(pool) {
               [entry.id, ...updateValues]
             );
             updated++;
-            console.log(`✅ Entry ${entry.id} aggiornata:`, Object.keys(updates).join(', '));
+            console.log(`✅ Entry ${entry.id} ("${entry.title || 'Senza titolo'}") aggiornata:`, Object.keys(updates).join(', '));
           }
         } catch (err) {
           errors++;
