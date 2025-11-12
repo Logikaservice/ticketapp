@@ -46,7 +46,10 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
   };
 
   const togglePasswordVisibility = async (entryId) => {
+    console.log('👁️ Toggle password visibility per entryId:', entryId);
+    
     if (visiblePasswords[entryId]) {
+      console.log('🔒 Nascondo password per entryId:', entryId);
       setVisiblePasswords(prev => {
         const next = { ...prev };
         delete next[entryId];
@@ -55,8 +58,16 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
       return;
     }
 
+    // Altrimenti, decifra la password
     try {
+      console.log('🔓 Decifro password per entryId:', entryId);
       const authHeader = getAuthHeader();
+      console.log('🔑 Auth header:', { 
+        hasAuth: !!authHeader.Authorization, 
+        userId: currentUser?.id,
+        role: currentUser?.ruolo 
+      });
+      
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/decrypt-password`, {
         method: 'POST',
         headers: {
@@ -68,23 +79,32 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
         body: JSON.stringify({ entryId })
       });
 
+      console.log('📡 Response status:', response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error('Errore nella decifratura della password');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Errore response:', errorData);
+        throw new Error(errorData.details || errorData.error || 'Errore nella decifratura della password');
       }
 
       const data = await response.json();
+      console.log('✅ Password decifrata, lunghezza:', data.password?.length || 0);
+      
       setVisiblePasswords(prev => ({
         ...prev,
         [entryId]: data.password
       }));
     } catch (err) {
-      console.error('Errore decifratura password:', err);
-      alert('Errore nel recupero della password');
+      console.error('❌ Errore decifratura password:', err);
+      alert(`Errore nel recupero della password: ${err.message}`);
     }
   };
 
   const copyPassword = async (entryId) => {
+    console.log('📋 Copia password per entryId:', entryId);
+    
     if (!visiblePasswords[entryId]) {
+      console.log('🔓 Password non visibile, decifro prima...');
       try {
         const authHeader = getAuthHeader();
         const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/decrypt-password`, {
@@ -98,19 +118,25 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
           body: JSON.stringify({ entryId })
         });
 
+        console.log('📡 Response status:', response.status);
+
         if (!response.ok) {
-          throw new Error('Errore nella decifratura della password');
+          const errorData = await response.json().catch(() => ({}));
+          console.error('❌ Errore response:', errorData);
+          throw new Error(errorData.details || errorData.error || 'Errore nella decifratura della password');
         }
 
         const data = await response.json();
         const password = data.password;
+        console.log('✅ Password decifrata, lunghezza:', password?.length || 0);
         
         setVisiblePasswords(prev => ({
           ...prev,
           [entryId]: password
         }));
         
-        navigator.clipboard.writeText(password);
+        await navigator.clipboard.writeText(password);
+        console.log('✅ Password copiata negli appunti');
         setCopiedPasswords(prev => ({ ...prev, [entryId]: true }));
         setTimeout(() => {
           setCopiedPasswords(prev => {
@@ -120,13 +146,15 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
           });
         }, 2000);
       } catch (err) {
-        console.error('Errore copia password:', err);
-        alert('Errore nel recupero della password');
+        console.error('❌ Errore copia password:', err);
+        alert(`Errore nel recupero della password: ${err.message}`);
       }
       return;
     }
 
-    navigator.clipboard.writeText(visiblePasswords[entryId]);
+    console.log('📋 Copio password già visibile');
+    await navigator.clipboard.writeText(visiblePasswords[entryId]);
+    console.log('✅ Password copiata negli appunti');
     setCopiedPasswords(prev => ({ ...prev, [entryId]: true }));
     setTimeout(() => {
       setCopiedPasswords(prev => {
