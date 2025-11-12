@@ -141,6 +141,23 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
         })));
       }
       
+      // Funzione ricorsiva per raccogliere tutti gli ID dei gruppi
+      const collectAllGroupIds = (groups) => {
+        const ids = new Set();
+        groups.forEach(group => {
+          ids.add(group.id);
+          if (group.children && group.children.length > 0) {
+            collectAllGroupIds(group.children).forEach(id => ids.add(id));
+          }
+        });
+        return ids;
+      };
+      
+      // Espandi automaticamente tutti i gruppi
+      const allGroupIds = collectAllGroupIds(filteredGroups);
+      setExpandedGroups(allGroupIds);
+      console.log('✅ Espansi automaticamente', allGroupIds.size, 'gruppi');
+      
       setCredentials(filteredGroups);
     } catch (err) {
       console.error('Errore fetch credenziali:', err);
