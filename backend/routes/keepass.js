@@ -256,11 +256,25 @@ module.exports = function createKeepassRouter(pool) {
 
             // Cifra la password (cifra sempre, anche se vuota)
             // Assicurati che password sia sempre una stringa
-            const passwordString = typeof password === 'string' ? password : (password ? String(password) : '');
-            console.log(`    🔐 Password estratta, tipo: ${typeof password}, lunghezza: ${passwordString.length}`);
-            if (typeof password !== 'string' && password) {
-              console.warn(`    ⚠️ Password non è una stringa, conversione:`, password);
+            let passwordString = '';
+            if (typeof password === 'string') {
+              passwordString = password;
+            } else if (password && typeof password === 'object') {
+              // Se è un oggetto, estrai il testo da _ (xml2js mette il testo qui quando ci sono attributi)
+              // Se _ non esiste, il valore è vuoto (solo attributi come ProtectInMemory)
+              passwordString = password._ !== undefined ? String(password._ || '') : '';
+              if (passwordString === '' && password.$) {
+                console.warn(`    ⚠️ Password oggetto con solo attributi (valore vuoto nel XML):`, JSON.stringify(password));
+              }
+            } else {
+              passwordString = password ? String(password) : '';
             }
+            
+            console.log(`    🔐 Password estratta, tipo originale: ${typeof password}, lunghezza: ${passwordString.length}`);
+            if (typeof password !== 'string' && password) {
+              console.warn(`    ⚠️ Password non era una stringa, valore originale:`, password);
+            }
+            
             const encryptedPassword = encryptPassword(passwordString);
             
             if (!encryptedPassword) {
