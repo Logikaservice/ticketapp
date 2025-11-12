@@ -142,71 +142,74 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
               
               {/* Informazioni destinatari - solo per avvisi non features */}
               {avv.level !== 'features' && (
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="text-xs text-gray-500 flex items-center gap-1">
-                    <Users size={12} />
-                    <span>
-                      {(() => {
-                        // Parsa clients se necessario
-                        let clients = [];
-                        try {
-                          if (avv.clients) {
-                            if (Array.isArray(avv.clients)) {
-                              clients = avv.clients;
-                            } else if (typeof avv.clients === 'string') {
-                              clients = JSON.parse(avv.clients);
-                            } else {
-                              clients = avv.clients;
+                <>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                      <Users size={12} />
+                      <span>
+                        {(() => {
+                          // Parsa clients se necessario
+                          let clients = [];
+                          try {
+                            if (avv.clients) {
+                              if (Array.isArray(avv.clients)) {
+                                clients = avv.clients;
+                              } else if (typeof avv.clients === 'string') {
+                                clients = JSON.parse(avv.clients);
+                              } else {
+                                clients = avv.clients;
+                              }
+                              if (!Array.isArray(clients)) {
+                                clients = [];
+                              }
                             }
-                            if (!Array.isArray(clients)) {
-                              clients = [];
-                            }
+                          } catch (e) {
+                            clients = [];
                           }
-                        } catch (e) {
+                          
+                          // Se ci sono clienti specifici, mostra il numero
+                          if (clients.length > 0) {
+                            return clients.length === 1 
+                              ? `Condiviso con 1 cliente`
+                              : `Condiviso con ${clients.length} clienti`;
+                          }
+                        // Se non ci sono clienti specifici, è per tutti gli amministratori
+                        return 'Condiviso con tutti gli amministratori';
+                      })()}
+                    </span>
+                  </div>
+                  {(() => {
+                    // Parsa clients per la lista dettagliata
+                    let clients = [];
+                    try {
+                      if (avv.clients) {
+                        if (Array.isArray(avv.clients)) {
+                          clients = avv.clients;
+                        } else if (typeof avv.clients === 'string') {
+                          clients = JSON.parse(avv.clients);
+                        } else {
+                          clients = avv.clients;
+                        }
+                        if (!Array.isArray(clients)) {
                           clients = [];
                         }
-                        
-                        // Se ci sono clienti specifici, mostra il numero
-                        if (clients.length > 0) {
-                          return clients.length === 1 
-                            ? `Condiviso con 1 cliente`
-                            : `Condiviso con ${clients.length} clienti`;
-                        }
-                      // Se non ci sono clienti specifici, è per tutti gli amministratori
-                      return 'Condiviso con tutti gli amministratori';
-                    })()}
-                  </span>
-                </div>
-                {(() => {
-                  // Parsa clients per la lista dettagliata
-                  let clients = [];
-                  try {
-                    if (avv.clients) {
-                      if (Array.isArray(avv.clients)) {
-                        clients = avv.clients;
-                      } else if (typeof avv.clients === 'string') {
-                        clients = JSON.parse(avv.clients);
-                      } else {
-                        clients = avv.clients;
                       }
-                      if (!Array.isArray(clients)) {
-                        clients = [];
-                      }
+                    } catch (e) {
+                      clients = [];
                     }
-                  } catch (e) {
-                    clients = [];
-                  }
-                  
-                  return clients.length > 0 && clients.length <= 3 && users && users.length > 0 ? (
-                    <div className="text-xs text-blue-600">
-                      ({clients.map(c => {
-                        const user = users.find(u => u.id === c);
-                        return user ? (user.azienda || `${user.nome} ${user.cognome}`) : 'Cliente';
-                      }).join(', ')})
-                    </div>
-                  ) : null;
-                })()}
-              </div>
+                    
+                    return clients.length > 0 && clients.length <= 3 && users && users.length > 0 ? (
+                      <div className="text-xs text-blue-600">
+                        ({clients.map(c => {
+                          const user = users.find(u => u.id === c);
+                          return user ? (user.azienda || `${user.nome} ${user.cognome}`) : 'Cliente';
+                        }).join(', ')})
+                      </div>
+                    ) : null;
+                  })()}
+                </div>
+                </>
+              )}
               
               {/* Visualizza allegati se presenti */}
               {avv.attachments && avv.attachments.length > 0 && (
