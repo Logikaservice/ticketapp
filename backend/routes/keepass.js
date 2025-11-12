@@ -266,7 +266,7 @@ module.exports = function createKeepassRouter(pool) {
               entryUuid = Array.isArray(entry.UUID) ? entry.UUID[0] : entry.UUID;
             }
 
-            // Cifra la password (cifra sempre, anche se vuota)
+            // Estrai e verifica la password
             // Assicurati che password sia sempre una stringa
             let passwordString = '';
             if (typeof password === 'string') {
@@ -276,17 +276,25 @@ module.exports = function createKeepassRouter(pool) {
               // Se _ non esiste, il valore è vuoto (solo attributi come ProtectInMemory)
               passwordString = password._ !== undefined ? String(password._ || '') : '';
               if (passwordString === '' && password.$) {
-                console.warn(`    ⚠️ Password oggetto con solo attributi (valore vuoto nel XML):`, JSON.stringify(password));
+                console.log(`    ℹ️ Password vuota (solo attributi ProtectInMemory nel XML)`);
               }
             } else {
               passwordString = password ? String(password) : '';
             }
             
             console.log(`    🔐 Password estratta, tipo originale: ${typeof password}, lunghezza: ${passwordString.length}`);
+            
+            // Se la password è vuota, salta questa entry
+            if (!passwordString || passwordString.trim() === '') {
+              console.log(`    ⏭️ Password vuota, salto questa entry: "${title || 'Senza titolo'}"`);
+              continue; // Salta questa entry e passa alla successiva
+            }
+            
             if (typeof password !== 'string' && password) {
               console.warn(`    ⚠️ Password non era una stringa, valore originale:`, password);
             }
             
+            // Cifra la password (ora sappiamo che non è vuota)
             const encryptedPassword = encryptPassword(passwordString);
             
             if (!encryptedPassword) {
