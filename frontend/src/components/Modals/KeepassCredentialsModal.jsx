@@ -302,10 +302,9 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
     const isExpanded = expandedGroups.has(group.id);
     const hasEntries = group.entries && group.entries.length > 0;
     const hasChildren = group.children && group.children.length > 0;
-    const indentClass = level > 0 ? `ml-${level * 4}` : '';
 
     return (
-      <div key={group.id} className={`${indentClass}`}>
+      <div key={group.id} className="mb-2">
         <div className="border border-gray-200 rounded-lg overflow-hidden">
           {/* Header Gruppo */}
           <button
@@ -333,110 +332,120 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
             </div>
           </button>
 
-                    {/* Entry del Gruppo */}
-                    {isExpanded && hasEntries && (
-                      <div className="bg-gray-50 border-t border-gray-200">
-                        {group.entries.map(entry => (
-                          <div key={entry.id} className="p-4 border-b border-gray-200 last:border-b-0">
-                            <div className="space-y-3">
-                              {/* Titolo */}
-                              {entry.title && (
-                                <div className="flex items-center gap-2">
-                                  <FileText size={14} className="text-gray-400" />
-                                  <span className="font-medium text-gray-900">{extractString(entry.title)}</span>
-                                </div>
-                              )}
-
-                              {/* Username */}
-                              {entry.username && (
-                                <div className="flex items-center gap-2">
-                                  <User size={14} className="text-gray-400" />
-                                  <span className="text-sm text-gray-700">{extractString(entry.username)}</span>
-                                  <button
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(extractString(entry.username));
-                                      alert('Username copiato!');
-                                    }}
-                                    className="ml-auto p-1 text-gray-400 hover:text-gray-600"
-                                    title="Copia username"
-                                  >
-                                    <Copy size={14} />
-                                  </button>
-                                </div>
-                              )}
-
-                              {/* Password */}
-                              <div className="flex items-center gap-2 bg-white p-2 rounded border border-gray-200">
-                                <Lock size={14} className="text-gray-400" />
-                                <span className="text-sm font-mono flex-1">
-                                  {visiblePasswords[entry.id] ? (
-                                    <span className="text-gray-900">{visiblePasswords[entry.id]}</span>
-                                  ) : (
-                                    <span className="text-gray-400">••••••••</span>
-                                  )}
-                                </span>
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => togglePasswordVisibility(entry.id)}
-                                    className="p-1 text-gray-400 hover:text-gray-600"
-                                    title={visiblePasswords[entry.id] ? 'Nascondi password' : 'Mostra password'}
-                                  >
-                                    {visiblePasswords[entry.id] ? (
-                                      <EyeOff size={16} />
-                                    ) : (
-                                      <Eye size={16} />
-                                    )}
-                                  </button>
-                                  <button
-                                    onClick={() => copyPassword(entry.id)}
-                                    className="p-1 text-gray-400 hover:text-gray-600"
-                                    title="Copia password"
-                                  >
-                                    {copiedPasswords[entry.id] ? (
-                                      <Check size={16} className="text-green-600" />
-                                    ) : (
-                                      <Copy size={16} />
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* URL */}
-                              {entry.url && (
-                                <div className="flex items-center gap-2">
-                                  <Globe size={14} className="text-gray-400" />
-                                  <a
-                                    href={extractString(entry.url).startsWith('http') ? extractString(entry.url) : `http://${extractString(entry.url)}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-sm text-blue-600 hover:underline"
-                                  >
-                                    {extractString(entry.url)}
-                                  </a>
-                                </div>
-                              )}
-
-                              {/* Notes */}
-                              {entry.notes && (
-                                <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                                  {extractString(entry.notes)}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+          {/* Entry del Gruppo */}
+          {isExpanded && hasEntries && (
+            <div className="bg-gray-50 border-t border-gray-200">
+              {group.entries.map(entry => (
+                <div key={entry.id} className="p-4 border-b border-gray-200 last:border-b-0">
+                  <div className="space-y-3">
+                    {/* Titolo */}
+                    {entry.title && (
+                      <div className="flex items-center gap-2">
+                        <FileText size={14} className="text-gray-400" />
+                        <span className="font-medium text-gray-900">{extractString(entry.title)}</span>
                       </div>
                     )}
 
-                    {isExpanded && !hasEntries && (
-                      <div className="p-4 bg-gray-50 text-center text-sm text-gray-500">
-                        Nessuna credenziale in questo gruppo
+                    {/* Username */}
+                    {entry.username && (
+                      <div className="flex items-center gap-2">
+                        <User size={14} className="text-gray-400" />
+                        <span className="text-sm text-gray-700">{extractString(entry.username)}</span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(extractString(entry.username));
+                            alert('Username copiato!');
+                          }}
+                          className="ml-auto p-1 text-gray-400 hover:text-gray-600"
+                          title="Copia username"
+                        >
+                          <Copy size={14} />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Password */}
+                    <div className="flex items-center gap-2 bg-white p-2 rounded border border-gray-200">
+                      <Lock size={14} className="text-gray-400" />
+                      <span className="text-sm font-mono flex-1">
+                        {visiblePasswords[entry.id] ? (
+                          <span className="text-gray-900">{visiblePasswords[entry.id]}</span>
+                        ) : (
+                          <span className="text-gray-400">••••••••</span>
+                        )}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => togglePasswordVisibility(entry.id)}
+                          className="p-1 text-gray-400 hover:text-gray-600"
+                          title={visiblePasswords[entry.id] ? 'Nascondi password' : 'Mostra password'}
+                        >
+                          {visiblePasswords[entry.id] ? (
+                            <EyeOff size={16} />
+                          ) : (
+                            <Eye size={16} />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => copyPassword(entry.id)}
+                          className="p-1 text-gray-400 hover:text-gray-600"
+                          title="Copia password"
+                        >
+                          {copiedPasswords[entry.id] ? (
+                            <Check size={16} className="text-green-600" />
+                          ) : (
+                            <Copy size={16} />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* URL */}
+                    {entry.url && (
+                      <div className="flex items-center gap-2">
+                        <Globe size={14} className="text-gray-400" />
+                        <a
+                          href={extractString(entry.url).startsWith('http') ? extractString(entry.url) : `http://${extractString(entry.url)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:underline"
+                        >
+                          {extractString(entry.url)}
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Notes */}
+                    {entry.notes && (
+                      <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                        {extractString(entry.notes)}
                       </div>
                     )}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
+          )}
+
+          {/* Sottogruppi (children) */}
+          {isExpanded && hasChildren && (
+            <div className="bg-gray-50 border-t border-gray-200">
+              <div className="space-y-2 p-2">
+                {group.children.map(childGroup => renderGroup(childGroup, level + 1))}
+              </div>
+            </div>
+          )}
+
+          {isExpanded && !hasEntries && !hasChildren && (
+            <div className="p-4 bg-gray-50 text-center text-sm text-gray-500">
+              Nessuna credenziale in questo gruppo
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+};
           )}
         </div>
 
