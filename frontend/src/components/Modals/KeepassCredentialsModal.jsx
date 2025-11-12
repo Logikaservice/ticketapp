@@ -52,15 +52,11 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
       
       // Funzione ricorsiva per filtrare entry e gruppi
       const filterGroup = (group) => {
-        // Filtra entry con password vuote o in formato non valido, o senza titolo
+        // Filtra SOLO entry con password vuote o in formato non valido
+        // NON filtrare per titolo vuoto - mostreremo l'entry ma nasconderemo il campo titolo
         const filteredEntries = (group.entries || []).filter(entry => {
-          // Escludi entry senza titolo o con titolo "Senza titolo"
-          const title = extractString(entry.title);
-          if (!title || title.trim() === '' || title.trim().toLowerCase() === 'senza titolo') {
-            return false; // Escludi entry senza titolo
-          }
-          
           // Verifica se la password è vuota o in formato non valido
+          // Se c'è una password valida, mostra l'entry (anche se titolo o username sono vuoti)
           const password = entry.password_encrypted;
           if (!password || password.trim() === '') {
             return false; // Escludi entry senza password
@@ -354,31 +350,39 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
               {group.entries.map(entry => (
                 <div key={entry.id} className="p-4 border-b border-gray-200 last:border-b-0">
                   <div className="space-y-3">
-                    {/* Titolo */}
-                    {entry.title && (
-                      <div className="flex items-center gap-2">
-                        <FileText size={14} className="text-gray-400" />
-                        <span className="font-medium text-gray-900">{extractString(entry.title)}</span>
-                      </div>
-                    )}
+                    {/* Titolo - mostra solo se esiste e non è vuoto o "Senza titolo" */}
+                    {(() => {
+                      const title = extractString(entry.title);
+                      const hasValidTitle = title && title.trim() !== '' && title.trim().toLowerCase() !== 'senza titolo';
+                      return hasValidTitle ? (
+                        <div className="flex items-center gap-2">
+                          <FileText size={14} className="text-gray-400" />
+                          <span className="font-medium text-gray-900">{title}</span>
+                        </div>
+                      ) : null;
+                    })()}
 
-                    {/* Username */}
-                    {entry.username && (
-                      <div className="flex items-center gap-2">
-                        <User size={14} className="text-gray-400" />
-                        <span className="text-sm text-gray-700">{extractString(entry.username)}</span>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(extractString(entry.username));
-                            alert('Username copiato!');
-                          }}
-                          className="ml-auto p-1 text-gray-400 hover:text-gray-600"
-                          title="Copia username"
-                        >
-                          <Copy size={14} />
-                        </button>
-                      </div>
-                    )}
+                    {/* Username - mostra solo se esiste e non è vuoto */}
+                    {(() => {
+                      const username = extractString(entry.username);
+                      const hasValidUsername = username && username.trim() !== '';
+                      return hasValidUsername ? (
+                        <div className="flex items-center gap-2">
+                          <User size={14} className="text-gray-400" />
+                          <span className="text-sm text-gray-700">{username}</span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(username);
+                              alert('Username copiato!');
+                            }}
+                            className="ml-auto p-1 text-gray-400 hover:text-gray-600"
+                            title="Copia username"
+                          >
+                            <Copy size={14} />
+                          </button>
+                        </div>
+                      ) : null;
+                    })()}
 
                     {/* Password */}
                     <div className="flex items-center gap-2 bg-white p-2 rounded border border-gray-200">
