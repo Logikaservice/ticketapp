@@ -59,7 +59,8 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Errore durante l\'importazione');
+        const errorMsg = data.details || data.error || 'Errore durante l\'importazione';
+        throw new Error(errorMsg);
       }
 
       setSuccess(`File importato con successo per ${data.clientEmail || 'il cliente selezionato'}`);

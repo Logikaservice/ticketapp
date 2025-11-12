@@ -1091,6 +1091,44 @@ const startServer = async () => {
       console.log("⚠️ Errore creazione tabella unavailable_days (auto-init):", unavailableErr.message);
     }
     
+    // Crea tabella keepass_groups se non esiste (auto-init)
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS keepass_groups (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL,
+          parent_id INTEGER REFERENCES keepass_groups(id) ON DELETE CASCADE,
+          client_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          uuid TEXT,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Tabella keepass_groups creata/verificata (auto-init)");
+    } catch (keepassGroupsErr) {
+      console.log("⚠️ Errore creazione tabella keepass_groups (auto-init):", keepassGroupsErr.message);
+    }
+    
+    // Crea tabella keepass_entries se non esiste (auto-init)
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS keepass_entries (
+          id SERIAL PRIMARY KEY,
+          group_id INTEGER REFERENCES keepass_groups(id) ON DELETE CASCADE,
+          title TEXT,
+          username TEXT,
+          password_encrypted TEXT NOT NULL,
+          url TEXT,
+          notes TEXT,
+          uuid TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Tabella keepass_entries creata/verificata (auto-init)");
+    } catch (keepassEntriesErr) {
+      console.log("⚠️ Errore creazione tabella keepass_entries (auto-init):", keepassEntriesErr.message);
+    }
+    
     app.listen(PORT, () => {
       console.log(`🚀 Server backend OTTIMIZZATO in ascolto sulla porta ${PORT}`);
       console.log(`📁 Routes organizzate in moduli separati`);

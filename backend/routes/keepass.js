@@ -88,111 +88,275 @@ module.exports = function createKeepassRouter(pool) {
 
   // Helper: Estrae valore da String array nel XML
   const getStringValue = (strings, key) => {
-    if (!strings || !Array.isArray(strings)) return '';
-    const found = strings.find(s => s.Key && s.Key[0] === key);
-    return found && found.Value && found.Value[0] ? found.Value[0] : '';
+    if (!strings) return '';
+    
+    // Gestisci sia array che oggetto singolo
+    const stringArray = Array.isArray(strings) ? strings : [strings];
+    
+    for (const s of stringArray) {
+      // Gestisci diverse strutture XML
+      let stringKey = '';
+      let stringValue = '';
+      
+      if (s.Key) {
+        stringKey = Array.isArray(s.Key) ? s.Key[0] : s.Key;
+      } else if (s.$.Key) {
+        stringKey = s.$.Key;
+      }
+      
+      if (s.Value) {
+        stringValue = Array.isArray(s.Value) ? s.Value[0] : s.Value;
+      } else if (s._) {
+        stringValue = s._;
+      }
+      
+      if (stringKey === key) {
+        return stringValue || '';
+      }
+    }
+    
+    return '';
   };
 
   // Helper: Processa ricorsivamente i gruppi
   const processGroup = async (groupNode, parentId, clientId, client) => {
-    const groupName = groupNode.Name && groupNode.Name[0] ? groupNode.Name[0] : 'Senza nome';
-    const groupUuid = groupNode.UUID && groupNode.UUID[0] ? groupNode.UUID[0] : null;
-    const groupNotes = groupNode.Notes && groupNode.Notes[0] ? groupNode.Notes[0] : '';
-
-    // Inserisci il gruppo
-    const groupResult = await client.query(
-      `INSERT INTO keepass_groups (name, parent_id, client_id, uuid, notes) 
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [groupName, parentId, clientId, groupUuid, groupNotes]
-    );
-    const groupId = groupResult.rows[0].id;
-
-    // Processa le entry del gruppo
-    if (groupNode.Entry && Array.isArray(groupNode.Entry)) {
-      for (const entry of groupNode.Entry) {
-        const title = getStringValue(entry.String, 'Title');
-        const username = getStringValue(entry.String, 'UserName');
-        const password = getStringValue(entry.String, 'Password');
-        const url = getStringValue(entry.String, 'URL');
-        const notes = getStringValue(entry.String, 'Notes');
-        const entryUuid = entry.UUID && entry.UUID[0] ? entry.UUID[0] : null;
-
-        // Cifra la password
-        const encryptedPassword = password ? encryptPassword(password) : null;
-
-        await client.query(
-          `INSERT INTO keepass_entries (group_id, title, username, password_encrypted, url, notes, uuid) 
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [groupId, title, username, encryptedPassword, url, notes, entryUuid]
-        );
+    try {
+      // Estrai nome gruppo (gestisci sia array che oggetto)
+      let groupName = 'Senza nome';
+      if (groupNode.Name) {
+        groupName = Array.isArray(groupNode.Name) ? groupNode.Name[0] : groupNode.Name;
       }
-    }
-
-    // Processa i sottogruppi ricorsivamente
-    if (groupNode.Group && Array.isArray(groupNode.Group)) {
-      for (const subGroup of groupNode.Group) {
-        await processGroup(subGroup, groupId, clientId, client);
+      console.log(`  📁 Processando gruppo: "${groupName}"`);
+      
+      // Estrai UUID gruppo
+      let groupUuid = null;
+      if (groupNode.UUID) {
+        groupUuid = Array.isArray(groupNode.UUID) ? groupNode.UUID[0] : groupNode.UUID;
       }
-    }
+      
+      // Estrai note gruppo
+      let groupNotes = '';
+      if (groupNode.Notes) {
+        groupNotes = Array.isArray(groupNode.Notes) ? groupNode.Notes[0] : groupNode.Notes;
+      }
 
-    return groupId;
+      // Inserisci il gruppo
+      console.log(`  💾 Inserimento gruppo nel database...`);
+      const groupResult = await client.query(
+        `INSERT INTO keepass_groups (name, parent_id, client_id, uuid, notes) 
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [groupName, parentId, clientId, groupUuid, groupNotes]
+      );
+      const groupId = groupResult.rows[0].id;
+      console.log(`  ✅ Gruppo inserito con ID: ${groupId}`);
+
+      // Processa le entry del gruppo (gestisci sia array che oggetto singolo)
+      if (groupNode.Entry) {
+        const entries = Array.isArray(groupNode.Entry) ? groupNode.Entry : [groupNode.Entry];
+        console.log(`  📝 Trovate ${entries.length} entry nel gruppo`);
+        for (let i = 0; i < entries.length; i++) {
+          const entry = entries[i];
+          try {
+            const title = getStringValue(entry.String, 'Title');
+            const username = getStringValue(entry.String, 'UserName');
+            const password = getStringValue(entry.String, 'Password');
+            const url = getStringValue(entry.String, 'URL');
+            const notes = getStringValue(entry.String, 'Notes');
+            
+            console.log(`    📄 Entry ${i + 1}/${entries.length}: "${title || 'Senza titolo'}"`);
+            
+            // Estrai UUID entry
+            let entryUuid = null;
+            if (entry.UUID) {
+              entryUuid = Array.isArray(entry.UUID) ? entry.UUID[0] : entry.UUID;
+            }
+
+            // Cifra la password
+            const encryptedPassword = password ? encryptPassword(password) : null;
+            
+            if (!encryptedPassword && password) {
+              console.warn('⚠️ Password non cifrata per entry:', title);
+            }
+
+            await client.query(
+              `INSERT INTO keepass_entries (group_id, title, username, password_encrypted, url, notes, uuid) 
+               VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+              [groupId, title || 'Senza titolo', username || '', encryptedPassword, url || '', notes || '', entryUuid]
+            );
+            console.log(`    ✅ Entry inserita`);
+          } catch (entryErr) {
+            console.error(`    ❌ Errore inserimento entry ${i + 1}:`, entryErr);
+            console.error(`    Stack:`, entryErr.stack);
+            // Continua con le altre entry anche se una fallisce
+          }
+        }
+      } else {
+        console.log(`  ℹ️ Nessuna entry trovata nel gruppo`);
+      }
+
+      // Processa i sottogruppi ricorsivamente (gestisci sia array che oggetto singolo)
+      if (groupNode.Group) {
+        const subGroups = Array.isArray(groupNode.Group) ? groupNode.Group : [groupNode.Group];
+        for (const subGroup of subGroups) {
+          await processGroup(subGroup, groupId, clientId, client);
+        }
+      }
+
+      return groupId;
+    } catch (groupErr) {
+      console.error('Errore processamento gruppo:', groupErr);
+      throw groupErr;
+    }
   };
 
   // POST /api/keepass/import - Importa file XML KeePass (solo tecnico)
   router.post('/import', upload.single('xmlFile'), async (req, res) => {
+    console.log('📥 Ricevuta richiesta import KeePass');
     try {
       // Verifica ruolo tecnico
       const role = (req.headers['x-user-role'] || req.body?.role || '').toString();
+      console.log('👤 Ruolo utente:', role);
       if (role !== 'tecnico') {
         return res.status(403).json({ error: 'Solo i tecnici possono importare file KeePass' });
       }
 
       if (!req.file) {
+        console.log('❌ File non ricevuto');
         return res.status(400).json({ error: 'File XML mancante' });
       }
 
+      console.log('📄 File ricevuto:', req.file.originalname, 'Size:', req.file.size);
+
       const { clientId } = req.body;
+      console.log('👥 Client ID:', clientId);
       if (!clientId) {
         return res.status(400).json({ error: 'ID cliente mancante' });
       }
 
       // Verifica che il cliente esista
+      console.log('🔍 Verifica cliente nel database...');
       const clientCheck = await pool.query('SELECT id, email FROM users WHERE id = $1 AND ruolo = $2', 
         [clientId, 'cliente']);
       if (clientCheck.rows.length === 0) {
+        console.log('❌ Cliente non trovato:', clientId);
         return res.status(404).json({ error: 'Cliente non trovato' });
       }
+      console.log('✅ Cliente trovato:', clientCheck.rows[0].email);
 
       // Leggi e parsea il file XML
-      const xmlContent = fs.readFileSync(req.file.path, 'utf8');
-      const parser = new xml2js.Parser({ explicitArray: true, mergeAttrs: false });
-      const result = await parser.parseStringPromise(xmlContent);
-
-      if (!result.KeePassFile || !result.KeePassFile.Root || !result.KeePassFile.Root[0]) {
-        return res.status(400).json({ error: 'Formato XML non valido' });
+      console.log('📖 Lettura file XML...');
+      let xmlContent;
+      try {
+        // Prova a leggere da file path (diskStorage) o da buffer (memoryStorage)
+        if (req.file.path && fs.existsSync(req.file.path)) {
+          console.log('📁 Leggo da path:', req.file.path);
+          xmlContent = fs.readFileSync(req.file.path, 'utf8');
+        } else if (req.file.buffer) {
+          console.log('💾 Leggo da buffer');
+          xmlContent = req.file.buffer.toString('utf8');
+        } else {
+          console.log('❌ Nessun metodo disponibile per leggere il file');
+          return res.status(400).json({ error: 'Impossibile leggere il file XML' });
+        }
+        console.log('✅ File letto, dimensione:', xmlContent.length, 'caratteri');
+      } catch (readErr) {
+        console.error('❌ Errore lettura file XML:', readErr);
+        return res.status(400).json({ error: 'Errore nella lettura del file XML: ' + readErr.message });
       }
 
-      const root = result.KeePassFile.Root[0];
-      if (!root.Group || !root.Group[0]) {
+      console.log('🔍 Parsing XML...');
+      let result;
+      try {
+        const parser = new xml2js.Parser({ 
+          explicitArray: true, 
+          mergeAttrs: false,
+          ignoreAttrs: false,
+          trim: true
+        });
+        result = await parser.parseStringPromise(xmlContent);
+        console.log('✅ XML parsato con successo');
+        console.log('📋 Struttura root:', Object.keys(result));
+      } catch (parseErr) {
+        console.error('❌ Errore parsing XML:', parseErr);
+        console.error('Stack:', parseErr.stack);
+        return res.status(400).json({ error: 'Errore nel parsing del file XML: ' + parseErr.message });
+      }
+
+      if (!result.KeePassFile) {
+        return res.status(400).json({ error: 'Formato XML non valido: manca tag KeePassFile' });
+      }
+
+      // Gestisci sia Root come array che come oggetto
+      const rootElement = Array.isArray(result.KeePassFile.Root) 
+        ? result.KeePassFile.Root[0] 
+        : result.KeePassFile.Root;
+      
+      if (!rootElement) {
+        return res.status(400).json({ error: 'Formato XML non valido: manca tag Root' });
+      }
+
+      // Gestisci sia Group come array che come oggetto
+      const rootGroup = Array.isArray(rootElement.Group) 
+        ? rootElement.Group[0] 
+        : rootElement.Group;
+      
+      if (!rootGroup) {
         return res.status(400).json({ error: 'Nessun gruppo trovato nel file XML' });
       }
 
+      console.log('💾 Connessione al database...');
+      
+      // Verifica che le tabelle esistano
+      try {
+        const tableCheck = await pool.query(`
+          SELECT table_name 
+          FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name IN ('keepass_groups', 'keepass_entries')
+        `);
+        console.log('📊 Tabelle trovate:', tableCheck.rows.map(r => r.table_name));
+        if (tableCheck.rows.length < 2) {
+          console.error('❌ Tabelle keepass mancanti! Chiama /api/init-db per crearle.');
+          return res.status(500).json({ 
+            error: 'Tabelle database non inizializzate',
+            details: 'Le tabelle keepass_groups e keepass_entries non esistono. Contatta l\'amministratore.'
+          });
+        }
+      } catch (tableErr) {
+        console.error('❌ Errore verifica tabelle:', tableErr);
+        return res.status(500).json({ 
+          error: 'Errore verifica database',
+          details: tableErr.message
+        });
+      }
+      
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
+        console.log('✅ Transazione iniziata');
 
         // Elimina eventuali dati esistenti per questo cliente
+        console.log('🗑️ Eliminazione dati esistenti per cliente...');
         await client.query('DELETE FROM keepass_entries WHERE group_id IN (SELECT id FROM keepass_groups WHERE client_id = $1)', [clientId]);
         await client.query('DELETE FROM keepass_groups WHERE client_id = $1', [clientId]);
+        console.log('✅ Dati esistenti eliminati');
 
         // Processa tutti i gruppi dalla root
-        const rootGroup = root.Group[0];
+        console.log('🔄 Processamento gruppi...');
         await processGroup(rootGroup, null, clientId, client);
+        console.log('✅ Gruppi processati');
 
         await client.query('COMMIT');
+        console.log('✅ Transazione completata');
 
-        // Elimina il file temporaneo
-        fs.unlinkSync(req.file.path);
+        // Elimina il file temporaneo se esiste
+        if (req.file.path && fs.existsSync(req.file.path)) {
+          try {
+            fs.unlinkSync(req.file.path);
+          } catch (unlinkErr) {
+            console.warn('Impossibile eliminare file temporaneo:', unlinkErr);
+          }
+        }
 
         res.json({ 
           message: 'File KeePass importato con successo',
@@ -205,20 +369,26 @@ module.exports = function createKeepassRouter(pool) {
         client.release();
       }
     } catch (err) {
-      console.error('Errore import KeePass:', err);
+      console.error('❌ Errore import KeePass:', err);
+      console.error('Stack trace:', err.stack);
       
       // Elimina il file temporaneo in caso di errore
-      if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-        try {
-          fs.unlinkSync(req.file.path);
-        } catch (unlinkErr) {
-          console.error('Errore eliminazione file:', unlinkErr);
+      if (req.file) {
+        if (req.file.path && fs.existsSync(req.file.path)) {
+          try {
+            fs.unlinkSync(req.file.path);
+          } catch (unlinkErr) {
+            console.warn('Impossibile eliminare file temporaneo:', unlinkErr);
+          }
         }
       }
 
+      // Fornisci un messaggio di errore più dettagliato
+      const errorMessage = err.message || 'Errore sconosciuto durante l\'importazione';
       res.status(500).json({ 
         error: 'Errore durante l\'importazione del file KeePass',
-        details: err.message 
+        details: errorMessage,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
       });
     }
   });
