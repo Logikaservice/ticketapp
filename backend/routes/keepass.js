@@ -757,6 +757,16 @@ module.exports = function createKeepassRouter(pool) {
       
       sortGroups(rootGroups);
 
+      console.log('📤 Invio credenziali al frontend:');
+      console.log(`   - Gruppi root: ${rootGroups.length}`);
+      console.log(`   - Totale gruppi (con children): ${allGroups.length}`);
+      
+      if (rootGroups.length > 0) {
+        const totalEntries = allGroups.reduce((sum, g) => sum + (g.entries?.length || 0), 0);
+        console.log(`   - Totale entry: ${totalEntries}`);
+        console.log(`   - Primo gruppo root: "${rootGroups[0].name}" (${rootGroups[0].entries?.length || 0} entries, ${rootGroups[0].children?.length || 0} children)`);
+      }
+
       res.json({ groups: rootGroups });
     } catch (err) {
       console.error('Errore recupero credenziali:', err);

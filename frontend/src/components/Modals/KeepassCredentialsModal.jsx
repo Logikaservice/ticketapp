@@ -37,6 +37,19 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
 
       const data = await response.json();
       
+      console.log('📥 Dati ricevuti dal backend:', data);
+      console.log('📥 Numero gruppi root:', data.groups?.length || 0);
+      
+      if (data.groups && data.groups.length > 0) {
+        console.log('📥 Primo gruppo:', {
+          id: data.groups[0].id,
+          name: data.groups[0].name,
+          entries: data.groups[0].entries?.length || 0,
+          children: data.groups[0].children?.length || 0,
+          parent_id: data.groups[0].parent_id
+        });
+      }
+      
       // Funzione ricorsiva per filtrare entry e gruppi
       const filterGroup = (group) => {
         // Filtra entry con password vuote o in formato non valido
@@ -93,6 +106,22 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
       
       console.log('📊 Gruppi filtrati:', filteredGroups.length, 'gruppi root');
       console.log('📊 Dettagli:', filteredGroups.map(g => ({ name: g.name, entries: g.entries?.length || 0, children: g.children?.length || 0 })));
+      
+      if (filteredGroups.length === 0 && data.groups && data.groups.length > 0) {
+        console.warn('⚠️ ATTENZIONE: Tutti i gruppi sono stati filtrati!');
+        console.warn('⚠️ Gruppi originali:', data.groups.map(g => ({
+          name: g.name,
+          entries: g.entries?.length || 0,
+          children: g.children?.length || 0,
+          entriesDetails: g.entries?.map(e => ({
+            id: e.id,
+            title: e.title,
+            passwordType: typeof e.password_encrypted,
+            passwordLength: e.password_encrypted?.length || 0,
+            passwordPreview: e.password_encrypted?.substring(0, 50) || 'vuoto'
+          })) || []
+        })));
+      }
       
       setCredentials(filteredGroups);
     } catch (err) {
