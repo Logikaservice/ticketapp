@@ -990,15 +990,14 @@ module.exports = function createKeepassRouter(pool) {
       console.log('✅ Migrazione completata!');
       console.log(`📊 Riepilogo:`);
       console.log(`   - Entry aggiornate: ${updated}`);
-      console.log(`   - Entry eliminate: ${deleted}`);
       console.log(`   - Gruppi aggiornati: ${groupsUpdated}`);
       console.log(`   - Errori: ${errors}`);
+      console.log(`   - Nota: Entry con password vuote sono state mantenute nel database`);
       
       res.json({
         success: true,
         summary: {
           entriesUpdated: updated,
-          entriesDeleted: deleted,
           groupsUpdated: groupsUpdated,
           errors: errors,
           totalProcessed: allEntries.rows.length
