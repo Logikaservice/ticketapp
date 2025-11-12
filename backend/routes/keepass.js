@@ -69,19 +69,42 @@ module.exports = function createKeepassRouter(pool) {
 
   // Helper: Decifra password (per visualizzazione)
   const decryptPassword = (encryptedPassword) => {
-    if (!encryptedPassword) return null;
+    if (!encryptedPassword) {
+      console.log('⚠️ decryptPassword: encryptedPassword è null o vuoto');
+      return null;
+    }
+    
+    // Se la password è una stringa vuota cifrata, potrebbe essere solo ':'
+    if (encryptedPassword === '' || encryptedPassword.trim() === '') {
+      console.log('⚠️ decryptPassword: encryptedPassword è stringa vuota');
+      return '';
+    }
+    
     try {
       const parts = encryptedPassword.split(':');
-      if (parts.length !== 2) return null;
+      console.log('🔓 decryptPassword: parts.length =', parts.length);
+      
+      if (parts.length !== 2) {
+        console.error('❌ decryptPassword: formato errato, parts.length =', parts.length);
+        console.error('❌ encryptedPassword (primi 100 caratteri):', encryptedPassword.substring(0, 100));
+        return null;
+      }
+      
       const iv = Buffer.from(parts[0], 'hex');
       const encrypted = parts[1];
       const key = getEncryptionKey();
+      
+      console.log('🔓 decryptPassword: IV length =', iv.length, 'encrypted length =', encrypted.length);
+      
       const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
+      
+      console.log('✅ decryptPassword: decifratura riuscita, lunghezza =', decrypted.length);
       return decrypted;
     } catch (err) {
-      console.error('Errore decifratura password:', err);
+      console.error('❌ Errore decifratura password:', err.message);
+      console.error('❌ Stack:', err.stack);
       return null;
     }
   };
@@ -581,20 +604,24 @@ module.exports = function createKeepassRouter(pool) {
 
       const encryptedPassword = entryCheck.rows[0].password_encrypted;
       console.log('🔐 Password cifrata trovata, lunghezza:', encryptedPassword?.length || 0);
+      console.log('🔐 Password cifrata (primi 50 caratteri):', encryptedPassword?.substring(0, 50) || 'vuota');
 
       if (!encryptedPassword) {
         console.warn('⚠️ Password cifrata vuota per entry:', entryId);
         return res.json({ password: '' });
       }
 
+      console.log('🔓 Tentativo decifratura...');
       const decryptedPassword = decryptPassword(encryptedPassword);
+      console.log('🔓 Risultato decifratura:', decryptedPassword ? `lunghezza ${decryptedPassword.length}` : 'null/vuota');
 
       if (!decryptedPassword) {
         console.error('❌ Errore nella decifratura - encryptedPassword:', encryptedPassword?.substring(0, 50));
-        return res.status(500).json({ error: 'Errore nella decifratura della password' });
+        console.error('❌ Formato password cifrata:', encryptedPassword?.includes(':') ? 'formato corretto (iv:encrypted)' : 'formato errato');
+        return res.status(500).json({ error: 'Errore nella decifratura della password', details: 'La password potrebbe essere vuota o in un formato non supportato' });
       }
 
-      console.log('✅ Password decifrata con successo');
+      console.log('✅ Password decifrata con successo, lunghezza:', decryptedPassword.length);
       res.json({ password: decryptedPassword });
     } catch (err) {
       console.error('❌ Errore decifratura password:', err);
