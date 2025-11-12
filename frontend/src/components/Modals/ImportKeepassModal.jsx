@@ -1,14 +1,16 @@
 // frontend/src/components/Modals/ImportKeepassModal.jsx
 
 import React, { useState } from 'react';
-import { X, Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [migrationResult, setMigrationResult] = useState(null);
 
   if (!isOpen) return null;
 
@@ -39,6 +41,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
     setIsUploading(true);
     setError(null);
     setSuccess(null);
+    setMigrationResult(null);
 
     try {
       const formData = new FormData();
@@ -78,6 +81,47 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
       setError(err.message || 'Errore durante l\'importazione del file');
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleMigrate = async () => {
+    if (!window.confirm('Vuoi aggiornare automaticamente tutte le credenziali KeePass esistenti?\n\nQuesto processo:\n- Rimuoverà entry con password vuote\n- Correggerà titoli e nomi salvati come oggetti JSON\n- Aggiornerà tutti i clienti')) {
+      return;
+    }
+
+    setIsMigrating(true);
+    setError(null);
+    setSuccess(null);
+    setMigrationResult(null);
+
+    try {
+      const authHeader = getAuthHeader();
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/migrate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': 'tecnico',
+          'x-user-id': authHeader['x-user-id'] || '',
+          ...authHeader
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorMsg = data.details || data.error || 'Errore durante la migrazione';
+        throw new Error(errorMsg);
+      }
+
+      setMigrationResult(data.summary);
+      setSuccess(`Migrazione completata! ${data.summary.entriesUpdated} entry aggiornate, ${data.summary.entriesDeleted} eliminate, ${data.summary.groupsUpdated} gruppi aggiornati.`);
+      
+      if (onSuccess) onSuccess();
+    } catch (err) {
+      console.error('Errore migrazione KeePass:', err);
+      setError(err.message || 'Errore durante la migrazione');
+    } finally {
+      setIsMigrating(false);
     }
   };
 
@@ -178,6 +222,45 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
               <span className="text-sm text-green-700">{success}</span>
             </div>
           )}
+
+          {/* Migrazione */}
+          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <RefreshCw size={20} className="text-yellow-600 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-yellow-900 mb-1">
+                  Aggiorna Credenziali Esistenti
+                </h3>
+                <p className="text-xs text-yellow-700 mb-3">
+                  Aggiorna automaticamente tutte le credenziali già importate applicando le ultime correzioni:
+                  rimuove entry con password vuote, corregge titoli salvati come oggetti JSON, aggiorna tutti i clienti.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleMigrate}
+                  disabled={isMigrating || isUploading}
+                  className="flex items-center gap-2 px-3 py-2 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-700 transition disabled:opacity-50"
+                >
+                  <RefreshCw size={16} className={isMigrating ? 'animate-spin' : ''} />
+                  {isMigrating ? 'Migrazione in corso...' : 'Aggiorna Tutte le Credenziali'}
+                </button>
+                {migrationResult && (
+                  <div className="mt-3 p-2 bg-white rounded text-xs">
+                    <p className="font-semibold text-gray-700 mb-1">Risultati:</p>
+                    <ul className="space-y-1 text-gray-600">
+                      <li>✅ Entry aggiornate: {migrationResult.entriesUpdated}</li>
+                      <li>🗑️ Entry eliminate: {migrationResult.entriesDeleted}</li>
+                      <li>📁 Gruppi aggiornati: {migrationResult.groupsUpdated}</li>
+                      <li>📊 Totale processate: {migrationResult.totalProcessed}</li>
+                      {migrationResult.errors > 0 && (
+                        <li className="text-red-600">❌ Errori: {migrationResult.errors}</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* Info */}
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">

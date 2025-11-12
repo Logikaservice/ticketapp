@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const xml2js = require('xml2js');
 const crypto = require('crypto');
+const { requireRole } = require('../middleware/authMiddleware');
 
 module.exports = function createKeepassRouter(pool) {
   const router = express.Router();
@@ -805,6 +806,193 @@ module.exports = function createKeepassRouter(pool) {
       console.error('❌ Errore decifratura password:', err);
       console.error('Stack:', err.stack);
       res.status(500).json({ error: 'Errore nella decifratura della password', details: err.message });
+    }
+  });
+
+  // POST /api/keepass/migrate - Migra e corregge tutte le credenziali esistenti (solo tecnici)
+  router.post('/migrate', requireRole('tecnico'), async (req, res) => {
+    const client = await pool.connect();
+    try {
+      console.log('🔄 Inizio migrazione credenziali KeePass...');
+      
+      // Estrai tutte le entry dal database
+      const allEntries = await client.query(`
+        SELECT 
+          e.id,
+          e.group_id,
+          e.title,
+          e.username,
+          e.password_encrypted,
+          e.url,
+          e.notes,
+          g.client_id
+        FROM keepass_entries e
+        JOIN keepass_groups g ON g.id = e.group_id
+        ORDER BY e.id
+      `);
+      
+      console.log(`📊 Trovate ${allEntries.rows.length} entry da verificare`);
+      
+      let updated = 0;
+      let deleted = 0;
+      let errors = 0;
+      const errorsList = [];
+      
+      // Helper: Estrae stringa da campo che potrebbe essere oggetto JSON
+      const extractString = (value) => {
+        if (!value) return '';
+        if (typeof value === 'string') {
+          // Se è una stringa JSON, prova a parsarla
+          if (value.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(value);
+              return parsed._ !== undefined ? String(parsed._ || '') : value;
+            } catch {
+              return value;
+            }
+          }
+          return value;
+        }
+        if (typeof value === 'object') {
+          // Se è un oggetto, estrai il valore da _
+          return value._ !== undefined ? String(value._ || '') : JSON.stringify(value);
+        }
+        return String(value || '');
+      };
+      
+      // Helper: Verifica se password è vuota o in formato non valido
+      const isPasswordEmpty = (encryptedPassword) => {
+        if (!encryptedPassword || encryptedPassword.trim() === '') {
+          return true;
+        }
+        
+        // Se è un oggetto JSON, è vuota
+        if (typeof encryptedPassword === 'object') {
+          return true;
+        }
+        
+        // Se è una stringa JSON, prova a parsarla
+        if (typeof encryptedPassword === 'string' && encryptedPassword.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(encryptedPassword);
+            // Se ha solo attributi senza valore, è vuota
+            return parsed._ === undefined || parsed._ === '';
+          } catch {
+            return false;
+          }
+        }
+        
+        // Se non è nel formato iv:encrypted, potrebbe essere vuota
+        if (!encryptedPassword.includes(':')) {
+          return true;
+        }
+        
+        return false;
+      };
+      
+      for (const entry of allEntries.rows) {
+        try {
+          let needsUpdate = false;
+          let shouldDelete = false;
+          const updates = {};
+          
+          // 1. Verifica password vuota o in formato errato
+          if (isPasswordEmpty(entry.password_encrypted)) {
+            console.log(`🗑️ Entry ${entry.id} ha password vuota o in formato errato, verrà eliminata`);
+            shouldDelete = true;
+          }
+          
+          // 2. Verifica e correggi titolo
+          const titleString = extractString(entry.title);
+          if (titleString !== entry.title) {
+            updates.title = titleString;
+            needsUpdate = true;
+          }
+          
+          // 3. Verifica e correggi username
+          const usernameString = extractString(entry.username);
+          if (usernameString !== entry.username) {
+            updates.username = usernameString;
+            needsUpdate = true;
+          }
+          
+          // 4. Verifica e correggi URL
+          const urlString = extractString(entry.url);
+          if (urlString !== entry.url) {
+            updates.url = urlString;
+            needsUpdate = true;
+          }
+          
+          // 5. Verifica e correggi notes
+          const notesString = extractString(entry.notes);
+          if (notesString !== entry.notes) {
+            updates.notes = notesString;
+            needsUpdate = true;
+          }
+          
+          // Esegui eliminazione o aggiornamento
+          if (shouldDelete) {
+            await client.query('DELETE FROM keepass_entries WHERE id = $1', [entry.id]);
+            deleted++;
+            console.log(`✅ Entry ${entry.id} eliminata (password vuota)`);
+          } else if (needsUpdate) {
+            const updateFields = Object.keys(updates).map((key, idx) => `${key} = $${idx + 2}`).join(', ');
+            const updateValues = Object.values(updates);
+            await client.query(
+              `UPDATE keepass_entries SET ${updateFields} WHERE id = $1`,
+              [entry.id, ...updateValues]
+            );
+            updated++;
+            console.log(`✅ Entry ${entry.id} aggiornata:`, Object.keys(updates).join(', '));
+          }
+        } catch (err) {
+          errors++;
+          errorsList.push({ entryId: entry.id, error: err.message });
+          console.error(`❌ Errore processamento entry ${entry.id}:`, err.message);
+        }
+      }
+      
+      // Aggiorna anche i nomi dei gruppi
+      console.log('🔄 Verifica nomi gruppi...');
+      const allGroups = await client.query('SELECT id, name FROM keepass_groups ORDER BY id');
+      
+      let groupsUpdated = 0;
+      for (const group of allGroups.rows) {
+        const nameString = extractString(group.name);
+        if (nameString !== group.name) {
+          await client.query('UPDATE keepass_groups SET name = $1 WHERE id = $2', [nameString, group.id]);
+          groupsUpdated++;
+          console.log(`✅ Gruppo ${group.id} aggiornato: name`);
+        }
+      }
+      
+      console.log('✅ Migrazione completata!');
+      console.log(`📊 Riepilogo:`);
+      console.log(`   - Entry aggiornate: ${updated}`);
+      console.log(`   - Entry eliminate: ${deleted}`);
+      console.log(`   - Gruppi aggiornati: ${groupsUpdated}`);
+      console.log(`   - Errori: ${errors}`);
+      
+      res.json({
+        success: true,
+        summary: {
+          entriesUpdated: updated,
+          entriesDeleted: deleted,
+          groupsUpdated: groupsUpdated,
+          errors: errors,
+          totalProcessed: allEntries.rows.length
+        },
+        errors: errorsList.length > 0 ? errorsList : undefined
+      });
+    } catch (err) {
+      console.error('❌ Errore migrazione:', err);
+      console.error('Stack:', err.stack);
+      res.status(500).json({ 
+        error: 'Errore durante la migrazione',
+        details: err.message 
+      });
+    } finally {
+      client.release();
     }
   });
 
