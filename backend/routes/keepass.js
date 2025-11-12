@@ -368,7 +368,9 @@ module.exports = function createKeepassRouter(pool) {
           explicitArray: true, 
           mergeAttrs: false,
           ignoreAttrs: false,
-          trim: true
+          trim: true,
+          explicitCharkey: true,  // Usa _ per il testo quando ci sono attributi
+          explicitRoot: false
         });
         result = await parser.parseStringPromise(xmlContent);
         console.log('✅ XML parsato con successo');
