@@ -242,9 +242,21 @@ module.exports = function createKeepassRouter(pool) {
           try {
             const title = getStringValue(entry.String, 'Title');
             const username = getStringValue(entry.String, 'UserName');
-            const password = getStringValue(entry.String, 'Password');
+            let password = getStringValue(entry.String, 'Password');
             const url = getStringValue(entry.String, 'URL');
             const notes = getStringValue(entry.String, 'Notes');
+            
+            // Debug: verifica tipo password dopo getStringValue
+            if (typeof password !== 'string') {
+              console.warn(`    ⚠️ getStringValue ha restituito un ${typeof password} invece di stringa:`, password);
+              // Se è ancora un oggetto, prova a estrarre il valore manualmente
+              if (password && typeof password === 'object') {
+                password = password._ !== undefined ? String(password._ || '') : '';
+                console.warn(`    🔧 Password convertita manualmente, nuova lunghezza: ${password.length}`);
+              } else {
+                password = String(password || '');
+              }
+            }
             
             console.log(`    📄 Entry ${i + 1}/${entries.length}: "${title || 'Senza titolo'}"`);
             
