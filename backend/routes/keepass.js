@@ -52,17 +52,23 @@ module.exports = function createKeepassRouter(pool) {
   };
 
   // Helper: Cifra password con AES (reversibile per visualizzazione)
+  // IMPORTANTE: Cifra anche password vuote per mantenere il formato corretto
   const encryptPassword = (password) => {
-    if (!password) return null;
+    // Gestisci anche password vuote/null/undefined come stringa vuota
+    const passwordToEncrypt = password || '';
+    
     try {
       const iv = crypto.randomBytes(16);
       const key = getEncryptionKey();
       const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
-      let encrypted = cipher.update(password, 'utf8', 'hex');
+      let encrypted = cipher.update(passwordToEncrypt, 'utf8', 'hex');
       encrypted += cipher.final('hex');
-      return iv.toString('hex') + ':' + encrypted;
+      const result = iv.toString('hex') + ':' + encrypted;
+      console.log(`🔐 Password cifrata (lunghezza originale: ${passwordToEncrypt.length}, cifrata: ${result.length})`);
+      return result;
     } catch (err) {
-      console.error('Errore cifratura password:', err);
+      console.error('❌ Errore cifratura password:', err);
+      console.error('Stack:', err.stack);
       return null;
     }
   };
@@ -194,24 +200,19 @@ module.exports = function createKeepassRouter(pool) {
               entryUuid = Array.isArray(entry.UUID) ? entry.UUID[0] : entry.UUID;
             }
 
-            // Cifra la password (anche se vuota, cifrala per mantenere il formato)
-            let encryptedPassword = '';
-            if (password) {
-              encryptedPassword = encryptPassword(password);
-              if (!encryptedPassword) {
-                console.warn('⚠️ Password non cifrata per entry:', title);
-                encryptedPassword = ''; // Fallback a stringa vuota
-              }
-            } else {
-              // Se la password è vuota, cifra una stringa vuota per mantenere il formato
-              encryptedPassword = encryptPassword('');
-              if (!encryptedPassword) {
-                encryptedPassword = ''; // Fallback
-              }
+            // Cifra la password (cifra sempre, anche se vuota)
+            console.log(`    🔐 Password estratta, lunghezza: ${password?.length || 0}`);
+            const encryptedPassword = encryptPassword(password);
+            
+            if (!encryptedPassword) {
+              console.error(`    ❌ ERRORE: Password non cifrata per entry "${title || 'Senza titolo'}"`);
+              throw new Error(`Errore nella cifratura della password per entry: ${title || 'Senza titolo'}`);
             }
-
+            
+            console.log(`    ✅ Password cifrata con successo, lunghezza cifrata: ${encryptedPassword.length}`);
+            
             // Assicurati che password_encrypted non sia null (campo NOT NULL)
-            const finalEncryptedPassword = encryptedPassword || '';
+            const finalEncryptedPassword = encryptedPassword;
             
             await client.query(
               `INSERT INTO keepass_entries (group_id, title, username, password_encrypted, url, notes, uuid) 
