@@ -107,20 +107,20 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
               {avv.level === 'features' ? (
                 <div className="text-sm mt-1 text-justify">
                   {(() => {
-                    // Controlla se il testo è troppo lungo o ha troppe righe (massimo 5 righe)
+                    // Controlla se il testo è troppo lungo o ha troppe righe (massimo 4 righe)
                     const textLines = avv.body ? avv.body.split('\n').length : 0;
                     const textLength = avv.body ? avv.body.length : 0;
-                    const shouldShowMore = textLines > 5 || textLength > 300;
+                    const shouldShowMore = textLines > 4 || textLength > 300;
                     
                     if (shouldShowMore) {
-                      // Tronca il testo a 5 righe e aggiunge "... altro" inline sulla stessa riga
+                      // Tronca il testo a 4 righe e aggiunge "... altro" inline sulla stessa riga
                       const lines = avv.body ? avv.body.split('\n') : [];
-                      const first5Lines = lines.slice(0, 5).join('\n');
-                      const hasMore = lines.length > 5;
+                      const first4Lines = lines.slice(0, 4).join('\n');
+                      const hasMore = lines.length > 4;
                       
                       return (
                         <span className="whitespace-pre-wrap">
-                          {first5Lines}
+                          {first4Lines}
                           {hasMore && (
                             <button
                               onClick={(e) => {
