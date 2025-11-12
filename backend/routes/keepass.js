@@ -810,7 +810,20 @@ module.exports = function createKeepassRouter(pool) {
   });
 
   // POST /api/keepass/migrate - Migra e corregge tutte le credenziali esistenti (solo tecnici)
-  router.post('/migrate', requireRole('tecnico'), async (req, res) => {
+  router.post('/migrate', async (req, res) => {
+    // Verifica manuale del ruolo (requireRole potrebbe non funzionare correttamente)
+    if (!req.user) {
+      console.error('❌ Migrazione: utente non autenticato');
+      return res.status(401).json({ error: 'Utente non autenticato' });
+    }
+    
+    if (req.user.ruolo !== 'tecnico') {
+      console.error(`❌ Migrazione: accesso negato per ${req.user.email} (ruolo: ${req.user.ruolo})`);
+      return res.status(403).json({ error: 'Accesso negato: solo tecnici possono eseguire la migrazione' });
+    }
+    
+    console.log(`✅ Migrazione autorizzata per: ${req.user.email} (${req.user.ruolo})`);
+    
     const client = await pool.connect();
     try {
       console.log('🔄 Inizio migrazione credenziali KeePass...');
