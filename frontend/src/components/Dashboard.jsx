@@ -107,29 +107,30 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
               {avv.level === 'features' ? (
                 <div className="text-sm mt-1 text-justify">
                   {(() => {
-                    // Controlla se il testo è troppo lungo o ha troppe righe
+                    // Controlla se il testo è troppo lungo o ha troppe righe (massimo 5 righe)
                     const textLines = avv.body ? avv.body.split('\n').length : 0;
                     const textLength = avv.body ? avv.body.length : 0;
-                    const shouldShowMore = textLines > 4 || textLength > 300;
+                    const shouldShowMore = textLines > 5 || textLength > 300;
                     
                     if (shouldShowMore) {
-                      // Tronca il testo e aggiunge "... altro" inline sulla stessa riga
+                      // Tronca il testo a 5 righe e aggiunge "... altro" inline sulla stessa riga
                       const lines = avv.body ? avv.body.split('\n') : [];
-                      const first4Lines = lines.slice(0, 4).join('\n');
-                      const hasMore = lines.length > 4;
+                      const first5Lines = lines.slice(0, 5).join('\n');
+                      const hasMore = lines.length > 5;
                       
                       return (
                         <span className="whitespace-pre-wrap">
-                          {first4Lines}
+                          {first5Lines}
                           {hasMore && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                e.preventDefault();
                                 if (setModalState) {
                                   setModalState({ type: 'alertsHistory' });
                                 }
                               }}
-                              className="text-green-600 hover:text-green-700 font-semibold text-sm inline ml-0.5"
+                              className="text-green-600 hover:text-green-700 font-semibold text-sm inline ml-0.5 cursor-pointer"
                             >
                               ...altro
                             </button>
@@ -976,6 +977,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             onEditAlert={handleEditAlertClick}
             currentUser={currentUser}
             users={users || []}
+            setModalState={setModalState}
           />
 
           {/* Sezione Forniture Temporanee - per tutti gli utenti */}
