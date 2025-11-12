@@ -178,16 +178,21 @@ module.exports = function createKeepassRouter(pool) {
               console.warn('⚠️ Password non cifrata per entry:', title);
             }
 
+            // Assicurati che password_encrypted non sia null (campo NOT NULL)
+            const finalEncryptedPassword = encryptedPassword || '';
+            
             await client.query(
               `INSERT INTO keepass_entries (group_id, title, username, password_encrypted, url, notes, uuid) 
                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-              [groupId, title || 'Senza titolo', username || '', encryptedPassword, url || '', notes || '', entryUuid]
+              [groupId, title || 'Senza titolo', username || '', finalEncryptedPassword, url || '', notes || '', entryUuid]
             );
             console.log(`    ✅ Entry inserita`);
           } catch (entryErr) {
             console.error(`    ❌ Errore inserimento entry ${i + 1}:`, entryErr);
             console.error(`    Stack:`, entryErr.stack);
-            // Continua con le altre entry anche se una fallisce
+            // Rilancia l'errore per abortire la transazione
+            // Non continuiamo se c'è un errore di database
+            throw entryErr;
           }
         }
       } else {
@@ -331,22 +336,35 @@ module.exports = function createKeepassRouter(pool) {
       }
       
       const client = await pool.connect();
+      let transactionStarted = false;
       try {
         await client.query('BEGIN');
+        transactionStarted = true;
         console.log('✅ Transazione iniziata');
 
         // Elimina eventuali dati esistenti per questo cliente
         console.log('🗑️ Eliminazione dati esistenti per cliente...');
-        await client.query('DELETE FROM keepass_entries WHERE group_id IN (SELECT id FROM keepass_groups WHERE client_id = $1)', [clientId]);
-        await client.query('DELETE FROM keepass_groups WHERE client_id = $1', [clientId]);
-        console.log('✅ Dati esistenti eliminati');
+        try {
+          await client.query('DELETE FROM keepass_entries WHERE group_id IN (SELECT id FROM keepass_groups WHERE client_id = $1)', [clientId]);
+          await client.query('DELETE FROM keepass_groups WHERE client_id = $1', [clientId]);
+          console.log('✅ Dati esistenti eliminati');
+        } catch (deleteErr) {
+          console.error('❌ Errore eliminazione dati esistenti:', deleteErr);
+          throw deleteErr;
+        }
 
         // Processa tutti i gruppi dalla root
         console.log('🔄 Processamento gruppi...');
-        await processGroup(rootGroup, null, clientId, client);
-        console.log('✅ Gruppi processati');
+        try {
+          await processGroup(rootGroup, null, clientId, client);
+          console.log('✅ Gruppi processati');
+        } catch (processErr) {
+          console.error('❌ Errore processamento gruppi:', processErr);
+          throw processErr;
+        }
 
         await client.query('COMMIT');
+        transactionStarted = false;
         console.log('✅ Transazione completata');
 
         // Elimina il file temporaneo se esiste
@@ -363,10 +381,20 @@ module.exports = function createKeepassRouter(pool) {
           clientEmail: clientCheck.rows[0].email
         });
       } catch (dbErr) {
-        await client.query('ROLLBACK');
+        console.error('❌ Errore database durante transazione:', dbErr);
+        console.error('Stack:', dbErr.stack);
+        if (transactionStarted) {
+          try {
+            await client.query('ROLLBACK');
+            console.log('✅ Rollback eseguito');
+          } catch (rollbackErr) {
+            console.error('❌ Errore durante rollback:', rollbackErr);
+          }
+        }
         throw dbErr;
       } finally {
         client.release();
+        console.log('🔌 Connessione database rilasciata');
       }
     } catch (err) {
       console.error('❌ Errore import KeePass:', err);
