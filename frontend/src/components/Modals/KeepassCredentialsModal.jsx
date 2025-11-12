@@ -303,7 +303,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
                                   <span className="text-sm text-gray-700">{extractString(entry.username)}</span>
                                   <button
                                     onClick={() => {
-                                      navigator.clipboard.writeText(entry.username);
+                                      navigator.clipboard.writeText(extractString(entry.username));
                                       alert('Username copiato!');
                                     }}
                                     className="ml-auto p-1 text-gray-400 hover:text-gray-600"
