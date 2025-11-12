@@ -868,6 +868,11 @@ module.exports = function createKeepassRouter(pool) {
         
         // Se è un oggetto JSON, è vuota
         if (typeof encryptedPassword === 'object') {
+          // Se è un oggetto PostgreSQL, potrebbe essere un oggetto JSON
+          // Controlla se ha solo attributi senza valore
+          if (encryptedPassword.$ && Object.keys(encryptedPassword).length === 1) {
+            return true; // Solo attributi, nessun valore
+          }
           return true;
         }
         
@@ -875,10 +880,19 @@ module.exports = function createKeepassRouter(pool) {
         if (typeof encryptedPassword === 'string' && encryptedPassword.trim().startsWith('{')) {
           try {
             const parsed = JSON.parse(encryptedPassword);
-            // Se ha solo attributi senza valore, è vuota
-            return parsed._ === undefined || parsed._ === '';
-          } catch {
+            // Se ha solo attributi senza valore (come {"$":{"ProtectInMemory":"True"}}), è vuota
+            if (parsed.$ && Object.keys(parsed).length === 1) {
+              return true; // Solo attributi, nessun valore
+            }
+            // Se ha campo _ ma è vuoto, è vuota
+            if (parsed._ === undefined || parsed._ === '') {
+              return true;
+            }
             return false;
+          } catch {
+            // Se non è JSON valido, potrebbe essere una password cifrata
+            // Ma se non contiene ':', non è nel formato corretto
+            return !encryptedPassword.includes(':');
           }
         }
         
