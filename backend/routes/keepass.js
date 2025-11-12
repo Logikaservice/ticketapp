@@ -424,12 +424,16 @@ module.exports = function createKeepassRouter(pool) {
   // GET /api/keepass/credentials - Ottieni credenziali per il cliente loggato
   router.get('/credentials', async (req, res) => {
     try {
-      const userId = req.headers['x-user-id'];
-      const role = (req.headers['x-user-role'] || '').toString();
+      // Usa req.user.id dal middleware authenticateToken invece di req.headers
+      const userId = req.user?.id || req.headers['x-user-id'];
+      const role = req.user?.ruolo || (req.headers['x-user-role'] || '').toString();
 
       if (!userId) {
+        console.error('❌ Utente non autenticato - req.user:', req.user, 'headers:', req.headers['x-user-id']);
         return res.status(401).json({ error: 'Utente non autenticato' });
       }
+
+      console.log('🔍 Recupero credenziali per utente:', userId, 'ruolo:', role);
 
       // I tecnici possono vedere tutte le credenziali, i clienti solo le proprie
       let query, params;
@@ -476,7 +480,7 @@ module.exports = function createKeepassRouter(pool) {
           `;
           params = [];
         }
-      } else {
+      } else if (role === 'cliente') {
         // Cliente vede solo le proprie credenziali
         query = `
           SELECT 
@@ -495,6 +499,8 @@ module.exports = function createKeepassRouter(pool) {
           ORDER BY g.name, e.title
         `;
         params = [userId];
+      } else {
+        return res.status(403).json({ error: 'Ruolo non autorizzato' });
       }
 
       const result = await pool.query(query, params);

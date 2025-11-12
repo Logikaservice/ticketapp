@@ -21,11 +21,12 @@ const KeepassCredentials = ({ currentUser, getAuthHeader }) => {
       setError(null);
       
       const authHeader = getAuthHeader();
+      // L'endpoint usa req.user dal middleware authenticateToken, quindi passiamo solo l'header Authorization
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/credentials`, {
         headers: {
-          'x-user-id': authHeader['x-user-id'] || '',
-          'x-user-role': currentUser?.ruolo || '',
-          ...authHeader
+          ...authHeader,
+          'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
+          'x-user-role': currentUser?.ruolo || ''
         }
       });
 
