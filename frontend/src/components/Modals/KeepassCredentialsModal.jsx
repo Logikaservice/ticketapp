@@ -170,6 +170,28 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
     }, 2000);
   };
 
+  // Helper: Estrae stringa da campo che potrebbe essere oggetto JSON
+  const extractString = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string') {
+      // Se è una stringa JSON, prova a parsarla
+      if (value.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(value);
+          return parsed._ !== undefined ? String(parsed._ || '') : value;
+        } catch {
+          return value;
+        }
+      }
+      return value;
+    }
+    if (typeof value === 'object') {
+      // Se è un oggetto, estrai il valore da _
+      return value._ !== undefined ? String(value._ || '') : JSON.stringify(value);
+    }
+    return String(value || '');
+  };
+
   const toggleGroup = (groupId) => {
     setExpandedGroups(prev => {
       const next = new Set(prev);
@@ -251,7 +273,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
                           <div className="w-4" />
                         )}
                         <Key size={16} className="text-indigo-600" />
-                        <span className="font-semibold text-gray-800">{group.name}</span>
+                        <span className="font-semibold text-gray-800">{extractString(group.name)}</span>
                         {hasEntries && (
                           <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded">
                             {group.entries.length} {group.entries.length === 1 ? 'credenziale' : 'credenziali'}
@@ -270,7 +292,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
                               {entry.title && (
                                 <div className="flex items-center gap-2">
                                   <FileText size={14} className="text-gray-400" />
-                                  <span className="font-medium text-gray-900">{entry.title}</span>
+                                  <span className="font-medium text-gray-900">{extractString(entry.title)}</span>
                                 </div>
                               )}
 
@@ -278,7 +300,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
                               {entry.username && (
                                 <div className="flex items-center gap-2">
                                   <User size={14} className="text-gray-400" />
-                                  <span className="text-sm text-gray-700">{entry.username}</span>
+                                  <span className="text-sm text-gray-700">{extractString(entry.username)}</span>
                                   <button
                                     onClick={() => {
                                       navigator.clipboard.writeText(entry.username);
@@ -333,12 +355,12 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
                                 <div className="flex items-center gap-2">
                                   <Globe size={14} className="text-gray-400" />
                                   <a
-                                    href={entry.url.startsWith('http') ? entry.url : `http://${entry.url}`}
+                                    href={extractString(entry.url).startsWith('http') ? extractString(entry.url) : `http://${extractString(entry.url)}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-sm text-blue-600 hover:underline"
                                   >
-                                    {entry.url}
+                                    {extractString(entry.url)}
                                   </a>
                                 </div>
                               )}
@@ -346,7 +368,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
                               {/* Notes */}
                               {entry.notes && (
                                 <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                                  {entry.notes}
+                                  {extractString(entry.notes)}
                                 </div>
                               )}
                             </div>
