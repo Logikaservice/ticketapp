@@ -85,7 +85,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   };
 
   const handleMigrate = async () => {
-    if (!window.confirm('Vuoi aggiornare automaticamente tutte le credenziali KeePass esistenti?\n\nQuesto processo:\n- Rimuoverà entry con password vuote\n- Correggerà titoli e nomi salvati come oggetti JSON\n- Aggiornerà tutti i clienti')) {
+    if (!window.confirm('Vuoi aggiornare automaticamente tutte le credenziali KeePass esistenti?\n\nQuesto processo:\n- Correggerà titoli e nomi salvati come oggetti JSON\n- Aggiornerà tutti i clienti\n- Le entry con password vuote verranno mantenute')) {
       return;
     }
 
