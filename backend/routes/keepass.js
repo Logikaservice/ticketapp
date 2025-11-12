@@ -194,11 +194,20 @@ module.exports = function createKeepassRouter(pool) {
               entryUuid = Array.isArray(entry.UUID) ? entry.UUID[0] : entry.UUID;
             }
 
-            // Cifra la password
-            const encryptedPassword = password ? encryptPassword(password) : null;
-            
-            if (!encryptedPassword && password) {
-              console.warn('⚠️ Password non cifrata per entry:', title);
+            // Cifra la password (anche se vuota, cifrala per mantenere il formato)
+            let encryptedPassword = '';
+            if (password) {
+              encryptedPassword = encryptPassword(password);
+              if (!encryptedPassword) {
+                console.warn('⚠️ Password non cifrata per entry:', title);
+                encryptedPassword = ''; // Fallback a stringa vuota
+              }
+            } else {
+              // Se la password è vuota, cifra una stringa vuota per mantenere il formato
+              encryptedPassword = encryptPassword('');
+              if (!encryptedPassword) {
+                encryptedPassword = ''; // Fallback
+              }
             }
 
             // Assicurati che password_encrypted non sia null (campo NOT NULL)
