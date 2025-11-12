@@ -160,13 +160,24 @@ module.exports = function createKeepassRouter(pool) {
       }
       
       if (s.Value) {
-        stringValue = Array.isArray(s.Value) ? s.Value[0] : s.Value;
+        const value = Array.isArray(s.Value) ? s.Value[0] : s.Value;
+        // Assicurati che il valore sia una stringa
+        if (typeof value === 'string') {
+          stringValue = value;
+        } else if (value && typeof value === 'object') {
+          // Se è un oggetto, prova a estrarre il testo
+          stringValue = value._ || value.$?.Value || JSON.stringify(value);
+        } else {
+          stringValue = String(value || '');
+        }
       } else if (s._) {
-        stringValue = s._;
+        stringValue = typeof s._ === 'string' ? s._ : String(s._ || '');
       }
       
       if (stringKey === key) {
-        return stringValue || '';
+        // Assicurati di restituire sempre una stringa
+        const result = stringValue || '';
+        return typeof result === 'string' ? result : String(result);
       }
     }
     
@@ -227,8 +238,13 @@ module.exports = function createKeepassRouter(pool) {
             }
 
             // Cifra la password (cifra sempre, anche se vuota)
-            console.log(`    🔐 Password estratta, lunghezza: ${password?.length || 0}`);
-            const encryptedPassword = encryptPassword(password);
+            // Assicurati che password sia sempre una stringa
+            const passwordString = typeof password === 'string' ? password : (password ? String(password) : '');
+            console.log(`    🔐 Password estratta, tipo: ${typeof password}, lunghezza: ${passwordString.length}`);
+            if (typeof password !== 'string' && password) {
+              console.warn(`    ⚠️ Password non è una stringa, conversione:`, password);
+            }
+            const encryptedPassword = encryptPassword(passwordString);
             
             if (!encryptedPassword) {
               console.error(`    ❌ ERRORE: Password non cifrata per entry "${title || 'Senza titolo'}"`);
