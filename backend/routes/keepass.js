@@ -43,7 +43,8 @@ module.exports = function createKeepassRouter(pool) {
   // Chiave di cifratura (in produzione dovrebbe essere in variabile d'ambiente)
   // Usa una chiave fissa per permettere la decifratura (in produzione usa variabile d'ambiente)
   // AES-256 richiede una chiave di 32 bytes (64 caratteri hex)
-  const ENCRYPTION_KEY = process.env.KEEPASS_ENCRYPTION_KEY || 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2';
+  // IMPORTANTE: La chiave deve essere esattamente 64 caratteri hex (0-9, a-f)
+  const ENCRYPTION_KEY = process.env.KEEPASS_ENCRYPTION_KEY || 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567890ab';
   const ALGORITHM = 'aes-256-cbc';
   
   // Assicurati che la chiave sia esattamente 32 bytes (64 caratteri hex)
