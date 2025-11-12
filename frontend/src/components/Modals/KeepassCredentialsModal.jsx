@@ -37,10 +37,10 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
 
       const data = await response.json();
       
-      // Filtra entry con password vuote o in formato non valido
-      const filteredGroups = (data.groups || []).map(group => ({
-        ...group,
-        entries: (group.entries || []).filter(entry => {
+      // Funzione ricorsiva per filtrare entry e gruppi
+      const filterGroup = (group) => {
+        // Filtra entry con password vuote o in formato non valido
+        const filteredEntries = (group.entries || []).filter(entry => {
           // Verifica se la password è vuota o in formato non valido
           const password = entry.password_encrypted;
           if (!password || password.trim() === '') {
@@ -70,8 +70,29 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
             return false;
           }
           return true; // Mantieni entry con password valida
-        })
-      })).filter(group => group.entries.length > 0 || !group.entries); // Mantieni gruppi con entry o senza entry
+        });
+        
+        // Filtra ricorsivamente i children
+        const filteredChildren = (group.children || []).map(child => filterGroup(child)).filter(child => {
+          // Mantieni gruppi che hanno entry valide O children validi
+          return (child.entries && child.entries.length > 0) || (child.children && child.children.length > 0);
+        });
+        
+        return {
+          ...group,
+          entries: filteredEntries,
+          children: filteredChildren
+        };
+      };
+      
+      // Applica il filtro a tutti i gruppi root
+      const filteredGroups = (data.groups || []).map(group => filterGroup(group)).filter(group => {
+        // Mantieni gruppi che hanno entry valide O children validi
+        return (group.entries && group.entries.length > 0) || (group.children && group.children.length > 0);
+      });
+      
+      console.log('📊 Gruppi filtrati:', filteredGroups.length, 'gruppi root');
+      console.log('📊 Dettagli:', filteredGroups.map(g => ({ name: g.name, entries: g.entries?.length || 0, children: g.children?.length || 0 })));
       
       setCredentials(filteredGroups);
     } catch (err) {
