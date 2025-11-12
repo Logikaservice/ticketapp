@@ -848,6 +848,10 @@ export default function TicketApp() {
   const openManageClientsModal = () => setModalState({ type: 'manageClients' });
   const openNewClientModal = () => setModalState({ type: 'newClient' });
   const openAlertsHistory = () => setModalState({ type: 'alertsHistory' });
+  const openImportKeepass = () => setModalState({ type: 'importKeepass' });
+  const onKeepassImportSuccess = () => {
+    showNotification('Credenziali KeePass importate con successo!', 'success');
+  };
 
   // Funzioni per gestione avvisi
   const handleRequestEmailConfirm = (alertData) => {
@@ -1705,7 +1709,7 @@ export default function TicketApp() {
         ))}
       </div>
       <Header
-        {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory }}
+        {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass }}
       />
 
       {!showDashboard && (
@@ -1813,6 +1817,7 @@ export default function TicketApp() {
         setSettingsData={setSettingsData}
         timeLogs={timeLogs}
         setTimeLogs={setTimeLogs}
+        onKeepassImportSuccess={onKeepassImportSuccess}
         handleTimeLogChange={handleTimeLogChange}
         handleAddTimeLog={handleAddTimeLog}
         handleRemoveTimeLog={handleRemoveTimeLog}

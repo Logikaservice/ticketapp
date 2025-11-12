@@ -11,6 +11,7 @@ import EmailConfirmModal from './EmailConfirmModal';
 import AlertEmailConfirmModal from './AlertEmailConfirmModal';
 import SendEmailConfirmModal from './SendEmailConfirmModal';
 import AlertsHistoryModal from './AlertsHistoryModal';
+import ImportKeepassModal from './ImportKeepassModal';
 
 const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...handlers }) => {
   if (!modalState.type) return null;
@@ -111,7 +112,18 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             alertsRefreshTrigger={handlers.alertsRefreshTrigger}
           />
         );
-        
+      
+      case 'importKeepass':
+        return (
+          <ImportKeepassModal 
+            isOpen={true}
+            onClose={closeModal}
+            users={handlers.users}
+            getAuthHeader={handlers.getAuthHeader}
+            onSuccess={handlers.onKeepassImportSuccess}
+          />
+        );
+      
       default:
         return null;
     }

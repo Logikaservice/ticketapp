@@ -1,9 +1,9 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key } from 'lucide-react';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const menuRef = useRef(null);
 
@@ -118,6 +118,17 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                 title="Nuove Funzionalità"
               >
                 <Sparkles size={18} />
+              </button>
+            )}
+            
+            {/* Pulsante Importa KeePass - solo per tecnici */}
+            {currentUser?.ruolo === 'tecnico' && openImportKeepass && (
+              <button 
+                onClick={openImportKeepass} 
+                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                title="Importa KeePass"
+              >
+                <Key size={18} />
               </button>
             )}
             

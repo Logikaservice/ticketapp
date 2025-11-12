@@ -291,6 +291,7 @@ const googleAuthRoutes = require('./routes/googleAuth')(pool);
 const emailNotificationsRoutes = require('./routes/emailNotifications')(pool);
 const tempLoginRoutes = require('./routes/tempLogin')(pool);
 const availabilityRoutes = require('./routes/availability')(pool);
+const keepassRoutes = require('./routes/keepass')(pool);
 
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
@@ -721,6 +722,7 @@ app.use('/api/public-email', emailNotificationsRoutes);
 app.use('/api/users', authenticateToken, usersRoutes);
 app.use('/api/tickets', authenticateToken, ticketsRoutes);
 app.use('/api/alerts', authenticateToken, alertsRoutes);
+app.use('/api/keepass', authenticateToken, keepassRoutes);
 app.use('/api', authenticateToken, googleCalendarRoutes);
 app.use('/api', authenticateToken, googleAuthRoutes);
 app.use('/api/email', authenticateToken, emailNotificationsRoutes);
@@ -921,6 +923,44 @@ app.post('/api/init-db', async (req, res) => {
       console.log("✅ Tabella unavailable_days creata/verificata");
     } catch (unavailableErr) {
       console.log("⚠️ Errore creazione tabella unavailable_days:", unavailableErr.message);
+    }
+    
+    // Crea tabella keepass_groups se non esiste
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS keepass_groups (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL,
+          parent_id INTEGER REFERENCES keepass_groups(id) ON DELETE CASCADE,
+          client_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          uuid TEXT,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Tabella keepass_groups creata/verificata");
+    } catch (keepassGroupsErr) {
+      console.log("⚠️ Errore creazione tabella keepass_groups:", keepassGroupsErr.message);
+    }
+    
+    // Crea tabella keepass_entries se non esiste
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS keepass_entries (
+          id SERIAL PRIMARY KEY,
+          group_id INTEGER REFERENCES keepass_groups(id) ON DELETE CASCADE,
+          title TEXT,
+          username TEXT,
+          password_encrypted TEXT NOT NULL,
+          url TEXT,
+          notes TEXT,
+          uuid TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log("✅ Tabella keepass_entries creata/verificata");
+    } catch (keepassEntriesErr) {
+      console.log("⚠️ Errore creazione tabella keepass_entries:", keepassEntriesErr.message);
     }
     
     console.log("✅ Tabella alerts creata/verificata");

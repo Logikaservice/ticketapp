@@ -200,6 +200,7 @@ body {
 .border-top-gray { border-top: 3px solid #6b7280; }
 .border-top-indigo { border-top: 3px solid #6366f1; }
 .border-top-purple { border-top: 3px solid #8b5cf6; }
+.border-top-teal { border-top: 3px solid #14b8a6; }
 
 /* Background gradient leggero per profondità */
 .bg-gradient-blue { background: linear-gradient(to bottom, rgba(37, 99, 235, 0.03), rgba(37, 99, 235, 0.01)); }
@@ -208,6 +209,7 @@ body {
 .bg-gradient-gray { background: linear-gradient(to bottom, rgba(107, 114, 128, 0.03), rgba(107, 114, 128, 0.01)); }
 .bg-gradient-indigo { background: linear-gradient(to bottom, rgba(99, 102, 241, 0.03), rgba(99, 102, 241, 0.01)); }
 .bg-gradient-purple { background: linear-gradient(to bottom, rgba(139, 92, 246, 0.03), rgba(139, 92, 246, 0.01)); }
+.bg-gradient-teal { background: linear-gradient(to bottom, rgba(20, 184, 166, 0.03), rgba(20, 184, 166, 0.01)); }
 
 /* Effetto hover per card */
 .card-hover {

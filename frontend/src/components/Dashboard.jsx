@@ -5,6 +5,7 @@ import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCh
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
+import KeepassCredentials from './KeepassCredentials';
 import { formatDate } from '../utils/formatters';
 
 const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, cardKey = null }) => {
@@ -21,9 +22,9 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, car
     'aperto': { border: 'border-top-blue', gradient: 'bg-gradient-blue' },
     'in_lavorazione': { border: 'border-top-yellow', gradient: 'bg-gradient-yellow' },
     'risolto': { border: 'border-top-green', gradient: 'bg-gradient-green' },
-    'chiuso': { border: 'border-top-gray', gradient: 'bg-gradient-gray' },
-    'inviato': { border: 'border-top-indigo', gradient: 'bg-gradient-indigo' },
-    'fatturato': { border: 'border-top-purple', gradient: 'bg-gradient-purple' }
+    'chiuso': { border: 'border-top-purple', gradient: 'bg-gradient-purple' },
+    'inviato': { border: 'border-top-teal', gradient: 'bg-gradient-teal' },
+    'fatturato': { border: 'border-top-gray', gradient: 'bg-gradient-gray' }
   };
   
   const colors = cardKey && colorMap[cardKey] ? colorMap[cardKey] : { border: '', gradient: '' };
@@ -832,26 +833,26 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               </div>
               <div className="text-3xl font-extrabold text-green-600">{companyCounts.risolto}</div>
             </div>
-            <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-gray bg-gradient-gray shadow-sm hover:shadow-lg text-center">
+            <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-purple bg-gradient-purple shadow-sm hover:shadow-lg text-center">
               <div className="text-sm font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
                 <Archive size={18} />
                 <span>Chiusi</span>
               </div>
-              <div className="text-3xl font-extrabold text-gray-600">{companyCounts.chiuso}</div>
+              <div className="text-3xl font-extrabold text-purple-600">{companyCounts.chiuso}</div>
             </div>
-            <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-indigo bg-gradient-indigo shadow-sm hover:shadow-lg text-center">
+            <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-teal bg-gradient-teal shadow-sm hover:shadow-lg text-center">
               <div className="text-sm font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
                 <Send size={18} />
                 <span>Inviati</span>
               </div>
-              <div className="text-3xl font-extrabold text-indigo-600">{companyCounts.inviato}</div>
+              <div className="text-3xl font-extrabold text-teal-600">{companyCounts.inviato}</div>
             </div>
-            <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-purple bg-gradient-purple shadow-sm hover:shadow-lg text-center">
+            <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-gray bg-gradient-gray shadow-sm hover:shadow-lg text-center">
               <div className="text-sm font-medium text-gray-600 mb-2 flex items-center justify-center gap-2">
                 <FileCheck2 size={18} />
                 <span>Fatturati</span>
               </div>
-              <div className="text-3xl font-extrabold text-purple-600">{companyCounts.fatturato}</div>
+              <div className="text-3xl font-extrabold text-gray-600">{companyCounts.fatturato}</div>
             </div>
           </div>
           
@@ -873,9 +874,9 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                 aperto: 'bg-blue-50 border-blue-200 text-blue-800',
                 in_lavorazione: 'bg-yellow-50 border-yellow-200 text-yellow-800',
                 risolto: 'bg-green-50 border-green-200 text-green-800',
-                chiuso: 'bg-gray-50 border-gray-200 text-gray-800',
-                inviato: 'bg-indigo-50 border-indigo-200 text-indigo-800',
-                fatturato: 'bg-purple-50 border-purple-200 text-purple-800'
+                chiuso: 'bg-purple-50 border-purple-200 text-purple-800',
+                inviato: 'bg-teal-50 border-teal-200 text-teal-800',
+                fatturato: 'bg-gray-50 border-gray-200 text-gray-800'
               };
               
               return (
@@ -972,6 +973,14 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             users={users || []}
             setModalState={setModalState}
           />
+
+          {/* Sezione Credenziali KeePass - solo per clienti */}
+          {currentUser?.ruolo === 'cliente' && (
+            <KeepassCredentials 
+              currentUser={currentUser}
+              getAuthHeader={getAuthHeader}
+            />
+          )}
 
           {/* Sezione Forniture Temporanee - per tutti gli utenti */}
           <TemporarySuppliesPanel
