@@ -3,7 +3,7 @@ import { X, Clock, AlertTriangle, Info, Sparkles, Calendar, User, Building, File
 import { formatDate } from '../../utils/formatters';
 // getAuthHeader viene passato come prop, non importato
 
-const AlertsHistoryModal = ({ isOpen, onClose, currentUser }) => {
+const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alertsRefreshTrigger }) => {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedAlert, setSelectedAlert] = useState(null);
@@ -13,13 +13,13 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser }) => {
     if (isOpen) {
       fetchAlerts();
     }
-  }, [isOpen]);
+  }, [isOpen, alertsRefreshTrigger]);
 
   const fetchAlerts = async () => {
     setLoading(true);
     try {
       const res = await fetch(`${apiBase}/api/alerts`, {
-        headers: getAuthHeader()
+        headers: getAuthHeader ? getAuthHeader() : {}
       });
       if (!res.ok) throw new Error('Errore caricamento avvisi');
       const allAlerts = await res.json();
