@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, Clock, AlertTriangle, Info, Sparkles, Calendar, User, Building, FileImage, Mail } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';
-// Modal per visualizzare la cronologia delle nuove funzionalità
+// getAuthHeader viene passato come prop, non importato
 
-const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alertsRefreshTrigger }) => {
+const AlertsHistoryModal = ({ isOpen, onClose, currentUser }) => {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedAlert, setSelectedAlert] = useState(null);
@@ -13,7 +13,7 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
     if (isOpen) {
       fetchAlerts();
     }
-  }, [isOpen, alertsRefreshTrigger]);
+  }, [isOpen]);
 
   const fetchAlerts = async () => {
     setLoading(true);
@@ -47,18 +47,14 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
         return { ...alert, clients };
       });
       
-      // Filtra solo gli avvisi di tipo "features" (Nuove funzionalità)
-      // NOTA: Mostriamo TUTTI gli avvisi features, anche quelli scaduti, per mantenere la cronologia completa
-      const featuresAlerts = parsedAlerts.filter(alert => alert.level === 'features');
-      
       // Ordina per data di creazione (più recenti prima)
-      featuresAlerts.sort((a, b) => {
+      parsedAlerts.sort((a, b) => {
         const dateA = new Date(a.createdAt || a.created_at);
         const dateB = new Date(b.createdAt || b.created_at);
         return dateB - dateA;
       });
       
-      setAlerts(featuresAlerts);
+      setAlerts(parsedAlerts);
     } catch (e) {
       console.error('Errore caricamento avvisi:', e);
     } finally {
@@ -124,12 +120,12 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
         {/* Header */}
         <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-purple-50 to-blue-50">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Sparkles size={24} className="text-green-600" />
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <Clock size={24} className="text-purple-600" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Nuove Funzionalità</h2>
-              <p className="text-sm text-gray-600 mt-1">Cronologia delle migliorie e sviluppi del progetto</p>
+              <h2 className="text-2xl font-bold text-gray-900">Cronologia Avvisi</h2>
+              <p className="text-sm text-gray-600 mt-1">Visualizza tutti gli avvisi creati nel sistema</p>
             </div>
           </div>
           <button
@@ -149,9 +145,8 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
             </div>
           ) : alerts.length === 0 ? (
             <div className="text-center py-12">
-              <Sparkles size={48} className="text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg">Nessuna nuova funzionalità ancora pubblicata</p>
-              <p className="text-sm text-gray-500 mt-2">Le nuove funzionalità verranno mostrate qui</p>
+              <Clock size={48} className="text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 text-lg">Nessun avviso presente</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -169,21 +164,67 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className={`font-bold text-lg ${levelInfo.textColor}`}>
-                            {alert.title}
-                          </h3>
-                          <span className="text-sm text-gray-500">
-                            {formattedDate} {formattedTime && `alle ${formattedTime}`}
+                        <div className="flex items-center gap-2 mb-2">
+                          {levelInfo.icon}
+                          <span className={`px-2 py-1 rounded text-xs font-semibold ${levelInfo.badgeColor}`}>
+                            {levelInfo.label}
                           </span>
+                          {alert.isPermanent ? (
+                            <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                              Permanente
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-700">
+                              Temporaneo ({alert.daysToExpire || 7} giorni)
+                            </span>
+                          )}
+                        </div>
+                        
+                        <h3 className={`font-bold text-lg mb-2 ${levelInfo.textColor}`}>
+                          {alert.title}
+                        </h3>
+                        
+                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
+                          <div className="flex items-center gap-1">
+                            <Calendar size={14} />
+                            <span>{formattedDate} {formattedTime && `alle ${formattedTime}`}</span>
+                          </div>
+                          {alert.createdBy && (
+                            <div className="flex items-center gap-1">
+                              <User size={14} />
+                              <span>{alert.createdBy}</span>
+                            </div>
+                          )}
                         </div>
 
                         {selectedAlert?.id === alert.id && (
-                          <div className="mt-4 pt-4 border-t border-gray-200">
+                          <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
                             <div>
                               <p className="text-sm font-semibold text-gray-700 mb-1">Descrizione:</p>
-                              <p className="text-sm text-gray-600 whitespace-pre-wrap text-justify">{alert.body}</p>
+                              <p className="text-sm text-gray-600 whitespace-pre-wrap">{alert.body}</p>
                             </div>
+                            
+                            {alert.clients && Array.isArray(alert.clients) && alert.clients.length > 0 && (
+                              <div>
+                                <p className="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1">
+                                  <Building size={14} />
+                                  Destinatari:
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                  {alert.clients.length} destinatario{alert.clients.length !== 1 ? 'i' : ''} specifico{alert.clients.length !== 1 ? 'i' : ''}
+                                </p>
+                              </div>
+                            )}
+
+                            {(!alert.clients || alert.clients.length === 0) && (
+                              <div>
+                                <p className="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1">
+                                  <Mail size={14} />
+                                  Destinatari:
+                                </p>
+                                <p className="text-sm text-gray-600">Tutti i clienti</p>
+                              </div>
+                            )}
 
                             {alert.attachments && Array.isArray(alert.attachments) && alert.attachments.length > 0 && (
                               <div>
