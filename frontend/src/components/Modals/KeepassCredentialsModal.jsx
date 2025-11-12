@@ -446,11 +446,6 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
     );
   };
 };
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
           <div className="flex justify-end">
             <button
               type="button"
