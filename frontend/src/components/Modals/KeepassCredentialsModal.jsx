@@ -52,8 +52,14 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
       
       // Funzione ricorsiva per filtrare entry e gruppi
       const filterGroup = (group) => {
-        // Filtra entry con password vuote o in formato non valido
+        // Filtra entry con password vuote o in formato non valido, o senza titolo
         const filteredEntries = (group.entries || []).filter(entry => {
+          // Escludi entry senza titolo o con titolo "Senza titolo"
+          const title = extractString(entry.title);
+          if (!title || title.trim() === '' || title.trim().toLowerCase() === 'senza titolo') {
+            return false; // Escludi entry senza titolo
+          }
+          
           // Verifica se la password è vuota o in formato non valido
           const password = entry.password_encrypted;
           if (!password || password.trim() === '') {
