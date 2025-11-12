@@ -167,38 +167,22 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          {levelInfo.icon}
-                          <span className={`px-2 py-1 rounded text-xs font-semibold ${levelInfo.badgeColor}`}>
-                            {levelInfo.label}
-                          </span>
-                          {alert.isPermanent ? (
-                            <span className="px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                              Permanente
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-700">
-                              Temporaneo ({alert.daysToExpire || 7} giorni)
-                            </span>
-                          )}
-                        </div>
-                        
-                        <h3 className={`font-bold text-lg mb-2 ${levelInfo.textColor}`}>
-                          {alert.title}
-                        </h3>
-                        
-                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                          <div className="flex items-center gap-1">
+                        <div className="flex items-center justify-between gap-4 mb-2">
+                          <h3 className={`font-bold text-lg ${levelInfo.textColor}`}>
+                            {alert.title}
+                          </h3>
+                          <div className="flex items-center gap-1 text-sm text-gray-600 whitespace-nowrap">
                             <Calendar size={14} />
                             <span>{formattedDate} {formattedTime && `alle ${formattedTime}`}</span>
                           </div>
-                          {alert.createdBy && (
-                            <div className="flex items-center gap-1">
-                              <User size={14} />
-                              <span>{alert.createdBy}</span>
-                            </div>
-                          )}
                         </div>
+                        
+                        {alert.createdBy && (
+                          <div className="flex items-center gap-1 text-sm text-gray-600 mb-2">
+                            <User size={14} />
+                            <span>{alert.createdBy}</span>
+                          </div>
+                        )}
 
                         {selectedAlert?.id === alert.id && (
                           <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
@@ -207,28 +191,6 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
                               <p className="text-sm text-gray-600 whitespace-pre-wrap">{alert.body}</p>
                             </div>
                             
-                            {alert.clients && Array.isArray(alert.clients) && alert.clients.length > 0 && (
-                              <div>
-                                <p className="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1">
-                                  <Building size={14} />
-                                  Destinatari:
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  {alert.clients.length} destinatario{alert.clients.length !== 1 ? 'i' : ''} specifico{alert.clients.length !== 1 ? 'i' : ''}
-                                </p>
-                              </div>
-                            )}
-
-                            {(!alert.clients || alert.clients.length === 0) && (
-                              <div>
-                                <p className="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1">
-                                  <Mail size={14} />
-                                  Destinatari:
-                                </p>
-                                <p className="text-sm text-gray-600">Tutti i clienti</p>
-                              </div>
-                            )}
-
                             {alert.attachments && Array.isArray(alert.attachments) && alert.attachments.length > 0 && (
                               <div>
                                 <p className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1">
