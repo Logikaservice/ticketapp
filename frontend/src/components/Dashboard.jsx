@@ -46,7 +46,7 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, car
 };
 
 
-const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDelete, isEditable, onManageAlerts, onEditAlert, currentUser, users = [] }) => {
+const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDelete, isEditable, onManageAlerts, onEditAlert, currentUser, users = [], setModalState }) => {
   // Verifica di sicurezza per users
   if (!users || !Array.isArray(users)) {
     users = [];
@@ -105,62 +105,73 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                 {avv.title}
               </div>
               {avv.level === 'features' ? (
-                <div className="text-sm mt-1">
-                  <div className="line-clamp-4 whitespace-pre-wrap">{avv.body}</div>
+                <div className="text-sm mt-1 text-justify">
                   {(() => {
                     // Controlla se il testo è troppo lungo o ha troppe righe
                     const textLines = avv.body ? avv.body.split('\n').length : 0;
                     const textLength = avv.body ? avv.body.length : 0;
-                    // Mostra "... altro" se ha più di 4 righe o più di ~300 caratteri
                     const shouldShowMore = textLines > 4 || textLength > 300;
-                    return shouldShowMore && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setModalState({ type: 'alertsHistory' });
-                        }}
-                        className="text-green-600 hover:text-green-700 font-semibold text-sm mt-1"
-                      >
-                        ... altro
-                      </button>
-                    );
+                    
+                    if (shouldShowMore) {
+                      // Usa un approccio con line-clamp e pulsante inline
+                      const truncatedText = avv.body ? avv.body.substring(0, 300) : '';
+                      return (
+                        <div className="relative">
+                          <div className="line-clamp-4 whitespace-pre-wrap pr-16">{avv.body}</div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (setModalState) {
+                                setModalState({ type: 'alertsHistory' });
+                              }
+                            }}
+                            className="text-green-600 hover:text-green-700 font-semibold text-sm absolute bottom-0 right-0 bg-white pl-1"
+                          >
+                            ... altro
+                          </button>
+                        </div>
+                      );
+                    } else {
+                      return <div className="whitespace-pre-wrap">{avv.body}</div>;
+                    }
                   })()}
                 </div>
               ) : (
-                <div className="text-sm mt-1 whitespace-pre-wrap">{avv.body}</div>
+                <div className="text-sm mt-1 whitespace-pre-wrap text-justify">{avv.body}</div>
               )}
               
-              {/* Informazioni destinatari */}
-              <div className="mt-2 flex items-center gap-2">
-                <div className="text-xs text-gray-500 flex items-center gap-1">
-                  <Users size={12} />
-                  <span>
-                    {(() => {
-                      // Parsa clients se necessario
-                      let clients = [];
-                      try {
-                        if (avv.clients) {
-                          if (Array.isArray(avv.clients)) {
-                            clients = avv.clients;
-                          } else if (typeof avv.clients === 'string') {
-                            clients = JSON.parse(avv.clients);
-                          } else {
-                            clients = avv.clients;
+              {/* Informazioni destinatari - solo per avvisi non features */}
+              {avv.level !== 'features' && (
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="text-xs text-gray-500 flex items-center gap-1">
+                    <Users size={12} />
+                    <span>
+                      {(() => {
+                        // Parsa clients se necessario
+                        let clients = [];
+                        try {
+                          if (avv.clients) {
+                            if (Array.isArray(avv.clients)) {
+                              clients = avv.clients;
+                            } else if (typeof avv.clients === 'string') {
+                              clients = JSON.parse(avv.clients);
+                            } else {
+                              clients = avv.clients;
+                            }
+                            if (!Array.isArray(clients)) {
+                              clients = [];
+                            }
                           }
-                          if (!Array.isArray(clients)) {
-                            clients = [];
-                          }
+                        } catch (e) {
+                          clients = [];
                         }
-                      } catch (e) {
-                        clients = [];
-                      }
-                      
-                      // Se ci sono clienti specifici, mostra il numero
-                      if (clients.length > 0) {
-                        return clients.length === 1 
-                          ? `Condiviso con 1 cliente`
-                          : `Condiviso con ${clients.length} clienti`;
-                      }
+                        
+                        // Se ci sono clienti specifici, mostra il numero
+                        if (clients.length > 0) {
+                          return clients.length === 1 
+                            ? `Condiviso con 1 cliente`
+                            : `Condiviso con ${clients.length} clienti`;
+                        }
                       // Se non ci sono clienti specifici, è per tutti gli amministratori
                       return 'Condiviso con tutti gli amministratori';
                     })()}

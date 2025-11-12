@@ -63,6 +63,15 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
     }
   }, [isOpen, editingAlert]);
 
+  // Quando priority diventa 'features', seleziona automaticamente tutti i clienti
+  useEffect(() => {
+    if (formData.priority === 'features' && selectedClients.length === 0) {
+      // Seleziona tutti i clienti
+      const allClients = users.filter(u => u.ruolo === 'cliente').map(u => u.id);
+      setSelectedClients(allClients);
+    }
+  }, [formData.priority, users]);
+
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
