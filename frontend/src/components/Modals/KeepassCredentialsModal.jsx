@@ -307,75 +307,6 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
     });
   };
 
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="p-6 border-b bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-t-2xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold flex items-center gap-2">
-                <Key size={28} />
-                Credenziali KeePass
-              </h2>
-              <p className="text-indigo-100 text-sm mt-1">
-                Gestisci e visualizza le tue credenziali salvate
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition"
-            >
-              <X size={24} />
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-              <span className="ml-3 text-gray-600">Caricamento credenziali...</span>
-            </div>
-          ) : error ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-              <div className="flex items-center gap-2 text-red-600">
-                <Key size={20} />
-                <span>{error}</span>
-              </div>
-            </div>
-          ) : credentials.length === 0 ? (
-            <div className="text-center py-8">
-              <Key size={48} className="mx-auto text-gray-300 mb-4" />
-              <p className="text-gray-500">Nessuna credenziale disponibile</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {/* Renderizza ricorsivamente i gruppi in struttura ad albero */}
-              {credentials.map(group => renderGroup(group, 0))}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-            >
-              Chiudi
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   // Funzione ricorsiva per renderizzare i gruppi in struttura ad albero
   const renderGroup = (group, level = 0) => {
     const isExpanded = expandedGroups.has(group.id);
@@ -524,6 +455,75 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
       </div>
     );
   };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="p-6 border-b bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-t-2xl">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <Key size={28} />
+                Credenziali KeePass
+              </h2>
+              <p className="text-indigo-100 text-sm mt-1">
+                Gestisci e visualizza le tue credenziali salvate
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg bg-white/20 hover:bg-white/30 transition"
+            >
+              <X size={24} />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+              <span className="ml-3 text-gray-600">Caricamento credenziali...</span>
+            </div>
+          ) : error ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+              <div className="flex items-center gap-2 text-red-600">
+                <Key size={20} />
+                <span>{error}</span>
+              </div>
+            </div>
+          ) : credentials.length === 0 ? (
+            <div className="text-center py-8">
+              <Key size={48} className="mx-auto text-gray-300 mb-4" />
+              <p className="text-gray-500">Nessuna credenziale disponibile</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {/* Renderizza ricorsivamente i gruppi in struttura ad albero */}
+              {credentials.map(group => renderGroup(group, 0))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+            >
+              Chiudi
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default KeepassCredentialsModal;
