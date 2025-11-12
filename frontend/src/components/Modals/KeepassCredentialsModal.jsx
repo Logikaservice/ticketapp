@@ -36,7 +36,44 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
       }
 
       const data = await response.json();
-      setCredentials(data.groups || []);
+      
+      // Filtra entry con password vuote o in formato non valido
+      const filteredGroups = (data.groups || []).map(group => ({
+        ...group,
+        entries: (group.entries || []).filter(entry => {
+          // Verifica se la password è vuota o in formato non valido
+          const password = entry.password_encrypted;
+          if (!password || password.trim() === '') {
+            return false; // Escludi entry senza password
+          }
+          // Se è una stringa JSON (oggetto), escludila
+          if (typeof password === 'string' && password.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(password);
+              // Se ha solo attributi senza valore, escludila
+              if (parsed.$ && Object.keys(parsed).length === 1) {
+                return false;
+              }
+              // Se non ha campo _, escludila
+              if (parsed._ === undefined || parsed._ === '') {
+                return false;
+              }
+            } catch {
+              // Se non è JSON valido ma non contiene ':', escludila
+              if (!password.includes(':')) {
+                return false;
+              }
+            }
+          }
+          // Se non contiene ':' (formato iv:encrypted), escludila
+          if (!password.includes(':')) {
+            return false;
+          }
+          return true; // Mantieni entry con password valida
+        })
+      })).filter(group => group.entries.length > 0 || !group.entries); // Mantieni gruppi con entry o senza entry
+      
+      setCredentials(filteredGroups);
     } catch (err) {
       console.error('Errore fetch credenziali:', err);
       setError(err.message || 'Errore nel caricamento delle credenziali');
