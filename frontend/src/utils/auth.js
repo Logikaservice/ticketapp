@@ -10,3 +10,5 @@ export const getAuthHeader = () => {
   console.warn('getAuthHeader non dovrebbe essere importato da utils/auth. Usa la prop invece.');
   return {};
 };
+
+// Forza deploy Render - commit 0581307
