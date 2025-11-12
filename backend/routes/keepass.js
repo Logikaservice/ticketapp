@@ -401,20 +401,47 @@ module.exports = function createKeepassRouter(pool) {
         result = await parser.parseStringPromise(xmlContent);
         console.log('✅ XML parsato con successo');
         console.log('📋 Struttura root:', Object.keys(result));
+        console.log('📋 Contenuto root (primi 200 caratteri):', JSON.stringify(result).substring(0, 200));
       } catch (parseErr) {
         console.error('❌ Errore parsing XML:', parseErr);
         console.error('Stack:', parseErr.stack);
         return res.status(400).json({ error: 'Errore nel parsing del file XML: ' + parseErr.message });
       }
 
-      if (!result.KeePassFile) {
-        return res.status(400).json({ error: 'Formato XML non valido: manca tag KeePassFile' });
+      // Gestisci diversi formati possibili del risultato XML
+      // Con explicitRoot: false, potrebbe essere direttamente KeePassFile o contenere altri wrapper
+      let keePassFile = null;
+      
+      if (result.KeePassFile) {
+        keePassFile = result.KeePassFile;
+      } else if (result.Root) {
+        // Se c'è direttamente Root, wrappa in KeePassFile
+        keePassFile = { Root: result.Root };
+      } else {
+        // Prova a cercare in qualsiasi chiave del risultato
+        const keys = Object.keys(result);
+        console.log('🔍 Chiavi trovate nel risultato:', keys);
+        for (const key of keys) {
+          if (key.toLowerCase().includes('keepass') || result[key]?.Root) {
+            keePassFile = result[key];
+            console.log('✅ Trovato KeePassFile in chiave:', key);
+            break;
+          }
+        }
+      }
+
+      if (!keePassFile) {
+        console.error('❌ Struttura XML non riconosciuta. Chiavi disponibili:', Object.keys(result));
+        return res.status(400).json({ 
+          error: 'Formato XML non valido: manca tag KeePassFile',
+          details: `Chiavi trovate: ${Object.keys(result).join(', ')}`
+        });
       }
 
       // Gestisci sia Root come array che come oggetto
-      const rootElement = Array.isArray(result.KeePassFile.Root) 
-        ? result.KeePassFile.Root[0] 
-        : result.KeePassFile.Root;
+      const rootElement = Array.isArray(keePassFile.Root) 
+        ? keePassFile.Root[0] 
+        : keePassFile.Root;
       
       if (!rootElement) {
         return res.status(400).json({ error: 'Formato XML non valido: manca tag Root' });
