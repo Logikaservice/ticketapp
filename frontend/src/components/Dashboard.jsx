@@ -649,22 +649,27 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       // Helper per estrarre stringa pulita (gestisce anche oggetti JSON)
       const getCleanString = (val) => {
         if (!val) return '';
+        let result = '';
         if (typeof val === 'string') {
           // Se è una stringa JSON, prova a parsarla
           if (val.trim().startsWith('{')) {
             try {
               const parsed = JSON.parse(val);
-              return parsed._ !== undefined ? String(parsed._ || '') : val;
+              result = parsed._ !== undefined ? String(parsed._ || '') : val;
             } catch {
-              return val;
+              result = val;
             }
+          } else {
+            result = val;
           }
-          return val;
+        } else if (typeof val === 'object') {
+          result = val._ !== undefined ? String(val._ || '') : JSON.stringify(val);
+        } else {
+          result = String(val || '');
         }
-        if (typeof val === 'object') {
-          return val._ !== undefined ? String(val._ || '') : JSON.stringify(val);
-        }
-        return String(val || '');
+        // Rimuovi virgolette doppie o singole se presenti all'inizio e alla fine
+        result = result.replace(/^["']+|["']+$/g, '');
+        return result.trim();
       };
       
       // Estrai tutti i campi come stringhe pulite
