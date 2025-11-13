@@ -11,13 +11,33 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
   const [copiedPasswords, setCopiedPasswords] = useState({});
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [highlightedEntryId, setHighlightedEntryId] = useState(null);
+  const highlightedEntryRef = React.useRef(null);
+  const hasScrolledToHighlight = React.useRef(false);
 
   useEffect(() => {
     if (isOpen) {
       setHighlightedEntryId(highlightEntryId);
+      hasScrolledToHighlight.current = false;
+      highlightedEntryRef.current = null;
       fetchCredentials();
+    } else {
+      // Reset quando il modal si chiude
+      hasScrolledToHighlight.current = false;
+      highlightedEntryRef.current = null;
     }
   }, [isOpen, currentUser, highlightEntryId]);
+  
+  // Scroll una sola volta quando l'entry evidenziata è renderizzata
+  useEffect(() => {
+    if (highlightedEntryId && highlightedEntryRef.current && !hasScrolledToHighlight.current) {
+      hasScrolledToHighlight.current = true;
+      setTimeout(() => {
+        if (highlightedEntryRef.current) {
+          highlightedEntryRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 500);
+    }
+  }, [highlightedEntryId, expandedGroups]);
 
   const fetchCredentials = async () => {
     try {
@@ -377,13 +397,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
                 <div 
                   key={entry.id} 
                   className={`p-4 border-b border-gray-200 last:border-b-0 ${isHighlighted ? 'bg-yellow-100 border-yellow-400 border-2' : ''}`}
-                  ref={isHighlighted ? (el) => {
-                    if (el) {
-                      setTimeout(() => {
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }, 300);
-                    }
-                  } : null}
+                  ref={isHighlighted ? highlightedEntryRef : null}
                 >
                   <div className="space-y-3">
                     {/* Titolo - mostra solo se esiste e non è vuoto o "Senza titolo" */}

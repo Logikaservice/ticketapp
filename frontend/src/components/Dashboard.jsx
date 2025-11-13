@@ -506,12 +506,32 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             if (!title || title.trim() === '' || title.trim().toLowerCase() === 'senza titolo') {
               return;
             }
+            // Helper per estrarre stringa da campo che potrebbe essere oggetto JSON
+            const extractString = (val) => {
+              if (!val) return '';
+              if (typeof val === 'string') {
+                if (val.trim().startsWith('{')) {
+                  try {
+                    const parsed = JSON.parse(val);
+                    return parsed._ !== undefined ? String(parsed._ || '') : val;
+                  } catch {
+                    return val;
+                  }
+                }
+                return val;
+              }
+              if (typeof val === 'object') {
+                return val._ !== undefined ? String(val._ || '') : JSON.stringify(val);
+              }
+              return String(val || '');
+            };
+            
             flattenedEntries.push({
               id: entry.id,
-              title: title,
-              username: entry.username || '',
-              url: entry.url || '',
-              notes: entry.notes || '',
+              title: extractString(title),
+              username: extractString(entry.username || ''),
+              url: extractString(entry.url || ''),
+              notes: extractString(entry.notes || ''),
               password_encrypted: entry.password_encrypted,
               groupName: currentPath.filter(Boolean).join(' / ')
             });
@@ -535,13 +555,46 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     }
   }, [apiBase, currentUser, getAuthHeader]);
 
+  // Helper per estrarre stringa da campo che potrebbe essere oggetto JSON
+  const extractKeepassString = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string') {
+      // Se è una stringa JSON, prova a parsarla
+      if (value.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(value);
+          return parsed._ !== undefined ? String(parsed._ || '') : value;
+        } catch {
+          return value;
+        }
+      }
+      return value;
+    }
+    if (typeof value === 'object') {
+      // Se è un oggetto, estrai il valore da _
+      return value._ !== undefined ? String(value._ || '') : JSON.stringify(value);
+    }
+    return String(value || '');
+  };
+
   const keepassResults = React.useMemo(() => {
     const term = keepassSearchQuery.trim().toLowerCase();
     if (term.length < 2) return [];
 
     return keepassEntries.filter(entry => {
-      return [entry.title, entry.username, entry.url, entry.groupName]
-        .some(field => field && field.toLowerCase().includes(term));
+      // Estrai tutti i campi come stringhe pulite
+      const title = extractKeepassString(entry.title).toLowerCase();
+      const username = extractKeepassString(entry.username).toLowerCase();
+      const url = extractKeepassString(entry.url).toLowerCase();
+      const notes = extractKeepassString(entry.notes).toLowerCase();
+      const groupName = extractKeepassString(entry.groupName).toLowerCase();
+      
+      // Cerca in tutti i campi
+      return title.includes(term) || 
+             username.includes(term) || 
+             url.includes(term) || 
+             notes.includes(term) || 
+             groupName.includes(term);
     }).slice(0, 15);
   }, [keepassEntries, keepassSearchQuery]);
 
