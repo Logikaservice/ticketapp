@@ -573,6 +573,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               url: url,
               notes: notes,
               password_encrypted: entry.password_encrypted,
+              icon_id: entry.icon_id || 0,
               groupName: currentPath.filter(Boolean).join(' / ')
             });
           });

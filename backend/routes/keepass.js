@@ -266,6 +266,13 @@ module.exports = function createKeepassRouter(pool) {
             if (entry.UUID) {
               entryUuid = Array.isArray(entry.UUID) ? entry.UUID[0] : entry.UUID;
             }
+            
+            // Estrai IconID entry (default 0 se non presente)
+            let iconId = 0;
+            if (entry.IconID !== undefined) {
+              const iconIdValue = Array.isArray(entry.IconID) ? entry.IconID[0] : entry.IconID;
+              iconId = parseInt(iconIdValue) || 0;
+            }
 
             // Estrai e verifica la password
             // Assicurati che password sia sempre una stringa
@@ -309,9 +316,9 @@ module.exports = function createKeepassRouter(pool) {
             const finalEncryptedPassword = encryptedPassword;
             
             await client.query(
-              `INSERT INTO keepass_entries (group_id, title, username, password_encrypted, url, notes, uuid) 
-               VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-              [groupId, title || 'Senza titolo', username || '', finalEncryptedPassword, url || '', notes || '', entryUuid]
+              `INSERT INTO keepass_entries (group_id, title, username, password_encrypted, url, notes, uuid, icon_id) 
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+              [groupId, title || 'Senza titolo', username || '', finalEncryptedPassword, url || '', notes || '', entryUuid, iconId]
             );
             console.log(`    ✅ Entry inserita`);
           } catch (entryErr) {
@@ -608,7 +615,8 @@ module.exports = function createKeepassRouter(pool) {
               e.username,
               e.password_encrypted,
               e.url,
-              e.notes
+              e.notes,
+              e.icon_id
             FROM keepass_groups g
             LEFT JOIN keepass_entries e ON e.group_id = g.id
             WHERE g.client_id = $1
@@ -628,7 +636,8 @@ module.exports = function createKeepassRouter(pool) {
               e.username,
               e.password_encrypted,
               e.url,
-              e.notes
+              e.notes,
+              e.icon_id
             FROM keepass_groups g
             LEFT JOIN keepass_entries e ON e.group_id = g.id
             LEFT JOIN users u ON u.id = g.client_id
@@ -648,7 +657,8 @@ module.exports = function createKeepassRouter(pool) {
             e.username,
             e.password_encrypted,
             e.url,
-            e.notes
+            e.notes,
+            e.icon_id
           FROM keepass_groups g
           LEFT JOIN keepass_entries e ON e.group_id = g.id
           WHERE g.client_id = $1
@@ -705,7 +715,8 @@ module.exports = function createKeepassRouter(pool) {
             username: extractString(row.username) || '',
             password_encrypted: row.password_encrypted, // Password cifrata, non decifrata
             url: extractString(row.url) || '',
-            notes: extractString(row.notes) || ''
+            notes: extractString(row.notes) || '',
+            icon_id: row.icon_id || 0
           });
         }
       });

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Key, Eye, EyeOff, Copy, Check, ChevronDown, ChevronRight, Lock, Globe, User, FileText } from 'lucide-react';
+import KeepassIcon from '../KeepassIcon';
 
 const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, highlightEntryId = null }) => {
   const [credentials, setCredentials] = useState([]);
@@ -406,7 +407,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
                       const hasValidTitle = title && title.trim() !== '' && title.trim().toLowerCase() !== 'senza titolo';
                       return hasValidTitle ? (
                         <div className="flex items-center gap-2">
-                          <FileText size={14} className="text-gray-400" />
+                          <KeepassIcon iconId={entry.icon_id || 0} size={18} className="flex-shrink-0" />
                           <span className="font-medium text-gray-900">{title}</span>
                         </div>
                       ) : null;
