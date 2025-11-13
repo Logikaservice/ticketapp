@@ -1470,19 +1470,19 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                     )}
                   </div>
 
-                  {keepassSearchLoading && (
+                  {keepassSearchLoadingResults && (
                     <div className="flex items-center justify-center py-4">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
                     </div>
                   )}
 
-                  {!keepassSearchLoading && keepassSearchError && (
+                  {!keepassSearchLoadingResults && keepassSearchError && (
                     <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                       {keepassSearchError}
                     </div>
                   )}
 
-                  {!keepassSearchLoading && !keepassSearchError && (
+                  {!keepassSearchLoadingResults && !keepassSearchError && (
                     <>
                       {keepassSearchQuery.trim().length < 2 ? (
                         <p className="text-xs text-gray-500">
