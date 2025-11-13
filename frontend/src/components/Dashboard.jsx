@@ -597,19 +597,41 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           notes: flattenedEntries[0].notes,
           notesType: typeof flattenedEntries[0].notes
         });
-        // Mostra tutte le entry per debug - ESPANDI OGGETTI
-        console.log('📊 Tutte le entry caricate:', flattenedEntries.map(e => ({
-          id: e.id,
-          title: e.title,
-          titleType: typeof e.title,
-          titleString: String(e.title),
-          username: e.username,
-          usernameType: typeof e.username,
-          usernameString: String(e.username),
-          url: e.url,
-          notes: e.notes ? String(e.notes).substring(0, 50) : '',
-          notesType: typeof e.notes
-        })));
+        // Mostra TUTTE le entry con TUTTI i dettagli
+        console.log('📊 TUTTE LE ENTRY CARICATE (dettagli completi):');
+        flattenedEntries.forEach((e, idx) => {
+          console.log(`  Entry ${idx + 1}/${flattenedEntries.length}:`, {
+            id: e.id,
+            title: e.title,
+            titleType: typeof e.title,
+            username: e.username,
+            usernameType: typeof e.username,
+            url: e.url,
+            notes: e.notes ? String(e.notes).substring(0, 100) : '',
+            groupName: e.groupName
+          });
+        });
+        
+        // Cerca entry che contengono "ger" o "gera" (case insensitive)
+        const entriesWithGer = flattenedEntries.filter(e => {
+          const title = String(e.title || '').toLowerCase();
+          const username = String(e.username || '').toLowerCase();
+          const notes = String(e.notes || '').toLowerCase();
+          const groupName = String(e.groupName || '').toLowerCase();
+          return title.includes('ger') || username.includes('ger') || notes.includes('ger') || groupName.includes('ger') ||
+                 title.includes('gera') || username.includes('gera') || notes.includes('gera') || groupName.includes('gera');
+        });
+        console.log('🔍 Entry che contengono "ger" o "gera":', entriesWithGer.length);
+        if (entriesWithGer.length > 0) {
+          console.log('🔍 Dettagli entry con "ger/gera":', entriesWithGer.map(e => ({
+            title: e.title,
+            username: e.username,
+            notes: e.notes ? String(e.notes).substring(0, 50) : '',
+            groupName: e.groupName
+          })));
+        } else {
+          console.warn('⚠️ Nessuna entry contiene "ger" o "gera" nei dati caricati!');
+        }
       } else {
         console.warn('⚠️ Nessuna entry caricata per la ricerca!');
       }
