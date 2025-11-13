@@ -241,7 +241,27 @@ module.exports = function createKeepassRouter(pool) {
         for (let i = 0; i < entries.length; i++) {
           const entry = entries[i];
           try {
-            const title = getStringValue(entry.String, 'Title');
+            // Debug: mostra tutti i campi String disponibili per la prima entry
+            if (i === 0 && entry.String) {
+              const stringArray = Array.isArray(entry.String) ? entry.String : [entry.String];
+              console.log(`    🔍 Campi String disponibili nella prima entry:`, stringArray.map(s => {
+                let key = '';
+                if (s.Key) {
+                  const keyValue = Array.isArray(s.Key) ? s.Key[0] : s.Key;
+                  key = typeof keyValue === 'string' ? keyValue : (keyValue?._ || keyValue?.$?.Key || String(keyValue || ''));
+                } else if (s.$ && s.$.Key) {
+                  key = s.$.Key;
+                }
+                return key;
+              }).filter(Boolean));
+            }
+            
+            // Prova prima con 'Title', poi con 'Name' se Title è vuoto
+            let title = getStringValue(entry.String, 'Title');
+            if (!title || title.trim() === '') {
+              title = getStringValue(entry.String, 'Name');
+            }
+            
             const username = getStringValue(entry.String, 'UserName');
             let password = getStringValue(entry.String, 'Password');
             const url = getStringValue(entry.String, 'URL');
