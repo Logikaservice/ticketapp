@@ -281,6 +281,23 @@ module.exports = function createKeepassRouter(pool) {
             
             console.log(`    📄 Entry ${i + 1}/${entries.length}: "${title || 'Senza titolo'}"`);
             
+            // Debug: mostra cosa verrà salvato nel database per la prima entry
+            if (i === 0) {
+              console.log(`    💾 Dati che verranno salvati nel DB:`, {
+                title: title,
+                titleType: typeof title,
+                titleLength: title ? title.length : 0,
+                username: username,
+                usernameType: typeof username,
+                usernameLength: username ? username.length : 0,
+                url: url,
+                urlType: typeof url,
+                notes: notes ? notes.substring(0, 50) : '',
+                notesType: typeof notes,
+                notesLength: notes ? notes.length : 0
+              });
+            }
+            
             // Estrai UUID entry
             let entryUuid = null;
             if (entry.UUID) {
