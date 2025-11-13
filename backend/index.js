@@ -955,9 +955,16 @@ app.post('/api/init-db', async (req, res) => {
           url TEXT,
           notes TEXT,
           uuid TEXT,
+          icon_id INTEGER DEFAULT 0,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
+      // Aggiungi colonna icon_id se non esiste
+      try {
+        await pool.query(`ALTER TABLE keepass_entries ADD COLUMN IF NOT EXISTS icon_id INTEGER DEFAULT 0`);
+      } catch (alterErr) {
+        // Colonna già esistente, ignora
+      }
       console.log("✅ Tabella keepass_entries creata/verificata");
     } catch (keepassEntriesErr) {
       console.log("⚠️ Errore creazione tabella keepass_entries:", keepassEntriesErr.message);
