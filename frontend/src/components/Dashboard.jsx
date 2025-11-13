@@ -1,12 +1,11 @@
 // src/components/Dashboard.jsx
 
 import React, { useEffect } from 'react';
-import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, X, Info, Users, Trash2, Sparkles, Building } from 'lucide-react';
+import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, Copy, X, Info, Users, Trash2, Sparkles, Building, ChevronDown, Search, User, Globe, Key } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
 import { formatDate } from '../utils/formatters';
-import { Key } from 'lucide-react';
 
 const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, cardKey = null }) => {
   const ringClass = highlight
@@ -459,6 +458,102 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   // Avvisi: ora da API backend
   const [alerts, setAlerts] = React.useState([]);
   const apiBase = process.env.REACT_APP_API_URL;
+  const isKeepassAdmin = currentUser?.ruolo === 'cliente' &&
+    Array.isArray(currentUser?.admin_companies) &&
+    currentUser.admin_companies.length > 0;
+
+  const [keepassDropdownOpen, setKeepassDropdownOpen] = React.useState(false);
+  const [keepassSearchQuery, setKeepassSearchQuery] = React.useState('');
+  const [keepassSearchLoading, setKeepassSearchLoading] = React.useState(false);
+  const [keepassSearchError, setKeepassSearchError] = React.useState(null);
+  const [keepassEntries, setKeepassEntries] = React.useState([]);
+  const [keepassHasLoaded, setKeepassHasLoaded] = React.useState(false);
+
+  const loadKeepassEntries = React.useCallback(async () => {
+    if (!getAuthHeader) return;
+
+    try {
+      setKeepassSearchLoading(true);
+      setKeepassSearchError(null);
+
+      const authHeader = getAuthHeader();
+      const response = await fetch(`${apiBase}/api/keepass/credentials`, {
+        headers: {
+          ...authHeader,
+          'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
+          'x-user-role': currentUser?.ruolo || ''
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore nel caricamento delle credenziali KeePass');
+      }
+
+      const data = await response.json();
+      const groups = Array.isArray(data?.groups) ? data.groups : [];
+      const flattenedEntries = [];
+
+      const collectEntries = (group, parentPath = []) => {
+        const currentPath = [...parentPath, group.name || ''];
+        if (group.entries && Array.isArray(group.entries)) {
+          group.entries.forEach(entry => {
+            if (!entry?.password_encrypted || typeof entry.password_encrypted !== 'string' || !entry.password_encrypted.includes(':')) {
+              return;
+            }
+            flattenedEntries.push({
+              id: entry.id,
+              title: entry.title || 'Senza titolo',
+              username: entry.username || '',
+              url: entry.url || '',
+              notes: entry.notes || '',
+              groupName: currentPath.filter(Boolean).join(' / ')
+            });
+          });
+        }
+
+        if (group.children && Array.isArray(group.children)) {
+          group.children.forEach(child => collectEntries(child, currentPath));
+        }
+      };
+
+      groups.forEach(group => collectEntries(group));
+
+      setKeepassEntries(flattenedEntries);
+      setKeepassHasLoaded(true);
+    } catch (err) {
+      console.error('Errore caricamento rapida KeePass:', err);
+      setKeepassSearchError(err?.message || 'Errore nel recupero delle credenziali');
+    } finally {
+      setKeepassSearchLoading(false);
+    }
+  }, [apiBase, currentUser, getAuthHeader]);
+
+  const keepassResults = React.useMemo(() => {
+    const term = keepassSearchQuery.trim().toLowerCase();
+    if (term.length < 2) return [];
+
+    return keepassEntries.filter(entry => {
+      return [entry.title, entry.username, entry.url, entry.groupName]
+        .some(field => field && field.toLowerCase().includes(term));
+    }).slice(0, 15);
+  }, [keepassEntries, keepassSearchQuery]);
+
+  React.useEffect(() => {
+    if (isKeepassAdmin && keepassDropdownOpen && !keepassHasLoaded && !keepassSearchLoading) {
+      loadKeepassEntries();
+    }
+  }, [isKeepassAdmin, keepassDropdownOpen, keepassHasLoaded, keepassSearchLoading, loadKeepassEntries]);
+
+  const toggleKeepassDropdown = () => {
+    setKeepassDropdownOpen(prev => {
+      const next = !prev;
+      if (!prev && !keepassHasLoaded && !keepassSearchLoading) {
+        loadKeepassEntries();
+      }
+      return next;
+    });
+  };
+
   const fetchAlerts = async () => {
     try {
       const res = await fetch(`${apiBase}/api/alerts`, {
@@ -1067,11 +1162,9 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             getAuthHeader={getAuthHeader}
           />
           
-          {/* Pulsante Credenziali KeePass - solo per amministratori (clienti con aziende assegnate) */}
-          {currentUser?.ruolo === 'cliente' &&
-            Array.isArray(currentUser?.admin_companies) &&
-            currentUser.admin_companies.length > 0 && (
-            <div className="mt-4">
+          {/* Pulsante Credenziali KeePass + ricerca rapida - solo per amministratori */}
+          {isKeepassAdmin && (
+            <div className="mt-4 space-y-2">
               <button
                 onClick={() => setModalState({ type: 'keepassCredentials' })}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition shadow-md"
@@ -1079,6 +1172,128 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                 <Key size={20} />
                 <span className="font-semibold">Credenziali KeePass</span>
               </button>
+
+              <div className="bg-white border border-indigo-100 rounded-lg overflow-hidden shadow-sm">
+                <button
+                  type="button"
+                  onClick={toggleKeepassDropdown}
+                  className="w-full flex items-center justify-between px-4 py-2 text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition"
+                >
+                  <span>Ricerca rapida KeePass</span>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform duration-200 ${keepassDropdownOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {keepassDropdownOpen && (
+                  <div className="p-4 space-y-3 border-t border-indigo-100 bg-white">
+                    <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent transition">
+                      <Search size={16} className="text-gray-400" />
+                      <input
+                        type="text"
+                        value={keepassSearchQuery}
+                        onChange={(e) => setKeepassSearchQuery(e.target.value)}
+                        placeholder="Cerca per titolo, username o URL..."
+                        className="flex-1 text-sm text-gray-700 bg-transparent focus:outline-none"
+                      />
+                      {keepassSearchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setKeepassSearchQuery('')}
+                          className="text-gray-400 hover:text-gray-600 transition"
+                          title="Pulisci ricerca"
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    {keepassSearchLoading && (
+                      <div className="flex items-center justify-center py-4">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-500"></div>
+                      </div>
+                    )}
+
+                    {!keepassSearchLoading && keepassSearchError && (
+                      <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                        {keepassSearchError}
+                      </div>
+                    )}
+
+                    {!keepassSearchLoading && !keepassSearchError && (
+                      <>
+                        {keepassSearchQuery.trim().length < 2 ? (
+                          <p className="text-xs text-gray-500">
+                            Inserisci almeno 2 caratteri per cercare le tue credenziali. La ricerca avviene solo tra i dati a te associati.
+                          </p>
+                        ) : keepassResults.length === 0 ? (
+                          <p className="text-sm text-gray-500">Nessuna credenziale trovata.</p>
+                        ) : (
+                          <ul className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                            {keepassResults.map((entry, index) => (
+                              <li
+                                key={entry.id || `${entry.title}-${index}`}
+                                className="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 hover:shadow-sm transition"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="text-sm font-semibold text-gray-800">{entry.title}</div>
+                                  {entry.groupName && (
+                                    <span className="text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                                      {entry.groupName}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {entry.username && (
+                                  <div className="flex items-center gap-2 text-sm text-gray-600 mt-2">
+                                    <User size={14} className="text-gray-400" />
+                                    <span className="truncate">{entry.username}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => navigator.clipboard.writeText(entry.username)}
+                                      className="ml-auto text-gray-400 hover:text-indigo-600 transition"
+                                      title="Copia username"
+                                    >
+                                      <Copy size={14} />
+                                    </button>
+                                  </div>
+                                )}
+
+                                {entry.url && (
+                                  <a
+                                    href={entry.url.startsWith('http') ? entry.url : `http://${entry.url}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 text-sm text-blue-600 hover:underline mt-2"
+                                  >
+                                    <Globe size={14} className="text-blue-500" />
+                                    <span className="truncate">{entry.url}</span>
+                                  </a>
+                                )}
+
+                                {entry.notes && (
+                                  <p className="text-xs text-gray-500 mt-2 line-clamp-2 whitespace-pre-wrap">
+                                    {entry.notes}
+                                  </p>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => setModalState({ type: 'keepassCredentials' })}
+                                  className="mt-3 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition"
+                                >
+                                  Apri credenziali complete
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
