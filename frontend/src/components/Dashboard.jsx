@@ -637,12 +637,50 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     }
 
     const results = keepassEntries.filter(entry => {
-      // I campi sono già estratti durante il caricamento
-      const title = (entry.title || '').toLowerCase();
-      const username = (entry.username || '').toLowerCase();
-      const url = (entry.url || '').toLowerCase();
-      const notes = (entry.notes || '').toLowerCase();
-      const groupName = (entry.groupName || '').toLowerCase();
+      // Helper per estrarre stringa pulita (gestisce anche oggetti JSON)
+      const getCleanString = (val) => {
+        if (!val) return '';
+        if (typeof val === 'string') {
+          // Se è una stringa JSON, prova a parsarla
+          if (val.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(val);
+              return parsed._ !== undefined ? String(parsed._ || '') : val;
+            } catch {
+              return val;
+            }
+          }
+          return val;
+        }
+        if (typeof val === 'object') {
+          return val._ !== undefined ? String(val._ || '') : JSON.stringify(val);
+        }
+        return String(val || '');
+      };
+      
+      // Estrai tutti i campi come stringhe pulite
+      const title = getCleanString(entry.title).toLowerCase();
+      const username = getCleanString(entry.username).toLowerCase();
+      const url = getCleanString(entry.url).toLowerCase();
+      const notes = getCleanString(entry.notes).toLowerCase();
+      const groupName = getCleanString(entry.groupName).toLowerCase();
+      
+      // Debug per la prima entry
+      if (keepassEntries.indexOf(entry) === 0) {
+        console.log('🔍 Debug prima entry:', {
+          original: {
+            title: entry.title,
+            username: entry.username,
+            notes: entry.notes
+          },
+          cleaned: {
+            title,
+            username,
+            notes: notes.substring(0, 30)
+          },
+          searchTerm: term
+        });
+      }
       
       // Verifica ogni campo
       const matchesTitle = title.includes(term);
@@ -1344,10 +1382,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                               className="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 hover:shadow-sm transition"
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <div className="flex items-center gap-2">
-                                  <KeepassIcon iconId={entry.icon_id || 0} size={18} className="flex-shrink-0" />
-                                  <div className="text-sm font-semibold text-gray-800">{entry.title}</div>
-                                </div>
+                                <div className="text-sm font-semibold text-gray-800">{entry.title}</div>
                                 {entry.groupName && (
                                   <span className="text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
                                     {entry.groupName}
