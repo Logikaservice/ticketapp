@@ -652,10 +652,22 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
   React.useEffect(() => {
     const searchKeepass = async () => {
-      console.log('🔍 useEffect ricerca chiamato - isKeepassAdmin:', isKeepassAdmin, 'getAuthHeader:', !!getAuthHeader, 'query:', keepassSearchQuery);
+      console.log('🔍🔍🔍 useEffect ricerca chiamato');
+      console.log('🔍 isKeepassAdmin:', isKeepassAdmin);
+      console.log('🔍 getAuthHeader:', !!getAuthHeader);
+      console.log('🔍 keepassSearchQuery:', keepassSearchQuery);
+      console.log('🔍 apiBase:', apiBase);
+      console.log('🔍 currentUser:', currentUser?.id, currentUser?.ruolo);
       
-      if (!getAuthHeader || !isKeepassAdmin) {
-        console.log('⚠️ Ricerca non eseguita - isKeepassAdmin:', isKeepassAdmin, 'getAuthHeader:', !!getAuthHeader);
+      if (!getAuthHeader) {
+        console.log('⚠️⚠️⚠️ Ricerca non eseguita - getAuthHeader mancante');
+        return;
+      }
+      
+      if (!isKeepassAdmin) {
+        console.log('⚠️⚠️⚠️ Ricerca non eseguita - isKeepassAdmin è false');
+        console.log('⚠️ currentUser?.ruolo:', currentUser?.ruolo);
+        console.log('⚠️ currentUser?.admin_companies:', currentUser?.admin_companies);
         return;
       }
       
