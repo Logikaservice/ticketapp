@@ -704,10 +704,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     return () => clearTimeout(timeoutId);
   }, [keepassSearchQuery, apiBase, currentUser, getAuthHeader, isKeepassAdmin]);
 
-  const keepassResults = keepassSearchResults; // Usa i risultati dal backend
-
-  // Vecchio codice ricerca lato frontend (commentato)
-  const keepassResults_OLD = React.useMemo(() => {
+  // Usa i risultati dal backend - NON più ricerca lato frontend
+  const keepassResults = keepassSearchResults;
     // Pulisci il termine di ricerca: rimuovi virgolette extra e spazi
     let term = keepassSearchQuery.trim().toLowerCase();
     // Rimuovi virgolette doppie o singole se presenti all'inizio e alla fine
@@ -830,11 +828,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       return matches;
     }).slice(0, 15);
     
-    console.log('🔍 Risultati ricerca:', results.length, 'entry trovate');
+    // Questo codice non viene più usato - ricerca ora lato backend
+    console.log('🔍 Risultati ricerca (VECCHIO CODICE - NON USATO):', results.length, 'entry trovate');
     return results;
   }, [keepassEntries, keepassSearchQuery]);
-  
-  // Non usare più keepassResults_OLD, usa keepassResults dal backend
 
   React.useEffect(() => {
     if (isKeepassAdmin && !keepassHasLoaded && !keepassSearchLoading) {
