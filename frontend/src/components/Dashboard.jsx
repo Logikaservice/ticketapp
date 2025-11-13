@@ -1344,7 +1344,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                               className="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 hover:shadow-sm transition"
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <div className="text-sm font-semibold text-gray-800">{entry.title}</div>
+                                <div className="flex items-center gap-2">
+                                  <KeepassIcon iconId={entry.icon_id || 0} size={18} className="flex-shrink-0" />
+                                  <div className="text-sm font-semibold text-gray-800">{entry.title}</div>
+                                </div>
                                 {entry.groupName && (
                                   <span className="text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
                                     {entry.groupName}
