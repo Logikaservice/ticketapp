@@ -646,7 +646,54 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     }
   }, [apiBase, currentUser, getAuthHeader]);
 
-  const keepassResults = React.useMemo(() => {
+  // Ricerca lato backend invece che lato frontend
+  const [keepassSearchResults, setKeepassSearchResults] = React.useState([]);
+  const [keepassSearchLoadingResults, setKeepassSearchLoadingResults] = React.useState(false);
+
+  React.useEffect(() => {
+    const searchKeepass = async () => {
+      if (!getAuthHeader || !isKeepassAdmin) return;
+      
+      const term = keepassSearchQuery.trim().toLowerCase().replace(/^["']+|["']+$/g, '').trim();
+      
+      if (term.length < 2) {
+        setKeepassSearchResults([]);
+        return;
+      }
+
+      try {
+        setKeepassSearchLoadingResults(true);
+        const authHeader = getAuthHeader();
+        const response = await fetch(`${apiBase}/api/keepass/search?q=${encodeURIComponent(term)}`, {
+          headers: {
+            ...authHeader,
+            'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
+            'x-user-role': currentUser?.ruolo || ''
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Errore nella ricerca');
+        }
+
+        const data = await response.json();
+        setKeepassSearchResults(data.results || []);
+      } catch (err) {
+        console.error('Errore ricerca KeePass:', err);
+        setKeepassSearchResults([]);
+      } finally {
+        setKeepassSearchLoadingResults(false);
+      }
+    };
+
+    const timeoutId = setTimeout(searchKeepass, 300); // Debounce 300ms
+    return () => clearTimeout(timeoutId);
+  }, [keepassSearchQuery, apiBase, currentUser, getAuthHeader, isKeepassAdmin]);
+
+  const keepassResults = keepassSearchResults; // Usa i risultati dal backend
+
+  // Vecchio codice ricerca lato frontend (commentato)
+  const keepassResults_OLD = React.useMemo(() => {
     // Pulisci il termine di ricerca: rimuovi virgolette extra e spazi
     let term = keepassSearchQuery.trim().toLowerCase();
     // Rimuovi virgolette doppie o singole se presenti all'inizio e alla fine
@@ -772,6 +819,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     console.log('🔍 Risultati ricerca:', results.length, 'entry trovate');
     return results;
   }, [keepassEntries, keepassSearchQuery]);
+  
+  // Non usare più keepassResults_OLD, usa keepassResults dal backend
 
   React.useEffect(() => {
     if (isKeepassAdmin && !keepassHasLoaded && !keepassSearchLoading) {

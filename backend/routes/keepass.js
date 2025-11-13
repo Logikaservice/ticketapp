@@ -993,6 +993,136 @@ module.exports = function createKeepassRouter(pool) {
   });
 
   // POST /api/keepass/migrate - Migra e corregge tutte le credenziali esistenti (solo tecnici)
+  // GET /api/keepass/search - Ricerca veloce credenziali nel database
+  router.get('/search', async (req, res) => {
+    try {
+      const userId = req.user?.id || req.headers['x-user-id'];
+      const role = req.user?.ruolo || (req.headers['x-user-role'] || '').toString();
+      const searchTerm = req.query.q || '';
+
+      if (!userId) {
+        return res.status(401).json({ error: 'Utente non autenticato' });
+      }
+
+      if (!searchTerm || searchTerm.trim().length < 2) {
+        return res.json({ results: [] });
+      }
+
+      const cleanTerm = searchTerm.trim().toLowerCase();
+
+      console.log('🔍 Ricerca veloce KeePass - Termine:', cleanTerm, 'Utente:', userId, 'Ruolo:', role);
+
+      let query, params;
+      if (role === 'tecnico') {
+        // Tecnico vede tutte le credenziali
+        query = `
+          SELECT 
+            e.id,
+            e.title,
+            e.username,
+            e.url,
+            e.notes,
+            g.name as group_name,
+            g.client_id,
+            u.email as client_email
+          FROM keepass_entries e
+          JOIN keepass_groups g ON g.id = e.group_id
+          LEFT JOIN users u ON u.id = g.client_id
+          WHERE (
+            LOWER(e.title) LIKE $1 OR
+            LOWER(e.username) LIKE $1 OR
+            LOWER(e.url) LIKE $1 OR
+            LOWER(e.notes) LIKE $1 OR
+            LOWER(g.name) LIKE $1
+          )
+          AND e.title IS NOT NULL
+          AND e.title != ''
+          AND e.title != 'Senza titolo'
+          ORDER BY e.title
+          LIMIT 15
+        `;
+        params = [`%${cleanTerm}%`];
+      } else if (role === 'cliente') {
+        // Cliente vede solo le proprie credenziali
+        query = `
+          SELECT 
+            e.id,
+            e.title,
+            e.username,
+            e.url,
+            e.notes,
+            g.name as group_name,
+            g.client_id
+          FROM keepass_entries e
+          JOIN keepass_groups g ON g.id = e.group_id
+          WHERE g.client_id = $1
+          AND (
+            LOWER(e.title) LIKE $2 OR
+            LOWER(e.username) LIKE $2 OR
+            LOWER(e.url) LIKE $2 OR
+            LOWER(e.notes) LIKE $2 OR
+            LOWER(g.name) LIKE $2
+          )
+          AND e.title IS NOT NULL
+          AND e.title != ''
+          AND e.title != 'Senza titolo'
+          ORDER BY e.title
+          LIMIT 15
+        `;
+        params = [userId, `%${cleanTerm}%`];
+      } else {
+        return res.status(403).json({ error: 'Ruolo non autorizzato' });
+      }
+
+      const result = await pool.query(query, params);
+      
+      // Helper per estrarre stringa da campo che potrebbe essere JSON
+      const extractString = (value) => {
+        if (!value) return '';
+        if (typeof value === 'string') {
+          if (value.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(value);
+              return parsed._ !== undefined ? String(parsed._ || '') : value;
+            } catch {
+              return value;
+            }
+          }
+          return value;
+        }
+        if (typeof value === 'object') {
+          return value._ !== undefined ? String(value._ || '') : JSON.stringify(value);
+        }
+        return String(value || '');
+      };
+
+      const results = result.rows.map(row => ({
+        id: row.id,
+        title: extractString(row.title) || 'Senza titolo',
+        username: extractString(row.username) || '',
+        url: extractString(row.url) || '',
+        notes: extractString(row.notes) || '',
+        groupName: extractString(row.group_name) || '',
+        client_id: row.client_id,
+        client_email: row.client_email || null
+      }));
+
+      console.log('🔍 Risultati ricerca backend:', results.length, 'entry trovate');
+      if (results.length > 0) {
+        console.log('🔍 Prime 3 risultati:', results.slice(0, 3).map(r => ({
+          title: r.title,
+          username: r.username,
+          groupName: r.groupName
+        })));
+      }
+
+      res.json({ results });
+    } catch (err) {
+      console.error('❌ Errore ricerca KeePass:', err);
+      res.status(500).json({ error: 'Errore durante la ricerca' });
+    }
+  });
+
   router.post('/migrate', async (req, res) => {
     // Verifica manuale del ruolo (requireRole potrebbe non funzionare correttamente)
     if (!req.user) {
