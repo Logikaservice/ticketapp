@@ -1010,7 +1010,8 @@ module.exports = function createKeepassRouter(pool) {
 
       const cleanTerm = searchTerm.trim().toLowerCase();
 
-      console.log('🔍 Ricerca veloce KeePass - Termine:', cleanTerm, 'Utente:', userId, 'Ruolo:', role);
+      console.log('🔍🔍🔍 RICERCA VELOCE KEEPASS - Termine:', cleanTerm, 'Utente:', userId, 'Ruolo:', role);
+      console.log('🔍 Query params ricevuti:', req.query);
 
       let query, params;
       if (role === 'tecnico') {
@@ -1074,7 +1075,12 @@ module.exports = function createKeepassRouter(pool) {
         return res.status(403).json({ error: 'Ruolo non autorizzato' });
       }
 
+      console.log('🔍 Eseguendo query SQL:', query.substring(0, 100) + '...');
+      console.log('🔍 Parametri query:', params);
+      
       const result = await pool.query(query, params);
+      
+      console.log('🔍 Righe restituite dal database:', result.rows.length);
       
       // Helper per estrarre stringa da campo che potrebbe essere JSON
       const extractString = (value) => {
