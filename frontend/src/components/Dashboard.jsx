@@ -1,7 +1,7 @@
 // src/components/Dashboard.jsx
 
 import React, { useEffect } from 'react';
-import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, Copy, X, Info, Users, Trash2, Sparkles, Building, Search, User, Globe, Key } from 'lucide-react';
+import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, Copy, X, Info, Users, Trash2, Sparkles, Building, Search, User, Globe, Key, Eye, EyeOff, Lock } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
@@ -467,6 +467,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   const [keepassSearchError, setKeepassSearchError] = React.useState(null);
   const [keepassEntries, setKeepassEntries] = React.useState([]);
   const [keepassHasLoaded, setKeepassHasLoaded] = React.useState(false);
+  const [keepassVisiblePasswords, setKeepassVisiblePasswords] = React.useState({});
+  const [keepassHighlightEntryId, setKeepassHighlightEntryId] = React.useState(null);
 
   const loadKeepassEntries = React.useCallback(async () => {
     if (!getAuthHeader) return;
@@ -499,12 +501,18 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             if (!entry?.password_encrypted || typeof entry.password_encrypted !== 'string' || !entry.password_encrypted.includes(':')) {
               return;
             }
+            // Filtra entry senza titolo valido
+            const title = entry.title || '';
+            if (!title || title.trim() === '' || title.trim().toLowerCase() === 'senza titolo') {
+              return;
+            }
             flattenedEntries.push({
               id: entry.id,
-              title: entry.title || 'Senza titolo',
+              title: title,
               username: entry.username || '',
               url: entry.url || '',
               notes: entry.notes || '',
+              password_encrypted: entry.password_encrypted,
               groupName: currentPath.filter(Boolean).join(' / ')
             });
           });
@@ -1248,6 +1256,101 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                                 </a>
                               )}
 
+                              {/* Password */}
+                              <div className="flex items-center gap-2 bg-gray-50 p-2 rounded border border-gray-200 mt-2">
+                                <Lock size={14} className="text-gray-400" />
+                                <span className="text-sm font-mono flex-1">
+                                  {keepassVisiblePasswords[entry.id] ? (
+                                    <span className="text-gray-900">{keepassVisiblePasswords[entry.id]}</span>
+                                  ) : (
+                                    <span className="text-gray-400">••••••••</span>
+                                  )}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (keepassVisiblePasswords[entry.id]) {
+                                        setKeepassVisiblePasswords(prev => {
+                                          const next = { ...prev };
+                                          delete next[entry.id];
+                                          return next;
+                                        });
+                                        return;
+                                      }
+                                      try {
+                                        const authHeader = getAuthHeader();
+                                        const response = await fetch(`${apiBase}/api/keepass/decrypt-password`, {
+                                          method: 'POST',
+                                          headers: {
+                                            'Content-Type': 'application/json',
+                                            ...authHeader,
+                                            'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
+                                            'x-user-role': currentUser?.ruolo || ''
+                                          },
+                                          body: JSON.stringify({ entryId: entry.id })
+                                        });
+                                        if (!response.ok) throw new Error('Errore nella decifratura della password');
+                                        const data = await response.json();
+                                        setKeepassVisiblePasswords(prev => ({
+                                          ...prev,
+                                          [entry.id]: data.password || ''
+                                        }));
+                                      } catch (err) {
+                                        console.error('Errore decifratura password:', err);
+                                        alert('Errore nel recupero della password');
+                                      }
+                                    }}
+                                    className="p-1 text-gray-400 hover:text-gray-600"
+                                    title={keepassVisiblePasswords[entry.id] ? 'Nascondi password' : 'Mostra password'}
+                                  >
+                                    {keepassVisiblePasswords[entry.id] ? (
+                                      <EyeOff size={16} />
+                                    ) : (
+                                      <Eye size={16} />
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      let password = keepassVisiblePasswords[entry.id];
+                                      if (!password) {
+                                        try {
+                                          const authHeader = getAuthHeader();
+                                          const response = await fetch(`${apiBase}/api/keepass/decrypt-password`, {
+                                            method: 'POST',
+                                            headers: {
+                                              'Content-Type': 'application/json',
+                                              ...authHeader,
+                                              'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
+                                              'x-user-role': currentUser?.ruolo || ''
+                                            },
+                                            body: JSON.stringify({ entryId: entry.id })
+                                          });
+                                          if (!response.ok) throw new Error('Errore nella decifratura della password');
+                                          const data = await response.json();
+                                          password = data.password || '';
+                                          setKeepassVisiblePasswords(prev => ({
+                                            ...prev,
+                                            [entry.id]: password
+                                          }));
+                                        } catch (err) {
+                                          console.error('Errore copia password:', err);
+                                          alert('Errore nel recupero della password');
+                                          return;
+                                        }
+                                      }
+                                      navigator.clipboard.writeText(password);
+                                      alert('Password copiata!');
+                                    }}
+                                    className="p-1 text-gray-400 hover:text-indigo-600"
+                                    title="Copia password"
+                                  >
+                                    <Copy size={14} />
+                                  </button>
+                                </div>
+                              </div>
+
                               {entry.notes && (
                                 <p className="text-xs text-gray-500 mt-2 line-clamp-2 whitespace-pre-wrap">
                                   {entry.notes}
@@ -1256,7 +1359,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
                               <button
                                 type="button"
-                                onClick={() => setModalState({ type: 'keepassCredentials' })}
+                                onClick={() => {
+                                  setKeepassHighlightEntryId(entry.id);
+                                  setModalState({ type: 'keepassCredentials', data: { highlightEntryId: entry.id } });
+                                }}
                                 className="mt-3 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition"
                               >
                                 Apri credenziali complete

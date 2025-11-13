@@ -3,19 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import { X, Key, Eye, EyeOff, Copy, Check, ChevronDown, ChevronRight, Lock, Globe, User, FileText } from 'lucide-react';
 
-const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }) => {
+const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, highlightEntryId = null }) => {
   const [credentials, setCredentials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [visiblePasswords, setVisiblePasswords] = useState({});
   const [copiedPasswords, setCopiedPasswords] = useState({});
   const [expandedGroups, setExpandedGroups] = useState(new Set());
+  const [highlightedEntryId, setHighlightedEntryId] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
+      setHighlightedEntryId(highlightEntryId);
       fetchCredentials();
     }
-  }, [isOpen, currentUser]);
+  }, [isOpen, currentUser, highlightEntryId]);
 
   const fetchCredentials = async () => {
     try {
@@ -142,6 +144,28 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
       }
       
       setCredentials(filteredGroups);
+      
+      // Se c'è un highlightEntryId, espandi i gruppi e evidenzia l'entry
+      if (highlightEntryId) {
+        setHighlightedEntryId(highlightEntryId);
+        // Trova il gruppo che contiene l'entry e espandilo
+        const findAndExpandGroup = (groups) => {
+          for (const group of groups) {
+            if (group.entries && group.entries.some(e => e.id === highlightEntryId)) {
+              setExpandedGroups(prev => new Set([...prev, group.id]));
+              return true;
+            }
+            if (group.children) {
+              if (findAndExpandGroup(group.children)) {
+                setExpandedGroups(prev => new Set([...prev, group.id]));
+                return true;
+              }
+            }
+          }
+          return false;
+        };
+        findAndExpandGroup(filteredGroups);
+      }
     } catch (err) {
       console.error('Errore fetch credenziali:', err);
       setError(err.message || 'Errore nel caricamento delle credenziali');
@@ -347,8 +371,20 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
           {/* Entry del Gruppo */}
           {isExpanded && hasEntries && (
             <div className="bg-gray-50 border-t border-gray-200">
-              {group.entries.map(entry => (
-                <div key={entry.id} className="p-4 border-b border-gray-200 last:border-b-0">
+              {group.entries.map(entry => {
+                const isHighlighted = highlightedEntryId === entry.id;
+                return (
+                <div 
+                  key={entry.id} 
+                  className={`p-4 border-b border-gray-200 last:border-b-0 ${isHighlighted ? 'bg-yellow-100 border-yellow-400 border-2' : ''}`}
+                  ref={isHighlighted ? (el) => {
+                    if (el) {
+                      setTimeout(() => {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }, 300);
+                    }
+                  } : null}
+                >
                   <div className="space-y-3">
                     {/* Titolo - mostra solo se esiste e non è vuoto o "Senza titolo" */}
                     {(() => {
@@ -443,7 +479,8 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader }
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
