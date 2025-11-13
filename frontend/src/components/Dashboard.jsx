@@ -652,16 +652,24 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
   React.useEffect(() => {
     const searchKeepass = async () => {
-      if (!getAuthHeader || !isKeepassAdmin) return;
+      console.log('🔍 useEffect ricerca chiamato - isKeepassAdmin:', isKeepassAdmin, 'getAuthHeader:', !!getAuthHeader, 'query:', keepassSearchQuery);
+      
+      if (!getAuthHeader || !isKeepassAdmin) {
+        console.log('⚠️ Ricerca non eseguita - isKeepassAdmin:', isKeepassAdmin, 'getAuthHeader:', !!getAuthHeader);
+        return;
+      }
       
       const term = keepassSearchQuery.trim().toLowerCase().replace(/^["']+|["']+$/g, '').trim();
+      console.log('🔍 Termine pulito:', term, 'lunghezza:', term.length);
       
       if (term.length < 2) {
+        console.log('🔍 Termine troppo corto, reset risultati');
         setKeepassSearchResults([]);
         return;
       }
 
       try {
+        console.log('🔍 Chiamata API ricerca backend:', `${apiBase}/api/keepass/search?q=${encodeURIComponent(term)}`);
         setKeepassSearchLoadingResults(true);
         const authHeader = getAuthHeader();
         const response = await fetch(`${apiBase}/api/keepass/search?q=${encodeURIComponent(term)}`, {
@@ -672,14 +680,20 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           }
         });
 
+        console.log('🔍 Risposta API:', response.status, response.ok);
+
         if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Errore risposta API:', response.status, errorText);
           throw new Error('Errore nella ricerca');
         }
 
         const data = await response.json();
+        console.log('🔍 Dati ricevuti dal backend:', data);
+        console.log('🔍 Risultati:', data.results?.length || 0, 'entry');
         setKeepassSearchResults(data.results || []);
       } catch (err) {
-        console.error('Errore ricerca KeePass:', err);
+        console.error('❌ Errore ricerca KeePass:', err);
         setKeepassSearchResults([]);
       } finally {
         setKeepassSearchLoadingResults(false);
