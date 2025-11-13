@@ -665,22 +665,30 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       const notes = getCleanString(entry.notes).toLowerCase();
       const groupName = getCleanString(entry.groupName).toLowerCase();
       
-      // Debug per la prima entry
-      if (keepassEntries.indexOf(entry) === 0) {
-        console.log('🔍 Debug prima entry:', {
-          original: {
-            title: entry.title,
-            username: entry.username,
-            notes: entry.notes
-          },
-          cleaned: {
-            title,
-            username,
-            notes: notes.substring(0, 30)
-          },
-          searchTerm: term
-        });
-      }
+      // Debug per tutte le entry durante la ricerca
+      console.log(`🔍 Entry ${keepassEntries.indexOf(entry) + 1}:`, {
+        original: {
+          title: entry.title,
+          titleType: typeof entry.title,
+          username: entry.username,
+          usernameType: typeof entry.username,
+          notes: entry.notes,
+          notesType: typeof entry.notes
+        },
+        cleaned: {
+          title,
+          username,
+          notes: notes.substring(0, 50),
+          groupName
+        },
+        searchTerm: term,
+        checks: {
+          titleIncludes: title.includes(term),
+          usernameIncludes: username.includes(term),
+          notesIncludes: notes.includes(term),
+          groupNameIncludes: groupName.includes(term)
+        }
+      });
       
       // Verifica ogni campo
       const matchesTitle = title.includes(term);
@@ -696,6 +704,13 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           title: entry.title,
           username: entry.username,
           matches: { title: matchesTitle, username: matchesUsername, url: matchesUrl, notes: matchesNotes, groupName: matchesGroupName }
+        });
+      } else {
+        console.log('❌ Entry NON trovata:', {
+          title: entry.title,
+          searchTerm: term,
+          cleanedTitle: title,
+          titleIncludes: matchesTitle
         });
       }
       
