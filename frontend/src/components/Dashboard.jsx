@@ -625,8 +625,12 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   }, [apiBase, currentUser, getAuthHeader]);
 
   const keepassResults = React.useMemo(() => {
-    const term = keepassSearchQuery.trim().toLowerCase();
-    console.log('🔍 Ricerca KeePass - Termine:', term, 'Entry disponibili:', keepassEntries.length);
+    // Pulisci il termine di ricerca: rimuovi virgolette extra e spazi
+    let term = keepassSearchQuery.trim().toLowerCase();
+    // Rimuovi virgolette doppie o singole se presenti all'inizio e alla fine
+    term = term.replace(/^["']+|["']+$/g, '');
+    term = term.trim();
+    console.log('🔍 Ricerca KeePass - Termine ORIGINALE:', keepassSearchQuery, 'Termine PULITO:', term, 'Entry disponibili:', keepassEntries.length);
     
     if (term.length < 2) return [];
 
@@ -681,15 +685,16 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       console.log(`🔍 Entry ${entryIndex + 1} - GROUPNAME:`, entry.groupName, `(tipo: ${typeof entry.groupName})`);
       
       console.log(`🔍 Entry ${entryIndex + 1} - PULITI:`, {
-        title: `"${title}"`,
-        username: `"${username}"`,
-        url: `"${url}"`,
-        notes: `"${notes.substring(0, 50)}..."`,
-        groupName: `"${groupName}"`
+        title: title,
+        username: username,
+        url: url,
+        notes: notes.substring(0, 50),
+        groupName: groupName
       });
       
       console.log(`🔍 Entry ${entryIndex + 1} - RICERCA:`, {
-        term: `"${term}"`,
+        term: term,
+        termLength: term.length,
         titleIncludes: title.includes(term),
         usernameIncludes: username.includes(term),
         urlIncludes: url.includes(term),
