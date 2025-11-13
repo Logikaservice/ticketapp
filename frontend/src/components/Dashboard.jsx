@@ -1067,8 +1067,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             getAuthHeader={getAuthHeader}
           />
           
-          {/* Pulsante Credenziali KeePass - solo per clienti */}
-          {currentUser?.ruolo === 'cliente' && (
+          {/* Pulsante Credenziali KeePass - solo per amministratori (clienti con aziende assegnate) */}
+          {currentUser?.ruolo === 'cliente' &&
+            Array.isArray(currentUser?.admin_companies) &&
+            currentUser.admin_companies.length > 0 && (
             <div className="mt-4">
               <button
                 onClick={() => setModalState({ type: 'keepassCredentials' })}
