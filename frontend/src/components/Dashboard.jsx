@@ -706,6 +706,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
   // Usa i risultati dal backend - ricerca ora lato backend
   const keepassResults = keepassSearchResults;
+  
+  // Nota: ricerca ora completamente lato backend tramite /api/keepass/search
 
   React.useEffect(() => {
     if (isKeepassAdmin && !keepassHasLoaded && !keepassSearchLoading) {
