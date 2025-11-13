@@ -515,6 +515,19 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         }
         return String(val || '');
       };
+      
+      // Debug: mostra un esempio di entry per verificare il formato
+      if (groups.length > 0 && groups[0].entries && groups[0].entries.length > 0) {
+        const firstEntry = groups[0].entries[0];
+        console.log('🔍 Esempio entry dal backend:', {
+          title: firstEntry.title,
+          titleType: typeof firstEntry.title,
+          username: firstEntry.username,
+          usernameType: typeof firstEntry.username,
+          url: firstEntry.url,
+          notes: firstEntry.notes
+        });
+      }
 
       const collectEntries = (group, parentPath = []) => {
         const currentPath = [...parentPath, extractString(group.name || '')];
@@ -524,11 +537,29 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               return;
             }
             
-            // Estrai tutti i campi
+            // Estrai tutti i campi - forza estrazione anche se sembrano già stringhe
             const title = extractString(entry.title || '');
             const username = extractString(entry.username || '');
             const url = extractString(entry.url || '');
             const notes = extractString(entry.notes || '');
+            
+            // Debug per la prima entry
+            if (flattenedEntries.length === 0) {
+              console.log('🔍 Prima entry estratta:', {
+                original: {
+                  title: entry.title,
+                  username: entry.username,
+                  url: entry.url,
+                  notes: entry.notes
+                },
+                extracted: {
+                  title,
+                  username,
+                  url,
+                  notes
+                }
+              });
+            }
             
             // Filtra entry senza titolo valido
             if (!title || title.trim() === '' || title.trim().toLowerCase() === 'senza titolo') {
@@ -553,6 +584,16 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       };
 
       groups.forEach(group => collectEntries(group));
+
+      console.log('📊 Entry caricate per ricerca:', flattenedEntries.length);
+      if (flattenedEntries.length > 0) {
+        console.log('📊 Esempio entry finale:', {
+          title: flattenedEntries[0].title,
+          username: flattenedEntries[0].username,
+          url: flattenedEntries[0].url,
+          notes: flattenedEntries[0].notes
+        });
+      }
 
       setKeepassEntries(flattenedEntries);
       setKeepassHasLoaded(true);
