@@ -679,13 +679,33 @@ module.exports = function createKeepassRouter(pool) {
         }
 
         if (row.entry_id) {
+          // Helper per estrarre stringa da campo che potrebbe essere JSON
+          const extractString = (value) => {
+            if (!value) return '';
+            if (typeof value === 'string') {
+              if (value.trim().startsWith('{')) {
+                try {
+                  const parsed = JSON.parse(value);
+                  return parsed._ !== undefined ? String(parsed._ || '') : value;
+                } catch {
+                  return value;
+                }
+              }
+              return value;
+            }
+            if (typeof value === 'object') {
+              return value._ !== undefined ? String(value._ || '') : JSON.stringify(value);
+            }
+            return String(value || '');
+          };
+          
           groupsMap.get(row.group_id).entries.push({
             id: row.entry_id,
-            title: row.title || 'Senza titolo',
-            username: row.username || '',
+            title: extractString(row.title) || 'Senza titolo',
+            username: extractString(row.username) || '',
             password_encrypted: row.password_encrypted, // Password cifrata, non decifrata
-            url: row.url || '',
-            notes: row.notes || ''
+            url: extractString(row.url) || '',
+            notes: extractString(row.notes) || ''
           });
         }
       });
