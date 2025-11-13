@@ -589,10 +589,23 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       if (flattenedEntries.length > 0) {
         console.log('📊 Esempio entry finale:', {
           title: flattenedEntries[0].title,
+          titleType: typeof flattenedEntries[0].title,
           username: flattenedEntries[0].username,
+          usernameType: typeof flattenedEntries[0].username,
           url: flattenedEntries[0].url,
-          notes: flattenedEntries[0].notes
+          notes: flattenedEntries[0].notes,
+          notesType: typeof flattenedEntries[0].notes
         });
+        // Mostra tutte le entry per debug
+        console.log('📊 Tutte le entry caricate:', flattenedEntries.map(e => ({
+          id: e.id,
+          title: e.title,
+          username: e.username,
+          url: e.url,
+          notes: e.notes?.substring(0, 30)
+        })));
+      } else {
+        console.warn('⚠️ Nessuna entry caricata per la ricerca!');
       }
 
       setKeepassEntries(flattenedEntries);
@@ -607,23 +620,51 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
   const keepassResults = React.useMemo(() => {
     const term = keepassSearchQuery.trim().toLowerCase();
+    console.log('🔍 Ricerca KeePass - Termine:', term, 'Entry disponibili:', keepassEntries.length);
+    
     if (term.length < 2) return [];
 
-    return keepassEntries.filter(entry => {
-      // I campi sono già estratti durante il caricamento, ma verifichiamo comunque
+    // Log delle prime 3 entry per debug
+    if (keepassEntries.length > 0) {
+      console.log('🔍 Prime 3 entry per ricerca:', keepassEntries.slice(0, 3).map(e => ({
+        title: e.title,
+        username: e.username,
+        url: e.url,
+        notes: e.notes?.substring(0, 50),
+        groupName: e.groupName
+      })));
+    }
+
+    const results = keepassEntries.filter(entry => {
+      // I campi sono già estratti durante il caricamento
       const title = (entry.title || '').toLowerCase();
       const username = (entry.username || '').toLowerCase();
       const url = (entry.url || '').toLowerCase();
       const notes = (entry.notes || '').toLowerCase();
       const groupName = (entry.groupName || '').toLowerCase();
       
-      // Cerca in tutti i campi (ricerca case-insensitive e parziale)
-      return title.includes(term) || 
-             username.includes(term) || 
-             url.includes(term) || 
-             notes.includes(term) || 
-             groupName.includes(term);
+      // Verifica ogni campo
+      const matchesTitle = title.includes(term);
+      const matchesUsername = username.includes(term);
+      const matchesUrl = url.includes(term);
+      const matchesNotes = notes.includes(term);
+      const matchesGroupName = groupName.includes(term);
+      
+      const matches = matchesTitle || matchesUsername || matchesUrl || matchesNotes || matchesGroupName;
+      
+      if (matches) {
+        console.log('✅ Entry trovata:', {
+          title: entry.title,
+          username: entry.username,
+          matches: { title: matchesTitle, username: matchesUsername, url: matchesUrl, notes: matchesNotes, groupName: matchesGroupName }
+        });
+      }
+      
+      return matches;
     }).slice(0, 15);
+    
+    console.log('🔍 Risultati ricerca:', results.length, 'entry trovate');
+    return results;
   }, [keepassEntries, keepassSearchQuery]);
 
   React.useEffect(() => {
