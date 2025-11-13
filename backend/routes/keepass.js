@@ -708,6 +708,45 @@ module.exports = function createKeepassRouter(pool) {
 
       const result = await pool.query(query, params);
       
+      console.log('📊 Query eseguita, righe restituite:', result.rows.length);
+      
+      // Debug: mostra alcune righe per vedere i dati
+      if (result.rows.length > 0) {
+        console.log('📊 Prime 3 righe dal database:', result.rows.slice(0, 3).map(row => ({
+          group_id: row.group_id,
+          group_name: row.group_name,
+          client_id: row.client_id,
+          entry_id: row.entry_id,
+          title: row.title,
+          username: row.username,
+          url: row.url,
+          notes: row.notes ? String(row.notes).substring(0, 50) : ''
+        })));
+        
+        // Cerca entry che contengono "ger" o "gera" nei dati del database
+        const rowsWithGer = result.rows.filter(row => {
+          if (!row.entry_id) return false;
+          const title = String(row.title || '').toLowerCase();
+          const username = String(row.username || '').toLowerCase();
+          const notes = String(row.notes || '').toLowerCase();
+          const groupName = String(row.group_name || '').toLowerCase();
+          return title.includes('ger') || username.includes('ger') || notes.includes('ger') || groupName.includes('ger') ||
+                 title.includes('gera') || username.includes('gera') || notes.includes('gera') || groupName.includes('gera');
+        });
+        console.log('🔍 Righe dal database che contengono "ger" o "gera":', rowsWithGer.length);
+        if (rowsWithGer.length > 0) {
+          console.log('🔍 Dettagli righe con "ger/gera":', rowsWithGer.map(row => ({
+            entry_id: row.entry_id,
+            title: row.title,
+            username: row.username,
+            group_name: row.group_name,
+            client_id: row.client_id
+          })));
+        } else {
+          console.warn('⚠️ Nessuna riga dal database contiene "ger" o "gera"!');
+        }
+      }
+      
       // Organizza i dati in una struttura gerarchica
       const groupsMap = new Map();
       const entries = [];
