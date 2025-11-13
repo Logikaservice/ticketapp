@@ -494,44 +494,53 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       const groups = Array.isArray(data?.groups) ? data.groups : [];
       const flattenedEntries = [];
 
+      // Helper per estrarre stringa da campo che potrebbe essere oggetto JSON o stringa JSON
+      const extractString = (val) => {
+        if (!val) return '';
+        if (typeof val === 'string') {
+          // Se è una stringa JSON, prova a parsarla
+          if (val.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(val);
+              return parsed._ !== undefined ? String(parsed._ || '') : val;
+            } catch {
+              return val;
+            }
+          }
+          return val;
+        }
+        if (typeof val === 'object') {
+          // Se è un oggetto, estrai il valore da _
+          return val._ !== undefined ? String(val._ || '') : JSON.stringify(val);
+        }
+        return String(val || '');
+      };
+
       const collectEntries = (group, parentPath = []) => {
-        const currentPath = [...parentPath, group.name || ''];
+        const currentPath = [...parentPath, extractString(group.name || '')];
         if (group.entries && Array.isArray(group.entries)) {
           group.entries.forEach(entry => {
             if (!entry?.password_encrypted || typeof entry.password_encrypted !== 'string' || !entry.password_encrypted.includes(':')) {
               return;
             }
+            
+            // Estrai tutti i campi
+            const title = extractString(entry.title || '');
+            const username = extractString(entry.username || '');
+            const url = extractString(entry.url || '');
+            const notes = extractString(entry.notes || '');
+            
             // Filtra entry senza titolo valido
-            const title = entry.title || '';
             if (!title || title.trim() === '' || title.trim().toLowerCase() === 'senza titolo') {
               return;
             }
-            // Helper per estrarre stringa da campo che potrebbe essere oggetto JSON
-            const extractString = (val) => {
-              if (!val) return '';
-              if (typeof val === 'string') {
-                if (val.trim().startsWith('{')) {
-                  try {
-                    const parsed = JSON.parse(val);
-                    return parsed._ !== undefined ? String(parsed._ || '') : val;
-                  } catch {
-                    return val;
-                  }
-                }
-                return val;
-              }
-              if (typeof val === 'object') {
-                return val._ !== undefined ? String(val._ || '') : JSON.stringify(val);
-              }
-              return String(val || '');
-            };
             
             flattenedEntries.push({
               id: entry.id,
-              title: extractString(title),
-              username: extractString(entry.username || ''),
-              url: extractString(entry.url || ''),
-              notes: extractString(entry.notes || ''),
+              title: title,
+              username: username,
+              url: url,
+              notes: notes,
               password_encrypted: entry.password_encrypted,
               groupName: currentPath.filter(Boolean).join(' / ')
             });
@@ -555,41 +564,19 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     }
   }, [apiBase, currentUser, getAuthHeader]);
 
-  // Helper per estrarre stringa da campo che potrebbe essere oggetto JSON
-  const extractKeepassString = (value) => {
-    if (!value) return '';
-    if (typeof value === 'string') {
-      // Se è una stringa JSON, prova a parsarla
-      if (value.trim().startsWith('{')) {
-        try {
-          const parsed = JSON.parse(value);
-          return parsed._ !== undefined ? String(parsed._ || '') : value;
-        } catch {
-          return value;
-        }
-      }
-      return value;
-    }
-    if (typeof value === 'object') {
-      // Se è un oggetto, estrai il valore da _
-      return value._ !== undefined ? String(value._ || '') : JSON.stringify(value);
-    }
-    return String(value || '');
-  };
-
   const keepassResults = React.useMemo(() => {
     const term = keepassSearchQuery.trim().toLowerCase();
     if (term.length < 2) return [];
 
     return keepassEntries.filter(entry => {
-      // Estrai tutti i campi come stringhe pulite
-      const title = extractKeepassString(entry.title).toLowerCase();
-      const username = extractKeepassString(entry.username).toLowerCase();
-      const url = extractKeepassString(entry.url).toLowerCase();
-      const notes = extractKeepassString(entry.notes).toLowerCase();
-      const groupName = extractKeepassString(entry.groupName).toLowerCase();
+      // I campi sono già estratti durante il caricamento, ma verifichiamo comunque
+      const title = (entry.title || '').toLowerCase();
+      const username = (entry.username || '').toLowerCase();
+      const url = (entry.url || '').toLowerCase();
+      const notes = (entry.notes || '').toLowerCase();
+      const groupName = (entry.groupName || '').toLowerCase();
       
-      // Cerca in tutti i campi
+      // Cerca in tutti i campi (ricerca case-insensitive e parziale)
       return title.includes(term) || 
              username.includes(term) || 
              url.includes(term) || 
