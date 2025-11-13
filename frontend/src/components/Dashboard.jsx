@@ -672,39 +672,30 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       
       // Debug per tutte le entry durante la ricerca - ESPANDI OGGETTI
       const entryIndex = keepassEntries.indexOf(entry);
-      console.log(`🔍 Entry ${entryIndex + 1}:`, {
-        original: {
-          title: entry.title,
-          titleType: typeof entry.title,
-          titleString: String(entry.title),
-          username: entry.username,
-          usernameType: typeof entry.username,
-          usernameString: String(entry.username),
-          notes: entry.notes,
-          notesType: typeof entry.notes,
-          notesString: entry.notes ? String(entry.notes).substring(0, 100) : ''
-        },
-        cleaned: {
-          title,
-          titleLength: title.length,
-          username,
-          usernameLength: username.length,
-          notes: notes.substring(0, 50),
-          notesLength: notes.length,
-          groupName,
-          groupNameLength: groupName.length
-        },
-        searchTerm: term,
-        searchTermLength: term.length,
-        checks: {
-          titleIncludes: title.includes(term),
-          titleCheck: `"${title}".includes("${term}") = ${title.includes(term)}`,
-          usernameIncludes: username.includes(term),
-          usernameCheck: `"${username}".includes("${term}") = ${username.includes(term)}`,
-          notesIncludes: notes.includes(term),
-          notesCheck: `"${notes.substring(0, 30)}...".includes("${term}") = ${notes.includes(term)}`,
-          groupNameIncludes: groupName.includes(term)
-        }
+      
+      // Log dettagliato con TUTTI i valori espansi
+      console.log(`🔍 Entry ${entryIndex + 1} - TITOLO:`, entry.title);
+      console.log(`🔍 Entry ${entryIndex + 1} - USERNAME:`, entry.username, `(tipo: ${typeof entry.username})`);
+      console.log(`🔍 Entry ${entryIndex + 1} - URL:`, entry.url, `(tipo: ${typeof entry.url})`);
+      console.log(`🔍 Entry ${entryIndex + 1} - NOTES:`, entry.notes ? String(entry.notes).substring(0, 100) : '', `(tipo: ${typeof entry.notes})`);
+      console.log(`🔍 Entry ${entryIndex + 1} - GROUPNAME:`, entry.groupName, `(tipo: ${typeof entry.groupName})`);
+      
+      console.log(`🔍 Entry ${entryIndex + 1} - PULITI:`, {
+        title: `"${title}"`,
+        username: `"${username}"`,
+        url: `"${url}"`,
+        notes: `"${notes.substring(0, 50)}..."`,
+        groupName: `"${groupName}"`
+      });
+      
+      console.log(`🔍 Entry ${entryIndex + 1} - RICERCA:`, {
+        term: `"${term}"`,
+        titleIncludes: title.includes(term),
+        usernameIncludes: username.includes(term),
+        urlIncludes: url.includes(term),
+        notesIncludes: notes.includes(term),
+        groupNameIncludes: groupName.includes(term),
+        TROVATO: title.includes(term) || username.includes(term) || url.includes(term) || notes.includes(term) || groupName.includes(term)
       });
       
       // Verifica ogni campo
@@ -717,17 +708,29 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       const matches = matchesTitle || matchesUsername || matchesUrl || matchesNotes || matchesGroupName;
       
       if (matches) {
-        console.log('✅ Entry trovata:', {
+        console.log('✅✅✅ Entry TROVATA:', {
           title: entry.title,
           username: entry.username,
-          matches: { title: matchesTitle, username: matchesUsername, url: matchesUrl, notes: matchesNotes, groupName: matchesGroupName }
+          matches: { 
+            title: matchesTitle, 
+            username: matchesUsername, 
+            url: matchesUrl, 
+            notes: matchesNotes, 
+            groupName: matchesGroupName 
+          }
         });
       } else {
-        console.log('❌ Entry NON trovata:', {
+        console.log('❌❌❌ Entry NON trovata:', {
           title: entry.title,
+          username: entry.username,
           searchTerm: term,
           cleanedTitle: title,
-          titleIncludes: matchesTitle
+          cleanedUsername: username,
+          titleIncludes: matchesTitle,
+          usernameIncludes: matchesUsername,
+          urlIncludes: matchesUrl,
+          notesIncludes: matchesNotes,
+          groupNameIncludes: matchesGroupName
         });
       }
       
