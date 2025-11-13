@@ -597,13 +597,18 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           notes: flattenedEntries[0].notes,
           notesType: typeof flattenedEntries[0].notes
         });
-        // Mostra tutte le entry per debug
+        // Mostra tutte le entry per debug - ESPANDI OGGETTI
         console.log('📊 Tutte le entry caricate:', flattenedEntries.map(e => ({
           id: e.id,
           title: e.title,
+          titleType: typeof e.title,
+          titleString: String(e.title),
           username: e.username,
+          usernameType: typeof e.username,
+          usernameString: String(e.username),
           url: e.url,
-          notes: e.notes?.substring(0, 30)
+          notes: e.notes ? String(e.notes).substring(0, 50) : '',
+          notesType: typeof e.notes
         })));
       } else {
         console.warn('⚠️ Nessuna entry caricata per la ricerca!');
@@ -665,27 +670,39 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       const notes = getCleanString(entry.notes).toLowerCase();
       const groupName = getCleanString(entry.groupName).toLowerCase();
       
-      // Debug per tutte le entry durante la ricerca
-      console.log(`🔍 Entry ${keepassEntries.indexOf(entry) + 1}:`, {
+      // Debug per tutte le entry durante la ricerca - ESPANDI OGGETTI
+      const entryIndex = keepassEntries.indexOf(entry);
+      console.log(`🔍 Entry ${entryIndex + 1}:`, {
         original: {
           title: entry.title,
           titleType: typeof entry.title,
+          titleString: String(entry.title),
           username: entry.username,
           usernameType: typeof entry.username,
+          usernameString: String(entry.username),
           notes: entry.notes,
-          notesType: typeof entry.notes
+          notesType: typeof entry.notes,
+          notesString: entry.notes ? String(entry.notes).substring(0, 100) : ''
         },
         cleaned: {
           title,
+          titleLength: title.length,
           username,
+          usernameLength: username.length,
           notes: notes.substring(0, 50),
-          groupName
+          notesLength: notes.length,
+          groupName,
+          groupNameLength: groupName.length
         },
         searchTerm: term,
+        searchTermLength: term.length,
         checks: {
           titleIncludes: title.includes(term),
+          titleCheck: `"${title}".includes("${term}") = ${title.includes(term)}`,
           usernameIncludes: username.includes(term),
+          usernameCheck: `"${username}".includes("${term}") = ${username.includes(term)}`,
           notesIncludes: notes.includes(term),
+          notesCheck: `"${notes.substring(0, 30)}...".includes("${term}") = ${notes.includes(term)}`,
           groupNameIncludes: groupName.includes(term)
         }
       });
