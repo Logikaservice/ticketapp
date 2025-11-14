@@ -26,6 +26,7 @@ export const useWebSocket = ({
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
   const reconnectTimeoutRef = useRef(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   const connect = useCallback(() => {
     if (!currentUser || !getAuthHeader) {
