@@ -351,7 +351,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     totale: companyTickets.length
   }), [companyTicketsByState, companyTickets.length]);
 
-  const visibleTickets = (() => {
+  const visibleTickets = React.useMemo(() => {
     if (currentUser?.ruolo === 'cliente') {
       // Verifica se è amministratore
       const isAdmin = currentUser.admin_companies && 
@@ -376,20 +376,28 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         }
       }
       
-      // Non è amministratore, mostra solo i suoi ticket aperti
-      return tickets.filter(t => t.clienteid === currentUser.id && t.stato === 'aperto');
+      // Non è amministratore, mostra TUTTI i suoi ticket (non solo "aperto")
+      // IMPORTANTE: Converti entrambi a Number per confronto corretto
+      const currentUserId = Number(currentUser.id);
+      return tickets.filter(t => Number(t.clienteid) === currentUserId);
+    }
+    if (currentUser?.ruolo === 'tecnico') {
+      if (selectedCompany) {
+        return companyTickets;
+      }
+      return tickets;
     }
     return tickets;
-  })();
+  }, [tickets, currentUser, users, selectedCompany, companyTickets]);
 
-  const counts = (() => ({
+  const counts = React.useMemo(() => ({
     aperto: visibleTickets.filter(t => t.stato === 'aperto').length,
     in_lavorazione: visibleTickets.filter(t => t.stato === 'in_lavorazione').length,
     risolto: visibleTickets.filter(t => t.stato === 'risolto').length,
     chiuso: visibleTickets.filter(t => t.stato === 'chiuso').length,
     inviato: visibleTickets.filter(t => t.stato === 'inviato').length,
     fatturato: visibleTickets.filter(t => t.stato === 'fatturato').length
-  }))();
+  }), [visibleTickets]);
   // Evidenzia spostamenti basati su segnali esterni (eventi dal polling/azioni)
   const [activeHighlights, setActiveHighlights] = React.useState({});
   useEffect(() => {
