@@ -664,6 +664,7 @@ export default function TicketApp() {
 
   const handleTicketStatusChanged = React.useCallback((data) => {
     console.log('📨 WebSocket: Stato ticket cambiato', data.ticketId, data.oldStatus, '→', data.newStatus);
+    console.log('📨 WebSocket: Ticket data:', data.ticket);
     
     // Mostra notifica al cliente quando il tecnico prende in carico il ticket
     if (data.oldStatus === 'aperto' && data.newStatus === 'in_lavorazione') {
@@ -684,6 +685,8 @@ export default function TicketApp() {
     })
       .then(res => res.json())
       .then(ticket => {
+        console.log('📨 WebSocket: Ticket ricaricato dal backend:', ticket.id, 'stato:', ticket.stato);
+        
         // Carica anche le forniture per avere il conteggio corretto
         return fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${data.ticketId}/forniture`, {
           headers: getAuthHeader()
@@ -691,15 +694,27 @@ export default function TicketApp() {
           .then(fornitureRes => fornitureRes.ok ? fornitureRes.json() : [])
           .then(forniture => {
             const ticketWithForniture = { ...ticket, fornitureCount: forniture.length };
+            console.log('📨 WebSocket: Ticket con forniture:', ticketWithForniture.id, 'stato:', ticketWithForniture.stato, 'fornitureCount:', ticketWithForniture.fornitureCount);
             
-            // Aggiorna il ticket nella lista
+            // Aggiorna il ticket nella lista - FORZA l'aggiornamento anche se esiste già
             setTickets(prev => {
               const exists = prev.find(t => t.id === data.ticketId);
+              console.log('📨 WebSocket: Ticket esiste nello stato?', !!exists, 'stato precedente:', exists?.stato);
+              
               if (exists) {
-                // Se esiste, aggiornalo
-                return prev.map(t => t.id === data.ticketId ? ticketWithForniture : t);
+                // Se esiste, aggiornalo FORZANDO il nuovo stato
+                const updated = prev.map(t => {
+                  if (t.id === data.ticketId) {
+                    console.log('📨 WebSocket: Aggiorno ticket esistente:', t.id, 'da stato', t.stato, 'a stato', ticketWithForniture.stato);
+                    return ticketWithForniture;
+                  }
+                  return t;
+                });
+                console.log('📨 WebSocket: Ticket aggiornato nello stato. Nuovo stato:', updated.find(t => t.id === data.ticketId)?.stato);
+                return updated;
               } else {
                 // Se non esiste (ad esempio, era in un'altra vista), aggiungilo
+                console.log('📨 WebSocket: Ticket non esiste nello stato, lo aggiungo con stato:', ticketWithForniture.stato);
                 return [ticketWithForniture, ...prev];
               }
             });
@@ -711,33 +726,35 @@ export default function TicketApp() {
           })
           .catch(err => {
             console.error('Errore caricamento forniture dopo cambio stato:', err);
-            // Fallback: usa i dati del ticket senza forniture
+            // Fallback: usa i dati del ticket senza forniture, ma FORZA il nuovo stato
+            const fallbackTicket = { ...data.ticket, stato: data.newStatus, fornitureCount: 0 };
             setTickets(prev => {
               const exists = prev.find(t => t.id === data.ticketId);
               if (exists) {
-                return prev.map(t => t.id === data.ticketId ? { ...data.ticket, fornitureCount: t.fornitureCount || 0 } : t);
+                return prev.map(t => t.id === data.ticketId ? fallbackTicket : t);
               } else {
-                return [{ ...data.ticket, fornitureCount: 0 }, ...prev];
+                return [fallbackTicket, ...prev];
               }
             });
             if (selectedTicket?.id === data.ticketId) {
-              setSelectedTicket({ ...data.ticket, fornitureCount: selectedTicket.fornitureCount || 0 });
+              setSelectedTicket(fallbackTicket);
             }
           });
       })
       .catch(err => {
         console.error('Errore caricamento ticket dopo cambio stato:', err);
-        // Fallback: usa i dati ricevuti via WebSocket
+        // Fallback: usa i dati ricevuti via WebSocket, ma FORZA il nuovo stato
+        const fallbackTicket = { ...data.ticket, stato: data.newStatus, fornitureCount: 0 };
         setTickets(prev => {
           const exists = prev.find(t => t.id === data.ticketId);
           if (exists) {
-            return prev.map(t => t.id === data.ticketId ? { ...data.ticket, fornitureCount: t.fornitureCount || 0 } : t);
+            return prev.map(t => t.id === data.ticketId ? fallbackTicket : t);
           } else {
-            return [{ ...data.ticket, fornitureCount: 0 }, ...prev];
+            return [fallbackTicket, ...prev];
           }
         });
         if (selectedTicket?.id === data.ticketId) {
-          setSelectedTicket({ ...data.ticket, fornitureCount: selectedTicket.fornitureCount || 0 });
+          setSelectedTicket(fallbackTicket);
         }
       });
     

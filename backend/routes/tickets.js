@@ -67,6 +67,55 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
     }
   });
 
+  // ENDPOINT: Prende un singolo ticket per ID
+  router.get('/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const client = await pool.connect();
+      
+      // JOIN con users per includere l'azienda del cliente
+      const result = await client.query(`
+        SELECT 
+          t.*,
+          u.azienda as cliente_azienda
+        FROM tickets t
+        LEFT JOIN users u ON t.clienteid = u.id
+        WHERE t.id = $1
+      `, [id]);
+      
+      client.release();
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Ticket non trovato' });
+      }
+      
+      const ticket = result.rows[0];
+      
+      // Parse dei campi JSON
+      let photos = [];
+      try {
+        if (ticket.photos) {
+          photos = typeof ticket.photos === 'string' ? JSON.parse(ticket.photos) : ticket.photos;
+          if (!Array.isArray(photos)) photos = [];
+        }
+      } catch (e) {
+        photos = [];
+      }
+      
+      const parsedTicket = {
+        ...ticket,
+        timelogs: ticket.timelogs ? (typeof ticket.timelogs === 'string' ? JSON.parse(ticket.timelogs) : ticket.timelogs) : null,
+        messaggi: ticket.messaggi ? (typeof ticket.messaggi === 'string' ? JSON.parse(ticket.messaggi) : ticket.messaggi) : [],
+        photos: photos
+      };
+      
+      res.json(parsedTicket);
+    } catch (err) {
+      console.error('Errore nel prendere il ticket:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // ENDPOINT: Crea un nuovo ticket (gestisce sia JSON che multipart/form-data)
   router.post('/', uploadTicketPhotos.array('photos', 10), async (req, res) => {
     // Gestisce sia JSON che multipart/form-data
