@@ -1,6 +1,6 @@
 // hooks/useWebSocket.js
 
-import { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { io } from 'socket.io-client';
 
 /**
@@ -71,6 +71,7 @@ export const useWebSocket = ({
       // Evento: connessione stabilita
       socket.on('connect', () => {
         console.log('✅ WebSocket: Connesso con successo');
+        setIsConnected(true);
         reconnectAttemptsRef.current = 0;
         
         // Invia ping periodico per mantenere connessione attiva
@@ -87,6 +88,7 @@ export const useWebSocket = ({
       // Evento: disconnessione
       socket.on('disconnect', (reason) => {
         console.log(`❌ WebSocket: Disconnesso - ${reason}`);
+        setIsConnected(false);
         
         if (reconnectTimeoutRef.current) {
           clearInterval(reconnectTimeoutRef.current);
@@ -166,7 +168,7 @@ export const useWebSocket = ({
 
   return {
     socket: socketRef.current,
-    isConnected: socketRef.current?.connected || false,
+    isConnected: isConnected,
     reconnect: connect
   };
 };

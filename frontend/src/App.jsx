@@ -247,7 +247,7 @@ export default function TicketApp() {
   }, [tickets, selectedTicket, showNotification]);
 
   // Hook WebSocket
-  const { socket, isConnected } = useWebSocket({
+  const { socket, isConnected = false } = useWebSocket({
     onTicketCreated: handleTicketCreated,
     onTicketUpdated: handleTicketUpdated,
     onTicketStatusChanged: handleTicketStatusChanged,
