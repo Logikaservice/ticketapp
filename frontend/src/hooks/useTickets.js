@@ -81,7 +81,16 @@ export const useTickets = (
       const savedTicket = await response.json();
       // Marca subito come nuovo nella UI corrente
       const savedTicketWithNew = { ...savedTicket, isNew: true };
-      setTickets(prev => [savedTicketWithNew, ...prev]);
+      // Controlla se il ticket esiste già (potrebbe essere arrivato via WebSocket prima)
+      setTickets(prev => {
+        const exists = prev.find(t => t.id === savedTicket.id);
+        if (exists) {
+          // Se esiste, aggiornalo mantenendo eventuali flag isNew
+          return prev.map(t => t.id === savedTicket.id ? { ...savedTicketWithNew, isNew: t.isNew || savedTicketWithNew.isNew } : t);
+        }
+        // Se non esiste, aggiungilo
+        return [savedTicketWithNew, ...prev];
+      });
       closeModal();
       
       // Sincronizzazione automatica con Google Calendar per nuovi ticket

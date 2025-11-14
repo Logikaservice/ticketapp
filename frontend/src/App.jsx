@@ -562,12 +562,22 @@ export default function TicketApp() {
   const handleTicketCreated = React.useCallback((ticket) => {
     console.log('📨 WebSocket: Nuovo ticket creato', ticket.id);
     setTickets(prev => {
+      // Controlla se il ticket esiste già (potrebbe essere stato aggiunto localmente)
       const exists = prev.find(t => t.id === ticket.id);
-      if (exists) return prev;
+      if (exists) {
+        // Se esiste, aggiornalo con i dati più recenti dal WebSocket
+        return prev.map(t => t.id === ticket.id ? { ...t, ...ticket } : t);
+      }
+      // Se non esiste, aggiungilo
       return [ticket, ...prev];
     });
-    showNotification(`Nuovo ticket ${ticket.numero}: ${ticket.titolo}`, 'warning', 8000, ticket.id);
-  }, [showNotification]);
+    // Mostra notifica solo se non è stato creato dall'utente corrente (per evitare doppie notifiche)
+    // Il ticket creato localmente ha già mostrato una notifica
+    const isSelfCreated = ticket.clienteid === currentUser?.id && currentUser?.ruolo === 'cliente';
+    if (!isSelfCreated) {
+      showNotification(`Nuovo ticket ${ticket.numero}: ${ticket.titolo}`, 'warning', 8000, ticket.id);
+    }
+  }, [showNotification, currentUser]);
 
   const handleTicketUpdated = React.useCallback((ticket) => {
     console.log('📨 WebSocket: Ticket aggiornato', ticket.id);
