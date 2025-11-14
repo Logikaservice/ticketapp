@@ -574,8 +574,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   const [keepassSearchLoadingResults, setKeepassSearchLoadingResults] = React.useState(false);
 
   React.useEffect(() => {
+    console.log('🔍🔍🔍 useEffect ricerca TRIGGERATO - keepassSearchQuery:', keepassSearchQuery);
+    
     const searchKeepass = async () => {
-      console.log('🔍🔍🔍 useEffect ricerca chiamato');
+      console.log('🔍🔍🔍 searchKeepass chiamato');
       console.log('🔍 isKeepassAdmin:', isKeepassAdmin);
       console.log('🔍 getAuthHeader:', !!getAuthHeader);
       console.log('🔍 keepassSearchQuery:', keepassSearchQuery);
