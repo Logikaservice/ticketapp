@@ -575,6 +575,19 @@ export default function TicketApp() {
   const handleTicketStatusChanged = React.useCallback((data) => {
     console.log('📨 WebSocket: Stato ticket cambiato', data.ticketId, data.oldStatus, '→', data.newStatus);
     
+    // Mostra notifica al cliente quando il tecnico prende in carico il ticket
+    if (data.oldStatus === 'aperto' && data.newStatus === 'in_lavorazione') {
+      // Verifica se l'utente corrente è un cliente e se il ticket gli appartiene
+      if (currentUser?.ruolo === 'cliente' && data.ticket?.clienteid) {
+        const ticketClienteId = Number(data.ticket.clienteid);
+        const currentUserId = Number(currentUser.id);
+        if (ticketClienteId === currentUserId) {
+          const ticketNumber = data.ticket?.numero || data.ticketId;
+          showNotification(`Il tecnico ha preso in carico il tuo ticket ${ticketNumber}`, 'success', 6000);
+        }
+      }
+    }
+    
     // Ricarica il ticket completo dal backend per avere tutti i dati aggiornati (incluso fornitureCount)
     fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${data.ticketId}`, {
       headers: getAuthHeader()
@@ -645,7 +658,7 @@ export default function TicketApp() {
     window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
       detail: { state: data.newStatus, type: 'up', direction: 'forward' } 
     }));
-  }, [selectedTicket, getAuthHeader]);
+  }, [selectedTicket, getAuthHeader, currentUser, showNotification]);
 
   const handleNewMessage = React.useCallback((data) => {
     console.log('📨 WebSocket: Nuovo messaggio', data.ticketId);
