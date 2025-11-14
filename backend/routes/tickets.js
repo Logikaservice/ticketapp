@@ -687,8 +687,35 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       };
       messaggi.push(newMessage);
       
-      await client.query('UPDATE tickets SET messaggi = $1 WHERE id = $2', [JSON.stringify(messaggi), id]);
+      const updateResult = await client.query(
+        'UPDATE tickets SET messaggi = $1 WHERE id = $2 RETURNING *',
+        [JSON.stringify(messaggi), id]
+      );
+      const updatedTicket = updateResult.rows[0];
       client.release();
+      
+      // Emetti evento WebSocket per nuovo messaggio
+      if (io && updatedTicket) {
+        // Ottieni il clienteid dal ticket
+        const ticketQuery = await pool.query('SELECT clienteid FROM tickets WHERE id = $1', [id]);
+        if (ticketQuery.rows.length > 0) {
+          const clienteid = ticketQuery.rows[0].clienteid;
+          // Notifica al cliente proprietario
+          io.to(`user:${clienteid}`).emit('message:new', {
+            ticketId: id,
+            message: newMessage
+          });
+          // Notifica a tutti i tecnici
+          io.to('role:tecnico').emit('message:new', {
+            ticketId: id,
+            message: newMessage
+          });
+          // Emetti anche evento di aggiornamento ticket
+          io.to(`user:${clienteid}`).emit('ticket:updated', updatedTicket);
+          io.to('role:tecnico').emit('ticket:updated', updatedTicket);
+          console.log(`🔌 WebSocket: Emesso evento message:new per ticket ${id}`);
+        }
+      }
       
       res.status(201).json(newMessage);
     } catch (err) {
