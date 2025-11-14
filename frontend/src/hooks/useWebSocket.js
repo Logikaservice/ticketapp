@@ -73,20 +73,36 @@ export const useWebSocket = ({
       
       // Ottieni token - non usare getAuthHeader nelle dipendenze
       const authHeader = getAuthHeader();
-      const token = authHeader?.Authorization?.replace('Bearer ', '') || 
-                    localStorage.getItem('authToken');
-
+      let token = authHeader?.Authorization?.replace('Bearer ', '');
+      
+      if (!token) {
+        token = localStorage.getItem('authToken');
+      }
+      
       if (!token) {
         console.warn('⚠️ WebSocket: Token non disponibile, connessione non possibile');
+        console.warn('⚠️ authHeader:', authHeader);
+        console.warn('⚠️ localStorage authToken:', localStorage.getItem('authToken'));
+        isConnectingRef.current = false;
+        return;
+      }
+
+      // Verifica che il token sia valido (almeno ha la struttura JWT)
+      if (!token.includes('.')) {
+        console.error('❌ WebSocket: Token malformato (non è un JWT valido)');
         isConnectingRef.current = false;
         return;
       }
 
       console.log('🔌 WebSocket: Tentativo di connessione a', apiBase);
+      console.log('🔌 WebSocket: Token presente (lunghezza:', token.length, 'caratteri)');
       
       const socket = io(apiBase, {
         auth: {
           token: token
+        },
+        extraHeaders: {
+          Authorization: `Bearer ${token}`
         },
         transports: ['websocket', 'polling'],
         reconnection: true,

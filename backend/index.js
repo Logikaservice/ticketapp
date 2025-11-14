@@ -49,21 +49,41 @@ const io = new Server(server, {
 // Middleware per autenticazione WebSocket
 io.use(async (socket, next) => {
   try {
-    const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+    // Prova a ottenere il token da più fonti
+    const token = socket.handshake.auth?.token || 
+                  socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
+                  socket.handshake.headers?.Authorization?.replace('Bearer ', '');
+    
+    console.log('🔍 WebSocket auth - Token presente:', !!token);
+    console.log('🔍 WebSocket auth - handshake.auth:', socket.handshake.auth);
+    console.log('🔍 WebSocket auth - handshake.headers:', Object.keys(socket.handshake.headers || {}));
     
     if (!token) {
+      console.error('❌ WebSocket: Token mancante nell\'handshake');
       return next(new Error('Token mancante'));
     }
     
     // Verifica JWT token
     const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const jwtSecret = process.env.JWT_SECRET || 'your-secret-key';
+    
+    console.log('🔍 WebSocket auth - Verifica token con JWT_SECRET:', jwtSecret ? 'presente' : 'mancante');
+    
+    const decoded = jwt.verify(token, jwtSecret);
+    
+    console.log('✅ WebSocket auth - Token valido per utente:', decoded.userId, 'ruolo:', decoded.ruolo);
     
     socket.userId = decoded.userId;
     socket.userRole = decoded.ruolo;
     next();
   } catch (err) {
     console.error('❌ Errore autenticazione WebSocket:', err.message);
+    console.error('❌ Stack:', err.stack);
+    if (err.name === 'JsonWebTokenError') {
+      console.error('❌ Token JWT non valido o malformato');
+    } else if (err.name === 'TokenExpiredError') {
+      console.error('❌ Token JWT scaduto');
+    }
     next(new Error('Autenticazione fallita'));
   }
 });
