@@ -576,19 +576,24 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   React.useEffect(() => {
     // Verifica condizioni PRIMA di impostare il timeout
     if (!getAuthHeader) {
-      console.log('⚠️⚠️⚠️ useEffect ricerca - getAuthHeader mancante, skip');
       return;
     }
     
     if (!isKeepassAdmin) {
-      console.log('⚠️⚠️⚠️ useEffect ricerca - isKeepassAdmin è false, skip');
       return;
     }
     
-    console.log('🔍🔍🔍 useEffect ricerca TRIGGERATO - keepassSearchQuery:', keepassSearchQuery);
+    const term = keepassSearchQuery.trim().toLowerCase().replace(/^["']+|["']+$/g, '').trim();
+    
+    if (term.length < 2) {
+      setKeepassSearchResults([]);
+      return;
+    }
+    
+    console.log('🔍🔍🔍 useEffect ricerca TRIGGERATO - keepassSearchQuery:', keepassSearchQuery, 'term:', term);
     
     const searchKeepass = async () => {
-      console.log('🔍🔍🔍 searchKeepass chiamato - keepassSearchQuery:', keepassSearchQuery);
+      console.log('🔍🔍🔍 searchKeepass chiamato - term:', term);
       
       // Verifica di nuovo le condizioni (potrebbero essere cambiate)
       if (!getAuthHeader) {
@@ -601,15 +606,6 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         return;
       }
       
-      const term = keepassSearchQuery.trim().toLowerCase().replace(/^["']+|["']+$/g, '').trim();
-      console.log('🔍 Termine pulito:', term, 'lunghezza:', term.length);
-      
-      if (term.length < 2) {
-        console.log('🔍 Termine troppo corto, reset risultati');
-        setKeepassSearchResults([]);
-        return;
-      }
-
       try {
         console.log('🔍 Chiamata API ricerca backend:', `${apiBase}/api/keepass/search?q=${encodeURIComponent(term)}`);
         setKeepassSearchLoadingResults(true);
@@ -652,7 +648,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       console.log('🔍 Cleanup: cancello timeout');
       clearTimeout(timeoutId);
     };
-  }, [keepassSearchQuery, apiBase, currentUser, getAuthHeader, isKeepassAdmin]);
+  }, [keepassSearchQuery]); // SOLO keepassSearchQuery come dipendenza!
 
   // Usa i risultati dal backend - ricerca ora lato backend
   const keepassResults = keepassSearchResults;
