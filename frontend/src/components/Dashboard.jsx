@@ -857,7 +857,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                 <button
                   type="button"
                   onClick={() => setIsCompanyDropdownOpen(!isCompanyDropdownOpen)}
-                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white hover:border-blue-400 transition flex items-center gap-2 min-w-[200px] justify-between"
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white hover:border-blue-400 transition flex items-center gap-2 justify-between whitespace-nowrap"
+                  style={{ minWidth: '200px', width: 'auto' }}
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     {selectedCompany ? (
@@ -865,7 +866,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                         <div className="w-5 h-5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                           {selectedCompany.charAt(0).toUpperCase()}
                         </div>
-                        <span className="text-gray-900 truncate">{selectedCompany}</span>
+                        <span className="text-gray-900">{selectedCompany}</span>
                       </>
                     ) : (
                       <>
@@ -876,7 +877,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                   </div>
                   <ChevronDown 
                     size={16} 
-                    className={`text-gray-400 transition-transform flex-shrink-0 ${isCompanyDropdownOpen ? 'rotate-180' : ''}`} 
+                    className={`text-gray-400 transition-transform flex-shrink-0 ml-2 ${isCompanyDropdownOpen ? 'rotate-180' : ''}`} 
                   />
                 </button>
                 {selectedCompany && (
@@ -899,7 +900,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                     className="fixed inset-0 z-10" 
                     onClick={() => setIsCompanyDropdownOpen(false)}
                   ></div>
-                  <div className="absolute z-20 mt-1 w-full min-w-[200px] bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto">
+                  <div className="absolute z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto" style={{ minWidth: '200px', width: 'max-content' }}>
                     <button
                       type="button"
                       onClick={() => {
