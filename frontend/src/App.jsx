@@ -604,6 +604,23 @@ export default function TicketApp() {
       .catch(err => console.error('Errore caricamento ticket dopo messaggio:', err));
   }, [selectedTicket, getAuthHeader, showNotification]);
 
+  const handleTicketDeleted = React.useCallback((data) => {
+    console.log('📨 WebSocket: Ticket cancellato', data.ticketId);
+    const ticket = data.ticket;
+    
+    // Rimuovi il ticket dalla lista
+    setTickets(prev => prev.filter(t => t.id !== data.ticketId));
+    
+    // Se il ticket cancellato è quello aperto, chiudilo
+    if (selectedTicket?.id === data.ticketId) {
+      setSelectedTicket(null);
+    }
+    
+    // Mostra notifica
+    const ticketNumber = ticket?.numero || data.ticketId;
+    showNotification(`Ticket ${ticketNumber} cancellato`, 'error', 5000);
+  }, [selectedTicket, showNotification]);
+
   // Hook WebSocket
   const { isConnected } = useWebSocket({
     getAuthHeader,
@@ -611,7 +628,8 @@ export default function TicketApp() {
     onTicketCreated: handleTicketCreated,
     onTicketUpdated: handleTicketUpdated,
     onTicketStatusChanged: handleTicketStatusChanged,
-    onNewMessage: handleNewMessage
+    onNewMessage: handleNewMessage,
+    onTicketDeleted: handleTicketDeleted
   });
 
   // ====================================================================

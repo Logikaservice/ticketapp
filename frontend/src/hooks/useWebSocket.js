@@ -9,7 +9,8 @@ export const useWebSocket = ({
   onTicketCreated,
   onTicketUpdated,
   onTicketStatusChanged,
-  onNewMessage
+  onNewMessage,
+  onTicketDeleted
 }) => {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef(null);
@@ -23,7 +24,8 @@ export const useWebSocket = ({
     onTicketCreated,
     onTicketUpdated,
     onTicketStatusChanged,
-    onNewMessage
+    onNewMessage,
+    onTicketDeleted
   });
   
   // Aggiorna le callback senza causare ri-render
@@ -32,9 +34,10 @@ export const useWebSocket = ({
       onTicketCreated,
       onTicketUpdated,
       onTicketStatusChanged,
-      onNewMessage
+      onNewMessage,
+      onTicketDeleted
     };
-  }, [onTicketCreated, onTicketUpdated, onTicketStatusChanged, onNewMessage]);
+  }, [onTicketCreated, onTicketUpdated, onTicketStatusChanged, onNewMessage, onTicketDeleted]);
 
   useEffect(() => {
     // Controlla se dobbiamo connettere
@@ -165,6 +168,13 @@ export const useWebSocket = ({
         console.log('📨 WebSocket: Nuovo messaggio', data.ticketId);
         if (callbacksRef.current.onNewMessage) {
           callbacksRef.current.onNewMessage(data);
+        }
+      });
+
+      socket.on('ticket:deleted', (data) => {
+        console.log('📨 WebSocket: Ticket cancellato', data.ticketId);
+        if (callbacksRef.current.onTicketDeleted) {
+          callbacksRef.current.onTicketDeleted(data);
         }
       });
 

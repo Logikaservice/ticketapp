@@ -967,6 +967,23 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
           }
         }
         
+        // Emetti evento WebSocket per notificare tutti gli utenti
+        if (io && ticket) {
+          console.log(`📨 WebSocket: Emetto evento ticket:deleted per ticket #${ticket.id}`);
+          // Notifica il cliente proprietario
+          if (ticket.clienteid) {
+            io.to(`user:${ticket.clienteid}`).emit('ticket:deleted', {
+              ticketId: ticket.id,
+              ticket: ticket
+            });
+          }
+          // Notifica tutti i tecnici
+          io.to('role:tecnico').emit('ticket:deleted', {
+            ticketId: ticket.id,
+            ticket: ticket
+          });
+        }
+        
         res.status(200).json({ message: 'Ticket eliminato con successo' });
       } else {
         res.status(404).json({ error: 'Ticket non trovato' });
