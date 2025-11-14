@@ -591,6 +591,17 @@ export default function TicketApp() {
       if (shouldShowNotification) {
         showNotification(`Nuovo ticket ${ticket.numero}: ${ticket.titolo}`, 'warning', 8000, ticket.id);
       }
+      
+      // Mostra effetto verde sulla card "Aperti" quando viene creato un nuovo ticket
+      // Solo se il ticket è in stato "aperto" e è visibile all'utente corrente
+      if (ticket.stato === 'aperto') {
+        const appliesToUser = isTechnician || (isClient && isTicketOwner);
+        if (appliesToUser) {
+          window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+            detail: { state: 'aperto', type: 'up', direction: 'forward' } 
+          }));
+        }
+      }
     }
   }, [showNotification, currentUser]);
 

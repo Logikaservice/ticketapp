@@ -116,6 +116,12 @@ export const useTickets = (
         // Badge NEW in dashboard
         window.dispatchEvent(new CustomEvent('dashboard-new', { detail: { state: 'aperto' } }));
         window.dispatchEvent(new CustomEvent('dashboard-focus', { detail: { state: 'aperto' } }));
+        // Mostra effetto verde sulla card "Aperti" quando viene creato un nuovo ticket
+        if (savedTicket.stato === 'aperto') {
+          window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+            detail: { state: 'aperto', type: 'up', direction: 'forward' } 
+          }));
+        }
         // Forza un polling immediato
         window.dispatchEvent(new Event('new-ticket-local'));
       } catch (_) {}
