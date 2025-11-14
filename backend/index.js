@@ -1,6 +1,8 @@
 // index.js
 
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
@@ -8,6 +10,7 @@ const fs = require('fs');
 const { Pool } = require('pg');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 
 // --- CONFIGURAZIONE DATABASE ---
@@ -33,6 +36,79 @@ app.use(cors({
   }
 }));
 app.use(express.json());
+
+// --- CONFIGURAZIONE SOCKET.IO ---
+const allowedOriginsSocket = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
+const io = new Server(server, {
+  cors: {
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOriginsSocket.length === 0) return callback(null, true);
+      if (allowedOriginsSocket.includes(origin)) return callback(null, true);
+      return callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Middleware per autenticazione WebSocket
+const { verifyToken } = require('./utils/jwtUtils');
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token) {
+    console.log('❌ WebSocket: Token mancante');
+    return next(new Error('Token di autenticazione richiesto'));
+  }
+  
+  try {
+    const decoded = verifyToken(token);
+    socket.userId = decoded.id;
+    socket.userEmail = decoded.email;
+    socket.userRole = decoded.ruolo;
+    console.log(`🔐 WebSocket autenticato: ${decoded.email} (${decoded.ruolo})`);
+    next();
+  } catch (error) {
+    console.log(`❌ WebSocket: Token invalido - ${error.message}`);
+    next(new Error('Token invalido'));
+  }
+});
+
+// Gestione connessioni WebSocket
+io.on('connection', (socket) => {
+  const userId = socket.userId;
+  const userRole = socket.userRole;
+  
+  console.log(`✅ WebSocket connesso: ${socket.userEmail} (ID: ${userId}, Ruolo: ${userRole})`);
+  
+  // Unisciti a room per utente specifico
+  socket.join(`user:${userId}`);
+  
+  // Unisciti a room per ruolo
+  socket.join(`role:${userRole}`);
+  
+  // Se è un cliente, unisciti anche alla room della sua azienda
+  if (userRole === 'cliente') {
+    // L'azienda verrà aggiunta quando necessario
+  }
+  
+  socket.on('disconnect', () => {
+    console.log(`❌ WebSocket disconnesso: ${socket.userEmail}`);
+  });
+  
+  // Evento per ping/pong (mantiene connessione attiva)
+  socket.on('ping', () => {
+    socket.emit('pong');
+  });
+});
+
+// Esporta io per uso in altri moduli
+module.exports.io = io;
 
 // --- CONFIGURAZIONE MULTER PER UPLOAD FILE ---
 const storageAlerts = multer.diskStorage({
@@ -284,7 +360,7 @@ const { authenticateToken, requireRole } = require('./middleware/authMiddleware'
 
 // --- IMPORTA LE ROUTES ---
 const usersRoutes = require('./routes/users')(pool);
-const ticketsRoutes = require('./routes/tickets')(pool, uploadTicketPhotos, uploadOffertaDocs);
+const ticketsRoutes = require('./routes/tickets')(pool, uploadTicketPhotos, uploadOffertaDocs, io);
 const alertsRoutes = require('./routes/alerts')(pool);
 const googleCalendarRoutes = require('./routes/googleCalendar')(pool);
 const googleAuthRoutes = require('./routes/googleAuth')(pool);
@@ -1143,9 +1219,10 @@ const startServer = async () => {
       console.log("⚠️ Errore creazione tabella keepass_entries (auto-init):", keepassEntriesErr.message);
     }
     
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`🚀 Server backend OTTIMIZZATO in ascolto sulla porta ${PORT}`);
       console.log(`📁 Routes organizzate in moduli separati`);
+      console.log(`🔌 WebSocket abilitato per aggiornamenti real-time`);
     });
   } catch (err) {
     console.error("❌ Errore critico - Impossibile connettersi al database:", err);

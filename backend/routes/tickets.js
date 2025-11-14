@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 
-module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
+module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
   // Funzione helper per generare il footer HTML con link al login
   const getEmailFooter = () => {
     const frontendUrl = process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com';
@@ -168,7 +168,17 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
       `;
       const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza', dataAperturaValue, photosArray.length > 0 ? JSON.stringify(photosArray) : null];
       const result = await client.query(query, values);
+      const newTicket = result.rows[0];
       client.release();
+      
+      // Emetti evento WebSocket per nuovo ticket
+      if (io && newTicket) {
+        // Notifica al cliente proprietario
+        io.to(`user:${clienteid}`).emit('ticket:created', newTicket);
+        // Notifica a tutti i tecnici
+        io.to('role:tecnico').emit('ticket:created', newTicket);
+        console.log(`🔌 WebSocket: Emesso evento ticket:created per ticket ${newTicket.id}`);
+      }
       
       // Invia notifica email al cliente (solo se sendEmail è true o undefined)
       console.log('🔍 DEBUG BACKEND: Controllo invio email - sendEmail =', sendEmail, 'tipo:', typeof sendEmail, 'result.rows[0] =', !!result.rows[0]);
@@ -428,11 +438,34 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
       
       updateQuery += ' WHERE id = $' + (queryParams.length + 1) + ' RETURNING *;';
       queryParams.push(id);
-      const result = await client.query(updateQuery, queryParams);
+      const updateResult = await client.query(updateQuery, queryParams);
       client.release();
 
-      if (result.rows.length > 0) {
-        const updatedTicket = result.rows[0];
+      // Emetti evento WebSocket per cambio stato
+      if (io && updateResult.rows.length > 0 && oldStatus !== status) {
+        const updatedTicket = updateResult.rows[0];
+        // Notifica al cliente proprietario
+        io.to(`user:${updatedTicket.clienteid}`).emit('ticket:status-changed', {
+          ticketId: updatedTicket.id,
+          oldStatus,
+          newStatus: status,
+          ticket: updatedTicket
+        });
+        // Notifica a tutti i tecnici
+        io.to('role:tecnico').emit('ticket:status-changed', {
+          ticketId: updatedTicket.id,
+          oldStatus,
+          newStatus: status,
+          ticket: updatedTicket
+        });
+        // Emetti anche evento generico di aggiornamento
+        io.to(`user:${updatedTicket.clienteid}`).emit('ticket:updated', updatedTicket);
+        io.to('role:tecnico').emit('ticket:updated', updatedTicket);
+        console.log(`🔌 WebSocket: Emesso evento ticket:status-changed per ticket ${updatedTicket.id} (${oldStatus} -> ${status})`);
+      }
+
+      if (updateResult.rows.length > 0) {
+        const updatedTicket = updateResult.rows[0];
         
         // Invia notifica email per le azioni specifiche (solo se sendEmail è true o undefined)
         console.log('🔍 DEBUG BACKEND STATUS: Controllo invio email - sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
