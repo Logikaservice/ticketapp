@@ -286,7 +286,14 @@ export default function TicketApp() {
         if (!ticketsResponse.ok) throw new Error("Errore nel caricare i ticket");
         const ticketsData = await ticketsResponse.json();
         
-        // Carica il conteggio forniture per ogni ticket in batch
+        // Imposta i ticket immediatamente con fornitureCount: 0 per mostrare le card subito
+        const ticketsInitial = ticketsData.map(t => ({ ...t, fornitureCount: 0 }));
+        const filteredTicketsInitial = ticketsInitial.filter(t => !deletedTicketIdsRef.current.has(t.id));
+        
+        // Imposta i ticket nello stato immediatamente (le card si popolano subito)
+        setTickets(filteredTicketsInitial);
+        
+        // Carica il conteggio forniture in background e aggiorna i ticket man mano
         const BATCH_SIZE = 5;
         const ticketsWithForniture = [];
         
@@ -313,17 +320,36 @@ export default function TicketApp() {
           );
           ticketsWithForniture.push(...batchResults);
           
+          // Aggiorna i ticket nello stato man mano che arrivano le forniture
+          setTickets(prev => {
+            const prevMap = new Map(prev.map(t => [t.id, t]));
+            const updatedMap = new Map();
+            
+            // Mantieni tutti i ticket esistenti
+            prev.forEach(t => {
+              updatedMap.set(t.id, t);
+            });
+            
+            // Aggiorna con i nuovi dati delle forniture
+            batchResults.forEach(t => {
+              updatedMap.set(t.id, t);
+            });
+            
+            return Array.from(updatedMap.values());
+          });
+          
           // Delay tra batch per evitare sovraccarico
           if (i + BATCH_SIZE < ticketsData.length) {
             await new Promise(resolve => setTimeout(resolve, 100));
           }
         }
         
-        // Filtra i ticket cancellati (anche se il backend li restituisce per cache/delay)
-        const filteredTicketsInitial = ticketsWithForniture.filter(t => !deletedTicketIdsRef.current.has(t.id));
+        // Filtra i ticket cancellati per il resto della logica
+        const filteredTicketsWithForniture = ticketsWithForniture.filter(t => !deletedTicketIdsRef.current.has(t.id));
         
         // Evidenzia nuovi ticket (persistente finché non aperto) - baseline al primo login
-        let withNewFlag = filteredTicketsInitial;
+        // Usa filteredTicketsWithForniture che ha i conteggi completi
+        let withNewFlag = filteredTicketsWithForniture;
         const unseenKey = currentUser ? `unseenNewTicketIds_${currentUser.id}` : null;
         const unseen = unseenKey ? getSetFromStorage(unseenKey) : new Set();
         
@@ -331,7 +357,7 @@ export default function TicketApp() {
         if (unseenKey && unseen.size > 0) {
           const cleanedUnseen = new Set();
           unseen.forEach(ticketId => {
-            const ticket = ticketsWithForniture.find(t => t.id === ticketId);
+            const ticket = filteredTicketsWithForniture.find(t => t.id === ticketId);
             if (ticket) {
               // Verifica se il ticket è stato già letto dall'utente corrente
               const isRead = currentUser.ruolo === 'cliente' 
@@ -409,7 +435,7 @@ export default function TicketApp() {
         
         if (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico') {
           // Al primo caricamento, rileva nuovi ticket (aperti) che non erano già in unseen
-          filteredTicketsInitial.forEach(t => {
+          filteredTicketsWithForniture.forEach(t => {
             const appliesToUser = getAppliesToUserInitial(t);
             // Verifica se il ticket è stato già letto dall'utente corrente
             const isRead = currentUser.ruolo === 'cliente' 
@@ -434,7 +460,7 @@ export default function TicketApp() {
           if (alreadyNotifiedKey) saveSetToStorage(alreadyNotifiedKey, alreadyNotified);
           
           // Applica flag isNew ai ticket (solo se non sono stati ancora letti)
-          withNewFlag = filteredTicketsInitial.map(t => {
+          withNewFlag = filteredTicketsWithForniture.map(t => {
             const appliesToUser = getAppliesToUserInitial(t);
             // Verifica se il ticket è stato già letto dall'utente corrente
             const isRead = currentUser.ruolo === 'cliente' 
@@ -448,10 +474,33 @@ export default function TicketApp() {
             showNotification(`Nuovo ticket ${t.numero}: ${t.titolo}`, 'warning', 8000, t.id);
           });
         }
-        setTickets(withNewFlag);
+        // Aggiorna i ticket con i flag isNew (mantenendo i fornitureCount già caricati)
+        setTickets(prev => {
+          const prevMap = new Map(prev.map(t => [t.id, t]));
+          const newMap = new Map();
+          
+          // Mantieni tutti i ticket esistenti con i loro fornitureCount
+          prev.forEach(t => {
+            newMap.set(t.id, t);
+          });
+          
+          // Aggiorna con i flag isNew
+          withNewFlag.forEach(t => {
+            const existing = prevMap.get(t.id);
+            if (existing) {
+              // Mantieni il fornitureCount esistente se è già stato caricato
+              newMap.set(t.id, { ...existing, isNew: t.isNew });
+            } else {
+              newMap.set(t.id, t);
+            }
+          });
+          
+          return Array.from(newMap.values());
+        });
+        
         // Inizializza mappa stati per highlights reali
         const initMap = {};
-        filteredTicketsInitial.forEach(t => { if (t && t.id) initMap[t.id] = t.stato; });
+        filteredTicketsWithForniture.forEach(t => { if (t && t.id) initMap[t.id] = t.stato; });
         setPrevTicketStates(initMap);
 
         // Carica users per tecnici e per clienti amministratori (devono vedere i clienti della loro azienda)
@@ -476,7 +525,7 @@ export default function TicketApp() {
               const alreadyNotified2 = alreadyNotifiedKey2 ? getSetFromStorage(alreadyNotifiedKey2) : new Set();
               const newlyNotifiedAfterUsers = [];
               
-              filteredTicketsInitial.forEach(t => {
+              filteredTicketsWithForniture.forEach(t => {
                 const appliesToUser = getAppliesToUserInitial(t);
                 // Verifica se il ticket è stato già letto dall'utente corrente
                 const isRead = currentUser.ruolo === 'cliente' 
@@ -497,7 +546,7 @@ export default function TicketApp() {
               if (alreadyNotifiedKey2) saveSetToStorage(alreadyNotifiedKey2, alreadyNotified2);
               
               // Aggiorna tickets con flag isNew corretto (solo se non sono stati ancora letti)
-              const updatedTickets = filteredTicketsInitial.map(t => {
+              const updatedTickets = filteredTicketsWithForniture.map(t => {
                 const appliesToUser = getAppliesToUserInitial(t);
                 // Verifica se il ticket è stato già letto dall'utente corrente
                 const isRead = currentUser.ruolo === 'cliente' 
@@ -516,7 +565,7 @@ export default function TicketApp() {
         }
         
         // Mostra modale se ci sono messaggi non letti
-        const unreadTickets = filteredTicketsInitial.filter(t => getUnreadCount(t) > 0);
+        const unreadTickets = filteredTicketsWithForniture.filter(t => getUnreadCount(t) > 0);
         if (unreadTickets.length > 0 && !showUnreadModal) {
           setShowUnreadModal(true);
         }
