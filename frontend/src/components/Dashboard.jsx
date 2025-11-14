@@ -515,19 +515,6 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         }
         return String(val || '');
       };
-      
-      // Debug: mostra un esempio di entry per verificare il formato
-      if (groups.length > 0 && groups[0].entries && groups[0].entries.length > 0) {
-        const firstEntry = groups[0].entries[0];
-        console.log('🔍 Esempio entry dal backend:', {
-          title: firstEntry.title,
-          titleType: typeof firstEntry.title,
-          username: firstEntry.username,
-          usernameType: typeof firstEntry.username,
-          url: firstEntry.url,
-          notes: firstEntry.notes
-        });
-      }
 
       const collectEntries = (group, parentPath = []) => {
         const currentPath = [...parentPath, extractString(group.name || '')];
