@@ -145,25 +145,52 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
     };
 
     const filterTickets = () => {
+      console.log('🔍 FILTRO: Inizio filtro ticket. Totale ticket nello stato:', tickets.length);
+      console.log('🔍 FILTRO: currentUser:', {
+        id: currentUser.id,
+        ruolo: currentUser.ruolo,
+        admin_companies: currentUser.admin_companies
+      });
+      
       let filtered = tickets;
       if (currentUser.ruolo === 'cliente') {
         // Se è amministratore, mostra i ticket di tutti i clienti della sua azienda
         const companyClientIds = getCompanyClientIds();
+        console.log('🔍 FILTRO: companyClientIds:', companyClientIds);
+        
         if (companyClientIds && companyClientIds.length > 0) {
           // Include sia i ticket del cliente stesso che quelli degli altri clienti dell'azienda
           filtered = tickets.filter(t => {
             const ticketClientId = Number(t.clienteid);
-            return companyClientIds.some(id => Number(id) === ticketClientId);
+            const matches = companyClientIds.some(id => Number(id) === ticketClientId);
+            if (t.stato === 'in_lavorazione') {
+              console.log('🔍 FILTRO (admin): Ticket', t.id, 'clienteid:', ticketClientId, 'matches:', matches);
+            }
+            return matches;
           });
         } else {
           // Non è amministratore, mostra solo i suoi ticket
           // IMPORTANTE: Converti entrambi a Number per confronto corretto
           const currentUserId = Number(currentUser.id);
+          console.log('🔍 FILTRO: currentUserId:', currentUserId, 'tipo:', typeof currentUserId);
+          
           filtered = tickets.filter(t => {
             const ticketClientId = Number(t.clienteid);
             const matches = ticketClientId === currentUserId;
+            
+            if (t.stato === 'in_lavorazione') {
+              console.log('🔍 FILTRO: Ticket', t.id, {
+                ticketClienteId: ticketClientId,
+                ticketClienteIdType: typeof ticketClientId,
+                currentUserId: currentUserId,
+                currentUserIdType: typeof currentUserId,
+                matches: matches,
+                ticketStato: t.stato
+              });
+            }
+            
             if (!matches && t.stato === 'in_lavorazione') {
-              console.log('🔍 DEBUG FILTRO: Ticket escluso:', {
+              console.log('🔍 FILTRO: Ticket escluso:', {
                 ticketId: t.id,
                 ticketClienteId: ticketClientId,
                 ticketClienteIdType: typeof ticketClientId,
@@ -175,6 +202,8 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
             }
             return matches;
           });
+          
+          console.log('🔍 FILTRO: Dopo filtro cliente, ticket rimasti:', filtered.length);
         }
       } else {
         if (selectedClientFilter.startsWith('company:')) {
