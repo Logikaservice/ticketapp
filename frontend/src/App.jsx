@@ -142,6 +142,120 @@ export default function TicketApp() {
     }
   };
 
+  // ====================================================================
+  // WEBSOCKET - Callback per eventi real-time
+  // ====================================================================
+  const handleTicketCreated = useCallback((newTicket) => {
+    console.log('📥 WebSocket: Ricevuto ticket:created', newTicket);
+    // Aggiungi forniture count
+    fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${newTicket.id}/forniture`, {
+      headers: getAuthHeader()
+    })
+      .then(res => res.ok ? res.json() : [])
+      .then(forniture => {
+        const ticketWithForniture = { ...newTicket, fornitureCount: forniture.length };
+        setTickets(prev => {
+          // Evita duplicati
+          if (prev.find(t => t.id === newTicket.id)) {
+            return prev.map(t => t.id === newTicket.id ? ticketWithForniture : t);
+          }
+          return [...prev, ticketWithForniture];
+        });
+        
+        // Mostra notifica
+        if (currentUser) {
+          const appliesToUser = currentUser.ruolo === 'tecnico' || 
+            (currentUser.ruolo === 'cliente' && newTicket.clienteid === currentUser.id);
+          if (appliesToUser) {
+            showNotification(`Nuovo ticket ${newTicket.numero}: ${newTicket.titolo}`, 'warning', 8000, newTicket.id);
+          }
+        }
+      })
+      .catch(err => console.error('Errore caricamento forniture per nuovo ticket:', err));
+  }, [currentUser, getAuthHeader, showNotification]);
+
+  const handleTicketUpdated = useCallback((updatedTicket) => {
+    console.log('📥 WebSocket: Ricevuto ticket:updated', updatedTicket);
+    // Aggiungi forniture count
+    fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${updatedTicket.id}/forniture`, {
+      headers: getAuthHeader()
+    })
+      .then(res => res.ok ? res.json() : [])
+      .then(forniture => {
+        const ticketWithForniture = { ...updatedTicket, fornitureCount: forniture.length };
+        setTickets(prev => prev.map(t => t.id === updatedTicket.id ? ticketWithForniture : t));
+      })
+      .catch(err => console.error('Errore caricamento forniture per ticket aggiornato:', err));
+  }, [getAuthHeader]);
+
+  const handleTicketStatusChanged = useCallback((data) => {
+    console.log('📥 WebSocket: Ricevuto ticket:status-changed', data);
+    const { ticketId, oldStatus, newStatus, ticket } = data;
+    
+    // Aggiorna il ticket nello stato
+    if (ticket) {
+      handleTicketUpdated(ticket);
+    }
+    
+    // Mostra notifica
+    const ticketInState = tickets.find(t => t.id === ticketId);
+    if (ticketInState) {
+      showNotification(
+        `Ticket ${ticketInState.numero}: stato cambiato da ${oldStatus} a ${newStatus}`,
+        'info',
+        5000,
+        ticketId
+      );
+    }
+    
+    // Aggiorna highlights
+    setDashboardHighlights(prev => ({
+      ...prev,
+      [ticketId]: { type: 'status-change', timestamp: Date.now() }
+    }));
+  }, [tickets, handleTicketUpdated, showNotification]);
+
+  const handleNewMessage = useCallback((data) => {
+    console.log('📥 WebSocket: Ricevuto message:new', data);
+    const { ticketId, message } = data;
+    
+    // Aggiorna il ticket per includere il nuovo messaggio
+    setTickets(prev => prev.map(t => {
+      if (t.id === ticketId) {
+        const messaggi = Array.isArray(t.messaggi) ? t.messaggi : [];
+        // Evita duplicati
+        if (!messaggi.find(m => m.id === message.id && m.data === message.data)) {
+          return {
+            ...t,
+            messaggi: [...messaggi, message]
+          };
+        }
+      }
+      return t;
+    }));
+    
+    // Mostra notifica se il ticket non è aperto
+    const ticketInState = tickets.find(t => t.id === ticketId);
+    if (ticketInState && selectedTicket?.id !== ticketId) {
+      showNotification(
+        `Nuovo messaggio nel ticket ${ticketInState.numero}`,
+        'info',
+        5000,
+        ticketId
+      );
+    }
+  }, [tickets, selectedTicket, showNotification]);
+
+  // Hook WebSocket
+  const { socket, isConnected } = useWebSocket({
+    onTicketCreated: handleTicketCreated,
+    onTicketUpdated: handleTicketUpdated,
+    onTicketStatusChanged: handleTicketStatusChanged,
+    onNewMessage: handleNewMessage,
+    getAuthHeader,
+    currentUser
+  });
+
   const {
     handleCreateClient,
     handleUpdateClient,
