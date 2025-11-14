@@ -893,7 +893,7 @@ export default function TicketApp() {
     const localNewHandler = () => { doPoll(); };
     window.addEventListener('new-ticket-local', localNewHandler);
     return () => { clearInterval(interval); window.removeEventListener('new-ticket-local', localNewHandler); };
-  }, [isLoggedIn, tickets, showUnreadModal, currentUser, previousUnreadCounts, users]);
+  }, [isLoggedIn, tickets, showUnreadModal, currentUser, previousUnreadCounts, users, isConnected]);
 
   // Listener per apertura ticket da toast
   useEffect(() => {
