@@ -574,10 +574,70 @@ export default function TicketApp() {
 
   const handleTicketStatusChanged = React.useCallback((data) => {
     console.log('📨 WebSocket: Stato ticket cambiato', data.ticketId, data.oldStatus, '→', data.newStatus);
-    setTickets(prev => prev.map(t => t.id === data.ticketId ? data.ticket : t));
-    if (selectedTicket?.id === data.ticketId) {
-      setSelectedTicket(data.ticket);
-    }
+    
+    // Ricarica il ticket completo dal backend per avere tutti i dati aggiornati (incluso fornitureCount)
+    fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${data.ticketId}`, {
+      headers: getAuthHeader()
+    })
+      .then(res => res.json())
+      .then(ticket => {
+        // Carica anche le forniture per avere il conteggio corretto
+        return fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${data.ticketId}/forniture`, {
+          headers: getAuthHeader()
+        })
+          .then(fornitureRes => fornitureRes.ok ? fornitureRes.json() : [])
+          .then(forniture => {
+            const ticketWithForniture = { ...ticket, fornitureCount: forniture.length };
+            
+            // Aggiorna il ticket nella lista
+            setTickets(prev => {
+              const exists = prev.find(t => t.id === data.ticketId);
+              if (exists) {
+                // Se esiste, aggiornalo
+                return prev.map(t => t.id === data.ticketId ? ticketWithForniture : t);
+              } else {
+                // Se non esiste (ad esempio, era in un'altra vista), aggiungilo
+                return [ticketWithForniture, ...prev];
+              }
+            });
+            
+            // Aggiorna il ticket selezionato se è quello aperto
+            if (selectedTicket?.id === data.ticketId) {
+              setSelectedTicket(ticketWithForniture);
+            }
+          })
+          .catch(err => {
+            console.error('Errore caricamento forniture dopo cambio stato:', err);
+            // Fallback: usa i dati del ticket senza forniture
+            setTickets(prev => {
+              const exists = prev.find(t => t.id === data.ticketId);
+              if (exists) {
+                return prev.map(t => t.id === data.ticketId ? { ...data.ticket, fornitureCount: t.fornitureCount || 0 } : t);
+              } else {
+                return [{ ...data.ticket, fornitureCount: 0 }, ...prev];
+              }
+            });
+            if (selectedTicket?.id === data.ticketId) {
+              setSelectedTicket({ ...data.ticket, fornitureCount: selectedTicket.fornitureCount || 0 });
+            }
+          });
+      })
+      .catch(err => {
+        console.error('Errore caricamento ticket dopo cambio stato:', err);
+        // Fallback: usa i dati ricevuti via WebSocket
+        setTickets(prev => {
+          const exists = prev.find(t => t.id === data.ticketId);
+          if (exists) {
+            return prev.map(t => t.id === data.ticketId ? { ...data.ticket, fornitureCount: t.fornitureCount || 0 } : t);
+          } else {
+            return [{ ...data.ticket, fornitureCount: 0 }, ...prev];
+          }
+        });
+        if (selectedTicket?.id === data.ticketId) {
+          setSelectedTicket({ ...data.ticket, fornitureCount: selectedTicket.fornitureCount || 0 });
+        }
+      });
+    
     // Aggiorna highlights dashboard
     window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
       detail: { state: data.oldStatus, type: 'down', direction: 'forward' } 
@@ -585,7 +645,7 @@ export default function TicketApp() {
     window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
       detail: { state: data.newStatus, type: 'up', direction: 'forward' } 
     }));
-  }, [selectedTicket]);
+  }, [selectedTicket, getAuthHeader]);
 
   const handleNewMessage = React.useCallback((data) => {
     console.log('📨 WebSocket: Nuovo messaggio', data.ticketId);
