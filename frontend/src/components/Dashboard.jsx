@@ -574,25 +574,30 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   const [keepassSearchLoadingResults, setKeepassSearchLoadingResults] = React.useState(false);
 
   React.useEffect(() => {
+    // Verifica condizioni PRIMA di impostare il timeout
+    if (!getAuthHeader) {
+      console.log('⚠️⚠️⚠️ useEffect ricerca - getAuthHeader mancante, skip');
+      return;
+    }
+    
+    if (!isKeepassAdmin) {
+      console.log('⚠️⚠️⚠️ useEffect ricerca - isKeepassAdmin è false, skip');
+      return;
+    }
+    
     console.log('🔍🔍🔍 useEffect ricerca TRIGGERATO - keepassSearchQuery:', keepassSearchQuery);
     
     const searchKeepass = async () => {
-      console.log('🔍🔍🔍 searchKeepass chiamato');
-      console.log('🔍 isKeepassAdmin:', isKeepassAdmin);
-      console.log('🔍 getAuthHeader:', !!getAuthHeader);
-      console.log('🔍 keepassSearchQuery:', keepassSearchQuery);
-      console.log('🔍 apiBase:', apiBase);
-      console.log('🔍 currentUser:', currentUser?.id, currentUser?.ruolo);
+      console.log('🔍🔍🔍 searchKeepass chiamato - keepassSearchQuery:', keepassSearchQuery);
       
+      // Verifica di nuovo le condizioni (potrebbero essere cambiate)
       if (!getAuthHeader) {
-        console.log('⚠️⚠️⚠️ Ricerca non eseguita - getAuthHeader mancante');
+        console.log('⚠️⚠️⚠️ searchKeepass - getAuthHeader mancante');
         return;
       }
       
       if (!isKeepassAdmin) {
-        console.log('⚠️⚠️⚠️ Ricerca non eseguita - isKeepassAdmin è false');
-        console.log('⚠️ currentUser?.ruolo:', currentUser?.ruolo);
-        console.log('⚠️ currentUser?.admin_companies:', currentUser?.admin_companies);
+        console.log('⚠️⚠️⚠️ searchKeepass - isKeepassAdmin è false');
         return;
       }
       
@@ -637,8 +642,16 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       }
     };
 
-    const timeoutId = setTimeout(searchKeepass, 300); // Debounce 300ms
-    return () => clearTimeout(timeoutId);
+    console.log('🔍 Impostato timeout per ricerca (300ms)');
+    const timeoutId = setTimeout(() => {
+      console.log('🔍 Timeout scaduto, chiamando searchKeepass');
+      searchKeepass();
+    }, 300); // Debounce 300ms
+    
+    return () => {
+      console.log('🔍 Cleanup: cancello timeout');
+      clearTimeout(timeoutId);
+    };
   }, [keepassSearchQuery, apiBase, currentUser, getAuthHeader, isKeepassAdmin]);
 
   // Usa i risultati dal backend - ricerca ora lato backend
