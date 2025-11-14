@@ -487,33 +487,50 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                         {Object.entries(clientiPerAzienda).map(([azienda, clientiAzienda]) => {
                           const isExpanded = expandedCompanies.has(azienda);
                           const isNoCompany = azienda === 'Senza azienda';
+                          const isCompanySelected = selectedClientFilter === `company:${azienda}`;
                           
                           return (
                             <div key={azienda} className="border-b border-gray-100 last:border-b-0">
-                              <button
-                                type="button"
-                                onClick={() => toggleCompany(azienda)}
-                                className="w-full px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center justify-between text-left"
-                              >
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                  <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                    {isNoCompany ? <Building size={12} /> : azienda.charAt(0).toUpperCase()}
+                              <div className="flex items-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectCompany(azienda, 1)}
+                                  className={`flex-1 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center justify-between text-left ${
+                                    isCompanySelected ? 'ring-2 ring-blue-500' : ''
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                      {isNoCompany ? <Building size={12} /> : azienda.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <h3 className="text-sm font-bold text-gray-800 truncate">
+                                        {isNoCompany ? 'Senza azienda' : azienda}
+                                      </h3>
+                                      <p className="text-xs text-gray-600">
+                                        {clientiAzienda.length} {clientiAzienda.length === 1 ? 'cliente' : 'clienti'}
+                                      </p>
+                                    </div>
                                   </div>
-                                  <div className="flex-1 min-w-0">
-                                    <h3 className="text-sm font-bold text-gray-800 truncate">
-                                      {isNoCompany ? 'Senza azienda' : azienda}
-                                    </h3>
-                                    <p className="text-xs text-gray-600">
-                                      {clientiAzienda.length} {clientiAzienda.length === 1 ? 'cliente' : 'clienti'}
-                                    </p>
-                                  </div>
-                                </div>
-                                {isExpanded ? (
-                                  <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
-                                ) : (
-                                  <ChevronRight size={16} className="text-gray-500 flex-shrink-0" />
-                                )}
-                              </button>
+                                  {isCompanySelected && (
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleCompany(azienda);
+                                  }}
+                                  className="px-2 py-2 text-gray-500 hover:text-gray-700 transition"
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
+                                  ) : (
+                                    <ChevronRight size={16} className="text-gray-500 flex-shrink-0" />
+                                  )}
+                                </button>
+                              </div>
                               
                               {isExpanded && (
                                 <div className="bg-gray-50">
