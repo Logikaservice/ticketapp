@@ -908,7 +908,30 @@ export default function TicketApp() {
             showNotification(`Nuovo ticket ${t.numero}: ${t.titolo}`, 'warning', 8000, t.id);
           });
         }
-        setTickets(polled);
+        
+        // Merge intelligente: aggiorna i ticket esistenti e aggiungi solo quelli nuovi
+        // Questo evita duplicati quando WebSocket e polling arrivano contemporaneamente
+        setTickets(prev => {
+          const prevMap = new Map(prev.map(t => [t.id, t]));
+          const polledMap = new Map(polled.map(t => [t.id, t]));
+          
+          // Crea una nuova lista: mantieni i ticket dal polling (più aggiornati)
+          // e aggiungi eventuali ticket da prev che non sono nel polling (per evitare perdite temporanee)
+          const merged = [];
+          const allIds = new Set([...prevMap.keys(), ...polledMap.keys()]);
+          
+          allIds.forEach(id => {
+            if (polledMap.has(id)) {
+              // Preferisci i dati dal polling (più aggiornati)
+              merged.push(polledMap.get(id));
+            } else if (prevMap.has(id) && !deletedTicketIdsRef.current.has(id)) {
+              // Mantieni i ticket esistenti che non sono nel polling (potrebbero essere stati aggiunti via WebSocket)
+              merged.push(prevMap.get(id));
+            }
+          });
+          
+          return merged;
+        });
         // Highlights reali: confronta stati precedenti vs attuali
         const nextMap = {};
         filteredTickets.forEach(t => { if (t && t.id) nextMap[t.id] = t.stato; });
