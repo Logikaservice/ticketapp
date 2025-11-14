@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 
-module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
+module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
   // Funzione helper per generare il footer HTML con link al login
   const getEmailFooter = () => {
     const frontendUrl = process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com';
@@ -291,6 +291,17 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
       }
       } else {
         console.log('🔍 DEBUG BACKEND: Email notifica NON inviata ai tecnici (sendEmail = false)');
+      }
+      
+      // Emetti evento WebSocket per nuovo ticket
+      if (io && result.rows[0]) {
+        const newTicket = result.rows[0];
+        // Notifica il cliente proprietario
+        if (newTicket.clienteid) {
+          io.to(`user:${newTicket.clienteid}`).emit('ticket:created', newTicket);
+        }
+        // Notifica tutti i tecnici
+        io.to('role:tecnico').emit('ticket:created', newTicket);
       }
       
       res.status(201).json(result.rows[0]);
@@ -583,6 +594,31 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
           console.log('🔍 DEBUG BACKEND STATUS: Email non inviata per altri motivi - oldStatus =', oldStatus, 'status =', status, 'sendEmail =', sendEmail);
         }
         
+        // Emetti eventi WebSocket per cambio stato
+        if (io && oldStatus !== status) {
+          // Notifica cambio stato
+          if (updatedTicket.clienteid) {
+            io.to(`user:${updatedTicket.clienteid}`).emit('ticket:status-changed', {
+              ticketId: updatedTicket.id,
+              oldStatus,
+              newStatus: status,
+              ticket: updatedTicket
+            });
+          }
+          io.to('role:tecnico').emit('ticket:status-changed', {
+            ticketId: updatedTicket.id,
+            oldStatus,
+            newStatus: status,
+            ticket: updatedTicket
+          });
+          
+          // Notifica aggiornamento generale
+          if (updatedTicket.clienteid) {
+            io.to(`user:${updatedTicket.clienteid}`).emit('ticket:updated', updatedTicket);
+          }
+          io.to('role:tecnico').emit('ticket:updated', updatedTicket);
+        }
+        
         res.json(updatedTicket);
       } else {
         res.status(404).json({ error: 'Ticket non trovato' });
@@ -655,7 +691,29 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs) => {
       messaggi.push(newMessage);
       
       await client.query('UPDATE tickets SET messaggi = $1 WHERE id = $2', [JSON.stringify(messaggi), id]);
+      
+      // Recupera il ticket completo per l'evento WebSocket
+      const ticketResult = await client.query('SELECT * FROM tickets WHERE id = $1', [id]);
       client.release();
+      
+      // Emetti evento WebSocket per nuovo messaggio
+      if (io && ticketResult.rows.length > 0) {
+        const ticket = ticketResult.rows[0];
+        // Notifica il cliente proprietario
+        if (ticket.clienteid) {
+          io.to(`user:${ticket.clienteid}`).emit('message:new', {
+            ticketId: ticket.id,
+            message: newMessage
+          });
+          io.to(`user:${ticket.clienteid}`).emit('ticket:updated', ticket);
+        }
+        // Notifica tutti i tecnici
+        io.to('role:tecnico').emit('message:new', {
+          ticketId: ticket.id,
+          message: newMessage
+        });
+        io.to('role:tecnico').emit('ticket:updated', ticket);
+      }
       
       res.status(201).json(newMessage);
     } catch (err) {

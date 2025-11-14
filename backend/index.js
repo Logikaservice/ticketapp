@@ -6,8 +6,11 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { Pool } = require('pg');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 
 // --- CONFIGURAZIONE DATABASE ---
@@ -33,6 +36,58 @@ app.use(cors({
   }
 }));
 app.use(express.json());
+
+// --- CONFIGURAZIONE SOCKET.IO ---
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins.length > 0 ? allowedOrigins : '*',
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Middleware per autenticazione WebSocket
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return next(new Error('Token mancante'));
+    }
+    
+    // Verifica JWT token
+    const jwt = require('jsonwebtoken');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    
+    socket.userId = decoded.userId;
+    socket.userRole = decoded.ruolo;
+    next();
+  } catch (err) {
+    console.error('❌ Errore autenticazione WebSocket:', err.message);
+    next(new Error('Autenticazione fallita'));
+  }
+});
+
+// Gestione connessioni WebSocket
+io.on('connection', (socket) => {
+  console.log(`✅ WebSocket connesso: ${socket.userId} (${socket.userRole})`);
+  
+  // Unisciti alle room per ricevere notifiche
+  socket.join(`user:${socket.userId}`);
+  socket.join(`role:${socket.userRole}`);
+  
+  socket.on('disconnect', () => {
+    console.log(`❌ WebSocket disconnesso: ${socket.userId}`);
+  });
+  
+  // Ping/Pong per mantenere la connessione attiva
+  socket.on('ping', () => {
+    socket.emit('pong');
+  });
+});
+
+// Esporta io per uso in altri moduli
+module.exports.io = io;
 
 // --- CONFIGURAZIONE MULTER PER UPLOAD FILE ---
 const storageAlerts = multer.diskStorage({
@@ -284,7 +339,7 @@ const { authenticateToken, requireRole } = require('./middleware/authMiddleware'
 
 // --- IMPORTA LE ROUTES ---
 const usersRoutes = require('./routes/users')(pool);
-const ticketsRoutes = require('./routes/tickets')(pool, uploadTicketPhotos, uploadOffertaDocs);
+const ticketsRoutes = require('./routes/tickets')(pool, uploadTicketPhotos, uploadOffertaDocs, io);
 const alertsRoutes = require('./routes/alerts')(pool);
 const googleCalendarRoutes = require('./routes/googleCalendar')(pool);
 const googleAuthRoutes = require('./routes/googleAuth')(pool);
@@ -1143,9 +1198,10 @@ const startServer = async () => {
       console.log("⚠️ Errore creazione tabella keepass_entries (auto-init):", keepassEntriesErr.message);
     }
     
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`🚀 Server backend OTTIMIZZATO in ascolto sulla porta ${PORT}`);
       console.log(`📁 Routes organizzate in moduli separati`);
+      console.log(`🔌 WebSocket server attivo`);
     });
   } catch (err) {
     console.error("❌ Errore critico - Impossibile connettersi al database:", err);

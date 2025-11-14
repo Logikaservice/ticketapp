@@ -21,6 +21,7 @@ import { useReports } from './hooks/useReports';
 import { useModals } from './hooks/useModals';
 import { useTemporarySuppliesFromTickets } from './hooks/useTemporarySuppliesFromTickets';
 import { useGoogleCalendar } from './hooks/useGoogleCalendar';
+import { useWebSocket } from './hooks/useWebSocket';
 import GoogleCallback from './components/GoogleCallback';
 
 export default function TicketApp() {
@@ -283,23 +284,38 @@ export default function TicketApp() {
         if (!ticketsResponse.ok) throw new Error("Errore nel caricare i ticket");
         const ticketsData = await ticketsResponse.json();
         
-        // Carica il conteggio forniture per ogni ticket
-        const ticketsWithForniture = await Promise.all(
-          ticketsData.map(async (ticket) => {
-            try {
-              const fornitureResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`, {
-                headers: getAuthHeader()
-              });
-              if (fornitureResponse.ok) {
-                const forniture = await fornitureResponse.json();
-                return { ...ticket, fornitureCount: forniture.length };
+        // Carica il conteggio forniture per ogni ticket in batch
+        const BATCH_SIZE = 5;
+        const ticketsWithForniture = [];
+        
+        for (let i = 0; i < ticketsData.length; i += BATCH_SIZE) {
+          const batch = ticketsData.slice(i, i + BATCH_SIZE);
+          const batchResults = await Promise.all(
+            batch.map(async (ticket) => {
+              try {
+                const fornitureResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`, {
+                  headers: getAuthHeader()
+                });
+                if (fornitureResponse.ok) {
+                  const forniture = await fornitureResponse.json();
+                  return { ...ticket, fornitureCount: forniture.length };
+                }
+              } catch (err) {
+                // Silenzia ERR_INSUFFICIENT_RESOURCES per forniture
+                if (!err.message?.includes('ERR_INSUFFICIENT_RESOURCES')) {
+                  console.error(`Errore nel caricare forniture per ticket ${ticket.id}:`, err);
+                }
               }
-            } catch (err) {
-              console.error(`Errore nel caricare forniture per ticket ${ticket.id}:`, err);
-            }
-            return { ...ticket, fornitureCount: 0 };
-          })
-        );
+              return { ...ticket, fornitureCount: 0 };
+            })
+          );
+          ticketsWithForniture.push(...batchResults);
+          
+          // Delay tra batch per evitare sovraccarico
+          if (i + BATCH_SIZE < ticketsData.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
         
         // Evidenzia nuovi ticket (persistente finché non aperto) - baseline al primo login
         let withNewFlag = ticketsWithForniture;
@@ -536,6 +552,69 @@ export default function TicketApp() {
   }, []);
 
   // ====================================================================
+  // WEBSOCKET - CALLBACK PER EVENTI REAL-TIME
+  // ====================================================================
+  const handleTicketCreated = React.useCallback((ticket) => {
+    console.log('📨 WebSocket: Nuovo ticket creato', ticket.id);
+    setTickets(prev => {
+      const exists = prev.find(t => t.id === ticket.id);
+      if (exists) return prev;
+      return [ticket, ...prev];
+    });
+    showNotification(`Nuovo ticket ${ticket.numero}: ${ticket.titolo}`, 'warning', 8000, ticket.id);
+  }, [showNotification]);
+
+  const handleTicketUpdated = React.useCallback((ticket) => {
+    console.log('📨 WebSocket: Ticket aggiornato', ticket.id);
+    setTickets(prev => prev.map(t => t.id === ticket.id ? ticket : t));
+    if (selectedTicket?.id === ticket.id) {
+      setSelectedTicket(ticket);
+    }
+  }, [selectedTicket]);
+
+  const handleTicketStatusChanged = React.useCallback((data) => {
+    console.log('📨 WebSocket: Stato ticket cambiato', data.ticketId, data.oldStatus, '→', data.newStatus);
+    setTickets(prev => prev.map(t => t.id === data.ticketId ? data.ticket : t));
+    if (selectedTicket?.id === data.ticketId) {
+      setSelectedTicket(data.ticket);
+    }
+    // Aggiorna highlights dashboard
+    window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+      detail: { state: data.oldStatus, type: 'down', direction: 'forward' } 
+    }));
+    window.dispatchEvent(new CustomEvent('dashboard-highlight', { 
+      detail: { state: data.newStatus, type: 'up', direction: 'forward' } 
+    }));
+  }, [selectedTicket]);
+
+  const handleNewMessage = React.useCallback((data) => {
+    console.log('📨 WebSocket: Nuovo messaggio', data.ticketId);
+    // Ricarica il ticket per avere i messaggi aggiornati
+    fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${data.ticketId}`, {
+      headers: getAuthHeader()
+    })
+      .then(res => res.json())
+      .then(ticket => {
+        setTickets(prev => prev.map(t => t.id === ticket.id ? ticket : t));
+        if (selectedTicket?.id === ticket.id) {
+          setSelectedTicket(ticket);
+        }
+        showNotification(`Nuovo messaggio su ticket ${ticket.numero}`, 'info', 5000);
+      })
+      .catch(err => console.error('Errore caricamento ticket dopo messaggio:', err));
+  }, [selectedTicket, getAuthHeader, showNotification]);
+
+  // Hook WebSocket
+  const { isConnected } = useWebSocket({
+    getAuthHeader,
+    currentUser,
+    onTicketCreated: handleTicketCreated,
+    onTicketUpdated: handleTicketUpdated,
+    onTicketStatusChanged: handleTicketStatusChanged,
+    onNewMessage: handleNewMessage
+  });
+
+  // ====================================================================
   // MONITORAGGIO NUOVI MESSAGGI
   // ====================================================================
   useEffect(() => {
@@ -548,7 +627,9 @@ export default function TicketApp() {
     });
     setPreviousUnreadCounts(initialCounts);
 
-    // Polling ogni 10 secondi
+    // Polling: più lento se WebSocket è connesso, più veloce altrimenti
+    const pollInterval = isConnected ? 60000 : 10000; // 60s se WebSocket attivo, 10s altrimenti
+    
     const doPoll = async () => {
       try {
         const response = await fetch(process.env.REACT_APP_API_URL + '/api/tickets', {
@@ -558,23 +639,38 @@ export default function TicketApp() {
         
         const updatedTickets = await response.json();
         
-        // Carica forniture
-        const ticketsWithForniture = await Promise.all(
-          updatedTickets.map(async (ticket) => {
-            try {
-              const fornitureResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`, {
-                headers: getAuthHeader()
-              });
-              if (fornitureResponse.ok) {
-                const forniture = await fornitureResponse.json();
-                return { ...ticket, fornitureCount: forniture.length };
+        // Carica forniture in batch per evitare ERR_INSUFFICIENT_RESOURCES
+        const BATCH_SIZE = 5;
+        const ticketsWithForniture = [];
+        
+        for (let i = 0; i < updatedTickets.length; i += BATCH_SIZE) {
+          const batch = updatedTickets.slice(i, i + BATCH_SIZE);
+          const batchResults = await Promise.all(
+            batch.map(async (ticket) => {
+              try {
+                const fornitureResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`, {
+                  headers: getAuthHeader()
+                });
+                if (fornitureResponse.ok) {
+                  const forniture = await fornitureResponse.json();
+                  return { ...ticket, fornitureCount: forniture.length };
+                }
+              } catch (err) {
+                // Silenzia ERR_INSUFFICIENT_RESOURCES per forniture
+                if (!err.message?.includes('ERR_INSUFFICIENT_RESOURCES')) {
+                  console.error(`Errore forniture ticket ${ticket.id}:`, err);
+                }
               }
-            } catch (err) {
-              console.error(`Errore forniture ticket ${ticket.id}:`, err);
-            }
-            return { ...ticket, fornitureCount: 0 };
-          })
-        );
+              return { ...ticket, fornitureCount: 0 };
+            })
+          );
+          ticketsWithForniture.push(...batchResults);
+          
+          // Delay tra batch per evitare sovraccarico
+          if (i + BATCH_SIZE < updatedTickets.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
         
         // Evidenzia nuovi ticket rispetto al polling precedente (cliente e tecnico) - persiste finché non aperto
         let polled = ticketsWithForniture;
@@ -768,11 +864,11 @@ export default function TicketApp() {
         console.error('Errore polling:', error);
       }
     };
-    const interval = setInterval(doPoll, 1000);
+    const interval = setInterval(doPoll, pollInterval);
     const localNewHandler = () => { doPoll(); };
     window.addEventListener('new-ticket-local', localNewHandler);
     return () => { clearInterval(interval); window.removeEventListener('new-ticket-local', localNewHandler); };
-  }, [isLoggedIn, tickets, showUnreadModal, currentUser, previousUnreadCounts, users]);
+  }, [isLoggedIn, tickets, showUnreadModal, currentUser, previousUnreadCounts, users, isConnected, getAuthHeader]);
 
   // Listener per apertura ticket da toast
   useEffect(() => {
