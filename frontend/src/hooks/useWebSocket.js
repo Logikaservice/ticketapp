@@ -37,7 +37,26 @@ export const useWebSocket = ({
   }, [onTicketCreated, onTicketUpdated, onTicketStatusChanged, onNewMessage]);
 
   useEffect(() => {
-    if (!currentUser || isConnectingRef.current || socketRef.current?.connected) {
+    // Controlla se dobbiamo connettere
+    if (!currentUser?.id) {
+      // Se non c'è utente, disconnetti se presente
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+        setIsConnected(false);
+        isConnectingRef.current = false;
+      }
+      return;
+    }
+
+    // Se già connesso o in connessione, non fare nulla
+    if (socketRef.current?.connected || isConnectingRef.current) {
+      return;
+    }
+
+    // Prevenzione doppia connessione
+    const userId = currentUser.id;
+    if (socketRef.current?.userId === userId && socketRef.current?.connected) {
       return;
     }
 
@@ -51,7 +70,10 @@ export const useWebSocket = ({
 
     try {
       const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-      const token = getAuthHeader()?.Authorization?.replace('Bearer ', '') || 
+      
+      // Ottieni token - non usare getAuthHeader nelle dipendenze
+      const authHeader = getAuthHeader();
+      const token = authHeader?.Authorization?.replace('Bearer ', '') || 
                     localStorage.getItem('token');
 
       if (!token) {
@@ -60,7 +82,7 @@ export const useWebSocket = ({
         return;
       }
 
-      console.log('🔌 WebSocket: Tentativo di connessione...');
+      console.log('🔌 WebSocket: Tentativo di connessione a', apiBase);
       
       const socket = io(apiBase, {
         auth: {
@@ -70,13 +92,15 @@ export const useWebSocket = ({
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        reconnectionAttempts: maxReconnectAttempts
+        reconnectionAttempts: maxReconnectAttempts,
+        timeout: 20000
       });
 
+      socket.userId = userId; // Salva userId per controllo
       socketRef.current = socket;
 
       socket.on('connect', () => {
-        console.log('✅ WebSocket: Connesso');
+        console.log('✅ WebSocket: Connesso con successo');
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
         isConnectingRef.current = false;
@@ -86,15 +110,13 @@ export const useWebSocket = ({
         console.log('❌ WebSocket: Disconnesso -', reason);
         setIsConnected(false);
         isConnectingRef.current = false;
-        
-        // Non riconnettere manualmente se è una disconnessione normale
-        // Socket.io gestisce già la riconnessione automatica
       });
 
       socket.on('connect_error', (error) => {
         console.error('❌ WebSocket: Errore connessione -', error.message);
         setIsConnected(false);
         isConnectingRef.current = false;
+        // Non riconnettere manualmente - Socket.io lo fa automaticamente
       });
 
       socket.on('pong', () => {
@@ -144,8 +166,9 @@ export const useWebSocket = ({
     }
 
     return () => {
-      if (socketRef.current) {
-        console.log('🔌 WebSocket: Disconnessione cleanup');
+      // Cleanup solo se l'utente è cambiato o il componente viene smontato
+      if (socketRef.current && socketRef.current.userId !== userId) {
+        console.log('🔌 WebSocket: Disconnessione cleanup (utente cambiato)');
         socketRef.current.disconnect();
         socketRef.current = null;
         setIsConnected(false);
@@ -156,7 +179,7 @@ export const useWebSocket = ({
         pingIntervalRef.current = null;
       }
     };
-  }, [currentUser?.id, getAuthHeader]); // Solo currentUser.id e getAuthHeader come dipendenze
+  }, [currentUser?.id]); // SOLO currentUser.id come dipendenza - getAuthHeader viene chiamato dentro
 
   return { isConnected };
 };
