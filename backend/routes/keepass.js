@@ -1013,23 +1013,10 @@ module.exports = function createKeepassRouter(pool) {
       console.log('🔍🔍🔍 RICERCA VELOCE KEEPASS - Termine:', cleanTerm, 'Utente:', userId, 'Ruolo:', role);
       console.log('🔍 Query params ricevuti:', req.query);
 
-      // Helper per estrarre valore da JSON o stringa
-      // PostgreSQL: se il campo è JSON, estrai il valore da _, altrimenti usa il valore diretto
-      const extractJsonValue = (field) => {
-        return `COALESCE(
-          CASE 
-            WHEN ${field}::text LIKE '{%' THEN 
-              COALESCE((${field}::jsonb->>'_')::text, ${field}::text)
-            ELSE 
-              ${field}::text
-          END,
-          ''
-        )`;
-      };
-
+      // Query più semplice: carica tutti i dati e filtra in JavaScript
+      // Questo evita problemi con JSON nel database
       let query, params;
       if (role === 'tecnico') {
-        // Tecnico vede tutte le credenziali
         query = `
           SELECT 
             e.id,
@@ -1043,22 +1030,12 @@ module.exports = function createKeepassRouter(pool) {
           FROM keepass_entries e
           JOIN keepass_groups g ON g.id = e.group_id
           LEFT JOIN users u ON u.id = g.client_id
-          WHERE (
-            LOWER(${extractJsonValue('e.title')}) LIKE $1 OR
-            LOWER(${extractJsonValue('e.username')}) LIKE $1 OR
-            LOWER(${extractJsonValue('e.url')}) LIKE $1 OR
-            LOWER(${extractJsonValue('e.notes')}) LIKE $1 OR
-            LOWER(COALESCE(g.name::text, '')) LIKE $1
-          )
-          AND e.title IS NOT NULL
-          AND ${extractJsonValue('e.title')} != ''
-          AND LOWER(${extractJsonValue('e.title')}) != 'senza titolo'
-          ORDER BY ${extractJsonValue('e.title')}
-          LIMIT 15
+          WHERE e.title IS NOT NULL
+          ORDER BY e.id
+          LIMIT 100
         `;
-        params = [`%${cleanTerm}%`];
+        params = [];
       } else if (role === 'cliente') {
-        // Cliente vede solo le proprie credenziali
         query = `
           SELECT 
             e.id,
@@ -1071,20 +1048,11 @@ module.exports = function createKeepassRouter(pool) {
           FROM keepass_entries e
           JOIN keepass_groups g ON g.id = e.group_id
           WHERE g.client_id = $1
-          AND (
-            LOWER(${extractJsonValue('e.title')}) LIKE $2 OR
-            LOWER(${extractJsonValue('e.username')}) LIKE $2 OR
-            LOWER(${extractJsonValue('e.url')}) LIKE $2 OR
-            LOWER(${extractJsonValue('e.notes')}) LIKE $2 OR
-            LOWER(COALESCE(g.name::text, '')) LIKE $2
-          )
           AND e.title IS NOT NULL
-          AND ${extractJsonValue('e.title')} != ''
-          AND LOWER(${extractJsonValue('e.title')}) != 'senza titolo'
-          ORDER BY ${extractJsonValue('e.title')}
-          LIMIT 15
+          ORDER BY e.id
+          LIMIT 100
         `;
-        params = [userId, `%${cleanTerm}%`];
+        params = [userId];
       } else {
         return res.status(403).json({ error: 'Ruolo non autorizzato' });
       }
@@ -1149,16 +1117,43 @@ module.exports = function createKeepassRouter(pool) {
         return String(value || '');
       };
 
-      const results = result.rows.map(row => ({
-        id: row.id,
-        title: extractString(row.title) || 'Senza titolo',
-        username: extractString(row.username) || '',
-        url: extractString(row.url) || '',
-        notes: extractString(row.notes) || '',
-        groupName: extractString(row.group_name) || '',
-        client_id: row.client_id,
-        client_email: row.client_email || null
-      }));
+      // Estrai tutti i valori e filtra in JavaScript
+      const allResults = result.rows.map(row => {
+        const title = extractString(row.title);
+        const username = extractString(row.username);
+        const url = extractString(row.url);
+        const notes = extractString(row.notes);
+        const groupName = extractString(row.group_name);
+        
+        return {
+          id: row.id,
+          title,
+          username,
+          url,
+          notes,
+          groupName,
+          client_id: row.client_id,
+          client_email: row.client_email || null
+        };
+      });
+
+      // Filtra i risultati in base al termine di ricerca
+      const searchLower = cleanTerm.toLowerCase();
+      const results = allResults.filter(row => {
+        // Filtra entry senza titolo valido
+        if (!row.title || row.title.trim() === '' || row.title.toLowerCase() === 'senza titolo') {
+          return false;
+        }
+        
+        // Cerca nel titolo, username, url, notes, groupName
+        const titleMatch = row.title.toLowerCase().includes(searchLower);
+        const usernameMatch = row.username.toLowerCase().includes(searchLower);
+        const urlMatch = row.url.toLowerCase().includes(searchLower);
+        const notesMatch = row.notes.toLowerCase().includes(searchLower);
+        const groupMatch = row.groupName.toLowerCase().includes(searchLower);
+        
+        return titleMatch || usernameMatch || urlMatch || notesMatch || groupMatch;
+      }).slice(0, 15); // Limita a 15 risultati
 
       console.log('🔍 Risultati ricerca backend:', results.length, 'entry trovate');
       if (results.length > 0) {
