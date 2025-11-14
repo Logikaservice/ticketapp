@@ -1013,6 +1013,20 @@ module.exports = function createKeepassRouter(pool) {
       console.log('🔍🔍🔍 RICERCA VELOCE KEEPASS - Termine:', cleanTerm, 'Utente:', userId, 'Ruolo:', role);
       console.log('🔍 Query params ricevuti:', req.query);
 
+      // Helper per estrarre valore da JSON o stringa
+      // PostgreSQL: se il campo è JSON, estrai il valore da _, altrimenti usa il valore diretto
+      const extractJsonValue = (field) => {
+        return `COALESCE(
+          CASE 
+            WHEN ${field}::text LIKE '{%' THEN 
+              COALESCE((${field}::jsonb->>'_')::text, ${field}::text)
+            ELSE 
+              ${field}::text
+          END,
+          ''
+        )`;
+      };
+
       let query, params;
       if (role === 'tecnico') {
         // Tecnico vede tutte le credenziali
@@ -1030,16 +1044,16 @@ module.exports = function createKeepassRouter(pool) {
           JOIN keepass_groups g ON g.id = e.group_id
           LEFT JOIN users u ON u.id = g.client_id
           WHERE (
-            LOWER(e.title) LIKE $1 OR
-            LOWER(e.username) LIKE $1 OR
-            LOWER(e.url) LIKE $1 OR
-            LOWER(e.notes) LIKE $1 OR
-            LOWER(g.name) LIKE $1
+            LOWER(${extractJsonValue('e.title')}) LIKE $1 OR
+            LOWER(${extractJsonValue('e.username')}) LIKE $1 OR
+            LOWER(${extractJsonValue('e.url')}) LIKE $1 OR
+            LOWER(${extractJsonValue('e.notes')}) LIKE $1 OR
+            LOWER(COALESCE(g.name::text, '')) LIKE $1
           )
           AND e.title IS NOT NULL
-          AND e.title != ''
-          AND e.title != 'Senza titolo'
-          ORDER BY e.title
+          AND ${extractJsonValue('e.title')} != ''
+          AND LOWER(${extractJsonValue('e.title')}) != 'senza titolo'
+          ORDER BY ${extractJsonValue('e.title')}
           LIMIT 15
         `;
         params = [`%${cleanTerm}%`];
@@ -1058,16 +1072,16 @@ module.exports = function createKeepassRouter(pool) {
           JOIN keepass_groups g ON g.id = e.group_id
           WHERE g.client_id = $1
           AND (
-            LOWER(e.title) LIKE $2 OR
-            LOWER(e.username) LIKE $2 OR
-            LOWER(e.url) LIKE $2 OR
-            LOWER(e.notes) LIKE $2 OR
-            LOWER(g.name) LIKE $2
+            LOWER(${extractJsonValue('e.title')}) LIKE $2 OR
+            LOWER(${extractJsonValue('e.username')}) LIKE $2 OR
+            LOWER(${extractJsonValue('e.url')}) LIKE $2 OR
+            LOWER(${extractJsonValue('e.notes')}) LIKE $2 OR
+            LOWER(COALESCE(g.name::text, '')) LIKE $2
           )
           AND e.title IS NOT NULL
-          AND e.title != ''
-          AND e.title != 'Senza titolo'
-          ORDER BY e.title
+          AND ${extractJsonValue('e.title')} != ''
+          AND LOWER(${extractJsonValue('e.title')}) != 'senza titolo'
+          ORDER BY ${extractJsonValue('e.title')}
           LIMIT 15
         `;
         params = [userId, `%${cleanTerm}%`];
