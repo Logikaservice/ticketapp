@@ -693,12 +693,12 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       await client.query('UPDATE tickets SET messaggi = $1 WHERE id = $2', [JSON.stringify(messaggi), id]);
       
       // Recupera il ticket completo per l'evento WebSocket
-      const ticketResult = await client.query('SELECT * FROM tickets WHERE id = $1', [id]);
+      const fullTicketResult = await client.query('SELECT * FROM tickets WHERE id = $1', [id]);
       client.release();
       
       // Emetti evento WebSocket per nuovo messaggio
-      if (io && ticketResult.rows.length > 0) {
-        const ticket = ticketResult.rows[0];
+      if (io && fullTicketResult.rows.length > 0) {
+        const ticket = fullTicketResult.rows[0];
         // Notifica il cliente proprietario
         if (ticket.clienteid) {
           io.to(`user:${ticket.clienteid}`).emit('message:new', {
