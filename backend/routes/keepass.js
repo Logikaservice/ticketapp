@@ -1140,19 +1140,24 @@ module.exports = function createKeepassRouter(pool) {
       // Filtra i risultati in base al termine di ricerca
       const searchLower = cleanTerm.toLowerCase();
       const results = allResults.filter(row => {
-        // Filtra entry senza titolo valido
-        if (!row.title || row.title.trim() === '' || row.title.toLowerCase() === 'senza titolo') {
-          return false;
+        // Cerca nel titolo, username, url, notes, groupName
+        const titleMatch = row.title && row.title.toLowerCase().includes(searchLower);
+        const usernameMatch = row.username && row.username.toLowerCase().includes(searchLower);
+        const urlMatch = row.url && row.url.toLowerCase().includes(searchLower);
+        const notesMatch = row.notes && row.notes.toLowerCase().includes(searchLower);
+        const groupMatch = row.groupName && row.groupName.toLowerCase().includes(searchLower);
+        
+        // Se trova una corrispondenza, includi il risultato (anche se title è "Senza titolo")
+        if (titleMatch || usernameMatch || urlMatch || notesMatch || groupMatch) {
+          // Filtra solo se il titolo è completamente vuoto o null, non se è "Senza titolo"
+          // perché "Senza titolo" potrebbe essere un titolo valido se la ricerca è in altri campi
+          if (!row.title || row.title.trim() === '') {
+            return false; // Escludi solo se title è completamente vuoto
+          }
+          return true;
         }
         
-        // Cerca nel titolo, username, url, notes, groupName
-        const titleMatch = row.title.toLowerCase().includes(searchLower);
-        const usernameMatch = row.username.toLowerCase().includes(searchLower);
-        const urlMatch = row.url.toLowerCase().includes(searchLower);
-        const notesMatch = row.notes.toLowerCase().includes(searchLower);
-        const groupMatch = row.groupName.toLowerCase().includes(searchLower);
-        
-        return titleMatch || usernameMatch || urlMatch || notesMatch || groupMatch;
+        return false;
       }).slice(0, 15); // Limita a 15 risultati
 
       console.log('🔍 Risultati ricerca backend:', results.length, 'entry trovate');
