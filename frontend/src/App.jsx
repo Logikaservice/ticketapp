@@ -561,21 +561,36 @@ export default function TicketApp() {
   // ====================================================================
   const handleTicketCreated = React.useCallback((ticket) => {
     console.log('📨 WebSocket: Nuovo ticket creato', ticket.id);
+    let wasAlreadyInState = false;
     setTickets(prev => {
       // Controlla se il ticket esiste già (potrebbe essere stato aggiunto localmente)
       const exists = prev.find(t => t.id === ticket.id);
       if (exists) {
+        wasAlreadyInState = true;
         // Se esiste, aggiornalo con i dati più recenti dal WebSocket
         return prev.map(t => t.id === ticket.id ? { ...t, ...ticket } : t);
       }
       // Se non esiste, aggiungilo
       return [ticket, ...prev];
     });
-    // Mostra notifica solo se non è stato creato dall'utente corrente (per evitare doppie notifiche)
-    // Il ticket creato localmente ha già mostrato una notifica
-    const isSelfCreated = ticket.clienteid === currentUser?.id && currentUser?.ruolo === 'cliente';
-    if (!isSelfCreated) {
-      showNotification(`Nuovo ticket ${ticket.numero}: ${ticket.titolo}`, 'warning', 8000, ticket.id);
+    
+    // Mostra notifica solo se il ticket NON era già nello stato (non creato localmente)
+    // Questo evita doppie notifiche quando l'utente crea il ticket lui stesso
+    if (!wasAlreadyInState) {
+      const ticketClienteId = Number(ticket.clienteid);
+      const currentUserId = Number(currentUser?.id);
+      const isTicketOwner = ticketClienteId === currentUserId;
+      const isTechnician = currentUser?.ruolo === 'tecnico';
+      const isClient = currentUser?.ruolo === 'cliente';
+      
+      // Mostra notifica se:
+      // 1. È un tecnico (vede tutti i nuovi ticket)
+      // 2. È un cliente E il ticket è suo (creato da tecnico o da altro cliente amministratore)
+      const shouldShowNotification = isTechnician || (isClient && isTicketOwner);
+      
+      if (shouldShowNotification) {
+        showNotification(`Nuovo ticket ${ticket.numero}: ${ticket.titolo}`, 'warning', 8000, ticket.id);
+      }
     }
   }, [showNotification, currentUser]);
 
