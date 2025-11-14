@@ -1,7 +1,7 @@
 // src/components/Dashboard.jsx
 
 import React, { useEffect } from 'react';
-import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, Copy, X, Info, Users, Trash2, Sparkles, Building, Search, User, Globe, Key, Eye, EyeOff, Lock } from 'lucide-react';
+import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, Copy, X, Info, Users, Trash2, Sparkles, Building, Search, User, Globe, Key, Eye, EyeOff, Lock, ChevronDown } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
@@ -853,20 +853,37 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           {currentUser?.ruolo === 'tecnico' && (
             <div className="relative">
               <div className="flex items-center gap-2">
-                <Building size={18} className="text-gray-500" />
-                <select
-                  value={selectedCompany}
-                  onChange={(e) => setSelectedCompany(e.target.value)}
-                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                <button
+                  type="button"
+                  onClick={() => setIsCompanyDropdownOpen(!isCompanyDropdownOpen)}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white hover:border-blue-400 transition flex items-center gap-2 min-w-[200px] justify-between"
                 >
-                  <option value="">Cerca per Azienda...</option>
-                  {companies.map(azienda => (
-                    <option key={azienda} value={azienda}>{azienda}</option>
-                  ))}
-                </select>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    {selectedCompany ? (
+                      <>
+                        <div className="w-5 h-5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                          {selectedCompany.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-gray-900 truncate">{selectedCompany}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Building size={18} className="text-gray-500 flex-shrink-0" />
+                        <span className="text-gray-500">Cerca per Azienda...</span>
+                      </>
+                    )}
+                  </div>
+                  <ChevronDown 
+                    size={16} 
+                    className={`text-gray-400 transition-transform flex-shrink-0 ${isCompanyDropdownOpen ? 'rotate-180' : ''}`} 
+                  />
+                </button>
                 {selectedCompany && (
                   <button
-                    onClick={() => setSelectedCompany('')}
+                    onClick={() => {
+                      setSelectedCompany('');
+                      setIsCompanyDropdownOpen(false);
+                    }}
                     className="px-2 py-2 text-gray-500 hover:text-gray-700 transition"
                     title="Rimuovi filtro"
                   >
@@ -874,6 +891,66 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                   </button>
                 )}
               </div>
+              
+              {isCompanyDropdownOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setIsCompanyDropdownOpen(false)}
+                  ></div>
+                  <div className="absolute z-20 mt-1 w-full min-w-[200px] bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCompany('');
+                        setIsCompanyDropdownOpen(false);
+                      }}
+                      className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
+                        !selectedCompany
+                          ? 'bg-blue-50 border-blue-500' 
+                          : 'border-transparent'
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-sm font-medium ${!selectedCompany ? 'text-blue-700' : 'text-gray-900'}`}>
+                          Tutte le aziende
+                        </span>
+                      </div>
+                      {!selectedCompany && (
+                        <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                      )}
+                    </button>
+                    {companies.map(azienda => {
+                      const isSelected = selectedCompany === azienda;
+                      return (
+                        <button
+                          key={azienda}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCompany(azienda);
+                            setIsCompanyDropdownOpen(false);
+                          }}
+                          className={`w-full px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center gap-2 text-left ${
+                            isSelected ? 'ring-2 ring-blue-500' : ''
+                          }`}
+                        >
+                          <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                            {azienda.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-bold text-gray-800 truncate">
+                              {azienda}
+                            </h3>
+                          </div>
+                          {isSelected && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           )}
           
