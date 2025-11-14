@@ -46,6 +46,9 @@ const io = new Server(server, {
   }
 });
 
+// Importa JWT_SECRET da jwtUtils per usare lo stesso secret
+const { JWT_SECRET } = require('./utils/jwtUtils');
+
 // Middleware per autenticazione WebSocket
 io.use(async (socket, next) => {
   try {
@@ -63,17 +66,16 @@ io.use(async (socket, next) => {
       return next(new Error('Token mancante'));
     }
     
-    // Verifica JWT token
+    // Verifica JWT token usando lo stesso JWT_SECRET di jwtUtils
     const jwt = require('jsonwebtoken');
-    const jwtSecret = process.env.JWT_SECRET || 'your-secret-key';
     
-    console.log('🔍 WebSocket auth - Verifica token con JWT_SECRET:', jwtSecret ? 'presente' : 'mancante');
+    console.log('🔍 WebSocket auth - Verifica token con JWT_SECRET (lunghezza:', JWT_SECRET ? JWT_SECRET.length : 'N/A', ')');
     
-    const decoded = jwt.verify(token, jwtSecret);
+    const decoded = jwt.verify(token, JWT_SECRET);
     
-    console.log('✅ WebSocket auth - Token valido per utente:', decoded.userId, 'ruolo:', decoded.ruolo);
+    console.log('✅ WebSocket auth - Token valido per utente:', decoded.id || decoded.userId, 'ruolo:', decoded.ruolo);
     
-    socket.userId = decoded.userId;
+    socket.userId = decoded.id || decoded.userId;
     socket.userRole = decoded.ruolo;
     next();
   } catch (err) {
