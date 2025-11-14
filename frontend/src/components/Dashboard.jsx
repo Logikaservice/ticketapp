@@ -590,24 +590,12 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       return;
     }
     
-    console.log('🔍🔍🔍 useEffect ricerca TRIGGERATO - keepassSearchQuery:', keepassSearchQuery, 'term:', term);
-    
     const searchKeepass = async () => {
-      console.log('🔍🔍🔍 searchKeepass chiamato - term:', term);
-      
-      // Verifica di nuovo le condizioni (potrebbero essere cambiate)
-      if (!getAuthHeader) {
-        console.log('⚠️⚠️⚠️ searchKeepass - getAuthHeader mancante');
-        return;
-      }
-      
-      if (!isKeepassAdmin) {
-        console.log('⚠️⚠️⚠️ searchKeepass - isKeepassAdmin è false');
+      if (!getAuthHeader || !isKeepassAdmin) {
         return;
       }
       
       try {
-        console.log('🔍 Chiamata API ricerca backend:', `${apiBase}/api/keepass/search?q=${encodeURIComponent(term)}`);
         setKeepassSearchLoadingResults(true);
         const authHeader = getAuthHeader();
         const response = await fetch(`${apiBase}/api/keepass/search?q=${encodeURIComponent(term)}`, {
@@ -618,36 +606,25 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           }
         });
 
-        console.log('🔍 Risposta API:', response.status, response.ok);
-
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('❌ Errore risposta API:', response.status, errorText);
+          console.error('Errore risposta API ricerca KeePass:', response.status, errorText);
           throw new Error('Errore nella ricerca');
         }
 
         const data = await response.json();
-        console.log('🔍 Dati ricevuti dal backend:', data);
-        console.log('🔍 Risultati:', data.results?.length || 0, 'entry');
         setKeepassSearchResults(data.results || []);
       } catch (err) {
-        console.error('❌ Errore ricerca KeePass:', err);
+        console.error('Errore ricerca KeePass:', err);
         setKeepassSearchResults([]);
       } finally {
         setKeepassSearchLoadingResults(false);
       }
     };
 
-    console.log('🔍 Impostato timeout per ricerca (300ms)');
-    const timeoutId = setTimeout(() => {
-      console.log('🔍 Timeout scaduto, chiamando searchKeepass');
-      searchKeepass();
-    }, 300); // Debounce 300ms
+    const timeoutId = setTimeout(searchKeepass, 300); // Debounce 300ms
     
-    return () => {
-      console.log('🔍 Cleanup: cancello timeout');
-      clearTimeout(timeoutId);
-    };
+    return () => clearTimeout(timeoutId);
   }, [keepassSearchQuery]); // SOLO keepassSearchQuery come dipendenza!
 
   // Usa i risultati dal backend - ricerca ora lato backend

@@ -1010,9 +1010,6 @@ module.exports = function createKeepassRouter(pool) {
 
       const cleanTerm = searchTerm.trim().toLowerCase();
 
-      console.log('🔍🔍🔍 RICERCA VELOCE KEEPASS - Termine:', cleanTerm, 'Utente:', userId, 'Ruolo:', role);
-      console.log('🔍 Query params ricevuti:', req.query);
-
       // Query più semplice: carica tutti i dati e filtra in JavaScript
       // Questo evita problemi con JSON nel database
       let query, params;
@@ -1057,44 +1054,12 @@ module.exports = function createKeepassRouter(pool) {
         return res.status(403).json({ error: 'Ruolo non autorizzato' });
       }
 
-      console.log('🔍 Eseguendo query SQL:', query.substring(0, 200) + '...');
-      console.log('🔍 Parametri query:', params);
-      
       let result;
       try {
         result = await pool.query(query, params);
       } catch (sqlError) {
-        console.error('❌❌❌ ERRORE SQL:', sqlError.message);
-        console.error('❌ Query completa:', query);
+        console.error('Errore SQL ricerca KeePass:', sqlError.message);
         throw sqlError;
-      }
-      
-      console.log('🔍 Righe restituite dal database:', result.rows.length);
-      if (result.rows.length > 0) {
-        console.log('🔍 Prima riga raw dal DB:', {
-          id: result.rows[0].id,
-          title: result.rows[0].title,
-          titleType: typeof result.rows[0].title,
-          username: result.rows[0].username,
-          usernameType: typeof result.rows[0].username,
-          url: result.rows[0].url,
-          notes: result.rows[0].notes
-        });
-      } else {
-        // Se non ci sono risultati, verifica se ci sono entry nel database
-        const countQuery = role === 'tecnico' 
-          ? 'SELECT COUNT(*) as total FROM keepass_entries WHERE title IS NOT NULL AND title != \'\' AND title != \'Senza titolo\''
-          : 'SELECT COUNT(*) as total FROM keepass_entries e JOIN keepass_groups g ON g.id = e.group_id WHERE g.client_id = $1 AND e.title IS NOT NULL AND e.title != \'\' AND e.title != \'Senza titolo\'';
-        const countParams = role === 'tecnico' ? [] : [userId];
-        const countResult = await pool.query(countQuery, countParams);
-        console.log('🔍 Totale entry nel database (con titolo valido):', countResult.rows[0].total);
-        
-        // Prova una query semplice per vedere se ci sono dati
-        const simpleQuery = role === 'tecnico'
-          ? 'SELECT id, title, username FROM keepass_entries LIMIT 5'
-          : 'SELECT e.id, e.title, e.username FROM keepass_entries e JOIN keepass_groups g ON g.id = e.group_id WHERE g.client_id = $1 LIMIT 5';
-        const simpleResult = await pool.query(simpleQuery, countParams);
-        console.log('🔍 Esempio entry nel database:', simpleResult.rows);
       }
       
       // Helper per estrarre stringa da campo che potrebbe essere JSON
@@ -1159,15 +1124,6 @@ module.exports = function createKeepassRouter(pool) {
         
         return false;
       }).slice(0, 15); // Limita a 15 risultati
-
-      console.log('🔍 Risultati ricerca backend:', results.length, 'entry trovate');
-      if (results.length > 0) {
-        console.log('🔍 Prime 3 risultati:', results.slice(0, 3).map(r => ({
-          title: r.title,
-          username: r.username,
-          groupName: r.groupName
-        })));
-      }
 
       res.json({ results });
     } catch (err) {
