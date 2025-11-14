@@ -204,7 +204,19 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
         
         return monthMatch && yearMatch;
       });
-      return filtered.filter(t => t.stato === viewState);
+      
+      const finalFiltered = filtered.filter(t => t.stato === viewState);
+      
+      if (viewState === 'in_lavorazione') {
+        console.log('🔍 FILTRO: Dopo filtro stato "in_lavorazione", ticket finali:', finalFiltered.length);
+        console.log('🔍 FILTRO: Ticket in "in_lavorazione":', finalFiltered.map(t => ({
+          id: t.id,
+          clienteid: t.clienteid,
+          stato: t.stato
+        })));
+      }
+      
+      return finalFiltered;
     };
 
     const countTickets = (arr) => ({
@@ -228,7 +240,19 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
         } else {
           // IMPORTANTE: Converti entrambi a Number per confronto corretto
           const currentUserId = Number(currentUser.id);
-          return tickets.filter(t => Number(t.clienteid) === currentUserId);
+          const filtered = tickets.filter(t => Number(t.clienteid) === currentUserId);
+          
+          // Log per debug
+          const inLavorazione = filtered.filter(t => t.stato === 'in_lavorazione');
+          if (inLavorazione.length > 0) {
+            console.log('🔍 CONTEGGI: Ticket "in_lavorazione" per cliente:', inLavorazione.map(t => ({
+              id: t.id,
+              clienteid: t.clienteid,
+              stato: t.stato
+            })));
+          }
+          
+          return filtered;
         }
       }
       return tickets;
