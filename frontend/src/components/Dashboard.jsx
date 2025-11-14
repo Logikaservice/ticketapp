@@ -461,6 +461,14 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   const isKeepassAdmin = currentUser?.ruolo === 'cliente' &&
     Array.isArray(currentUser?.admin_companies) &&
     currentUser.admin_companies.length > 0;
+  
+  // Debug: verifica che il componente sia renderizzato e che isKeepassAdmin sia corretto
+  React.useEffect(() => {
+    console.log('🔍🔍🔍 Dashboard renderizzato - isKeepassAdmin:', isKeepassAdmin);
+    console.log('🔍 currentUser?.ruolo:', currentUser?.ruolo);
+    console.log('🔍 currentUser?.admin_companies:', currentUser?.admin_companies);
+    console.log('🔍 getAuthHeader disponibile:', !!getAuthHeader);
+  }, [isKeepassAdmin, currentUser, getAuthHeader]);
 
   const [keepassSearchQuery, setKeepassSearchQuery] = React.useState('');
   const [keepassSearchLoading, setKeepassSearchLoading] = React.useState(false);
