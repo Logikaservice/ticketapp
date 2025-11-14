@@ -694,27 +694,51 @@ export default function TicketApp() {
           .then(fornitureRes => fornitureRes.ok ? fornitureRes.json() : [])
           .then(forniture => {
             const ticketWithForniture = { ...ticket, fornitureCount: forniture.length };
-            console.log('📨 WebSocket: Ticket con forniture:', ticketWithForniture.id, 'stato:', ticketWithForniture.stato, 'fornitureCount:', ticketWithForniture.fornitureCount);
+            console.log('📨 WebSocket: Ticket con forniture:', {
+              id: ticketWithForniture.id,
+              stato: ticketWithForniture.stato,
+              clienteid: ticketWithForniture.clienteid,
+              clienteidType: typeof ticketWithForniture.clienteid,
+              fornitureCount: ticketWithForniture.fornitureCount,
+              currentUserId: currentUser?.id,
+              currentUserIdType: typeof currentUser?.id
+            });
             
             // Aggiorna il ticket nella lista - FORZA l'aggiornamento anche se esiste già
             setTickets(prev => {
               const exists = prev.find(t => t.id === data.ticketId);
-              console.log('📨 WebSocket: Ticket esiste nello stato?', !!exists, 'stato precedente:', exists?.stato);
+              console.log('📨 WebSocket: Ticket esiste nello stato?', !!exists, 'stato precedente:', exists?.stato, 'clienteid precedente:', exists?.clienteid);
               
               if (exists) {
                 // Se esiste, aggiornalo FORZANDO il nuovo stato
                 const updated = prev.map(t => {
                   if (t.id === data.ticketId) {
-                    console.log('📨 WebSocket: Aggiorno ticket esistente:', t.id, 'da stato', t.stato, 'a stato', ticketWithForniture.stato);
+                    console.log('📨 WebSocket: Aggiorno ticket esistente:', {
+                      id: t.id,
+                      daStato: t.stato,
+                      aStato: ticketWithForniture.stato,
+                      daClienteId: t.clienteid,
+                      aClienteId: ticketWithForniture.clienteid
+                    });
                     return ticketWithForniture;
                   }
                   return t;
                 });
-                console.log('📨 WebSocket: Ticket aggiornato nello stato. Nuovo stato:', updated.find(t => t.id === data.ticketId)?.stato);
+                const updatedTicket = updated.find(t => t.id === data.ticketId);
+                console.log('📨 WebSocket: Ticket aggiornato nello stato:', {
+                  id: updatedTicket?.id,
+                  stato: updatedTicket?.stato,
+                  clienteid: updatedTicket?.clienteid,
+                  clienteidType: typeof updatedTicket?.clienteid
+                });
                 return updated;
               } else {
                 // Se non esiste (ad esempio, era in un'altra vista), aggiungilo
-                console.log('📨 WebSocket: Ticket non esiste nello stato, lo aggiungo con stato:', ticketWithForniture.stato);
+                console.log('📨 WebSocket: Ticket non esiste nello stato, lo aggiungo:', {
+                  id: ticketWithForniture.id,
+                  stato: ticketWithForniture.stato,
+                  clienteid: ticketWithForniture.clienteid
+                });
                 return [ticketWithForniture, ...prev];
               }
             });

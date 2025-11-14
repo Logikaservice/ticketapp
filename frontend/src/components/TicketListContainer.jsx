@@ -157,7 +157,24 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           });
         } else {
           // Non è amministratore, mostra solo i suoi ticket
-          filtered = tickets.filter(t => t.clienteid === currentUser.id);
+          // IMPORTANTE: Converti entrambi a Number per confronto corretto
+          const currentUserId = Number(currentUser.id);
+          filtered = tickets.filter(t => {
+            const ticketClientId = Number(t.clienteid);
+            const matches = ticketClientId === currentUserId;
+            if (!matches && t.stato === 'in_lavorazione') {
+              console.log('🔍 DEBUG FILTRO: Ticket escluso:', {
+                ticketId: t.id,
+                ticketClienteId: ticketClientId,
+                ticketClienteIdType: typeof ticketClientId,
+                currentUserId: currentUserId,
+                currentUserIdType: typeof currentUserId,
+                ticketStato: t.stato,
+                ticket: t
+              });
+            }
+            return matches;
+          });
         }
       } else {
         if (selectedClientFilter.startsWith('company:')) {
@@ -209,7 +226,9 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
             return companyClientIds.some(id => Number(id) === ticketClientId);
           });
         } else {
-          return tickets.filter(t => t.clienteid === currentUser.id);
+          // IMPORTANTE: Converti entrambi a Number per confronto corretto
+          const currentUserId = Number(currentUser.id);
+          return tickets.filter(t => Number(t.clienteid) === currentUserId);
         }
       }
       return tickets;
