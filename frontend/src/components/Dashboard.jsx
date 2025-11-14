@@ -543,23 +543,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             const url = extractString(entry.url || '');
             const notes = extractString(entry.notes || '');
             
-            // Debug per la prima entry
-            if (flattenedEntries.length === 0) {
-              console.log('🔍 Prima entry estratta:', {
-                original: {
-                  title: entry.title,
-                  username: entry.username,
-                  url: entry.url,
-                  notes: entry.notes
-                },
-                extracted: {
-                  title,
-                  username,
-                  url,
-                  notes
-                }
-              });
-            }
+            // Debug rimosso - la ricerca ora avviene lato backend
             
             // Filtra entry senza titolo valido
             if (!title || title.trim() === '' || title.trim().toLowerCase() === 'senza titolo') {
@@ -586,56 +570,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
       groups.forEach(group => collectEntries(group));
 
-      console.log('📊 Entry caricate per ricerca:', flattenedEntries.length);
-      if (flattenedEntries.length > 0) {
-        console.log('📊 Esempio entry finale:', {
-          title: flattenedEntries[0].title,
-          titleType: typeof flattenedEntries[0].title,
-          username: flattenedEntries[0].username,
-          usernameType: typeof flattenedEntries[0].username,
-          url: flattenedEntries[0].url,
-          notes: flattenedEntries[0].notes,
-          notesType: typeof flattenedEntries[0].notes
-        });
-        // Mostra TUTTE le entry con TUTTI i dettagli
-        console.log('📊 TUTTE LE ENTRY CARICATE (dettagli completi):');
-        flattenedEntries.forEach((e, idx) => {
-          console.log(`  Entry ${idx + 1}/${flattenedEntries.length}:`, {
-            id: e.id,
-            title: e.title,
-            titleType: typeof e.title,
-            username: e.username,
-            usernameType: typeof e.username,
-            url: e.url,
-            notes: e.notes ? String(e.notes).substring(0, 100) : '',
-            groupName: e.groupName
-          });
-        });
-        
-        // Cerca entry che contengono "ger" o "gera" (case insensitive)
-        const entriesWithGer = flattenedEntries.filter(e => {
-          const title = String(e.title || '').toLowerCase();
-          const username = String(e.username || '').toLowerCase();
-          const notes = String(e.notes || '').toLowerCase();
-          const groupName = String(e.groupName || '').toLowerCase();
-          return title.includes('ger') || username.includes('ger') || notes.includes('ger') || groupName.includes('ger') ||
-                 title.includes('gera') || username.includes('gera') || notes.includes('gera') || groupName.includes('gera');
-        });
-        console.log('🔍 Entry che contengono "ger" o "gera":', entriesWithGer.length);
-        if (entriesWithGer.length > 0) {
-          console.log('🔍 Dettagli entry con "ger/gera":', entriesWithGer.map(e => ({
-            title: e.title,
-            username: e.username,
-            notes: e.notes ? String(e.notes).substring(0, 50) : '',
-            groupName: e.groupName
-          })));
-        } else {
-          console.warn('⚠️ Nessuna entry contiene "ger" o "gera" nei dati caricati!');
-        }
-      } else {
-        console.warn('⚠️ Nessuna entry caricata per la ricerca!');
-      }
-
+      // Nota: loadKeepassEntries viene ancora usato per altri scopi, ma la ricerca
+      // ora avviene completamente lato backend tramite /api/keepass/search
       setKeepassEntries(flattenedEntries);
       setKeepassHasLoaded(true);
     } catch (err) {
