@@ -74,7 +74,7 @@ export const useWebSocket = ({
       // Ottieni token - non usare getAuthHeader nelle dipendenze
       const authHeader = getAuthHeader();
       const token = authHeader?.Authorization?.replace('Bearer ', '') || 
-                    localStorage.getItem('token');
+                    localStorage.getItem('authToken');
 
       if (!token) {
         console.warn('⚠️ WebSocket: Token non disponibile, connessione non possibile');
