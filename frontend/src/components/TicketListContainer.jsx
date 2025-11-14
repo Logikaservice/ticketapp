@@ -119,7 +119,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
         ? `${selectedClient.azienda || 'Senza azienda'}${selectedClient.email ? ` - ${selectedClient.email}` : ''}`
         : 'Tutti i clienti';
 
-  const { displayTickets, ticketCounts, usersMap } = (() => {
+  const { displayTickets, ticketCounts, usersMap } = useMemo(() => {
     const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
 
     // Funzione helper per trovare tutti i clienti ID di cui l'utente è amministratore
@@ -292,7 +292,7 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
       ticketCounts: countTickets(relevantTicketsForCounts), 
       usersMap
     };
-  })();
+  }, [tickets, currentUser, users, selectedClientFilter, selectedMonth, selectedYear, viewState]);
 
   // Confronta contatori con ultima visita
   useEffect(() => {
