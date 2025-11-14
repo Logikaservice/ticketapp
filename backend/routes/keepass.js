@@ -1066,6 +1066,26 @@ module.exports = function createKeepassRouter(pool) {
         throw sqlError;
       }
       
+      // Helper per estrarre stringa da campo che potrebbe essere JSON
+      const extractString = (value) => {
+        if (!value) return '';
+        if (typeof value === 'string') {
+          if (value.trim().startsWith('{')) {
+            try {
+              const parsed = JSON.parse(value);
+              return parsed._ !== undefined ? String(parsed._ || '') : value;
+            } catch {
+              return value;
+            }
+          }
+          return value;
+        }
+        if (typeof value === 'object') {
+          return value._ !== undefined ? String(value._ || '') : JSON.stringify(value);
+        }
+        return String(value || '');
+      };
+      
       // Carica tutti i gruppi per costruire la mappa dei percorsi
       const groupsQuery = role === 'tecnico'
         ? 'SELECT id, name, parent_id FROM keepass_groups'
@@ -1101,26 +1121,6 @@ module.exports = function createKeepassRouter(pool) {
         }
         
         return path.join('>');
-      };
-      
-      // Helper per estrarre stringa da campo che potrebbe essere JSON
-      const extractString = (value) => {
-        if (!value) return '';
-        if (typeof value === 'string') {
-          if (value.trim().startsWith('{')) {
-            try {
-              const parsed = JSON.parse(value);
-              return parsed._ !== undefined ? String(parsed._ || '') : value;
-            } catch {
-              return value;
-            }
-          }
-          return value;
-        }
-        if (typeof value === 'object') {
-          return value._ !== undefined ? String(value._ || '') : JSON.stringify(value);
-        }
-        return String(value || '');
       };
 
       // Estrai tutti i valori e filtra in JavaScript
