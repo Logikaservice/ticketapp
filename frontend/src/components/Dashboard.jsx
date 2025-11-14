@@ -1307,13 +1307,13 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                               key={entry.id || `${entry.title}-${index}`}
                               className="border border-gray-200 rounded-lg p-3 hover:border-indigo-300 hover:shadow-sm transition"
                             >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="text-sm font-semibold text-gray-800">{entry.title}</div>
-                                {entry.groupName && (
-                                  <span className="text-[11px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
-                                    {entry.groupName}
-                                  </span>
+                              <div className="space-y-1">
+                                {entry.groupPath && (
+                                  <div className="text-xs text-gray-500 font-medium">
+                                    {entry.groupPath}
+                                  </div>
                                 )}
+                                <div className="text-sm font-semibold text-gray-800">{entry.title}</div>
                               </div>
 
                               {entry.username && (

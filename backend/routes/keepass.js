@@ -1021,7 +1021,9 @@ module.exports = function createKeepassRouter(pool) {
             e.username,
             e.url,
             e.notes,
+            g.id as group_id,
             g.name as group_name,
+            g.parent_id as group_parent_id,
             g.client_id,
             u.email as client_email
           FROM keepass_entries e
@@ -1040,7 +1042,9 @@ module.exports = function createKeepassRouter(pool) {
             e.username,
             e.url,
             e.notes,
+            g.id as group_id,
             g.name as group_name,
+            g.parent_id as group_parent_id,
             g.client_id
           FROM keepass_entries e
           JOIN keepass_groups g ON g.id = e.group_id
@@ -1061,6 +1065,43 @@ module.exports = function createKeepassRouter(pool) {
         console.error('Errore SQL ricerca KeePass:', sqlError.message);
         throw sqlError;
       }
+      
+      // Carica tutti i gruppi per costruire la mappa dei percorsi
+      const groupsQuery = role === 'tecnico'
+        ? 'SELECT id, name, parent_id FROM keepass_groups'
+        : 'SELECT id, name, parent_id FROM keepass_groups WHERE client_id = $1';
+      const groupsParams = role === 'tecnico' ? [] : [userId];
+      const groupsResult = await pool.query(groupsQuery, groupsParams);
+      
+      // Crea una mappa di tutti i gruppi per accesso rapido
+      const groupsMap = new Map();
+      groupsResult.rows.forEach(group => {
+        groupsMap.set(group.id, {
+          id: group.id,
+          name: group.name,
+          parent_id: group.parent_id
+        });
+      });
+      
+      // Funzione per costruire il percorso completo di un gruppo
+      const buildGroupPath = (groupId) => {
+        const path = [];
+        let currentGroupId = groupId;
+        
+        while (currentGroupId) {
+          const group = groupsMap.get(currentGroupId);
+          if (!group) break;
+          
+          const groupName = extractString(group.name);
+          if (groupName) {
+            path.unshift(groupName); // Aggiungi all'inizio
+          }
+          
+          currentGroupId = group.parent_id;
+        }
+        
+        return path.join('>');
+      };
       
       // Helper per estrarre stringa da campo che potrebbe essere JSON
       const extractString = (value) => {
@@ -1089,6 +1130,7 @@ module.exports = function createKeepassRouter(pool) {
         const url = extractString(row.url);
         const notes = extractString(row.notes);
         const groupName = extractString(row.group_name);
+        const groupPath = buildGroupPath(row.group_id);
         
         return {
           id: row.id,
@@ -1097,6 +1139,7 @@ module.exports = function createKeepassRouter(pool) {
           url,
           notes,
           groupName,
+          groupPath,
           client_id: row.client_id,
           client_email: row.client_email || null
         };
