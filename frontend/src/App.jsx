@@ -1,6 +1,6 @@
 // src/App.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Notification from './components/AppNotification';
 import LoginScreen from './components/LoginScreen';
 import Header from './components/Header';
@@ -8,6 +8,7 @@ import TicketListContainer from './components/TicketListContainer';
 import Dashboard from './components/Dashboard';
 import AllModals from './components/Modals/AllModals';
 import ManageClientsModal from './components/Modals/ManageClientsModal';
+import { useWebSocket } from './hooks/useWebSocket';
 import NewClientModal from './components/Modals/NewClientModal';
 import NewTicketModal from './components/Modals/NewTicketModal';
 import FornitureModal from './components/Modals/FornitureModal';
@@ -768,7 +769,13 @@ export default function TicketApp() {
         console.error('Errore polling:', error);
       }
     };
-    const interval = setInterval(doPoll, 1000);
+    
+    // Polling ridotto: ogni 30 secondi se WebSocket non è connesso, ogni 60 secondi se connesso (solo come fallback)
+    const pollInterval = isConnected ? 60000 : 30000;
+    const interval = setInterval(doPoll, pollInterval);
+    
+    // Esegui un poll iniziale
+    doPoll();
     const localNewHandler = () => { doPoll(); };
     window.addEventListener('new-ticket-local', localNewHandler);
     return () => { clearInterval(interval); window.removeEventListener('new-ticket-local', localNewHandler); };
