@@ -574,6 +574,23 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
                   )}
                 </div>
               </div>
+              <div className="flex-1 min-w-0 relative">
+                <label className="block text-sm font-medium mb-2">Filtra per azienda</label>
+                <div className="relative">
+                  <select
+                    value={selectedCompanyFilter}
+                    onChange={(e) => handleSelectCompany(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg bg-white text-left focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:border-blue-400 transition"
+                  >
+                    <option value="all">Tutte le aziende</option>
+                    {Object.keys(clientiPerAzienda).map(azienda => (
+                      <option key={azienda} value={azienda}>
+                        {azienda === 'Senza azienda' ? 'Senza azienda' : azienda} ({clientiPerAzienda[azienda].length} {clientiPerAzienda[azienda].length === 1 ? 'cliente' : 'clienti'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <div className="w-36 md:w-40 flex-shrink-0">
                 <label className="block text-sm font-medium mb-2">Mese</label>
                 <select
