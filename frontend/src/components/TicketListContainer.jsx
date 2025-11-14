@@ -15,7 +15,6 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
     }
   }, [externalViewState]);
   const [selectedClientFilter, setSelectedClientFilter] = useState('all');
-  const [selectedCompanyFilter, setSelectedCompanyFilter] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [selectedYear, setSelectedYear] = useState('all');
   const [lastSeenCounts, setLastSeenCounts] = useState(() => {
@@ -96,30 +95,29 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
 
   const handleSelectClient = (clientId, dropdownNum) => {
     setSelectedClientFilter(clientId === 'all' ? 'all' : clientId.toString());
-    // Reset filtro azienda quando si seleziona un cliente specifico
-    if (clientId !== 'all') {
-      setSelectedCompanyFilter('all');
-    }
     if (dropdownNum === 1) setIsDropdownOpen1(false);
     if (dropdownNum === 2) setIsDropdownOpen2(false);
   };
 
-  const handleSelectCompany = (companyName) => {
-    setSelectedCompanyFilter(companyName === 'all' ? 'all' : companyName);
-    // Reset filtro cliente quando si seleziona un'azienda
-    if (companyName !== 'all') {
-      setSelectedClientFilter('all');
-    }
+  const handleSelectCompany = (companyName, dropdownNum) => {
+    // Usa un formato speciale per identificare che è un'azienda: "company:azienda"
+    setSelectedClientFilter(`company:${companyName}`);
+    if (dropdownNum === 1) setIsDropdownOpen1(false);
+    if (dropdownNum === 2) setIsDropdownOpen2(false);
   };
 
-  const selectedClient = selectedClientFilter !== 'all' 
+  const isCompanyFilter = selectedClientFilter.startsWith('company:');
+  const selectedCompanyName = isCompanyFilter ? selectedClientFilter.replace('company:', '') : null;
+  const selectedClient = !isCompanyFilter && selectedClientFilter !== 'all' 
     ? clientiAttivi.find(c => c.id.toString() === selectedClientFilter)
     : null;
   const selectedClientName = selectedClientFilter === 'all'
     ? 'Tutti i clienti'
-    : selectedClient
-      ? `${selectedClient.azienda || 'Senza azienda'}${selectedClient.email ? ` - ${selectedClient.email}` : ''}`
-      : 'Tutti i clienti';
+    : isCompanyFilter
+      ? selectedCompanyName === 'Senza azienda' ? 'Senza azienda' : selectedCompanyName
+      : selectedClient
+        ? `${selectedClient.azienda || 'Senza azienda'}${selectedClient.email ? ` - ${selectedClient.email}` : ''}`
+        : 'Tutti i clienti';
 
   const { displayTickets, ticketCounts, usersMap } = (() => {
     const usersMap = Object.fromEntries(users.map(user => [user.id, user]));
@@ -162,11 +160,11 @@ const TicketListContainer = ({ currentUser, tickets, users, selectedTicket, setS
           filtered = tickets.filter(t => t.clienteid === currentUser.id);
         }
       } else {
-        // Filtro per azienda (ha priorità sul filtro cliente)
-        if (selectedCompanyFilter !== 'all') {
-          // Trova tutti i clienti dell'azienda selezionata
+        if (selectedClientFilter.startsWith('company:')) {
+          // Filtro per azienda
+          const companyName = selectedClientFilter.replace('company:', '');
           const companyClients = clientiAttivi.filter(c => 
-            (c.azienda || 'Senza azienda') === selectedCompanyFilter
+            (c.azienda || 'Senza azienda') === companyName
           );
           const companyClientIds = companyClients.map(c => c.id);
           filtered = tickets.filter(t => {
