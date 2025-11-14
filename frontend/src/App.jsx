@@ -1041,17 +1041,43 @@ export default function TicketApp() {
           const prevMap = new Map(prev.map(t => [t.id, t]));
           const polledMap = new Map(polled.map(t => [t.id, t]));
           
-          // Crea una nuova lista: mantieni i ticket dal polling (più aggiornati)
+          // Ordine di priorità degli stati (più avanzato = numero più alto)
+          const statePriority = {
+            'aperto': 0,
+            'in_lavorazione': 1,
+            'risolto': 2,
+            'chiuso': 3,
+            'inviato': 4,
+            'fatturato': 5
+          };
+          
+          const getStatePriority = (stato) => statePriority[stato] ?? -1;
+          
+          // Crea una nuova lista: preferisci i dati più recenti (stato più avanzato)
           // e aggiungi eventuali ticket da prev che non sono nel polling (per evitare perdite temporanee)
           const merged = [];
           const allIds = new Set([...prevMap.keys(), ...polledMap.keys()]);
           
           allIds.forEach(id => {
-            if (polledMap.has(id)) {
-              // Preferisci i dati dal polling (più aggiornati)
+            if (polledMap.has(id) && prevMap.has(id)) {
+              // Entrambi esistono: confronta lo stato e preferisci quello più avanzato
+              const prevTicket = prevMap.get(id);
+              const polledTicket = polledMap.get(id);
+              const prevPriority = getStatePriority(prevTicket.stato);
+              const polledPriority = getStatePriority(polledTicket.stato);
+              
+              // Se prev ha uno stato più avanzato, preferisci prev (potrebbe essere un aggiornamento WebSocket recente)
+              // Altrimenti preferisci polled (dati freschi dal backend)
+              if (prevPriority > polledPriority) {
+                merged.push(prevTicket);
+              } else {
+                merged.push(polledTicket);
+              }
+            } else if (polledMap.has(id)) {
+              // Solo nel polling: aggiungilo
               merged.push(polledMap.get(id));
             } else if (prevMap.has(id) && !deletedTicketIdsRef.current.has(id)) {
-              // Mantieni i ticket esistenti che non sono nel polling (potrebbero essere stati aggiunti via WebSocket)
+              // Solo in prev: mantienilo (potrebbe essere stato aggiunto via WebSocket)
               merged.push(prevMap.get(id));
             }
           });
