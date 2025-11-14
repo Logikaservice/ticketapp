@@ -15,11 +15,33 @@ export const useWebSocket = ({
   const socketRef = useRef(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
+  const isConnectingRef = useRef(false);
+  const pingIntervalRef = useRef(null);
+  
+  // Usa useRef per le callback per evitare ri-render
+  const callbacksRef = useRef({
+    onTicketCreated,
+    onTicketUpdated,
+    onTicketStatusChanged,
+    onNewMessage
+  });
+  
+  // Aggiorna le callback senza causare ri-render
+  useEffect(() => {
+    callbacksRef.current = {
+      onTicketCreated,
+      onTicketUpdated,
+      onTicketStatusChanged,
+      onNewMessage
+    };
+  }, [onTicketCreated, onTicketUpdated, onTicketStatusChanged, onNewMessage]);
 
-  const connect = useCallback(() => {
-    if (!currentUser || socketRef.current?.connected) {
+  useEffect(() => {
+    if (!currentUser || isConnectingRef.current || socketRef.current?.connected) {
       return;
     }
+
+    isConnectingRef.current = true;
 
     // Disconnetti socket esistente se presente
     if (socketRef.current) {
@@ -34,6 +56,7 @@ export const useWebSocket = ({
 
       if (!token) {
         console.warn('⚠️ WebSocket: Token non disponibile, connessione non possibile');
+        isConnectingRef.current = false;
         return;
       }
 
@@ -56,81 +79,68 @@ export const useWebSocket = ({
         console.log('✅ WebSocket: Connesso');
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
+        isConnectingRef.current = false;
       });
 
       socket.on('disconnect', (reason) => {
         console.log('❌ WebSocket: Disconnesso -', reason);
         setIsConnected(false);
+        isConnectingRef.current = false;
         
-        if (reason === 'io server disconnect') {
-          // Server ha disconnesso, riconnetti manualmente
-          setTimeout(() => {
-            if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-              reconnectAttemptsRef.current++;
-              connect();
-            }
-          }, 2000);
-        }
+        // Non riconnettere manualmente se è una disconnessione normale
+        // Socket.io gestisce già la riconnessione automatica
       });
 
       socket.on('connect_error', (error) => {
         console.error('❌ WebSocket: Errore connessione -', error.message);
         setIsConnected(false);
+        isConnectingRef.current = false;
       });
 
       socket.on('pong', () => {
         // Risposta al ping, connessione attiva
       });
 
-      // Eventi ticket
+      // Eventi ticket - usa callbacksRef per evitare dipendenze
       socket.on('ticket:created', (ticket) => {
         console.log('📨 WebSocket: Nuovo ticket creato', ticket.id);
-        if (onTicketCreated) {
-          onTicketCreated(ticket);
+        if (callbacksRef.current.onTicketCreated) {
+          callbacksRef.current.onTicketCreated(ticket);
         }
       });
 
       socket.on('ticket:updated', (ticket) => {
         console.log('📨 WebSocket: Ticket aggiornato', ticket.id);
-        if (onTicketUpdated) {
-          onTicketUpdated(ticket);
+        if (callbacksRef.current.onTicketUpdated) {
+          callbacksRef.current.onTicketUpdated(ticket);
         }
       });
 
       socket.on('ticket:status-changed', (data) => {
         console.log('📨 WebSocket: Stato ticket cambiato', data.ticketId, data.oldStatus, '→', data.newStatus);
-        if (onTicketStatusChanged) {
-          onTicketStatusChanged(data);
+        if (callbacksRef.current.onTicketStatusChanged) {
+          callbacksRef.current.onTicketStatusChanged(data);
         }
       });
 
       socket.on('message:new', (data) => {
         console.log('📨 WebSocket: Nuovo messaggio', data.ticketId);
-        if (onNewMessage) {
-          onNewMessage(data);
+        if (callbacksRef.current.onNewMessage) {
+          callbacksRef.current.onNewMessage(data);
         }
       });
 
       // Ping periodico per mantenere la connessione attiva
-      const pingInterval = setInterval(() => {
+      pingIntervalRef.current = setInterval(() => {
         if (socket.connected) {
           socket.emit('ping');
         }
       }, 30000); // Ogni 30 secondi
 
-      // Cleanup ping interval
-      return () => {
-        clearInterval(pingInterval);
-      };
     } catch (error) {
       console.error('❌ WebSocket: Errore inizializzazione -', error);
       setIsConnected(false);
-    }
-  }, [currentUser, getAuthHeader, onTicketCreated, onTicketUpdated, onTicketStatusChanged, onNewMessage]);
-
-  useEffect(() => {
-    if (currentUser) {
-      connect();
+      isConnectingRef.current = false;
     }
 
     return () => {
@@ -139,9 +149,14 @@ export const useWebSocket = ({
         socketRef.current.disconnect();
         socketRef.current = null;
         setIsConnected(false);
+        isConnectingRef.current = false;
+      }
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current);
+        pingIntervalRef.current = null;
       }
     };
-  }, [connect, currentUser]);
+  }, [currentUser?.id, getAuthHeader]); // Solo currentUser.id e getAuthHeader come dipendenze
 
   return { isConnected };
 };
