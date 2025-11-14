@@ -282,6 +282,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   // Stati per la ricerca per azienda (solo tecnico)
   const [selectedCompany, setSelectedCompany] = React.useState('');
   const [companyTickets, setCompanyTickets] = React.useState([]);
+  const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = React.useState(false);
   
   // Estrai lista aziende uniche dai clienti
   const companies = React.useMemo(() => {
