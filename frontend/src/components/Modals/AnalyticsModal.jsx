@@ -27,6 +27,9 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
 
   // Carica dati analytics
   useEffect(() => {
+    // Prevenire chiamate multiple simultanee
+    let cancelled = false;
+    
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
@@ -38,22 +41,33 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
           headers: getAuthHeader()
         });
         
+        if (cancelled) return;
+        
         if (!response.ok) {
           throw new Error('Errore nel caricamento dei dati analytics');
         }
         
         const result = await response.json();
+        if (cancelled) return;
+        
         setData(result.data || []);
         setTotals(result.totals || { pagato: 0, inAttesa: 0, daFatturare: 0, daCompletare: 0 });
       } catch (err) {
+        if (cancelled) return;
         console.error('Errore caricamento analytics:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchAnalytics();
-  }, [selectedCompany, getAuthHeader]);
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCompany]); // Rimossa getAuthHeader dalle dipendenze
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('it-IT', {
