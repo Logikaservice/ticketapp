@@ -46,7 +46,11 @@ module.exports = (pool) => {
     try {
       const { company } = req.query; // Filtro opzionale per azienda
       
-      // Query per ottenere tutti i ticket con i loro dati
+      // Limita agli ultimi 2 anni per performance
+      const twoYearsAgo = new Date();
+      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+      
+      // Query per ottenere tutti i ticket con i loro dati (limitati agli ultimi 2 anni)
       let query = `
         SELECT 
           t.id,
@@ -57,11 +61,12 @@ module.exports = (pool) => {
         FROM tickets t
         LEFT JOIN users u ON t.clienteid = u.id
         WHERE t.stato IN ('fatturato', 'inviato', 'chiuso', 'risolto')
+        AND t.dataapertura >= $1
       `;
       
-      const params = [];
+      const params = [twoYearsAgo];
       if (company && company !== 'all') {
-        query += ' AND u.azienda = $1';
+        query += ' AND u.azienda = $2';
         params.push(company);
       }
       

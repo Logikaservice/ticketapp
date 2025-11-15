@@ -25,7 +25,7 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
     }
   }, [users]);
 
-  // Carica dati analytics
+  // Carica dati analytics con debounce
   useEffect(() => {
     // Prevenire chiamate multiple simultanee
     let cancelled = false;
@@ -55,6 +55,8 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
       } catch (err) {
         if (cancelled) return;
         console.error('Errore caricamento analytics:', err);
+        setData([]);
+        setTotals({ pagato: 0, inAttesa: 0, daFatturare: 0, daCompletare: 0 });
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -62,10 +64,14 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
       }
     };
 
-    fetchAnalytics();
+    // Debounce di 300ms per evitare chiamate multiple quando cambia il filtro
+    const timeoutId = setTimeout(() => {
+      fetchAnalytics();
+    }, 300);
     
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
     };
   }, [selectedCompany]); // Rimossa getAuthHeader dalle dipendenze
 
