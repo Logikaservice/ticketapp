@@ -106,6 +106,10 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
     }).format(value);
   };
 
+  const handleTooltipLeave = () => {
+    setTooltipData(null);
+  };
+
   const totalGenerale = totals.pagato + totals.inAttesa + totals.daFatturare + totals.daCompletare;
 
   return (
@@ -314,7 +318,7 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
               marginTop: '-10px'
             }}
             onMouseEnter={() => {}} // Mantieni il tooltip visibile quando ci passi sopra
-            onMouseLeave={handleCellLeave}
+            onMouseLeave={handleTooltipLeave}
           >
             <div className="text-sm font-semibold text-gray-800 mb-2 border-b pb-2">
               {tooltipData.month} - {
