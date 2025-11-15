@@ -13,6 +13,7 @@ import SendEmailConfirmModal from './SendEmailConfirmModal';
 import AlertsHistoryModal from './AlertsHistoryModal';
 import ImportKeepassModal from './ImportKeepassModal';
 import KeepassCredentialsModal from './KeepassCredentialsModal';
+import AnalyticsModal from './AnalyticsModal';
 
 const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...handlers }) => {
   if (!modalState.type) return null;
@@ -133,6 +134,16 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             currentUser={handlers.currentUser}
             getAuthHeader={handlers.getAuthHeader}
             highlightEntryId={modalState.data?.highlightEntryId || null}
+          />
+        );
+      
+      case 'analytics':
+        return (
+          <AnalyticsModal 
+            currentUser={handlers.currentUser}
+            users={handlers.users}
+            getAuthHeader={handlers.getAuthHeader}
+            onClose={closeModal}
           />
         );
       

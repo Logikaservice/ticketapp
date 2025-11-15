@@ -1,9 +1,9 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3 } from 'lucide-react';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const menuRef = useRef(null);
 
@@ -129,6 +129,17 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                 title="Importa KeePass"
               >
                 <Key size={18} />
+              </button>
+            )}
+            
+            {/* Pulsante Analytics - solo per tecnici */}
+            {currentUser?.ruolo === 'tecnico' && openAnalytics && (
+              <button 
+                onClick={openAnalytics} 
+                className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition"
+                title="Analytics"
+              >
+                <BarChart3 size={18} />
               </button>
             )}
             
