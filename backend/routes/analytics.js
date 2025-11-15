@@ -78,7 +78,7 @@ module.exports = (pool) => {
       const queryTime = Date.now() - startTime;
       console.log(`📊 Analytics: Query completata in ${queryTime}ms, ${result.rows.length} ticket trovati`);
       
-      // Raggruppa per mese e stato
+      // Raggruppa per mese, stato e azienda
       const monthlyData = {};
       
       result.rows.forEach(ticket => {
@@ -89,6 +89,7 @@ module.exports = (pool) => {
         const month = dataApertura.getMonth() + 1; // 1-12
         const monthKey = `${year}-${String(month).padStart(2, '0')}`;
         const monthLabel = `${String(month).padStart(2, '0')}/${year}`;
+        const azienda = ticket.azienda || 'Sconosciuta';
         
         if (!monthlyData[monthKey]) {
           monthlyData[monthKey] = {
@@ -96,7 +97,12 @@ module.exports = (pool) => {
             pagato: 0,      // fatturato
             inAttesa: 0,    // inviato
             daFatturare: 0, // chiuso
-            daCompletare: 0 // risolto
+            daCompletare: 0, // risolto
+            details: {
+              inAttesa: {},    // { azienda: importo }
+              daFatturare: {}, // { azienda: importo }
+              daCompletare: {} // { azienda: importo }
+            }
           };
         }
         
@@ -108,14 +114,37 @@ module.exports = (pool) => {
             break;
           case 'inviato':
             monthlyData[monthKey].inAttesa += cost;
+            if (!monthlyData[monthKey].details.inAttesa[azienda]) {
+              monthlyData[monthKey].details.inAttesa[azienda] = 0;
+            }
+            monthlyData[monthKey].details.inAttesa[azienda] += cost;
             break;
           case 'chiuso':
             monthlyData[monthKey].daFatturare += cost;
+            if (!monthlyData[monthKey].details.daFatturare[azienda]) {
+              monthlyData[monthKey].details.daFatturare[azienda] = 0;
+            }
+            monthlyData[monthKey].details.daFatturare[azienda] += cost;
             break;
           case 'risolto':
             monthlyData[monthKey].daCompletare += cost;
+            if (!monthlyData[monthKey].details.daCompletare[azienda]) {
+              monthlyData[monthKey].details.daCompletare[azienda] = 0;
+            }
+            monthlyData[monthKey].details.daCompletare[azienda] += cost;
             break;
         }
+      });
+      
+      // Converti i dettagli da oggetti a array ordinati per importo decrescente
+      Object.keys(monthlyData).forEach(monthKey => {
+        const month = monthlyData[monthKey];
+        ['inAttesa', 'daFatturare', 'daCompletare'].forEach(field => {
+          const detailsArray = Object.entries(month.details[field])
+            .map(([azienda, importo]) => ({ azienda, importo }))
+            .sort((a, b) => b.importo - a.importo); // Ordina per importo decrescente
+          month.details[field] = detailsArray;
+        });
       });
       
       // Converti in array e ordina per mese

@@ -11,6 +11,8 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
   const [selectedCompany, setSelectedCompany] = useState('all');
   const [companies, setCompanies] = useState([]);
   const isFetchingRef = useRef(false); // Prevenire chiamate multiple simultanee
+  const [tooltipData, setTooltipData] = useState(null); // Dati per il tooltip
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 }); // Posizione del tooltip
 
   // Estrai lista aziende uniche
   useEffect(() => {
@@ -230,13 +232,55 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
                     <tbody className="divide-y divide-gray-200">
                       {data.map((row, index) => {
                         const totaleMese = row.pagato + row.inAttesa + row.daFatturare + row.daCompletare;
+                        
+                        // Handler per mostrare tooltip
+                        const handleCellHover = (field, event) => {
+                          if (!row.details || !row.details[field] || row.details[field].length === 0) {
+                            setTooltipData(null);
+                            return;
+                          }
+                          
+                          const rect = event.currentTarget.getBoundingClientRect();
+                          setTooltipPosition({
+                            x: rect.left + rect.width / 2,
+                            y: rect.top - 10
+                          });
+                          setTooltipData({
+                            field,
+                            month: row.month,
+                            details: row.details[field]
+                          });
+                        };
+                        
+                        const handleCellLeave = () => {
+                          setTooltipData(null);
+                        };
+                        
                         return (
                           <tr key={index} className="hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.month}</td>
                             <td className="px-4 py-3 text-sm text-right text-green-700">{formatCurrency(row.pagato)}</td>
-                            <td className="px-4 py-3 text-sm text-right text-yellow-700">{formatCurrency(row.inAttesa)}</td>
-                            <td className="px-4 py-3 text-sm text-right text-blue-700">{formatCurrency(row.daFatturare)}</td>
-                            <td className="px-4 py-3 text-sm text-right text-red-700">{formatCurrency(row.daCompletare)}</td>
+                            <td 
+                              className="px-4 py-3 text-sm text-right text-yellow-700 cursor-help relative"
+                              onMouseEnter={(e) => handleCellHover('inAttesa', e)}
+                              onMouseLeave={handleCellLeave}
+                            >
+                              {formatCurrency(row.inAttesa)}
+                            </td>
+                            <td 
+                              className="px-4 py-3 text-sm text-right text-blue-700 cursor-help relative"
+                              onMouseEnter={(e) => handleCellHover('daFatturare', e)}
+                              onMouseLeave={handleCellLeave}
+                            >
+                              {formatCurrency(row.daFatturare)}
+                            </td>
+                            <td 
+                              className="px-4 py-3 text-sm text-right text-red-700 cursor-help relative"
+                              onMouseEnter={(e) => handleCellHover('daCompletare', e)}
+                              onMouseLeave={handleCellLeave}
+                            >
+                              {formatCurrency(row.daCompletare)}
+                            </td>
                             <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">{formatCurrency(totaleMese)}</td>
                           </tr>
                         );
@@ -258,6 +302,40 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
             </>
           )}
         </div>
+        
+        {/* Tooltip per dettagli aziende */}
+        {tooltipData && (
+          <div
+            className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-4 min-w-[250px] max-w-[400px]"
+            style={{
+              left: `${tooltipPosition.x}px`,
+              top: `${tooltipPosition.y}px`,
+              transform: 'translate(-50%, -100%)',
+              marginTop: '-10px'
+            }}
+            onMouseEnter={() => {}} // Mantieni il tooltip visibile quando ci passi sopra
+            onMouseLeave={handleCellLeave}
+          >
+            <div className="text-sm font-semibold text-gray-800 mb-2 border-b pb-2">
+              {tooltipData.month} - {
+                tooltipData.field === 'inAttesa' ? 'In Attesa' :
+                tooltipData.field === 'daFatturare' ? 'Da Fatturare' :
+                'Da Completare'
+              }
+            </div>
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {tooltipData.details.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center text-sm">
+                  <span className="text-gray-700 font-medium">{item.azienda}</span>
+                  <span className="text-gray-900 font-semibold ml-4">{formatCurrency(item.importo)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 pt-2 border-t text-xs text-gray-600">
+              Totale: {formatCurrency(tooltipData.details.reduce((sum, item) => sum + item.importo, 0))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
