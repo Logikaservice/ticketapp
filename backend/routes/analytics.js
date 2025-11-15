@@ -64,7 +64,7 @@ module.exports = (pool) => {
         AND t.dataapertura >= $1
       `;
       
-      const params = [twoYearsAgo];
+      const params = [twoYearsAgo.toISOString()];
       if (company && company !== 'all') {
         query += ' AND u.azienda = $2';
         params.push(company);
@@ -72,7 +72,11 @@ module.exports = (pool) => {
       
       query += ' ORDER BY t.dataapertura';
       
+      console.log('📊 Analytics: Eseguo query con', params.length, 'parametri');
+      const startTime = Date.now();
       const result = await pool.query(query, params);
+      const queryTime = Date.now() - startTime;
+      console.log(`📊 Analytics: Query completata in ${queryTime}ms, ${result.rows.length} ticket trovati`);
       
       // Raggruppa per mese e stato
       const monthlyData = {};

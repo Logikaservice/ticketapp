@@ -1,6 +1,6 @@
 // frontend/src/components/Modals/AnalyticsModal.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, BarChart3, Building } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -10,6 +10,7 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
   const [totals, setTotals] = useState({ pagato: 0, inAttesa: 0, daFatturare: 0, daCompletare: 0 });
   const [selectedCompany, setSelectedCompany] = useState('all');
   const [companies, setCompanies] = useState([]);
+  const isFetchingRef = useRef(false); // Prevenire chiamate multiple simultanee
 
   // Estrai lista aziende uniche
   useEffect(() => {
@@ -31,47 +32,68 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
     let cancelled = false;
     
     const fetchAnalytics = async () => {
+      // Se c'è già una richiesta in corso, annulla questa
+      if (isFetchingRef.current) {
+        console.log('⚠️ Analytics: Richiesta già in corso, annullo');
+        return;
+      }
+      
+      isFetchingRef.current = true;
+      
       try {
         setLoading(true);
         const url = selectedCompany === 'all' 
           ? `${process.env.REACT_APP_API_URL}/api/analytics`
           : `${process.env.REACT_APP_API_URL}/api/analytics?company=${encodeURIComponent(selectedCompany)}`;
         
+        console.log('📊 Analytics: Avvio fetch per', selectedCompany);
         const response = await fetch(url, {
           headers: getAuthHeader()
         });
         
-        if (cancelled) return;
+        if (cancelled) {
+          isFetchingRef.current = false;
+          return;
+        }
         
         if (!response.ok) {
           throw new Error('Errore nel caricamento dei dati analytics');
         }
         
         const result = await response.json();
-        if (cancelled) return;
+        if (cancelled) {
+          isFetchingRef.current = false;
+          return;
+        }
         
+        console.log('📊 Analytics: Dati ricevuti,', result.data?.length || 0, 'mesi');
         setData(result.data || []);
         setTotals(result.totals || { pagato: 0, inAttesa: 0, daFatturare: 0, daCompletare: 0 });
       } catch (err) {
-        if (cancelled) return;
-        console.error('Errore caricamento analytics:', err);
+        if (cancelled) {
+          isFetchingRef.current = false;
+          return;
+        }
+        console.error('❌ Errore caricamento analytics:', err);
         setData([]);
         setTotals({ pagato: 0, inAttesa: 0, daFatturare: 0, daCompletare: 0 });
       } finally {
         if (!cancelled) {
           setLoading(false);
         }
+        isFetchingRef.current = false;
       }
     };
 
-    // Debounce di 300ms per evitare chiamate multiple quando cambia il filtro
+    // Debounce di 500ms per evitare chiamate multiple quando cambia il filtro
     const timeoutId = setTimeout(() => {
       fetchAnalytics();
-    }, 300);
+    }, 500);
     
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);
+      isFetchingRef.current = false;
     };
   }, [selectedCompany]); // Rimossa getAuthHeader dalle dipendenze
 
