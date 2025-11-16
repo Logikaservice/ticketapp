@@ -358,7 +358,8 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
     const isExpanded = expandedGroups.has(group.id);
     const hasEntries = group.entries && group.entries.length > 0;
     const hasChildren = group.children && group.children.length > 0;
-    // Mostra freccia solo se ci sono credenziali (entries), non solo sottogruppi
+    // Mostra freccia SOLO se ci sono credenziali (entries) dirette in questo gruppo
+    // NON mostrare freccia se ci sono solo sottogruppi (children) senza entries
 
     return (
       <div key={group.id} className="mb-2">
@@ -370,13 +371,14 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
             style={{ paddingLeft: `${1 + level * 1.5}rem` }}
           >
             <div className="flex items-center gap-2">
-              {hasEntries && (
+              {/* Mostra freccia SOLO se ci sono credenziali dirette (entries) */}
+              {hasEntries ? (
                 isExpanded ? (
                   <ChevronDown size={16} className="text-indigo-600" />
                 ) : (
                   <ChevronRight size={16} className="text-indigo-600" />
                 )
-              )}
+              ) : null}
               <Key size={16} className="text-indigo-600" />
               <span className="font-semibold text-gray-800">{extractString(group.name)}</span>
               {hasEntries && (
