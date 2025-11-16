@@ -345,19 +345,38 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Cliente <span className="text-red-500">*</span>
             </label>
-            <select
-              value={selectedClientId}
-              onChange={(e) => setSelectedClientId(e.target.value)}
+            <input
+              type="text"
+              list="clienti-list"
+              value={selectedClient ? `${selectedClient.azienda || 'Senza azienda'} - ${selectedClient.email}` : ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                const cliente = clientiAttivi.find(c => 
+                  `${c.azienda || 'Senza azienda'} - ${c.email}` === value
+                );
+                if (cliente) {
+                  setSelectedClientId(cliente.id.toString());
+                } else {
+                  setSelectedClientId('');
+                }
+              }}
+              onFocus={(e) => {
+                // Renderizza solo quando l'utente apre il dropdown
+                const datalist = document.getElementById('clienti-list');
+                if (datalist && datalist.children.length === 0 && clientiAttivi.length > 0) {
+                  clientiAttivi.forEach(cliente => {
+                    const option = document.createElement('option');
+                    option.value = `${cliente.azienda || 'Senza azienda'} - ${cliente.email}`;
+                    option.setAttribute('data-id', cliente.id);
+                    datalist.appendChild(option);
+                  });
+                }
+              }}
+              placeholder={clientiAttivi.length === 0 ? 'Caricamento clienti...' : 'Cerca e seleziona un cliente...'}
               className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 hover:border-purple-400 transition-all bg-white text-gray-700 font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isUploading}
-            >
-              <option value="">Seleziona un cliente...</option>
-              {clientiAttivi.map(cliente => (
-                <option key={cliente.id} value={cliente.id}>
-                  {cliente.azienda || 'Senza azienda'} - {cliente.email}
-                </option>
-              ))}
-            </select>
+              disabled={isUploading || clientiAttivi.length === 0}
+            />
+            <datalist id="clienti-list"></datalist>
           </div>
 
           {/* Debug info - rimuovere in produzione */}
