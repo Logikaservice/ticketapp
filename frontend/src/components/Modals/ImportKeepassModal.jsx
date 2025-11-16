@@ -206,10 +206,8 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
       }
     };
 
-    // Debounce ridotto a 100ms per risposta più veloce
-    const timeoutId = setTimeout(() => {
-      checkCredentials();
-    }, 100);
+    // Chiamata immediata senza debounce per risposta più veloce
+    checkCredentials();
 
     // Cleanup: cancella il timeout e la richiesta se il componente si smonta o cambiano le dipendenze
     return () => {
@@ -509,6 +507,15 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
               </div>
             )}
           </div>
+
+          {/* Debug info - rimuovere in produzione */}
+          {selectedClientId && (
+            <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+              Debug: ClientId={selectedClientId}, hasCredentials={hasCredentials ? 'true' : 'false'}, 
+              Groups={credentialsCount.groups}, Entries={credentialsCount.entries}, 
+              Checking={isCheckingCredentials ? 'yes' : 'no'}
+            </div>
+          )}
 
           {/* Pulsante Cancella Credenziali - Mostra solo se il cliente ha credenziali */}
           {hasCredentials && selectedClientId && (
