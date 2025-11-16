@@ -1,7 +1,7 @@
 // frontend/src/components/Modals/ImportKeepassModal.jsx
 
-import React, { useState, useMemo } from 'react';
-import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, ChevronDown, Search, Building, User } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -11,6 +11,9 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [migrationResult, setMigrationResult] = useState(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const dropdownRef = useRef(null);
 
   // Memoizza il filtro dei clienti per evitare ricalcoli ad ogni render
   const clientiAttivi = useMemo(() => {
@@ -18,7 +21,48 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
     return users.filter(u => u.ruolo === 'cliente');
   }, [users]);
 
+  // Filtra clienti in base alla ricerca
+  const filteredClienti = useMemo(() => {
+    if (!searchQuery.trim()) return clientiAttivi;
+    const query = searchQuery.toLowerCase();
+    return clientiAttivi.filter(cliente => {
+      const azienda = (cliente.azienda || 'Senza azienda').toLowerCase();
+      const email = (cliente.email || '').toLowerCase();
+      const nome = (cliente.nome || '').toLowerCase();
+      const cognome = (cliente.cognome || '').toLowerCase();
+      return azienda.includes(query) || email.includes(query) || nome.includes(query) || cognome.includes(query);
+    });
+  }, [clientiAttivi, searchQuery]);
+
+  // Chiudi dropdown quando si clicca fuori
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
+
+  // Reset quando il modal si chiude
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedClientId('');
+      setSearchQuery('');
+      setIsDropdownOpen(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
+
+  const selectedClient = clientiAttivi.find(c => c.id.toString() === selectedClientId.toString());
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -157,24 +201,96 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
 
         {/* Form */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* Selezione Cliente */}
-          <div>
+          {/* Selezione Cliente - Dropdown Personalizzato */}
+          <div className="relative" ref={dropdownRef}>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Cliente <span className="text-red-500">*</span>
             </label>
-            <select
-              value={selectedClientId}
-              onChange={(e) => setSelectedClientId(e.target.value)}
-              className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 hover:border-purple-400 transition-all bg-white text-gray-700 font-medium shadow-sm"
+            <button
+              type="button"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               disabled={isUploading}
+              className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 hover:border-purple-400 transition-all bg-white text-left flex items-center justify-between shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <option value="" className="text-gray-500">Seleziona un cliente...</option>
-              {clientiAttivi.map(cliente => (
-                <option key={cliente.id} value={cliente.id} className="py-2">
-                  {cliente.azienda || 'Senza azienda'} - {cliente.email}
-                </option>
-              ))}
-            </select>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {selectedClient ? (
+                  <>
+                    <Building size={16} className="text-purple-600 flex-shrink-0" />
+                    <span className="text-gray-900 font-medium truncate">
+                      {selectedClient.azienda || 'Senza azienda'} - {selectedClient.email}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <User size={16} className="text-gray-400 flex-shrink-0" />
+                    <span className="text-gray-500">Seleziona un cliente...</span>
+                  </>
+                )}
+              </div>
+              <ChevronDown 
+                size={18} 
+                className={`text-gray-400 transition-transform flex-shrink-0 ml-2 ${isDropdownOpen ? 'rotate-180' : ''}`} 
+              />
+            </button>
+
+            {/* Dropdown Menu */}
+            {isDropdownOpen && (
+              <div className="absolute z-50 w-full mt-2 bg-white border-2 border-purple-200 rounded-lg shadow-xl max-h-96 overflow-hidden flex flex-col">
+                {/* Barra di ricerca */}
+                <div className="p-3 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-violet-50">
+                  <div className="relative">
+                    <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Cerca cliente..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
+                {/* Lista clienti */}
+                <div className="overflow-y-auto max-h-80">
+                  {filteredClienti.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500">
+                      {searchQuery ? 'Nessun cliente trovato' : 'Nessun cliente disponibile'}
+                    </div>
+                  ) : (
+                    filteredClienti.map(cliente => (
+                      <button
+                        key={cliente.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedClientId(cliente.id.toString());
+                          setIsDropdownOpen(false);
+                          setSearchQuery('');
+                        }}
+                        className={`w-full px-4 py-3 text-left hover:bg-purple-50 transition flex items-center gap-3 border-b border-gray-100 last:border-b-0 ${
+                          selectedClientId === cliente.id.toString() ? 'bg-purple-100 border-l-4 border-l-purple-500' : ''
+                        }`}
+                      >
+                        <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                          {(cliente.azienda || cliente.email || '?').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-gray-900 truncate">
+                            {cliente.azienda || 'Senza azienda'}
+                          </div>
+                          <div className="text-sm text-gray-600 truncate">
+                            {cliente.email}
+                          </div>
+                        </div>
+                        {selectedClientId === cliente.id.toString() && (
+                          <CheckCircle size={18} className="text-purple-600 flex-shrink-0" />
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Upload File */}
