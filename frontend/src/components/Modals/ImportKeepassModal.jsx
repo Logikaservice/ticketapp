@@ -209,9 +209,8 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
     // Chiamata immediata senza debounce per risposta più veloce
     checkCredentials();
 
-    // Cleanup: cancella il timeout e la richiesta se il componente si smonta o cambiano le dipendenze
+    // Cleanup: cancella la richiesta se il componente si smonta o cambiano le dipendenze
     return () => {
-      clearTimeout(timeoutId);
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
