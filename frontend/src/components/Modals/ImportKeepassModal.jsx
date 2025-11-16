@@ -1,6 +1,6 @@
 // frontend/src/components/Modals/ImportKeepassModal.jsx
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, ChevronDown, Search, Building, User, Trash2 } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
@@ -20,6 +20,9 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isPreparingList, setIsPreparingList] = useState(false);
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 });
+  const scrollContainerRef = useRef(null);
+  const ITEMS_PER_PAGE = 30; // Renderizza 30 elementi alla volta
 
   // Memoizza il filtro dei clienti per evitare ricalcoli ad ogni render
   // Ordina anche i clienti per nome azienda per migliorare l'UX
@@ -67,6 +70,37 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
              cognome.includes(query);
     });
   }, [clientiAttivi, searchQuery]);
+
+  // Reset visible range quando cambia la ricerca o si apre il dropdown
+  useEffect(() => {
+    if (isDropdownOpen) {
+      setVisibleRange({ start: 0, end: ITEMS_PER_PAGE });
+    }
+  }, [searchQuery, isDropdownOpen]);
+
+  // Virtualizzazione: mostra solo gli elementi visibili
+  const visibleClienti = useMemo(() => {
+    return filteredClienti.slice(visibleRange.start, visibleRange.end);
+  }, [filteredClienti, visibleRange]);
+
+  // Gestione scroll per caricare più elementi
+  const handleScroll = useCallback((e) => {
+    const container = e.target;
+    const scrollTop = container.scrollTop;
+    const scrollHeight = container.scrollHeight;
+    const clientHeight = container.clientHeight;
+    
+    // Carica più elementi quando si è vicini alla fine (80% scrollato)
+    if (scrollTop + clientHeight >= scrollHeight * 0.8) {
+      const currentEnd = visibleRange.end;
+      if (currentEnd < filteredClienti.length) {
+        setVisibleRange(prev => ({
+          start: prev.start,
+          end: Math.min(prev.end + ITEMS_PER_PAGE, filteredClienti.length)
+        }));
+      }
+    }
+  }, [visibleRange, filteredClienti.length]);
 
   // Chiudi dropdown quando si clicca fuori
   useEffect(() => {
@@ -374,8 +408,12 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                   </div>
                 </div>
 
-                {/* Lista clienti - Lazy rendering con loading state */}
-                <div className="overflow-y-auto max-h-80">
+                {/* Lista clienti - Virtualizzazione per performance */}
+                <div 
+                  ref={scrollContainerRef}
+                  className="overflow-y-auto max-h-80"
+                  onScroll={handleScroll}
+                >
                   {isPreparingList ? (
                     <div className="p-4 text-center">
                       <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
@@ -390,40 +428,48 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                       Nessun cliente trovato per "{searchQuery}"
                     </div>
                   ) : (
-                    <div className="divide-y divide-gray-100">
-                      {filteredClienti.map(cliente => {
-                        const isSelected = selectedClientId === cliente.id.toString();
-                        return (
-                          <button
-                            key={cliente.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedClientId(cliente.id.toString());
-                              setIsDropdownOpen(false);
-                              setSearchQuery('');
-                            }}
-                            className={`w-full px-4 py-3 text-left hover:bg-purple-50 active:bg-purple-100 transition-colors flex items-center gap-3 ${
-                              isSelected ? 'bg-purple-100 border-l-4 border-l-purple-500' : ''
-                            }`}
-                          >
-                            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                              {(cliente.azienda || cliente.email || '?').charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold text-gray-900 truncate">
-                                {cliente.azienda || 'Senza azienda'}
+                    <>
+                      <div className="divide-y divide-gray-100">
+                        {visibleClienti.map(cliente => {
+                          const isSelected = selectedClientId === cliente.id.toString();
+                          return (
+                            <button
+                              key={cliente.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedClientId(cliente.id.toString());
+                                setIsDropdownOpen(false);
+                                setSearchQuery('');
+                              }}
+                              className={`w-full px-4 py-3 text-left hover:bg-purple-50 active:bg-purple-100 transition-colors flex items-center gap-3 ${
+                                isSelected ? 'bg-purple-100 border-l-4 border-l-purple-500' : ''
+                              }`}
+                            >
+                              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                {(cliente.azienda || cliente.email || '?').charAt(0).toUpperCase()}
                               </div>
-                              <div className="text-sm text-gray-600 truncate">
-                                {cliente.email}
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-gray-900 truncate">
+                                  {cliente.azienda || 'Senza azienda'}
+                                </div>
+                                <div className="text-sm text-gray-600 truncate">
+                                  {cliente.email}
+                                </div>
                               </div>
-                            </div>
-                            {isSelected && (
-                              <CheckCircle size={18} className="text-purple-600 flex-shrink-0" />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
+                              {isSelected && (
+                                <CheckCircle size={18} className="text-purple-600 flex-shrink-0" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {/* Spacer per mantenere l'altezza corretta dello scroll */}
+                      {visibleRange.end < filteredClienti.length && (
+                        <div className="p-2 text-center text-xs text-gray-500">
+                          Mostrando {visibleRange.end} di {filteredClienti.length} clienti
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
