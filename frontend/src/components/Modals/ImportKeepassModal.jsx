@@ -132,7 +132,15 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   }, [isOpen]);
 
   // Verifica se il cliente selezionato ha credenziali
+  // Usa un ref per cancellare le chiamate precedenti
+  const abortControllerRef = useRef(null);
+  
   useEffect(() => {
+    // Cancella qualsiasi chiamata precedente
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
     const checkCredentials = async () => {
       if (!selectedClientId || !isOpen) {
         setHasCredentials(false);
@@ -140,11 +148,21 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
         return;
       }
 
+      // Crea un nuovo AbortController per questa chiamata
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       setIsCheckingCredentials(true);
       try {
         const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/check/${selectedClientId}`, {
-          headers: getAuthHeader()
+          headers: getAuthHeader(),
+          signal: abortController.signal // Aggiungi il signal per poter cancellare
         });
+
+        // Verifica se la richiesta è stata cancellata
+        if (abortController.signal.aborted) {
+          return;
+        }
 
         if (response.ok) {
           const data = await response.json();
@@ -158,15 +176,33 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
           setCredentialsCount({ groups: 0, entries: 0 });
         }
       } catch (err) {
+        // Ignora errori se la richiesta è stata cancellata
+        if (err.name === 'AbortError') {
+          return;
+        }
         console.error('Errore verifica credenziali:', err);
         setHasCredentials(false);
         setCredentialsCount({ groups: 0, entries: 0 });
       } finally {
-        setIsCheckingCredentials(false);
+        // Solo se non è stata cancellata
+        if (!abortController.signal.aborted) {
+          setIsCheckingCredentials(false);
+        }
       }
     };
 
-    checkCredentials();
+    // Debounce: aspetta 300ms prima di fare la chiamata
+    const timeoutId = setTimeout(() => {
+      checkCredentials();
+    }, 300);
+
+    // Cleanup: cancella il timeout e la richiesta se il componente si smonta o cambiano le dipendenze
+    return () => {
+      clearTimeout(timeoutId);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, [selectedClientId, isOpen, getAuthHeader]);
 
   if (!isOpen) return null;
