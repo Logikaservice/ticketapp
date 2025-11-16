@@ -128,17 +128,17 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="p-6 border-b bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-2xl">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" style={{ paddingTop: '3rem', paddingBottom: '3rem' }}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col" style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+        {/* Header con lo stile viola sfumato */}
+        <div className="p-6 border-b bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-t-2xl">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold flex items-center gap-2">
                 <FileText size={28} />
                 Importa KeePass
               </h2>
-              <p className="text-blue-100 text-sm mt-1">
+              <p className="text-purple-100 text-sm mt-1">
                 Importa credenziali da un file XML di KeePass
               </p>
             </div>
@@ -161,7 +161,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
             <select
               value={selectedClientId}
               onChange={(e) => setSelectedClientId(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent hover:border-purple-400 transition bg-white"
               disabled={isUploading}
             >
               <option value="">Seleziona un cliente...</option>
@@ -178,7 +178,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
             <label className="block text-sm font-medium text-gray-700 mb-1">
               File XML KeePass <span className="text-red-500">*</span>
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-400 hover:bg-purple-50 transition cursor-pointer">
               <input
                 type="file"
                 id="xmlFileInput"
@@ -187,22 +187,24 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                 className="hidden"
                 disabled={isUploading}
               />
-              <label htmlFor="xmlFileInput" className="cursor-pointer flex flex-col items-center gap-2">
-                <Upload className="w-8 h-8 text-gray-400" />
-                <span className="text-sm text-gray-600">
+              <label htmlFor="xmlFileInput" className="cursor-pointer flex flex-col items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-purple-100 to-violet-100 rounded-full">
+                  <Upload className="w-8 h-8 text-purple-600" />
+                </div>
+                <span className="text-sm font-medium text-gray-700">
                   {selectedFile ? selectedFile.name : 'Clicca per selezionare file XML'}
                 </span>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-500">
                   Formato: XML - Max 10MB
                 </span>
               </label>
             </div>
             {selectedFile && (
-              <div className="mt-2 p-2 bg-blue-50 rounded flex items-center gap-2">
-                <FileText size={16} className="text-blue-600" />
-                <span className="text-sm text-blue-700">{selectedFile.name}</span>
-                <span className="text-xs text-blue-500">
-                  ({(selectedFile.size / 1024).toFixed(2)} KB)
+              <div className="mt-3 p-3 bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-lg flex items-center gap-2">
+                <FileText size={18} className="text-purple-600" />
+                <span className="text-sm font-medium text-purple-700 flex-1">{selectedFile.name}</span>
+                <span className="text-xs text-purple-600 bg-white px-2 py-1 rounded">
+                  {(selectedFile.size / 1024).toFixed(2)} KB
                 </span>
               </div>
             )}
@@ -210,28 +212,30 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
 
           {/* Messaggi */}
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-              <AlertCircle size={20} className="text-red-600" />
-              <span className="text-sm text-red-700">{error}</span>
+            <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-lg flex items-center gap-3 shadow-sm">
+              <AlertCircle size={20} className="text-red-600 flex-shrink-0" />
+              <span className="text-sm font-medium text-red-800">{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-              <CheckCircle size={20} className="text-green-600" />
-              <span className="text-sm text-green-700">{success}</span>
+            <div className="p-4 bg-green-50 border-l-4 border-green-500 rounded-lg flex items-center gap-3 shadow-sm">
+              <CheckCircle size={20} className="text-green-600 flex-shrink-0" />
+              <span className="text-sm font-medium text-green-800">{success}</span>
             </div>
           )}
 
           {/* Migrazione */}
-          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="p-4 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-lg shadow-sm">
             <div className="flex items-start gap-3">
-              <RefreshCw size={20} className="text-yellow-600 mt-0.5" />
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <RefreshCw size={20} className="text-amber-700" />
+              </div>
               <div className="flex-1">
-                <h3 className="text-sm font-semibold text-yellow-900 mb-1">
+                <h3 className="text-sm font-bold text-amber-900 mb-1">
                   Aggiorna Credenziali Esistenti
                 </h3>
-                <p className="text-xs text-yellow-700 mb-3">
+                <p className="text-xs text-amber-800 mb-3">
                   Aggiorna automaticamente tutte le credenziali già importate applicando le ultime correzioni:
                   corregge titoli e nomi salvati come oggetti JSON, aggiorna tutti i clienti. Le entry con password vuote vengono mantenute.
                 </p>
@@ -239,7 +243,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                   type="button"
                   onClick={handleMigrate}
                   disabled={isMigrating || isUploading}
-                  className="flex items-center gap-2 px-3 py-2 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-700 transition disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-600 to-yellow-600 text-white text-sm font-semibold rounded-lg hover:from-amber-700 hover:to-yellow-700 transition disabled:opacity-50 shadow-md"
                 >
                   <RefreshCw size={16} className={isMigrating ? 'animate-spin' : ''} />
                   {isMigrating ? 'Migrazione in corso...' : 'Aggiorna Tutte le Credenziali'}
@@ -262,9 +266,9 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
           </div>
 
           {/* Info */}
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs text-blue-700">
-              <strong>Nota:</strong> Tutti i gruppi e le credenziali verranno importati. 
+          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-lg shadow-sm">
+            <p className="text-xs text-blue-800 leading-relaxed">
+              <strong className="font-semibold">ℹ️ Nota:</strong> Tutti i gruppi e le credenziali verranno importati. 
               Le password verranno cifrate e salvate in modo sicuro. 
               Eventuali dati esistenti per questo cliente verranno sostituiti.
             </p>
@@ -278,7 +282,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
               type="button"
               onClick={onClose}
               disabled={isUploading}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition disabled:opacity-50"
+              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition disabled:opacity-50 font-medium"
             >
               Annulla
             </button>
@@ -286,7 +290,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
               type="button"
               onClick={handleImport}
               disabled={isUploading || !selectedFile || !selectedClientId}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition disabled:opacity-50 font-semibold shadow-md"
             >
               <Upload size={18} />
               {isUploading ? 'Importazione...' : 'Importa'}
