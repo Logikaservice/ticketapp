@@ -1,6 +1,6 @@
 // src/App.jsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Notification from './components/AppNotification';
 import LoginScreen from './components/LoginScreen';
 import Header from './components/Header';

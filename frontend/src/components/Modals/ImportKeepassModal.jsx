@@ -4,12 +4,14 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, Trash2 } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
-  // Filtro semplice SENZA ordinamento - il select HTML è già veloce
-  // L'ordinamento può essere fatto dal browser stesso o dall'utente
+  // Usa direttamente l'array passato (già filtrato in App.jsx)
+  // Se non è già filtrato, filtra al volo (backward compatibility)
   const clientiAttivi = useMemo(() => {
     if (!users || !Array.isArray(users)) return [];
-    // Solo filtro, niente ordinamento per massima velocità
-    return users.filter(u => u.ruolo === 'cliente');
+    // Se l'array è già filtrato (solo clienti), usalo direttamente
+    // Altrimenti filtra (per backward compatibility)
+    const allAreClients = users.length === 0 || users.every(u => u.ruolo === 'cliente');
+    return allAreClients ? users : users.filter(u => u.ruolo === 'cliente');
   }, [users]);
 
   const [selectedFile, setSelectedFile] = useState(null);

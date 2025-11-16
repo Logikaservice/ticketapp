@@ -120,7 +120,7 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
           <ImportKeepassModal 
             isOpen={true}
             onClose={closeModal}
-            users={handlers.users}
+            users={handlers.clientiAttivi || handlers.users}
             getAuthHeader={handlers.getAuthHeader}
             onSuccess={handlers.onKeepassImportSuccess}
           />
