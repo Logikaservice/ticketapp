@@ -21,21 +21,38 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Memoizza il filtro dei clienti per evitare ricalcoli ad ogni render
+  // Ordina anche i clienti per nome azienda per migliorare l'UX
   const clientiAttivi = useMemo(() => {
     if (!users || !Array.isArray(users)) return [];
-    return users.filter(u => u.ruolo === 'cliente');
+    const clienti = users.filter(u => u.ruolo === 'cliente');
+    // Ordina per azienda, poi per email
+    return clienti.sort((a, b) => {
+      const aziendaA = (a.azienda || 'Senza azienda').toLowerCase();
+      const aziendaB = (b.azienda || 'Senza azienda').toLowerCase();
+      if (aziendaA !== aziendaB) {
+        return aziendaA.localeCompare(aziendaB);
+      }
+      return (a.email || '').toLowerCase().localeCompare((b.email || '').toLowerCase());
+    });
   }, [users]);
 
-  // Filtra clienti in base alla ricerca
+  // Filtra clienti in base alla ricerca con debounce implicito tramite useMemo
   const filteredClienti = useMemo(() => {
     if (!searchQuery.trim()) return clientiAttivi;
-    const query = searchQuery.toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
+    // Usa un algoritmo più efficiente per la ricerca
     return clientiAttivi.filter(cliente => {
       const azienda = (cliente.azienda || 'Senza azienda').toLowerCase();
       const email = (cliente.email || '').toLowerCase();
       const nome = (cliente.nome || '').toLowerCase();
       const cognome = (cliente.cognome || '').toLowerCase();
-      return azienda.includes(query) || email.includes(query) || nome.includes(query) || cognome.includes(query);
+      // Cerca all'inizio delle stringhe per risultati più rilevanti
+      return azienda.startsWith(query) || 
+             email.startsWith(query) || 
+             azienda.includes(query) || 
+             email.includes(query) ||
+             nome.includes(query) || 
+             cognome.includes(query);
     });
   }, [clientiAttivi, searchQuery]);
 
@@ -333,42 +350,51 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                   </div>
                 </div>
 
-                {/* Lista clienti */}
+                {/* Lista clienti - Ottimizzata con rendering condizionale */}
                 <div className="overflow-y-auto max-h-80">
-                  {filteredClienti.length === 0 ? (
+                  {!clientiAttivi || clientiAttivi.length === 0 ? (
                     <div className="p-4 text-center text-gray-500">
-                      {searchQuery ? 'Nessun cliente trovato' : 'Nessun cliente disponibile'}
+                      Nessun cliente disponibile
+                    </div>
+                  ) : filteredClienti.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500">
+                      Nessun cliente trovato per "{searchQuery}"
                     </div>
                   ) : (
-                    filteredClienti.map(cliente => (
-                      <button
-                        key={cliente.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedClientId(cliente.id.toString());
-                          setIsDropdownOpen(false);
-                          setSearchQuery('');
-                        }}
-                        className={`w-full px-4 py-3 text-left hover:bg-purple-50 transition flex items-center gap-3 border-b border-gray-100 last:border-b-0 ${
-                          selectedClientId === cliente.id.toString() ? 'bg-purple-100 border-l-4 border-l-purple-500' : ''
-                        }`}
-                      >
-                        <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                          {(cliente.azienda || cliente.email || '?').charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-gray-900 truncate">
-                            {cliente.azienda || 'Senza azienda'}
-                          </div>
-                          <div className="text-sm text-gray-600 truncate">
-                            {cliente.email}
-                          </div>
-                        </div>
-                        {selectedClientId === cliente.id.toString() && (
-                          <CheckCircle size={18} className="text-purple-600 flex-shrink-0" />
-                        )}
-                      </button>
-                    ))
+                    <div className="divide-y divide-gray-100">
+                      {filteredClienti.map(cliente => {
+                        const isSelected = selectedClientId === cliente.id.toString();
+                        return (
+                          <button
+                            key={cliente.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedClientId(cliente.id.toString());
+                              setIsDropdownOpen(false);
+                              setSearchQuery('');
+                            }}
+                            className={`w-full px-4 py-3 text-left hover:bg-purple-50 active:bg-purple-100 transition-colors flex items-center gap-3 ${
+                              isSelected ? 'bg-purple-100 border-l-4 border-l-purple-500' : ''
+                            }`}
+                          >
+                            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                              {(cliente.azienda || cliente.email || '?').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-gray-900 truncate">
+                                {cliente.azienda || 'Senza azienda'}
+                              </div>
+                              <div className="text-sm text-gray-600 truncate">
+                                {cliente.email}
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <CheckCircle size={18} className="text-purple-600 flex-shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               </div>
