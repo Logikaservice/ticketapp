@@ -165,12 +165,12 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
             <select
               value={selectedClientId}
               onChange={(e) => setSelectedClientId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent hover:border-purple-400 transition bg-white"
+              className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 hover:border-purple-400 transition-all bg-white text-gray-700 font-medium shadow-sm"
               disabled={isUploading}
             >
-              <option value="">Seleziona un cliente...</option>
+              <option value="" className="text-gray-500">Seleziona un cliente...</option>
               {clientiAttivi.map(cliente => (
-                <option key={cliente.id} value={cliente.id}>
+                <option key={cliente.id} value={cliente.id} className="py-2">
                   {cliente.azienda || 'Senza azienda'} - {cliente.email}
                 </option>
               ))}
