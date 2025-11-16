@@ -111,6 +111,9 @@ module.exports = function createAlertsRouter(pool) {
       const { title, body, level, ticketId, createdBy, clients, isPermanent, daysToExpire, emailOption, emailCompany, emailCompanies } = req.body || {};
       if (!title || !body) return res.status(400).json({ error: 'title e body sono obbligatori' });
 
+      // Converti isPermanent in booleano (FormData invia stringhe)
+      const isPermanentBool = isPermanent === true || isPermanent === 'true' || isPermanent === '1';
+
       // Controllo ruolo semplice da body (in attesa di auth reale)
       // In produzione sostituire con auth token/sessione
       if (!req.headers['x-user-role'] && !req.body?.role) {
@@ -151,7 +154,7 @@ module.exports = function createAlertsRouter(pool) {
 
       const { rows } = await pool.query(
         'INSERT INTO alerts (title, body, level, ticket_id, created_by, clients, is_permanent, days_to_expire, attachments) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, title, body, level, ticket_id as "ticketId", created_at as "createdAt", created_by as "createdBy", clients, is_permanent as "isPermanent", days_to_expire as "daysToExpire", attachments',
-        [title, body, level || 'warning', ticketId || null, createdBy || null, clientsJson, isPermanent !== false, daysToExpire || 7, JSON.stringify(attachments)]
+        [title, body, level || 'warning', ticketId || null, createdBy || null, clientsJson, isPermanentBool, daysToExpire || 7, JSON.stringify(attachments)]
       );
       
       // Gestione invio email in base all'opzione selezionata
@@ -369,6 +372,9 @@ module.exports = function createAlertsRouter(pool) {
       if (!id) return res.status(400).json({ error: 'ID mancante' });
       if (!title || !body) return res.status(400).json({ error: 'title e body sono obbligatori' });
 
+      // Converti isPermanent in booleano (FormData invia stringhe)
+      const isPermanentBool = isPermanent === true || isPermanent === 'true' || isPermanent === '1';
+
       const role = (req.headers['x-user-role'] || req.body?.role || '').toString();
       if (role !== 'tecnico') return res.status(403).json({ error: 'Solo i tecnici possono modificare avvisi' });
 
@@ -394,7 +400,7 @@ module.exports = function createAlertsRouter(pool) {
 
       const { rows } = await pool.query(
         'UPDATE alerts SET title = $1, body = $2, level = $3, ticket_id = $4, created_by = $5, clients = $6, is_permanent = $7, days_to_expire = $8, attachments = $9 WHERE id = $10 RETURNING id, title, body, level, ticket_id as "ticketId", created_at as "createdAt", created_by as "createdBy", clients, is_permanent as "isPermanent", days_to_expire as "daysToExpire", attachments',
-        [title, body, level || 'warning', ticketId || null, createdBy || null, JSON.stringify(clients || []), isPermanent !== false, daysToExpire || 7, JSON.stringify(attachments), id]
+        [title, body, level || 'warning', ticketId || null, createdBy || null, JSON.stringify(clients || []), isPermanentBool, daysToExpire || 7, JSON.stringify(attachments), id]
       );
       
       if (rows.length === 0) return res.status(404).json({ error: 'Avviso non trovato' });
