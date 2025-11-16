@@ -4,15 +4,12 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, Trash2 } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
-  // Filtro semplice e veloce dei clienti
+  // Filtro semplice SENZA ordinamento - il select HTML è già veloce
+  // L'ordinamento può essere fatto dal browser stesso o dall'utente
   const clientiAttivi = useMemo(() => {
     if (!users || !Array.isArray(users)) return [];
-    return users.filter(u => u.ruolo === 'cliente').sort((a, b) => {
-      const aziendaA = (a.azienda || 'Senza azienda').toLowerCase();
-      const aziendaB = (b.azienda || 'Senza azienda').toLowerCase();
-      if (aziendaA !== aziendaB) return aziendaA.localeCompare(aziendaB);
-      return (a.email || '').toLowerCase().localeCompare((b.email || '').toLowerCase());
-    });
+    // Solo filtro, niente ordinamento per massima velocità
+    return users.filter(u => u.ruolo === 'cliente');
   }, [users]);
 
   const [selectedFile, setSelectedFile] = useState(null);
