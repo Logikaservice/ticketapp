@@ -214,14 +214,12 @@ const KeepassCredentials = ({ currentUser, getAuthHeader }) => {
                 className="w-full px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 transition flex items-center justify-between text-left"
               >
                 <div className="flex items-center gap-2">
-                  {hasEntries ? (
+                  {hasEntries && (
                     isExpanded ? (
                       <ChevronDown size={16} className="text-indigo-600" />
                     ) : (
                       <ChevronRight size={16} className="text-indigo-600" />
                     )
-                  ) : (
-                    <div className="w-4" />
                   )}
                   <Key size={16} className="text-indigo-600" />
                   <span className="font-semibold text-gray-800">{group.name}</span>
