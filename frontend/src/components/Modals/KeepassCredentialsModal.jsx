@@ -372,13 +372,16 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
           >
             <div className="flex items-center gap-2">
               {/* Mostra freccia SOLO se ci sono credenziali dirette (entries) */}
-              {hasEntries ? (
-                isExpanded ? (
-                  <ChevronDown size={16} className="text-indigo-600" />
-                ) : (
-                  <ChevronRight size={16} className="text-indigo-600" />
-                )
-              ) : null}
+              {/* Mantieni spazio fisso per allineamento anche quando non c'è freccia */}
+              <div className="w-4 flex items-center justify-center">
+                {hasEntries && (
+                  isExpanded ? (
+                    <ChevronDown size={16} className="text-indigo-600" />
+                  ) : (
+                    <ChevronRight size={16} className="text-indigo-600" />
+                  )
+                )}
+              </div>
               <Key size={16} className="text-indigo-600" />
               <span className="font-semibold text-gray-800">{extractString(group.name)}</span>
               {hasEntries && (
