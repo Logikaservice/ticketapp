@@ -73,6 +73,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
     if (!cliente) return;
 
     const currentClientId = cliente.id.toString();
+    const currentAzienda = selectedAzienda; // Salva per il controllo
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -90,11 +91,11 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
           signal: abortController.signal
         });
 
-        if (abortController.signal.aborted || selectedAzienda !== selectedAzienda) return;
+        if (abortController.signal.aborted || selectedAzienda !== currentAzienda) return;
 
         if (response.ok) {
           const data = await response.json();
-          if (selectedAzienda === selectedAzienda) {
+          if (selectedAzienda === currentAzienda) {
             setHasCredentials(data.hasCredentials);
             setCredentialsCount({
               groups: data.groupsCount || 0,
@@ -102,19 +103,19 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
             });
           }
         } else {
-          if (selectedAzienda === selectedAzienda) {
+          if (selectedAzienda === currentAzienda) {
             setHasCredentials(false);
             setCredentialsCount({ groups: 0, entries: 0 });
           }
         }
       } catch (err) {
         if (err.name === 'AbortError') return;
-        if (selectedAzienda === selectedAzienda) {
+        if (selectedAzienda === currentAzienda) {
           setHasCredentials(false);
           setCredentialsCount({ groups: 0, entries: 0 });
         }
       } finally {
-        if (!abortController.signal.aborted && selectedAzienda === selectedAzienda) {
+        if (!abortController.signal.aborted && selectedAzienda === currentAzienda) {
           setIsCheckingCredentials(false);
         }
       }
