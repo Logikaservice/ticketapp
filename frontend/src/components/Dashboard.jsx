@@ -754,24 +754,20 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       
       // Filtra gli avvisi temporanei scaduti (per tutti gli utenti)
       const activeAlerts = filteredAlerts.filter(alert => {
-        // Gli avvisi "nuove funzionalità" NON vengono mai rimossi, anche se scaduti
-        // Devono rimanere sempre visibili nella dashboard e nella cronologia
-        if (alert.level === 'features') {
-          return true;
-        }
-        
         // Se è permanente, mostralo sempre
         if (alert.isPermanent) {
           return true;
         }
         
-        // Se è temporaneo, verifica se è scaduto
+        // Se è temporaneo (inclusi gli avvisi "features"), verifica se è scaduto
         const createdAt = new Date(alert.createdAt || alert.created_at);
         const daysToExpire = alert.daysToExpire || 7;
         const expirationDate = new Date(createdAt);
         expirationDate.setDate(expirationDate.getDate() + daysToExpire);
         
         // Mostra solo se non è ancora scaduto
+        // NOTA: Gli avvisi "features" scaduti vengono rimossi dalla dashboard
+        // ma rimangono sempre visibili nella cronologia "Nuove Funzionalità"
         return new Date() <= expirationDate;
       });
       
