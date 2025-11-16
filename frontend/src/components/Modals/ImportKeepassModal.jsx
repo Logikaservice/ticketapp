@@ -1,43 +1,20 @@
 // frontend/src/components/Modals/ImportKeepassModal.jsx
 
-import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, ChevronDown, Search, Building, User, Trash2 } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, Trash2 } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
-  // Pre-filtra i clienti una volta quando users cambia, non ad ogni render
-  // Usa un approccio più efficiente: filtra e ordina in un unico passaggio
-  const clientiAttiviMemo = useMemo(() => {
-    if (!users || !Array.isArray(users) || users.length === 0) return [];
-    
-    console.log(`📊 Filtro clienti: ${users.length} utenti totali`);
-    const startTime = performance.now();
-    
-    // Filtra solo i clienti
-    const clienti = [];
-    for (let i = 0; i < users.length; i++) {
-      if (users[i].ruolo === 'cliente') {
-        clienti.push(users[i]);
-      }
-    }
-    
-    console.log(`📊 Trovati ${clienti.length} clienti`);
-    
-    // Ordina per azienda, poi per email - usa un algoritmo più efficiente
-    if (clienti.length > 0) {
-      clienti.sort((a, b) => {
-        const aziendaA = (a.azienda || 'Senza azienda').toLowerCase();
-        const aziendaB = (b.azienda || 'Senza azienda').toLowerCase();
-        const cmp = aziendaA.localeCompare(aziendaB);
-        if (cmp !== 0) return cmp;
-        return (a.email || '').toLowerCase().localeCompare((b.email || '').toLowerCase());
-      });
-    }
-    
-    const endTime = performance.now();
-    console.log(`⏱️ Filtro completato in ${(endTime - startTime).toFixed(2)}ms`);
-    
-    return clienti;
+  // Filtro semplice e veloce dei clienti
+  const clientiAttivi = useMemo(() => {
+    if (!users || !Array.isArray(users)) return [];
+    return users.filter(u => u.ruolo === 'cliente').sort((a, b) => {
+      const aziendaA = (a.azienda || 'Senza azienda').toLowerCase();
+      const aziendaB = (b.azienda || 'Senza azienda').toLowerCase();
+      if (aziendaA !== aziendaB) return aziendaA.localeCompare(aziendaB);
+      return (a.email || '').toLowerCase().localeCompare((b.email || '').toLowerCase());
+    });
   }, [users]);
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -45,104 +22,16 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [migrationResult, setMigrationResult] = useState(null);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const dropdownRef = useRef(null);
   const [hasCredentials, setHasCredentials] = useState(false);
   const [credentialsCount, setCredentialsCount] = useState({ groups: 0, entries: 0 });
   const [isCheckingCredentials, setIsCheckingCredentials] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 });
-  const scrollContainerRef = useRef(null);
-  const ITEMS_PER_PAGE = 20; // Renderizza solo 20 elementi inizialmente per performance
-
-  // Usa la lista pre-filtrata
-  const clientiAttivi = clientiAttiviMemo;
-
-  // Filtra clienti in base alla ricerca - ottimizzato per performance
-  const filteredClienti = useMemo(() => {
-    if (!searchQuery.trim()) return clientiAttivi;
-    
-    const query = searchQuery.toLowerCase().trim();
-    const queryLen = query.length;
-    
-    // Algoritmo di ricerca ottimizzato
-    const results = [];
-    for (let i = 0; i < clientiAttivi.length; i++) {
-      const cliente = clientiAttivi[i];
-      const azienda = (cliente.azienda || 'Senza azienda').toLowerCase();
-      const email = (cliente.email || '').toLowerCase();
-      
-      // Controlla prima se inizia con la query (più veloce)
-      if (azienda.substring(0, queryLen) === query || email.substring(0, queryLen) === query) {
-        results.push(cliente);
-        continue;
-      }
-      
-      // Poi controlla se contiene la query
-      if (azienda.includes(query) || email.includes(query)) {
-        results.push(cliente);
-      }
-    }
-    
-    return results;
-  }, [clientiAttivi, searchQuery]);
-
-  // Reset visible range quando cambia la ricerca o si apre il dropdown
-  useEffect(() => {
-    if (isDropdownOpen) {
-      setVisibleRange({ start: 0, end: ITEMS_PER_PAGE });
-    }
-  }, [searchQuery, isDropdownOpen]);
-
-  // Virtualizzazione: mostra solo gli elementi visibili
-  const visibleClienti = useMemo(() => {
-    return filteredClienti.slice(visibleRange.start, visibleRange.end);
-  }, [filteredClienti, visibleRange]);
-
-  // Gestione scroll per caricare più elementi
-  const handleScroll = useCallback((e) => {
-    const container = e.target;
-    const scrollTop = container.scrollTop;
-    const scrollHeight = container.scrollHeight;
-    const clientHeight = container.clientHeight;
-    
-    // Carica più elementi quando si è vicini alla fine (80% scrollato)
-    if (scrollTop + clientHeight >= scrollHeight * 0.8) {
-      const currentEnd = visibleRange.end;
-      if (currentEnd < filteredClienti.length) {
-        setVisibleRange(prev => ({
-          start: prev.start,
-          end: Math.min(prev.end + ITEMS_PER_PAGE, filteredClienti.length)
-        }));
-      }
-    }
-  }, [visibleRange, filteredClienti.length]);
-
-  // Chiudi dropdown quando si clicca fuori
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    if (isDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isDropdownOpen]);
 
   // Reset quando il modal si chiude
   useEffect(() => {
     if (!isOpen) {
       setSelectedClientId('');
-      setSearchQuery('');
-      setIsDropdownOpen(false);
       setHasCredentials(false);
       setCredentialsCount({ groups: 0, entries: 0 });
       setShowDeleteConfirm(false);
@@ -436,117 +325,24 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
 
         {/* Form */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* Selezione Cliente - Dropdown Personalizzato */}
-          <div className="relative" ref={dropdownRef}>
+          {/* Selezione Cliente - Select HTML nativo per performance */}
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Cliente <span className="text-red-500">*</span>
             </label>
-            <button
-              type="button"
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            <select
+              value={selectedClientId}
+              onChange={(e) => setSelectedClientId(e.target.value)}
+              className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 hover:border-purple-400 transition-all bg-white text-gray-700 font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isUploading}
-              className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 hover:border-purple-400 transition-all bg-white text-left flex items-center justify-between shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                {selectedClient ? (
-                  <>
-                    <Building size={16} className="text-purple-600 flex-shrink-0" />
-                    <span className="text-gray-900 font-medium truncate">
-                      {selectedClient.azienda || 'Senza azienda'} - {selectedClient.email}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <User size={16} className="text-gray-400 flex-shrink-0" />
-                    <span className="text-gray-500">Seleziona un cliente...</span>
-                  </>
-                )}
-              </div>
-              <ChevronDown 
-                size={18} 
-                className={`text-gray-400 transition-transform flex-shrink-0 ml-2 ${isDropdownOpen ? 'rotate-180' : ''}`} 
-              />
-            </button>
-
-            {/* Dropdown Menu - Rendering immediato */}
-            {isDropdownOpen && (
-              <div className="absolute z-50 w-full mt-2 bg-white border-2 border-purple-200 rounded-lg shadow-xl max-h-96 overflow-hidden flex flex-col">
-                {/* Barra di ricerca */}
-                <div className="p-3 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-violet-50">
-                  <div className="relative">
-                    <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Cerca cliente..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
-                      autoFocus
-                    />
-                  </div>
-                </div>
-
-                {/* Lista clienti - Virtualizzazione per performance */}
-                <div 
-                  ref={scrollContainerRef}
-                  className="overflow-y-auto max-h-80"
-                  onScroll={handleScroll}
-                >
-                  {!clientiAttivi || clientiAttivi.length === 0 ? (
-                    <div className="p-4 text-center text-gray-500">
-                      Nessun cliente disponibile
-                    </div>
-                  ) : filteredClienti.length === 0 ? (
-                    <div className="p-4 text-center text-gray-500">
-                      Nessun cliente trovato per "{searchQuery}"
-                    </div>
-                  ) : (
-                    <>
-                      <div className="divide-y divide-gray-100">
-                        {visibleClienti.map(cliente => {
-                          const isSelected = selectedClientId === cliente.id.toString();
-                          return (
-                            <button
-                              key={cliente.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedClientId(cliente.id.toString());
-                                setIsDropdownOpen(false);
-                                setSearchQuery('');
-                              }}
-                              className={`w-full px-4 py-3 text-left hover:bg-purple-50 active:bg-purple-100 transition-colors flex items-center gap-3 ${
-                                isSelected ? 'bg-purple-100 border-l-4 border-l-purple-500' : ''
-                              }`}
-                            >
-                              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                {(cliente.azienda || cliente.email || '?').charAt(0).toUpperCase()}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-semibold text-gray-900 truncate">
-                                  {cliente.azienda || 'Senza azienda'}
-                                </div>
-                                <div className="text-sm text-gray-600 truncate">
-                                  {cliente.email}
-                                </div>
-                              </div>
-                              {isSelected && (
-                                <CheckCircle size={18} className="text-purple-600 flex-shrink-0" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {/* Spacer per mantenere l'altezza corretta dello scroll */}
-                      {visibleRange.end < filteredClienti.length && (
-                        <div className="p-2 text-center text-xs text-gray-500">
-                          Mostrando {visibleRange.end} di {filteredClienti.length} clienti
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
+              <option value="">Seleziona un cliente...</option>
+              {clientiAttivi.map(cliente => (
+                <option key={cliente.id} value={cliente.id}>
+                  {cliente.azienda || 'Senza azienda'} - {cliente.email}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Debug info - rimuovere in produzione */}
