@@ -1188,8 +1188,11 @@ module.exports = function createKeepassRouter(pool) {
 
       const clientId = parseInt(req.params.clientId);
       if (isNaN(clientId)) {
+        console.error('❌ ID cliente non valido:', req.params.clientId);
         return res.status(400).json({ error: 'ID cliente non valido' });
       }
+
+      console.log(`🔍 Verifica credenziali per cliente ID: ${clientId}`);
 
       const client = await pool.connect();
       
@@ -1208,11 +1211,15 @@ module.exports = function createKeepassRouter(pool) {
       const groupsCount = parseInt(groupsResult.rows[0].count);
       const entriesCount = parseInt(entriesResult.rows[0].count);
 
-      res.json({
+      console.log(`✅ Cliente ${clientId}: ${groupsCount} gruppi, ${entriesCount} entry`);
+
+      const result = {
         hasCredentials: groupsCount > 0 || entriesCount > 0,
         groupsCount,
         entriesCount
-      });
+      };
+
+      res.json(result);
     } catch (err) {
       console.error('❌ Errore verifica credenziali:', err);
       res.status(500).json({ error: 'Errore durante la verifica delle credenziali' });

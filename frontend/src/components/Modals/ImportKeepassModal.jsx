@@ -148,39 +148,55 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
         return;
       }
 
+      console.log(`🔍 Verifica credenziali per cliente: ${selectedClientId}`);
+
       // Crea un nuovo AbortController per questa chiamata
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
       setIsCheckingCredentials(true);
       try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/check/${selectedClientId}`, {
+        const url = `${process.env.REACT_APP_API_URL}/api/keepass/check/${selectedClientId}`;
+        console.log(`📡 Chiamata API: ${url}`);
+        
+        const response = await fetch(url, {
           headers: getAuthHeader(),
           signal: abortController.signal // Aggiungi il signal per poter cancellare
         });
 
         // Verifica se la richiesta è stata cancellata
         if (abortController.signal.aborted) {
+          console.log('⚠️ Richiesta cancellata');
           return;
         }
 
         if (response.ok) {
           const data = await response.json();
+          console.log('✅ Risposta API:', data);
           setHasCredentials(data.hasCredentials);
           setCredentialsCount({
             groups: data.groupsCount || 0,
             entries: data.entriesCount || 0
           });
+          
+          if (data.hasCredentials) {
+            console.log(`✅ Cliente ${selectedClientId} ha ${data.groupsCount} gruppi e ${data.entriesCount} credenziali`);
+          } else {
+            console.log(`ℹ️ Cliente ${selectedClientId} non ha credenziali`);
+          }
         } else {
+          const errorText = await response.text();
+          console.error(`❌ Errore API (${response.status}):`, errorText);
           setHasCredentials(false);
           setCredentialsCount({ groups: 0, entries: 0 });
         }
       } catch (err) {
         // Ignora errori se la richiesta è stata cancellata
         if (err.name === 'AbortError') {
+          console.log('⚠️ Richiesta abortita');
           return;
         }
-        console.error('Errore verifica credenziali:', err);
+        console.error('❌ Errore verifica credenziali:', err);
         setHasCredentials(false);
         setCredentialsCount({ groups: 0, entries: 0 });
       } finally {
@@ -191,10 +207,10 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
       }
     };
 
-    // Debounce: aspetta 300ms prima di fare la chiamata
+    // Debounce ridotto a 100ms per risposta più veloce
     const timeoutId = setTimeout(() => {
       checkCredentials();
-    }, 300);
+    }, 100);
 
     // Cleanup: cancella il timeout e la richiesta se il componente si smonta o cambiano le dipendenze
     return () => {
