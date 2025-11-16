@@ -754,6 +754,12 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       
       // Filtra gli avvisi temporanei scaduti (per tutti gli utenti)
       const activeAlerts = filteredAlerts.filter(alert => {
+        // Gli avvisi "nuove funzionalità" NON vengono mai rimossi, anche se scaduti
+        // Devono rimanere sempre visibili nella dashboard e nella cronologia
+        if (alert.level === 'features') {
+          return true;
+        }
+        
         // Se è permanente, mostralo sempre
         if (alert.isPermanent) {
           return true;
