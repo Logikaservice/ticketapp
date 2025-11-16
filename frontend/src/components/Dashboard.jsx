@@ -155,7 +155,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
               {avv.level === 'features' ? (
                 <div className="text-sm mt-1 text-justify">
                   {(() => {
-                    // Usa line-clamp per limitare visivamente a 5 righe
+                    // Usa line-clamp per limitare visivamente a 3 righe
                     const textLength = avv.body ? avv.body.length : 0;
                     const textLines = avv.body ? avv.body.split('\n').length : 0;
                     const shouldShowMore = textLength > 200 || textLines > 3;
@@ -163,7 +163,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                     if (shouldShowMore) {
                       return (
                         <div className="relative">
-                          <div className="line-clamp-5 whitespace-pre-wrap pr-12">{avv.body}</div>
+                          <div className="line-clamp-3 whitespace-pre-wrap pr-12">{avv.body}</div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
