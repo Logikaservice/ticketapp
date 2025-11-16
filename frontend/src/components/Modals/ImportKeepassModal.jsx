@@ -1,7 +1,7 @@
 // frontend/src/components/Modals/ImportKeepassModal.jsx
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, Trash2, Building, ChevronDown, Info } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
   // Estrai solo le aziende uniche - molto più veloce e semplice
@@ -306,25 +306,34 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
         </div>
 
         {/* Form */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* Selezione Cliente - Select HTML nativo per performance */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Cliente <span className="text-red-500">*</span>
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {/* Selezione Azienda - Design migliorato */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <Building size={18} className="text-purple-600" />
+              <span>Azienda <span className="text-red-500">*</span></span>
             </label>
-            <select
-              value={selectedAzienda}
-              onChange={(e) => setSelectedAzienda(e.target.value)}
-              className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 hover:border-purple-400 transition-all bg-white text-gray-700 font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isUploading}
-            >
-              <option value="">Seleziona un'azienda...</option>
-              {aziendeUniche.map(({ azienda }) => (
-                <option key={azienda} value={azienda}>
-                  {azienda}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={selectedAzienda}
+                onChange={(e) => setSelectedAzienda(e.target.value)}
+                className="w-full px-4 py-3 pl-11 pr-10 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 hover:border-purple-300 transition-all bg-white text-gray-800 font-medium shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
+                disabled={isUploading}
+              >
+                <option value="">Seleziona un'azienda...</option>
+                {aziendeUniche.map(({ azienda }) => (
+                  <option key={azienda} value={azienda}>
+                    {azienda}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <Building size={18} className="text-gray-400" />
+              </div>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <ChevronDown size={18} className="text-gray-400" />
+              </div>
+            </div>
           </div>
 
           {/* Pulsante Cancella Credenziali - Mostra solo se l'azienda ha credenziali */}
@@ -399,12 +408,13 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
             </div>
           )}
 
-          {/* Upload File */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              File XML KeePass <span className="text-red-500">*</span>
+          {/* Upload File - Design migliorato */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+              <FileText size={18} className="text-purple-600" />
+              <span>File XML KeePass <span className="text-red-500">*</span></span>
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-400 hover:bg-purple-50 transition cursor-pointer">
+            <div className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-purple-400 hover:bg-gradient-to-br hover:from-purple-50 hover:to-violet-50 transition-all duration-300 cursor-pointer group">
               <input
                 type="file"
                 id="xmlFileInput"
@@ -413,76 +423,102 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                 className="hidden"
                 disabled={isUploading}
               />
-              <label htmlFor="xmlFileInput" className="cursor-pointer flex flex-col items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-purple-100 to-violet-100 rounded-full">
-                  <Upload className="w-8 h-8 text-purple-600" />
+              <label htmlFor="xmlFileInput" className="cursor-pointer flex flex-col items-center gap-4">
+                <div className="p-4 bg-gradient-to-br from-purple-100 to-violet-100 rounded-2xl group-hover:from-purple-200 group-hover:to-violet-200 transition-all duration-300 shadow-sm group-hover:shadow-md">
+                  <Upload className="w-10 h-10 text-purple-600 group-hover:text-purple-700 transition-colors" />
                 </div>
-                <span className="text-sm font-medium text-gray-700">
-                  {selectedFile ? selectedFile.name : 'Clicca per selezionare file XML'}
-                </span>
-                <span className="text-xs text-gray-500">
-                  Formato: XML - Max 10MB
-                </span>
+                <div className="space-y-1">
+                  <span className="text-base font-semibold text-gray-800 block">
+                    {selectedFile ? selectedFile.name : 'Clicca per selezionare file XML'}
+                  </span>
+                  <span className="text-xs text-gray-500 font-medium">
+                    Formato: XML - Max 10MB
+                  </span>
+                </div>
               </label>
             </div>
             {selectedFile && (
-              <div className="mt-3 p-3 bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-lg flex items-center gap-2">
-                <FileText size={18} className="text-purple-600" />
-                <span className="text-sm font-medium text-purple-700 flex-1">{selectedFile.name}</span>
-                <span className="text-xs text-purple-600 bg-white px-2 py-1 rounded">
-                  {(selectedFile.size / 1024).toFixed(2)} KB
-                </span>
+              <div className="mt-3 p-4 bg-gradient-to-r from-purple-50 to-violet-50 border-2 border-purple-200 rounded-xl flex items-center gap-3 shadow-sm">
+                <div className="p-2 bg-white rounded-lg">
+                  <FileText size={20} className="text-purple-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-semibold text-purple-900 block truncate">{selectedFile.name}</span>
+                  <span className="text-xs text-purple-600 font-medium">
+                    {(selectedFile.size / 1024).toFixed(2)} KB
+                  </span>
+                </div>
+                <CheckCircle size={20} className="text-green-600 flex-shrink-0" />
               </div>
             )}
           </div>
 
-          {/* Messaggi */}
+          {/* Messaggi - Design migliorato */}
           {error && (
-            <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-lg flex items-center gap-3 shadow-sm">
-              <AlertCircle size={20} className="text-red-600 flex-shrink-0" />
-              <span className="text-sm font-medium text-red-800">{error}</span>
+            <div className="p-4 bg-gradient-to-r from-red-50 to-rose-50 border-l-4 border-red-500 rounded-xl flex items-center gap-3 shadow-md animate-in slide-in-from-top-2">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <AlertCircle size={20} className="text-red-600" />
+              </div>
+              <span className="text-sm font-semibold text-red-900 flex-1">{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="p-4 bg-green-50 border-l-4 border-green-500 rounded-lg flex items-center gap-3 shadow-sm">
-              <CheckCircle size={20} className="text-green-600 flex-shrink-0" />
-              <span className="text-sm font-medium text-green-800">{success}</span>
+            <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 rounded-xl flex items-center gap-3 shadow-md animate-in slide-in-from-top-2">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <CheckCircle size={20} className="text-green-600" />
+              </div>
+              <span className="text-sm font-semibold text-green-900 flex-1">{success}</span>
             </div>
           )}
 
-          {/* Migrazione */}
-          <div className="p-4 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-lg shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <RefreshCw size={20} className="text-amber-700" />
+          {/* Migrazione - Design migliorato */}
+          <div className="p-5 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 border-2 border-amber-200 rounded-xl shadow-md">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-xl shadow-sm">
+                <RefreshCw size={24} className="text-white" />
               </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-bold text-amber-900 mb-1">
-                  Aggiorna Credenziali Esistenti
-                </h3>
-                <p className="text-xs text-amber-800 mb-3">
-                  Aggiorna automaticamente tutte le credenziali già importate applicando le ultime correzioni:
-                  corregge titoli e nomi salvati come oggetti JSON, aggiorna tutti i clienti. Le entry con password vuote vengono mantenute.
-                </p>
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h3 className="text-base font-bold text-amber-900 mb-1.5">
+                    Aggiorna Credenziali Esistenti
+                  </h3>
+                  <p className="text-sm text-amber-800 leading-relaxed">
+                    Aggiorna automaticamente tutte le credenziali già importate applicando le ultime correzioni: 
+                    corregge titoli e nomi salvati come oggetti JSON, aggiorna tutti i clienti. 
+                    Le entry con password vuote vengono mantenute.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={handleMigrate}
                   disabled={isMigrating || isUploading}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-600 to-yellow-600 text-white text-sm font-semibold rounded-lg hover:from-amber-700 hover:to-yellow-700 transition disabled:opacity-50 shadow-md"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-sm font-bold rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
-                  <RefreshCw size={16} className={isMigrating ? 'animate-spin' : ''} />
-                  {isMigrating ? 'Migrazione in corso...' : 'Aggiorna Tutte le Credenziali'}
+                  <RefreshCw size={18} className={isMigrating ? 'animate-spin' : ''} />
+                  {isMigrating ? 'Aggiornamento in corso...' : 'Aggiorna Tutte le Credenziali'}
                 </button>
                 {migrationResult && (
-                  <div className="mt-3 p-2 bg-white rounded text-xs">
-                    <p className="font-semibold text-gray-700 mb-1">Risultati:</p>
-                    <ul className="space-y-1 text-gray-600">
-                      <li>✅ Entry aggiornate: {migrationResult.entriesUpdated}</li>
-                      <li>📁 Gruppi aggiornati: {migrationResult.groupsUpdated}</li>
-                      <li>📊 Totale processate: {migrationResult.totalProcessed}</li>
+                  <div className="mt-4 p-4 bg-white rounded-xl border-2 border-amber-200 shadow-sm">
+                    <p className="font-bold text-gray-800 mb-2 text-sm">📊 Risultati Migrazione:</p>
+                    <ul className="space-y-1.5 text-sm">
+                      <li className="flex items-center gap-2 text-gray-700">
+                        <CheckCircle size={16} className="text-green-600" />
+                        Entry aggiornate: <span className="font-semibold">{migrationResult.entriesUpdated}</span>
+                      </li>
+                      <li className="flex items-center gap-2 text-gray-700">
+                        <FileText size={16} className="text-blue-600" />
+                        Gruppi aggiornati: <span className="font-semibold">{migrationResult.groupsUpdated}</span>
+                      </li>
+                      <li className="flex items-center gap-2 text-gray-700">
+                        <Info size={16} className="text-purple-600" />
+                        Totale processate: <span className="font-semibold">{migrationResult.totalProcessed}</span>
+                      </li>
                       {migrationResult.errors > 0 && (
-                        <li className="text-red-600">❌ Errori: {migrationResult.errors}</li>
+                        <li className="flex items-center gap-2 text-red-600">
+                          <AlertCircle size={16} />
+                          Errori: <span className="font-semibold">{migrationResult.errors}</span>
+                        </li>
                       )}
                     </ul>
                   </div>
@@ -491,35 +527,49 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
             </div>
           </div>
 
-          {/* Info */}
-          <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-lg shadow-sm">
-            <p className="text-xs text-blue-800 leading-relaxed">
-              <strong className="font-semibold">ℹ️ Nota:</strong> Tutti i gruppi e le credenziali verranno importati. 
-              Le password verranno cifrate e salvate in modo sicuro. 
-              Eventuali dati esistenti per questo cliente verranno sostituiti.
-            </p>
+          {/* Info - Design migliorato */}
+          <div className="p-5 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-l-4 border-blue-500 rounded-xl shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Info size={20} className="text-blue-600" />
+              </div>
+              <p className="text-sm text-blue-900 leading-relaxed font-medium">
+                <strong className="font-bold">Nota Importante:</strong> Tutti i gruppi e le credenziali verranno importati. 
+                Le password verranno cifrate e salvate in modo sicuro. 
+                Eventuali dati esistenti per questo cliente verranno sostituiti.
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
-          <div className="flex justify-end gap-2">
+        {/* Footer - Design migliorato */}
+        <div className="p-6 border-t-2 border-gray-100 bg-gradient-to-br from-gray-50 to-white rounded-b-2xl">
+          <div className="flex justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              disabled={isUploading}
-              className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition disabled:opacity-50 font-medium"
+              disabled={isUploading || isMigrating || isDeleting}
+              className="px-6 py-3 bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 rounded-xl transition-all disabled:opacity-50 font-semibold shadow-sm hover:shadow-md transform hover:scale-105"
             >
               Annulla
             </button>
             <button
               type="button"
               onClick={handleImport}
-              disabled={isUploading || !selectedFile || !selectedAzienda}
-              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-lg hover:from-purple-700 hover:to-violet-700 transition disabled:opacity-50 font-semibold shadow-md"
+              disabled={isUploading || !selectedFile || !selectedAzienda || isMigrating || isDeleting}
+              className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-xl hover:from-purple-700 hover:to-violet-700 transition-all disabled:opacity-50 font-bold shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
             >
-              <Upload size={18} />
-              {isUploading ? 'Importazione...' : 'Importa'}
+              {isUploading ? (
+                <>
+                  <RefreshCw size={18} className="animate-spin" />
+                  Importazione...
+                </>
+              ) : (
+                <>
+                  <Upload size={18} />
+                  Importa
+                </>
+              )}
             </button>
           </div>
         </div>
