@@ -43,6 +43,8 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const [isCheckingCredentials, setIsCheckingCredentials] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   // Reset quando il modal si chiude
   useEffect(() => {
@@ -51,8 +53,26 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
       setHasCredentials(false);
       setCredentialsCount({ groups: 0, entries: 0 });
       setShowDeleteConfirm(false);
+      setIsDropdownOpen(false);
     }
   }, [isOpen]);
+
+  // Chiudi dropdown quando si clicca fuori
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
 
   // Verifica se l'azienda selezionata ha credenziali (usando il primo cliente dell'azienda)
   const abortControllerRef = useRef(null);
@@ -307,32 +327,75 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
 
         {/* Form */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Selezione Azienda - Design migliorato */}
-          <div className="space-y-2">
+          {/* Selezione Azienda - Dropdown personalizzato con grafica migliorata */}
+          <div className="space-y-2" ref={dropdownRef}>
             <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
               <Building size={18} className="text-purple-600" />
               <span>Azienda <span className="text-red-500">*</span></span>
             </label>
             <div className="relative">
-              <select
-                value={selectedAzienda}
-                onChange={(e) => setSelectedAzienda(e.target.value)}
-                className="w-full px-4 py-3 pl-11 pr-10 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 hover:border-purple-300 transition-all bg-white text-gray-800 font-medium shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed appearance-none cursor-pointer"
+              <button
+                type="button"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 disabled={isUploading}
+                className="w-full px-4 py-3 pl-11 pr-10 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 hover:border-purple-300 transition-all bg-white text-gray-800 font-medium shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed text-left flex items-center justify-between"
               >
-                <option value="">Seleziona un'azienda...</option>
-                {aziendeUniche.map(({ azienda }) => (
-                  <option key={azienda} value={azienda}>
-                    {azienda}
-                  </option>
-                ))}
-              </select>
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <Building size={18} className="text-gray-400" />
-              </div>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <ChevronDown size={18} className="text-gray-400" />
-              </div>
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <Building size={18} className="text-gray-400 flex-shrink-0" />
+                  <span className={selectedAzienda ? 'text-gray-800' : 'text-gray-400 truncate'}>
+                    {selectedAzienda || 'Seleziona un\'azienda...'}
+                  </span>
+                </div>
+                <ChevronDown 
+                  size={18} 
+                  className={`text-gray-400 transition-transform flex-shrink-0 ${isDropdownOpen ? 'rotate-180' : ''}`} 
+                />
+              </button>
+
+              {/* Dropdown Menu - Grafica migliorata */}
+              {isDropdownOpen && (
+                <div className="absolute z-50 w-full mt-2 bg-white border-2 border-purple-200 rounded-xl shadow-2xl max-h-80 overflow-hidden">
+                  <div className="overflow-y-auto max-h-80">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedAzienda('');
+                        setIsDropdownOpen(false);
+                      }}
+                      className={`w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors flex items-center gap-2 ${
+                        !selectedAzienda ? 'bg-purple-50 border-l-4 border-l-purple-500' : ''
+                      }`}
+                    >
+                      <Building size={16} className="text-gray-400" />
+                      <span className="text-gray-500">Seleziona un'azienda...</span>
+                    </button>
+                    {aziendeUniche.map(({ azienda }) => {
+                      const isSelected = selectedAzienda === azienda;
+                      return (
+                        <button
+                          key={azienda}
+                          type="button"
+                          onClick={() => {
+                            setSelectedAzienda(azienda);
+                            setIsDropdownOpen(false);
+                          }}
+                          className={`w-full px-4 py-3 text-left hover:bg-purple-50 active:bg-purple-100 transition-colors flex items-center gap-3 ${
+                            isSelected ? 'bg-purple-50 border-l-4 border-l-purple-500' : ''
+                          }`}
+                        >
+                          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                            {azienda.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="flex-1 text-gray-800 font-medium truncate">{azienda}</span>
+                          {isSelected && (
+                            <CheckCircle size={18} className="text-purple-600 flex-shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
