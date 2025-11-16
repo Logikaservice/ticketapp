@@ -1175,6 +1175,105 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
+  // GET /api/keepass/check/:clientId - Verifica se un cliente ha credenziali
+  router.get('/check/:clientId', async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Utente non autenticato' });
+      }
+
+      if (req.user.ruolo !== 'tecnico') {
+        return res.status(403).json({ error: 'Accesso negato: solo tecnici possono verificare le credenziali' });
+      }
+
+      const clientId = parseInt(req.params.clientId);
+      if (isNaN(clientId)) {
+        return res.status(400).json({ error: 'ID cliente non valido' });
+      }
+
+      const client = await pool.connect();
+      
+      // Conta gruppi e entry per questo cliente
+      const groupsResult = await client.query(
+        'SELECT COUNT(*) as count FROM keepass_groups WHERE client_id = $1',
+        [clientId]
+      );
+      const entriesResult = await client.query(
+        'SELECT COUNT(*) as count FROM keepass_entries WHERE group_id IN (SELECT id FROM keepass_groups WHERE client_id = $1)',
+        [clientId]
+      );
+
+      client.release();
+
+      const groupsCount = parseInt(groupsResult.rows[0].count);
+      const entriesCount = parseInt(entriesResult.rows[0].count);
+
+      res.json({
+        hasCredentials: groupsCount > 0 || entriesCount > 0,
+        groupsCount,
+        entriesCount
+      });
+    } catch (err) {
+      console.error('❌ Errore verifica credenziali:', err);
+      res.status(500).json({ error: 'Errore durante la verifica delle credenziali' });
+    }
+  });
+
+  // DELETE /api/keepass/client/:clientId - Cancella tutte le credenziali di un cliente
+  router.delete('/client/:clientId', async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Utente non autenticato' });
+      }
+
+      if (req.user.ruolo !== 'tecnico') {
+        return res.status(403).json({ error: 'Accesso negato: solo tecnici possono cancellare le credenziali' });
+      }
+
+      const clientId = parseInt(req.params.clientId);
+      if (isNaN(clientId)) {
+        return res.status(400).json({ error: 'ID cliente non valido' });
+      }
+
+      const client = await pool.connect();
+      
+      try {
+        await client.query('BEGIN');
+
+        // Elimina prima le entry (per via del foreign key)
+        const deleteEntriesResult = await client.query(
+          'DELETE FROM keepass_entries WHERE group_id IN (SELECT id FROM keepass_groups WHERE client_id = $1)',
+          [clientId]
+        );
+        
+        // Poi elimina i gruppi
+        const deleteGroupsResult = await client.query(
+          'DELETE FROM keepass_groups WHERE client_id = $1',
+          [clientId]
+        );
+
+        await client.query('COMMIT');
+        client.release();
+
+        console.log(`✅ Credenziali cancellate per cliente ${clientId}: ${deleteEntriesResult.rowCount} entry, ${deleteGroupsResult.rowCount} gruppi`);
+
+        res.json({
+          success: true,
+          message: 'Credenziali cancellate con successo',
+          deletedEntries: deleteEntriesResult.rowCount,
+          deletedGroups: deleteGroupsResult.rowCount
+        });
+      } catch (deleteErr) {
+        await client.query('ROLLBACK');
+        client.release();
+        throw deleteErr;
+      }
+    } catch (err) {
+      console.error('❌ Errore cancellazione credenziali:', err);
+      res.status(500).json({ error: 'Errore durante la cancellazione delle credenziali' });
+    }
+  });
+
   router.post('/migrate', async (req, res) => {
     // Verifica manuale del ruolo (requireRole potrebbe non funzionare correttamente)
     if (!req.user) {

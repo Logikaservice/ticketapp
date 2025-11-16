@@ -1,7 +1,7 @@
 // frontend/src/components/Modals/ImportKeepassModal.jsx
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, ChevronDown, Search, Building, User } from 'lucide-react';
+import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, ChevronDown, Search, Building, User, Trash2 } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -14,6 +14,11 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef(null);
+  const [hasCredentials, setHasCredentials] = useState(false);
+  const [credentialsCount, setCredentialsCount] = useState({ groups: 0, entries: 0 });
+  const [isCheckingCredentials, setIsCheckingCredentials] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Memoizza il filtro dei clienti per evitare ricalcoli ad ogni render
   const clientiAttivi = useMemo(() => {
@@ -57,12 +62,89 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
       setSelectedClientId('');
       setSearchQuery('');
       setIsDropdownOpen(false);
+      setHasCredentials(false);
+      setCredentialsCount({ groups: 0, entries: 0 });
+      setShowDeleteConfirm(false);
     }
   }, [isOpen]);
+
+  // Verifica se il cliente selezionato ha credenziali
+  useEffect(() => {
+    const checkCredentials = async () => {
+      if (!selectedClientId || !isOpen) {
+        setHasCredentials(false);
+        setCredentialsCount({ groups: 0, entries: 0 });
+        return;
+      }
+
+      setIsCheckingCredentials(true);
+      try {
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/check/${selectedClientId}`, {
+          headers: getAuthHeader()
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setHasCredentials(data.hasCredentials);
+          setCredentialsCount({
+            groups: data.groupsCount || 0,
+            entries: data.entriesCount || 0
+          });
+        } else {
+          setHasCredentials(false);
+          setCredentialsCount({ groups: 0, entries: 0 });
+        }
+      } catch (err) {
+        console.error('Errore verifica credenziali:', err);
+        setHasCredentials(false);
+        setCredentialsCount({ groups: 0, entries: 0 });
+      } finally {
+        setIsCheckingCredentials(false);
+      }
+    };
+
+    checkCredentials();
+  }, [selectedClientId, isOpen, getAuthHeader]);
 
   if (!isOpen) return null;
 
   const selectedClient = clientiAttivi.find(c => c.id.toString() === selectedClientId.toString());
+
+  const handleDeleteCredentials = async () => {
+    if (!selectedClientId) return;
+
+    setIsDeleting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/client/${selectedClientId}`, {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSuccess(`Credenziali cancellate con successo! (${data.deletedGroups} gruppi, ${data.deletedEntries} credenziali)`);
+        setHasCredentials(false);
+        setCredentialsCount({ groups: 0, entries: 0 });
+        setShowDeleteConfirm(false);
+        
+        // Notifica il componente padre per aggiornare la lista
+        if (onSuccess) {
+          onSuccess();
+        }
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Errore durante la cancellazione');
+      }
+    } catch (err) {
+      console.error('Errore cancellazione credenziali:', err);
+      setError('Errore durante la cancellazione delle credenziali');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
