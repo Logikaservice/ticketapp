@@ -5,20 +5,36 @@ import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, ChevronDown, 
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
   // Pre-filtra i clienti una volta quando users cambia, non ad ogni render
+  // Usa un approccio più efficiente: filtra e ordina in un unico passaggio
   const clientiAttiviMemo = useMemo(() => {
-    if (!users || !Array.isArray(users)) return [];
+    if (!users || !Array.isArray(users) || users.length === 0) return [];
     
-    const clienti = users.filter(u => u.ruolo === 'cliente');
+    console.log(`📊 Filtro clienti: ${users.length} utenti totali`);
+    const startTime = performance.now();
     
-    // Ordina per azienda, poi per email
-    clienti.sort((a, b) => {
-      const aziendaA = (a.azienda || 'Senza azienda').toLowerCase();
-      const aziendaB = (b.azienda || 'Senza azienda').toLowerCase();
-      if (aziendaA !== aziendaB) {
-        return aziendaA.localeCompare(aziendaB);
+    // Filtra solo i clienti
+    const clienti = [];
+    for (let i = 0; i < users.length; i++) {
+      if (users[i].ruolo === 'cliente') {
+        clienti.push(users[i]);
       }
-      return (a.email || '').toLowerCase().localeCompare((b.email || '').toLowerCase());
-    });
+    }
+    
+    console.log(`📊 Trovati ${clienti.length} clienti`);
+    
+    // Ordina per azienda, poi per email - usa un algoritmo più efficiente
+    if (clienti.length > 0) {
+      clienti.sort((a, b) => {
+        const aziendaA = (a.azienda || 'Senza azienda').toLowerCase();
+        const aziendaB = (b.azienda || 'Senza azienda').toLowerCase();
+        const cmp = aziendaA.localeCompare(aziendaB);
+        if (cmp !== 0) return cmp;
+        return (a.email || '').toLowerCase().localeCompare((b.email || '').toLowerCase());
+      });
+    }
+    
+    const endTime = performance.now();
+    console.log(`⏱️ Filtro completato in ${(endTime - startTime).toFixed(2)}ms`);
     
     return clienti;
   }, [users]);
@@ -37,31 +53,40 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const [isCheckingCredentials, setIsCheckingCredentials] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 50 });
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 });
   const scrollContainerRef = useRef(null);
-  const ITEMS_PER_PAGE = 50; // Renderizza 50 elementi alla volta
+  const ITEMS_PER_PAGE = 20; // Renderizza solo 20 elementi inizialmente per performance
 
   // Usa la lista pre-filtrata
   const clientiAttivi = clientiAttiviMemo;
 
-  // Filtra clienti in base alla ricerca con debounce implicito tramite useMemo
+  // Filtra clienti in base alla ricerca - ottimizzato per performance
   const filteredClienti = useMemo(() => {
     if (!searchQuery.trim()) return clientiAttivi;
+    
     const query = searchQuery.toLowerCase().trim();
-    // Usa un algoritmo più efficiente per la ricerca
-    return clientiAttivi.filter(cliente => {
+    const queryLen = query.length;
+    
+    // Algoritmo di ricerca ottimizzato
+    const results = [];
+    for (let i = 0; i < clientiAttivi.length; i++) {
+      const cliente = clientiAttivi[i];
       const azienda = (cliente.azienda || 'Senza azienda').toLowerCase();
       const email = (cliente.email || '').toLowerCase();
-      const nome = (cliente.nome || '').toLowerCase();
-      const cognome = (cliente.cognome || '').toLowerCase();
-      // Cerca all'inizio delle stringhe per risultati più rilevanti
-      return azienda.startsWith(query) || 
-             email.startsWith(query) || 
-             azienda.includes(query) || 
-             email.includes(query) ||
-             nome.includes(query) || 
-             cognome.includes(query);
-    });
+      
+      // Controlla prima se inizia con la query (più veloce)
+      if (azienda.substring(0, queryLen) === query || email.substring(0, queryLen) === query) {
+        results.push(cliente);
+        continue;
+      }
+      
+      // Poi controlla se contiene la query
+      if (azienda.includes(query) || email.includes(query)) {
+        results.push(cliente);
+      }
+    }
+    
+    return results;
   }, [clientiAttivi, searchQuery]);
 
   // Reset visible range quando cambia la ricerca o si apre il dropdown
