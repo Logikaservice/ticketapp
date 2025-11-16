@@ -90,7 +90,8 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
 
         // Calcola data di creazione e conto alla rovescia
         const createdAt = new Date(avv.createdAt || avv.created_at);
-        const isPermanent = avv.isPermanent || avv.is_permanent;
+        // Gestisci correttamente i valori booleani (PostgreSQL restituisce booleani, ma controlla entrambi i formati)
+        const isPermanent = avv.isPermanent !== undefined ? avv.isPermanent : (avv.is_permanent !== undefined ? avv.is_permanent : true);
         const daysToExpire = avv.daysToExpire || avv.days_to_expire || 7;
         
         // Calcola giorni rimanenti per avvisi temporanei
