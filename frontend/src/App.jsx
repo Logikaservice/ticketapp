@@ -150,6 +150,11 @@ export default function TicketApp() {
     handleDeleteClient
   } = useClients(showNotification, setUsers, setTickets, getAuthHeader);
 
+  // Pre-filtra i clienti una volta per performance - evita ricalcoli nei modals
+  const clientiAttivi = useMemo(() => {
+    return users.filter(u => u.ruolo === 'cliente');
+  }, [users]);
+
   const closeModal = () => {
     if (modalState.type === 'newTicket') {
       resetNewTicketData();
