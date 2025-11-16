@@ -375,6 +375,78 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
             )}
           </div>
 
+          {/* Pulsante Cancella Credenziali - Mostra solo se il cliente ha credenziali */}
+          {hasCredentials && selectedClientId && (
+            <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Trash2 size={20} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-gray-900 mb-1">Credenziali già importate</h3>
+                  <p className="text-sm text-gray-700 mb-3">
+                    Questo cliente ha già {credentialsCount.groups} {credentialsCount.groups === 1 ? 'gruppo' : 'gruppi'} e {credentialsCount.entries} {credentialsCount.entries === 1 ? 'credenziale' : 'credenziali'} importate.
+                    {!showDeleteConfirm && (
+                      <span className="block mt-1 text-red-600 font-semibold">
+                        Vuoi cancellarle prima di importare nuove credenziali?
+                      </span>
+                    )}
+                  </p>
+                  {!showDeleteConfirm ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      disabled={isDeleting || isUploading}
+                      className="px-4 py-2 bg-gradient-to-r from-red-500 to-orange-600 text-white font-semibold rounded-lg hover:from-red-600 hover:to-orange-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      <Trash2 size={16} />
+                      Cancella Tutte le Credenziali
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="bg-white border-2 border-red-300 rounded-lg p-3 mb-2">
+                        <p className="text-sm font-semibold text-red-700">
+                          ⚠️ Sei sicuro di voler cancellare tutte le credenziali?
+                        </p>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Questa azione è irreversibile. Verranno cancellati {credentialsCount.groups} {credentialsCount.groups === 1 ? 'gruppo' : 'gruppi'} e {credentialsCount.entries} {credentialsCount.entries === 1 ? 'credenziale' : 'credenziali'}.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleDeleteCredentials}
+                          disabled={isDeleting || isUploading}
+                          className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white font-semibold rounded-lg hover:from-red-700 hover:to-red-800 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {isDeleting ? (
+                            <>
+                              <RefreshCw size={16} className="animate-spin" />
+                              Cancellazione...
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 size={16} />
+                              Conferma Cancellazione
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowDeleteConfirm(false)}
+                          disabled={isDeleting || isUploading}
+                          className="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Annulla
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Upload File */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
