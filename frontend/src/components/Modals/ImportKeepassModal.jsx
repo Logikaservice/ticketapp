@@ -1,6 +1,6 @@
 // frontend/src/components/Modals/ImportKeepassModal.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
@@ -11,6 +11,12 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [migrationResult, setMigrationResult] = useState(null);
+
+  // Memoizza il filtro dei clienti per evitare ricalcoli ad ogni render
+  const clientiAttivi = useMemo(() => {
+    if (!users || !Array.isArray(users)) return [];
+    return users.filter(u => u.ruolo === 'cliente');
+  }, [users]);
 
   if (!isOpen) return null;
 
@@ -124,8 +130,6 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
       setIsMigrating(false);
     }
   };
-
-  const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" style={{ paddingTop: '3rem', paddingBottom: '3rem' }}>
