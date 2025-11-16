@@ -2207,6 +2207,7 @@ export default function TicketApp() {
         currentUser={currentUser}
         showNotification={showNotification}
         users={users}
+        clientiAttivi={clientiAttivi}
         onSaveAlert={handleSaveAlert}
         onEditAlert={handleEditAlert}
         onConfirmEmail={handleConfirmEmail}
