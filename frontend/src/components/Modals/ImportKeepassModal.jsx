@@ -4,34 +4,35 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, Trash2 } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
-  // Carica i clienti solo quando il modal si apre - evita calcoli inutili
-  const [clientiAttivi, setClientiAttivi] = useState([]);
-  
-  // Carica i clienti solo quando il modal si apre
-  useEffect(() => {
-    if (isOpen && users && Array.isArray(users)) {
-      // Usa requestIdleCallback per non bloccare il rendering
-      const loadClients = () => {
-        const allAreClients = users.length === 0 || users.every(u => u.ruolo === 'cliente');
-        const clienti = allAreClients ? users : users.filter(u => u.ruolo === 'cliente');
-        setClientiAttivi(clienti);
-      };
-      
-      // Se il browser supporta requestIdleCallback, usalo
-      if (window.requestIdleCallback) {
-        requestIdleCallback(loadClients, { timeout: 100 });
-      } else {
-        // Altrimenti usa setTimeout per non bloccare
-        setTimeout(loadClients, 0);
+  // Estrai solo le aziende uniche - molto più veloce e semplice
+  const aziendeUniche = useMemo(() => {
+    if (!users || !Array.isArray(users)) return [];
+    
+    const clienti = users.filter(u => u.ruolo === 'cliente');
+    const aziendeMap = new Map();
+    
+    // Raggruppa per azienda e prendi il primo cliente per ogni azienda
+    clienti.forEach(cliente => {
+      const azienda = cliente.azienda || 'Senza azienda';
+      if (!aziendeMap.has(azienda)) {
+        aziendeMap.set(azienda, cliente);
       }
-    } else if (!isOpen) {
-      // Reset quando il modal si chiude
-      setClientiAttivi([]);
-    }
-  }, [isOpen, users]);
+    });
+    
+    // Converti in array e ordina
+    return Array.from(aziendeMap.entries())
+      .map(([azienda, cliente]) => ({ azienda, cliente }))
+      .sort((a, b) => a.azienda.localeCompare(b.azienda));
+  }, [users]);
+  
+  // Mappa azienda -> primo cliente per l'importazione
+  const getClienteByAzienda = (azienda) => {
+    const entry = aziendeUniche.find(a => a.azienda === azienda);
+    return entry ? entry.cliente : null;
+  };
 
   const [selectedFile, setSelectedFile] = useState(null);
-  const [selectedClientId, setSelectedClientId] = useState('');
+  const [selectedAzienda, setSelectedAzienda] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isMigrating, setIsMigrating] = useState(false);
   const [error, setError] = useState(null);
@@ -46,136 +47,101 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   // Reset quando il modal si chiude
   useEffect(() => {
     if (!isOpen) {
-      setSelectedClientId('');
+      setSelectedAzienda('');
       setHasCredentials(false);
       setCredentialsCount({ groups: 0, entries: 0 });
       setShowDeleteConfirm(false);
     }
   }, [isOpen]);
 
-  // Verifica se il cliente selezionato ha credenziali
-  // Usa un ref per cancellare le chiamate precedenti e memorizzare getAuthHeader
+  // Verifica se l'azienda selezionata ha credenziali (usando il primo cliente dell'azienda)
   const abortControllerRef = useRef(null);
   const getAuthHeaderRef = useRef(getAuthHeader);
   
-  // Aggiorna il ref quando getAuthHeader cambia
   useEffect(() => {
     getAuthHeaderRef.current = getAuthHeader;
   }, [getAuthHeader]);
   
   useEffect(() => {
-    // Non fare nulla se il modal non è aperto
-    if (!isOpen || !selectedClientId) {
+    if (!isOpen || !selectedAzienda) {
       setHasCredentials(false);
       setCredentialsCount({ groups: 0, entries: 0 });
       return;
     }
 
-    // Cancella qualsiasi chiamata precedente solo se c'è un clientId diverso
+    const cliente = getClienteByAzienda(selectedAzienda);
+    if (!cliente) return;
+
+    const currentClientId = cliente.id.toString();
+
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
 
     const checkCredentials = async () => {
-      const currentClientId = selectedClientId; // Salva il clientId corrente
-      
-      console.log(`🔍 Verifica credenziali per cliente: ${currentClientId}`);
-
-      // Crea un nuovo AbortController per questa chiamata
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
       setIsCheckingCredentials(true);
       try {
         const url = `${process.env.REACT_APP_API_URL}/api/keepass/check/${currentClientId}`;
-        console.log(`📡 Chiamata API: ${url}`);
-        
         const response = await fetch(url, {
           headers: getAuthHeaderRef.current(),
           signal: abortController.signal
         });
 
-        // Verifica se la richiesta è stata cancellata o se il clientId è cambiato
-        if (abortController.signal.aborted || selectedClientId !== currentClientId) {
-          console.log('⚠️ Richiesta cancellata o clientId cambiato');
-          return;
-        }
+        if (abortController.signal.aborted || selectedAzienda !== selectedAzienda) return;
 
         if (response.ok) {
           const data = await response.json();
-          console.log('✅ Risposta API:', data);
-          
-          // Verifica ancora che il clientId non sia cambiato
-          if (selectedClientId !== currentClientId) {
-            console.log('⚠️ ClientId cambiato durante la chiamata');
-            return;
-          }
-          
-          setHasCredentials(data.hasCredentials);
-          setCredentialsCount({
-            groups: data.groupsCount || 0,
-            entries: data.entriesCount || 0
-          });
-          
-          if (data.hasCredentials) {
-            console.log(`✅ Cliente ${currentClientId} ha ${data.groupsCount} gruppi e ${data.entriesCount} credenziali`);
-          } else {
-            console.log(`ℹ️ Cliente ${currentClientId} non ha credenziali`);
+          if (selectedAzienda === selectedAzienda) {
+            setHasCredentials(data.hasCredentials);
+            setCredentialsCount({
+              groups: data.groupsCount || 0,
+              entries: data.entriesCount || 0
+            });
           }
         } else {
-          const errorText = await response.text();
-          console.error(`❌ Errore API (${response.status}):`, errorText);
-          if (selectedClientId === currentClientId) {
+          if (selectedAzienda === selectedAzienda) {
             setHasCredentials(false);
             setCredentialsCount({ groups: 0, entries: 0 });
           }
         }
       } catch (err) {
-        // Ignora errori se la richiesta è stata cancellata
-        if (err.name === 'AbortError') {
-          console.log('⚠️ Richiesta abortita');
-          return;
-        }
-        console.error('❌ Errore verifica credenziali:', err);
-        if (selectedClientId === currentClientId) {
+        if (err.name === 'AbortError') return;
+        if (selectedAzienda === selectedAzienda) {
           setHasCredentials(false);
           setCredentialsCount({ groups: 0, entries: 0 });
         }
       } finally {
-        // Solo se non è stata cancellata e il clientId è ancora lo stesso
-        if (!abortController.signal.aborted && selectedClientId === currentClientId) {
+        if (!abortController.signal.aborted && selectedAzienda === selectedAzienda) {
           setIsCheckingCredentials(false);
         }
       }
     };
 
-    // Debounce molto breve (50ms) per evitare chiamate multiple rapide
-    const timeoutId = setTimeout(() => {
-      checkCredentials();
-    }, 50);
-
-    // Cleanup: cancella il timeout e la richiesta
+    const timeoutId = setTimeout(checkCredentials, 50);
     return () => {
       clearTimeout(timeoutId);
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
-  }, [selectedClientId, isOpen]);
+  }, [selectedAzienda, isOpen, getClienteByAzienda]);
 
   if (!isOpen) return null;
 
-  const selectedClient = clientiAttivi.find(c => c.id.toString() === selectedClientId.toString());
+  const selectedCliente = getClienteByAzienda(selectedAzienda);
 
   const handleDeleteCredentials = async () => {
-    if (!selectedClientId) return;
+    if (!selectedAzienda || !selectedCliente) return;
 
     setIsDeleting(true);
     setError(null);
     setSuccess(null);
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/client/${selectedClientId}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/client/${selectedCliente.id}`, {
         method: 'DELETE',
         headers: getAuthHeader()
       });
@@ -217,25 +183,25 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   };
 
   const handleImport = async () => {
-    if (!selectedFile) {
-      setError('Seleziona un file XML');
-      return;
-    }
+            if (!selectedFile) {
+              setError('Seleziona un file XML');
+              return;
+            }
 
-    if (!selectedClientId) {
-      setError('Seleziona un cliente');
-      return;
-    }
+            if (!selectedAzienda || !selectedCliente) {
+              setError('Seleziona un\'azienda');
+              return;
+            }
 
     setIsUploading(true);
     setError(null);
     setSuccess(null);
     setMigrationResult(null);
 
-    try {
-      const formData = new FormData();
-      formData.append('xmlFile', selectedFile);
-      formData.append('clientId', selectedClientId);
+            try {
+              const formData = new FormData();
+              formData.append('xmlFile', selectedFile);
+              formData.append('clientId', selectedCliente.id);
 
       const authHeader = getAuthHeader();
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/import`, {
@@ -379,17 +345,8 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
             <datalist id="clienti-list"></datalist>
           </div>
 
-          {/* Debug info - rimuovere in produzione */}
-          {selectedClientId && (
-            <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
-              Debug: ClientId={selectedClientId}, hasCredentials={hasCredentials ? 'true' : 'false'}, 
-              Groups={credentialsCount.groups}, Entries={credentialsCount.entries}, 
-              Checking={isCheckingCredentials ? 'yes' : 'no'}
-            </div>
-          )}
-
-          {/* Pulsante Cancella Credenziali - Mostra solo se il cliente ha credenziali */}
-          {hasCredentials && selectedClientId && (
+          {/* Pulsante Cancella Credenziali - Mostra solo se l'azienda ha credenziali */}
+          {hasCredentials && selectedAzienda && selectedCliente && (
             <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-600 rounded-lg flex items-center justify-center flex-shrink-0">
