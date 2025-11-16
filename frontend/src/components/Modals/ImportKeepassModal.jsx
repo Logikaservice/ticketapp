@@ -19,10 +19,9 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const [isCheckingCredentials, setIsCheckingCredentials] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isPreparingList, setIsPreparingList] = useState(false);
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 });
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 50 });
   const scrollContainerRef = useRef(null);
-  const ITEMS_PER_PAGE = 30; // Renderizza 30 elementi alla volta
+  const ITEMS_PER_PAGE = 50; // Renderizza 50 elementi alla volta
 
   // Memoizza il filtro dei clienti per evitare ricalcoli ad ogni render
   // Ordina anche i clienti per nome azienda per migliorare l'UX
@@ -405,19 +404,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
             </label>
             <button
               type="button"
-              onClick={() => {
-                if (!isDropdownOpen) {
-                  // Prepara la lista prima di aprire (defer rendering)
-                  setIsPreparingList(true);
-                  // Usa requestAnimationFrame per deferire il rendering
-                  requestAnimationFrame(() => {
-                    setIsPreparingList(false);
-                    setIsDropdownOpen(true);
-                  });
-                } else {
-                  setIsDropdownOpen(false);
-                }
-              }}
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               disabled={isUploading}
               className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 hover:border-purple-400 transition-all bg-white text-left flex items-center justify-between shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -442,8 +429,8 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
               />
             </button>
 
-            {/* Dropdown Menu - Rendering ottimizzato */}
-            {(isDropdownOpen || isPreparingList) && (
+            {/* Dropdown Menu - Rendering immediato */}
+            {isDropdownOpen && (
               <div className="absolute z-50 w-full mt-2 bg-white border-2 border-purple-200 rounded-lg shadow-xl max-h-96 overflow-hidden flex flex-col">
                 {/* Barra di ricerca */}
                 <div className="p-3 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-violet-50">
@@ -455,7 +442,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
-                      autoFocus={isDropdownOpen}
+                      autoFocus
                     />
                   </div>
                 </div>
@@ -466,12 +453,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                   className="overflow-y-auto max-h-80"
                   onScroll={handleScroll}
                 >
-                  {isPreparingList ? (
-                    <div className="p-4 text-center">
-                      <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600"></div>
-                      <p className="text-sm text-gray-500 mt-2">Caricamento clienti...</p>
-                    </div>
-                  ) : !clientiAttivi || clientiAttivi.length === 0 ? (
+                  {!clientiAttivi || clientiAttivi.length === 0 ? (
                     <div className="p-4 text-center text-gray-500">
                       Nessun cliente disponibile
                     </div>
