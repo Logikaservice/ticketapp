@@ -4,6 +4,24 @@ import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, ChevronDown, Search, Building, User, Trash2 } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
+  // Pre-filtra i clienti una volta quando users cambia, non ad ogni render
+  const clientiAttiviMemo = useMemo(() => {
+    if (!users || !Array.isArray(users)) return [];
+    
+    const clienti = users.filter(u => u.ruolo === 'cliente');
+    
+    // Ordina per azienda, poi per email
+    clienti.sort((a, b) => {
+      const aziendaA = (a.azienda || 'Senza azienda').toLowerCase();
+      const aziendaB = (b.azienda || 'Senza azienda').toLowerCase();
+      if (aziendaA !== aziendaB) {
+        return aziendaA.localeCompare(aziendaB);
+      }
+      return (a.email || '').toLowerCase().localeCompare((b.email || '').toLowerCase());
+    });
+    
+    return clienti;
+  }, [users]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -23,32 +41,8 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const scrollContainerRef = useRef(null);
   const ITEMS_PER_PAGE = 50; // Renderizza 50 elementi alla volta
 
-  // Memoizza il filtro dei clienti per evitare ricalcoli ad ogni render
-  // Ordina anche i clienti per nome azienda per migliorare l'UX
-  // Usa useMemo con calcolo lazy per migliorare le performance
-  const clientiAttivi = useMemo(() => {
-    if (!users || !Array.isArray(users)) return [];
-    
-    // Filtra e ordina in un unico passaggio per efficienza
-    const clienti = [];
-    for (const u of users) {
-      if (u.ruolo === 'cliente') {
-        clienti.push(u);
-      }
-    }
-    
-    // Ordina per azienda, poi per email
-    clienti.sort((a, b) => {
-      const aziendaA = (a.azienda || 'Senza azienda').toLowerCase();
-      const aziendaB = (b.azienda || 'Senza azienda').toLowerCase();
-      if (aziendaA !== aziendaB) {
-        return aziendaA.localeCompare(aziendaB);
-      }
-      return (a.email || '').toLowerCase().localeCompare((b.email || '').toLowerCase());
-    });
-    
-    return clienti;
-  }, [users]);
+  // Usa la lista pre-filtrata
+  const clientiAttivi = clientiAttiviMemo;
 
   // Filtra clienti in base alla ricerca con debounce implicito tramite useMemo
   const filteredClienti = useMemo(() => {
@@ -131,23 +125,32 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   }, [isOpen]);
 
   // Verifica se il cliente selezionato ha credenziali
-  // Usa un ref per cancellare le chiamate precedenti
+  // Usa un ref per cancellare le chiamate precedenti e memorizzare getAuthHeader
   const abortControllerRef = useRef(null);
+  const getAuthHeaderRef = useRef(getAuthHeader);
+  
+  // Aggiorna il ref quando getAuthHeader cambia
+  useEffect(() => {
+    getAuthHeaderRef.current = getAuthHeader;
+  }, [getAuthHeader]);
   
   useEffect(() => {
-    // Cancella qualsiasi chiamata precedente
+    // Non fare nulla se il modal non è aperto
+    if (!isOpen || !selectedClientId) {
+      setHasCredentials(false);
+      setCredentialsCount({ groups: 0, entries: 0 });
+      return;
+    }
+
+    // Cancella qualsiasi chiamata precedente solo se c'è un clientId diverso
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
 
     const checkCredentials = async () => {
-      if (!selectedClientId || !isOpen) {
-        setHasCredentials(false);
-        setCredentialsCount({ groups: 0, entries: 0 });
-        return;
-      }
-
-      console.log(`🔍 Verifica credenziali per cliente: ${selectedClientId}`);
+      const currentClientId = selectedClientId; // Salva il clientId corrente
+      
+      console.log(`🔍 Verifica credenziali per cliente: ${currentClientId}`);
 
       // Crea un nuovo AbortController per questa chiamata
       const abortController = new AbortController();
@@ -155,23 +158,30 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
 
       setIsCheckingCredentials(true);
       try {
-        const url = `${process.env.REACT_APP_API_URL}/api/keepass/check/${selectedClientId}`;
+        const url = `${process.env.REACT_APP_API_URL}/api/keepass/check/${currentClientId}`;
         console.log(`📡 Chiamata API: ${url}`);
         
         const response = await fetch(url, {
-          headers: getAuthHeader(),
-          signal: abortController.signal // Aggiungi il signal per poter cancellare
+          headers: getAuthHeaderRef.current(),
+          signal: abortController.signal
         });
 
-        // Verifica se la richiesta è stata cancellata
-        if (abortController.signal.aborted) {
-          console.log('⚠️ Richiesta cancellata');
+        // Verifica se la richiesta è stata cancellata o se il clientId è cambiato
+        if (abortController.signal.aborted || selectedClientId !== currentClientId) {
+          console.log('⚠️ Richiesta cancellata o clientId cambiato');
           return;
         }
 
         if (response.ok) {
           const data = await response.json();
           console.log('✅ Risposta API:', data);
+          
+          // Verifica ancora che il clientId non sia cambiato
+          if (selectedClientId !== currentClientId) {
+            console.log('⚠️ ClientId cambiato durante la chiamata');
+            return;
+          }
+          
           setHasCredentials(data.hasCredentials);
           setCredentialsCount({
             groups: data.groupsCount || 0,
@@ -179,15 +189,17 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
           });
           
           if (data.hasCredentials) {
-            console.log(`✅ Cliente ${selectedClientId} ha ${data.groupsCount} gruppi e ${data.entriesCount} credenziali`);
+            console.log(`✅ Cliente ${currentClientId} ha ${data.groupsCount} gruppi e ${data.entriesCount} credenziali`);
           } else {
-            console.log(`ℹ️ Cliente ${selectedClientId} non ha credenziali`);
+            console.log(`ℹ️ Cliente ${currentClientId} non ha credenziali`);
           }
         } else {
           const errorText = await response.text();
           console.error(`❌ Errore API (${response.status}):`, errorText);
-          setHasCredentials(false);
-          setCredentialsCount({ groups: 0, entries: 0 });
+          if (selectedClientId === currentClientId) {
+            setHasCredentials(false);
+            setCredentialsCount({ groups: 0, entries: 0 });
+          }
         }
       } catch (err) {
         // Ignora errori se la richiesta è stata cancellata
@@ -196,26 +208,31 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
           return;
         }
         console.error('❌ Errore verifica credenziali:', err);
-        setHasCredentials(false);
-        setCredentialsCount({ groups: 0, entries: 0 });
+        if (selectedClientId === currentClientId) {
+          setHasCredentials(false);
+          setCredentialsCount({ groups: 0, entries: 0 });
+        }
       } finally {
-        // Solo se non è stata cancellata
-        if (!abortController.signal.aborted) {
+        // Solo se non è stata cancellata e il clientId è ancora lo stesso
+        if (!abortController.signal.aborted && selectedClientId === currentClientId) {
           setIsCheckingCredentials(false);
         }
       }
     };
 
-    // Chiamata immediata senza debounce per risposta più veloce
-    checkCredentials();
+    // Debounce molto breve (50ms) per evitare chiamate multiple rapide
+    const timeoutId = setTimeout(() => {
+      checkCredentials();
+    }, 50);
 
-    // Cleanup: cancella la richiesta se il componente si smonta o cambiano le dipendenze
+    // Cleanup: cancella il timeout e la richiesta
     return () => {
+      clearTimeout(timeoutId);
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
     };
-  }, [selectedClientId, isOpen, getAuthHeader]);
+  }, [selectedClientId, isOpen]);
 
   if (!isOpen) return null;
 
