@@ -4,15 +4,31 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, Trash2 } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
-  // Usa direttamente l'array passato (già filtrato in App.jsx)
-  // Se non è già filtrato, filtra al volo (backward compatibility)
-  const clientiAttivi = useMemo(() => {
-    if (!users || !Array.isArray(users)) return [];
-    // Se l'array è già filtrato (solo clienti), usalo direttamente
-    // Altrimenti filtra (per backward compatibility)
-    const allAreClients = users.length === 0 || users.every(u => u.ruolo === 'cliente');
-    return allAreClients ? users : users.filter(u => u.ruolo === 'cliente');
-  }, [users]);
+  // Carica i clienti solo quando il modal si apre - evita calcoli inutili
+  const [clientiAttivi, setClientiAttivi] = useState([]);
+  
+  // Carica i clienti solo quando il modal si apre
+  useEffect(() => {
+    if (isOpen && users && Array.isArray(users)) {
+      // Usa requestIdleCallback per non bloccare il rendering
+      const loadClients = () => {
+        const allAreClients = users.length === 0 || users.every(u => u.ruolo === 'cliente');
+        const clienti = allAreClients ? users : users.filter(u => u.ruolo === 'cliente');
+        setClientiAttivi(clienti);
+      };
+      
+      // Se il browser supporta requestIdleCallback, usalo
+      if (window.requestIdleCallback) {
+        requestIdleCallback(loadClients, { timeout: 100 });
+      } else {
+        // Altrimenti usa setTimeout per non bloccare
+        setTimeout(loadClients, 0);
+      }
+    } else if (!isOpen) {
+      // Reset quando il modal si chiude
+      setClientiAttivi([]);
+    }
+  }, [isOpen, users]);
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedClientId, setSelectedClientId] = useState('');
