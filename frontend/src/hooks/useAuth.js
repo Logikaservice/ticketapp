@@ -7,37 +7,6 @@ export const useAuth = (showNotification) => {
   const [token, setToken] = useState(localStorage.getItem('authToken'));
   const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
 
-  // Verifica token al caricamento
-  useEffect(() => {
-    if (token) {
-      try {
-        // Verifica se il token è valido
-        const tokenParts = token.split('.');
-        if (tokenParts.length !== 3) {
-          console.error('❌ Token JWT malformato');
-          handleLogout();
-          return;
-        }
-        
-        const tokenData = JSON.parse(atob(tokenParts[1]));
-        const now = Date.now() / 1000;
-        
-        if (tokenData.exp > now) {
-          // Token valido, carica i dati completi dell'utente dal backend
-          // (incluso admin_companies che non è nel token)
-          loadCurrentUserData();
-          setIsLoggedIn(true);
-        } else {
-          // Token scaduto, prova a rinnovarlo
-          handleRefreshToken();
-        }
-      } catch (error) {
-        console.error('❌ Errore decodifica token:', error);
-        handleLogout();
-      }
-    }
-  }, []);
-
   // Carica i dati completi dell'utente dal backend (incluso admin_companies)
   const loadCurrentUserData = async () => {
     if (!token) return;
@@ -89,6 +58,37 @@ export const useAuth = (showNotification) => {
       }
     }
   };
+
+  // Verifica token al caricamento
+  useEffect(() => {
+    if (token) {
+      try {
+        // Verifica se il token è valido
+        const tokenParts = token.split('.');
+        if (tokenParts.length !== 3) {
+          console.error('❌ Token JWT malformato');
+          handleLogout();
+          return;
+        }
+        
+        const tokenData = JSON.parse(atob(tokenParts[1]));
+        const now = Date.now() / 1000;
+        
+        if (tokenData.exp > now) {
+          // Token valido, carica i dati completi dell'utente dal backend
+          // (incluso admin_companies che non è nel token)
+          loadCurrentUserData();
+          setIsLoggedIn(true);
+        } else {
+          // Token scaduto, prova a rinnovarlo
+          handleRefreshToken();
+        }
+      } catch (error) {
+        console.error('❌ Errore decodifica token:', error);
+        handleLogout();
+      }
+    }
+  }, []);
 
   const handleRefreshToken = async () => {
     if (!refreshToken) {
