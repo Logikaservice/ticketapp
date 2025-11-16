@@ -23,16 +23,9 @@ export const useAuth = (showNotification) => {
         const now = Date.now() / 1000;
         
         if (tokenData.exp > now) {
-          // Token valido, imposta l'utente
-          setCurrentUser({
-            id: tokenData.id,
-            email: tokenData.email,
-            ruolo: tokenData.ruolo,
-            nome: tokenData.nome,
-            cognome: tokenData.cognome,
-            telefono: tokenData.telefono,
-            azienda: tokenData.azienda
-          });
+          // Token valido, carica i dati completi dell'utente dal backend
+          // (incluso admin_companies che non è nel token)
+          loadCurrentUserData();
           setIsLoggedIn(true);
         } else {
           // Token scaduto, prova a rinnovarlo
@@ -44,6 +37,58 @@ export const useAuth = (showNotification) => {
       }
     }
   }, []);
+
+  // Carica i dati completi dell'utente dal backend (incluso admin_companies)
+  const loadCurrentUserData = async () => {
+    if (!token) return;
+    
+    try {
+      const response = await fetch(process.env.REACT_APP_API_URL + '/api/users/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setCurrentUser(userData);
+        console.log('✅ Dati utente completi caricati (incluso admin_companies)');
+      } else {
+        // Se l'endpoint non esiste, usa i dati dal token come fallback
+        const tokenParts = token.split('.');
+        if (tokenParts.length === 3) {
+          const tokenData = JSON.parse(atob(tokenParts[1]));
+          setCurrentUser({
+            id: tokenData.id,
+            email: tokenData.email,
+            ruolo: tokenData.ruolo,
+            nome: tokenData.nome,
+            cognome: tokenData.cognome,
+            telefono: tokenData.telefono,
+            azienda: tokenData.azienda,
+            admin_companies: [] // Default vuoto se non disponibile
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Errore caricamento dati utente:', error);
+      // Fallback ai dati del token
+      const tokenParts = token.split('.');
+      if (tokenParts.length === 3) {
+        const tokenData = JSON.parse(atob(tokenParts[1]));
+        setCurrentUser({
+          id: tokenData.id,
+          email: tokenData.email,
+          ruolo: tokenData.ruolo,
+          nome: tokenData.nome,
+          cognome: tokenData.cognome,
+          telefono: tokenData.telefono,
+          azienda: tokenData.azienda,
+          admin_companies: [] // Default vuoto se non disponibile
+        });
+      }
+    }
+  };
 
   const handleRefreshToken = async () => {
     if (!refreshToken) {
@@ -63,6 +108,8 @@ export const useAuth = (showNotification) => {
         setToken(data.token);
         localStorage.setItem('authToken', data.token);
         console.log('🔄 Token rinnovato automaticamente');
+        // Carica i dati completi dopo il refresh
+        await loadCurrentUserData();
       } else {
         handleLogout();
       }

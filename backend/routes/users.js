@@ -25,6 +25,66 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Prende i dati dell'utente corrente (autenticato)
+  router.get('/me', async (req, res) => {
+    try {
+      // req.user viene impostato dal middleware authenticateToken
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(401).json({ error: 'Utente non autenticato' });
+      }
+
+      const client = await pool.connect();
+      const result = await client.query(
+        'SELECT id, email, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      if (result.rows.length === 0) {
+        client.release();
+        return res.status(404).json({ error: 'Utente non trovato' });
+      }
+      
+      const user = result.rows[0];
+      
+      // Parsa admin_companies se necessario
+      let adminCompanies = [];
+      try {
+        if (user.admin_companies) {
+          if (Array.isArray(user.admin_companies)) {
+            adminCompanies = user.admin_companies;
+          } else if (typeof user.admin_companies === 'string') {
+            adminCompanies = JSON.parse(user.admin_companies);
+          } else {
+            adminCompanies = user.admin_companies;
+          }
+          if (!Array.isArray(adminCompanies)) {
+            adminCompanies = [];
+          }
+        }
+      } catch (e) {
+        console.error('Errore parsing admin_companies:', e);
+        adminCompanies = [];
+      }
+      
+      client.release();
+      res.json({
+        id: user.id,
+        email: user.email,
+        ruolo: user.ruolo,
+        nome: user.nome,
+        cognome: user.cognome,
+        telefono: user.telefono,
+        azienda: user.azienda,
+        admin_companies: adminCompanies
+      });
+    } catch (err) {
+      console.error('Errore nel recupero dati utente corrente:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
   // ENDPOINT: Prende un singolo utente per ID
   router.get('/:id', async (req, res) => {
     try {
