@@ -970,13 +970,21 @@ ${formattedComplaints}
   router.post('/notify-technician-new-ticket', async (req, res) => {
     try {
       console.log('📧 === INVIO EMAIL TECNICO NUOVO TICKET ===');
+      console.log('📧 Body completo ricevuto:', JSON.stringify(req.body, null, 2));
+      
       const { ticket, technicianEmail, technicianName } = req.body;
       
-      console.log('Dati ricevuti:', { 
+      console.log('📧 Dati estratti:', { 
         ticketId: ticket?.id, 
         ticketNumero: ticket?.numero,
+        ticketTitolo: ticket?.titolo,
+        ticketDescrizione: ticket?.descrizione ? (ticket.descrizione.substring(0, 50) + '...') : 'N/A',
+        ticketPriorita: ticket?.priorita,
+        ticketStato: ticket?.stato,
         technicianEmail, 
-        technicianName 
+        technicianName,
+        ticketPresente: !!ticket,
+        technicianEmailPresente: !!technicianEmail
       });
       
       if (!ticket || !technicianEmail) {
@@ -984,8 +992,11 @@ ${formattedComplaints}
         return res.status(400).json({ error: 'Ticket e email tecnico sono obbligatori' });
       }
 
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      if (!process.env.EMAIL_USER || !(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS)) {
         console.log('⚠️ Credenziali email non configurate');
+        console.log('  - EMAIL_USER:', process.env.EMAIL_USER ? 'Configurato' : 'MANCANTE');
+        console.log('  - EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? 'Configurato' : 'MANCANTE');
+        console.log('  - EMAIL_PASS:', process.env.EMAIL_PASS ? 'Configurato' : 'MANCANTE');
         return res.json({
           success: false,
           message: 'Sistema email non configurato'
@@ -994,6 +1005,16 @@ ${formattedComplaints}
 
       console.log('🔧 Creazione transporter...');
       const transporter = createTransporter();
+      
+      if (!transporter) {
+        console.log('❌ Transporter NON creato! Configurazione email mancante o errata.');
+        return res.status(500).json({ 
+          error: 'Configurazione email mancante',
+          details: 'Impossibile creare transporter email'
+        });
+      }
+      
+      console.log('✅ Transporter creato con successo');
       
       const mailOptions = {
         from: process.env.EMAIL_USER,
@@ -1043,23 +1064,43 @@ ${formattedComplaints}
       };
 
       console.log('📤 Invio email tecnico...');
-      console.log('Mail options:', {
+      console.log('📧 Mail options:', {
         from: mailOptions.from,
         to: mailOptions.to,
-        subject: mailOptions.subject
+        subject: mailOptions.subject,
+        htmlLength: mailOptions.html?.length || 0
       });
       
-      const info = await transporter.sendMail(mailOptions);
-      console.log('✅ Email tecnico inviata con successo:', info.messageId);
+      try {
+        console.log('📧 Tentativo invio email tramite SMTP...');
+        const info = await transporter.sendMail(mailOptions);
+        console.log('✅ Email tecnico inviata con successo!');
+        console.log('📧 Message ID:', info.messageId);
+        console.log('📧 Response:', info.response);
+        console.log('📧 Info completa:', JSON.stringify(info, null, 2));
       
-      res.json({
-        success: true,
-        messageId: info.messageId,
-        message: 'Email tecnico inviata con successo'
-      });
+        res.json({
+          success: true,
+          messageId: info.messageId,
+          message: 'Email tecnico inviata con successo'
+        });
+      } catch (sendMailErr) {
+        console.error('❌ ERRORE durante invio email SMTP:', sendMailErr);
+        console.error('❌ Errore name:', sendMailErr.name);
+        console.error('❌ Errore message:', sendMailErr.message);
+        console.error('❌ Errore code:', sendMailErr.code);
+        console.error('❌ Stack trace:', sendMailErr.stack);
+        res.status(500).json({ 
+          error: 'Errore invio email tecnico',
+          details: sendMailErr.message,
+          code: sendMailErr.code,
+          name: sendMailErr.name
+        });
+      }
 
     } catch (err) {
-      console.error('❌ Errore invio email tecnico:', err);
+      console.error('❌ Errore generale invio email tecnico:', err);
+      console.error('❌ Stack trace:', err.stack);
       res.status(500).json({ 
         error: 'Errore invio email tecnico',
         details: err.message 

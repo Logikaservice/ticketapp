@@ -367,16 +367,44 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       if (sendEmail === true || sendEmail === undefined) {
         try {
           console.log('📧 === INVIO NOTIFICA EMAIL TECNICI ===');
+          console.log('📧 Query tecnici: SELECT email, nome, cognome FROM users WHERE ruolo = \'tecnico\' AND email IS NOT NULL');
           const techniciansData = await pool.query('SELECT email, nome, cognome FROM users WHERE ruolo = \'tecnico\' AND email IS NOT NULL');
           console.log('📧 Tecnici trovati:', techniciansData.rows.length);
+          console.log('📧 Lista tecnici:', techniciansData.rows.map(t => ({ email: t.email, nome: t.nome, cognome: t.cognome })));
+          
+          if (techniciansData.rows.length === 0) {
+            console.log('⚠️ Nessun tecnico trovato nel database!');
+          }
         
         for (const technician of techniciansData.rows) {
           try {
-            console.log('📧 Invio email a tecnico:', technician.email);
+            console.log('📧 === INVIO EMAIL A TECNICO ===');
+            console.log('📧 Tecnico:', {
+              email: technician.email,
+              nome: technician.nome,
+              cognome: technician.cognome,
+              nomeCompleto: `${technician.nome} ${technician.cognome}`
+            });
+            
             const backendPort = process.env.PORT || 3001;
             const techEmailUrl = `http://localhost:${backendPort}/api/public-email/notify-technician-new-ticket`;
             console.log('📧 URL tecnico (pubblico, no auth):', techEmailUrl);
             console.log('📧 Porta backend:', backendPort);
+            
+            const ticketData = result.rows[0];
+            const requestBody = {
+              ticket: ticketData,
+              technicianEmail: technician.email,
+              technicianName: `${technician.nome || ''} ${technician.cognome || ''}`.trim() || 'Tecnico'
+            };
+            
+            console.log('📧 Dati da inviare:', {
+              ticketId: ticketData?.id,
+              ticketNumero: ticketData?.numero,
+              ticketTitolo: ticketData?.titolo,
+              technicianEmail: requestBody.technicianEmail,
+              technicianName: requestBody.technicianName
+            });
             
             // Aggiungi timeout di 10 secondi per evitare attese infinite
             const controller = new AbortController();
@@ -389,25 +417,29 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
                 headers: {
                   'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                  ticket: result.rows[0],
-                  technicianEmail: technician.email,
-                  technicianName: `${technician.nome} ${technician.cognome}`
-                }),
+                body: JSON.stringify(requestBody),
                 signal: controller.signal
               });
               
               clearTimeout(timeoutId);
               
+              console.log('📧 Risposta ricevuta, status:', technicianEmailResponse.status, 'ok:', technicianEmailResponse.ok);
+              
               if (technicianEmailResponse.ok) {
                 const responseData = await technicianEmailResponse.json();
                 console.log(`✅ Email notifica inviata al tecnico: ${technician.email}`);
-                console.log('📧 Risposta tecnico:', responseData);
+                console.log('📧 Risposta tecnico completa:', JSON.stringify(responseData, null, 2));
               } else {
                 const errorText = await technicianEmailResponse.text();
                 console.log(`❌ Errore invio email al tecnico: ${technician.email}`);
                 console.log('📧 Status tecnico:', technicianEmailResponse.status);
-                console.log('📧 Errore tecnico:', errorText);
+                console.log('📧 Errore tecnico completo:', errorText);
+                try {
+                  const errorJson = JSON.parse(errorText);
+                  console.log('📧 Errore tecnico (JSON):', JSON.stringify(errorJson, null, 2));
+                } catch (e) {
+                  console.log('📧 Errore tecnico (testo):', errorText);
+                }
               }
             } catch (fetchErr) {
               clearTimeout(timeoutId);
