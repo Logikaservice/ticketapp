@@ -6,6 +6,26 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 
+// Importa fetch per Node.js (se non disponibile globalmente)
+let fetch;
+try {
+  // Prova a usare fetch globale (Node.js 18+)
+  if (typeof globalThis.fetch !== 'undefined') {
+    fetch = globalThis.fetch;
+    console.log('✅ Fetch globale disponibile (Node.js 18+)');
+  } else {
+    // Fallback a node-fetch per versioni precedenti
+    fetch = require('node-fetch');
+    console.log('✅ Usando node-fetch come fallback');
+  }
+} catch (err) {
+  console.error('❌ Errore caricamento fetch:', err.message);
+  // Se node-fetch non è disponibile, usa un polyfill minimo
+  fetch = async (url, options) => {
+    throw new Error('Fetch non disponibile. Installa node-fetch: npm install node-fetch');
+  };
+}
+
 module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
   // Funzione helper per generare il footer HTML con link al login
   const getEmailFooter = () => {
@@ -245,6 +265,10 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       // Invia email in background (NON bloccare la risposta HTTP)
       // Usa setImmediate per eseguire dopo che la risposta è stata inviata
       setImmediate(async () => {
+        console.log('📧 === SETIMMEDIATE AVVIATO - INIZIO INVIO EMAIL ===');
+        console.log('📧 Ticket ID:', result.rows[0]?.id);
+        console.log('📧 SendEmail:', sendEmail, 'tipo:', typeof sendEmail);
+        
         // Invia notifica email al cliente (solo se sendEmail è true o undefined)
         console.log('🔍 DEBUG BACKEND: Controllo invio email - sendEmail =', sendEmail, 'tipo:', typeof sendEmail, 'result.rows[0] =', !!result.rows[0]);
         
@@ -283,6 +307,15 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
             const timeoutId = setTimeout(() => controller.abort(), 10000);
             
             try {
+              console.log('📧 Chiamata fetch a:', emailUrl);
+              console.log('📧 Headers:', { 'Content-Type': 'application/json', 'Authorization': authHeader ? 'Presente' : 'Assente' });
+              console.log('📧 Body:', JSON.stringify({
+                ticket: { id: result.rows[0].id, numero: result.rows[0].numero },
+                clientEmail: client.email,
+                clientName: `${client.nome} ${client.cognome}`,
+                isSelfCreated: isSelfCreated
+              }));
+              
               const emailResponse = await fetch(emailUrl, {
                 method: 'POST',
                 headers: {
@@ -300,6 +333,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
               });
               
               clearTimeout(timeoutId);
+              console.log('📧 Risposta fetch ricevuta, status:', emailResponse.status);
             
               if (emailResponse.ok) {
                 const responseData = await emailResponse.json();
@@ -396,6 +430,12 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       }
       } else {
         console.log('🔍 DEBUG BACKEND: Email notifica NON inviata ai tecnici (sendEmail = false)');
+      }
+      
+      console.log('📧 === SETIMMEDIATE COMPLETATO - FINE INVIO EMAIL ===');
+      } catch (setImmediateErr) {
+        console.error('❌ ERRORE CRITICO in setImmediate (invio email):', setImmediateErr);
+        console.error('❌ Stack trace:', setImmediateErr.stack);
       }
       }); // Fine setImmediate - email inviate in background
     } catch (err) {
