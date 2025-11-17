@@ -14,13 +14,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Prepara configurazione Nginx
-        id: nginx_conf
-        run: |
-          echo "config<<'EOF'" >> $GITHUB_OUTPUT
-          cat deploy/nginx/ticketapp.conf >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-      
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -31,19 +24,17 @@ jobs:
           script: |
             cd /var/www/ticketapp
             
+            # Pull ultime modifiche
+            echo "📥 Pulling latest changes..."
+            git pull origin main
+            
             echo "🌐 Aggiornamento configurazione Nginx..."
-            cat <<'EOF' > /etc/nginx/sites-available/ticketapp.conf
-${{ steps.nginx_conf.outputs.config }}
-EOF
+            cp /var/www/ticketapp/deploy/nginx/ticketapp.conf /etc/nginx/sites-available/ticketapp.conf
             ln -sf /etc/nginx/sites-available/ticketapp.conf /etc/nginx/sites-enabled/ticketapp.conf
             rm -f /etc/nginx/sites-enabled/default
             mkdir -p /var/www/certbot
             nginx -t
             systemctl reload nginx
-            
-            # Pull ultime modifiche
-            echo "📥 Pulling latest changes..."
-            git pull origin main
             
             # Install dipendenze backend
             echo "📦 Installing backend dependencies..."
