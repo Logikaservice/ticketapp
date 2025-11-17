@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Printer, Trash2, Image as ImageIcon, Download, Paperclip, File } from 'lucide-react';
+import { getApiBase } from '../../utils/apiConfig';
 
 const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPhotos, getAuthHeader, currentUser }) => {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
@@ -9,7 +10,17 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
   const [localPhotos, setLocalPhotos] = useState(photos || []);
 
   const canManagePhotos = ticket?.stato && ['aperto', 'in_lavorazione', 'risolto'].includes(ticket.stato);
-  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const apiUrl = getApiBase() || '';
+
+  // Aggiorna localPhotos quando photos cambia da props
+  // IMPORTANTE: Questo hook deve essere chiamato PRIMA di qualsiasi return condizionale
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        setLocalPhotos(photos || []);
+      }, 0);
+    });
+  }, [photos]);
 
   const handleFileSelect = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -245,16 +256,6 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
       document.body.removeChild(link);
     }
   };
-
-  // Aggiorna localPhotos quando photos cambia da props
-  // Usa requestAnimationFrame per evitare conflitti durante il rendering
-  React.useEffect(() => {
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        setLocalPhotos(photos || []);
-      }, 0);
-    });
-  }, [photos]);
 
   const canDelete = currentUser?.ruolo === 'tecnico' || 
                    (ticket?.stato && ['aperto', 'in_lavorazione', 'risolto'].includes(ticket.stato));
