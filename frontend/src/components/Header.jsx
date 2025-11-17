@@ -87,12 +87,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       iconWrapperClass: 'text-orange-600 bg-orange-50',
       rowClass: 'hover:bg-orange-50/80 border-l-4 border-l-orange-400',
       action: openAccessLogs,
-      visible: (() => {
-        const isTecnico = currentUser?.ruolo === 'tecnico';
-        const hasFunction = typeof openAccessLogs === 'function';
-        console.log('🔍 Log accessi visible check:', { isTecnico, hasFunction, ruolo: currentUser?.ruolo, openAccessLogsType: typeof openAccessLogs });
-        return isTecnico && hasFunction;
-      })()
+      visible: currentUser?.ruolo === 'tecnico' && typeof openAccessLogs === 'function'
     },
     {
       label: 'Importa KeePass',
@@ -121,10 +116,24 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       action: openSettings,
       visible: typeof openSettings === 'function'
     }
-  ].filter(item => item.visible);
+  ].filter(item => {
+    const isVisible = item.visible;
+    if (item.label === 'Log accessi') {
+      console.log('🔍 Log accessi - visible check:', {
+        isVisible,
+        ruolo: currentUser?.ruolo,
+        isTecnico: currentUser?.ruolo === 'tecnico',
+        hasOpenAccessLogs: typeof openAccessLogs === 'function',
+        openAccessLogs
+      });
+    }
+    return isVisible;
+  });
 
   // Debug: verifica quali azioni sono visibili
   console.log('🔍 Header Debug - quickActions visibili:', quickActions.map(a => a.label));
+  console.log('🔍 Header Debug - openAccessLogs type:', typeof openAccessLogs);
+  console.log('🔍 Header Debug - currentUser ruolo:', currentUser?.ruolo);
 
   const handleQuickActionClick = (item) => {
     if (item.subActions && item.subActions.length > 0) {
