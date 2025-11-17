@@ -23,7 +23,7 @@ import { useTemporarySuppliesFromTickets } from './hooks/useTemporarySuppliesFro
 import { useGoogleCalendar } from './hooks/useGoogleCalendar';
 import { useWebSocket } from './hooks/useWebSocket';
 import GoogleCallback from './components/GoogleCallback';
-import { buildApiUrl, getApiBase } from './utils/apiConfig';
+import { buildApiUrl } from './utils/apiConfig';
 
 export default function TicketApp() {
   const [users, setUsers] = useState([]);
@@ -1324,7 +1324,6 @@ export default function TicketApp() {
 
   const handleSaveAlert = async (alertData, emailOption = 'none') => {
     try {
-      const apiBase = getApiBase();
       const formData = new FormData();
       formData.append('title', alertData.title);
       formData.append('body', alertData.description);
@@ -1349,7 +1348,7 @@ export default function TicketApp() {
         });
       }
 
-      const res = await fetch(`${apiBase}/api/alerts`), {
+      const res = await fetch(buildApiUrl('/api/alerts'), {
         method: 'POST',
         headers: { 
           'x-user-role': 'tecnico',
@@ -1382,7 +1381,6 @@ export default function TicketApp() {
       const authHeaders = getAuthHeader();
       console.log('🔍 DEBUG ALERTS: Auth headers:', authHeaders);
       
-      const apiBase = getApiBase();
       const formData = new FormData();
       formData.append('title', alertData.title);
       formData.append('body', alertData.description);
@@ -1399,7 +1397,7 @@ export default function TicketApp() {
         });
       }
 
-      const res = await fetch(`${apiBase}/api/alerts/${alertData.id}`), {
+      const res = await fetch(buildApiUrl(`/api/alerts/${alertData.id}`), {
         method: 'PUT',
         headers: { 
           'x-user-role': 'tecnico',
@@ -1887,8 +1885,6 @@ export default function TicketApp() {
   // Gestione richiesta assistenza veloce
   const handleQuickRequest = async (formData, photos = []) => {
     try {
-      const apiBase = getApiBase();
-      
       // Crea FormData per supportare sia i dati che le foto
       const formDataToSend = new FormData();
       formDataToSend.append('titolo', formData.titolo);
@@ -1904,7 +1900,7 @@ export default function TicketApp() {
         formDataToSend.append('photos', photo);
       });
 
-      const response = await fetch(`${apiBase}/api/tickets/quick-request`), {
+      const response = await fetch(buildApiUrl('/api/tickets/quick-request'), {
         method: 'POST',
         body: formDataToSend
       });
