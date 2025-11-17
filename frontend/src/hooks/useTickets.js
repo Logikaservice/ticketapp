@@ -83,16 +83,30 @@ export const useTickets = (
       let response;
       try {
         console.log('🔍 DEBUG: Inizio fetch...');
+        
+        // Aggiungi timeout di 30 secondi
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+          console.error('❌ ERRORE FETCH: Timeout dopo 30 secondi');
+        }, 30000);
+        
         response = await fetch(apiUrl, {
           method: 'POST',
           headers: headers,
-          body: body
+          body: body,
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         console.log('🔍 DEBUG: Fetch completata!');
       } catch (fetchError) {
-        console.error('❌ ERRORE FETCH (rete/CORS):', fetchError);
+        console.error('❌ ERRORE FETCH (rete/CORS/timeout):', fetchError);
         console.error('❌ ERRORE FETCH name:', fetchError.name);
         console.error('❌ ERRORE FETCH message:', fetchError.message);
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Timeout: il server non ha risposto entro 30 secondi. Riprova.');
+        }
         throw new Error('Errore di connessione al server. Verifica la connessione.');
       }
       
