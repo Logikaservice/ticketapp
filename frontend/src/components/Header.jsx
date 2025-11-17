@@ -46,6 +46,15 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       visible: typeof openAlertsHistory === 'function'
     },
     {
+      label: 'Gestione Clienti',
+      description: 'Lista e creazione clienti',
+      icon: Users,
+      iconWrapperClass: 'text-cyan-600 bg-cyan-50',
+      rowClass: 'hover:bg-cyan-50/80 border-l-4 border-l-cyan-400',
+      action: openManageClientsModal,
+      visible: currentUser?.ruolo === 'tecnico' && typeof openManageClientsModal === 'function'
+    },
+    {
       label: 'Importa KeePass',
       description: 'Gestione credenziali',
       icon: Key,
