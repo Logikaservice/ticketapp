@@ -110,6 +110,25 @@ jobs:
             sudo systemctl restart node 2>/dev/null || \
             echo "⚠️ Servizio backend systemctl non trovato, continua..."
             
+            # Configura nginx
+            echo "🔧 Configurazione nginx..."
+            if [ -f "deploy/nginx/ticketapp.conf" ]; then
+              echo "📋 Copia configurazione nginx..."
+              sudo cp deploy/nginx/ticketapp.conf /etc/nginx/sites-available/ticketapp.conf
+              sudo ln -sf /etc/nginx/sites-available/ticketapp.conf /etc/nginx/sites-enabled/ticketapp.conf
+              # Rimuovi default se esiste
+              sudo rm -f /etc/nginx/sites-enabled/default
+              echo "✅ Configurazione nginx copiata"
+            else
+              echo "⚠️ File nginx config non trovato, continua..."
+            fi
+            
+            # Test configurazione nginx
+            sudo nginx -t || {
+              echo "❌ Errore configurazione nginx!"
+              exit 1
+            }
+            
             # Riavvia nginx
             sudo systemctl restart nginx || {
               echo "⚠️ Errore riavvio nginx, provo reload..."
