@@ -1124,6 +1124,17 @@ app.post('/api/init-db', async (req, res) => {
         )
       `);
       console.log("✅ Tabella keepass_groups creata/verificata");
+      
+      // Aggiungi colonna client_id se non esiste (per tabelle create prima dell'aggiornamento)
+      try {
+        await pool.query(`
+          ALTER TABLE keepass_groups 
+          ADD COLUMN IF NOT EXISTS client_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+        `);
+        console.log("✅ Colonna client_id verificata/aggiunta a keepass_groups");
+      } catch (alterErr) {
+        console.log("⚠️ Errore aggiunta colonna client_id (potrebbe già esistere):", alterErr.message);
+      }
     } catch (keepassGroupsErr) {
       console.log("⚠️ Errore creazione tabella keepass_groups:", keepassGroupsErr.message);
     }
@@ -1297,6 +1308,17 @@ const startServer = async () => {
         )
       `);
       console.log("✅ Tabella keepass_groups creata/verificata (auto-init)");
+      
+      // Aggiungi colonna client_id se non esiste (per tabelle create prima dell'aggiornamento)
+      try {
+        await pool.query(`
+          ALTER TABLE keepass_groups 
+          ADD COLUMN IF NOT EXISTS client_id INTEGER REFERENCES users(id) ON DELETE CASCADE
+        `);
+        console.log("✅ Colonna client_id verificata/aggiunta a keepass_groups (auto-init)");
+      } catch (alterErr) {
+        console.log("⚠️ Errore aggiunta colonna client_id (potrebbe già esistere):", alterErr.message);
+      }
     } catch (keepassGroupsErr) {
       console.log("⚠️ Errore creazione tabella keepass_groups (auto-init):", keepassGroupsErr.message);
     }
