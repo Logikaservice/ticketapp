@@ -31,6 +31,10 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
     ? 'bg-blue-100 text-blue-800' 
     : 'bg-green-100 text-green-800';
 
+  // Debug: verifica che openAccessLogs sia passato
+  console.log('🔍 Header Debug - openAccessLogs:', typeof openAccessLogs, openAccessLogs);
+  console.log('🔍 Header Debug - currentUser ruolo:', currentUser?.ruolo);
+
   const quickActions = [
     {
       label: 'Nuove funzionalità',
@@ -105,6 +109,9 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       visible: typeof openSettings === 'function'
     }
   ].filter(item => item.visible);
+
+  // Debug: verifica quali azioni sono visibili
+  console.log('🔍 Header Debug - quickActions visibili:', quickActions.map(a => a.label));
 
   const handleQuickActionClick = (item) => {
     if (item.subActions && item.subActions.length > 0) {
