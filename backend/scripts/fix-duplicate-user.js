@@ -97,20 +97,28 @@ async function fixDuplicateUser() {
       
       // Verifica keepass_entries (se esiste campo user_id)
       try {
-        const keepassRef = await client.query(
-          'SELECT COUNT(*) as count FROM keepass_entries WHERE user_id = $1',
-          [removeId]
-        );
-        if (keepassRef.rows[0].count > 0) {
-          console.log(`  ⚠️  Credenziali KeePass collegate all'utente ID ${removeId}: ${keepassRef.rows[0].count}`);
-          console.log(`  🔄 Aggiorno credenziali KeePass per usare utente ID ${keepUserId}...`);
-          await client.query(
-            'UPDATE keepass_entries SET user_id = $1 WHERE user_id = $2',
-            [keepUserId, removeId]
+        const keepassColumnCheck = await client.query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'keepass_entries' AND column_name = 'user_id'
+        `);
+        if (keepassColumnCheck.rows.length > 0) {
+          const keepassRef = await client.query(
+            'SELECT COUNT(*) as count FROM keepass_entries WHERE user_id = $1',
+            [removeId]
           );
+          if (keepassRef.rows[0].count > 0) {
+            console.log(`  ⚠️  Credenziali KeePass collegate all'utente ID ${removeId}: ${keepassRef.rows[0].count}`);
+            console.log(`  🔄 Aggiorno credenziali KeePass per usare utente ID ${keepUserId}...`);
+            await client.query(
+              'UPDATE keepass_entries SET user_id = $1 WHERE user_id = $2',
+              [keepUserId, removeId]
+            );
+          }
         }
       } catch (err) {
-        // Tabella potrebbe non avere campo user_id, ignora
+        // Tabella potrebbe non esistere o non avere campo user_id, ignora
+        console.log(`  ℹ️  Tabella keepass_entries non ha colonna user_id o non esiste, ignoro`);
       }
       
       // Rimuovi utente duplicato
