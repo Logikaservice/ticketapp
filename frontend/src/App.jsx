@@ -303,7 +303,7 @@ export default function TicketApp() {
           const batchResults = await Promise.all(
             batch.map(async (ticket) => {
               try {
-                const fornitureResponse = await fetch(`${buildApiUrl(`/api/tickets/${ticket.id}/forniture`, {
+                const fornitureResponse = await fetch(buildApiUrl(`/api/tickets/${ticket.id}/forniture`), {
                   headers: getAuthHeader()
                 });
                 if (fornitureResponse.ok) {
@@ -681,7 +681,7 @@ export default function TicketApp() {
     }
     
     // Ricarica il ticket completo dal backend per avere tutti i dati aggiornati (incluso fornitureCount)
-    fetch(`${buildApiUrl(`/api/tickets/${data.ticketId}`, {
+    fetch(buildApiUrl(`/api/tickets/${data.ticketId}`), {
       headers: getAuthHeader()
     })
       .then(res => res.json())
@@ -689,7 +689,7 @@ export default function TicketApp() {
         console.log('📨 WebSocket: Ticket ricaricato dal backend:', ticket.id, 'stato:', ticket.stato);
         
         // Carica anche le forniture per avere il conteggio corretto
-        return fetch(`${buildApiUrl(`/api/tickets/${data.ticketId}/forniture`, {
+        return fetch(buildApiUrl(`/api/tickets/${data.ticketId}/forniture`), {
           headers: getAuthHeader()
         })
           .then(fornitureRes => fornitureRes.ok ? fornitureRes.json() : [])
@@ -795,7 +795,7 @@ export default function TicketApp() {
   const handleNewMessage = React.useCallback((data) => {
     console.log('📨 WebSocket: Nuovo messaggio', data.ticketId);
     // Ricarica il ticket per avere i messaggi aggiornati
-    fetch(`${buildApiUrl(`/api/tickets/${data.ticketId}`, {
+    fetch(buildApiUrl(`/api/tickets/${data.ticketId}`), {
       headers: getAuthHeader()
     })
       .then(res => res.json())
@@ -874,7 +874,7 @@ export default function TicketApp() {
           const batchResults = await Promise.all(
             batch.map(async (ticket) => {
               try {
-                const fornitureResponse = await fetch(`${buildApiUrl(`/api/tickets/${ticket.id}/forniture`, {
+                const fornitureResponse = await fetch(buildApiUrl(`/api/tickets/${ticket.id}/forniture`), {
                   headers: getAuthHeader()
                 });
                 if (fornitureResponse.ok) {
@@ -1259,7 +1259,7 @@ export default function TicketApp() {
         return;
       }
 
-      const response = await fetch(`${buildApiUrl(`/api/email/notify-ticket-resolved`, {
+      const response = await fetch(buildApiUrl(`/api/email/notify-ticket-resolved`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1298,7 +1298,7 @@ export default function TicketApp() {
         return;
       }
 
-      const response = await fetch(`${buildApiUrl(`/api/email/notify-ticket-resolved`, {
+      const response = await fetch(buildApiUrl(`/api/email/notify-ticket-resolved`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1349,7 +1349,7 @@ export default function TicketApp() {
         });
       }
 
-      const res = await fetch(`${apiBase}/api/alerts`, {
+      const res = await fetch(`${apiBase}/api/alerts`), {
         method: 'POST',
         headers: { 
           'x-user-role': 'tecnico',
@@ -1399,7 +1399,7 @@ export default function TicketApp() {
         });
       }
 
-      const res = await fetch(`${apiBase}/api/alerts/${alertData.id}`, {
+      const res = await fetch(`${apiBase}/api/alerts/${alertData.id}`), {
         method: 'PUT',
         headers: { 
           'x-user-role': 'tecnico',
@@ -1462,7 +1462,7 @@ export default function TicketApp() {
       console.log('Dati da inviare:', updateData);
       
       // Chiamata API per aggiornare le impostazioni
-      const response = await fetch(`${buildApiUrl(`/api/users/${currentUser.id}`, {
+      const response = await fetch(buildApiUrl(`/api/users/${currentUser.id}`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1588,9 +1588,9 @@ export default function TicketApp() {
         headers['Authorization'] = authHeader.Authorization;
       }
 
-      console.log('🔄 Chiamata API:', `${buildApiUrl(`/api/tickets/${ticketId}/photos`);
+      console.log('🔄 Chiamata API:', buildApiUrl(`/api/tickets/${ticketId}/photos`));
       
-      const response = await fetch(`${buildApiUrl(`/api/tickets/${ticketId}/photos`, {
+      const response = await fetch(buildApiUrl(`/api/tickets/${ticketId}/photos`), {
         method: 'POST',
         headers: headers,
         body: formData
@@ -1645,7 +1645,7 @@ export default function TicketApp() {
   // Funzione per eliminare foto di un ticket
   const handleDeleteTicketPhoto = async (ticketId, photoFilename) => {
     try {
-      const response = await fetch(`${buildApiUrl(`/api/tickets/${ticketId}/photos/${photoFilename}`, {
+      const response = await fetch(buildApiUrl(`/api/tickets/${ticketId}/photos/${photoFilename}`), {
         method: 'DELETE',
         headers: getAuthHeader()
       });
@@ -1904,7 +1904,7 @@ export default function TicketApp() {
         formDataToSend.append('photos', photo);
       });
 
-      const response = await fetch(`${apiBase}/api/tickets/quick-request`, {
+      const response = await fetch(`${apiBase}/api/tickets/quick-request`), {
         method: 'POST',
         body: formDataToSend
       });
