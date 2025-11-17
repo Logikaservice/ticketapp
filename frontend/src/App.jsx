@@ -23,6 +23,7 @@ import { useTemporarySuppliesFromTickets } from './hooks/useTemporarySuppliesFro
 import { useGoogleCalendar } from './hooks/useGoogleCalendar';
 import { useWebSocket } from './hooks/useWebSocket';
 import GoogleCallback from './components/GoogleCallback';
+import { buildApiUrl, getApiBase } from './utils/apiConfig';
 
 export default function TicketApp() {
   const [users, setUsers] = useState([]);
@@ -1323,7 +1324,7 @@ export default function TicketApp() {
 
   const handleSaveAlert = async (alertData, emailOption = 'none') => {
     try {
-      const apiBase = process.env.REACT_APP_API_URL || 'https://ticketapp-4eqb.onrender.com';
+      const apiBase = getApiBase();
       const formData = new FormData();
       formData.append('title', alertData.title);
       formData.append('body', alertData.description);
@@ -1381,7 +1382,7 @@ export default function TicketApp() {
       const authHeaders = getAuthHeader();
       console.log('🔍 DEBUG ALERTS: Auth headers:', authHeaders);
       
-      const apiBase = process.env.REACT_APP_API_URL || 'https://ticketapp-4eqb.onrender.com';
+      const apiBase = getApiBase();
       const formData = new FormData();
       formData.append('title', alertData.title);
       formData.append('body', alertData.description);
@@ -1886,7 +1887,7 @@ export default function TicketApp() {
   // Gestione richiesta assistenza veloce
   const handleQuickRequest = async (formData, photos = []) => {
     try {
-      const apiBase = process.env.REACT_APP_API_URL || 'https://ticketapp-4eqb.onrender.com';
+      const apiBase = getApiBase();
       
       // Crea FormData per supportare sia i dati che le foto
       const formDataToSend = new FormData();
