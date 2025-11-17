@@ -5,7 +5,9 @@ import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3
 
 const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
   const menuRef = useRef(null);
+  const quickPanelRef = useRef(null);
 
   // Chiudi il menu quando si clicca fuori
   useEffect(() => {
@@ -13,11 +15,19 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setShowClientMenu(false);
       }
+      if (
+        showQuickActions &&
+        quickPanelRef.current &&
+        !quickPanelRef.current.contains(event.target) &&
+        !event.target.closest('#quick-actions-toggle')
+      ) {
+        setShowQuickActions(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [showQuickActions]);
 
   // Versione sicura per visualizzare il ruolo
   const userRole = (currentUser?.ruolo || '').toUpperCase();
@@ -25,20 +35,102 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
     ? 'bg-blue-100 text-blue-800' 
     : 'bg-green-100 text-green-800';
 
+  const quickActions = [
+    {
+      label: 'Nuove funzionalità',
+      description: 'Storico aggiornamenti',
+      icon: Sparkles,
+      color: 'text-emerald-600 bg-emerald-50',
+      action: openAlertsHistory,
+      visible: typeof openAlertsHistory === 'function'
+    },
+    {
+      label: 'Importa KeePass',
+      description: 'Gestione credenziali',
+      icon: Key,
+      color: 'text-indigo-600 bg-indigo-50',
+      action: openImportKeepass,
+      visible: currentUser?.ruolo === 'tecnico' && typeof openImportKeepass === 'function'
+    },
+    {
+      label: 'Analytics',
+      description: 'Statistiche avanzate',
+      icon: BarChart3,
+      color: 'text-purple-600 bg-purple-50',
+      action: openAnalytics,
+      visible: currentUser?.ruolo === 'tecnico' && typeof openAnalytics === 'function'
+    },
+    {
+      label: 'Impostazioni',
+      description: 'Preferenze account',
+      icon: Settings,
+      color: 'text-gray-700 bg-gray-100',
+      action: openSettings,
+      visible: typeof openSettings === 'function'
+    }
+  ].filter(item => item.visible);
+
+  const handleQuickActionClick = (action) => {
+    if (typeof action === 'function') {
+      action();
+      setShowQuickActions(false);
+    }
+  };
+
   return (
-    <div className="bg-white border-b">
+    <div className="bg-white border-b relative">
+      {showQuickActions && (
+        <div
+          ref={quickPanelRef}
+          className="fixed top-28 left-6 z-50"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl border border-purple-100 w-72 overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white px-5 py-4">
+              <p className="text-xs uppercase tracking-widest opacity-80">Pannello rapido</p>
+              <p className="text-lg font-semibold mt-1">Azioni principali</p>
+            </div>
+            <div className="flex flex-col divide-y divide-gray-100">
+              {quickActions.map(({ label, description, icon: Icon, color, action }) => (
+                <button
+                  key={label}
+                  onClick={() => handleQuickActionClick(action)}
+                  className="flex items-center gap-4 px-5 py-4 text-left hover:bg-purple-50 transition"
+                >
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-semibold ${color}`}>
+                    <Icon size={22} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">{label}</p>
+                    <p className="text-xs text-gray-500">{description}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Sistema Gestione Ticket</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              {/* --- CODICE CORRETTO --- */}
-              <span className={`px-2 py-0.5 rounded text-xs font-medium ${roleClasses}`}>
-                {userRole}
-              </span>
-              {/* Controlla che currentUser esista prima di accedere alle sue proprietà */}
-              <span className="ml-2">{currentUser?.nome} - {currentUser?.azienda}</span>
-            </p>
+          <div className="flex items-start gap-3">
+            <button
+              id="quick-actions-toggle"
+              onClick={() => setShowQuickActions(!showQuickActions)}
+              className={`mt-1 p-2 rounded-xl border transition ${showQuickActions ? 'bg-purple-600 border-purple-600 text-white shadow-lg' : 'border-gray-200 text-gray-600 hover:bg-gray-100'}`}
+              title="Pannello rapido"
+            >
+              <List size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold">Sistema Gestione Ticket</h1>
+              <p className="text-sm text-gray-600 mt-1">
+                {/* --- CODICE CORRETTO --- */}
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${roleClasses}`}>
+                  {userRole}
+                </span>
+                {/* Controlla che currentUser esista prima di accedere alle sue proprietà */}
+                <span className="ml-2">{currentUser?.nome} - {currentUser?.azienda}</span>
+              </p>
+            </div>
           </div>
           
           <div className="flex items-center gap-2">
