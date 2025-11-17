@@ -225,15 +225,30 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       const result = await client.query(query, values);
       client.release();
       
-      // Invia notifica email al cliente (solo se sendEmail è true o undefined)
-      console.log('🔍 DEBUG BACKEND: Controllo invio email - sendEmail =', sendEmail, 'tipo:', typeof sendEmail, 'result.rows[0] =', !!result.rows[0]);
-      console.log('🔍 DEBUG BACKEND: Condizione sendEmail !== false =', sendEmail !== false);
-      console.log('🔍 DEBUG BACKEND: sendEmail === false =', sendEmail === false);
-      console.log('🔍 DEBUG BACKEND: sendEmail === true =', sendEmail === true);
+      // Emetti evento WebSocket per nuovo ticket (PRIMA della risposta HTTP)
+      if (io && result.rows[0]) {
+        const newTicket = result.rows[0];
+        // Notifica il cliente proprietario
+        if (newTicket.clienteid) {
+          io.to(`user:${newTicket.clienteid}`).emit('ticket:created', newTicket);
+        }
+        // Notifica tutti i tecnici
+        io.to('role:tecnico').emit('ticket:created', newTicket);
+      }
       
-      // Controllo più rigoroso: invia email solo se sendEmail è esplicitamente true
-      // Se sendEmail è undefined (comportamento legacy), invia email per compatibilità
-      if (result.rows[0] && (sendEmail === true || sendEmail === undefined)) {
+      // Invia risposta HTTP IMMEDIATAMENTE (non attendere le email)
+      console.log('✅ DEBUG BACKEND: Ticket creato con successo, invio risposta 201');
+      console.log('✅ DEBUG BACKEND: Ticket ID:', result.rows[0]?.id);
+      console.log('✅ DEBUG BACKEND: Ticket numero:', result.rows[0]?.numero);
+      res.status(201).json(result.rows[0]);
+      
+      // Invia email in background (NON bloccare la risposta HTTP)
+      // Usa setImmediate per eseguire dopo che la risposta è stata inviata
+      setImmediate(async () => {
+        // Invia notifica email al cliente (solo se sendEmail è true o undefined)
+        console.log('🔍 DEBUG BACKEND: Controllo invio email - sendEmail =', sendEmail, 'tipo:', typeof sendEmail, 'result.rows[0] =', !!result.rows[0]);
+        
+        if (result.rows[0] && (sendEmail === true || sendEmail === undefined)) {
         try {
           console.log('📧 === INVIO NOTIFICA EMAIL CLIENTE ===');
           console.log('📧 Ticket creato:', result.rows[0].id, result.rows[0].titolo);
@@ -347,22 +362,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       } else {
         console.log('🔍 DEBUG BACKEND: Email notifica NON inviata ai tecnici (sendEmail = false)');
       }
-      
-      // Emetti evento WebSocket per nuovo ticket
-      if (io && result.rows[0]) {
-        const newTicket = result.rows[0];
-        // Notifica il cliente proprietario
-        if (newTicket.clienteid) {
-          io.to(`user:${newTicket.clienteid}`).emit('ticket:created', newTicket);
-        }
-        // Notifica tutti i tecnici
-        io.to('role:tecnico').emit('ticket:created', newTicket);
-      }
-      
-      console.log('✅ DEBUG BACKEND: Ticket creato con successo, invio risposta 201');
-      console.log('✅ DEBUG BACKEND: Ticket ID:', result.rows[0]?.id);
-      console.log('✅ DEBUG BACKEND: Ticket numero:', result.rows[0]?.numero);
-      res.status(201).json(result.rows[0]);
+      }); // Fine setImmediate - email inviate in background
     } catch (err) {
       console.error('❌ DEBUG BACKEND: Errore nella creazione del ticket:', err);
       console.error('❌ DEBUG BACKEND: Stack trace:', err.stack);
