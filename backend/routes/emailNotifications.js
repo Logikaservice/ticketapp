@@ -40,7 +40,16 @@ module.exports = (pool) => {
     console.log('📧 Configurazione Gmail');
     return nodemailer.createTransport({
       service: 'gmail',
-      auth: { user: emailUser, pass: emailPass }
+      auth: { user: emailUser, pass: emailPass },
+      // Aggiungi timeout e opzioni di connessione più robuste
+      connectionTimeout: 10000, // 10 secondi per la connessione
+      socketTimeout: 10000, // 10 secondi per le operazioni socket
+      greetingTimeout: 10000, // 10 secondi per il saluto SMTP
+      pool: true, // Usa connection pooling
+      maxConnections: 1,
+      maxMessages: 3,
+      rateDelta: 1000,
+      rateLimit: 5
     });
   };
 

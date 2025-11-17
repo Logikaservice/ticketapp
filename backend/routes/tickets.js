@@ -269,38 +269,55 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
             const emailType = isSelfCreated ? 'notify-ticket-created' : 'notify-ticket-assigned';
             console.log('📧 Tipo notifica:', emailType, '(isSelfCreated:', isSelfCreated, ')');
             
-            // Invia email di notifica
-            const emailUrl = `${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/${emailType}`;
+            // Invia email di notifica - usa localhost con porta corretta
+            const backendPort = process.env.PORT || 3001;
+            const emailUrl = `http://localhost:${backendPort}/api/email/${emailType}`;
             console.log('📧 URL email:', emailUrl);
-            console.log('📧 API_URL configurato:', process.env.API_URL ? 'SÌ' : 'NO');
+            console.log('📧 Porta backend:', backendPort);
             
             // Estrai il token JWT dall'header della richiesta originale
             const authHeader = req.headers.authorization;
             
-            const emailResponse = await fetch(emailUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(authHeader ? { 'Authorization': authHeader } : {})
-              },
-              body: JSON.stringify({
-                ticket: result.rows[0],
-                clientEmail: client.email,
-                clientName: `${client.nome} ${client.cognome}`,
-                clientAzienda: client.azienda,
-                isSelfCreated: isSelfCreated
-              })
-            });
+            // Aggiungi timeout di 10 secondi per evitare attese infinite
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
             
-            if (emailResponse.ok) {
-              const responseData = await emailResponse.json();
-              console.log(`✅ Email notifica inviata al cliente: ${client.email} (${emailType})`);
-              console.log('📧 Risposta email:', responseData);
-            } else {
-              const errorText = await emailResponse.text();
-              console.log(`❌ Errore invio email al cliente: ${client.email}`);
-              console.log('📧 Status:', emailResponse.status);
-              console.log('📧 Errore:', errorText);
+            try {
+              const emailResponse = await fetch(emailUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(authHeader ? { 'Authorization': authHeader } : {})
+                },
+                body: JSON.stringify({
+                  ticket: result.rows[0],
+                  clientEmail: client.email,
+                  clientName: `${client.nome} ${client.cognome}`,
+                  clientAzienda: client.azienda,
+                  isSelfCreated: isSelfCreated
+                }),
+                signal: controller.signal
+              });
+              
+              clearTimeout(timeoutId);
+            
+              if (emailResponse.ok) {
+                const responseData = await emailResponse.json();
+                console.log(`✅ Email notifica inviata al cliente: ${client.email} (${emailType})`);
+                console.log('📧 Risposta email:', responseData);
+              } else {
+                const errorText = await emailResponse.text();
+                console.log(`❌ Errore invio email al cliente: ${client.email}`);
+                console.log('📧 Status:', emailResponse.status);
+                console.log('📧 Errore:', errorText);
+              }
+            } catch (fetchErr) {
+              clearTimeout(timeoutId);
+              if (fetchErr.name === 'AbortError') {
+                console.log(`⏱️ Timeout invio email al cliente: ${client.email} (10 secondi)`);
+              } else {
+                console.log(`⚠️ Errore fetch email cliente ${client.email}:`, fetchErr.message);
+              }
             }
           }
         } catch (emailErr) {
@@ -323,34 +340,52 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         for (const technician of techniciansData.rows) {
           try {
             console.log('📧 Invio email a tecnico:', technician.email);
-            const techEmailUrl = `${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-technician-new-ticket`;
+            const backendPort = process.env.PORT || 3001;
+            const techEmailUrl = `http://localhost:${backendPort}/api/email/notify-technician-new-ticket`;
             console.log('📧 URL tecnico:', techEmailUrl);
+            console.log('📧 Porta backend:', backendPort);
             
             // Estrai il token JWT dall'header della richiesta originale
             const authHeader = req.headers.authorization;
             
-            const technicianEmailResponse = await fetch(techEmailUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(authHeader ? { 'Authorization': authHeader } : {})
-              },
-              body: JSON.stringify({
-                ticket: result.rows[0],
-                technicianEmail: technician.email,
-                technicianName: `${technician.nome} ${technician.cognome}`
-              })
-            });
+            // Aggiungi timeout di 10 secondi per evitare attese infinite
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
             
-            if (technicianEmailResponse.ok) {
-              const responseData = await technicianEmailResponse.json();
-              console.log(`✅ Email notifica inviata al tecnico: ${technician.email}`);
-              console.log('📧 Risposta tecnico:', responseData);
-            } else {
-              const errorText = await technicianEmailResponse.text();
-              console.log(`❌ Errore invio email al tecnico: ${technician.email}`);
-              console.log('📧 Status tecnico:', technicianEmailResponse.status);
-              console.log('📧 Errore tecnico:', errorText);
+            try {
+              const technicianEmailResponse = await fetch(techEmailUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(authHeader ? { 'Authorization': authHeader } : {})
+                },
+                body: JSON.stringify({
+                  ticket: result.rows[0],
+                  technicianEmail: technician.email,
+                  technicianName: `${technician.nome} ${technician.cognome}`
+                }),
+                signal: controller.signal
+              });
+              
+              clearTimeout(timeoutId);
+              
+              if (technicianEmailResponse.ok) {
+                const responseData = await technicianEmailResponse.json();
+                console.log(`✅ Email notifica inviata al tecnico: ${technician.email}`);
+                console.log('📧 Risposta tecnico:', responseData);
+              } else {
+                const errorText = await technicianEmailResponse.text();
+                console.log(`❌ Errore invio email al tecnico: ${technician.email}`);
+                console.log('📧 Status tecnico:', technicianEmailResponse.status);
+                console.log('📧 Errore tecnico:', errorText);
+              }
+            } catch (fetchErr) {
+              clearTimeout(timeoutId);
+              if (fetchErr.name === 'AbortError') {
+                console.log(`⏱️ Timeout invio email al tecnico: ${technician.email} (10 secondi)`);
+              } else {
+                console.log(`⚠️ Errore fetch email tecnico ${technician.email}:`, fetchErr.message);
+              }
             }
           } catch (techEmailErr) {
             console.log(`⚠️ Errore invio email tecnico ${technician.email}:`, techEmailErr.message);
