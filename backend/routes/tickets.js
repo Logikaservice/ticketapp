@@ -118,6 +118,12 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
 
   // ENDPOINT: Crea un nuovo ticket (gestisce sia JSON che multipart/form-data)
   router.post('/', uploadTicketPhotos.array('photos', 10), async (req, res) => {
+    console.log('🔍 DEBUG BACKEND: POST /api/tickets - Richiesta ricevuta!');
+    console.log('🔍 DEBUG BACKEND: Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('🔍 DEBUG BACKEND: Content-Type:', req.headers['content-type']);
+    console.log('🔍 DEBUG BACKEND: User ID:', req.user?.id || 'N/A');
+    console.log('🔍 DEBUG BACKEND: User Role:', req.user?.ruolo || 'N/A');
+    
     // Gestisce sia JSON che multipart/form-data
     let clienteid = req.body.clienteid;
     let titolo = req.body.titolo;
@@ -353,9 +359,13 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         io.to('role:tecnico').emit('ticket:created', newTicket);
       }
       
+      console.log('✅ DEBUG BACKEND: Ticket creato con successo, invio risposta 201');
+      console.log('✅ DEBUG BACKEND: Ticket ID:', result.rows[0]?.id);
+      console.log('✅ DEBUG BACKEND: Ticket numero:', result.rows[0]?.numero);
       res.status(201).json(result.rows[0]);
     } catch (err) {
-      console.error('Errore nella creazione del ticket:', err);
+      console.error('❌ DEBUG BACKEND: Errore nella creazione del ticket:', err);
+      console.error('❌ DEBUG BACKEND: Stack trace:', err.stack);
       res.status(500).json({ error: 'Errore interno del server' });
     }
   });
