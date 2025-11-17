@@ -74,21 +74,33 @@ export const useTickets = (
         headers['Content-Type'] = 'application/json';
       }
       
+      console.log('🔍 DEBUG: Chiamata fetch a', buildApiUrl('/api/tickets'));
+      console.log('🔍 DEBUG: closeModal è definita?', typeof closeModal);
+      
       const response = await fetch(buildApiUrl('/api/tickets'), {
         method: 'POST',
         headers: headers,
         body: body
       });
+      
+      console.log('🔍 DEBUG: Risposta ricevuta, status:', response.status, 'ok:', response.ok);
+      
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Errore creazione ticket:', response.status, errorText);
+        console.error('❌ Errore creazione ticket:', response.status, errorText);
         throw new Error('Errore del server.');
       }
       const savedTicket = await response.json();
       console.log('✅ Ticket creato con successo:', savedTicket.id, savedTicket.numero);
       
       // Chiudi la modale PRIMA di aggiornare lo stato per evitare problemi
-      closeModal();
+      console.log('🔍 DEBUG: Chiamata closeModal()...');
+      if (typeof closeModal === 'function') {
+        closeModal();
+        console.log('✅ DEBUG: closeModal() chiamata con successo');
+      } else {
+        console.error('❌ DEBUG: closeModal non è una funzione!', closeModal);
+      }
       
       // Marca subito come nuovo nella UI corrente
       const savedTicketWithNew = { ...savedTicket, isNew: true };
@@ -137,7 +149,12 @@ export const useTickets = (
       } catch (_) {}
       showNotification('Ticket creato con successo!', 'success');
     } catch (error) {
+      console.error('❌ ERRORE COMPLETO creazione ticket:', error);
+      console.error('❌ Stack trace:', error.stack);
+      console.error('❌ Error name:', error.name);
+      console.error('❌ Error message:', error.message);
       showNotification(error.message || 'Impossibile creare il ticket.', 'error');
+      // In caso di errore, NON chiudere la modale per permettere all'utente di riprovare
     }
   };
 
