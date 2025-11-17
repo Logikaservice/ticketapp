@@ -4,6 +4,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity } from 'lucide-react';
 
 const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs }) => {
+  // Log immediato per verificare che il componente sia caricato
+  console.log('🚀 Header component caricato');
+  console.log('🚀 Props ricevute:', {
+    hasOpenAccessLogs: typeof openAccessLogs === 'function',
+    openAccessLogs,
+    currentUserRuolo: currentUser?.ruolo
+  });
+
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
   const quickPanelRef = useRef(null);
@@ -79,7 +87,12 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       iconWrapperClass: 'text-orange-600 bg-orange-50',
       rowClass: 'hover:bg-orange-50/80 border-l-4 border-l-orange-400',
       action: openAccessLogs,
-      visible: currentUser?.ruolo === 'tecnico' && typeof openAccessLogs === 'function'
+      visible: (() => {
+        const isTecnico = currentUser?.ruolo === 'tecnico';
+        const hasFunction = typeof openAccessLogs === 'function';
+        console.log('🔍 Log accessi visible check:', { isTecnico, hasFunction, ruolo: currentUser?.ruolo, openAccessLogsType: typeof openAccessLogs });
+        return isTecnico && hasFunction;
+      })()
     },
     {
       label: 'Importa KeePass',
