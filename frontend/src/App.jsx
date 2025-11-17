@@ -1228,6 +1228,7 @@ export default function TicketApp() {
   const openAlertsHistory = () => setModalState({ type: 'alertsHistory' });
   const openImportKeepass = () => setModalState({ type: 'importKeepass' });
   const openAnalytics = () => setModalState({ type: 'analytics' });
+  const openAccessLogs = () => setModalState({ type: 'accessLogs' });
   const onKeepassImportSuccess = () => {
     showNotification('Credenziali KeePass importate con successo!', 'success');
   };
@@ -2088,7 +2089,7 @@ export default function TicketApp() {
         ))}
       </div>
       <Header
-        {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics }}
+        {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs }}
       />
 
       {!showDashboard && (

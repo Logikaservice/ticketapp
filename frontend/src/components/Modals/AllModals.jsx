@@ -14,6 +14,7 @@ import AlertsHistoryModal from './AlertsHistoryModal';
 import ImportKeepassModal from './ImportKeepassModal';
 import KeepassCredentialsModal from './KeepassCredentialsModal';
 import AnalyticsModal from './AnalyticsModal';
+import AccessLogsModal from './AccessLogsModal';
 
 const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...handlers }) => {
   if (!modalState.type) return null;
@@ -144,6 +145,15 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             users={handlers.users}
             getAuthHeader={handlers.getAuthHeader}
             onClose={closeModal}
+          />
+        );
+      case 'accessLogs':
+        return (
+          <AccessLogsModal
+            isOpen={true}
+            onClose={closeModal}
+            getAuthHeader={handlers.getAuthHeader}
+            currentUser={handlers.currentUser}
           />
         );
       

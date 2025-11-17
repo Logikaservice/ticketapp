@@ -6,6 +6,7 @@ export const useAuth = (showNotification) => {
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [token, setToken] = useState(localStorage.getItem('authToken'));
   const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
+  const [sessionId, setSessionId] = useState(localStorage.getItem('sessionId'));
 
   // Carica i dati completi dell'utente dal backend (incluso admin_companies)
   const loadCurrentUserData = async () => {
@@ -146,6 +147,13 @@ export const useAuth = (showNotification) => {
       setRefreshToken(loginResponse.refreshToken);
       localStorage.setItem('authToken', loginResponse.token);
       localStorage.setItem('refreshToken', loginResponse.refreshToken);
+      if (loginResponse.sessionId) {
+        setSessionId(loginResponse.sessionId);
+        localStorage.setItem('sessionId', loginResponse.sessionId);
+      } else {
+        setSessionId(null);
+        localStorage.removeItem('sessionId');
+      }
       
       setCurrentUser(loginResponse.user);
       setIsLoggedIn(true);
@@ -156,13 +164,31 @@ export const useAuth = (showNotification) => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const activeSessionId = sessionId || localStorage.getItem('sessionId');
+    if (activeSessionId && token) {
+      try {
+        await fetch(process.env.REACT_APP_API_URL + '/api/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ sessionId: activeSessionId })
+        });
+      } catch (error) {
+        console.warn('Impossibile registrare il logout:', error.message);
+      }
+    }
+
     setIsLoggedIn(false);
     setCurrentUser(null);
     setToken(null);
     setRefreshToken(null);
+    setSessionId(null);
     localStorage.removeItem('authToken');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('sessionId');
     localStorage.removeItem('openTicketId');
     showNotification('Disconnessione effettuata.', 'info');
   };

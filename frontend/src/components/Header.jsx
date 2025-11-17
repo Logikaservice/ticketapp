@@ -1,21 +1,16 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3 } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity } from 'lucide-react';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics }) => {
-  const [showClientMenu, setShowClientMenu] = useState(false);
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs }) => {
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
-  const menuRef = useRef(null);
   const quickPanelRef = useRef(null);
 
   // Chiudi il menu quando si clicca fuori
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setShowClientMenu(false);
-      }
       if (
         showQuickActions &&
         quickPanelRef.current &&
@@ -72,6 +67,15 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       visible: currentUser?.ruolo === 'tecnico' &&
         typeof openManageClientsModal === 'function' &&
         typeof openNewClientModal === 'function'
+    },
+    {
+      label: 'Log accessi',
+      description: 'Entrate e uscite clienti',
+      icon: Activity,
+      iconWrapperClass: 'text-orange-600 bg-orange-50',
+      rowClass: 'hover:bg-orange-50/80 border-l-4 border-l-orange-400',
+      action: openAccessLogs,
+      visible: currentUser?.ruolo === 'tecnico' && typeof openAccessLogs === 'function'
     },
     {
       label: 'Importa KeePass',
