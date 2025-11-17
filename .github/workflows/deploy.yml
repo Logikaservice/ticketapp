@@ -13,28 +13,74 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       
+      - name: Check VPS secrets
+        run: |
+          if [ -z "${{ secrets.VPS_HOST }}" ]; then
+            echo "❌ VPS_HOST secret non configurato"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VPS_USER }}" ]; then
+            echo "❌ VPS_USER secret non configurato"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then
+            echo "❌ VPS_SSH_KEY secret non configurato"
+            exit 1
+          fi
+          echo "✅ Tutti i secrets sono configurati"
+      
       - name: Deploy to VPS
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          timeout: 60s
           script: |
             set -e
             echo "🚀 Inizio deploy su VPS..."
+            
+            # Verifica che la directory esista
+            if [ ! -d "/var/www/ticketapp" ]; then
+              echo "❌ Directory /var/www/ticketapp non trovata"
+              exit 1
+            fi
+            
             cd /var/www/ticketapp
             echo "📥 Aggiornamento codice da GitHub..."
-            git pull origin main
+            git pull origin main || {
+              echo "⚠️ Errore git pull, provo a resettare..."
+              git fetch origin
+              git reset --hard origin/main
+            }
+            
             echo "📦 Installazione dipendenze backend..."
             cd backend
-            npm install --production
+            npm install --production || npm install
+            
             echo "📦 Installazione dipendenze frontend..."
             cd ../frontend
             npm install
+            
             echo "🔨 Build frontend..."
-            npm run build
+            npm run build || {
+              echo "❌ Errore build frontend"
+              exit 1
+            }
+            
             echo "🔄 Riavvio servizi..."
-            sudo systemctl restart ticketapp-backend || echo "⚠️ Errore riavvio backend (potrebbe non esistere)"
-            sudo systemctl restart nginx || echo "⚠️ Errore riavvio nginx"
+            # Prova a riavviare il backend (potrebbe avere nomi diversi)
+            sudo systemctl restart ticketapp-backend 2>/dev/null || \
+            sudo systemctl restart ticketapp 2>/dev/null || \
+            sudo systemctl restart node 2>/dev/null || \
+            echo "⚠️ Servizio backend non trovato, continua..."
+            
+            # Riavvia nginx
+            sudo systemctl restart nginx || {
+              echo "⚠️ Errore riavvio nginx, provo reload..."
+              sudo systemctl reload nginx || echo "⚠️ Impossibile riavviare nginx"
+            }
+            
             echo "✅ Deploy completato!"
 
