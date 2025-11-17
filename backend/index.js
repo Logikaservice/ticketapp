@@ -1,12 +1,13 @@
 // index.js
 
 // Carica variabili d'ambiente da .env
-require('dotenv').config();
+// Specifica il percorso esplicito per funzionare anche con PM2
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const path = require('path');
 const fs = require('fs');
 const { Pool } = require('pg');
 const http = require('http');
