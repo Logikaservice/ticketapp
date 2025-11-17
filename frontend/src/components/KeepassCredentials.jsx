@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Key, Eye, EyeOff, Copy, Check, ChevronDown, ChevronRight, Lock, Globe, User, FileText } from 'lucide-react';
+import { buildApiUrl } from '../utils/apiConfig';
 
 const KeepassCredentials = ({ currentUser, getAuthHeader }) => {
   const [credentials, setCredentials] = useState([]);
@@ -22,7 +23,7 @@ const KeepassCredentials = ({ currentUser, getAuthHeader }) => {
       
       const authHeader = getAuthHeader();
       // L'endpoint usa req.user dal middleware authenticateToken, quindi passiamo solo l'header Authorization
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/credentials`, {
+      const response = await fetch(buildApiUrl('/api/keepass/credentials'), {
         headers: {
           ...authHeader,
           'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
@@ -58,7 +59,7 @@ const KeepassCredentials = ({ currentUser, getAuthHeader }) => {
     // Altrimenti, decifra la password
     try {
       const authHeader = getAuthHeader();
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/decrypt-password`, {
+      const response = await fetch(`buildApiUrl('/api/keepass/decrypt-password')`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -89,7 +90,7 @@ const KeepassCredentials = ({ currentUser, getAuthHeader }) => {
     if (!visiblePasswords[entryId]) {
       try {
         const authHeader = getAuthHeader();
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/decrypt-password`, {
+        const response = await fetch(`buildApiUrl('/api/keepass/decrypt-password')`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
