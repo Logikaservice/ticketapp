@@ -63,6 +63,13 @@ jobs:
             cd ../frontend
             npm install
             
+            echo "🔧 Configurazione variabili d'ambiente..."
+            # Crea file .env per il build con l'URL corretto del backend
+            # Se nginx fa proxy per /api/, usa URL vuoto (chiamate relative)
+            # Altrimenti usa l'URL diretto del backend (es: http://localhost:3001)
+            # Per ora usiamo URL vuoto se nginx fa proxy, altrimenti modifica qui
+            echo "REACT_APP_API_URL=" > .env
+            
             echo "🔨 Build frontend..."
             npm run build || {
               echo "❌ Errore build frontend"
