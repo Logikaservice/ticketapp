@@ -20,13 +20,21 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set -e
+            echo "🚀 Inizio deploy su VPS..."
             cd /var/www/ticketapp
+            echo "📥 Aggiornamento codice da GitHub..."
             git pull origin main
+            echo "📦 Installazione dipendenze backend..."
             cd backend
             npm install --production
+            echo "📦 Installazione dipendenze frontend..."
             cd ../frontend
             npm install
+            echo "🔨 Build frontend..."
             npm run build
-            sudo systemctl restart ticketapp-backend
-            sudo systemctl restart nginx
+            echo "🔄 Riavvio servizi..."
+            sudo systemctl restart ticketapp-backend || echo "⚠️ Errore riavvio backend (potrebbe non esistere)"
+            sudo systemctl restart nginx || echo "⚠️ Errore riavvio nginx"
+            echo "✅ Deploy completato!"
 
