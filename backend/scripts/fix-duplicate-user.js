@@ -15,7 +15,7 @@ async function fixDuplicateUser() {
     
     // Trova utenti duplicati
     const duplicates = await client.query(`
-      SELECT id, email, ruolo, nome, cognome, azienda, created_at
+      SELECT id, email, ruolo, nome, cognome, azienda
       FROM users 
       WHERE email = 'info@logikaservice.it'
       ORDER BY id
@@ -29,7 +29,7 @@ async function fixDuplicateUser() {
     
     console.log(`⚠️  Trovati ${duplicates.rows.length} utenti con email info@logikaservice.it:`);
     duplicates.rows.forEach(user => {
-      console.log(`  - ID: ${user.id} | Creato: ${user.created_at || 'N/A'}`);
+      console.log(`  - ID: ${user.id} | ${user.email} (${user.ruolo}) - ${user.nome || 'N/A'} - ${user.azienda || 'N/A'}`);
     });
     
     // Mantieni l'utente con ID più basso (ID 1)
