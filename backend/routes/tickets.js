@@ -265,12 +265,16 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       // Invia email in background (NON bloccare la risposta HTTP)
       // Usa setImmediate per eseguire dopo che la risposta è stata inviata
       setImmediate(async () => {
-        console.log('📧 === SETIMMEDIATE AVVIATO - INIZIO INVIO EMAIL ===');
-        console.log('📧 Ticket ID:', result.rows[0]?.id);
-        console.log('📧 SendEmail:', sendEmail, 'tipo:', typeof sendEmail);
-        
-        // Invia notifica email al cliente (solo se sendEmail è true o undefined)
-        console.log('🔍 DEBUG BACKEND: Controllo invio email - sendEmail =', sendEmail, 'tipo:', typeof sendEmail, 'result.rows[0] =', !!result.rows[0]);
+        try {
+          console.log('📧 === SETIMMEDIATE AVVIATO - INIZIO INVIO EMAIL ===');
+          console.log('📧 Ticket ID:', result.rows[0]?.id);
+          console.log('📧 SendEmail:', sendEmail, 'tipo:', typeof sendEmail);
+          console.log('📧 Verifica configurazione email:');
+          console.log('  - EMAIL_USER:', process.env.EMAIL_USER ? 'Configurato' : 'MANCANTE');
+          console.log('  - EMAIL_PASSWORD:', (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS) ? 'Configurato' : 'MANCANTE');
+          
+          // Invia notifica email al cliente (solo se sendEmail è true o undefined)
+          console.log('🔍 DEBUG BACKEND: Controllo invio email - sendEmail =', sendEmail, 'tipo:', typeof sendEmail, 'result.rows[0] =', !!result.rows[0]);
         
         if (result.rows[0] && (sendEmail === true || sendEmail === undefined)) {
         try {
@@ -293,14 +297,11 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
             const emailType = isSelfCreated ? 'notify-ticket-created' : 'notify-ticket-assigned';
             console.log('📧 Tipo notifica:', emailType, '(isSelfCreated:', isSelfCreated, ')');
             
-            // Invia email di notifica - usa localhost con porta corretta
+            // Invia email di notifica - usa endpoint pubblico che non richiede autenticazione
             const backendPort = process.env.PORT || 3001;
-            const emailUrl = `http://localhost:${backendPort}/api/email/${emailType}`;
-            console.log('📧 URL email:', emailUrl);
+            const emailUrl = `http://localhost:${backendPort}/api/public-email/${emailType}`;
+            console.log('📧 URL email (pubblico, no auth):', emailUrl);
             console.log('📧 Porta backend:', backendPort);
-            
-            // Estrai il token JWT dall'header della richiesta originale
-            const authHeader = req.headers.authorization;
             
             // Aggiungi timeout di 10 secondi per evitare attese infinite
             const controller = new AbortController();
@@ -308,7 +309,6 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
             
             try {
               console.log('📧 Chiamata fetch a:', emailUrl);
-              console.log('📧 Headers:', { 'Content-Type': 'application/json', 'Authorization': authHeader ? 'Presente' : 'Assente' });
               console.log('📧 Body:', JSON.stringify({
                 ticket: { id: result.rows[0].id, numero: result.rows[0].numero },
                 clientEmail: client.email,
@@ -319,8 +319,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
               const emailResponse = await fetch(emailUrl, {
                 method: 'POST',
                 headers: {
-                  'Content-Type': 'application/json',
-                  ...(authHeader ? { 'Authorization': authHeader } : {})
+                  'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                   ticket: result.rows[0],
@@ -375,23 +374,20 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
           try {
             console.log('📧 Invio email a tecnico:', technician.email);
             const backendPort = process.env.PORT || 3001;
-            const techEmailUrl = `http://localhost:${backendPort}/api/email/notify-technician-new-ticket`;
-            console.log('📧 URL tecnico:', techEmailUrl);
+            const techEmailUrl = `http://localhost:${backendPort}/api/public-email/notify-technician-new-ticket`;
+            console.log('📧 URL tecnico (pubblico, no auth):', techEmailUrl);
             console.log('📧 Porta backend:', backendPort);
-            
-            // Estrai il token JWT dall'header della richiesta originale
-            const authHeader = req.headers.authorization;
             
             // Aggiungi timeout di 10 secondi per evitare attese infinite
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000);
             
             try {
+              console.log('📧 Chiamata fetch tecnico a:', techEmailUrl);
               const technicianEmailResponse = await fetch(techEmailUrl, {
                 method: 'POST',
                 headers: {
-                  'Content-Type': 'application/json',
-                  ...(authHeader ? { 'Authorization': authHeader } : {})
+                  'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                   ticket: result.rows[0],
