@@ -1676,7 +1676,7 @@ export default function TicketApp() {
     }
   };
 
-  const wrappedHandleCreateTicket = () => {
+  const wrappedHandleCreateTicket = async () => {
     console.log('🔍 DEBUG: wrappedHandleCreateTicket chiamata');
     console.log('🔍 DEBUG: currentUser.ruolo =', currentUser.ruolo);
     console.log('🔍 DEBUG: isEditingTicket =', isEditingTicket);
