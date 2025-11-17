@@ -40,7 +40,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Nuove funzionalità',
       description: 'Storico aggiornamenti',
       icon: Sparkles,
-      color: 'text-emerald-600 bg-emerald-50',
+      iconWrapperClass: 'text-emerald-600 bg-emerald-50',
+      rowClass: 'hover:bg-emerald-50/80 border-l-4 border-l-emerald-400',
       action: openAlertsHistory,
       visible: typeof openAlertsHistory === 'function'
     },
@@ -48,7 +49,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Importa KeePass',
       description: 'Gestione credenziali',
       icon: Key,
-      color: 'text-indigo-600 bg-indigo-50',
+      iconWrapperClass: 'text-indigo-600 bg-indigo-50',
+      rowClass: 'hover:bg-indigo-50/80 border-l-4 border-l-indigo-400',
       action: openImportKeepass,
       visible: currentUser?.ruolo === 'tecnico' && typeof openImportKeepass === 'function'
     },
@@ -56,7 +58,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Analytics',
       description: 'Statistiche avanzate',
       icon: BarChart3,
-      color: 'text-purple-600 bg-purple-50',
+      iconWrapperClass: 'text-purple-600 bg-purple-50',
+      rowClass: 'hover:bg-purple-50/80 border-l-4 border-l-purple-400',
       action: openAnalytics,
       visible: currentUser?.ruolo === 'tecnico' && typeof openAnalytics === 'function'
     },
@@ -64,7 +67,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Impostazioni',
       description: 'Preferenze account',
       icon: Settings,
-      color: 'text-gray-700 bg-gray-100',
+      iconWrapperClass: 'text-amber-600 bg-amber-50',
+      rowClass: 'hover:bg-amber-50/80 border-l-4 border-l-amber-400',
       action: openSettings,
       visible: typeof openSettings === 'function'
     }
@@ -90,13 +94,13 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
               <p className="text-lg font-semibold mt-1">Azioni principali</p>
             </div>
             <div className="flex flex-col divide-y divide-gray-100">
-              {quickActions.map(({ label, description, icon: Icon, color, action }) => (
+              {quickActions.map(({ label, description, icon: Icon, iconWrapperClass, rowClass, action }) => (
                 <button
                   key={label}
                   onClick={() => handleQuickActionClick(action)}
-                  className="flex items-center gap-4 px-5 py-4 text-left hover:bg-purple-50 transition"
+                  className={`flex items-center gap-4 px-5 py-4 text-left transition ${rowClass}`}
                 >
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-semibold ${color}`}>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-semibold ${iconWrapperClass}`}>
                     <Icon size={22} />
                   </div>
                   <div className="flex-1">
