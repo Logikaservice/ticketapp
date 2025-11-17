@@ -1,6 +1,7 @@
 // hooks/useTemporarySuppliesFromTickets.js
 
 import { useState, useEffect } from 'react';
+import { buildApiUrl } from '../utils/apiConfig';
 
 export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
   const [temporarySupplies, setTemporarySupplies] = useState([]);
@@ -12,7 +13,7 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
     
     try {
       setLoading(true);
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/forniture/all`, {
+      const response = await fetch(buildApiUrl('/api/tickets/forniture/all'), {
         headers: {
           ...getAuthHeader()
         }
@@ -34,7 +35,7 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
   // Rimuovi una fornitura temporanea (restituisci)
   const removeTemporarySupply = async (supplyId) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/forniture/${supplyId}`, {
+      const response = await fetch(buildApiUrl(`/api/tickets/forniture/${supplyId}`), {
         method: 'DELETE',
         headers: {
           ...getAuthHeader()

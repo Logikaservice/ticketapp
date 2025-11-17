@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { buildApiUrl } from '../utils/apiConfig';
 
 export const useAuth = (showNotification) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -52,7 +53,7 @@ export const useAuth = (showNotification) => {
     }
 
     try {
-      const response = await fetch(process.env.REACT_APP_API_URL + '/api/refresh-token', {
+      const response = await fetch(buildApiUrl('/api/refresh-token'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken })
@@ -75,7 +76,7 @@ export const useAuth = (showNotification) => {
   const handleLogin = async () => {
     if (!loginData.email || !loginData.password) return showNotification('Inserisci email e password.', 'error');
     try {
-      const response = await fetch(process.env.REACT_APP_API_URL + '/api/login', {
+      const response = await fetch(buildApiUrl('/api/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginData)
@@ -119,7 +120,7 @@ export const useAuth = (showNotification) => {
     const sessionId = localStorage.getItem('sessionId');
     if (sessionId) {
       try {
-        await fetch(process.env.REACT_APP_API_URL + '/api/logout', {
+        await fetch(buildApiUrl('/api/logout'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId })
