@@ -30,11 +30,12 @@ const TicketsCalendar = ({ tickets, onTicketClick, currentUser, getAuthHeader, u
   // Funzione per gestire il click sui giorni
   const handleDayClick = (day, event) => {
     // Se si tiene premuto Ctrl/Cmd, gestisci la disponibilità invece dei ticket
-    if (event.ctrlKey || event.metaKey) {
-      event.preventDefault();
-      handleAvailabilityClick(day);
-      return;
-    }
+    // TODO: Implementare handleAvailabilityClick quando necessario
+    // if (event.ctrlKey || event.metaKey) {
+    //   event.preventDefault();
+    //   handleAvailabilityClick(day);
+    //   return;
+    // }
     
     const allTicketsForDay = [];
     
