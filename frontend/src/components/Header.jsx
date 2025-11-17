@@ -6,6 +6,7 @@ import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3
 const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
+  const [expandedAction, setExpandedAction] = useState(null);
   const menuRef = useRef(null);
   const quickPanelRef = useRef(null);
 
@@ -47,12 +48,30 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
     },
     {
       label: 'Gestione Clienti',
-      description: 'Lista e creazione clienti',
+      description: 'Nuovo cliente o elenco completo',
       icon: Users,
       iconWrapperClass: 'text-cyan-600 bg-cyan-50',
       rowClass: 'hover:bg-cyan-50/80 border-l-4 border-l-cyan-400',
-      action: openManageClientsModal,
-      visible: currentUser?.ruolo === 'tecnico' && typeof openManageClientsModal === 'function'
+      action: () => {},
+      subActions: [
+        {
+          label: 'Nuovo Cliente',
+          description: 'Crea un nuovo profilo',
+          icon: UserPlus,
+          colorClass: 'text-emerald-600',
+          action: openNewClientModal
+        },
+        {
+          label: 'Gestisci Clienti',
+          description: 'Apri elenco completo',
+          icon: List,
+          colorClass: 'text-sky-600',
+          action: openManageClientsModal
+        }
+      ],
+      visible: currentUser?.ruolo === 'tecnico' &&
+        typeof openManageClientsModal === 'function' &&
+        typeof openNewClientModal === 'function'
     },
     {
       label: 'Importa KeePass',
@@ -83,9 +102,14 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
     }
   ].filter(item => item.visible);
 
-  const handleQuickActionClick = (action) => {
-    if (typeof action === 'function') {
-      action();
+  const handleQuickActionClick = (item) => {
+    if (item.subActions && item.subActions.length > 0) {
+      setExpandedAction(prev => (prev === item.label ? null : item.label));
+      return;
+    }
+
+    if (typeof item.action === 'function') {
+      item.action();
       setShowQuickActions(false);
     }
   };
@@ -103,21 +127,56 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
               <p className="text-lg font-semibold mt-1">Azioni principali</p>
             </div>
             <div className="flex flex-col divide-y divide-gray-100">
-              {quickActions.map(({ label, description, icon: Icon, iconWrapperClass, rowClass, action }) => (
-                <button
-                  key={label}
-                  onClick={() => handleQuickActionClick(action)}
-                  className={`flex items-center gap-4 px-5 py-4 text-left transition ${rowClass}`}
-                >
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-semibold ${iconWrapperClass}`}>
-                    <Icon size={22} />
+              {quickActions.map((item) => {
+                const { label, description, icon: Icon, iconWrapperClass, rowClass } = item;
+                const isExpanded = expandedAction === label;
+                return (
+                  <div key={label}>
+                    <button
+                      onClick={() => handleQuickActionClick(item)}
+                      className={`w-full flex items-center gap-4 px-5 py-4 text-left transition ${rowClass}`}
+                    >
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-semibold ${iconWrapperClass}`}>
+                        <Icon size={22} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900">{label}</p>
+                        <p className="text-xs text-gray-500">{description}</p>
+                      </div>
+                      <div className="text-gray-400">
+                        {item.subActions && item.subActions.length > 0 && (
+                          <span className="text-xs font-semibold">{isExpanded ? '−' : '+'}</span>
+                        )}
+                      </div>
+                    </button>
+                    {item.subActions && item.subActions.length > 0 && isExpanded && (
+                      <div className="px-5 pb-4 pt-0 space-y-3 bg-white/70">
+                        {item.subActions.map((sub) => (
+                          <button
+                            key={sub.label}
+                            onClick={() => {
+                              if (typeof sub.action === 'function') {
+                                sub.action();
+                                setShowQuickActions(false);
+                                setExpandedAction(null);
+                              }
+                            }}
+                            className="w-full flex items-center gap-3 bg-gray-50 hover:bg-gray-100 rounded-2xl px-4 py-3 transition"
+                          >
+                            <div className={`w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow text-lg ${sub.colorClass}`}>
+                              <sub.icon size={20} />
+                            </div>
+                            <div className="flex-1 text-left">
+                              <p className="text-sm font-semibold text-gray-800">{sub.label}</p>
+                              <p className="text-xs text-gray-500">{sub.description}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">{label}</p>
-                    <p className="text-xs text-gray-500">{description}</p>
-                  </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
