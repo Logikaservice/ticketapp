@@ -1,5 +1,8 @@
 // index.js
 
+// Carica variabili d'ambiente da .env
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
