@@ -13,7 +13,9 @@ VPS_URL="postgresql://postgres:TicketApp2025!Secure@localhost:5432/ticketapp"
 
 echo "📥 Esportazione da Supabase..."
 # Usa pg_dump-17 se disponibile, altrimenti pg_dump
-PG_DUMP_CMD=$(which pg_dump-17 2>/dev/null || which pg_dump)
+PG_DUMP_CMD=$(which pg_dump-17 2>/dev/null || \
+              [ -f /usr/lib/postgresql/17/bin/pg_dump ] && echo /usr/lib/postgresql/17/bin/pg_dump || \
+              which pg_dump)
 echo "🔧 Usando: $PG_DUMP_CMD"
 $PG_DUMP_CMD "$SUPABASE_URL" > /tmp/supabase-backup.sql
 
