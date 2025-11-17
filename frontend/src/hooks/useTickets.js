@@ -1,3 +1,5 @@
+import { buildApiUrl } from '../utils/apiConfig';
+
 export const useTickets = (
   showNotification,
   setTickets,
@@ -72,13 +74,22 @@ export const useTickets = (
         headers['Content-Type'] = 'application/json';
       }
       
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`, {
+      const response = await fetch(buildApiUrl('/api/tickets'), {
         method: 'POST',
         headers: headers,
         body: body
       });
-      if (!response.ok) throw new Error('Errore del server.');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Errore creazione ticket:', response.status, errorText);
+        throw new Error('Errore del server.');
+      }
       const savedTicket = await response.json();
+      console.log('✅ Ticket creato con successo:', savedTicket.id, savedTicket.numero);
+      
+      // Chiudi la modale PRIMA di aggiornare lo stato per evitare problemi
+      closeModal();
+      
       // Marca subito come nuovo nella UI corrente
       const savedTicketWithNew = { ...savedTicket, isNew: true };
       // Controlla se il ticket esiste già (potrebbe essere arrivato via WebSocket prima)
@@ -88,10 +99,9 @@ export const useTickets = (
           // Se esiste, aggiornalo mantenendo eventuali flag isNew
           return prev.map(t => t.id === savedTicket.id ? { ...savedTicketWithNew, isNew: t.isNew || savedTicketWithNew.isNew } : t);
         }
-        // Se non esiste, aggiungilo
+        // Se non esiste, aggiungilo all'inizio
         return [savedTicketWithNew, ...prev];
       });
-      closeModal();
       
       // Sincronizzazione automatica con Google Calendar per nuovi ticket
       if (googleCalendarSync && typeof googleCalendarSync === 'function') {
@@ -161,7 +171,7 @@ export const useTickets = (
     console.log('🔍 DEBUG FRONTEND UPDATE: dataapertura =', newTicketData.dataapertura, 'tipo:', typeof newTicketData.dataapertura);
     
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${isEditingTicket}`, {
+      const response = await fetch(buildApiUrl(`/api/tickets/${isEditingTicket}`), {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -208,7 +218,7 @@ export const useTickets = (
       // Trova il ticket prima di eliminarlo per la sincronizzazione
       const ticketToDelete = tickets.find(t => t.id === id);
       
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}`, { 
+      const response = await fetch(buildApiUrl(`/api/tickets/${id}`), { 
         method: 'DELETE',
         headers: getAuthHeader()
       });
@@ -239,7 +249,7 @@ export const useTickets = (
     const savedScrollY = typeof window !== 'undefined' ? (window.scrollY || window.pageYOffset || 0) : 0;
     if (ticket && (!selectedTicket || selectedTicket.id !== ticket.id)) {
       try {
-        await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/mark-read`, {
+        await fetch(buildApiUrl(`/api/tickets/${ticket.id}/mark-read`), {
           method: 'PATCH',
           headers: { 
             'Content-Type': 'application/json',
@@ -294,7 +304,7 @@ export const useTickets = (
     
     const messageData = { autore, contenuto: msg, reclamo: isReclamo };
     try {
-      const messageResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}/messages`, {
+      const messageResponse = await fetch(buildApiUrl(`/api/tickets/${id}/messages`), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -309,7 +319,7 @@ export const useTickets = (
         newStatus = 'in_lavorazione';
       }
       if (newStatus !== ticket.stato) {
-        await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}/status`, {
+        await fetch(buildApiUrl(`/api/tickets/${id}/status`), {
           method: 'PATCH',
           headers: { 
             'Content-Type': 'application/json',
@@ -345,7 +355,7 @@ export const useTickets = (
           if (!clientEmail && ticket.clienteid) {
             console.log('🔍 Tentativo recupero email per cliente ID:', ticket.clienteid);
             try {
-              const clientData = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${ticket.clienteid}`, {
+              const clientData = await fetch(buildApiUrl(`/api/users/${ticket.clienteid}`), {
                 headers: getAuthHeader()
               });
               
@@ -373,7 +383,7 @@ export const useTickets = (
             clientEmail = 'cliente@example.com'; // Fallback temporaneo
           }
           
-          const emailResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/email/notify-technician-complaint`, {
+          const emailResponse = await fetch(buildApiUrl(`/api/email/notify-technician-complaint`), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -405,7 +415,7 @@ export const useTickets = (
 
   const handleDeleteMessage = async (ticketId, messageId) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticketId}/messages/${messageId}`, {
+      const response = await fetch(buildApiUrl(`/api/tickets/${ticketId}/messages/${messageId}`), {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -447,7 +457,7 @@ export const useTickets = (
     }
     
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticketId}/messages/${messageId}`, {
+      const response = await fetch(buildApiUrl(`/api/tickets/${ticketId}/messages/${messageId}`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -498,7 +508,7 @@ export const useTickets = (
     console.log('🔍 DEBUG FRONTEND: changeStatus - sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
     
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${id}/status`, {
+      const response = await fetch(buildApiUrl(`/api/tickets/${id}/status`), {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -573,7 +583,7 @@ export const useTickets = (
       }));
 
       // 1. Salva i timeLogs
-      const timelogsResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/timelogs`, {
+      const timelogsResponse = await fetch(buildApiUrl(`/api/tickets/${selectedTicket.id}/timelogs`), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -585,7 +595,7 @@ export const useTickets = (
       if (!timelogsResponse.ok) throw new Error('Errore nel salvare i log');
 
       // 2. Aggiorna lo stato a risolto (con controllo invio email)
-      const statusResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/status`, {
+      const statusResponse = await fetch(buildApiUrl(`/api/tickets/${selectedTicket.id}/status`), {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -597,7 +607,7 @@ export const useTickets = (
       if (!statusResponse.ok) throw new Error('Errore nell\'aggiornamento dello stato');
 
       // 3. Ricarica il ticket completo con i timeLogs
-      const ticketResponse = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets`, {
+      const ticketResponse = await fetch(buildApiUrl('/api/tickets'), {
         headers: getAuthHeader()
       });
       if (ticketResponse.ok) {

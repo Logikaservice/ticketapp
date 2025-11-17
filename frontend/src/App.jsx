@@ -1722,7 +1722,12 @@ export default function TicketApp() {
     
     // Per i clienti, crea direttamente il ticket con invio email obbligatorio
     console.log('🔍 DEBUG: Cliente - creazione ticket con email obbligatoria');
-    createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, []);
+    try {
+      await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, []);
+    } catch (error) {
+      console.error('Errore creazione ticket:', error);
+      // La modale rimane aperta in caso di errore, l'errore viene mostrato dalla funzione createTicket
+    }
   };
 
   const wrappedHandleUpdateTicket = () => {
