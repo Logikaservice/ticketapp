@@ -43,9 +43,9 @@ async function fixDuplicateUser() {
     console.log('\n🔍 Verifica riferimenti in altre tabelle...');
     
     for (const removeId of removeUserIds) {
-      // Verifica tickets
+      // Verifica tickets - controlla solo clienteid (tecnicoid potrebbe non esistere)
       const ticketsRef = await client.query(
-        'SELECT COUNT(*) as count FROM tickets WHERE clienteid = $1 OR tecnicoid = $1',
+        'SELECT COUNT(*) as count FROM tickets WHERE clienteid = $1',
         [removeId]
       );
       if (ticketsRef.rows[0].count > 0) {
@@ -55,10 +55,30 @@ async function fixDuplicateUser() {
           'UPDATE tickets SET clienteid = $1 WHERE clienteid = $2',
           [keepUserId, removeId]
         );
-        await client.query(
-          'UPDATE tickets SET tecnicoid = $1 WHERE tecnicoid = $2',
-          [keepUserId, removeId]
-        );
+      }
+      
+      // Verifica se esiste colonna tecnicoid e aggiorna se presente
+      try {
+        const tecnicoidCheck = await client.query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'tickets' AND column_name = 'tecnicoid'
+        `);
+        if (tecnicoidCheck.rows.length > 0) {
+          const tecnicoidRef = await client.query(
+            'SELECT COUNT(*) as count FROM tickets WHERE tecnicoid = $1',
+            [removeId]
+          );
+          if (tecnicoidRef.rows[0].count > 0) {
+            console.log(`  ⚠️  Ticket con tecnico collegato all'utente ID ${removeId}: ${tecnicoidRef.rows[0].count}`);
+            await client.query(
+              'UPDATE tickets SET tecnicoid = $1 WHERE tecnicoid = $2',
+              [keepUserId, removeId]
+            );
+          }
+        }
+      } catch (err) {
+        // Colonna tecnicoid non esiste, ignora
       }
       
       // Verifica access_logs
