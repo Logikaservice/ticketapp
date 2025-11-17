@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
+import { getApiBase } from '../utils/apiConfig';
 
 export const useWebSocket = ({
   getAuthHeader,
@@ -72,7 +73,7 @@ export const useWebSocket = ({
     }
 
     try {
-      const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+      const apiBase = getApiBase() || window.location.origin;
       
       // Ottieni token - non usare getAuthHeader nelle dipendenze
       const authHeader = getAuthHeader();
