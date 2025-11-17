@@ -274,47 +274,6 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
               </>
             )}
             
-            {/* Pulsante Nuove Funzionalità - visibile sia per tecnici che per clienti */}
-            {(currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'cliente') && (
-              <button 
-                onClick={openAlertsHistory} 
-                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition"
-                title="Nuove Funzionalità"
-              >
-                <Sparkles size={18} />
-              </button>
-            )}
-            
-            {/* Pulsante Importa KeePass - solo per tecnici */}
-            {currentUser?.ruolo === 'tecnico' && openImportKeepass && (
-              <button 
-                onClick={openImportKeepass} 
-                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                title="Importa KeePass"
-              >
-                <Key size={18} />
-              </button>
-            )}
-            
-            {/* Pulsante Analytics - solo per tecnici */}
-            {currentUser?.ruolo === 'tecnico' && openAnalytics && (
-              <button 
-                onClick={openAnalytics} 
-                className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition"
-                title="Analytics"
-              >
-                <BarChart3 size={18} />
-              </button>
-            )}
-            
-            <button 
-              onClick={openSettings} 
-              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-              title="Impostazioni"
-            >
-              <Settings size={18} />
-            </button>
-            
             <button 
               onClick={handleLogout} 
               className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
