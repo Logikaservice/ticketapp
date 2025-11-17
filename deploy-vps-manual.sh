@@ -23,18 +23,38 @@ npm install --production || npm install
 
 echo "📦 Installazione dipendenze frontend..."
 cd ../frontend
-npm install
+
+echo "🧹 Pulizia cache e build vecchi..."
+rm -rf build
+rm -rf node_modules/.cache
+rm -f .env
+rm -f .env.production
 
 echo "🔧 Configurazione variabili d'ambiente..."
 # Se nginx fa proxy per /api/, usa URL vuoto (chiamate relative)
 # Altrimenti usa l'URL diretto del backend
 echo "REACT_APP_API_URL=" > .env
+echo "✅ File .env creato:"
+cat .env
 
-echo "🔨 Build frontend..."
+echo "📦 Reinstallazione dipendenze frontend..."
+npm install
+
+echo "🔨 Build frontend (pulito)..."
 npm run build || {
   echo "❌ Errore build frontend"
   exit 1
 }
+
+echo "✅ Verifica build completato..."
+if [ -d "build" ]; then
+  echo "✅ Directory build creata correttamente"
+  echo "📊 Dimensione build:"
+  du -sh build
+else
+  echo "❌ Directory build non trovata!"
+  exit 1
+fi
 
 echo "🔄 Riavvio servizi..."
 # Prova a riavviare il backend
@@ -50,4 +70,9 @@ sudo systemctl restart nginx || {
 }
 
 echo "✅ Deploy completato!"
+echo ""
+echo "📝 IMPORTANTE:"
+echo "1. Svuota la cache del browser (Ctrl+Shift+R o Ctrl+F5)"
+echo "2. Verifica che nginx serva i file da /var/www/ticketapp/frontend/build"
+echo "3. Controlla i log di nginx se ci sono ancora problemi"
 
