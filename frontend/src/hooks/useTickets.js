@@ -74,14 +74,27 @@ export const useTickets = (
         headers['Content-Type'] = 'application/json';
       }
       
-      console.log('🔍 DEBUG: Chiamata fetch a', buildApiUrl('/api/tickets'));
+      const apiUrl = buildApiUrl('/api/tickets');
+      console.log('🔍 DEBUG: Chiamata fetch a', apiUrl);
       console.log('🔍 DEBUG: closeModal è definita?', typeof closeModal);
+      console.log('🔍 DEBUG: Headers keys:', Object.keys(headers));
+      console.log('🔍 DEBUG: Body type:', body instanceof FormData ? 'FormData' : 'JSON');
       
-      const response = await fetch(buildApiUrl('/api/tickets'), {
-        method: 'POST',
-        headers: headers,
-        body: body
-      });
+      let response;
+      try {
+        console.log('🔍 DEBUG: Inizio fetch...');
+        response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: headers,
+          body: body
+        });
+        console.log('🔍 DEBUG: Fetch completata!');
+      } catch (fetchError) {
+        console.error('❌ ERRORE FETCH (rete/CORS):', fetchError);
+        console.error('❌ ERRORE FETCH name:', fetchError.name);
+        console.error('❌ ERRORE FETCH message:', fetchError.message);
+        throw new Error('Errore di connessione al server. Verifica la connessione.');
+      }
       
       console.log('🔍 DEBUG: Risposta ricevuta, status:', response.status, 'ok:', response.ok);
       
