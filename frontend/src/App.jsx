@@ -1,6 +1,6 @@
 // src/App.jsx
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Notification from './components/AppNotification';
 import LoginScreen from './components/LoginScreen';
 import Header from './components/Header';
@@ -149,11 +149,6 @@ export default function TicketApp() {
     handleUpdateClient,
     handleDeleteClient
   } = useClients(showNotification, setUsers, setTickets, getAuthHeader);
-
-  // Pre-filtra i clienti una volta per performance - evita ricalcoli nei modals
-  const clientiAttivi = useMemo(() => {
-    return users.filter(u => u.ruolo === 'cliente');
-  }, [users]);
 
   const closeModal = () => {
     if (modalState.type === 'newTicket') {
@@ -2213,7 +2208,6 @@ export default function TicketApp() {
         currentUser={currentUser}
         showNotification={showNotification}
         users={users}
-        clientiAttivi={clientiAttivi}
         onSaveAlert={handleSaveAlert}
         onEditAlert={handleEditAlert}
         onConfirmEmail={handleConfirmEmail}

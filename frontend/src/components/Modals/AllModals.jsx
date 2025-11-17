@@ -121,7 +121,7 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
           <ImportKeepassModal 
             isOpen={true}
             onClose={closeModal}
-            users={handlers.clientiAttivi || handlers.users}
+            users={handlers.users}
             getAuthHeader={handlers.getAuthHeader}
             onSuccess={handlers.onKeepassImportSuccess}
           />
@@ -147,13 +147,12 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             onClose={closeModal}
           />
         );
+      
       case 'accessLogs':
         return (
-          <AccessLogsModal
+          <AccessLogsModal 
             isOpen={true}
             onClose={closeModal}
-            getAuthHeader={handlers.getAuthHeader}
-            currentUser={handlers.currentUser}
           />
         );
       

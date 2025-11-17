@@ -358,8 +358,6 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
     const isExpanded = expandedGroups.has(group.id);
     const hasEntries = group.entries && group.entries.length > 0;
     const hasChildren = group.children && group.children.length > 0;
-    // Mostra freccia SOLO se ci sono credenziali (entries) dirette in questo gruppo
-    // NON mostrare freccia se ci sono solo sottogruppi (children) senza entries
 
     return (
       <div key={group.id} className="mb-2">
@@ -371,12 +369,14 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
             style={{ paddingLeft: `${1 + level * 1.5}rem` }}
           >
             <div className="flex items-center gap-2">
-              {hasEntries && (
+              {(hasEntries || hasChildren) ? (
                 isExpanded ? (
                   <ChevronDown size={16} className="text-indigo-600" />
                 ) : (
                   <ChevronRight size={16} className="text-indigo-600" />
                 )
+              ) : (
+                <div className="w-4" />
               )}
               <Key size={16} className="text-indigo-600" />
               <span className="font-semibold text-gray-800">{extractString(group.name)}</span>
@@ -393,17 +393,10 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
             <div className="bg-gray-50 border-t border-gray-200">
               {group.entries.map(entry => {
                 const isHighlighted = highlightedEntryId === entry.id;
-                // Calcola padding per allineare con l'icona chiave del gruppo
-                // paddingLeft del button + spazio freccia (se presente) + gap + gap = allineamento con icona chiave
-                const basePadding = 1 + level * 1.5; // paddingLeft del button in rem
-                const chevronSpace = hasEntries ? 1 : 0; // spazio freccia (16px = 1rem) solo se presente
-                const gaps = 0.5 + 0.5; // gap-2 (0.5rem) tra freccia-key e key-text
-                const totalPadding = basePadding + chevronSpace + gaps;
                 return (
                 <div 
                   key={entry.id} 
-                  className={`border-b border-gray-200 last:border-b-0 ${isHighlighted ? 'bg-yellow-100 border-yellow-400 border-2' : ''}`}
-                  style={{ paddingLeft: `${totalPadding}rem`, paddingRight: '1rem', paddingTop: '1rem', paddingBottom: '1rem' }}
+                  className={`p-4 border-b border-gray-200 last:border-b-0 ${isHighlighted ? 'bg-yellow-100 border-yellow-400 border-2' : ''}`}
                   ref={isHighlighted ? highlightedEntryRef : null}
                 >
                   <div className="space-y-3">

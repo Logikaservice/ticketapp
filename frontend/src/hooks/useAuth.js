@@ -6,59 +6,6 @@ export const useAuth = (showNotification) => {
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [token, setToken] = useState(localStorage.getItem('authToken'));
   const [refreshToken, setRefreshToken] = useState(localStorage.getItem('refreshToken'));
-  const [sessionId, setSessionId] = useState(localStorage.getItem('sessionId'));
-
-  // Carica i dati completi dell'utente dal backend (incluso admin_companies)
-  const loadCurrentUserData = async () => {
-    if (!token) return;
-    
-    try {
-      const response = await fetch(process.env.REACT_APP_API_URL + '/api/users/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setCurrentUser(userData);
-        console.log('✅ Dati utente completi caricati (incluso admin_companies)');
-      } else {
-        // Se l'endpoint non esiste, usa i dati dal token come fallback
-        const tokenParts = token.split('.');
-        if (tokenParts.length === 3) {
-          const tokenData = JSON.parse(atob(tokenParts[1]));
-          setCurrentUser({
-            id: tokenData.id,
-            email: tokenData.email,
-            ruolo: tokenData.ruolo,
-            nome: tokenData.nome,
-            cognome: tokenData.cognome,
-            telefono: tokenData.telefono,
-            azienda: tokenData.azienda,
-            admin_companies: [] // Default vuoto se non disponibile
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Errore caricamento dati utente:', error);
-      // Fallback ai dati del token
-      const tokenParts = token.split('.');
-      if (tokenParts.length === 3) {
-        const tokenData = JSON.parse(atob(tokenParts[1]));
-        setCurrentUser({
-          id: tokenData.id,
-          email: tokenData.email,
-          ruolo: tokenData.ruolo,
-          nome: tokenData.nome,
-          cognome: tokenData.cognome,
-          telefono: tokenData.telefono,
-          azienda: tokenData.azienda,
-          admin_companies: [] // Default vuoto se non disponibile
-        });
-      }
-    }
-  };
 
   // Verifica token al caricamento
   useEffect(() => {
@@ -76,9 +23,16 @@ export const useAuth = (showNotification) => {
         const now = Date.now() / 1000;
         
         if (tokenData.exp > now) {
-          // Token valido, carica i dati completi dell'utente dal backend
-          // (incluso admin_companies che non è nel token)
-          loadCurrentUserData();
+          // Token valido, imposta l'utente
+          setCurrentUser({
+            id: tokenData.id,
+            email: tokenData.email,
+            ruolo: tokenData.ruolo,
+            nome: tokenData.nome,
+            cognome: tokenData.cognome,
+            telefono: tokenData.telefono,
+            azienda: tokenData.azienda
+          });
           setIsLoggedIn(true);
         } else {
           // Token scaduto, prova a rinnovarlo
@@ -109,8 +63,6 @@ export const useAuth = (showNotification) => {
         setToken(data.token);
         localStorage.setItem('authToken', data.token);
         console.log('🔄 Token rinnovato automaticamente');
-        // Carica i dati completi dopo il refresh
-        await loadCurrentUserData();
       } else {
         handleLogout();
       }
@@ -147,12 +99,10 @@ export const useAuth = (showNotification) => {
       setRefreshToken(loginResponse.refreshToken);
       localStorage.setItem('authToken', loginResponse.token);
       localStorage.setItem('refreshToken', loginResponse.refreshToken);
+      
+      // Salva sessionId se presente
       if (loginResponse.sessionId) {
-        setSessionId(loginResponse.sessionId);
         localStorage.setItem('sessionId', loginResponse.sessionId);
-      } else {
-        setSessionId(null);
-        localStorage.removeItem('sessionId');
       }
       
       setCurrentUser(loginResponse.user);
@@ -165,27 +115,24 @@ export const useAuth = (showNotification) => {
   };
 
   const handleLogout = async () => {
-    const activeSessionId = sessionId || localStorage.getItem('sessionId');
-    if (activeSessionId && token) {
+    // Chiama l'endpoint logout per registrare la disconnessione
+    const sessionId = localStorage.getItem('sessionId');
+    if (sessionId) {
       try {
         await fetch(process.env.REACT_APP_API_URL + '/api/logout', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({ sessionId: activeSessionId })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId })
         });
-      } catch (error) {
-        console.warn('Impossibile registrare il logout:', error.message);
+      } catch (err) {
+        console.error('Errore registrazione logout:', err);
       }
     }
-
+    
     setIsLoggedIn(false);
     setCurrentUser(null);
     setToken(null);
     setRefreshToken(null);
-    setSessionId(null);
     localStorage.removeItem('authToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('sessionId');

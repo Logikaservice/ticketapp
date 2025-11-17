@@ -119,28 +119,28 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 animate-fadeIn">
-      <div className="bg-gradient-to-br from-emerald-50 via-white to-sky-50 rounded-3xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-[0_20px_80px_rgba(16,185,129,0.25)] border border-emerald-100 overflow-hidden">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl">
         {/* Header */}
-        <div className="p-6 border-b border-emerald-100 flex items-center justify-between bg-gradient-to-r from-emerald-500 via-teal-500 to-sky-500 text-white">
+        <div className="p-6 border-b flex items-center justify-between bg-gradient-to-r from-purple-50 to-blue-50">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/20 rounded-lg backdrop-blur">
-              <Sparkles size={24} className="text-white" />
+            <div className="p-2 bg-green-100 rounded-lg">
+              <Sparkles size={24} className="text-green-600" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold">Nuove Funzionalità</h2>
-              <p className="text-sm text-white/80 mt-1">Cronologia delle novità introdotte nella piattaforma</p>
+              <h2 className="text-2xl font-bold text-gray-900">Nuove Funzionalità</h2>
+              <p className="text-sm text-gray-600 mt-1">Cronologia delle nuove funzionalità aggiunte al sistema</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-lg transition"
+            className="p-2 hover:bg-gray-100 rounded-lg transition"
           >
             <X size={24} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 bg-white/60 backdrop-blur">
+        <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
@@ -152,38 +152,28 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
               <p className="text-gray-600 text-lg">Nessun avviso presente</p>
             </div>
           ) : (
-            <div className="space-y-4 relative">
-              <div className="absolute left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-200 to-sky-200 rounded-full" />
-              {alerts.map((alert, index) => {
+            <div className="space-y-4">
+              {alerts.map((alert) => {
                 const levelInfo = getLevelInfo(alert.level);
                 const createdAt = alert.createdAt || alert.created_at;
                 const formattedDate = createdAt ? formatDate(createdAt) : 'Data non disponibile';
+                const formattedTime = createdAt ? new Date(createdAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
 
                 return (
                   <div
                     key={alert.id}
-                    className={`relative ml-8 border rounded-2xl p-5 ${levelInfo.borderColor} ${levelInfo.bgColor} hover:shadow-lg transition-all cursor-pointer`}
+                    className={`border rounded-lg p-4 ${levelInfo.borderColor} ${levelInfo.bgColor} hover:shadow-md transition-all cursor-pointer`}
                     onClick={() => setSelectedAlert(selectedAlert?.id === alert.id ? null : alert)}
                   >
-                    <div className="absolute -left-8 top-6 w-4 h-4 rounded-full border-4 border-white shadow bg-emerald-400" />
-                    <div className="absolute -left-7 top-6 text-xs text-gray-400 font-semibold">{index + 1}</div>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <div className="flex items-center justify-between gap-4 mb-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-10 h-10 rounded-xl bg-white/70 flex items-center justify-center">
-                              {levelInfo.icon}
-                            </div>
-                            <div>
-                              <p className="text-xs uppercase tracking-widest text-gray-500">{levelInfo.label}</p>
-                              <h3 className={`font-bold text-lg ${levelInfo.textColor}`}>
-                                {alert.title}
-                              </h3>
-                            </div>
-                          </div>
+                          <h3 className={`font-bold text-lg ${levelInfo.textColor}`}>
+                            {alert.title}
+                          </h3>
                           <div className="flex items-center gap-1 text-sm text-gray-600 whitespace-nowrap">
                             <Calendar size={14} />
-                            <span>{formattedDate}</span>
+                            <span>{formattedDate} {formattedTime && `alle ${formattedTime}`}</span>
                           </div>
                         </div>
                         
@@ -195,7 +185,7 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
                         )}
 
                         {selectedAlert?.id === alert.id && (
-                          <div className="mt-4 pt-4 border-t border-white/60 space-y-4">
+                          <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
                             <div>
                               <p className="text-sm font-semibold text-gray-700 mb-1">Descrizione:</p>
                               <p className="text-sm text-gray-600 whitespace-pre-wrap">{alert.body}</p>
@@ -214,7 +204,7 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
                                       href={`${apiBase}${att.path}`}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="px-3 py-1 bg-white/80 hover:bg-white rounded-full text-xs text-gray-700 transition shadow"
+                                      className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded text-xs text-gray-700 transition"
                                     >
                                       {att.originalName || att.filename}
                                     </a>
@@ -240,10 +230,10 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-emerald-100 bg-white/80 flex justify-end backdrop-blur">
+        <div className="p-4 border-t bg-gray-50 flex justify-end">
           <button
             onClick={onClose}
-            className="px-6 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition shadow"
+            className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition"
           >
             Chiudi
           </button>

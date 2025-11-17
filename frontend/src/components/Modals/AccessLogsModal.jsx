@@ -1,341 +1,366 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Activity, RefreshCcw, Search, Building, Mail, LogIn, LogOut, Clock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Search, Calendar, Building, Mail, User, Clock, Activity, Filter } from 'lucide-react';
 
-const formatDateTime = (value) => {
-  if (!value) return '—';
-  try {
-    return new Date(value).toLocaleString('it-IT', {
-      dateStyle: 'short',
-      timeStyle: 'short'
-    });
-  } catch {
-    return value;
-  }
-};
-
-const formatDuration = (seconds) => {
-  if (!seconds && seconds !== 0) return '—';
-  const totalSeconds = Math.max(Math.floor(seconds), 0);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const secs = totalSeconds % 60;
-  const parts = [];
-  if (hours) parts.push(`${hours}h`);
-  if (minutes) parts.push(`${minutes}m`);
-  parts.push(`${secs}s`);
-  return parts.join(' ');
-};
-
-const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
+const AccessLogsModal = ({ isOpen, onClose }) => {
   const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [summary, setSummary] = useState({ activeSessions: 0, uniqueUsers: 0 });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     search: '',
     company: '',
+    email: '',
     startDate: '',
     endDate: '',
     onlyActive: false
   });
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [summary, setSummary] = useState({
+    total: 0,
+    activeSessions: 0,
+    uniqueUsers: 0
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
 
-  const pageSize = 25;
-
-  const fetchLogs = async (resetPage = false) => {
-    if (resetPage) {
-      setPage(1);
-    }
-
+  const fetchLogs = async () => {
     setLoading(true);
+    setError(null);
+    
     try {
-      const params = new URLSearchParams();
-      const effectivePage = resetPage ? 1 : page;
-      params.set('page', effectivePage);
-      params.set('limit', pageSize);
-      if (filters.search) params.set('search', filters.search);
-      if (filters.company) params.set('company', filters.company);
-      if (filters.startDate) params.set('startDate', filters.startDate);
-      if (filters.endDate) params.set('endDate', filters.endDate);
-      if (filters.onlyActive) params.set('onlyActive', 'true');
-
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/access-logs?${params.toString()}`, {
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: pageSize.toString()
+      });
+      
+      if (filters.search) params.append('search', filters.search);
+      if (filters.company) params.append('company', filters.company);
+      if (filters.email) params.append('email', filters.email);
+      if (filters.startDate) params.append('startDate', filters.startDate);
+      if (filters.endDate) params.append('endDate', filters.endDate);
+      if (filters.onlyActive) params.append('onlyActive', 'true');
+      
+      const response = await fetch(`/api/access-logs?${params}`, {
         headers: {
-          'Content-Type': 'application/json',
-          ...(getAuthHeader ? getAuthHeader() : {})
+          'Authorization': `Bearer ${token}`
         }
       });
-
+      
       if (!response.ok) {
-        throw new Error('Errore nel recupero dei log');
+        throw new Error('Errore nel caricamento dei log');
       }
-
+      
       const data = await response.json();
       setLogs(data.logs || []);
-      setTotal(data.total || 0);
       setSummary({
+        total: data.total || 0,
         activeSessions: data.activeSessions || 0,
-        uniqueUsers: data.uniqueUsers || 0,
+        uniqueUsers: data.uniqueUsers || 0
       });
-      if (resetPage) {
-        setPage(1);
-      }
-    } catch (error) {
-      console.error('Errore fetch access logs:', error);
+    } catch (err) {
+      setError(err.message);
+      console.error('Errore caricamento log:', err);
     } finally {
       setLoading(false);
-      setIsRefreshing(false);
     }
   };
-
-  useEffect(() => {
-    if (isOpen) {
-      fetchLogs(true);
-    }
-  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
       fetchLogs();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [isOpen, currentPage, filters]);
 
-  const totalPages = useMemo(() => Math.max(Math.ceil(total / pageSize), 1), [total]);
-
-  const handleFilterChange = (field, value) => {
-    setFilters(prev => ({ ...prev, [field]: value }));
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  const handleApplyFilters = () => {
-    fetchLogs(true);
+  const formatDuration = (seconds) => {
+    if (!seconds) return '-';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
   };
 
-  const handleResetFilters = () => {
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1);
+  };
+
+  const clearFilters = () => {
     setFilters({
       search: '',
       company: '',
+      email: '',
       startDate: '',
       endDate: '',
       onlyActive: false
     });
-    fetchLogs(true);
+    setCurrentPage(1);
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl w-full max-w-6xl max-h-[92vh] overflow-hidden shadow-[0_25px_120px_rgba(15,23,42,0.6)] border border-slate-700">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-white/50">Monitoraggio accessi</p>
-            <h2 className="text-3xl font-bold text-white flex items-center gap-3 mt-1">
-              <Activity className="text-emerald-300" size={26} />
-              Access Log Clienti
-            </h2>
-            <p className="text-sm text-white/60 mt-1">
-              Tracciamento accessi e disconnessioni dei clienti sul portale
-            </p>
-          </div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-4 rounded-t-2xl flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                setIsRefreshing(true);
-                fetchLogs();
-              }}
-              className={`px-3 py-2 rounded-xl border border-white/20 text-white text-sm flex items-center gap-2 hover:bg-white/10 transition ${
-                isRefreshing ? 'opacity-60 cursor-wait' : ''
-              }`}
-              disabled={isRefreshing}
-            >
-              <RefreshCcw size={16} className={isRefreshing ? 'animate-spin' : ''} />
-              Aggiorna
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition"
-            >
-              <X size={22} />
-            </button>
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+              <Activity size={24} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold">Log Accessi</h2>
+              <p className="text-sm text-white/80">Monitoraggio accessi al portale</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/20 rounded-lg transition"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="px-6 py-4 bg-gray-50 border-b grid grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl p-4 border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Activity size={20} className="text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Totale Accessi</p>
+                <p className="text-2xl font-bold text-gray-900">{summary.total}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <Clock size={20} className="text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Sessioni Attive</p>
+                <p className="text-2xl font-bold text-green-600">{summary.activeSessions}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                <User size={20} className="text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Utenti Unici</p>
+                <p className="text-2xl font-bold text-purple-600">{summary.uniqueUsers}</p>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="px-6 py-4 border-b border-white/5 bg-white/5 backdrop-blur">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="flex items-center gap-2 bg-white/10 rounded-2xl px-4 py-2 border border-white/10">
-              <Search size={16} className="text-white/60" />
-              <input
-                type="text"
-                value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
-                placeholder="Cerca nome, email o azienda"
-                className="bg-transparent border-none outline-none text-white text-sm w-full placeholder:text-white/50"
-              />
-            </div>
-            <div className="flex items-center gap-2 bg-white/10 rounded-2xl px-4 py-2 border border-white/10">
-              <Building size={16} className="text-white/60" />
-              <input
-                type="text"
-                value={filters.company}
-                onChange={(e) => handleFilterChange('company', e.target.value)}
-                placeholder="Filtra per azienda"
-                className="bg-transparent border-none outline-none text-white text-sm w-full placeholder:text-white/50"
-              />
-            </div>
-            <div className="flex items-center gap-2 bg-white/10 rounded-2xl px-4 py-2 border border-white/10">
-              <Clock size={16} className="text-white/60" />
-              <input
-                type="date"
-                value={filters.startDate}
-                onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                className="bg-transparent border-none outline-none text-white text-sm w-full [color-scheme:dark]"
-              />
-            </div>
-            <div className="flex items-center gap-2 bg-white/10 rounded-2xl px-4 py-2 border border-white/10">
-              <Clock size={16} className="text-white/60" />
-              <input
-                type="date"
-                value={filters.endDate}
-                onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                className="bg-transparent border-none outline-none text-white text-sm w-full [color-scheme:dark]"
-              />
-            </div>
+        <div className="px-6 py-4 bg-white border-b">
+          <div className="flex items-center gap-2 mb-4">
+            <Filter size={18} className="text-gray-500" />
+            <h3 className="font-semibold text-gray-700">Filtri</h3>
           </div>
-
-          <div className="flex flex-wrap items-center gap-3 mt-3">
-            <label className="flex items-center gap-2 text-white/70 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={filters.onlyActive}
-                onChange={(e) => handleFilterChange('onlyActive', e.target.checked)}
-                className="accent-emerald-400"
-              />
-              Solo sessioni attive
-            </label>
-            <div className="flex gap-2 ml-auto">
-              <button
-                onClick={handleResetFilters}
-                className="px-4 py-2 text-sm rounded-xl bg-white/5 text-white/70 hover:bg-white/10 transition"
-              >
-                Reset
-              </button>
-              <button
-                onClick={handleApplyFilters}
-                className="px-4 py-2 text-sm rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white transition"
-              >
-                Applica filtri
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Summary cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 px-6 py-5 bg-gradient-to-r from-white/5 to-transparent border-b border-white/5">
-          <div className="p-4 rounded-2xl bg-white/10 border border-white/10 text-white">
-            <p className="text-xs uppercase tracking-widest text-white/50">Accessi registrati</p>
-            <p className="text-3xl font-bold mt-2">{total}</p>
-            <p className="text-xs text-white/60 mt-1">Storico filtrato</p>
-          </div>
-          <div className="p-4 rounded-2xl bg-white/10 border border-white/10 text-white">
-            <p className="text-xs uppercase tracking-widest text-white/50">Sessioni attive</p>
-            <p className="text-3xl font-bold mt-2">{summary.activeSessions}</p>
-            <p className="text-xs text-white/60 mt-1">Clienti ancora collegati</p>
-          </div>
-          <div className="p-4 rounded-2xl bg-white/10 border border-white/10 text-white">
-            <p className="text-xs uppercase tracking-widest text-white/50">Clienti unici</p>
-            <p className="text-3xl font-bold mt-2">{summary.uniqueUsers}</p>
-            <p className="text-xs text-white/60 mt-1">Nel perimetro filtrato</p>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-6 py-4 space-y-4">
-          {loading ? (
-            <div className="py-16 text-center text-white/70">
-              <div className="inline-flex items-center gap-3 text-sm">
-                <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping" />
-                Caricamento log in corso...
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ricerca</label>
+              <div className="relative">
+                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                  placeholder="Email, nome, azienda..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
               </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Azienda</label>
+              <div className="relative">
+                <Building size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={filters.company}
+                  onChange={(e) => handleFilterChange('company', e.target.value)}
+                  placeholder="Nome azienda..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <div className="relative">
+                <Mail size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="email"
+                  value={filters.email}
+                  onChange={(e) => handleFilterChange('email', e.target.value)}
+                  placeholder="Email utente..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data Inizio</label>
+              <div className="relative">
+                <Calendar size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data Fine</label>
+              <div className="relative">
+                <Calendar size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={filters.onlyActive}
+                  onChange={(e) => handleFilterChange('onlyActive', e.target.checked)}
+                  className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                />
+                <span className="text-sm text-gray-700">Solo sessioni attive</span>
+              </label>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={clearFilters}
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+            >
+              Pulisci Filtri
+            </button>
+          </div>
+        </div>
+
+        {/* Logs Table */}
+        <div className="flex-1 overflow-auto px-6 py-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+            </div>
+          ) : error ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+              {error}
             </div>
           ) : logs.length === 0 ? (
-            <div className="py-16 text-center text-white/60 border border-dashed border-white/20 rounded-2xl">
-              Nessun accesso trovato con i filtri impostati.
+            <div className="text-center py-12 text-gray-500">
+              Nessun log trovato
             </div>
           ) : (
-            logs.map((log) => (
-              <div
-                key={log.session_id}
-                className="bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white backdrop-blur hover:border-emerald-400/50 transition"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="text-lg font-semibold">{log.user_name || 'Utente sconosciuto'}</p>
-                    <p className="text-sm text-white/60 flex items-center gap-2">
-                      <Mail size={14} /> {log.user_email || '—'}
-                    </p>
-                    <p className="text-sm text-white/60 flex items-center gap-2">
-                      <Building size={14} /> {log.user_company || '—'}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-3 text-sm">
-                    <div className="px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-                      <p className="text-emerald-200 flex items-center gap-2">
-                        <LogIn size={14} /> Accesso
-                      </p>
-                      <p className="text-white font-semibold">{formatDateTime(log.login_at)}</p>
-                      <p className="text-xs text-white/50 mt-1">IP: {log.login_ip || 'n/d'}</p>
-                    </div>
-                    <div className="px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30">
-                      <p className="text-rose-200 flex items-center gap-2">
-                        <LogOut size={14} /> Uscita
-                      </p>
-                      <p className="text-white font-semibold">{formatDateTime(log.logout_at)}</p>
-                      <p className="text-xs text-white/50 mt-1">IP: {log.logout_ip || 'n/d'}</p>
-                    </div>
-                    <div className="px-3 py-2 rounded-xl bg-white/10 border border-white/10 min-w-[120px] text-center">
-                      <p className="text-white/60 text-xs uppercase">Durata</p>
-                      <p className="text-lg font-bold mt-1 text-white">{formatDuration(log.duration_seconds)}</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-3 text-xs text-white/50 break-all">
-                  User Agent: {log.user_agent || '—'}
-                </div>
-              </div>
-            ))
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Utente</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Azienda</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Login</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Logout</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Durata</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">IP</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Stato</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {logs.map((log) => (
+                    <tr key={log.session_id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{log.user_name || '-'}</div>
+                          <div className="text-xs text-gray-500">{log.user_email || '-'}</div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {log.user_company || '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {formatDate(log.login_at)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {formatDate(log.logout_at)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {formatDuration(log.duration_seconds)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {log.login_ip || '-'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {log.logout_at ? (
+                          <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
+                            Chiusa
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                            Attiva
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
         {/* Pagination */}
-        <div className="px-6 py-4 border-t border-white/5 bg-white/5 backdrop-blur flex items-center justify-between text-white/70 text-sm">
-          <span>
-            Pagina {page} di {totalPages}
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-              disabled={page === 1}
-              className="px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10 disabled:opacity-30"
-            >
-              Precedente
-            </button>
-            <button
-              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-              disabled={page === totalPages}
-              className="px-4 py-2 rounded-xl border border-white/10 hover:bg-white/10 disabled:opacity-30"
-            >
-              Successiva
-            </button>
+        {!loading && logs.length > 0 && (
+          <div className="px-6 py-4 border-t bg-gray-50 flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              Pagina {currentPage} • {logs.length} risultati
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Precedente
+              </button>
+              <button
+                onClick={() => setCurrentPage(prev => prev + 1)}
+                disabled={logs.length < pageSize}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Successiva
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 };
 
 export default AccessLogsModal;
-
 

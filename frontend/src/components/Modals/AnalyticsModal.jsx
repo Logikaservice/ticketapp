@@ -113,38 +113,31 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
   const totalGenerale = totals.pagato + totals.inAttesa + totals.daFatturare + totals.daCompletare;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-3xl shadow-[0_25px_90px_rgba(59,130,246,0.3)] border border-blue-100 max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-blue-100 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white">
+        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-white/20 backdrop-blur">
-              <BarChart3 className="text-white" size={24} />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Analytics</h2>
-              <p className="text-sm text-white/70 mt-1">Andamento economico e stato ticket</p>
-            </div>
+            <BarChart3 className="text-blue-600" size={24} />
+            <h2 className="text-2xl font-bold text-gray-800">Analytics</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-lg transition"
+            className="p-2 hover:bg-gray-200 rounded-lg transition"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Filtro Azienda */}
-        <div className="p-4 border-b border-blue-100 bg-white/70 backdrop-blur">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 text-sm font-semibold">
-              <Building size={16} />
-              Filtra per azienda
-            </span>
+        <div className="p-4 border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            <Building size={18} className="text-gray-600" />
+            <label className="text-sm font-medium text-gray-700">Filtra per Azienda:</label>
             <select
               value={selectedCompany}
               onChange={(e) => setSelectedCompany(e.target.value)}
-              className="px-4 py-2 border-2 border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">Tutte le Aziende</option>
               {companies.map(company => (
@@ -155,7 +148,7 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
         </div>
 
         {/* Contenuto */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-white/60 to-purple-50/60 backdrop-blur">
+        <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-gray-500">Caricamento dati...</div>
@@ -167,11 +160,8 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
           ) : (
             <>
               {/* Grafico */}
-              <div className="mb-2 rounded-2xl border border-blue-100 bg-white shadow-lg p-4">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-500" />
-                  Andamento Mensile
-                </h3>
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-4 text-gray-800">Andamento Mensile</h3>
                 <ResponsiveContainer width="100%" height={400}>
                   <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -201,27 +191,27 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
 
               {/* Totali */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-2xl p-4 shadow">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <div className="text-sm text-green-700 font-medium mb-1">Pagato</div>
                   <div className="text-2xl font-bold text-green-800">{formatCurrency(totals.pagato)}</div>
                   <div className="text-xs text-green-600 mt-1">Fatturati</div>
                 </div>
-                <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-2xl p-4 shadow">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <div className="text-sm text-yellow-700 font-medium mb-1">In Attesa</div>
                   <div className="text-2xl font-bold text-yellow-800">{formatCurrency(totals.inAttesa)}</div>
                   <div className="text-xs text-yellow-600 mt-1">Inviati</div>
                 </div>
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-2xl p-4 shadow">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="text-sm text-blue-700 font-medium mb-1">Da Fatturare</div>
                   <div className="text-2xl font-bold text-blue-800">{formatCurrency(totals.daFatturare)}</div>
                   <div className="text-xs text-blue-600 mt-1">Chiusi</div>
                 </div>
-                <div className="bg-gradient-to-br from-rose-50 to-rose-100 border border-rose-200 rounded-2xl p-4 shadow">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <div className="text-sm text-red-700 font-medium mb-1">Da Completare</div>
                   <div className="text-2xl font-bold text-red-800">{formatCurrency(totals.daCompletare)}</div>
                   <div className="text-xs text-red-600 mt-1">Risolti</div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow">
+                <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
                   <div className="text-sm text-gray-700 font-medium mb-1">Totale</div>
                   <div className="text-2xl font-bold text-gray-800">{formatCurrency(totalGenerale)}</div>
                   <div className="text-xs text-gray-600 mt-1">Complessivo</div>
@@ -230,13 +220,10 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
 
               {/* Tabella Dettagli */}
               <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-purple-500" />
-                  Dettaglio Mensile
-                </h3>
-                <div className="overflow-x-auto rounded-2xl border border-purple-100 shadow">
-                  <table className="min-w-full bg-white">
-                    <thead className="bg-purple-50 text-purple-800">
+                <h3 className="text-lg font-semibold mb-4 text-gray-800">Dettaglio Mensile</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                    <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Mese</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Pagato</th>
@@ -246,7 +233,7 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-700 uppercase">Totale Mese</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-200">
                       {data.map((row, index) => {
                         const totaleMese = row.pagato + row.inAttesa + row.daFatturare + row.daCompletare;
                         
@@ -274,7 +261,7 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
                         };
                         
                         return (
-                          <tr key={index} className="hover:bg-violet-50/70 transition">
+                          <tr key={index} className="hover:bg-gray-50">
                             <td className="px-4 py-3 text-sm font-medium text-gray-900">{row.month}</td>
                             <td className="px-4 py-3 text-sm text-right text-green-700">{formatCurrency(row.pagato)}</td>
                             <td 
@@ -303,7 +290,7 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
                         );
                       })}
                     </tbody>
-                    <tfoot className="bg-purple-50 font-semibold text-purple-800">
+                    <tfoot className="bg-gray-100 font-semibold">
                       <tr>
                         <td className="px-4 py-3 text-sm text-gray-900">TOTALE</td>
                         <td className="px-4 py-3 text-sm text-right text-green-700">{formatCurrency(totals.pagato)}</td>
@@ -323,7 +310,7 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
         {/* Tooltip per dettagli aziende */}
         {tooltipData && (
           <div
-            className="fixed z-50 bg-white border border-purple-200 rounded-2xl shadow-2xl p-4 min-w-[250px] max-w-[400px]"
+            className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-4 min-w-[250px] max-w-[400px]"
             style={{
               left: `${tooltipPosition.x}px`,
               top: `${tooltipPosition.y}px`,
@@ -333,7 +320,7 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
             onMouseEnter={() => {}} // Mantieni il tooltip visibile quando ci passi sopra
             onMouseLeave={handleTooltipLeave}
           >
-            <div className="text-sm font-semibold text-purple-800 mb-2 border-b border-purple-100 pb-2">
+            <div className="text-sm font-semibold text-gray-800 mb-2 border-b pb-2">
               {tooltipData.month} - {
                 tooltipData.field === 'inAttesa' ? 'In Attesa' :
                 tooltipData.field === 'daFatturare' ? 'Da Fatturare' :

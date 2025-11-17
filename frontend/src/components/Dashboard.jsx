@@ -88,38 +88,11 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
           }
         };
 
-        // Calcola data di creazione e conto alla rovescia
-        const createdAt = new Date(avv.createdAt || avv.created_at);
-        // Gestisci correttamente i valori booleani (PostgreSQL restituisce booleani, ma controlla entrambi i formati)
-        const isPermanent = avv.isPermanent !== undefined ? avv.isPermanent : (avv.is_permanent !== undefined ? avv.is_permanent : true);
-        const daysToExpire = avv.daysToExpire || avv.days_to_expire || 7;
-        
-        // Calcola giorni rimanenti per avvisi temporanei
-        let daysRemaining = null;
-        if (!isPermanent) {
-          const expirationDate = new Date(createdAt);
-          expirationDate.setDate(expirationDate.getDate() + daysToExpire);
-          const now = new Date();
-          const diffTime = expirationDate - now;
-          daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        }
-        
-        // Formatta data di creazione
-        const formatDate = (date) => {
-          return new Intl.DateTimeFormat('it-IT', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          }).format(date);
-        };
-
         return (
         <div key={avv.id} className={`w-full p-3 rounded-lg border ${getAlertColor(avv.level)}`}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
-              <div className="font-bold flex items-center gap-2 flex-wrap">
+              <div className="font-bold flex items-center gap-2">
                 {avv.level === 'danger' ? (
                   <AlertTriangle size={16} className="text-red-600" />
                 ) : avv.level === 'info' ? (
@@ -129,33 +102,12 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                 ) : (
                   <AlertTriangle size={16} className="text-yellow-600" />
                 )}
-                <span>{avv.title}</span>
-                {/* Data di creazione e conto alla rovescia */}
-                <div className="flex items-center gap-2 ml-auto text-xs font-normal">
-                  <span className="text-gray-500">
-                    {formatDate(createdAt)}
-                  </span>
-                  {isPermanent ? (
-                    <span className="px-2 py-0.5 bg-gray-200 text-gray-700 rounded">
-                      Permanente
-                    </span>
-                  ) : (
-                    <span className={`px-2 py-0.5 rounded font-semibold ${
-                      daysRemaining <= 0 
-                        ? 'bg-red-600 text-white' 
-                        : daysRemaining <= 3 
-                        ? 'bg-red-500 text-white' 
-                        : 'bg-red-400 text-white'
-                    }`}>
-                      {daysRemaining <= 0 ? 'Scaduto' : `-${daysRemaining} giorni`}
-                    </span>
-                  )}
-                </div>
+                {avv.title}
               </div>
               {avv.level === 'features' ? (
                 <div className="text-sm mt-1 text-justify">
                   {(() => {
-                    // Usa line-clamp per limitare visivamente a 3 righe
+                    // Usa line-clamp per limitare visivamente a 5 righe
                     const textLength = avv.body ? avv.body.length : 0;
                     const textLines = avv.body ? avv.body.split('\n').length : 0;
                     const shouldShowMore = textLength > 200 || textLines > 3;
@@ -163,7 +115,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                     if (shouldShowMore) {
                       return (
                         <div className="relative">
-                          <div className="line-clamp-3 whitespace-pre-wrap pr-12">{avv.body}</div>
+                          <div className="line-clamp-5 whitespace-pre-wrap pr-12">{avv.body}</div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -759,15 +711,13 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           return true;
         }
         
-        // Se è temporaneo (inclusi gli avvisi "features"), verifica se è scaduto
+        // Se è temporaneo, verifica se è scaduto
         const createdAt = new Date(alert.createdAt || alert.created_at);
         const daysToExpire = alert.daysToExpire || 7;
         const expirationDate = new Date(createdAt);
         expirationDate.setDate(expirationDate.getDate() + daysToExpire);
         
         // Mostra solo se non è ancora scaduto
-        // NOTA: Gli avvisi "features" scaduti vengono rimossi dalla dashboard
-        // ma rimangono sempre visibili nella cronologia "Nuove Funzionalità"
         return new Date() <= expirationDate;
       });
       

@@ -8,7 +8,6 @@ const fs = require('fs');
 const { Pool } = require('pg');
 const http = require('http');
 const { Server } = require('socket.io');
-const { randomUUID } = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
@@ -22,6 +21,7 @@ const pool = new Pool({
   }
 });
 
+// Crea tabella access_logs se non esiste
 const ensureAccessLogsTable = async () => {
   try {
     await pool.query(`
@@ -56,6 +56,8 @@ const extractClientIp = (req) => {
   return req.socket?.remoteAddress || req.connection?.remoteAddress || 'unknown';
 };
 
+const { randomUUID } = require('crypto');
+
 const recordAccessLog = async (user, req) => {
   const sessionId = randomUUID();
   const loginIp = extractClientIp(req);
@@ -72,36 +74,21 @@ const recordAccessLog = async (user, req) => {
         user.id,
         user.email,
         `${user.nome || ''} ${user.cognome || ''}`.trim(),
-        user.azienda || '',
+        user.azienda || null,
         user.ruolo,
         loginIp,
         userAgent
       ]
     );
-    console.log(`📝 Access log inserito per ${user.email} (session ${sessionId})`);
+    console.log(`✅ Access log registrato per: ${user.email} (session: ${sessionId})`);
+    return sessionId;
   } catch (err) {
-    console.error('❌ Errore inserimento access log:', err.message);
-  }
-
-  return sessionId;
-};
-
-const closeAccessLog = async (sessionId, req) => {
-  if (!sessionId) return;
-  const logoutIp = extractClientIp(req);
-  try {
-    await pool.query(
-      `UPDATE access_logs
-       SET logout_at = NOW(), logout_ip = $2
-       WHERE session_id = $1 AND logout_at IS NULL`,
-      [sessionId, logoutIp]
-    );
-    console.log(`🔚 Sessione ${sessionId} chiusa`);
-  } catch (err) {
-    console.error('❌ Errore chiusura access log:', err.message);
+    console.error('❌ Errore registrazione access log:', err);
+    return null;
   }
 };
 
+// Crea tabella all'avvio
 ensureAccessLogsTable();
 
 // --- MIDDLEWARE ---
@@ -339,21 +326,22 @@ app.post('/api/login', async (req, res) => {
     client.release();
     
     if (isValidPassword) {
-      const sessionId = await recordAccessLog(user, req);
       // Non eliminare la password per permettere la visualizzazione nelle impostazioni
       console.log(`✅ Login riuscito per: ${email}`);
+      
+      // Registra access log
+      const sessionId = await recordAccessLog(user, req);
       
       // Ripristina JWT token e refresh token
       try {
         console.log('🔐 Generazione JWT per utente:', user.email);
         const loginResponse = generateLoginResponse(user);
-        loginResponse.sessionId = sessionId;
-        if (loginResponse.user) {
-          loginResponse.user.sessionId = sessionId;
-        }
         console.log('✅ JWT generato con successo');
         console.log('Token length:', loginResponse.token ? loginResponse.token.length : 'N/A');
         console.log('Refresh token length:', loginResponse.refreshToken ? loginResponse.refreshToken.length : 'N/A');
+        
+        // Aggiungi sessionId alla risposta
+        loginResponse.sessionId = sessionId;
         res.json(loginResponse);
       } catch (jwtErr) {
         console.error('❌ Errore generazione JWT:', jwtErr);
@@ -390,8 +378,7 @@ app.post('/api/login', async (req, res) => {
             azienda: user.azienda,
             password: user.password,
             admin_companies: adminCompanies
-          },
-          sessionId
+          }
         });
       }
     } else {
@@ -445,20 +432,28 @@ app.post('/api/refresh-token', async (req, res) => {
   }
 });
 
-app.post('/api/logout', authenticateToken, async (req, res) => {
+// ENDPOINT: Logout
+app.post('/api/logout', async (req, res) => {
   const { sessionId } = req.body;
-
+  
   if (!sessionId) {
-    return res.status(400).json({ error: 'Session ID mancante' });
+    return res.json({ success: true });
   }
-
+  
   try {
-    await closeAccessLog(sessionId, req);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('❌ Errore durante il logout:', error);
-    res.status(500).json({ error: 'Errore durante il logout' });
+    const logoutIp = extractClientIp(req);
+    await pool.query(
+      `UPDATE access_logs 
+       SET logout_at = NOW(), logout_ip = $1 
+       WHERE session_id = $2 AND logout_at IS NULL`,
+      [logoutIp, sessionId]
+    );
+    console.log(`✅ Logout registrato per session: ${sessionId}`);
+  } catch (err) {
+    console.error('❌ Errore registrazione logout:', err);
   }
+  
+  res.json({ success: true });
 });
 
 // Importa middleware di autenticazione
@@ -483,7 +478,6 @@ app.use('/api/temp', tempLoginRoutes);
 // Endpoint pubblico per invii email server-to-server (es. quick-request senza login)
 // DEVE essere montato PRIMA di qualsiasi route protetta che inizia con /api
 app.use('/api/public-email', emailNotificationsRoutes);
-app.use('/api/access-logs', accessLogsRoutes);
 
 // Endpoint pubblico per ottenere solo i clienti (per auto-rilevamento azienda)
 app.get('/clients', async (req, res) => {
@@ -913,6 +907,7 @@ app.use('/api', authenticateToken, googleAuthRoutes);
 app.use('/api/email', authenticateToken, emailNotificationsRoutes);
 app.use('/api/availability', authenticateToken, availabilityRoutes);
 app.use('/api/analytics', authenticateToken, requireRole('tecnico'), analyticsRoutes);
+app.use('/api/access-logs', accessLogsRoutes);
 
 // Funzione per chiusura automatica ticket risolti da più di 5 giorni
 const closeExpiredTickets = async () => {
