@@ -380,19 +380,19 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                           const isNoCompany = azienda === 'Senza azienda';
                           
                           return (
-                            <div key={azienda} className="border-b border-gray-100 last:border-b-0">
+                            <div key={azienda} className="border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-2">
                               {/* Header Azienda - Espandibile */}
                               <button
                                 type="button"
                                 onClick={() => toggleCompany(azienda)}
-                                className="w-full px-3 py-2 bg-gradient-to-r from-purple-50 to-violet-50 hover:from-purple-100 hover:to-violet-100 transition-all flex items-center justify-between text-left"
+                                className="w-full bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 transition-all p-3 flex items-center justify-between"
                               >
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                  <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-violet-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                                    {isNoCompany ? <Building size={12} /> : azienda.charAt(0).toUpperCase()}
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                                    {isNoCompany ? <Building size={14} /> : azienda.charAt(0).toUpperCase()}
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <h3 className="text-sm font-bold text-gray-800 truncate">
+                                    <h3 className="text-base font-bold text-gray-800 truncate">
                                       {isNoCompany ? 'Senza azienda' : azienda}
                                     </h3>
                                     <p className="text-xs text-gray-600">
@@ -400,66 +400,72 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                                     </p>
                                   </div>
                                 </div>
-                                {isExpanded ? (
-                                  <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
-                                ) : (
-                                  <ChevronRight size={16} className="text-gray-500 flex-shrink-0" />
-                                )}
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  {isExpanded ? (
+                                    <ChevronDown size={20} className="text-gray-600" />
+                                  ) : (
+                                    <ChevronRight size={20} className="text-gray-600" />
+                                  )}
+                                </div>
                               </button>
                               
                               {/* Clienti dell'azienda - Espansi/Collassati */}
                               {isExpanded && (
-                                <div className="bg-gray-50">
+                                <div className="bg-gray-50 space-y-2 p-2">
                                   {clientiAzienda.map((cliente) => {
                                     const isAdmin = isAdminOfCompany(cliente);
                                     const isSelected = selectedClients.includes(cliente.id);
                                     
                                     return (
-                                      <button
+                                      <div
                                         key={cliente.id}
-                                        type="button"
-                                        onClick={() => handleClientToggle(cliente.id)}
-                                        className={`w-full px-4 py-2.5 text-left hover:bg-purple-50 transition flex items-center gap-3 border-l-2 ${
-                                          isSelected 
-                                            ? 'bg-purple-50 border-purple-500' 
-                                            : 'border-transparent'
+                                        className={`bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition ml-4 ${
+                                          isSelected ? 'ring-2 ring-green-500 border-green-500' : ''
                                         }`}
                                       >
-                                        <input
-                                          type="checkbox"
-                                          checked={isSelected}
-                                          readOnly
-                                          className="rounded"
-                                        />
-                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                          {/* Spazio fisso per la corona */}
-                                          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
-                                            {isAdmin && (
-                                              <Crown size={16} className="text-yellow-500" />
-                                            )}
-                                          </div>
-                                          <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2">
-                                              <span className={`text-sm font-medium ${isSelected ? 'text-purple-700' : 'text-gray-900'}`}>
-                                                {cliente.nome} {cliente.cognome}
-                                              </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleClientToggle(cliente.id)}
+                                          className="w-full px-4 py-2.5 text-left flex items-center gap-3"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            readOnly
+                                            className="rounded"
+                                          />
+                                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                                            {/* Spazio fisso per la corona */}
+                                            <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                                              {isAdmin && (
+                                                <Crown size={16} className="text-yellow-500" />
+                                              )}
                                             </div>
-                                            {cliente.email && (
-                                              <div className="flex items-center gap-1 mt-0.5">
-                                                <Mail size={12} className="text-gray-400" />
-                                                <span className="text-xs text-gray-600 truncate">
-                                                  {cliente.email}
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-2">
+                                                <span className={`text-sm font-medium ${isSelected ? 'text-green-700' : 'text-gray-900'}`}>
+                                                  {cliente.nome} {cliente.cognome}
                                                 </span>
                                               </div>
-                                            )}
+                                              {cliente.email && (
+                                                <div className="flex items-center gap-1 mt-0.5">
+                                                  <Mail size={12} className="text-gray-400" />
+                                                  <span className="text-xs text-gray-600 truncate">
+                                                    {cliente.email}
+                                                  </span>
+                                                </div>
+                                              )}
+                                            </div>
                                           </div>
-                                        </div>
-                                        {isSelected && (
-                                          <div className="w-2 h-2 bg-purple-500 rounded-full flex-shrink-0"></div>
-                                        )}
-                                      </button>
+                                        </button>
+                                      </div>
                                     );
                                   })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                                 </div>
                               )}
                             </div>
