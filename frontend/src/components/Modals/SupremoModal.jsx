@@ -1,13 +1,51 @@
-import React, { useState } from 'react';
-import { X, Monitor, Eye, EyeOff, Download } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Monitor, Eye, EyeOff, Download, Loader2 } from 'lucide-react';
+import { buildApiUrl } from '../../utils/apiConfig';
 
-const SupremoModal = ({ closeModal }) => {
+const SupremoModal = ({ closeModal, getAuthHeader }) => {
   const [supremoId, setSupremoId] = useState('');
   const [supremoPassword, setSupremoPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [hasSupremo, setHasSupremo] = useState(true); // Default: assumiamo che Supremo sia installato
+  const [loading, setLoading] = useState(true);
+  const [installed, setInstalled] = useState(false);
 
   const SUPREMO_DOWNLOAD_URL = 'https://www.supremocontrol.com/download-supremo/windows/';
+
+  useEffect(() => {
+    fetchSupremoCredentials();
+  }, []);
+
+  const fetchSupremoCredentials = async () => {
+    try {
+      setLoading(true);
+      const authHeader = getAuthHeader();
+      const response = await fetch(buildApiUrl('/api/supremo/credentials'), {
+        headers: {
+          ...authHeader,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Errore nel recupero delle credenziali Supremo');
+      }
+
+      const data = await response.json();
+      
+      if (data.installed && data.id) {
+        setInstalled(true);
+        setSupremoId(data.id);
+        setSupremoPassword(data.password || '');
+      } else {
+        setInstalled(false);
+      }
+    } catch (error) {
+      console.error('Errore fetch Supremo:', error);
+      setInstalled(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text);
@@ -39,9 +77,14 @@ const SupremoModal = ({ closeModal }) => {
 
         {/* Contenuto */}
         <div className="p-6 space-y-4">
-          {hasSupremo ? (
+          {loading ? (
+            <div className="text-center py-8">
+              <Loader2 className="animate-spin text-blue-600 mx-auto mb-4" size={32} />
+              <p className="text-sm text-gray-600">Verifica installazione Supremo...</p>
+            </div>
+          ) : installed ? (
             <>
-              {/* Form per inserire ID e Password */}
+              {/* Mostra ID e Password se Supremo è installato */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   ID Supremo
@@ -50,18 +93,15 @@ const SupremoModal = ({ closeModal }) => {
                   <input
                     type="text"
                     value={supremoId}
-                    onChange={(e) => setSupremoId(e.target.value)}
-                    className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Inserisci l'ID Supremo"
+                    readOnly
+                    className="flex-1 px-3 py-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
-                  {supremoId && (
-                    <button
-                      onClick={() => handleCopy(supremoId)}
-                      className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm"
-                    >
-                      Copia
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleCopy(supremoId)}
+                    className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition text-sm"
+                  >
+                    Copia
+                  </button>
                 </div>
               </div>
 
@@ -74,9 +114,8 @@ const SupremoModal = ({ closeModal }) => {
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={supremoPassword}
-                      onChange={(e) => setSupremoPassword(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
-                      placeholder="Inserisci la password Supremo"
+                      readOnly
+                      className="w-full px-3 py-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
                     />
                     <button
                       onClick={() => setShowPassword(!showPassword)}
@@ -97,7 +136,7 @@ const SupremoModal = ({ closeModal }) => {
               </div>
 
               {/* Pulsante Mostra/Nascondi */}
-              {(supremoId || supremoPassword) && (
+              {supremoPassword && (
                 <div className="pt-2">
                   <button
                     onClick={() => setShowPassword(!showPassword)}
@@ -145,7 +184,7 @@ const SupremoModal = ({ closeModal }) => {
                 Scarica Supremo
               </a>
               <p className="text-xs text-gray-500 mt-4">
-                Dopo l'installazione, riapri questa finestra per inserire le credenziali.
+                Dopo l'installazione, riapri questa finestra per vedere le credenziali.
               </p>
             </div>
           )}

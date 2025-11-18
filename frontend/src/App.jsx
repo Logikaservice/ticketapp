@@ -2330,6 +2330,7 @@ export default function TicketApp() {
       {modalState.type === 'supremo' && (
         <SupremoModal
           closeModal={closeModal}
+          getAuthHeader={getAuthHeader}
         />
       )}
 
