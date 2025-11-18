@@ -65,6 +65,7 @@ export default function TicketApp() {
     const modalParam = urlParams.get('modal');
     if (modalParam === 'keepass') {
       const entryId = urlParams.get('entryId');
+      console.log('📋 Inizializzazione modalState da URL:', { modalParam, entryId });
       return { 
         type: 'keepassCredentials', 
         data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
