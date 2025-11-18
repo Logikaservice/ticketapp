@@ -91,6 +91,7 @@ export default function TicketApp() {
   const [pendingAlertData, setPendingAlertData] = useState(null);
   // Traccia i ticket cancellati per evitarne la ricomparsa nel polling (usa useRef per evitare re-render)
   const deletedTicketIdsRef = useRef(new Set());
+  const locallyDeletedTicketIdsRef = useRef(new Set());
 
   // Helpers per localStorage (nuovi ticket non ancora aperti dall'utente)
   const getSetFromStorage = (key) => {
@@ -189,6 +190,13 @@ export default function TicketApp() {
     syncTicketToCalendarBackend, // Passiamo la funzione di sincronizzazione Google Calendar
     getAuthHeader // Passiamo la funzione per l'autenticazione
   );
+
+  const wrappedHandleDeleteTicket = async (id) => {
+    const success = await handleDeleteTicket(id);
+    if (success) {
+      locallyDeletedTicketIdsRef.current.add(id);
+    }
+  };
 
   const {
     timeLogs,
@@ -820,6 +828,11 @@ export default function TicketApp() {
     
     // Aggiungi il ticket ID al Set dei ticket cancellati
     deletedTicketIdsRef.current.add(data.ticketId);
+
+    if (locallyDeletedTicketIdsRef.current.has(data.ticketId)) {
+      locallyDeletedTicketIdsRef.current.delete(data.ticketId);
+      return;
+    }
     
     // Rimuovi il ticket dalla lista
     setTickets(prev => prev.filter(t => t.id !== data.ticketId));
@@ -2136,7 +2149,7 @@ export default function TicketApp() {
               handleSetInviato,
               handleArchiveTicket,
               handleInvoiceTicket,
-              handleDeleteTicket,
+              handleDeleteTicket: wrappedHandleDeleteTicket,
               showNotification,
               handleSendMessage,
               handleDeleteMessage,
@@ -2179,7 +2192,7 @@ export default function TicketApp() {
               handleSetInviato,
               handleArchiveTicket,
               handleInvoiceTicket,
-              handleDeleteTicket,
+              handleDeleteTicket: wrappedHandleDeleteTicket,
               showNotification,
               handleSendMessage,
               handleDeleteMessage,

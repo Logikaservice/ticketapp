@@ -257,7 +257,7 @@ export const useTickets = (
   };
 
   const handleDeleteTicket = async (id) => {
-    if (!window.confirm('Sei sicuro di voler eliminare questo ticket?')) return;
+    if (!window.confirm('Sei sicuro di voler eliminare questo ticket?')) return false;
     try {
       // Trova il ticket prima di eliminarlo per la sincronizzazione
       const ticketToDelete = tickets.find(t => t.id === id);
@@ -283,8 +283,10 @@ export const useTickets = (
       setTickets(prev => prev.filter(t => t.id !== id));
       if (selectedTicket?.id === id) setSelectedTicket(null);
       showNotification('Ticket eliminato con successo!', 'success');
+      return true;
     } catch (error) {
       showNotification(error.message, 'error');
+      return false;
     }
   };
 
