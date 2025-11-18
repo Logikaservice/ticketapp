@@ -201,15 +201,25 @@ body {
 .border-top-indigo { border-top: 3px solid #6366f1; }
 .border-top-purple { border-top: 3px solid #8b5cf6; }
 .border-top-teal { border-top: 3px solid #14b8a6; }
+.border-top-emerald { border-top: 3px solid #10b981; }
+.border-top-cyan { border-top: 3px solid #06b6d4; }
+.border-top-amber { border-top: 3px solid #f59e0b; }
+.border-top-orange { border-top: 3px solid #f97316; }
+.border-top-sky { border-top: 3px solid #0ea5e9; }
 
-/* Background gradient orizzontale pulito (da sinistra a destra) */
-.bg-gradient-blue { background: linear-gradient(to right, rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0.02)); }
-.bg-gradient-yellow { background: linear-gradient(to right, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.02)); }
-.bg-gradient-green { background: linear-gradient(to right, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02)); }
-.bg-gradient-gray { background: linear-gradient(to right, rgba(107, 114, 128, 0.08), rgba(107, 114, 128, 0.02)); }
-.bg-gradient-indigo { background: linear-gradient(to right, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.02)); }
-.bg-gradient-purple { background: linear-gradient(to right, rgba(139, 92, 246, 0.08), rgba(139, 92, 246, 0.02)); }
-.bg-gradient-teal { background: linear-gradient(to right, rgba(20, 184, 166, 0.08), rgba(20, 184, 166, 0.02)); }
+/* Background gradient leggero per profondità (ripristinato) */
+.bg-gradient-blue { background: linear-gradient(to bottom, rgba(37, 99, 235, 0.03), rgba(37, 99, 235, 0.01)); }
+.bg-gradient-yellow { background: linear-gradient(to bottom, rgba(245, 158, 11, 0.03), rgba(245, 158, 11, 0.01)); }
+.bg-gradient-green { background: linear-gradient(to bottom, rgba(16, 185, 129, 0.03), rgba(16, 185, 129, 0.01)); }
+.bg-gradient-gray { background: linear-gradient(to bottom, rgba(107, 114, 128, 0.03), rgba(107, 114, 128, 0.01)); }
+.bg-gradient-indigo { background: linear-gradient(to bottom, rgba(99, 102, 241, 0.03), rgba(99, 102, 241, 0.01)); }
+.bg-gradient-purple { background: linear-gradient(to bottom, rgba(139, 92, 246, 0.03), rgba(139, 92, 246, 0.01)); }
+.bg-gradient-teal { background: linear-gradient(to bottom, rgba(20, 184, 166, 0.03), rgba(20, 184, 166, 0.01)); }
+.bg-gradient-emerald { background: linear-gradient(to bottom, rgba(16, 185, 129, 0.03), rgba(16, 185, 129, 0.01)); }
+.bg-gradient-cyan { background: linear-gradient(to bottom, rgba(6, 182, 212, 0.03), rgba(6, 182, 212, 0.01)); }
+.bg-gradient-amber { background: linear-gradient(to bottom, rgba(245, 158, 11, 0.03), rgba(245, 158, 11, 0.01)); }
+.bg-gradient-orange { background: linear-gradient(to bottom, rgba(249, 115, 22, 0.03), rgba(249, 115, 22, 0.01)); }
+.bg-gradient-sky { background: linear-gradient(to bottom, rgba(14, 165, 233, 0.03), rgba(14, 165, 233, 0.01)); }
 
 /* Effetto hover per card */
 .card-hover {

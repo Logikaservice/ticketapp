@@ -16,21 +16,21 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, car
         : 'ring-pulse-green'
     : '';
   
-  // Mappa colori per ogni stato
+  // Mappa colori per ogni stato (colori del pannello rapido, senza gradazione)
   const colorMap = {
-    'aperto': { border: 'border-top-blue', gradient: 'bg-gradient-blue' },
-    'in_lavorazione': { border: 'border-top-yellow', gradient: 'bg-gradient-yellow' },
-    'risolto': { border: 'border-top-green', gradient: 'bg-gradient-green' },
-    'chiuso': { border: 'border-top-purple', gradient: 'bg-gradient-purple' },
-    'inviato': { border: 'border-top-teal', gradient: 'bg-gradient-teal' },
-    'fatturato': { border: 'border-top-gray', gradient: 'bg-gradient-gray' }
+    'aperto': { border: 'border-top-emerald', bg: 'bg-emerald-50' }, // Nuove funzionalità
+    'in_lavorazione': { border: 'border-top-cyan', bg: 'bg-cyan-50' }, // Gestione Clienti
+    'risolto': { border: 'border-top-sky', bg: 'bg-sky-50' }, // Sky (colore simile)
+    'chiuso': { border: 'border-top-purple', bg: 'bg-purple-50' }, // Analytics
+    'inviato': { border: 'border-top-indigo', bg: 'bg-indigo-50' }, // Importa KeePass
+    'fatturato': { border: 'border-top-amber', bg: 'bg-amber-50' } // Impostazioni
   };
   
-  const colors = cardKey && colorMap[cardKey] ? colorMap[cardKey] : { border: '', gradient: '' };
+  const colors = cardKey && colorMap[cardKey] ? colorMap[cardKey] : { border: '', bg: '' };
   
   return (
     <button onClick={onClick} disabled={disabled} className={`card-hover text-center w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
-      <div className={`p-5 rounded-xl border border-gray-200 bg-white relative overflow-hidden ${colors.border} ${colors.gradient} shadow-sm hover:shadow-lg ${ringClass}`}>
+      <div className={`p-5 rounded-xl border border-gray-200 relative overflow-hidden ${colors.border} ${colors.bg || 'bg-white'} shadow-sm hover:shadow-lg ${ringClass}`}>
         <div className="text-sm font-medium text-gray-600 mb-3 flex items-center justify-center gap-2">{icon}<span>{title}</span></div>
         <div className="text-5xl font-extrabold gradient-text animate-pulse-strong leading-none">{value}</div>
         {/* Frecce rimosse su richiesta */}
