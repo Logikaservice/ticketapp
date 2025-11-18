@@ -46,6 +46,8 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
       const allAlerts = await res.json();
       
       // Filtra solo gli avvisi con level === 'features'
+      // IMPORTANTE: Mostra TUTTI gli avvisi features, anche quelli temporanei scaduti
+      // (nella dashboard vengono nascosti, ma qui devono rimanere sempre visibili)
       const featuresAlerts = allAlerts.filter(alert => alert.level === 'features');
       
       // Parsa correttamente il campo clients

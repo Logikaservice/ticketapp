@@ -775,6 +775,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       // I tecnici vedono tutti gli avvisi (non serve filtro)
       
       // Filtra gli avvisi temporanei scaduti (per tutti gli utenti)
+      // IMPORTANTE: Gli avvisi "features" temporanei scaduti devono scomparire dalla dashboard
+      // ma rimanere sempre visibili nel modal "Nuove funzionalità"
       const activeAlerts = filteredAlerts.filter(alert => {
         // Se è permanente, mostralo sempre
         if (alert.isPermanent) {
@@ -787,8 +789,14 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         const expirationDate = new Date(createdAt);
         expirationDate.setDate(expirationDate.getDate() + daysToExpire);
         
-        // Mostra solo se non è ancora scaduto
-        return new Date() <= expirationDate;
+        // Se è scaduto, non mostrarlo nella dashboard
+        const isExpired = new Date() > expirationDate;
+        if (isExpired) {
+          return false;
+        }
+        
+        // Se non è scaduto, mostralo
+        return true;
       });
       
       setAlerts(activeAlerts);
