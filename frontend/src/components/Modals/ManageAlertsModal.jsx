@@ -466,11 +466,6 @@ const ManageAlertsModal = ({ isOpen, onClose, users, onSave, onEdit, editingAler
                             </div>
                           );
                         })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
                       </>
                     )}
                   </div>
