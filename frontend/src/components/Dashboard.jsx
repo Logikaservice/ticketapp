@@ -160,21 +160,21 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
               {avv.level === 'features' ? (
                 <div className="text-sm mt-1 text-justify">
                   {(() => {
-                    // Usa line-clamp per limitare visivamente a 5 righe
+                    // Mostra sempre solo 3 righe per gli avvisi features
                     const textLength = avv.body ? avv.body.length : 0;
                     const textLines = avv.body ? avv.body.split('\n').length : 0;
-                    const shouldShowMore = textLength > 200 || textLines > 3;
+                    const shouldShowMore = textLength > 150 || textLines > 3;
                     
                     if (shouldShowMore) {
                       return (
                         <div className="relative">
-                          <div className="line-clamp-5 whitespace-pre-wrap pr-12">{avv.body}</div>
+                          <div className="line-clamp-3 whitespace-pre-wrap pr-16">{avv.body}</div>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
                               if (setModalState) {
-                                setModalState({ type: 'alertsHistory' });
+                                setModalState({ type: 'alertsHistory', data: { alertId: avv.id } });
                               }
                             }}
                             className="text-green-600 hover:text-green-700 font-semibold text-sm absolute bottom-0 right-0 bg-white pl-1 cursor-pointer"

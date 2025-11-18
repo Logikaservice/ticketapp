@@ -3,7 +3,7 @@ import { X, Clock, AlertTriangle, Info, Sparkles, Calendar, User, Building, File
 import { formatDate } from '../../utils/formatters';
 // getAuthHeader viene passato come prop, non importato
 
-const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alertsRefreshTrigger }) => {
+const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alertsRefreshTrigger, initialAlertId }) => {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedAlert, setSelectedAlert] = useState(null);
@@ -12,8 +12,29 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
   useEffect(() => {
     if (isOpen) {
       fetchAlerts();
+      // Reset selectedAlert quando si apre il modal (solo se non c'è initialAlertId)
+      if (!initialAlertId) {
+        setSelectedAlert(null);
+      }
     }
   }, [isOpen, alertsRefreshTrigger]);
+
+  // Espandi automaticamente l'avviso se viene passato initialAlertId
+  useEffect(() => {
+    if (isOpen && initialAlertId && alerts.length > 0) {
+      const alertToExpand = alerts.find(a => a.id === initialAlertId);
+      if (alertToExpand) {
+        setSelectedAlert(alertToExpand);
+        // Scroll all'avviso espanso
+        setTimeout(() => {
+          const element = document.querySelector(`[data-alert-id="${initialAlertId}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 200);
+      }
+    }
+  }, [isOpen, alerts, initialAlertId]);
 
   const fetchAlerts = async () => {
     setLoading(true);
@@ -162,6 +183,7 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
                 return (
                   <div
                     key={alert.id}
+                    data-alert-id={alert.id}
                     className={`border rounded-lg p-4 ${levelInfo.borderColor} ${levelInfo.bgColor} hover:shadow-md transition-all cursor-pointer`}
                     onClick={() => setSelectedAlert(selectedAlert?.id === alert.id ? null : alert)}
                   >

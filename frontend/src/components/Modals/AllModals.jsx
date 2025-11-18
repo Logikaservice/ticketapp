@@ -113,6 +113,7 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             currentUser={handlers.currentUser}
             getAuthHeader={handlers.getAuthHeader}
             alertsRefreshTrigger={handlers.alertsRefreshTrigger}
+            initialAlertId={modalState.data?.alertId || null}
           />
         );
       
