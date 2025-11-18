@@ -13,7 +13,6 @@ import NewTicketModal from './components/Modals/NewTicketModal';
 import FornitureModal from './components/Modals/FornitureModal';
 import UnreadMessagesModal from './components/UnreadMessagesModal';
 import TicketPhotosModal from './components/Modals/TicketPhotosModal';
-import SupremoModal from './components/Modals/SupremoModal';
 import { useAuth } from './hooks/useAuth';
 import { useClients } from './hooks/useClients';
 import { useTickets } from './hooks/useTickets';
@@ -1265,7 +1264,6 @@ export default function TicketApp() {
   const openImportKeepass = () => setModalState({ type: 'importKeepass' });
   const openAnalytics = () => setModalState({ type: 'analytics' });
   const openAccessLogs = () => setModalState({ type: 'accessLogs' });
-  const openSupremoModal = () => setModalState({ type: 'supremo' });
   const onKeepassImportSuccess = () => {
     showNotification('Credenziali KeePass importate con successo!', 'success');
   };
@@ -2137,7 +2135,7 @@ export default function TicketApp() {
         ))}
       </div>
       <Header
-        {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openSupremoModal }}
+        {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs }}
       />
 
       {!showDashboard && (
@@ -2324,13 +2322,6 @@ export default function TicketApp() {
           onClose={() => setShowUnreadModal(false)}
           onOpenTicket={handleOpenTicketFromModal}
           currentUser={currentUser}
-        />
-      )}
-
-      {modalState.type === 'supremo' && (
-        <SupremoModal
-          closeModal={closeModal}
-          getAuthHeader={getAuthHeader}
         />
       )}
 

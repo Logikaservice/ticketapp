@@ -1,9 +1,9 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Monitor } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity } from 'lucide-react';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openSupremoModal }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
@@ -131,18 +131,6 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Pulsante Supremo - solo per support@logikaservice.it */}
-            {currentUser?.email === 'support@logikaservice.it' && openSupremoModal && (
-              <button 
-                onClick={openSupremoModal} 
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-                title="Credenziali Supremo"
-              >
-                <Monitor size={18} />
-                Supremo
-              </button>
-            )}
-            
             {currentUser?.ruolo === 'cliente' && (
               <button 
                 onClick={openNewTicketModal} 

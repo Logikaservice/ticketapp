@@ -475,7 +475,6 @@ const availabilityRoutes = require('./routes/availability')(pool);
 const keepassRoutes = require('./routes/keepass')(pool);
 const analyticsRoutes = require('./routes/analytics')(pool);
 const accessLogsRoutes = require('./routes/accessLogs')(pool);
-const supremoRoutes = require('./routes/supremo')();
 
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
@@ -913,7 +912,6 @@ app.use('/api/email', authenticateToken, emailNotificationsRoutes);
 app.use('/api/availability', authenticateToken, availabilityRoutes);
 app.use('/api/analytics', authenticateToken, requireRole('tecnico'), analyticsRoutes);
 app.use('/api/access-logs', accessLogsRoutes);
-app.use('/api/supremo', authenticateToken, supremoRoutes);
 
 // Funzione per chiusura automatica ticket risolti da più di 5 giorni
 const closeExpiredTickets = async () => {
