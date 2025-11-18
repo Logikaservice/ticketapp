@@ -25,6 +25,7 @@ module.exports = (pool) => {
   };
 
   // Configurazione email transporter - supporta EMAIL_PASSWORD o EMAIL_PASS
+  // Rileva automaticamente il provider (Aruba o Gmail) in base all'email
   const createTransporter = () => {
     const emailUser = process.env.EMAIL_USER;
     const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
@@ -37,35 +38,86 @@ module.exports = (pool) => {
       return null;
     }
     
-    console.log('📧 Configurazione Gmail con SMTP esplicito');
+    // Rileva provider in base al dominio email
+    const isGmail = emailUser.includes('@gmail.com');
+    const isAruba = emailUser.includes('@logikaservice.it') || emailUser.includes('@aruba.it') || emailUser.includes('aruba');
     
-    // Prova prima con porta 587 (TLS), se fallisce useremo 465 (SSL)
-    const smtpConfig = {
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false, // true per 465, false per 587
-      requireTLS: true, // Richiedi TLS per porta 587
-      auth: {
-        user: emailUser,
-        pass: emailPass
-      },
-      // Timeout aumentati per connessioni lente
-      connectionTimeout: 30000, // 30 secondi per la connessione iniziale
-      socketTimeout: 30000, // 30 secondi per le operazioni socket
-      greetingTimeout: 30000, // 30 secondi per il saluto SMTP
-      // Opzioni TLS
-      tls: {
-        rejectUnauthorized: true, // Verifica certificati (più sicuro)
-        minVersion: 'TLSv1.2'
-      },
-      // Retry logic
-      pool: false, // Disabilita pooling per evitare problemi di connessione
-      // Debug (solo per sviluppo)
-      debug: false,
-      logger: false
-    };
+    let smtpConfig;
+    
+    if (isAruba) {
+      console.log('📧 Configurazione SMTP Aruba');
+      // Configurazione Aruba - usa smtps.aruba.it con porta 465 (SSL)
+      smtpConfig = {
+        host: 'smtps.aruba.it',
+        port: 465,
+        secure: true, // SSL per porta 465
+        auth: {
+          user: emailUser,
+          pass: emailPass
+        },
+        // Timeout aumentati per connessioni lente
+        connectionTimeout: 30000,
+        socketTimeout: 30000,
+        greetingTimeout: 30000,
+        // Opzioni TLS/SSL
+        tls: {
+          rejectUnauthorized: true,
+          minVersion: 'TLSv1.2'
+        },
+        pool: false,
+        debug: false,
+        logger: false
+      };
+    } else if (isGmail) {
+      console.log('📧 Configurazione SMTP Gmail');
+      // Configurazione Gmail - porta 587 (TLS)
+      smtpConfig = {
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false, // TLS per porta 587
+        requireTLS: true,
+        auth: {
+          user: emailUser,
+          pass: emailPass
+        },
+        connectionTimeout: 30000,
+        socketTimeout: 30000,
+        greetingTimeout: 30000,
+        tls: {
+          rejectUnauthorized: true,
+          minVersion: 'TLSv1.2'
+        },
+        pool: false,
+        debug: false,
+        logger: false
+      };
+    } else {
+      console.log('📧 Configurazione SMTP generica (provider sconosciuto)');
+      // Configurazione generica - prova porta 587
+      smtpConfig = {
+        host: 'smtp.' + emailUser.split('@')[1],
+        port: 587,
+        secure: false,
+        requireTLS: true,
+        auth: {
+          user: emailUser,
+          pass: emailPass
+        },
+        connectionTimeout: 30000,
+        socketTimeout: 30000,
+        greetingTimeout: 30000,
+        tls: {
+          rejectUnauthorized: true,
+          minVersion: 'TLSv1.2'
+        },
+        pool: false,
+        debug: false,
+        logger: false
+      };
+    }
     
     console.log('📧 Configurazione SMTP:', {
+      provider: isAruba ? 'Aruba' : (isGmail ? 'Gmail' : 'Generico'),
       host: smtpConfig.host,
       port: smtpConfig.port,
       secure: smtpConfig.secure,

@@ -18,25 +18,85 @@ if (!emailUser || !emailPass) {
   process.exit(1);
 }
 
+// Rileva provider in base al dominio email
+const isGmail = emailUser.includes('@gmail.com');
+const isAruba = emailUser.includes('@logikaservice.it') || emailUser.includes('@aruba.it') || emailUser.includes('aruba');
+
+let smtpConfig;
+
+if (isAruba) {
+  console.log('📧 Configurazione SMTP Aruba');
+  smtpConfig = {
+    host: 'smtps.aruba.it',
+    port: 465,
+    secure: true, // SSL per porta 465
+    auth: {
+      user: emailUser,
+      pass: emailPass
+    },
+    connectionTimeout: 30000,
+    socketTimeout: 30000,
+    greetingTimeout: 30000,
+    tls: {
+      rejectUnauthorized: true,
+      minVersion: 'TLSv1.2'
+    },
+    debug: true,
+    logger: true
+  };
+} else if (isGmail) {
+  console.log('📧 Configurazione SMTP Gmail');
+  smtpConfig = {
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    requireTLS: true,
+    auth: {
+      user: emailUser,
+      pass: emailPass
+    },
+    connectionTimeout: 30000,
+    socketTimeout: 30000,
+    greetingTimeout: 30000,
+    tls: {
+      rejectUnauthorized: true,
+      minVersion: 'TLSv1.2'
+    },
+    debug: true,
+    logger: true
+  };
+} else {
+  console.log('📧 Configurazione SMTP generica');
+  smtpConfig = {
+    host: 'smtp.' + emailUser.split('@')[1],
+    port: 587,
+    secure: false,
+    requireTLS: true,
+    auth: {
+      user: emailUser,
+      pass: emailPass
+    },
+    connectionTimeout: 30000,
+    socketTimeout: 30000,
+    greetingTimeout: 30000,
+    tls: {
+      rejectUnauthorized: true,
+      minVersion: 'TLSv1.2'
+    },
+    debug: true,
+    logger: true
+  };
+}
+
 console.log('🔧 Creazione transporter...');
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: emailUser,
-    pass: emailPass
-  },
-  connectionTimeout: 30000,
-  socketTimeout: 30000,
-  greetingTimeout: 30000,
-  tls: {
-    rejectUnauthorized: false,
-    ciphers: 'SSLv3'
-  },
-  debug: true, // Abilita debug per vedere cosa succede
-  logger: true
+console.log('📧 Provider rilevato:', isAruba ? 'Aruba' : (isGmail ? 'Gmail' : 'Generico'));
+console.log('📧 Configurazione:', {
+  host: smtpConfig.host,
+  port: smtpConfig.port,
+  secure: smtpConfig.secure
 });
+
+const transporter = nodemailer.createTransport(smtpConfig);
 
 console.log('📤 Tentativo connessione e verifica credenziali...\n');
 
@@ -52,20 +112,35 @@ transporter.verify((error, success) => {
       console.error('\n⚠️  ERRORE AUTENTICAZIONE!');
       console.error('Possibili cause:');
       console.error('1. Password errata');
-      console.error('2. Gmail richiede App Password (non password normale)');
-      console.error('3. Account Gmail ha "Accesso meno sicuro" disabilitato');
-      console.error('\nSoluzione:');
-      console.error('1. Vai su https://myaccount.google.com/apppasswords');
-      console.error('2. Crea una nuova App Password');
-      console.error('3. Usa quella password in EMAIL_PASSWORD');
+      if (isAruba) {
+        console.error('2. Verifica credenziali Aruba nel pannello di controllo');
+        console.error('3. Assicurati che l\'account email sia attivo');
+      } else if (isGmail) {
+        console.error('2. Gmail richiede App Password (non password normale)');
+        console.error('3. Account Gmail ha "Accesso meno sicuro" disabilitato');
+        console.error('\nSoluzione Gmail:');
+        console.error('1. Vai su https://myaccount.google.com/apppasswords');
+        console.error('2. Crea una nuova App Password');
+        console.error('3. Usa quella password in EMAIL_PASSWORD');
+      }
     } else if (error.code === 'ETIMEDOUT' || error.code === 'ECONNREFUSED') {
       console.error('\n⚠️  ERRORE CONNESSIONE!');
       console.error('Possibili cause:');
-      console.error('1. Firewall blocca porta 587');
-      console.error('2. Problema di rete');
-      console.error('3. Gmail SMTP non raggiungibile');
-      console.error('\nVerifica:');
-      console.error('  telnet smtp.gmail.com 587');
+      if (isAruba) {
+        console.error('1. Firewall blocca porta 465 (SSL)');
+        console.error('2. Problema di rete con Aruba');
+        console.error('3. SMTP Aruba non raggiungibile');
+        console.error('\nVerifica:');
+        console.error('  telnet smtps.aruba.it 465');
+        console.error('  oppure');
+        console.error('  nc -zv smtps.aruba.it 465');
+      } else {
+        console.error('1. Firewall blocca porta SMTP');
+        console.error('2. Problema di rete');
+        console.error('3. Server SMTP non raggiungibile');
+        console.error('\nVerifica:');
+        console.error(`  telnet ${smtpConfig.host} ${smtpConfig.port}`);
+      }
     }
     
     process.exit(1);
