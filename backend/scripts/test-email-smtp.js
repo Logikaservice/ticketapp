@@ -26,10 +26,12 @@ let smtpConfig;
 
 if (isAruba) {
   console.log('📧 Configurazione SMTP Aruba');
+  // Prova prima porta 587 (TLS) - più comune e spesso non bloccata
   smtpConfig = {
-    host: 'smtps.aruba.it',
-    port: 465,
-    secure: true, // SSL per porta 465
+    host: 'smtp.aruba.it', // smtp invece di smtps per porta 587
+    port: 587,
+    secure: false, // TLS per porta 587
+    requireTLS: true, // Richiedi STARTTLS
     auth: {
       user: emailUser,
       pass: emailPass
@@ -127,13 +129,15 @@ transporter.verify((error, success) => {
       console.error('\n⚠️  ERRORE CONNESSIONE!');
       console.error('Possibili cause:');
       if (isAruba) {
-        console.error('1. Firewall blocca porta 465 (SSL)');
+        console.error('1. Firewall blocca porta 587 (TLS)');
         console.error('2. Problema di rete con Aruba');
         console.error('3. SMTP Aruba non raggiungibile');
         console.error('\nVerifica:');
-        console.error('  telnet smtps.aruba.it 465');
+        console.error('  telnet smtp.aruba.it 587');
         console.error('  oppure');
-        console.error('  nc -zv smtps.aruba.it 465');
+        console.error('  nc -zv smtp.aruba.it 587');
+        console.error('\nSe la 587 non funziona, prova anche:');
+        console.error('  telnet smtps.aruba.it 465');
       } else {
         console.error('1. Firewall blocca porta SMTP');
         console.error('2. Problema di rete');

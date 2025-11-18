@@ -46,11 +46,13 @@ module.exports = (pool) => {
     
     if (isAruba) {
       console.log('📧 Configurazione SMTP Aruba');
-      // Configurazione Aruba - usa smtps.aruba.it con porta 465 (SSL)
+      // Configurazione Aruba - prova prima porta 587 (TLS), più comune e spesso non bloccata
+      // Se fallisce, si può provare anche smtps.aruba.it:465 (SSL)
       smtpConfig = {
-        host: 'smtps.aruba.it',
-        port: 465,
-        secure: true, // SSL per porta 465
+        host: 'smtp.aruba.it', // Prova prima smtp (non smtps) con porta 587
+        port: 587,
+        secure: false, // TLS per porta 587
+        requireTLS: true, // Richiedi STARTTLS
         auth: {
           user: emailUser,
           pass: emailPass
@@ -59,7 +61,7 @@ module.exports = (pool) => {
         connectionTimeout: 30000,
         socketTimeout: 30000,
         greetingTimeout: 30000,
-        // Opzioni TLS/SSL
+        // Opzioni TLS
         tls: {
           rejectUnauthorized: true,
           minVersion: 'TLSv1.2'
