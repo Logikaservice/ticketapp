@@ -1416,7 +1416,12 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             <div className="mt-4">
               <div className="bg-white border border-indigo-200 rounded-lg overflow-hidden shadow-md">
                 <button
-                  onClick={() => setModalState({ type: 'keepassCredentials' })}
+                  onClick={() => {
+                    const url = new URL(window.location);
+                    url.searchParams.set('modal', 'keepass');
+                    window.history.pushState({}, '', url);
+                    setModalState({ type: 'keepassCredentials' });
+                  }}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transition"
                 >
                   <Key size={20} />
@@ -1613,6 +1618,10 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                                 type="button"
                                 onClick={() => {
                                   setKeepassHighlightEntryId(entry.id);
+                                  const url = new URL(window.location);
+                                  url.searchParams.set('modal', 'keepass');
+                                  url.searchParams.set('entryId', entry.id.toString());
+                                  window.history.pushState({}, '', url);
                                   setModalState({ type: 'keepassCredentials', data: { highlightEntryId: entry.id } });
                                 }}
                                 className="mt-3 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition"
