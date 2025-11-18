@@ -7,22 +7,60 @@ const nodemailer = require('nodemailer');
 const emailUser = process.env.EMAIL_USER;
 const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
 
-console.log('🧪 Test connessione SMTP Gmail...\n');
-console.log('📧 EMAIL_USER:', emailUser || 'MANCANTE');
-console.log('📧 EMAIL_PASSWORD:', emailPass ? 'Configurato' : 'MANCANTE');
-console.log('');
+console.log('🧪 Test connessione SMTP...\n');
 
-if (!emailUser || !emailPass) {
-  console.error('❌ Configurazione email mancante!');
-  console.error('Verifica che EMAIL_USER e EMAIL_PASSWORD siano configurati nel file .env');
-  process.exit(1);
-}
-
-// Rileva provider in base al dominio email
-const isGmail = emailUser.includes('@gmail.com');
-const isAruba = emailUser.includes('@logikaservice.it') || emailUser.includes('@aruba.it') || emailUser.includes('aruba');
+// Verifica se è configurato un relay SMTP esterno (priorità)
+const smtpRelayHost = process.env.SMTP_RELAY_HOST;
+const smtpRelayPort = process.env.SMTP_RELAY_PORT;
+const smtpRelayUser = process.env.SMTP_RELAY_USER;
+const smtpRelayPass = process.env.SMTP_RELAY_PASSWORD || process.env.SMTP_RELAY_PASS;
+const smtpRelaySecure = process.env.SMTP_RELAY_SECURE === 'true' || process.env.SMTP_RELAY_SECURE === '1';
 
 let smtpConfig;
+
+// Se è configurato un relay SMTP esterno, usalo
+if (smtpRelayHost && smtpRelayPort && smtpRelayUser && smtpRelayPass) {
+  console.log('📧 Configurazione SMTP Relay esterno (provider VPS blocca porte SMTP)');
+  console.log('SMTP_RELAY_HOST:', smtpRelayHost);
+  console.log('SMTP_RELAY_PORT:', smtpRelayPort);
+  console.log('SMTP_RELAY_USER:', smtpRelayUser);
+  console.log('SMTP_RELAY_PASSWORD:', smtpRelayPass ? 'Configurato' : 'MANCANTE');
+  console.log('');
+  
+  smtpConfig = {
+    host: smtpRelayHost,
+    port: parseInt(smtpRelayPort, 10),
+    secure: smtpRelaySecure,
+    auth: {
+      user: smtpRelayUser,
+      pass: smtpRelayPass
+    },
+    connectionTimeout: 60000,
+    socketTimeout: 60000,
+    greetingTimeout: 30000,
+    tls: {
+      rejectUnauthorized: false,
+      minVersion: 'TLSv1.2'
+    },
+    debug: true,
+    logger: true
+  };
+} else {
+  // Fallback alla configurazione normale
+  console.log('📧 EMAIL_USER:', emailUser || 'MANCANTE');
+  console.log('📧 EMAIL_PASSWORD:', emailPass ? 'Configurato' : 'MANCANTE');
+  console.log('');
+  
+  if (!emailUser || !emailPass) {
+    console.error('❌ Configurazione email mancante!');
+    console.error('Verifica che EMAIL_USER e EMAIL_PASSWORD siano configurati nel file .env');
+    console.error('Oppure configura SMTP_RELAY_* per usare un relay SMTP esterno');
+    process.exit(1);
+  }
+  
+  // Rileva provider in base al dominio email
+  const isGmail = emailUser.includes('@gmail.com');
+  const isAruba = emailUser.includes('@logikaservice.it') || emailUser.includes('@aruba.it') || emailUser.includes('aruba');
 
 if (isAruba) {
   console.log('📧 Configurazione SMTP Aruba');
@@ -88,10 +126,17 @@ if (isAruba) {
     debug: true,
     logger: true
   };
+  }
 }
 
 console.log('🔧 Creazione transporter...');
-console.log('📧 Provider rilevato:', isAruba ? 'Aruba' : (isGmail ? 'Gmail' : 'Generico'));
+if (smtpRelayHost && smtpRelayPort && smtpRelayUser && smtpRelayPass) {
+  console.log('📧 Provider: SMTP Relay esterno');
+} else {
+  const isGmail = emailUser.includes('@gmail.com');
+  const isAruba = emailUser.includes('@logikaservice.it') || emailUser.includes('@aruba.it') || emailUser.includes('aruba');
+  console.log('📧 Provider rilevato:', isAruba ? 'Aruba' : (isGmail ? 'Gmail' : 'Generico'));
+}
 console.log('📧 Configurazione:', {
   host: smtpConfig.host,
   port: smtpConfig.port,
