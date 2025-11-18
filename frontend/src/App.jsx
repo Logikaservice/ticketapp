@@ -98,6 +98,8 @@ export default function TicketApp() {
   });
   const inactivityTimerRef = useRef(null);
   const lastActivityRef = useRef(Date.now());
+  const handleLogoutRef = useRef(null);
+  const showNotificationRef = useRef(null);
   // Traccia i ticket cancellati per evitarne la ricomparsa nel polling (usa useRef per evitare re-render)
   const deletedTicketIdsRef = useRef(new Set());
   const locallyDeletedTicketIdsRef = useRef(new Set());
@@ -162,6 +164,12 @@ export default function TicketApp() {
     handleLogout,
     getAuthHeader
   } = useAuth(showNotification);
+
+  // Aggiorna i ref per il timer di inattività
+  useEffect(() => {
+    handleLogoutRef.current = handleLogout;
+    showNotificationRef.current = showNotification;
+  }, [handleLogout, showNotification]);
 
   // Hook per Google Calendar
   const { syncTicketToCalendarBackend } = useGoogleCalendar(getAuthHeader);
@@ -665,6 +673,10 @@ export default function TicketApp() {
 
     const timeoutMs = inactivityTimeout * 60 * 1000; // Converti minuti in millisecondi
 
+    // Throttle per mousemove (evita troppi reset)
+    let throttleTimer = null;
+    const THROTTLE_MS = 1000; // Reset timer max ogni secondo anche con mousemove continuo
+
     // Funzione per resettare il timer
     const resetTimer = () => {
       lastActivityRef.current = Date.now();
@@ -672,25 +684,43 @@ export default function TicketApp() {
       // Cancella il timer esistente
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
       }
 
       // Imposta nuovo timer
       inactivityTimerRef.current = setTimeout(() => {
+        // Verifica che il tempo sia effettivamente passato
         const timeSinceLastActivity = Date.now() - lastActivityRef.current;
         if (timeSinceLastActivity >= timeoutMs) {
           // Logout automatico
-          showNotification(`Disconnessione automatica dopo ${inactivityTimeout} minuti di inattività`, 'info', 3000);
+          console.log(`⏰ Timer scaduto: logout automatico dopo ${inactivityTimeout} minuti di inattività`);
+          if (showNotificationRef.current) {
+            showNotificationRef.current(`Disconnessione automatica dopo ${inactivityTimeout} minuti di inattività`, 'info', 2000);
+          }
+          // Chiama logout dopo un breve delay per mostrare la notifica
           setTimeout(() => {
-            handleLogout();
-          }, 1000);
+            if (handleLogoutRef.current) {
+              handleLogoutRef.current();
+            }
+          }, 1500);
         }
       }, timeoutMs);
     };
 
     // Eventi che indicano attività
-    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    const activityEvents = ['mousedown', 'keypress', 'scroll', 'touchstart', 'click', 'keydown'];
     
-    const handleActivity = () => {
+    const handleActivity = (event) => {
+      // Per mousemove, usa throttle per evitare troppi reset
+      if (event.type === 'mousemove') {
+        if (throttleTimer) {
+          return; // Ignora se siamo ancora nel periodo di throttle
+        }
+        throttleTimer = setTimeout(() => {
+          throttleTimer = null;
+        }, THROTTLE_MS);
+      }
+      
       resetTimer();
     };
 
@@ -699,19 +729,38 @@ export default function TicketApp() {
       document.addEventListener(event, handleActivity, true);
     });
 
+    // Aggiungi mousemove separatamente con throttle
+    const handleMouseMove = (e) => {
+      if (!throttleTimer) {
+        throttleTimer = setTimeout(() => {
+          throttleTimer = null;
+          resetTimer();
+        }, THROTTLE_MS);
+        resetTimer();
+      }
+    };
+    document.addEventListener('mousemove', handleMouseMove, true);
+
     // Inizializza il timer
     resetTimer();
+    console.log(`⏰ Timer di inattività attivato: ${inactivityTimeout} minuti`);
 
     // Cleanup
     return () => {
       activityEvents.forEach(event => {
         document.removeEventListener(event, handleActivity, true);
       });
+      document.removeEventListener('mousemove', handleMouseMove, true);
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
+        inactivityTimerRef.current = null;
+      }
+      if (throttleTimer) {
+        clearTimeout(throttleTimer);
+        throttleTimer = null;
       }
     };
-  }, [isLoggedIn, currentUser, inactivityTimeout, handleLogout, showNotification]);
+  }, [isLoggedIn, currentUser?.ruolo, inactivityTimeout]);
 
   // ====================================================================
   // WEBSOCKET - CALLBACK PER EVENTI REAL-TIME
