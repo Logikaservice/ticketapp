@@ -59,7 +59,21 @@ export default function TicketApp() {
   
   const [notifications, setNotifications] = useState([]);
 
-  const [modalState, setModalState] = useState({ type: null, data: null });
+  // Inizializza modalState dall'URL se presente (per persistenza dopo F5)
+  const getInitialModalState = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const modalParam = urlParams.get('modal');
+    if (modalParam === 'keepass') {
+      const entryId = urlParams.get('entryId');
+      return { 
+        type: 'keepassCredentials', 
+        data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
+      };
+    }
+    return { type: null, data: null };
+  };
+
+  const [modalState, setModalState] = useState(getInitialModalState);
   const keepassModalRestoredRef = React.useRef(false);
   const [newTicketData, setNewTicketData] = useState({ 
     titolo: '', 
@@ -297,39 +311,18 @@ export default function TicketApp() {
     }
   }, [isLoggedIn]);
 
-  // Ripristina modal KeePass da URL dopo login (useEffect separato per evitare conflitti)
-  useEffect(() => {
-    if (isLoggedIn && currentUser && !keepassModalRestoredRef.current) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const modalParam = urlParams.get('modal');
-      if (modalParam === 'keepass') {
-        const entryId = urlParams.get('entryId');
-        keepassModalRestoredRef.current = true;
-        // Piccolo delay per assicurarsi che tutto sia inizializzato
-        setTimeout(() => {
-          setModalState({ 
-            type: 'keepassCredentials', 
-            data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
-          });
-        }, 200);
-      }
-    }
-  }, [isLoggedIn, currentUser]);
-
   // Monitora il modalState e ripristina il modal KeePass se viene chiuso accidentalmente ma l'URL lo richiede
   useEffect(() => {
-    if (isLoggedIn && currentUser && keepassModalRestoredRef.current) {
+    if (isLoggedIn && currentUser) {
       const urlParams = new URLSearchParams(window.location.search);
       const modalParam = urlParams.get('modal');
       if (modalParam === 'keepass' && modalState.type !== 'keepassCredentials') {
         // Se l'URL richiede il modal ma non è aperto, riaprirlo
         const entryId = urlParams.get('entryId');
-        setTimeout(() => {
-          setModalState({ 
-            type: 'keepassCredentials', 
-            data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
-          });
-        }, 100);
+        setModalState({ 
+          type: 'keepassCredentials', 
+          data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
+        });
       }
     }
   }, [isLoggedIn, currentUser, modalState.type]);
