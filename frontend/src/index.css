@@ -207,6 +207,14 @@ body {
 .border-top-orange { border-top: 3px solid #f97316; }
 .border-top-sky { border-top: 3px solid #0ea5e9; }
 
+/* Background molto chiaro per card stati (appena visibile) */
+.bg-emerald-very-light { background-color: rgba(16, 185, 129, 0.05); }
+.bg-cyan-very-light { background-color: rgba(6, 182, 212, 0.05); }
+.bg-sky-very-light { background-color: rgba(14, 165, 233, 0.05); }
+.bg-purple-very-light { background-color: rgba(139, 92, 246, 0.05); }
+.bg-indigo-very-light { background-color: rgba(99, 102, 241, 0.05); }
+.bg-amber-very-light { background-color: rgba(245, 158, 11, 0.05); }
+
 /* Background gradient leggero per profondità (ripristinato) */
 .bg-gradient-blue { background: linear-gradient(to bottom, rgba(37, 99, 235, 0.03), rgba(37, 99, 235, 0.01)); }
 .bg-gradient-yellow { background: linear-gradient(to bottom, rgba(245, 158, 11, 0.03), rgba(245, 158, 11, 0.01)); }

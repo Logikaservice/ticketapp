@@ -16,14 +16,14 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, car
         : 'ring-pulse-green'
     : '';
   
-  // Mappa colori per ogni stato (colori del pannello rapido, senza gradazione)
+  // Mappa colori per ogni stato (colori del pannello rapido, senza gradazione - sfondo molto chiaro)
   const colorMap = {
-    'aperto': { border: 'border-top-emerald', bg: 'bg-emerald-50' }, // Nuove funzionalità
-    'in_lavorazione': { border: 'border-top-cyan', bg: 'bg-cyan-50' }, // Gestione Clienti
-    'risolto': { border: 'border-top-sky', bg: 'bg-sky-50' }, // Sky (colore simile)
-    'chiuso': { border: 'border-top-purple', bg: 'bg-purple-50' }, // Analytics
-    'inviato': { border: 'border-top-indigo', bg: 'bg-indigo-50' }, // Importa KeePass
-    'fatturato': { border: 'border-top-amber', bg: 'bg-amber-50' } // Impostazioni
+    'aperto': { border: 'border-top-emerald', bg: 'bg-emerald-very-light' }, // Nuove funzionalità
+    'in_lavorazione': { border: 'border-top-cyan', bg: 'bg-cyan-very-light' }, // Gestione Clienti
+    'risolto': { border: 'border-top-sky', bg: 'bg-sky-very-light' }, // Sky (colore simile)
+    'chiuso': { border: 'border-top-purple', bg: 'bg-purple-very-light' }, // Analytics
+    'inviato': { border: 'border-top-indigo', bg: 'bg-indigo-very-light' }, // Importa KeePass
+    'fatturato': { border: 'border-top-amber', bg: 'bg-amber-very-light' } // Impostazioni
   };
   
   const colors = cardKey && colorMap[cardKey] ? colorMap[cardKey] : { border: '', bg: '' };
