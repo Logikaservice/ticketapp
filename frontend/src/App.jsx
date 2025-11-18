@@ -308,6 +308,9 @@ export default function TicketApp() {
       setSelectedTicket(null);
       setShowDashboard(true); // all'accesso parte dalla dashboard
       localStorage.setItem('openTicketId', 'null');
+      
+      // NON resettare modalState se contiene keepassCredentials (preservato dall'URL)
+      // Il modalState viene già inizializzato dall'URL, non resettarlo qui
     }
   }, [isLoggedIn]);
 
@@ -316,13 +319,16 @@ export default function TicketApp() {
     if (isLoggedIn && currentUser) {
       const urlParams = new URLSearchParams(window.location.search);
       const modalParam = urlParams.get('modal');
-      if (modalParam === 'keepass' && modalState.type !== 'keepassCredentials') {
+      if (modalParam === 'keepass') {
         // Se l'URL richiede il modal ma non è aperto, riaprirlo
-        const entryId = urlParams.get('entryId');
-        setModalState({ 
-          type: 'keepassCredentials', 
-          data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
-        });
+        if (modalState.type !== 'keepassCredentials') {
+          const entryId = urlParams.get('entryId');
+          console.log('🔄 Ripristino modal KeePass da URL:', { entryId });
+          setModalState({ 
+            type: 'keepassCredentials', 
+            data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
+          });
+        }
       }
     }
   }, [isLoggedIn, currentUser, modalState.type]);
