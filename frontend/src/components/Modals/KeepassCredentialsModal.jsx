@@ -390,7 +390,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
 
           {/* Entry del Gruppo */}
           {isExpanded && hasEntries && (
-            <div className="bg-gray-50 border-t border-gray-200">
+            <div className="bg-gray-50 border-t border-gray-200" style={{ paddingLeft: `${1 + level * 1.5}rem` }}>
               {group.entries.map(entry => {
                 const isHighlighted = highlightedEntryId === entry.id;
                 return (
