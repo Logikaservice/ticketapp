@@ -28,19 +28,19 @@ if (isAruba) {
   console.log('📧 Configurazione SMTP Aruba');
   // Prova prima porta 587 (TLS) - più comune e spesso non bloccata
   smtpConfig = {
-    host: 'smtp.aruba.it', // smtp invece di smtps per porta 587
+    host: 'smtp.aruba.it',
     port: 587,
-    secure: false, // TLS per porta 587
-    requireTLS: true, // Richiedi STARTTLS
+    secure: false, // TLS/STARTTLS per porta 587
+    // Non forzare requireTLS - lascia che Nodemailer gestisca STARTTLS automaticamente
     auth: {
       user: emailUser,
       pass: emailPass
     },
-    connectionTimeout: 30000,
-    socketTimeout: 30000,
+    connectionTimeout: 60000, // 60 secondi
+    socketTimeout: 60000,
     greetingTimeout: 30000,
     tls: {
-      rejectUnauthorized: true,
+      rejectUnauthorized: false, // Permetti certificati self-signed o con problemi (temporaneo per debug)
       minVersion: 'TLSv1.2'
     },
     debug: true,
