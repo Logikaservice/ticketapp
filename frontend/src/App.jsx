@@ -328,19 +328,18 @@ export default function TicketApp() {
 
   // Monitora il modalState e ripristina il modal KeePass se viene chiuso accidentalmente ma l'URL lo richiede
   useEffect(() => {
-    if (isLoggedIn && currentUser) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const modalParam = urlParams.get('modal');
-      if (modalParam === 'keepass') {
-        // Se l'URL richiede il modal ma non è aperto, riaprirlo
-        if (modalState.type !== 'keepassCredentials') {
-          const entryId = urlParams.get('entryId');
-          console.log('🔄 Ripristino modal KeePass da URL:', { entryId });
-          setModalState({ 
-            type: 'keepassCredentials', 
-            data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
-          });
-        }
+    const urlParams = new URLSearchParams(window.location.search);
+    const modalParam = urlParams.get('modal');
+    
+    if (modalParam === 'keepass') {
+      // Se l'URL richiede il modal ma non è aperto, riaprirlo (anche se non loggato, per preservare lo stato)
+      if (modalState.type !== 'keepassCredentials') {
+        const entryId = urlParams.get('entryId');
+        console.log('🔄 Ripristino modal KeePass da URL (monitor continuo):', { entryId, isLoggedIn, hasCurrentUser: !!currentUser });
+        setModalState({ 
+          type: 'keepassCredentials', 
+          data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
+        });
       }
     }
   }, [isLoggedIn, currentUser, modalState.type]);
