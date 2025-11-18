@@ -316,6 +316,24 @@ export default function TicketApp() {
     }
   }, [isLoggedIn, currentUser]);
 
+  // Monitora il modalState e ripristina il modal KeePass se viene chiuso accidentalmente ma l'URL lo richiede
+  useEffect(() => {
+    if (isLoggedIn && currentUser && keepassModalRestoredRef.current) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const modalParam = urlParams.get('modal');
+      if (modalParam === 'keepass' && modalState.type !== 'keepassCredentials') {
+        // Se l'URL richiede il modal ma non è aperto, riaprirlo
+        const entryId = urlParams.get('entryId');
+        setTimeout(() => {
+          setModalState({ 
+            type: 'keepassCredentials', 
+            data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
+          });
+        }, 100);
+      }
+    }
+  }, [isLoggedIn, currentUser, modalState.type]);
+
   useEffect(() => {
     if (selectedTicket?.id) {
       localStorage.setItem('openTicketId', selectedTicket.id);
