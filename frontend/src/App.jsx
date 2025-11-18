@@ -106,13 +106,10 @@ export default function TicketApp() {
   // ====================================================================
   // NOTIFICHE
   // ====================================================================
-  const showNotification = (message, type = 'success', duration = 5000, ticketId = null) => {
-    const id = Date.now() + Math.random();
-    const newNotif = { id, show: true, message, type, ticketId };
-    setNotifications(prev => [...prev, newNotif]);
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }, duration);
+  const notify = (message, type = 'info', duration = 5000, ticketId = null) => {
+    window.dispatchEvent(new CustomEvent('toast', {
+      detail: { message, type, duration, ticketId }
+    }));
   };
 
   const handleCloseNotification = (id) => {
@@ -180,7 +177,7 @@ export default function TicketApp() {
     handleChangeStatus: changeStatus,
     handleConfirmTimeLogs
   } = useTickets(
-    showNotification,
+    notify,
     setTickets,
     selectedTicket,
     setSelectedTicket,
@@ -652,7 +649,7 @@ export default function TicketApp() {
       const shouldShowNotification = isTechnician || (isClient && isTicketOwner);
       
       if (shouldShowNotification) {
-        showNotification(`Nuovo ticket ${ticket.numero}: ${ticket.titolo}`, 'warning', 8000, ticket.id);
+    notify(`Nuovo ticket ${ticket.numero}: ${ticket.titolo}`, 'info', 8000, ticket.id);
       }
       
       // Mostra effetto verde sulla card "Aperti" quando viene creato un nuovo ticket
@@ -817,7 +814,7 @@ export default function TicketApp() {
         if (selectedTicket?.id === ticket.id) {
           setSelectedTicket(ticket);
         }
-        showNotification(`Nuovo messaggio su ticket ${ticket.numero}`, 'info', 5000);
+        notify(`Nuovo messaggio su ticket ${ticket.numero}`, 'info', 5000, ticket.id);
       })
       .catch(err => console.error('Errore caricamento ticket dopo messaggio:', err));
   }, [selectedTicket, getAuthHeader, showNotification]);
@@ -844,7 +841,7 @@ export default function TicketApp() {
     
     // Mostra notifica
     const ticketNumber = ticket?.numero || data.ticketId;
-    showNotification(`Ticket ${ticketNumber} cancellato`, 'error', 5000);
+    notify(`Ticket ${ticketNumber} cancellato`, 'error', 5000, ticketNumber);
   }, [selectedTicket, showNotification]);
 
   // Hook WebSocket
