@@ -1,7 +1,29 @@
 import React from 'react';
-import { X, UserPlus } from 'lucide-react';
+import { X, UserPlus, Building2, CheckCircle2 } from 'lucide-react';
 
-const NewClientModal = ({ newClientData, setNewClientData, onClose, onSave }) => {
+const NewClientModal = ({
+  newClientData,
+  setNewClientData,
+  onClose,
+  onSave,
+  existingCompanies = []
+}) => {
+  const selectedCompany = newClientData.useExistingCompany
+    ? newClientData.existingCompany
+    : newClientData.azienda;
+  const canUseExisting = existingCompanies.length > 0;
+
+  const handleCompanyModeChange = (useExisting) => {
+    setNewClientData({
+      ...newClientData,
+      useExistingCompany: useExisting
+    });
+  };
+
+  const handleAdminToggle = () => {
+    setNewClientData({ ...newClientData, isAdmin: !newClientData.isAdmin });
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     onSave();
@@ -99,18 +121,95 @@ const NewClientModal = ({ newClientData, setNewClientData, onClose, onSave }) =>
             </div>
 
             {/* Azienda */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">
                 Azienda <span className="text-red-500">*</span>
               </label>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  className={`px-4 py-2 rounded-lg border transition ${
+                    !newClientData.useExistingCompany
+                      ? 'bg-green-600 border-green-600 text-white shadow'
+                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  }`}
+                  onClick={() => handleCompanyModeChange(false)}
+                >
+                  Nuova azienda
+                </button>
+                <button
+                  type="button"
+                  className={`px-4 py-2 rounded-lg border transition flex items-center gap-2 ${
+                    newClientData.useExistingCompany
+                      ? 'bg-green-600 border-green-600 text-white shadow'
+                      : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                  } ${!canUseExisting ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  onClick={() => canUseExisting && handleCompanyModeChange(true)}
+                  disabled={!canUseExisting}
+                >
+                  <Building2 size={18} />
+                  Azienda esistente
+                </button>
+              </div>
+
+              {newClientData.useExistingCompany ? (
+                <div>
+                  <select
+                    value={newClientData.existingCompany}
+                    onChange={(e) => setNewClientData({ ...newClientData, existingCompany: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Seleziona un'azienda...</option>
+                    {existingCompanies.map(azienda => (
+                      <option key={azienda} value={azienda}>
+                        {azienda}
+                      </option>
+                    ))}
+                  </select>
+                  {!canUseExisting && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Nessuna azienda disponibile. Aggiungine una nuova per poterla riutilizzare.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  value={newClientData.azienda}
+                  onChange={(e) => setNewClientData({ ...newClientData, azienda: e.target.value })}
+                  placeholder="Nome dell'azienda"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  required
+                />
+              )}
+            </div>
+
+            {/* Ruolo amministratore */}
+            <div
+              className={`flex items-start gap-3 p-4 border rounded-xl bg-gray-50 ${
+                !selectedCompany ? 'opacity-60' : ''
+              }`}
+            >
               <input
-                type="text"
-                value={newClientData.azienda}
-                onChange={(e) => setNewClientData({ ...newClientData, azienda: e.target.value })}
-                placeholder="Nome dell'azienda"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                required
+                id="isAdmin"
+                type="checkbox"
+                className="mt-1 h-5 w-5 text-green-600 rounded border-gray-300 focus:ring-green-500"
+                checked={newClientData.isAdmin}
+                onChange={handleAdminToggle}
+                disabled={!selectedCompany}
               />
+              <label htmlFor="isAdmin" className="flex-1 cursor-pointer">
+                <span className="flex items-center gap-2 font-semibold text-gray-800">
+                  <CheckCircle2 size={18} className="text-green-600" />
+                  Rendi questo utente amministratore
+                </span>
+                <p className="text-sm text-gray-600 mt-1">
+                  Potrà gestire gli altri utenti dell'azienda selezionata{selectedCompany ? ` (${selectedCompany})` : ''} e
+                  visualizzare tutti i ticket associati.
+                </p>
+              </label>
             </div>
 
             {/* Telefono (opzionale) */}

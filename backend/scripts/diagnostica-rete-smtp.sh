@@ -121,3 +121,6 @@ echo "2. Se il provider VPS blocca SMTP, contattali"
 echo "3. Verifica se serve configurare un relay SMTP"
 echo "4. Controlla i log del sistema: journalctl -u ufw | tail -n 50"
 
+
+
+

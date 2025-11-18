@@ -48,3 +48,6 @@ echo "8️⃣ Test richiesta API tramite nginx:"
 curl -s -o /dev/null -w "Status: %{http_code}\n" http://localhost/api/tickets -H "Authorization: Bearer test" || echo "❌ Nginx non risponde"
 echo ""
 
+
+
+

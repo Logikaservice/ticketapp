@@ -72,3 +72,6 @@ echo ""
 
 echo "✅ Verifica completata!"
 
+
+
+

@@ -1,6 +1,6 @@
 // src/App.jsx
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Notification from './components/AppNotification';
 import LoginScreen from './components/LoginScreen';
 import Header from './components/Header';
@@ -24,6 +24,18 @@ import { useGoogleCalendar } from './hooks/useGoogleCalendar';
 import { useWebSocket } from './hooks/useWebSocket';
 import GoogleCallback from './components/GoogleCallback';
 import { buildApiUrl } from './utils/apiConfig';
+
+const INITIAL_NEW_CLIENT_DATA = {
+  nome: '',
+  cognome: '',
+  email: '',
+  password: '',
+  telefono: '',
+  azienda: '',
+  useExistingCompany: false,
+  existingCompany: '',
+  isAdmin: false
+};
 
 export default function TicketApp() {
   const [users, setUsers] = useState([]);
@@ -63,14 +75,7 @@ export default function TicketApp() {
     passwordAttuale: '',
     nuovaPassword: '' 
   });
-  const [newClientData, setNewClientData] = useState({ 
-    nome: '',
-    cognome: '',
-    email: '', 
-    password: '', 
-    telefono: '', 
-    azienda: '' 
-  });
+  const [newClientData, setNewClientData] = useState(() => ({ ...INITIAL_NEW_CLIENT_DATA }));
   const [isEditingTicket, setIsEditingTicket] = useState(null);
   const [selectedClientForNewTicket, setSelectedClientForNewTicket] = useState('');
   const [showUnreadModal, setShowUnreadModal] = useState(false);
@@ -1921,9 +1926,19 @@ export default function TicketApp() {
     }
   };
 
+  const existingCompanies = useMemo(() => {
+    const companiesSet = new Set();
+    users.forEach(user => {
+      if (user.ruolo === 'cliente' && user.azienda) {
+        companiesSet.add(user.azienda.trim());
+      }
+    });
+    return Array.from(companiesSet).sort((a, b) => a.localeCompare(b));
+  }, [users]);
+
   const wrappedHandleCreateClient = () => {
     handleCreateClient(newClientData, () => {
-      setNewClientData({ nome: '', cognome: '', email: '', password: '', telefono: '', azienda: '' });
+      setNewClientData({ ...INITIAL_NEW_CLIENT_DATA });
       closeModal();
     });
   };
@@ -2238,6 +2253,7 @@ export default function TicketApp() {
           setNewClientData={setNewClientData}
           onClose={closeModal}
           onSave={wrappedHandleCreateClient}
+          existingCompanies={existingCompanies}
         />
       )}
       

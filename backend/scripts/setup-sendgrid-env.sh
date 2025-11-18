@@ -57,3 +57,6 @@ echo "🧪 Testa la configurazione:"
 echo "   cd /var/www/ticketapp/backend"
 echo "   node scripts/test-email-smtp.js"
 
+
+
+

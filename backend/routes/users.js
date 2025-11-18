@@ -54,7 +54,7 @@ module.exports = (pool) => {
 
   // ENDPOINT: Crea un nuovo cliente (utente) - SICURO con hash password
   router.post('/', async (req, res) => {
-    const { email, password, telefono, azienda, ruolo, nome, cognome } = req.body;
+    const { email, password, telefono, azienda, ruolo, nome, cognome, admin_companies } = req.body;
 
     if (!email || !password || !azienda) {
       return res.status(400).json({ error: 'Email, password e azienda sono obbligatori' });
@@ -65,16 +65,21 @@ module.exports = (pool) => {
     }
 
     try {
+      const sanitizedAdminCompanies = Array.isArray(admin_companies)
+        ? admin_companies.filter(Boolean)
+        : [];
+      const adminCompaniesJsonb = JSON.stringify(sanitizedAdminCompanies);
+
       // Salva la password in chiaro per permettere la visualizzazione
       console.log(`🔓 Password salvata in chiaro per nuovo utente: ${email}`);
       
       const client = await pool.connect();
       const query = `
         INSERT INTO users (email, password, telefono, azienda, ruolo, nome, cognome, admin_companies) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, '[]'::jsonb) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb) 
         RETURNING id, email, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, '[]'::jsonb) as admin_companies;
       `;
-      const values = [email, password, telefono || null, azienda, ruolo || 'cliente', nome, cognome];
+      const values = [email, password, telefono || null, azienda, ruolo || 'cliente', nome, cognome, adminCompaniesJsonb];
       const result = await client.query(query, values);
       client.release();
       

@@ -1,18 +1,32 @@
 export const useClients = (showNotification, setUsers, setTickets, getAuthHeader) => {
   const handleCreateClient = async (newClientData, closeModal) => {
+    const selectedCompany = newClientData.useExistingCompany
+      ? newClientData.existingCompany
+      : newClientData.azienda;
+
     if (!newClientData.email || !newClientData.password) {
       return showNotification('Email e password sono obbligatori.', 'error');
     }
     if (!newClientData.nome || !newClientData.cognome) {
       return showNotification('Nome e cognome sono obbligatori.', 'error');
     }
-    if (!newClientData.azienda) {
+    if (!selectedCompany) {
       return showNotification('Il nome dell\'azienda è obbligatorio.', 'error');
     }
+
+    const adminCompanies = newClientData.isAdmin && selectedCompany
+      ? [selectedCompany]
+      : [];
     
     const clienteDaCreare = {
-      ...newClientData,
-      ruolo: 'cliente'
+      nome: newClientData.nome,
+      cognome: newClientData.cognome,
+      email: newClientData.email,
+      password: newClientData.password,
+      telefono: newClientData.telefono,
+      azienda: selectedCompany,
+      ruolo: 'cliente',
+      admin_companies: adminCompanies
     };
     
     try {

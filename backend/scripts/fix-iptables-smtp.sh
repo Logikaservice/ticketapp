@@ -81,3 +81,6 @@ echo ""
 echo "🧪 Testa ora:"
 echo "  node scripts/test-email-smtp.js"
 
+
+
+

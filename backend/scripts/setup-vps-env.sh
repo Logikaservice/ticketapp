@@ -56,3 +56,6 @@ echo "   pm2 restart ticketapp-backend"
 echo "   # oppure"
 echo "   sudo systemctl restart ticketapp-backend"
 
+
+
+

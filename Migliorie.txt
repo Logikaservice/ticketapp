@@ -1,5 +1,0 @@
-Aggiungi un dominio custom (es: ticketapp.tuosito.it)
-Configura HTTPS custom
-Aggiungi autenticazione JWT invece di password in chiaro
-Aggiungi email notifications quando viene creato un ticket
-Aggiungi analytics per monitorare l'uso
