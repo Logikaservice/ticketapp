@@ -163,13 +163,17 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
     }
     
     // Conversione esplicita di sendEmail a boolean
-    if (sendEmail === 'false' || sendEmail === '0') {
+    // Gestisce: stringhe ('true', 'false', '1', '0'), boolean, undefined, null, stringa vuota
+    if (sendEmail === 'false' || sendEmail === '0' || sendEmail === false || sendEmail === 0) {
       sendEmail = false;
-    } else if (sendEmail === 'true' || sendEmail === '1') {
+    } else if (sendEmail === 'true' || sendEmail === '1' || sendEmail === true || sendEmail === 1) {
+      sendEmail = true;
+    } else if (sendEmail === undefined || sendEmail === null || sendEmail === '') {
+      // Se non specificato, default a true (soprattutto per clienti che creano ticket)
       sendEmail = true;
     }
     
-    console.log('🔍 DEBUG BACKEND: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
+    console.log('🔍 DEBUG BACKEND: sendEmail =', sendEmail, 'tipo:', typeof sendEmail, 'originale:', req.body.sendEmail);
     console.log('🔍 DEBUG BACKEND: dataapertura =', dataapertura, 'tipo:', typeof dataapertura);
     console.log('🔍 DEBUG BACKEND: Body completo =', JSON.stringify(req.body, null, 2));
     
@@ -278,10 +282,10 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
           console.log('  - EMAIL_USER:', process.env.EMAIL_USER ? 'Configurato' : 'MANCANTE');
           console.log('  - EMAIL_PASSWORD:', (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS) ? 'Configurato' : 'MANCANTE');
           
-          // Invia notifica email al cliente (solo se sendEmail è true o undefined)
+          // Invia notifica email al cliente (solo se sendEmail è true)
           console.log('🔍 DEBUG BACKEND: Controllo invio email - sendEmail =', sendEmail, 'tipo:', typeof sendEmail, 'result.rows[0] =', !!result.rows[0]);
         
-        if (result.rows[0] && (sendEmail === true || sendEmail === undefined)) {
+        if (result.rows[0] && sendEmail === true) {
         try {
           console.log('📧 === INVIO NOTIFICA EMAIL CLIENTE ===');
           console.log('📧 Ticket creato:', result.rows[0].id, result.rows[0].titolo);
