@@ -37,20 +37,42 @@ module.exports = (pool) => {
       return null;
     }
     
-    console.log('📧 Configurazione Gmail');
-    return nodemailer.createTransport({
-      service: 'gmail',
-      auth: { user: emailUser, pass: emailPass },
-      // Aggiungi timeout e opzioni di connessione più robuste
-      connectionTimeout: 10000, // 10 secondi per la connessione
-      socketTimeout: 10000, // 10 secondi per le operazioni socket
-      greetingTimeout: 10000, // 10 secondi per il saluto SMTP
-      pool: true, // Usa connection pooling
-      maxConnections: 1,
-      maxMessages: 3,
-      rateDelta: 1000,
-      rateLimit: 5
+    console.log('📧 Configurazione Gmail con SMTP esplicito');
+    
+    // Prova prima con porta 587 (TLS), se fallisce useremo 465 (SSL)
+    const smtpConfig = {
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false, // true per 465, false per 587
+      requireTLS: true, // Richiedi TLS per porta 587
+      auth: {
+        user: emailUser,
+        pass: emailPass
+      },
+      // Timeout aumentati per connessioni lente
+      connectionTimeout: 30000, // 30 secondi per la connessione iniziale
+      socketTimeout: 30000, // 30 secondi per le operazioni socket
+      greetingTimeout: 30000, // 30 secondi per il saluto SMTP
+      // Opzioni TLS
+      tls: {
+        rejectUnauthorized: true, // Verifica certificati (più sicuro)
+        minVersion: 'TLSv1.2'
+      },
+      // Retry logic
+      pool: false, // Disabilita pooling per evitare problemi di connessione
+      // Debug (solo per sviluppo)
+      debug: false,
+      logger: false
+    };
+    
+    console.log('📧 Configurazione SMTP:', {
+      host: smtpConfig.host,
+      port: smtpConfig.port,
+      secure: smtpConfig.secure,
+      connectionTimeout: smtpConfig.connectionTimeout
     });
+    
+    return nodemailer.createTransport(smtpConfig);
   };
 
   // ENDPOINT: Invia notifica email per nuovo ticket assegnato

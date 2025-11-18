@@ -264,7 +264,12 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       
       // Invia email in background (NON bloccare la risposta HTTP)
       // Usa setImmediate per eseguire dopo che la risposta è stata inviata
+      console.log('📧 DEBUG: Preparazione setImmediate per invio email in background...');
+      console.log('📧 DEBUG: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
+      console.log('📧 DEBUG: result.rows[0] presente:', !!result.rows[0]);
+      
       setImmediate(async () => {
+        console.log('📧 === SETIMMEDIATE ESECUTATO - INIZIO ===');
         try {
           console.log('📧 === SETIMMEDIATE AVVIATO - INIZIO INVIO EMAIL ===');
           console.log('📧 Ticket ID:', result.rows[0]?.id);
