@@ -1,7 +1,7 @@
 // frontend/src/components/Modals/ImportKeepassModal.jsx
 
-import React, { useState } from 'react';
-import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, Building, Crown, ChevronRight, ChevronDown, Mail } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -11,6 +11,12 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [migrationResult, setMigrationResult] = useState(null);
+  const [expandedCompanies, setExpandedCompanies] = useState(() => {
+    // Espandi tutte le aziende di default
+    const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
+    const companies = new Set(clientiAttivi.map(c => c.azienda || 'Senza azienda'));
+    return companies;
+  });
 
   if (!isOpen) return null;
 
@@ -155,22 +161,103 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {/* Selezione Cliente */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Cliente <span className="text-red-500">*</span>
             </label>
-            <select
-              value={selectedClientId}
-              onChange={(e) => setSelectedClientId(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={isUploading}
-            >
-              <option value="">Seleziona un cliente...</option>
-              {clientiAttivi.map(cliente => (
-                <option key={cliente.id} value={cliente.id}>
-                  {cliente.azienda || 'Senza azienda'} - {cliente.email}
-                </option>
-              ))}
-            </select>
+            <div className="border border-gray-300 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+              {Object.keys(clientiPerAzienda).length === 0 ? (
+                <div className="p-4 text-center text-gray-500 text-sm">
+                  Nessun cliente disponibile
+                </div>
+              ) : (
+                Object.entries(clientiPerAzienda).map(([azienda, clientiAzienda]) => {
+                  const isExpanded = expandedCompanies.has(azienda);
+                  const isNoCompany = azienda === 'Senza azienda';
+                  
+                  return (
+                    <div key={azienda} className="border-b border-gray-200 last:border-b-0">
+                      {/* Header Azienda - Espandibile */}
+                      <button
+                        type="button"
+                        onClick={() => toggleCompany(azienda)}
+                        className="w-full px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center justify-between text-left"
+                        disabled={isUploading}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                            {isNoCompany ? <Building size={12} /> : azienda.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-bold text-gray-800 truncate">
+                              {isNoCompany ? 'Senza azienda' : azienda}
+                            </h3>
+                            <p className="text-xs text-gray-600">
+                              {clientiAzienda.length} {clientiAzienda.length === 1 ? 'cliente' : 'clienti'}
+                            </p>
+                          </div>
+                        </div>
+                        {isExpanded ? (
+                          <ChevronDown size={16} className="text-gray-500 flex-shrink-0" />
+                        ) : (
+                          <ChevronRight size={16} className="text-gray-500 flex-shrink-0" />
+                        )}
+                      </button>
+                      
+                      {/* Clienti dell'azienda - Espansi/Collassati */}
+                      {isExpanded && (
+                        <div className="bg-gray-50">
+                          {clientiAzienda.map((cliente) => {
+                            const isAdmin = isAdminOfCompany(cliente);
+                            const isSelected = selectedClientId === String(cliente.id);
+                            
+                            return (
+                              <button
+                                key={cliente.id}
+                                type="button"
+                                onClick={() => setSelectedClientId(String(cliente.id))}
+                                disabled={isUploading}
+                                className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
+                                  isSelected 
+                                    ? 'bg-blue-50 border-blue-500' 
+                                    : 'border-transparent'
+                                } ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  {/* Spazio fisso per la corona */}
+                                  <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                                    {isAdmin && (
+                                      <Crown size={16} className="text-yellow-500" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-gray-900'}`}>
+                                        {cliente.nome} {cliente.cognome}
+                                      </span>
+                                    </div>
+                                    {cliente.email && (
+                                      <div className="flex items-center gap-1 mt-0.5">
+                                        <Mail size={12} className="text-gray-400" />
+                                        <span className="text-xs text-gray-600 truncate">
+                                          {cliente.email}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                {isSelected && (
+                                  <CheckCircle size={18} className="text-blue-600 flex-shrink-0" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {/* Upload File */}
