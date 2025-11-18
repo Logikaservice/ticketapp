@@ -12,10 +12,8 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const [success, setSuccess] = useState(null);
   const [migrationResult, setMigrationResult] = useState(null);
   const [expandedCompanies, setExpandedCompanies] = useState(() => {
-    // Espandi tutte le aziende di default
-    const clientiAttivi = users.filter(u => u.ruolo === 'cliente');
-    const companies = new Set(clientiAttivi.map(c => c.azienda || 'Senza azienda'));
-    return companies;
+    // Lista compressa di default (nessuna azienda espansa)
+    return new Set();
   });
 
   // Helper per verificare se un cliente è admin della sua azienda
