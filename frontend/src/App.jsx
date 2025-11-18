@@ -113,9 +113,33 @@ export default function TicketApp() {
     }));
   };
 
+  const showNotification = React.useCallback((message, type = 'info', duration = 5000, ticketId = null) => {
+    const id = Date.now() + Math.random();
+    setNotifications(prev => [...prev, { id, message, type, duration, ticketId, show: true }]);
+    
+    // Rimuovi automaticamente dopo la durata specificata
+    if (duration > 0) {
+      setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+      }, duration);
+    }
+  }, []);
+
   const handleCloseNotification = (id) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
+
+  // Listener per eventi 'toast' (usati da notify)
+  useEffect(() => {
+    const handleToast = (e) => {
+      const { message, type, duration, ticketId } = e.detail || {};
+      if (message) {
+        showNotification(message, type, duration, ticketId);
+      }
+    };
+    window.addEventListener('toast', handleToast);
+    return () => window.removeEventListener('toast', handleToast);
+  }, [showNotification]);
 
   // ====================================================================
   // HOOKS PERSONALIZZATI
