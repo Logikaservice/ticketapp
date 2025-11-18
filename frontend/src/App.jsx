@@ -60,6 +60,7 @@ export default function TicketApp() {
   const [notifications, setNotifications] = useState([]);
 
   const [modalState, setModalState] = useState({ type: null, data: null });
+  const keepassModalRestoredRef = React.useRef(false);
   const [newTicketData, setNewTicketData] = useState({ 
     titolo: '', 
     descrizione: '', 
@@ -206,6 +207,7 @@ export default function TicketApp() {
       url.searchParams.delete('modal');
       url.searchParams.delete('entryId');
       window.history.replaceState({}, '', url);
+      keepassModalRestoredRef.current = false; // Reset per permettere nuovo ripristino
     }
     
     setModalState({ type: null, data: null });
@@ -297,18 +299,19 @@ export default function TicketApp() {
 
   // Ripristina modal KeePass da URL dopo login (useEffect separato per evitare conflitti)
   useEffect(() => {
-    if (isLoggedIn && currentUser) {
+    if (isLoggedIn && currentUser && !keepassModalRestoredRef.current) {
       const urlParams = new URLSearchParams(window.location.search);
       const modalParam = urlParams.get('modal');
-      if (modalParam === 'keepass' && modalState.type !== 'keepassCredentials') {
+      if (modalParam === 'keepass') {
         const entryId = urlParams.get('entryId');
+        keepassModalRestoredRef.current = true;
         // Piccolo delay per assicurarsi che tutto sia inizializzato
         setTimeout(() => {
           setModalState({ 
             type: 'keepassCredentials', 
             data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
           });
-        }, 100);
+        }, 200);
       }
     }
   }, [isLoggedIn, currentUser]);
