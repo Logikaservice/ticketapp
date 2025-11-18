@@ -26,12 +26,60 @@ module.exports = (pool) => {
 
   // Configurazione email transporter - supporta EMAIL_PASSWORD o EMAIL_PASS
   // Rileva automaticamente il provider (Aruba o Gmail) in base all'email
+  // Supporta anche relay SMTP esterno tramite SMTP_RELAY_* (utile se il provider VPS blocca porte SMTP)
   const createTransporter = () => {
     const emailUser = process.env.EMAIL_USER;
     const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
     console.log('🔧 Creazione transporter email...');
     console.log('EMAIL_USER:', emailUser);
     console.log('EMAIL_PASS/PASSWORD configurata:', emailPass ? 'Sì' : 'No');
+    
+    // Verifica se è configurato un relay SMTP esterno (priorità)
+    const smtpRelayHost = process.env.SMTP_RELAY_HOST;
+    const smtpRelayPort = process.env.SMTP_RELAY_PORT;
+    const smtpRelayUser = process.env.SMTP_RELAY_USER;
+    const smtpRelayPass = process.env.SMTP_RELAY_PASSWORD || process.env.SMTP_RELAY_PASS;
+    const smtpRelaySecure = process.env.SMTP_RELAY_SECURE === 'true' || process.env.SMTP_RELAY_SECURE === '1';
+    
+    if (smtpRelayHost && smtpRelayPort && smtpRelayUser && smtpRelayPass) {
+      console.log('📧 Configurazione SMTP Relay esterno (provider VPS blocca porte SMTP)');
+      console.log('SMTP_RELAY_HOST:', smtpRelayHost);
+      console.log('SMTP_RELAY_PORT:', smtpRelayPort);
+      const smtpConfig = {
+        host: smtpRelayHost,
+        port: parseInt(smtpRelayPort, 10),
+        secure: smtpRelaySecure, // true per SSL (porta 465), false per TLS (porta 587)
+        auth: {
+          user: smtpRelayUser,
+          pass: smtpRelayPass
+        },
+        connectionTimeout: 60000,
+        socketTimeout: 60000,
+        greetingTimeout: 30000,
+        tls: {
+          rejectUnauthorized: false, // Permetti certificati per relay esterni
+          minVersion: 'TLSv1.2'
+        },
+        pool: false,
+        debug: false,
+        logger: false
+      };
+      
+      console.log('📧 Configurazione SMTP Relay:', {
+        host: smtpConfig.host,
+        port: smtpConfig.port,
+        secure: smtpConfig.secure
+      });
+      
+      try {
+        const transporter = nodemailer.createTransport(smtpConfig);
+        console.log('✅ Transporter SMTP Relay creato con successo');
+        return transporter;
+      } catch (error) {
+        console.error('❌ Errore creazione transporter SMTP Relay:', error);
+        return null;
+      }
+    }
     
     if (!emailUser || !emailPass) {
       console.log('❌ Configurazione email mancante');
