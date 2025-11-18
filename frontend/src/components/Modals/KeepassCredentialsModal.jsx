@@ -369,14 +369,12 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
             style={{ paddingLeft: `${1 + level * 1.5}rem` }}
           >
             <div className="flex items-center gap-2">
-              {(hasEntries || hasChildren) ? (
+              {(hasEntries || hasChildren) && (
                 isExpanded ? (
                   <ChevronDown size={16} className="text-indigo-600" />
                 ) : (
                   <ChevronRight size={16} className="text-indigo-600" />
                 )
-              ) : (
-                <div className="w-4" />
               )}
               <Key size={16} className="text-indigo-600" />
               <span className="font-semibold text-gray-800">{extractString(group.name)}</span>
