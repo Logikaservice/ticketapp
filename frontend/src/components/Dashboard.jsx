@@ -1,7 +1,7 @@
 // src/components/Dashboard.jsx
 
 import React, { useEffect } from 'react';
-import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, Copy, X, Info, Users, Trash2, Sparkles, Building, Search, User, Globe, Key, Eye, EyeOff, Lock, ChevronDown } from 'lucide-react';
+import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, Copy, X, Info, Users, Trash2, Sparkles, Building, Search, User, Globe, Key, Eye, EyeOff, Lock, ChevronDown, Clock, Hourglass } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
@@ -47,6 +47,57 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, car
 
 
 const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDelete, isEditable, onManageAlerts, onEditAlert, currentUser, users = [], setModalState }) => {
+  const [now, setNow] = React.useState(Date.now());
+
+  React.useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatDateTime = (dateValue) => {
+    if (!dateValue) return 'Data non disponibile';
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) return 'Data non disponibile';
+    return date.toLocaleString('it-IT', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getCountdown = (alert) => {
+    if (alert.isPermanent) {
+      return { label: 'Avviso permanente', isExpired: false };
+    }
+    const createdAt = alert.createdAt || alert.created_at;
+    const createdDate = new Date(createdAt);
+    if (Number.isNaN(createdDate.getTime())) {
+      return { label: 'Data creazione non valida', isExpired: false };
+    }
+    const daysToExpire = alert.daysToExpire || 7;
+    const expirationDate = new Date(createdDate);
+    expirationDate.setDate(expirationDate.getDate() + daysToExpire);
+
+    const diffMs = expirationDate.getTime() - now;
+    if (diffMs <= 0) {
+      return { label: 'Scaduto', isExpired: true };
+    }
+
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const days = Math.floor(diffMinutes / (60 * 24));
+    const hours = Math.floor((diffMinutes % (60 * 24)) / 60);
+    const minutes = diffMinutes % 60;
+
+    if (days > 0) {
+      return { label: `Scade tra ${days}g ${hours}h`, isExpired: false };
+    }
+    if (hours > 0) {
+      return { label: `Scade tra ${hours}h ${minutes}m`, isExpired: false };
+    }
+    return { label: `Scade tra ${minutes}m`, isExpired: false };
+  };
   // Verifica di sicurezza per users
   if (!users || !Array.isArray(users)) {
     users = [];
@@ -87,6 +138,8 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
               return 'border-yellow-300 bg-yellow-50 text-yellow-800';
           }
         };
+
+        const countdownInfo = getCountdown(avv);
 
         return (
         <div key={avv.id} className={`w-full p-3 rounded-lg border ${getAlertColor(avv.level)}`}>
@@ -138,6 +191,23 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
               ) : (
                 <div className="text-sm mt-1 whitespace-pre-wrap text-justify">{avv.body}</div>
               )}
+              
+              <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-600">
+                <div className="flex items-center gap-1">
+                  <Clock size={12} />
+                  <span>Creato il {formatDateTime(avv.createdAt || avv.created_at)}</span>
+                </div>
+                <div className={`flex items-center gap-1 ${countdownInfo.isExpired ? 'text-red-600 font-semibold' : ''}`}>
+                  <Hourglass size={12} />
+                  <span>{countdownInfo.label}</span>
+                </div>
+                {!avv.isPermanent && avv.daysToExpire && (
+                  <div className="flex items-center gap-1 text-gray-500">
+                    <Info size={12} />
+                    <span>Durata {avv.daysToExpire} giorni</span>
+                  </div>
+                )}
+              </div>
               
               {/* Informazioni destinatari - solo per avvisi non features */}
               {avv.level !== 'features' && (
