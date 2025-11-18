@@ -55,6 +55,17 @@ export default function TicketApp() {
       setIsGoogleCallback(true);
       console.log('OAuth code found:', code);
     }
+    
+    // Verifica e ripristina modal KeePass dall'URL immediatamente
+    const modalParam = urlParams.get('modal');
+    if (modalParam === 'keepass') {
+      const entryId = urlParams.get('entryId');
+      console.log('🔍 URL contiene modal=keepass, ripristino immediato:', { entryId });
+      setModalState({ 
+        type: 'keepassCredentials', 
+        data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
+      });
+    }
   }, []);
   
   const [notifications, setNotifications] = useState([]);
