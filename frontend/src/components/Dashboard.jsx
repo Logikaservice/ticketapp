@@ -22,8 +22,8 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, car
     'in_lavorazione': { border: 'border-top-cyan', bg: 'bg-cyan-very-light' }, // Gestione Clienti
     'risolto': { border: 'border-top-sky', bg: 'bg-sky-very-light' }, // Sky (colore simile)
     'chiuso': { border: 'border-top-purple', bg: 'bg-purple-very-light' }, // Analytics
-    'inviato': { border: 'border-top-indigo', bg: 'bg-indigo-very-light' }, // Importa KeePass
-    'fatturato': { border: 'border-top-amber', bg: 'bg-amber-very-light' } // Impostazioni
+    'inviato': { border: 'border-top-blue', bg: 'bg-blue-very-light' }, // Timer Inattività
+    'fatturato': { border: 'border-top-orange', bg: 'bg-orange-very-light' } // Log accessi
   };
   
   const colors = cardKey && colorMap[cardKey] ? colorMap[cardKey] : { border: '', bg: '' };

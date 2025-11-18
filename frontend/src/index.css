@@ -214,6 +214,8 @@ body {
 .bg-purple-very-light { background-color: rgba(139, 92, 246, 0.05); }
 .bg-indigo-very-light { background-color: rgba(99, 102, 241, 0.05); }
 .bg-amber-very-light { background-color: rgba(245, 158, 11, 0.05); }
+.bg-blue-very-light { background-color: rgba(37, 99, 235, 0.05); }
+.bg-orange-very-light { background-color: rgba(249, 115, 22, 0.05); }
 
 /* Background gradient leggero per profondità (ripristinato) */
 .bg-gradient-blue { background: linear-gradient(to bottom, rgba(37, 99, 235, 0.03), rgba(37, 99, 235, 0.01)); }
