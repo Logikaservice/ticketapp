@@ -13,6 +13,7 @@ import NewTicketModal from './components/Modals/NewTicketModal';
 import FornitureModal from './components/Modals/FornitureModal';
 import UnreadMessagesModal from './components/UnreadMessagesModal';
 import TicketPhotosModal from './components/Modals/TicketPhotosModal';
+import InactivityTimerModal from './components/Modals/InactivityTimerModal';
 import { useAuth } from './hooks/useAuth';
 import { useClients } from './hooks/useClients';
 import { useTickets } from './hooks/useTickets';
@@ -89,6 +90,14 @@ export default function TicketApp() {
   const [alertsRefreshTrigger, setAlertsRefreshTrigger] = useState(0);
   const [pendingTicketAction, setPendingTicketAction] = useState(null);
   const [pendingAlertData, setPendingAlertData] = useState(null);
+  // Timer di inattività (solo per clienti)
+  const [inactivityTimeout, setInactivityTimeout] = useState(() => {
+    // Carica da localStorage, default 3 minuti
+    const saved = localStorage.getItem('inactivityTimeout');
+    return saved ? parseInt(saved, 10) : 3;
+  });
+  const inactivityTimerRef = useRef(null);
+  const lastActivityRef = useRef(Date.now());
   // Traccia i ticket cancellati per evitarne la ricomparsa nel polling (usa useRef per evitare re-render)
   const deletedTicketIdsRef = useRef(new Set());
   const locallyDeletedTicketIdsRef = useRef(new Set());
@@ -639,6 +648,70 @@ export default function TicketApp() {
     window.addEventListener('dashboard-focus', focusHandler);
     return () => window.removeEventListener('dashboard-focus', focusHandler);
   }, []);
+
+  // ====================================================================
+  // TIMER DI INATTIVITÀ (solo per clienti)
+  // ====================================================================
+  useEffect(() => {
+    // Applica solo ai clienti
+    if (currentUser?.ruolo !== 'cliente' || !isLoggedIn) {
+      return;
+    }
+
+    // Se timeout è 0 (mai), non fare nulla
+    if (inactivityTimeout === 0) {
+      return;
+    }
+
+    const timeoutMs = inactivityTimeout * 60 * 1000; // Converti minuti in millisecondi
+
+    // Funzione per resettare il timer
+    const resetTimer = () => {
+      lastActivityRef.current = Date.now();
+      
+      // Cancella il timer esistente
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+
+      // Imposta nuovo timer
+      inactivityTimerRef.current = setTimeout(() => {
+        const timeSinceLastActivity = Date.now() - lastActivityRef.current;
+        if (timeSinceLastActivity >= timeoutMs) {
+          // Logout automatico
+          showNotification(`Disconnessione automatica dopo ${inactivityTimeout} minuti di inattività`, 'info', 3000);
+          setTimeout(() => {
+            handleLogout();
+          }, 1000);
+        }
+      }, timeoutMs);
+    };
+
+    // Eventi che indicano attività
+    const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    
+    const handleActivity = () => {
+      resetTimer();
+    };
+
+    // Aggiungi listener per tutti gli eventi di attività
+    activityEvents.forEach(event => {
+      document.addEventListener(event, handleActivity, true);
+    });
+
+    // Inizializza il timer
+    resetTimer();
+
+    // Cleanup
+    return () => {
+      activityEvents.forEach(event => {
+        document.removeEventListener(event, handleActivity, true);
+      });
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+    };
+  }, [isLoggedIn, currentUser, inactivityTimeout, handleLogout, showNotification]);
 
   // ====================================================================
   // WEBSOCKET - CALLBACK PER EVENTI REAL-TIME
@@ -1264,6 +1337,12 @@ export default function TicketApp() {
   const openImportKeepass = () => setModalState({ type: 'importKeepass' });
   const openAnalytics = () => setModalState({ type: 'analytics' });
   const openAccessLogs = () => setModalState({ type: 'accessLogs' });
+  const openInactivityTimer = () => setModalState({ type: 'inactivityTimer' });
+  const handleInactivityTimeoutChange = (timeout) => {
+    setInactivityTimeout(timeout);
+    localStorage.setItem('inactivityTimeout', timeout.toString());
+    showNotification(`Timer di inattività impostato a ${timeout === 0 ? 'mai' : `${timeout} minuti`}`, 'success');
+  };
   const onKeepassImportSuccess = () => {
     showNotification('Credenziali KeePass importate con successo!', 'success');
   };
@@ -2135,7 +2214,7 @@ export default function TicketApp() {
         ))}
       </div>
       <Header
-        {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs }}
+        {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer }}
       />
 
       {!showDashboard && (
@@ -2302,6 +2381,14 @@ export default function TicketApp() {
           clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
           selectedClientForNewTicket={selectedClientForNewTicket}
           setSelectedClientForNewTicket={setSelectedClientForNewTicket}
+        />
+      )}
+
+      {modalState.type === 'inactivityTimer' && (
+        <InactivityTimerModal
+          closeModal={closeModal}
+          currentTimeout={inactivityTimeout}
+          onTimeoutChange={handleInactivityTimeoutChange}
         />
       )}
 
