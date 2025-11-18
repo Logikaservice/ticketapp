@@ -292,19 +292,26 @@ export default function TicketApp() {
       setSelectedTicket(null);
       setShowDashboard(true); // all'accesso parte dalla dashboard
       localStorage.setItem('openTicketId', 'null');
-      
-      // Ripristina modal KeePass da URL se presente (solo dopo login)
+    }
+  }, [isLoggedIn]);
+
+  // Ripristina modal KeePass da URL dopo login (useEffect separato per evitare conflitti)
+  useEffect(() => {
+    if (isLoggedIn && currentUser) {
       const urlParams = new URLSearchParams(window.location.search);
       const modalParam = urlParams.get('modal');
       if (modalParam === 'keepass' && modalState.type !== 'keepassCredentials') {
         const entryId = urlParams.get('entryId');
-        setModalState({ 
-          type: 'keepassCredentials', 
-          data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
-        });
+        // Piccolo delay per assicurarsi che tutto sia inizializzato
+        setTimeout(() => {
+          setModalState({ 
+            type: 'keepassCredentials', 
+            data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
+          });
+        }, 100);
       }
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, currentUser]);
 
   useEffect(() => {
     if (selectedTicket?.id) {
