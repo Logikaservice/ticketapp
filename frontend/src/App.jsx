@@ -2299,6 +2299,48 @@ export default function TicketApp() {
           ))}
         </div>
         <LoginScreen {...{ loginData, setLoginData, handleLogin, onQuickRequest: handleQuickRequest, existingClients: users.filter(u => u.ruolo === 'cliente') }} />
+        {/* Renderizza AllModals anche se non loggato, per preservare il modalState dall'URL */}
+        {modalState.type === 'keepassCredentials' && (
+          <AllModals
+            modalState={modalState}
+            closeModal={closeModal}
+            closeEmptyDescriptionModal={closeEmptyDescriptionModal}
+            handleUpdateSettings={handleUpdateSettings}
+            handleConfirmUrgentCreation={handleConfirmUrgentCreation}
+            handleConfirmEmptyDescription={handleConfirmEmptyDescription}
+            settingsData={settingsData}
+            setSettingsData={setSettingsData}
+            timeLogs={timeLogs}
+            setTimeLogs={setTimeLogs}
+            onKeepassImportSuccess={onKeepassImportSuccess}
+            handleTimeLogChange={handleTimeLogChange}
+            handleAddTimeLog={handleAddTimeLog}
+            handleRemoveTimeLog={handleRemoveTimeLog}
+            handleDuplicateTimeLog={handleDuplicateTimeLog}
+            handleMaterialChange={handleMaterialChange}
+            handleAddMaterial={handleAddMaterial}
+            handleRemoveMaterial={handleRemoveMaterial}
+            handleOffertaChange={handleOffertaChange}
+            handleAddOfferta={handleAddOfferta}
+            handleRemoveOfferta={handleRemoveOfferta}
+            handleConfirmTimeLogs={wrappedHandleConfirmTimeLogs}
+            handleSaveTimeLogs={handleSaveTimeLogs}
+            currentUser={currentUser}
+            showNotification={showNotification}
+            users={users}
+            onSaveAlert={handleSaveAlert}
+            onEditAlert={handleEditAlert}
+            onConfirmEmail={handleConfirmEmail}
+            onCancelEmail={handleCancelEmail}
+            onRequestEmailConfirm={handleRequestEmailConfirm}
+            onConfirmAlertEmail={handleConfirmAlertEmail}
+            onCancelAlertEmail={handleCancelAlertEmail}
+            onConfirmSendEmail={handleConfirmSendEmail}
+            onCancelSendEmail={handleCancelSendEmail}
+            getAuthHeader={getAuthHeader}
+            alertsRefreshTrigger={alertsRefreshTrigger}
+          />
+        )}
       </>
     );
   }
