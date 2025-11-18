@@ -408,7 +408,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
                 return (
                 <div 
                   key={entry.id} 
-                  className={`p-4 border-b border-gray-200 last:border-b-0 ${isHighlighted ? 'bg-yellow-100 border-yellow-400 border-2' : ''}`}
+                  className={`p-4 border-b border-gray-200 last:border-b-0 ${isHighlighted ? 'bg-yellow-50 border-l-4 border-l-yellow-400' : ''}`}
                   ref={isHighlighted ? highlightedEntryRef : null}
                 >
                   <div className="space-y-3">
