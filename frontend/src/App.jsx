@@ -55,16 +55,6 @@ export default function TicketApp() {
       setIsGoogleCallback(true);
       console.log('OAuth code found:', code);
     }
-    
-    // Ripristina modal KeePass da URL se presente
-    const modalParam = urlParams.get('modal');
-    if (modalParam === 'keepass') {
-      const entryId = urlParams.get('entryId');
-      setModalState({ 
-        type: 'keepassCredentials', 
-        data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
-      });
-    }
   }, []);
   
   const [notifications, setNotifications] = useState([]);
@@ -302,6 +292,17 @@ export default function TicketApp() {
       setSelectedTicket(null);
       setShowDashboard(true); // all'accesso parte dalla dashboard
       localStorage.setItem('openTicketId', 'null');
+      
+      // Ripristina modal KeePass da URL se presente (solo dopo login)
+      const urlParams = new URLSearchParams(window.location.search);
+      const modalParam = urlParams.get('modal');
+      if (modalParam === 'keepass' && modalState.type !== 'keepassCredentials') {
+        const entryId = urlParams.get('entryId');
+        setModalState({ 
+          type: 'keepassCredentials', 
+          data: entryId ? { highlightEntryId: parseInt(entryId, 10) } : null 
+        });
+      }
     }
   }, [isLoggedIn]);
 
