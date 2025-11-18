@@ -22,7 +22,7 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, car
     'in_lavorazione': { border: 'border-top-cyan', bg: 'bg-cyan-very-light' }, // Gestione Clienti
     'risolto': { border: 'border-top-sky', bg: 'bg-sky-very-light' }, // Sky (colore simile)
     'chiuso': { border: 'border-top-purple', bg: 'bg-purple-very-light' }, // Analytics
-    'inviato': { border: 'border-top-blue', bg: 'bg-blue-very-light' }, // Timer Inattività
+    'inviato': { border: 'border-top-amber', bg: 'bg-amber-very-light' }, // Impostazioni
     'fatturato': { border: 'border-top-orange', bg: 'bg-orange-very-light' } // Log accessi
   };
   
