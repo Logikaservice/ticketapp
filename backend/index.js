@@ -1352,6 +1352,17 @@ const startServer = async () => {
       } catch (alterErr) {
         console.log("⚠️ Errore aggiunta colonna uuid (potrebbe già esistere):", alterErr.message);
       }
+      
+      // Aggiungi colonna notes se non esiste (per tabelle create prima dell'aggiornamento)
+      try {
+        await pool.query(`
+          ALTER TABLE keepass_groups 
+          ADD COLUMN IF NOT EXISTS notes TEXT
+        `);
+        console.log("✅ Colonna notes verificata/aggiunta a keepass_groups (auto-init)");
+      } catch (alterErr) {
+        console.log("⚠️ Errore aggiunta colonna notes (potrebbe già esistere):", alterErr.message);
+      }
     } catch (keepassGroupsErr) {
       console.log("⚠️ Errore creazione tabella keepass_groups (auto-init):", keepassGroupsErr.message);
     }
