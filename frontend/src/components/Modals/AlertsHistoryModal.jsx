@@ -180,7 +180,6 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
                 const levelInfo = getLevelInfo(alert.level);
                 const createdAt = alert.createdAt || alert.created_at;
                 const formattedDate = createdAt ? formatDate(createdAt) : 'Data non disponibile';
-                const formattedTime = createdAt ? new Date(createdAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
 
                 return (
                   <div
@@ -197,7 +196,7 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
                           </h3>
                           <div className="flex items-center gap-1 text-sm text-gray-600 whitespace-nowrap">
                             <Calendar size={14} />
-                            <span>{formattedDate} {formattedTime && `alle ${formattedTime}`}</span>
+                            <span>{formattedDate}</span>
                           </div>
                         </div>
                         
