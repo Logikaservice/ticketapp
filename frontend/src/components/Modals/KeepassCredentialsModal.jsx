@@ -353,11 +353,25 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
     });
   };
 
+  // Funzione ricorsiva per verificare se un gruppo ha credenziali effettive (dirette o nei children)
+  const hasActualCredentials = (group) => {
+    // Verifica se ha entries dirette
+    if (group.entries && group.entries.length > 0) {
+      return true;
+    }
+    // Verifica ricorsivamente nei children
+    if (group.children && group.children.length > 0) {
+      return group.children.some(child => hasActualCredentials(child));
+    }
+    return false;
+  };
+
   // Funzione ricorsiva per renderizzare i gruppi in struttura ad albero
   const renderGroup = (group, level = 0) => {
     const isExpanded = expandedGroups.has(group.id);
     const hasEntries = group.entries && group.entries.length > 0;
     const hasChildren = group.children && group.children.length > 0;
+    const hasCredentials = hasActualCredentials(group);
 
     return (
       <div key={group.id} className="mb-2">
@@ -369,7 +383,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
             style={{ paddingLeft: `${1 + level * 1.5}rem` }}
           >
             <div className="flex items-center gap-2">
-              {(hasEntries || hasChildren) && (
+              {hasCredentials && (
                 isExpanded ? (
                   <ChevronDown size={16} className="text-indigo-600" />
                 ) : (
