@@ -39,22 +39,11 @@ module.exports = (pool) => {
 
     if (query.onlyActive === 'true') {
       // Filtra solo sessioni realmente attive usando il timeout personalizzato dell'utente
-      // Usa make_interval per creare un intervallo dinamico
-      conditions.push(`(
-        logout_at IS NULL AND (
-          -- Se l'utente ha timeout 0 (mai), considera sempre attiva
-          EXISTS (
-            SELECT 1 FROM users u 
-            WHERE u.id = access_logs.user_id 
-            AND COALESCE(u.inactivity_timeout_minutes, 3) = 0
-          )
-          OR
-          -- Altrimenti usa il timeout personalizzato dell'utente (o 3 minuti default)
-          last_activity_at > NOW() - make_interval(mins => COALESCE(
-            (SELECT inactivity_timeout_minutes FROM users WHERE id = access_logs.user_id),
-            3
-          ))
-        )
+      // Nota: questa condizione verrà applicata nella query principale con il JOIN
+      conditions.push(`al.logout_at IS NULL AND (
+        COALESCE(u.inactivity_timeout_minutes, 3) = 0
+        OR
+        (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - make_interval(mins => COALESCE(u.inactivity_timeout_minutes, 3)))
       )`);
     }
 
@@ -100,28 +89,23 @@ module.exports = (pool) => {
 
         // Per ogni utente, usa il suo timeout personalizzato (o default 3 minuti per tecnici)
         // Se timeout è 0 (mai), considera sempre attiva se logout_at IS NULL
+        // Semplifichiamo la query usando un LEFT JOIN invece di subquery multiple
         const countQuery = `
           SELECT 
             COUNT(*) AS total,
             COUNT(*) FILTER (
-              WHERE logout_at IS NULL AND (
+              WHERE al.logout_at IS NULL AND (
                 -- Se l'utente ha timeout 0 (mai), considera sempre attiva
-                EXISTS (
-                  SELECT 1 FROM users u 
-                  WHERE u.id = access_logs.user_id 
-                  AND COALESCE(u.inactivity_timeout_minutes, 3) = 0
-                )
+                COALESCE(u.inactivity_timeout_minutes, 3) = 0
                 OR
                 -- Altrimenti usa il timeout personalizzato dell'utente (o 3 minuti default)
-                last_activity_at > NOW() - make_interval(mins => COALESCE(
-                  (SELECT inactivity_timeout_minutes FROM users WHERE id = access_logs.user_id),
-                  3
-                ))
+                (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - make_interval(mins => COALESCE(u.inactivity_timeout_minutes, 3)))
               )
             ) AS active_sessions,
-            COUNT(DISTINCT COALESCE(user_email, user_id::text)) AS unique_users
-          FROM access_logs
-          ${whereClause}
+            COUNT(DISTINCT COALESCE(al.user_email, al.user_id::text)) AS unique_users
+          FROM access_logs al
+          LEFT JOIN users u ON u.id = al.user_id
+          ${whereClause.replace(/access_logs\./g, 'al.')}
         `;
 
         const dataResult = await pool.query(dataQuery, [...values, pageSize, offset]);
