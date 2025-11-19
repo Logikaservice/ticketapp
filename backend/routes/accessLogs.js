@@ -103,58 +103,74 @@ module.exports = (pool) => {
           onlyActive 
         });
 
-        // Esegui prima la query dei dati
+        // Esegui prima la query dei dati (la più importante)
         const dataResult = await pool.query(dataQuery, [...values, pageSize, offset]);
         
-        // Query semplificata per il conteggio totale (senza calcolo complesso di active_sessions)
-        const countQuery = `
-          SELECT 
-            COUNT(*) AS total,
-            COUNT(DISTINCT COALESCE(al.user_email, al.user_id::text)) AS unique_users
-          FROM access_logs al
-          LEFT JOIN users u ON u.id = al.user_id
-          ${whereClause}
-        `;
+        // Query semplificata per il conteggio totale (senza JOIN users per velocità)
+        // Usa solo access_logs per total e unique_users
+        let countQuery = '';
+        let countValues = [];
         
-        const countResult = await pool.query(countQuery, values);
-        
-        // Calcola active_sessions separatamente solo se necessario (più veloce)
-        let activeSessions = 0;
-        try {
-          // Costruisci la query per active_sessions con gli stessi filtri base
-          const activeConditions = [...conditions];
-          const activeValues = [...values];
-          
-          // Aggiungi la condizione per sessioni attive
-          activeConditions.push(`al.logout_at IS NULL AND (
-            COALESCE(u.inactivity_timeout_minutes, 3) = 0
-            OR
-            (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - COALESCE(u.inactivity_timeout_minutes, 3) * INTERVAL '1 minute')
-          )`);
-          
-          const activeWhereClause = activeConditions.length ? `WHERE ${activeConditions.join(' AND ')}` : '';
-          
-          const activeQuery = `
-            SELECT COUNT(*) AS active_count
+        // Se ci sono filtri che richiedono il JOIN con users, usali, altrimenti semplifica
+        if (onlyActive || conditions.some(c => c.includes('u.'))) {
+          // Query con JOIN solo se necessario
+          countQuery = `
+            SELECT 
+              COUNT(*) AS total,
+              COUNT(DISTINCT COALESCE(al.user_email, al.user_id::text)) AS unique_users
             FROM access_logs al
             LEFT JOIN users u ON u.id = al.user_id
-            ${activeWhereClause}
+            ${whereClause}
+          `;
+          countValues = values;
+        } else {
+          // Query semplificata senza JOIN per massima velocità
+          const simpleConditions = conditions.filter(c => !c.includes('u.'));
+          const simpleWhereClause = simpleConditions.length ? `WHERE ${simpleConditions.join(' AND ')}` : '';
+          countQuery = `
+            SELECT 
+              COUNT(*) AS total,
+              COUNT(DISTINCT COALESCE(user_email, user_id::text)) AS unique_users
+            FROM access_logs
+            ${simpleWhereClause}
+          `;
+          // Filtra i valori per rimuovere quelli relativi a users
+          countValues = values.filter((v, i) => {
+            const condition = conditions[i];
+            return condition && !condition.includes('u.');
+          });
+        }
+        
+        const countResult = await pool.query(countQuery, countValues);
+        
+        // Calcola active_sessions in modo semplificato e opzionale
+        // Se fallisce o è troppo lento, usa un valore approssimativo
+        let activeSessions = 0;
+        try {
+          // Calcolo semplificato: conta solo le sessioni senza logout che hanno last_activity_at recente
+          // Usa un timeout fisso di 5 minuti per evitare query complesse
+          const simpleActiveQuery = `
+            SELECT COUNT(*) AS active_count
+            FROM access_logs
+            WHERE logout_at IS NULL 
+              AND last_activity_at IS NOT NULL 
+              AND last_activity_at > NOW() - INTERVAL '5 minutes'
           `;
           
-          const activeResult = await pool.query(activeQuery, activeValues);
+          const activeResult = await pool.query(simpleActiveQuery, []);
           activeSessions = Number(activeResult.rows[0]?.active_count || 0);
         } catch (activeErr) {
           console.warn('⚠️ Errore calcolo active_sessions (ignorato):', activeErr.message);
-          // Se fallisce, usa un calcolo approssimativo basato sui dati caricati
+          // Calcolo approssimativo basato sui dati già caricati
           activeSessions = dataResult.rows.filter(row => {
             if (row.logout_at) return false;
-            const timeout = row.user_inactivity_timeout_minutes || 3;
-            if (timeout === 0) return true;
             if (!row.last_activity_at) return false;
             const lastActivity = new Date(row.last_activity_at);
             const now = new Date();
             const diffMinutes = (now - lastActivity) / (1000 * 60);
-            return diffMinutes < timeout;
+            // Usa il timeout dell'utente se disponibile, altrimenti 3 minuti
+            const timeout = row.user_inactivity_timeout_minutes || 3;
+            return timeout === 0 || diffMinutes < timeout;
           }).length;
         }
 
