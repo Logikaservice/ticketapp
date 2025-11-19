@@ -28,6 +28,7 @@ const pool = new Pool({
 // Crea tabella access_logs se non esiste
 const ensureAccessLogsTable = async () => {
   try {
+    // Prima crea la tabella senza last_activity_at (per compatibilità)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS access_logs (
         session_id TEXT PRIMARY KEY,
@@ -40,29 +41,56 @@ const ensureAccessLogsTable = async () => {
         logout_at TIMESTAMPTZ,
         login_ip TEXT,
         logout_ip TEXT,
-        user_agent TEXT,
-        last_activity_at TIMESTAMPTZ DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS idx_access_logs_user_id ON access_logs(user_id);
-      CREATE INDEX IF NOT EXISTS idx_access_logs_login_at ON access_logs(login_at);
-      CREATE INDEX IF NOT EXISTS idx_access_logs_logout_at ON access_logs(logout_at);
-      CREATE INDEX IF NOT EXISTS idx_access_logs_last_activity ON access_logs(last_activity_at);
+        user_agent TEXT
+      )
     `);
     
-    // Aggiungi colonna last_activity_at se non esiste (per tabelle create prima dell'aggiornamento)
+    // Crea gli indici base
     try {
-      await pool.query(`
-        ALTER TABLE access_logs 
-        ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMPTZ DEFAULT NOW()
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_access_logs_user_id ON access_logs(user_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_access_logs_login_at ON access_logs(login_at)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_access_logs_logout_at ON access_logs(logout_at)`);
+    } catch (idxErr) {
+      console.log("⚠️ Errore creazione indici (potrebbero già esistere):", idxErr.message);
+    }
+    
+    // Aggiungi colonna last_activity_at se non esiste (IMPORTANTE: deve essere fatto sempre)
+    try {
+      // Verifica prima se la colonna esiste
+      const checkColumn = await pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'access_logs' 
+          AND column_name = 'last_activity_at'
       `);
-      console.log("✅ Colonna last_activity_at verificata/aggiunta a access_logs");
+      
+      if (checkColumn.rows.length === 0) {
+        // La colonna non esiste, aggiungila
+        await pool.query(`
+          ALTER TABLE access_logs 
+          ADD COLUMN last_activity_at TIMESTAMPTZ DEFAULT NOW()
+        `);
+        console.log("✅ Colonna last_activity_at aggiunta a access_logs");
+        
+        // Crea l'indice per last_activity_at
+        try {
+          await pool.query(`CREATE INDEX IF NOT EXISTS idx_access_logs_last_activity ON access_logs(last_activity_at)`);
+        } catch (idxErr) {
+          console.log("⚠️ Errore creazione indice last_activity_at:", idxErr.message);
+        }
+      } else {
+        console.log("✅ Colonna last_activity_at già presente in access_logs");
+      }
     } catch (alterErr) {
-      console.log("⚠️ Errore aggiunta colonna last_activity_at (potrebbe già esistere):", alterErr.message);
+      console.error("❌ Errore critico aggiunta colonna last_activity_at:", alterErr.message);
+      console.error("❌ Stack:", alterErr.stack);
+      // Non bloccare l'avvio, ma logga l'errore
     }
     
     console.log('✅ Tabella access_logs pronta');
   } catch (err) {
     console.error('❌ Errore creazione tabella access_logs:', err);
+    console.error('❌ Stack:', err.stack);
   }
 };
 
