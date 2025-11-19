@@ -120,28 +120,42 @@ module.exports = (pool) => {
         
         // Calcola active_sessions separatamente solo se necessario (più veloce)
         let activeSessions = 0;
-        if (dataResult.rows.length > 0 || !onlyActive) {
-          // Calcola solo se abbiamo dati o se non stiamo filtrando per solo attivi
+        try {
+          // Costruisci la query per active_sessions con gli stessi filtri base
+          const activeConditions = [...conditions];
+          const activeValues = [...values];
+          
+          // Aggiungi la condizione per sessioni attive
+          activeConditions.push(`al.logout_at IS NULL AND (
+            COALESCE(u.inactivity_timeout_minutes, 3) = 0
+            OR
+            (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - COALESCE(u.inactivity_timeout_minutes, 3) * INTERVAL '1 minute')
+          )`);
+          
+          const activeWhereClause = activeConditions.length ? `WHERE ${activeConditions.join(' AND ')}` : '';
+          
           const activeQuery = `
             SELECT COUNT(*) AS active_count
             FROM access_logs al
             LEFT JOIN users u ON u.id = al.user_id
-            WHERE al.logout_at IS NULL AND (
-              COALESCE(u.inactivity_timeout_minutes, 3) = 0
-              OR
-              (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - COALESCE(u.inactivity_timeout_minutes, 3) * INTERVAL '1 minute')
-            )
-            ${whereClause ? `AND ${whereClause.replace('WHERE ', '')}` : ''}
+            ${activeWhereClause}
           `;
           
-          try {
-            const activeResult = await pool.query(activeQuery, values);
-            activeSessions = Number(activeResult.rows[0]?.active_count || 0);
-          } catch (activeErr) {
-            console.warn('⚠️ Errore calcolo active_sessions (ignorato):', activeErr.message);
-            // Se fallisce, usa un calcolo approssimativo
-            activeSessions = dataResult.rows.filter(row => !row.logout_at).length;
-          }
+          const activeResult = await pool.query(activeQuery, activeValues);
+          activeSessions = Number(activeResult.rows[0]?.active_count || 0);
+        } catch (activeErr) {
+          console.warn('⚠️ Errore calcolo active_sessions (ignorato):', activeErr.message);
+          // Se fallisce, usa un calcolo approssimativo basato sui dati caricati
+          activeSessions = dataResult.rows.filter(row => {
+            if (row.logout_at) return false;
+            const timeout = row.user_inactivity_timeout_minutes || 3;
+            if (timeout === 0) return true;
+            if (!row.last_activity_at) return false;
+            const lastActivity = new Date(row.last_activity_at);
+            const now = new Date();
+            const diffMinutes = (now - lastActivity) / (1000 * 60);
+            return diffMinutes < timeout;
+          }).length;
         }
 
         const summary = countResult.rows[0] || { total: 0, unique_users: 0 };
