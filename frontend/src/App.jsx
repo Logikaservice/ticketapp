@@ -351,15 +351,23 @@ export default function TicketApp() {
     const sendHeartbeat = async () => {
       try {
         const authHeader = getAuthHeader();
-        await fetch(`${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`, {
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`, {
           method: 'POST',
           headers: {
             ...authHeader
           }
         });
+        
+        // Non loggare errori se la risposta è ok anche se success: false
+        if (!response.ok && response.status !== 200) {
+          console.debug('Heartbeat HTTP error:', response.status, response.statusText);
+        }
       } catch (err) {
         // Ignora errori silenziosamente (non bloccare l'app)
-        console.debug('Heartbeat error (ignored):', err);
+        // Solo log di debug, non errori in console
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('Heartbeat error (ignored):', err);
+        }
       }
     };
 

@@ -147,12 +147,14 @@ module.exports = (pool) => {
   // POST /api/access-logs/heartbeat - Aggiorna last_activity_at per la sessione corrente
   router.post('/heartbeat', authenticateToken, async (req, res) => {
     try {
-      const userId = req.user?.id || req.headers['x-user-id'];
+      const userId = req.user?.id;
       if (!userId) {
+        console.error('❌ Heartbeat: userId non trovato in req.user');
         return res.status(401).json({ error: 'Utente non autenticato' });
       }
 
-      // Trova la sessione più recente senza logout per questo utente
+      // Trova e aggiorna la sessione più recente senza logout per questo utente
+      // Usa una query più semplice e robusta
       const result = await pool.query(
         `UPDATE access_logs 
          SET last_activity_at = NOW() 
@@ -170,14 +172,22 @@ module.exports = (pool) => {
         [userId]
       );
 
+      // Se non c'è una sessione attiva, non è un errore - potrebbe essere un refresh o nuovo login
       if (result.rowCount > 0) {
         res.json({ success: true, sessionId: result.rows[0].session_id });
       } else {
+        // Non restituire errore, solo un success: false
         res.json({ success: false, message: 'Nessuna sessione attiva trovata' });
       }
     } catch (error) {
       console.error('❌ Errore heartbeat access log:', error);
-      res.status(500).json({ error: 'Errore interno del server' });
+      console.error('❌ Stack trace:', error.stack);
+      // Restituisci sempre 200 per non bloccare l'app, ma con success: false
+      res.status(200).json({ 
+        success: false, 
+        error: 'Errore interno del server',
+        message: error.message 
+      });
     }
   });
 
