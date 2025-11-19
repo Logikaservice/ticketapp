@@ -112,7 +112,7 @@ module.exports = (pool) => {
   // POST /api/access-logs/heartbeat - Aggiorna last_activity_at per la sessione corrente
   router.post('/heartbeat', authenticateToken, async (req, res) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user?.id || req.headers['x-user-id'];
       if (!userId) {
         return res.status(401).json({ error: 'Utente non autenticato' });
       }

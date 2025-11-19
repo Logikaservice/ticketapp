@@ -386,15 +386,16 @@ export default function TicketApp() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Invia heartbeat quando la pagina viene chiusa (beforeunload)
+    // Nota: navigator.sendBeacon non può inviare header personalizzati, quindi usiamo fetch con keepalive
     const handleBeforeUnload = () => {
-      // Usa navigator.sendBeacon per garantire che la richiesta venga inviata anche se la pagina si chiude
       const authHeader = getAuthHeader();
-      const token = authHeader.Authorization?.replace('Bearer ', '') || '';
-      const blob = new Blob([], { type: 'application/json' });
-      navigator.sendBeacon(
-        `${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`,
-        blob
-      );
+      fetch(`${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`, {
+        method: 'POST',
+        headers: {
+          ...authHeader
+        },
+        keepalive: true // Mantiene la richiesta anche dopo la chiusura della pagina
+      }).catch(() => {}); // Ignora errori silenziosamente
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
