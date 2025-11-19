@@ -344,16 +344,31 @@ export default function TicketApp() {
     }
   }, [isLoggedIn, currentUser, modalState.type]);
 
-  // Sistema di heartbeat per aggiornare last_activity_at (ogni 30 secondi)
+  // Sistema di heartbeat per aggiornare last_activity_at (ogni 60 secondi)
   useEffect(() => {
     if (!isLoggedIn || !currentUser) return;
 
     let isSending = false; // Flag per evitare richieste simultanee
     let lastSent = 0; // Timestamp dell'ultimo heartbeat inviato
-    const MIN_INTERVAL = 30000; // Minimo 30 secondi tra un heartbeat e l'altro (aumentato)
+    const MIN_INTERVAL = 60000; // Minimo 60 secondi tra un heartbeat e l'altro
     let heartbeatTimeout = null; // Timeout per il prossimo heartbeat
+    let consecutiveErrors = 0; // Contatore errori consecutivi
+    const MAX_CONSECUTIVE_ERRORS = 3; // Dopo 3 errori, disabilita temporaneamente
+    let isDisabled = false; // Flag per disabilitare temporaneamente il heartbeat
 
     const sendHeartbeat = async () => {
+      // Se disabilitato, non inviare
+      if (isDisabled) {
+        // Riprova dopo 5 minuti
+        if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
+        heartbeatTimeout = setTimeout(() => {
+          isDisabled = false;
+          consecutiveErrors = 0;
+          sendHeartbeat();
+        }, 300000); // 5 minuti
+        return;
+      }
+
       // Evita richieste simultanee o troppo frequenti
       const now = Date.now();
       if (isSending || (now - lastSent) < MIN_INTERVAL) {
@@ -366,7 +381,7 @@ export default function TicketApp() {
       try {
         const authHeader = getAuthHeader();
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // Timeout di 5 secondi
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // Timeout ridotto a 3 secondi
         
         const response = await fetch(`${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`, {
           method: 'POST',
@@ -378,31 +393,52 @@ export default function TicketApp() {
         
         clearTimeout(timeoutId);
         
-        // Non loggare errori se la risposta è ok anche se success: false
-        if (!response.ok && response.status !== 200) {
-          // Solo in development
-          if (process.env.NODE_ENV === 'development') {
-            console.debug('Heartbeat HTTP error:', response.status, response.statusText);
+        // Reset contatore errori se la richiesta è andata a buon fine
+        if (response.ok || response.status === 200) {
+          consecutiveErrors = 0;
+        } else {
+          consecutiveErrors++;
+          if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+            isDisabled = true;
+            // Riprova dopo 5 minuti
+            if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
+            heartbeatTimeout = setTimeout(() => {
+              isDisabled = false;
+              consecutiveErrors = 0;
+            }, 300000); // 5 minuti
+            return;
           }
         }
       } catch (err) {
         // Ignora errori silenziosamente (non bloccare l'app)
-        // Non loggare errori di rete per evitare spam in console
+        consecutiveErrors++;
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          isDisabled = true;
+          // Riprova dopo 5 minuti
+          if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
+          heartbeatTimeout = setTimeout(() => {
+            isDisabled = false;
+            consecutiveErrors = 0;
+          }, 300000); // 5 minuti
+          return;
+        }
       } finally {
         isSending = false;
         
-        // Programma il prossimo heartbeat
-        if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
-        heartbeatTimeout = setTimeout(sendHeartbeat, 60000); // 60 secondi
+        // Programma il prossimo heartbeat solo se non disabilitato
+        if (!isDisabled) {
+          if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
+          heartbeatTimeout = setTimeout(sendHeartbeat, 60000); // 60 secondi
+        }
       }
     };
 
-    // Invia heartbeat immediatamente e poi ogni 60 secondi
-    sendHeartbeat();
+    // Invia heartbeat dopo 5 secondi dall'avvio (non immediatamente)
+    heartbeatTimeout = setTimeout(sendHeartbeat, 5000);
 
-    // Invia heartbeat quando la pagina diventa visibile (solo se passati almeno 30 secondi)
+    // Invia heartbeat quando la pagina diventa visibile (solo se passati almeno 60 secondi)
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && !isDisabled) {
         const now = Date.now();
         if ((now - lastSent) >= MIN_INTERVAL) {
           sendHeartbeat();
@@ -411,10 +447,9 @@ export default function TicketApp() {
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Invia heartbeat quando la pagina viene chiusa (beforeunload)
-    // Nota: navigator.sendBeacon non può inviare header personalizzati, quindi usiamo fetch con keepalive
+    // Invia heartbeat quando la pagina viene chiusa (beforeunload) - solo se non disabilitato
     const handleBeforeUnload = () => {
-      if (!isSending) {
+      if (!isSending && !isDisabled) {
         const authHeader = getAuthHeader();
         fetch(`${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`, {
           method: 'POST',
