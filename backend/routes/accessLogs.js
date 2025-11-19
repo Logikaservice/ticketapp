@@ -368,6 +368,28 @@ module.exports = (pool) => {
     }
   });
 
+  // Endpoint di test semplice per verificare se il problema è la query complessa
+  router.get('/test', authenticateToken, requireRole(['tecnico']), async (req, res) => {
+    try {
+      console.log('🔍 [TEST] Endpoint test chiamato');
+      const startTime = Date.now();
+      
+      // Query semplicissima: conta solo i record
+      const result = await pool.query('SELECT COUNT(*) as total FROM access_logs');
+      
+      console.log('✅ [TEST] Query completata in', Date.now() - startTime, 'ms');
+      
+      res.json({
+        success: true,
+        total: result.rows[0].total,
+        time: Date.now() - startTime
+      });
+    } catch (error) {
+      console.error('❌ [TEST] Errore:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return router;
 };
 
