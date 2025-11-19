@@ -348,7 +348,20 @@ export default function TicketApp() {
   useEffect(() => {
     if (!isLoggedIn || !currentUser) return;
 
+    let isSending = false; // Flag per evitare richieste simultanee
+    let lastSent = 0; // Timestamp dell'ultimo heartbeat inviato
+    const MIN_INTERVAL = 5000; // Minimo 5 secondi tra un heartbeat e l'altro
+
     const sendHeartbeat = async () => {
+      // Evita richieste simultanee o troppo frequenti
+      const now = Date.now();
+      if (isSending || (now - lastSent) < MIN_INTERVAL) {
+        return;
+      }
+
+      isSending = true;
+      lastSent = now;
+
       try {
         const authHeader = getAuthHeader();
         const response = await fetch(`${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`, {
@@ -368,6 +381,8 @@ export default function TicketApp() {
         if (process.env.NODE_ENV === 'development') {
           console.debug('Heartbeat error (ignored):', err);
         }
+      } finally {
+        isSending = false;
       }
     };
 
@@ -375,20 +390,30 @@ export default function TicketApp() {
     sendHeartbeat();
     const interval = setInterval(sendHeartbeat, 30000); // 30 secondi
 
-    // Invia heartbeat anche quando l'utente interagisce con la pagina
-    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    // Throttle per gli eventi di attività (max ogni 10 secondi)
+    let activityThrottle = null;
     const handleActivity = () => {
-      sendHeartbeat();
+      if (activityThrottle) return;
+      activityThrottle = setTimeout(() => {
+        sendHeartbeat();
+        activityThrottle = null;
+      }, 10000); // Throttle di 10 secondi per gli eventi di attività
     };
     
+    // Invia heartbeat solo su eventi importanti (rimosso scroll per ridurre chiamate)
+    const activityEvents = ['mousedown', 'keydown', 'touchstart'];
     activityEvents.forEach(event => {
       window.addEventListener(event, handleActivity, { passive: true });
     });
 
-    // Invia heartbeat quando la pagina diventa visibile
+    // Invia heartbeat quando la pagina diventa visibile (con throttle)
+    let visibilityThrottle = null;
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        sendHeartbeat();
+      if (!document.hidden && !visibilityThrottle) {
+        visibilityThrottle = setTimeout(() => {
+          sendHeartbeat();
+          visibilityThrottle = null;
+        }, 2000); // Throttle di 2 secondi per visibility change
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -396,19 +421,23 @@ export default function TicketApp() {
     // Invia heartbeat quando la pagina viene chiusa (beforeunload)
     // Nota: navigator.sendBeacon non può inviare header personalizzati, quindi usiamo fetch con keepalive
     const handleBeforeUnload = () => {
-      const authHeader = getAuthHeader();
-      fetch(`${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`, {
-        method: 'POST',
-        headers: {
-          ...authHeader
-        },
-        keepalive: true // Mantiene la richiesta anche dopo la chiusura della pagina
-      }).catch(() => {}); // Ignora errori silenziosamente
+      if (!isSending) {
+        const authHeader = getAuthHeader();
+        fetch(`${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`, {
+          method: 'POST',
+          headers: {
+            ...authHeader
+          },
+          keepalive: true // Mantiene la richiesta anche dopo la chiusura della pagina
+        }).catch(() => {}); // Ignora errori silenziosamente
+      }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       clearInterval(interval);
+      if (activityThrottle) clearTimeout(activityThrottle);
+      if (visibilityThrottle) clearTimeout(visibilityThrottle);
       activityEvents.forEach(event => {
         window.removeEventListener(event, handleActivity);
       });
