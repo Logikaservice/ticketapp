@@ -39,6 +39,7 @@ module.exports = (pool) => {
 
     if (query.onlyActive === 'true') {
       // Filtra solo sessioni realmente attive usando il timeout personalizzato dell'utente
+      // Usa make_interval per creare un intervallo dinamico
       conditions.push(`(
         logout_at IS NULL AND (
           -- Se l'utente ha timeout 0 (mai), considera sempre attiva
@@ -49,10 +50,10 @@ module.exports = (pool) => {
           )
           OR
           -- Altrimenti usa il timeout personalizzato dell'utente (o 3 minuti default)
-          last_activity_at > NOW() - INTERVAL '1 minute' * COALESCE(
+          last_activity_at > NOW() - make_interval(mins => COALESCE(
             (SELECT inactivity_timeout_minutes FROM users WHERE id = access_logs.user_id),
             3
-          )
+          ))
         )
       )`);
     }
@@ -112,10 +113,10 @@ module.exports = (pool) => {
                 )
                 OR
                 -- Altrimenti usa il timeout personalizzato dell'utente (o 3 minuti default)
-                last_activity_at > NOW() - INTERVAL '1 minute' * COALESCE(
+                last_activity_at > NOW() - make_interval(mins => COALESCE(
                   (SELECT inactivity_timeout_minutes FROM users WHERE id = access_logs.user_id),
                   3
-                )
+                ))
               )
             ) AS active_sessions,
             COUNT(DISTINCT COALESCE(user_email, user_id::text)) AS unique_users
