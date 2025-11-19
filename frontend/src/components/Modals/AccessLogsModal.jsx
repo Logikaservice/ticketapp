@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Calendar, Building, Mail, User, Clock, Activity, Filter } from 'lucide-react';
+import { X, Search, Calendar, Building, Mail, User, Clock, Activity, Filter, RefreshCw } from 'lucide-react';
 
 const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
   const [logs, setLogs] = useState([]);
@@ -142,12 +142,22 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
               <p className="text-sm text-white/80">Monitoraggio accessi al portale</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition"
-          >
-            <X size={24} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchLogs}
+              disabled={loading}
+              className="p-2 hover:bg-white/20 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Aggiorna"
+            >
+              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-lg transition"
+            >
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
         {/* Summary Cards */}
