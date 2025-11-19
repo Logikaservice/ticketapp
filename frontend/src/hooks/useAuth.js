@@ -104,6 +104,9 @@ export const useAuth = (showNotification) => {
       // Salva sessionId se presente
       if (loginResponse.sessionId) {
         localStorage.setItem('sessionId', loginResponse.sessionId);
+        console.log('✅ [LOGIN] sessionId salvato:', loginResponse.sessionId);
+      } else {
+        console.warn('⚠️ [LOGIN] sessionId non presente nella risposta');
       }
       
       setCurrentUser(loginResponse.user);
