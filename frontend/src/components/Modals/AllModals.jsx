@@ -151,9 +151,10 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
       
       case 'accessLogs':
         return (
-          <AccessLogsModal 
+          <AccessLogsModal
             isOpen={true}
             onClose={closeModal}
+            getAuthHeader={handlers.getAuthHeader}
           />
         );
       

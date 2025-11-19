@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, Calendar, Building, Mail, User, Clock, Activity, Filter } from 'lucide-react';
 
-const AccessLogsModal = ({ isOpen, onClose }) => {
+const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -25,7 +25,6 @@ const AccessLogsModal = ({ isOpen, onClose }) => {
     setError(null);
     
     try {
-      const token = localStorage.getItem('token');
       const params = new URLSearchParams({
         page: currentPage.toString(),
         limit: pageSize.toString()
@@ -45,9 +44,10 @@ const AccessLogsModal = ({ isOpen, onClose }) => {
       if (filters.endDate) params.append('endDate', filters.endDate);
       if (filters.onlyActive) params.append('onlyActive', 'true');
       
-      const response = await fetch(`/api/access-logs?${params}`, {
+      const authHeader = getAuthHeader();
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/access-logs?${params}`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          ...authHeader
         }
       });
       
@@ -181,15 +181,15 @@ const AccessLogsModal = ({ isOpen, onClose }) => {
             <Filter size={18} className="text-gray-500" />
             <h3 className="font-semibold text-gray-700">Filtri</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
             {/* Campo ricerca unificato con selezione tipo */}
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Ricerca</label>
               <div className="flex gap-2">
                 <select
                   value={filters.searchType}
                   onChange={(e) => handleFilterChange('searchType', e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm bg-white"
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm bg-white min-w-[100px]"
                 >
                   <option value="all">Tutto</option>
                   <option value="company">Azienda</option>
