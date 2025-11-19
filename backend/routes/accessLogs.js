@@ -202,7 +202,14 @@ module.exports = (pool) => {
               console.log('🔍 [ACCESS LOGS] Inizio dataQuery...');
               console.log('🔍 [ACCESS LOGS] dataQuery SQL:', dataQuery.substring(0, 200) + '...');
               console.log('🔍 [ACCESS LOGS] dataQuery params:', dataQueryValues);
-              const result = await pool.query(dataQuery, dataQueryValues);
+              
+              // Aggiungi timeout di 10 secondi alla query
+              const queryPromise = pool.query(dataQuery, dataQueryValues);
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Query timeout dopo 10 secondi')), 10000)
+              );
+              
+              const result = await Promise.race([queryPromise, timeoutPromise]);
               console.log('✅ [ACCESS LOGS] dataQuery completata in', Date.now() - start, 'ms, rows:', result.rows.length);
               return result;
             })(),
@@ -211,7 +218,14 @@ module.exports = (pool) => {
               console.log('🔍 [ACCESS LOGS] Inizio countQuery...');
               console.log('🔍 [ACCESS LOGS] countQuery:', countQuery);
               console.log('🔍 [ACCESS LOGS] countValues:', countValues);
-              const result = await pool.query(countQuery, countValues);
+              
+              // Aggiungi timeout di 10 secondi alla query
+              const queryPromise = pool.query(countQuery, countValues);
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Query timeout dopo 10 secondi')), 10000)
+              );
+              
+              const result = await Promise.race([queryPromise, timeoutPromise]);
               console.log('✅ [ACCESS LOGS] countQuery completata in', Date.now() - start, 'ms');
               return result;
             })()
