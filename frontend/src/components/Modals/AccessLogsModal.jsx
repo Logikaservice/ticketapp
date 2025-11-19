@@ -7,8 +7,7 @@ const AccessLogsModal = ({ isOpen, onClose }) => {
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
     search: '',
-    company: '',
-    email: '',
+    searchType: 'all', // 'all', 'company', 'email'
     startDate: '',
     endDate: '',
     onlyActive: false
@@ -32,9 +31,16 @@ const AccessLogsModal = ({ isOpen, onClose }) => {
         limit: pageSize.toString()
       });
       
-      if (filters.search) params.append('search', filters.search);
-      if (filters.company) params.append('company', filters.company);
-      if (filters.email) params.append('email', filters.email);
+      // Applica il filtro di ricerca in base al tipo selezionato
+      if (filters.search) {
+        if (filters.searchType === 'company') {
+          params.append('company', filters.search);
+        } else if (filters.searchType === 'email') {
+          params.append('email', filters.search);
+        } else {
+          params.append('search', filters.search);
+        }
+      }
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
       if (filters.onlyActive) params.append('onlyActive', 'true');
@@ -100,8 +106,7 @@ const AccessLogsModal = ({ isOpen, onClose }) => {
   const clearFilters = () => {
     setFilters({
       search: '',
-      company: '',
-      email: '',
+      searchType: 'all',
       startDate: '',
       endDate: '',
       onlyActive: false
@@ -176,46 +181,45 @@ const AccessLogsModal = ({ isOpen, onClose }) => {
             <Filter size={18} className="text-gray-500" />
             <h3 className="font-semibold text-gray-700">Filtri</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            {/* Campo ricerca unificato con selezione tipo */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Ricerca</label>
-              <div className="relative">
-                <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                  placeholder="Email, nome, azienda..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
+              <div className="flex gap-2">
+                <select
+                  value={filters.searchType}
+                  onChange={(e) => handleFilterChange('searchType', e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm bg-white"
+                >
+                  <option value="all">Tutto</option>
+                  <option value="company">Azienda</option>
+                  <option value="email">Email</option>
+                </select>
+                <div className="relative flex-1">
+                  {filters.searchType === 'company' ? (
+                    <Building size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  ) : filters.searchType === 'email' ? (
+                    <Mail size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  ) : (
+                    <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  )}
+                  <input
+                    type={filters.searchType === 'email' ? 'email' : 'text'}
+                    value={filters.search}
+                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                    placeholder={
+                      filters.searchType === 'company' 
+                        ? 'Nome azienda...' 
+                        : filters.searchType === 'email' 
+                        ? 'Email utente...' 
+                        : 'Email, nome, azienda...'
+                    }
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  />
+                </div>
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Azienda</label>
-              <div className="relative">
-                <Building size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  value={filters.company}
-                  onChange={(e) => handleFilterChange('company', e.target.value)}
-                  placeholder="Nome azienda..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <div className="relative">
-                <Mail size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="email"
-                  value={filters.email}
-                  onChange={(e) => handleFilterChange('email', e.target.value)}
-                  placeholder="Email utente..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
-              </div>
-            </div>
+            {/* Data Inizio */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Data Inizio</label>
               <div className="relative">
@@ -228,6 +232,7 @@ const AccessLogsModal = ({ isOpen, onClose }) => {
                 />
               </div>
             </div>
+            {/* Data Fine */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Data Fine</label>
               <div className="relative">
@@ -240,7 +245,8 @@ const AccessLogsModal = ({ isOpen, onClose }) => {
                 />
               </div>
             </div>
-            <div className="flex items-end">
+            {/* Checkbox solo sessioni attive e pulsante pulisci */}
+            <div className="flex flex-col gap-2">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -250,15 +256,13 @@ const AccessLogsModal = ({ isOpen, onClose }) => {
                 />
                 <span className="text-sm text-gray-700">Solo sessioni attive</span>
               </label>
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              >
+                Pulisci Filtri
+              </button>
             </div>
-          </div>
-          <div className="mt-4 flex justify-end">
-            <button
-              onClick={clearFilters}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-            >
-              Pulisci Filtri
-            </button>
           </div>
         </div>
 
