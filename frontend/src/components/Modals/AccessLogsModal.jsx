@@ -84,9 +84,21 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
 
   useEffect(() => {
     if (isOpen) {
+      // Ricarica sempre i dati quando il modal viene aperto
       fetchLogs();
     }
   }, [isOpen, currentPage, filters]);
+  
+  // Ricarica anche quando il modal viene riaperto (per vedere aggiornamenti dopo logout)
+  useEffect(() => {
+    if (isOpen && !loading) {
+      // Piccolo delay per assicurarsi che eventuali operazioni di logout siano completate
+      const timeoutId = setTimeout(() => {
+        fetchLogs();
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isOpen]);
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
