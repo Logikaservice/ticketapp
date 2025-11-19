@@ -63,8 +63,11 @@ jobs:
             cd ../frontend
             
             echo "🧹 Pulizia cache e build vecchi..."
-            rm -rf build
-            rm -rf node_modules/.cache
+            rm -rf build || true
+            # Rimuovi cache in modo sicuro (gestisce directory non vuote)
+            if [ -d "node_modules/.cache" ]; then
+              find node_modules/.cache -mindepth 1 -delete 2>/dev/null || rm -rf node_modules/.cache 2>/dev/null || true
+            fi
             rm -f .env
             rm -f .env.production
             
