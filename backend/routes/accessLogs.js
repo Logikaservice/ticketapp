@@ -122,8 +122,15 @@ module.exports = (pool) => {
           dataQueryValues = [...values, pageSize, offset];
         } else {
           // Query semplificata senza JOIN per massima velocità
-          const simpleConditions = conditions.filter(c => !c.includes('u.'));
+          // IMPORTANTE: rimuovi l'alias "al." dalle condizioni perché non c'è JOIN
+          const simpleConditions = conditions
+            .filter(c => !c.includes('u.'))
+            .map(c => c.replace(/al\./g, '')); // Rimuovi alias "al." quando non c'è JOIN
+          
           const simpleWhereClause = simpleConditions.length ? `WHERE ${simpleConditions.join(' AND ')}` : '';
+          
+          // Query senza last_activity_at se la colonna non esiste
+          // Usa COALESCE per gestire la colonna mancante
           dataQuery = `
             SELECT 
               session_id,
@@ -138,7 +145,7 @@ module.exports = (pool) => {
               logout_ip,
               user_agent,
               EXTRACT(EPOCH FROM (COALESCE(logout_at, NOW()) - login_at)) AS duration_seconds,
-              last_activity_at,
+              COALESCE(last_activity_at, login_at) AS last_activity_at,
               3 AS user_inactivity_timeout_minutes
             FROM access_logs
             ${simpleWhereClause}
