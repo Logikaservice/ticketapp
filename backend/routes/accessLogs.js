@@ -58,10 +58,11 @@ module.exports = (pool) => {
         // Aggiungi la condizione onlyActive dopo il JOIN
         let whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
         if (onlyActive) {
+          // Usa INTERVAL invece di make_interval per compatibilità
           const activeCondition = `al.logout_at IS NULL AND (
             COALESCE(u.inactivity_timeout_minutes, 3) = 0
             OR
-            (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - make_interval(mins => COALESCE(u.inactivity_timeout_minutes, 3)))
+            (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - (COALESCE(u.inactivity_timeout_minutes, 3) || 3) * INTERVAL '1 minute')
           )`;
           whereClause = whereClause 
             ? `${whereClause} AND ${activeCondition}`
@@ -104,7 +105,7 @@ module.exports = (pool) => {
                 COALESCE(u.inactivity_timeout_minutes, 3) = 0
                 OR
                 -- Altrimenti usa il timeout personalizzato dell'utente (o 3 minuti default)
-                (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - make_interval(mins => COALESCE(u.inactivity_timeout_minutes, 3)))
+                (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - (COALESCE(u.inactivity_timeout_minutes, 3) || 3) * INTERVAL '1 minute')
               )
             ) AS active_sessions,
             COUNT(DISTINCT COALESCE(al.user_email, al.user_id::text)) AS unique_users
@@ -112,6 +113,14 @@ module.exports = (pool) => {
           LEFT JOIN users u ON u.id = al.user_id
           ${whereClause}
         `;
+
+        console.log('🔍 Debug access logs query:', { 
+          whereClause, 
+          valuesCount: values.length, 
+          pageSize, 
+          offset,
+          onlyActive 
+        });
 
         const dataResult = await pool.query(dataQuery, [...values, pageSize, offset]);
         const countResult = await pool.query(countQuery, values);
@@ -129,7 +138,13 @@ module.exports = (pool) => {
         });
       } catch (error) {
         console.error('❌ Errore recupero access logs:', error);
-        res.status(500).json({ error: 'Errore nel recupero dei log di accesso' });
+        console.error('❌ Stack trace:', error.stack);
+        console.error('❌ Query params:', { conditions, values, onlyActive, whereClause });
+        res.status(500).json({ 
+          error: 'Errore nel recupero dei log di accesso',
+          details: error.message,
+          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
       }
     }
   );
