@@ -150,34 +150,42 @@ module.exports = (pool) => {
       const userId = req.user?.id;
       if (!userId) {
         console.error('❌ Heartbeat: userId non trovato in req.user');
-        return res.status(401).json({ error: 'Utente non autenticato' });
+        return res.status(200).json({ success: false, error: 'Utente non autenticato' });
       }
 
-      // Trova e aggiorna la sessione più recente senza logout per questo utente
-      // Usa una query più semplice e robusta
-      const result = await pool.query(
-        `UPDATE access_logs 
-         SET last_activity_at = NOW() 
+      // Trova prima la sessione più recente senza logout
+      const findSession = await pool.query(
+        `SELECT session_id 
+         FROM access_logs 
          WHERE user_id = $1 
            AND logout_at IS NULL 
-           AND session_id = (
-             SELECT session_id 
-             FROM access_logs 
-             WHERE user_id = $1 
-               AND logout_at IS NULL 
-             ORDER BY login_at DESC 
-             LIMIT 1
-           )
-         RETURNING session_id`,
+         ORDER BY login_at DESC 
+         LIMIT 1`,
         [userId]
       );
 
-      // Se non c'è una sessione attiva, non è un errore - potrebbe essere un refresh o nuovo login
-      if (result.rowCount > 0) {
-        res.json({ success: true, sessionId: result.rows[0].session_id });
+      if (findSession.rows.length === 0) {
+        // Nessuna sessione attiva trovata - non è un errore
+        return res.status(200).json({ success: false, message: 'Nessuna sessione attiva trovata' });
+      }
+
+      const sessionId = findSession.rows[0].session_id;
+
+      // Aggiorna last_activity_at per questa sessione
+      const updateResult = await pool.query(
+        `UPDATE access_logs 
+         SET last_activity_at = NOW() 
+         WHERE session_id = $1 
+           AND user_id = $2
+           AND logout_at IS NULL
+         RETURNING session_id`,
+        [sessionId, userId]
+      );
+
+      if (updateResult.rowCount > 0) {
+        res.status(200).json({ success: true, sessionId: updateResult.rows[0].session_id });
       } else {
-        // Non restituire errore, solo un success: false
-        res.json({ success: false, message: 'Nessuna sessione attiva trovata' });
+        res.status(200).json({ success: false, message: 'Sessione non trovata o già chiusa' });
       }
     } catch (error) {
       console.error('❌ Errore heartbeat access log:', error);
