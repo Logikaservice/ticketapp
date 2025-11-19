@@ -93,27 +93,8 @@ module.exports = (pool) => {
           OFFSET $${values.length + 2}
         `;
 
-        // Per ogni utente, usa il suo timeout personalizzato (o default 3 minuti per tecnici)
-        // Se timeout è 0 (mai), considera sempre attiva se logout_at IS NULL
-        // Semplifichiamo la query usando un LEFT JOIN invece di subquery multiple
-        const countQuery = `
-          SELECT 
-            COUNT(*) AS total,
-            COUNT(*) FILTER (
-              WHERE al.logout_at IS NULL AND (
-                -- Se l'utente ha timeout 0 (mai), considera sempre attiva
-                COALESCE(u.inactivity_timeout_minutes, 3) = 0
-                OR
-                -- Altrimenti usa il timeout personalizzato dell'utente (o 3 minuti default)
-                (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - COALESCE(u.inactivity_timeout_minutes, 3) * INTERVAL '1 minute')
-              )
-            ) AS active_sessions,
-            COUNT(DISTINCT COALESCE(al.user_email, al.user_id::text)) AS unique_users
-          FROM access_logs al
-          LEFT JOIN users u ON u.id = al.user_id
-          ${whereClause}
-        `;
-
+        // Query semplificata per le statistiche - calcoliamo active_sessions separatamente per performance
+        // Prima eseguiamo la query dei dati, poi calcoliamo le statistiche
         console.log('🔍 Debug access logs query:', { 
           whereClause, 
           valuesCount: values.length, 
@@ -122,15 +103,53 @@ module.exports = (pool) => {
           onlyActive 
         });
 
+        // Esegui prima la query dei dati
         const dataResult = await pool.query(dataQuery, [...values, pageSize, offset]);
+        
+        // Query semplificata per il conteggio totale (senza calcolo complesso di active_sessions)
+        const countQuery = `
+          SELECT 
+            COUNT(*) AS total,
+            COUNT(DISTINCT COALESCE(al.user_email, al.user_id::text)) AS unique_users
+          FROM access_logs al
+          LEFT JOIN users u ON u.id = al.user_id
+          ${whereClause}
+        `;
+        
         const countResult = await pool.query(countQuery, values);
+        
+        // Calcola active_sessions separatamente solo se necessario (più veloce)
+        let activeSessions = 0;
+        if (dataResult.rows.length > 0 || !onlyActive) {
+          // Calcola solo se abbiamo dati o se non stiamo filtrando per solo attivi
+          const activeQuery = `
+            SELECT COUNT(*) AS active_count
+            FROM access_logs al
+            LEFT JOIN users u ON u.id = al.user_id
+            WHERE al.logout_at IS NULL AND (
+              COALESCE(u.inactivity_timeout_minutes, 3) = 0
+              OR
+              (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - COALESCE(u.inactivity_timeout_minutes, 3) * INTERVAL '1 minute')
+            )
+            ${whereClause ? `AND ${whereClause.replace('WHERE ', '')}` : ''}
+          `;
+          
+          try {
+            const activeResult = await pool.query(activeQuery, values);
+            activeSessions = Number(activeResult.rows[0]?.active_count || 0);
+          } catch (activeErr) {
+            console.warn('⚠️ Errore calcolo active_sessions (ignorato):', activeErr.message);
+            // Se fallisce, usa un calcolo approssimativo
+            activeSessions = dataResult.rows.filter(row => !row.logout_at).length;
+          }
+        }
 
-        const summary = countResult.rows[0] || { total: 0, active_sessions: 0, unique_users: 0 };
+        const summary = countResult.rows[0] || { total: 0, unique_users: 0 };
 
         res.json({
           logs: dataResult.rows,
           total: Number(summary.total || 0),
-          activeSessions: Number(summary.active_sessions || 0),
+          activeSessions: activeSessions,
           uniqueUsers: Number(summary.unique_users || 0),
           page: currentPage,
           pageSize,
