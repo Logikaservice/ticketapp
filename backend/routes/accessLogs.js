@@ -105,7 +105,7 @@ module.exports = (pool) => {
             COUNT(DISTINCT COALESCE(al.user_email, al.user_id::text)) AS unique_users
           FROM access_logs al
           LEFT JOIN users u ON u.id = al.user_id
-          ${whereClause.replace(/access_logs\./g, 'al.')}
+          ${whereClause}
         `;
 
         const dataResult = await pool.query(dataQuery, [...values, pageSize, offset]);
