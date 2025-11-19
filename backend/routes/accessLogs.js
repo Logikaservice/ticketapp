@@ -48,6 +48,10 @@ module.exports = (pool) => {
     authenticateToken,
     requireRole(['tecnico']),
     async (req, res) => {
+      const startTime = Date.now();
+      console.log('🔍 [ACCESS LOGS] Inizio richiesta:', new Date().toISOString());
+      console.log('🔍 [ACCESS LOGS] Query params:', req.query);
+      
       try {
         const pageSize = Math.min(parseInt(req.query.limit, 10) || 50, 100);
         const currentPage = Math.max(parseInt(req.query.page, 10) || 1, 1);
@@ -59,11 +63,18 @@ module.exports = (pool) => {
           const thirtyDaysAgo = new Date();
           thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
           req.query.startDate = thirtyDaysAgo.toISOString().split('T')[0];
+          console.log('🔍 [ACCESS LOGS] Aggiunto limite default 30 giorni:', req.query.startDate);
         }
 
+        const buildFiltersStart = Date.now();
         const { conditions, values, onlyActive } = buildFilters(req.query);
+        console.log('🔍 [ACCESS LOGS] buildFilters completato in', Date.now() - buildFiltersStart, 'ms');
+        console.log('🔍 [ACCESS LOGS] Conditions:', conditions);
+        console.log('🔍 [ACCESS LOGS] Values count:', values.length);
+        console.log('🔍 [ACCESS LOGS] OnlyActive:', onlyActive);
         
         // Aggiungi la condizione onlyActive dopo il JOIN
+        const whereClauseStart = Date.now();
         let whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
         if (onlyActive) {
           // Usa INTERVAL standard PostgreSQL
@@ -76,6 +87,8 @@ module.exports = (pool) => {
             ? `${whereClause} AND ${activeCondition}`
             : `WHERE ${activeCondition}`;
         }
+        console.log('🔍 [ACCESS LOGS] whereClause costruito in', Date.now() - whereClauseStart, 'ms');
+        console.log('🔍 [ACCESS LOGS] whereClause:', whereClause);
 
         const dataQuery = `
           SELECT 
@@ -101,15 +114,8 @@ module.exports = (pool) => {
           OFFSET $${values.length + 2}
         `;
 
-        // Query semplificata per le statistiche - calcoliamo active_sessions separatamente per performance
-        // Prima eseguiamo la query dei dati, poi calcoliamo le statistiche
-        console.log('🔍 Debug access logs query:', { 
-          whereClause, 
-          valuesCount: values.length, 
-          pageSize, 
-          offset,
-          onlyActive 
-        });
+        console.log('🔍 [ACCESS LOGS] dataQuery costruita');
+        console.log('🔍 [ACCESS LOGS] dataQuery params:', [...values, pageSize, offset]);
 
         // Query semplificata per il conteggio totale (senza JOIN users per velocità)
         // Usa solo access_logs per total e unique_users
@@ -147,15 +153,42 @@ module.exports = (pool) => {
         }
         
         // Esegui le query in parallelo per velocità
-        const [dataResult, countResult] = await Promise.all([
-          pool.query(dataQuery, [...values, pageSize, offset]),
-          pool.query(countQuery, countValues)
-        ]);
+        console.log('🔍 [ACCESS LOGS] Inizio esecuzione query parallele...');
+        const queryStart = Date.now();
+        
+        let dataResult, countResult;
+        try {
+          [dataResult, countResult] = await Promise.all([
+            (async () => {
+              const start = Date.now();
+              console.log('🔍 [ACCESS LOGS] Inizio dataQuery...');
+              const result = await pool.query(dataQuery, [...values, pageSize, offset]);
+              console.log('✅ [ACCESS LOGS] dataQuery completata in', Date.now() - start, 'ms, rows:', result.rows.length);
+              return result;
+            })(),
+            (async () => {
+              const start = Date.now();
+              console.log('🔍 [ACCESS LOGS] Inizio countQuery...');
+              console.log('🔍 [ACCESS LOGS] countQuery:', countQuery);
+              console.log('🔍 [ACCESS LOGS] countValues:', countValues);
+              const result = await pool.query(countQuery, countValues);
+              console.log('✅ [ACCESS LOGS] countQuery completata in', Date.now() - start, 'ms');
+              return result;
+            })()
+          ]);
+          console.log('✅ [ACCESS LOGS] Query parallele completate in', Date.now() - queryStart, 'ms');
+        } catch (queryErr) {
+          console.error('❌ [ACCESS LOGS] Errore durante esecuzione query:', queryErr);
+          console.error('❌ [ACCESS LOGS] Stack:', queryErr.stack);
+          throw queryErr;
+        }
         
         // Calcola active_sessions in modo semplificato e opzionale
         // Se fallisce o è troppo lento, usa un valore approssimativo
         let activeSessions = 0;
+        const activeStart = Date.now();
         try {
+          console.log('🔍 [ACCESS LOGS] Inizio calcolo active_sessions...');
           // Calcolo semplificato: conta solo le sessioni senza logout che hanno last_activity_at recente
           // Usa un timeout fisso di 5 minuti per evitare query complesse
           const simpleActiveQuery = `
@@ -168,8 +201,10 @@ module.exports = (pool) => {
           
           const activeResult = await pool.query(simpleActiveQuery, []);
           activeSessions = Number(activeResult.rows[0]?.active_count || 0);
+          console.log('✅ [ACCESS LOGS] active_sessions calcolato in', Date.now() - activeStart, 'ms:', activeSessions);
         } catch (activeErr) {
-          console.warn('⚠️ Errore calcolo active_sessions (ignorato):', activeErr.message);
+          console.warn('⚠️ [ACCESS LOGS] Errore calcolo active_sessions (ignorato) dopo', Date.now() - activeStart, 'ms:', activeErr.message);
+          console.warn('⚠️ [ACCESS LOGS] Stack:', activeErr.stack);
           // Calcolo approssimativo basato sui dati già caricati
           activeSessions = dataResult.rows.filter(row => {
             if (row.logout_at) return false;
@@ -181,9 +216,19 @@ module.exports = (pool) => {
             const timeout = row.user_inactivity_timeout_minutes || 3;
             return timeout === 0 || diffMinutes < timeout;
           }).length;
+          console.log('⚠️ [ACCESS LOGS] active_sessions approssimativo:', activeSessions);
         }
 
         const summary = countResult.rows[0] || { total: 0, unique_users: 0 };
+        
+        const totalTime = Date.now() - startTime;
+        console.log('✅ [ACCESS LOGS] Richiesta completata in', totalTime, 'ms');
+        console.log('✅ [ACCESS LOGS] Risultati:', {
+          logsCount: dataResult.rows.length,
+          total: summary.total,
+          activeSessions,
+          uniqueUsers: summary.unique_users
+        });
 
         res.json({
           logs: dataResult.rows,
@@ -195,9 +240,16 @@ module.exports = (pool) => {
           filters: req.query
         });
       } catch (error) {
-        console.error('❌ Errore recupero access logs:', error);
-        console.error('❌ Stack trace:', error.stack);
-        console.error('❌ Query params:', { conditions, values, onlyActive, whereClause });
+        const totalTime = Date.now() - startTime;
+        console.error('❌ [ACCESS LOGS] Errore dopo', totalTime, 'ms');
+        console.error('❌ [ACCESS LOGS] Errore:', error.message);
+        console.error('❌ [ACCESS LOGS] Stack trace:', error.stack);
+        console.error('❌ [ACCESS LOGS] Query params:', { 
+          conditions: conditions || 'N/A', 
+          values: values || 'N/A', 
+          onlyActive: onlyActive || 'N/A', 
+          whereClause: whereClause || 'N/A' 
+        });
         res.status(500).json({ 
           error: 'Errore nel recupero dei log di accesso',
           details: error.message,
