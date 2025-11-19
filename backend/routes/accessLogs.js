@@ -11,30 +11,30 @@ module.exports = (pool) => {
     if (query.search) {
       values.push(`%${query.search}%`);
       conditions.push(`(
-        LOWER(user_email) LIKE LOWER($${values.length}) OR
-        LOWER(user_name) LIKE LOWER($${values.length}) OR
-        LOWER(user_company) LIKE LOWER($${values.length})
+        LOWER(al.user_email) LIKE LOWER($${values.length}) OR
+        LOWER(al.user_name) LIKE LOWER($${values.length}) OR
+        LOWER(al.user_company) LIKE LOWER($${values.length})
       )`);
     }
 
     if (query.company) {
       values.push(`%${query.company}%`);
-      conditions.push(`LOWER(user_company) LIKE LOWER($${values.length})`);
+      conditions.push(`LOWER(al.user_company) LIKE LOWER($${values.length})`);
     }
 
     if (query.email) {
       values.push(`%${query.email}%`);
-      conditions.push(`LOWER(user_email) LIKE LOWER($${values.length})`);
+      conditions.push(`LOWER(al.user_email) LIKE LOWER($${values.length})`);
     }
 
     if (query.startDate) {
       values.push(query.startDate);
-      conditions.push(`login_at >= $${values.length}`);
+      conditions.push(`al.login_at >= $${values.length}`);
     }
 
     if (query.endDate) {
       values.push(query.endDate);
-      conditions.push(`login_at <= $${values.length}`);
+      conditions.push(`al.login_at <= $${values.length}`);
     }
 
     if (query.onlyActive === 'true') {
