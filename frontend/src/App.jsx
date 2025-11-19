@@ -344,6 +344,70 @@ export default function TicketApp() {
     }
   }, [isLoggedIn, currentUser, modalState.type]);
 
+  // Sistema di heartbeat per aggiornare last_activity_at (ogni 30 secondi)
+  useEffect(() => {
+    if (!isLoggedIn || !currentUser) return;
+
+    const sendHeartbeat = async () => {
+      try {
+        const authHeader = getAuthHeader();
+        await fetch(`${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`, {
+          method: 'POST',
+          headers: {
+            ...authHeader
+          }
+        });
+      } catch (err) {
+        // Ignora errori silenziosamente (non bloccare l'app)
+        console.debug('Heartbeat error (ignored):', err);
+      }
+    };
+
+    // Invia heartbeat immediatamente e poi ogni 30 secondi
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 30000); // 30 secondi
+
+    // Invia heartbeat anche quando l'utente interagisce con la pagina
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    const handleActivity = () => {
+      sendHeartbeat();
+    };
+    
+    activityEvents.forEach(event => {
+      window.addEventListener(event, handleActivity, { passive: true });
+    });
+
+    // Invia heartbeat quando la pagina diventa visibile
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        sendHeartbeat();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Invia heartbeat quando la pagina viene chiusa (beforeunload)
+    const handleBeforeUnload = () => {
+      // Usa navigator.sendBeacon per garantire che la richiesta venga inviata anche se la pagina si chiude
+      const authHeader = getAuthHeader();
+      const token = authHeader.Authorization?.replace('Bearer ', '') || '';
+      const blob = new Blob([], { type: 'application/json' });
+      navigator.sendBeacon(
+        `${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`,
+        blob
+      );
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      clearInterval(interval);
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, handleActivity);
+      });
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isLoggedIn, currentUser, getAuthHeader]);
+
   useEffect(() => {
     if (selectedTicket?.id) {
       localStorage.setItem('openTicketId', selectedTicket.id);

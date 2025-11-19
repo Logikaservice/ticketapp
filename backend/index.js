@@ -40,12 +40,26 @@ const ensureAccessLogsTable = async () => {
         logout_at TIMESTAMPTZ,
         login_ip TEXT,
         logout_ip TEXT,
-        user_agent TEXT
+        user_agent TEXT,
+        last_activity_at TIMESTAMPTZ DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_access_logs_user_id ON access_logs(user_id);
       CREATE INDEX IF NOT EXISTS idx_access_logs_login_at ON access_logs(login_at);
       CREATE INDEX IF NOT EXISTS idx_access_logs_logout_at ON access_logs(logout_at);
+      CREATE INDEX IF NOT EXISTS idx_access_logs_last_activity ON access_logs(last_activity_at);
     `);
+    
+    // Aggiungi colonna last_activity_at se non esiste (per tabelle create prima dell'aggiornamento)
+    try {
+      await pool.query(`
+        ALTER TABLE access_logs 
+        ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMPTZ DEFAULT NOW()
+      `);
+      console.log("✅ Colonna last_activity_at verificata/aggiunta a access_logs");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonna last_activity_at (potrebbe già esistere):", alterErr.message);
+    }
+    
     console.log('✅ Tabella access_logs pronta');
   } catch (err) {
     console.error('❌ Errore creazione tabella access_logs:', err);
@@ -71,8 +85,8 @@ const recordAccessLog = async (user, req) => {
     await pool.query(
       `INSERT INTO access_logs (
         session_id, user_id, user_email, user_name, user_company, user_role,
-        login_ip, user_agent
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        login_ip, user_agent, last_activity_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
       [
         sessionId,
         user.id,

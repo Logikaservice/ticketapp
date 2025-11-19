@@ -38,7 +38,7 @@ module.exports = (pool) => {
     }
 
     if (query.onlyActive === 'true') {
-      conditions.push(`logout_at IS NULL`);
+      conditions.push(`logout_at IS NULL AND last_activity_at > NOW() - INTERVAL '5 minutes'`);
     }
 
     return { conditions, values };
@@ -70,7 +70,8 @@ module.exports = (pool) => {
             login_ip,
             logout_ip,
             user_agent,
-            EXTRACT(EPOCH FROM (COALESCE(logout_at, NOW()) - login_at)) AS duration_seconds
+            EXTRACT(EPOCH FROM (COALESCE(logout_at, NOW()) - login_at)) AS duration_seconds,
+            last_activity_at
           FROM access_logs
           ${whereClause}
           ORDER BY login_at DESC
@@ -81,7 +82,7 @@ module.exports = (pool) => {
         const countQuery = `
           SELECT 
             COUNT(*) AS total,
-            COUNT(*) FILTER (WHERE logout_at IS NULL) AS active_sessions,
+            COUNT(*) FILTER (WHERE logout_at IS NULL AND last_activity_at > NOW() - INTERVAL '5 minutes') AS active_sessions,
             COUNT(DISTINCT COALESCE(user_email, user_id::text)) AS unique_users
           FROM access_logs
           ${whereClause}
@@ -107,6 +108,43 @@ module.exports = (pool) => {
       }
     }
   );
+
+  // POST /api/access-logs/heartbeat - Aggiorna last_activity_at per la sessione corrente
+  router.post('/heartbeat', authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: 'Utente non autenticato' });
+      }
+
+      // Trova la sessione più recente senza logout per questo utente
+      const result = await pool.query(
+        `UPDATE access_logs 
+         SET last_activity_at = NOW() 
+         WHERE user_id = $1 
+           AND logout_at IS NULL 
+           AND session_id = (
+             SELECT session_id 
+             FROM access_logs 
+             WHERE user_id = $1 
+               AND logout_at IS NULL 
+             ORDER BY login_at DESC 
+             LIMIT 1
+           )
+         RETURNING session_id`,
+        [userId]
+      );
+
+      if (result.rowCount > 0) {
+        res.json({ success: true, sessionId: result.rows[0].session_id });
+      } else {
+        res.json({ success: false, message: 'Nessuna sessione attiva trovata' });
+      }
+    } catch (error) {
+      console.error('❌ Errore heartbeat access log:', error);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
 
   return router;
 };
