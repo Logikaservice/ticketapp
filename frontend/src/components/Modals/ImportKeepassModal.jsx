@@ -517,15 +517,6 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
               </div>
             </div>
           </div>
-
-          {/* Info */}
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-xs text-blue-700">
-              <strong>Nota:</strong> Tutti i gruppi e le credenziali verranno importati. 
-              Le password verranno cifrate e salvate in modo sicuro. 
-              Eventuali dati esistenti per questo cliente verranno sostituiti.
-            </p>
-          </div>
         </div>
 
         {/* Footer */}
