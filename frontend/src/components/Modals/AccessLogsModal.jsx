@@ -328,6 +328,32 @@ const AccessLogsModal = ({ isOpen, onClose }) => {
                     </tr>
                   ))}
                 </tbody>
+                {/* Footer con totale */}
+                <tfoot className="bg-gray-100 border-t-2 border-gray-300">
+                  <tr>
+                    <td colSpan="7" className="px-4 py-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Activity size={18} className="text-gray-600" />
+                          <span className="text-sm font-semibold text-gray-700">
+                            Totale accessi visualizzati:
+                          </span>
+                          <span className="text-sm font-bold text-gray-900">
+                            {logs.length}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-gray-700">
+                            Totale accessi (tutti i filtri):
+                          </span>
+                          <span className="text-sm font-bold text-orange-600">
+                            {summary.total.toLocaleString('it-IT')}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
