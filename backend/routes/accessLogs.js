@@ -176,6 +176,9 @@ module.exports = (pool) => {
           // Query semplificata senza JOIN per massima velocità
           const simpleConditions = conditions.filter(c => !c.includes('u.'));
           const simpleWhereClause = simpleConditions.length ? `WHERE ${simpleConditions.join(' AND ')}` : '';
+          
+          // Verifica se la colonna last_activity_at esiste prima di usarla
+          // Per ora usiamo solo le colonne base che sappiamo esistere
           countQuery = `
             SELECT 
               COUNT(*) AS total,
@@ -298,12 +301,29 @@ module.exports = (pool) => {
         console.error('❌ [ACCESS LOGS] Errore dopo', totalTime, 'ms');
         console.error('❌ [ACCESS LOGS] Errore:', error.message);
         console.error('❌ [ACCESS LOGS] Stack trace:', error.stack);
-        console.error('❌ [ACCESS LOGS] Query params:', { 
-          conditions: conditions || 'N/A', 
-          values: values || 'N/A', 
-          onlyActive: onlyActive || 'N/A', 
-          whereClause: whereClause || 'N/A' 
-        });
+        
+        // Usa variabili locali invece di quelle che potrebbero non essere definite
+        let errorDetails = {};
+        try {
+          const { conditions: localConditions, values: localValues, onlyActive: localOnlyActive } = buildFilters(req.query || {});
+          let localWhereClause = localConditions.length ? `WHERE ${localConditions.join(' AND ')}` : '';
+          errorDetails = {
+            conditions: localConditions || 'N/A',
+            values: localValues || 'N/A',
+            onlyActive: localOnlyActive || 'N/A',
+            whereClause: localWhereClause || 'N/A'
+          };
+        } catch (buildErr) {
+          errorDetails = { error: 'Impossibile costruire dettagli errore' };
+        }
+        
+        console.error('❌ [ACCESS LOGS] Query params:', errorDetails);
+        
+        // Se l'errore è "column does not exist", suggerisci di eseguire la migrazione
+        if (error.message && error.message.includes('does not exist')) {
+          console.error('❌ [ACCESS LOGS] Colonna mancante nel database. Esegui la migrazione!');
+        }
+        
         res.status(500).json({ 
           error: 'Errore nel recupero dei log di accesso',
           details: error.message,
