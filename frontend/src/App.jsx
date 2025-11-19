@@ -350,7 +350,8 @@ export default function TicketApp() {
 
     let isSending = false; // Flag per evitare richieste simultanee
     let lastSent = 0; // Timestamp dell'ultimo heartbeat inviato
-    const MIN_INTERVAL = 5000; // Minimo 5 secondi tra un heartbeat e l'altro
+    const MIN_INTERVAL = 30000; // Minimo 30 secondi tra un heartbeat e l'altro (aumentato)
+    let heartbeatTimeout = null; // Timeout per il prossimo heartbeat
 
     const sendHeartbeat = async () => {
       // Evita richieste simultanee o troppo frequenti
@@ -364,56 +365,48 @@ export default function TicketApp() {
 
       try {
         const authHeader = getAuthHeader();
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // Timeout di 5 secondi
+        
         const response = await fetch(`${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`, {
           method: 'POST',
           headers: {
             ...authHeader
-          }
+          },
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         
         // Non loggare errori se la risposta è ok anche se success: false
         if (!response.ok && response.status !== 200) {
-          console.debug('Heartbeat HTTP error:', response.status, response.statusText);
+          // Solo in development
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('Heartbeat HTTP error:', response.status, response.statusText);
+          }
         }
       } catch (err) {
         // Ignora errori silenziosamente (non bloccare l'app)
-        // Solo log di debug, non errori in console
-        if (process.env.NODE_ENV === 'development') {
-          console.debug('Heartbeat error (ignored):', err);
-        }
+        // Non loggare errori di rete per evitare spam in console
       } finally {
         isSending = false;
+        
+        // Programma il prossimo heartbeat
+        if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
+        heartbeatTimeout = setTimeout(sendHeartbeat, 60000); // 60 secondi
       }
     };
 
-    // Invia heartbeat immediatamente e poi ogni 30 secondi
+    // Invia heartbeat immediatamente e poi ogni 60 secondi
     sendHeartbeat();
-    const interval = setInterval(sendHeartbeat, 30000); // 30 secondi
 
-    // Throttle per gli eventi di attività (max ogni 10 secondi)
-    let activityThrottle = null;
-    const handleActivity = () => {
-      if (activityThrottle) return;
-      activityThrottle = setTimeout(() => {
-        sendHeartbeat();
-        activityThrottle = null;
-      }, 10000); // Throttle di 10 secondi per gli eventi di attività
-    };
-    
-    // Invia heartbeat solo su eventi importanti (rimosso scroll per ridurre chiamate)
-    const activityEvents = ['mousedown', 'keydown', 'touchstart'];
-    activityEvents.forEach(event => {
-      window.addEventListener(event, handleActivity, { passive: true });
-    });
-
-    // Invia heartbeat quando la pagina diventa visibile (con throttle)
-    let visibilityThrottle = null;
+    // Invia heartbeat quando la pagina diventa visibile (solo se passati almeno 30 secondi)
     const handleVisibilityChange = () => {
-      if (!document.hidden && !visibilityThrottle) {
-        visibilityThrottle = setTimeout(() => {
+      if (!document.hidden) {
+        const now = Date.now();
+        if ((now - lastSent) >= MIN_INTERVAL) {
           sendHeartbeat();
-          visibilityThrottle = null;
-        }, 2000); // Throttle di 2 secondi per visibility change
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -435,12 +428,7 @@ export default function TicketApp() {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
-      clearInterval(interval);
-      if (activityThrottle) clearTimeout(activityThrottle);
-      if (visibilityThrottle) clearTimeout(visibilityThrottle);
-      activityEvents.forEach(event => {
-        window.removeEventListener(event, handleActivity);
-      });
+      if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
