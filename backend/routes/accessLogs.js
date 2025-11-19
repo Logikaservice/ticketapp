@@ -53,6 +53,14 @@ module.exports = (pool) => {
         const currentPage = Math.max(parseInt(req.query.page, 10) || 1, 1);
         const offset = (currentPage - 1) * pageSize;
 
+        // Aggiungi limite di date di default (ultimi 30 giorni) se non specificato
+        // Questo evita di caricare troppi dati e causa timeout
+        if (!req.query.startDate && !req.query.endDate) {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          req.query.startDate = thirtyDaysAgo.toISOString().split('T')[0];
+        }
+
         const { conditions, values, onlyActive } = buildFilters(req.query);
         
         // Aggiungi la condizione onlyActive dopo il JOIN
@@ -103,9 +111,6 @@ module.exports = (pool) => {
           onlyActive 
         });
 
-        // Esegui prima la query dei dati (la più importante)
-        const dataResult = await pool.query(dataQuery, [...values, pageSize, offset]);
-        
         // Query semplificata per il conteggio totale (senza JOIN users per velocità)
         // Usa solo access_logs per total e unique_users
         let countQuery = '';
@@ -141,7 +146,11 @@ module.exports = (pool) => {
           });
         }
         
-        const countResult = await pool.query(countQuery, countValues);
+        // Esegui le query in parallelo per velocità
+        const [dataResult, countResult] = await Promise.all([
+          pool.query(dataQuery, [...values, pageSize, offset]),
+          pool.query(countQuery, countValues)
+        ]);
         
         // Calcola active_sessions in modo semplificato e opzionale
         // Se fallisce o è troppo lento, usa un valore approssimativo
