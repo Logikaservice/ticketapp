@@ -53,10 +53,21 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Errore nel caricamento dei log (${response.status})`);
+        console.error('❌ Errore risposta access logs:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        throw new Error(errorData.error || errorData.details || `Errore nel caricamento dei log (${response.status})`);
       }
       
       const data = await response.json();
+      console.log('✅ Dati access logs ricevuti:', {
+        logsCount: data.logs?.length || 0,
+        total: data.total,
+        activeSessions: data.activeSessions,
+        uniqueUsers: data.uniqueUsers
+      });
       setLogs(data.logs || []);
       setSummary({
         total: data.total || 0,
@@ -65,7 +76,7 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
       });
     } catch (err) {
       setError(err.message);
-      console.error('Errore caricamento log:', err);
+      console.error('❌ Errore caricamento log:', err);
     } finally {
       setLoading(false);
     }
