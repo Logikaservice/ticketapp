@@ -1381,6 +1381,101 @@ module.exports = function createKeepassRouter(pool) {
     }
   });
 
+  // GET /api/keepass/has-credentials/:clientId - Verifica se un cliente ha già credenziali
+  router.get('/has-credentials/:clientId', async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Utente non autenticato' });
+      }
+
+      const role = req.user?.ruolo || (req.headers['x-user-role'] || '').toString();
+      if (role !== 'tecnico') {
+        return res.status(403).json({ error: 'Solo i tecnici possono verificare le credenziali' });
+      }
+
+      const clientId = parseInt(req.params.clientId, 10);
+      if (isNaN(clientId)) {
+        return res.status(400).json({ error: 'ID cliente non valido' });
+      }
+
+      const result = await pool.query(
+        'SELECT COUNT(*) as count FROM keepass_groups WHERE client_id = $1',
+        [clientId]
+      );
+
+      const hasCredentials = parseInt(result.rows[0].count, 10) > 0;
+      
+      res.json({ 
+        hasCredentials,
+        count: parseInt(result.rows[0].count, 10)
+      });
+    } catch (err) {
+      console.error('❌ Errore verifica credenziali:', err);
+      res.status(500).json({ error: 'Errore interno del server' });
+    }
+  });
+
+  // DELETE /api/keepass/credentials/:clientId - Cancella tutte le credenziali di un cliente
+  router.delete('/credentials/:clientId', async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Utente non autenticato' });
+      }
+
+      const role = req.user?.ruolo || (req.headers['x-user-role'] || '').toString();
+      if (role !== 'tecnico') {
+        return res.status(403).json({ error: 'Solo i tecnici possono cancellare le credenziali' });
+      }
+
+      const clientId = parseInt(req.params.clientId, 10);
+      if (isNaN(clientId)) {
+        return res.status(400).json({ error: 'ID cliente non valido' });
+      }
+
+      // Verifica che il cliente esista
+      const clientCheck = await pool.query('SELECT id, email FROM users WHERE id = $1 AND ruolo = $2', [clientId, 'cliente']);
+      if (clientCheck.rows.length === 0) {
+        return res.status(404).json({ error: 'Cliente non trovato' });
+      }
+
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+
+        // Elimina prima le entry (per via del foreign key constraint)
+        const deleteEntries = await client.query(
+          'DELETE FROM keepass_entries WHERE group_id IN (SELECT id FROM keepass_groups WHERE client_id = $1)',
+          [clientId]
+        );
+
+        // Poi elimina i gruppi
+        const deleteGroups = await client.query(
+          'DELETE FROM keepass_groups WHERE client_id = $1',
+          [clientId]
+        );
+
+        await client.query('COMMIT');
+
+        console.log(`✅ Credenziali KeePass eliminate per cliente ID ${clientId}: ${deleteGroups.rowCount} gruppi, ${deleteEntries.rowCount} entry`);
+
+        res.json({ 
+          message: 'Credenziali eliminate con successo',
+          groupsDeleted: deleteGroups.rowCount,
+          entriesDeleted: deleteEntries.rowCount,
+          clientEmail: clientCheck.rows[0].email
+        });
+      } catch (dbErr) {
+        await client.query('ROLLBACK');
+        throw dbErr;
+      } finally {
+        client.release();
+      }
+    } catch (err) {
+      console.error('❌ Errore cancellazione credenziali:', err);
+      res.status(500).json({ error: 'Errore interno del server', details: err.message });
+    }
+  });
+
   return router;
 };
 

@@ -1,7 +1,7 @@
 // frontend/src/components/Modals/ImportKeepassModal.jsx
 
-import React, { useState, useMemo } from 'react';
-import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, Building, Crown, ChevronRight, ChevronDown, Mail } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, Building, Crown, ChevronRight, ChevronDown, Mail, Trash2 } from 'lucide-react';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -11,6 +11,8 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [migrationResult, setMigrationResult] = useState(null);
+  const [hasExistingCredentials, setHasExistingCredentials] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [expandedCompanies, setExpandedCompanies] = useState(() => {
     // Lista compressa di default (nessuna azienda espansa)
     return new Set();
@@ -75,6 +77,94 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
       }
       return next;
     });
+  };
+
+  // Verifica se il cliente selezionato ha già credenziali
+  useEffect(() => {
+    const checkExistingCredentials = async () => {
+      if (!selectedClientId) {
+        setHasExistingCredentials(false);
+        return;
+      }
+
+      try {
+        const authHeader = getAuthHeader();
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/has-credentials/${selectedClientId}`, {
+          method: 'GET',
+          headers: {
+            'x-user-role': 'tecnico',
+            'x-user-id': authHeader['x-user-id'] || '',
+            ...authHeader
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setHasExistingCredentials(data.hasCredentials);
+        } else {
+          setHasExistingCredentials(false);
+        }
+      } catch (err) {
+        console.error('Errore verifica credenziali esistenti:', err);
+        setHasExistingCredentials(false);
+      }
+    };
+
+    checkExistingCredentials();
+  }, [selectedClientId, getAuthHeader]);
+
+  // Reset quando si cambia cliente
+  useEffect(() => {
+    if (!selectedClientId) {
+      setHasExistingCredentials(false);
+    }
+  }, [selectedClientId]);
+
+  const handleDeleteCredentials = async () => {
+    if (!selectedClientId) return;
+
+    const selectedClient = users.find(u => String(u.id) === selectedClientId);
+    const clientName = selectedClient ? `${selectedClient.nome} ${selectedClient.cognome}`.trim() : 'questo cliente';
+
+    if (!window.confirm(`Sei sicuro di voler cancellare tutte le credenziali KeePass per ${clientName}?\n\nQuesta operazione non può essere annullata.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const authHeader = getAuthHeader();
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/credentials/${selectedClientId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-user-role': 'tecnico',
+          'x-user-id': authHeader['x-user-id'] || '',
+          ...authHeader
+        }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Errore durante la cancellazione');
+      }
+
+      setSuccess(`Credenziali eliminate con successo per ${clientName} (${data.groupsDeleted} gruppi, ${data.entriesDeleted} entry)`);
+      setHasExistingCredentials(false);
+      
+      // Reset dopo 2 secondi
+      setTimeout(() => {
+        setSuccess(null);
+        if (onSuccess) onSuccess();
+      }, 2000);
+    } catch (err) {
+      console.error('Errore cancellazione credenziali:', err);
+      setError(err.message || 'Errore durante la cancellazione delle credenziali');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -315,6 +405,29 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
                 })
               )}
             </div>
+            
+            {/* Pulsante Cancella Credenziali */}
+            {selectedClientId && hasExistingCredentials && (
+              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle size={18} className="text-red-600" />
+                    <span className="text-sm text-red-700 font-medium">
+                      Questo cliente ha già credenziali KeePass importate
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDeleteCredentials}
+                    disabled={isDeleting || isUploading}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 size={16} />
+                    {isDeleting ? 'Cancellazione...' : 'Cancella Credenziali'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Upload File */}
