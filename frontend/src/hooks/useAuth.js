@@ -109,6 +109,13 @@ export const useAuth = (showNotification) => {
       setCurrentUser(loginResponse.user);
       setIsLoggedIn(true);
       setLoginData({ email: '', password: '' });
+      
+      // Carica il timeout di inattività dal database (se presente) o usa localStorage
+      const dbTimeout = loginResponse.user.inactivity_timeout_minutes;
+      if (dbTimeout !== undefined && dbTimeout !== null) {
+        localStorage.setItem('inactivityTimeout', dbTimeout.toString());
+      }
+      
       showNotification(`Benvenuto ${loginResponse.user.nome}!`, 'success');
     } catch (error) {
       showNotification(error.message, 'error');

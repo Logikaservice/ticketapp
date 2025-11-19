@@ -207,7 +207,8 @@ const generateLoginResponse = (user) => {
         telefono: user.telefono,
         azienda: user.azienda,
         password: user.password,
-        admin_companies: adminCompanies
+        admin_companies: adminCompanies,
+        inactivity_timeout_minutes: user.inactivity_timeout_minutes || 3
       }
     };
     

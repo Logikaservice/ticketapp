@@ -1510,9 +1510,39 @@ export default function TicketApp() {
   const openAnalytics = () => setModalState({ type: 'analytics' });
   const openAccessLogs = () => setModalState({ type: 'accessLogs' });
   const openInactivityTimer = () => setModalState({ type: 'inactivityTimer' });
-  const handleInactivityTimeoutChange = (timeout) => {
+  const handleInactivityTimeoutChange = async (timeout) => {
     setInactivityTimeout(timeout);
     localStorage.setItem('inactivityTimeout', timeout.toString());
+    
+    // Salva anche nel database se l'utente è loggato
+    if (currentUser?.id) {
+      try {
+        const authHeader = getAuthHeader();
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${currentUser.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeader
+          },
+          body: JSON.stringify({
+            inactivity_timeout_minutes: timeout
+          })
+        });
+        
+        if (response.ok) {
+          const updatedUser = await response.json();
+          // Aggiorna currentUser con il nuovo timeout
+          setCurrentUser(prev => ({
+            ...prev,
+            inactivity_timeout_minutes: updatedUser.inactivity_timeout_minutes || timeout
+          }));
+        }
+      } catch (err) {
+        console.error('Errore salvataggio timeout nel database:', err);
+        // Non bloccare l'operazione se il salvataggio nel DB fallisce
+      }
+    }
+    
     showNotification(`Timer di inattività impostato a ${timeout === 0 ? 'mai' : `${timeout} minuti`}`, 'success');
   };
   const onKeepassImportSuccess = () => {

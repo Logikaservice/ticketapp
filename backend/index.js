@@ -310,8 +310,8 @@ app.post('/api/login', async (req, res) => {
   try {
     const client = await pool.connect();
     
-    // Prima cerca l'utente per email, includendo admin_companies
-    const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies FROM users WHERE email = $1', [email]);
+    // Prima cerca l'utente per email, includendo admin_companies e inactivity_timeout_minutes
+    const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes FROM users WHERE email = $1', [email]);
     console.log('Utenti trovati:', result.rows.length);
     
     if (result.rows.length === 0) {
@@ -395,8 +395,10 @@ app.post('/api/login', async (req, res) => {
             telefono: user.telefono,
             azienda: user.azienda,
             password: user.password,
-            admin_companies: adminCompanies
-          }
+            admin_companies: adminCompanies,
+            inactivity_timeout_minutes: user.inactivity_timeout_minutes || 3
+          },
+          sessionId
         });
       }
     } else {
@@ -1108,6 +1110,14 @@ app.post('/api/init-db', async (req, res) => {
       console.log("⚠️ Errore aggiunta colonna admin_companies (potrebbe già esistere):", alterErr.message);
     }
     
+    // Aggiungi colonna inactivity_timeout_minutes alla tabella users se non esiste
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inactivity_timeout_minutes INTEGER DEFAULT 3`);
+      console.log("✅ Colonna inactivity_timeout_minutes aggiunta alla tabella users");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonna inactivity_timeout_minutes (potrebbe già esistere):", alterErr.message);
+    }
+    
     // Crea tabella unavailable_days se non esiste
     try {
       await pool.query(`
@@ -1312,6 +1322,14 @@ const startServer = async () => {
       console.log("✅ Colonna admin_companies aggiunta alla tabella users (auto-init)");
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna admin_companies (auto-init):", alterErr.message);
+    }
+    
+    // Aggiungi colonna inactivity_timeout_minutes alla tabella users se non esiste (auto-init)
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inactivity_timeout_minutes INTEGER DEFAULT 3`);
+      console.log("✅ Colonna inactivity_timeout_minutes aggiunta alla tabella users (auto-init)");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonna inactivity_timeout_minutes (auto-init):", alterErr.message);
     }
     
     // Crea tabella unavailable_days se non esiste (auto-init)

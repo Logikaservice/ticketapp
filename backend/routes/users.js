@@ -116,7 +116,7 @@ module.exports = (pool) => {
   // ENDPOINT: Aggiorna un utente/cliente - SICURO con hash password
   router.patch('/:id', async (req, res) => {
     const { id } = req.params;
-    const { nome, cognome, email, telefono, azienda, password, admin_companies } = req.body;
+    const { nome, cognome, email, telefono, azienda, password, admin_companies, inactivity_timeout_minutes } = req.body;
     
     try {
       const client = await pool.connect();
@@ -150,20 +150,37 @@ module.exports = (pool) => {
           values = [nome, cognome, email, telefono, azienda, password, id];
         }
       } else {
-        if (adminCompaniesJsonb !== null) {
+        const timeoutValue = inactivity_timeout_minutes !== undefined ? inactivity_timeout_minutes : null;
+        if (adminCompaniesJsonb !== null && timeoutValue !== null) {
+          query = `
+            UPDATE users 
+            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, admin_companies = $6::jsonb, inactivity_timeout_minutes = $7
+            WHERE id = $8 
+            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes;
+          `;
+          values = [nome, cognome, email, telefono, azienda, adminCompaniesJsonb, timeoutValue, id];
+        } else if (adminCompaniesJsonb !== null) {
           query = `
             UPDATE users 
             SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, admin_companies = $6::jsonb
             WHERE id = $7 
-            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies;
+            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes;
           `;
           values = [nome, cognome, email, telefono, azienda, adminCompaniesJsonb, id];
+        } else if (timeoutValue !== null) {
+          query = `
+            UPDATE users 
+            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, inactivity_timeout_minutes = $6
+            WHERE id = $7 
+            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes;
+          `;
+          values = [nome, cognome, email, telefono, azienda, timeoutValue, id];
         } else {
           query = `
             UPDATE users 
             SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5
             WHERE id = $6 
-            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies;
+            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes;
           `;
           values = [nome, cognome, email, telefono, azienda, id];
         }

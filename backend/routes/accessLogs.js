@@ -38,7 +38,23 @@ module.exports = (pool) => {
     }
 
     if (query.onlyActive === 'true') {
-      conditions.push(`logout_at IS NULL AND last_activity_at > NOW() - INTERVAL '5 minutes'`);
+      // Filtra solo sessioni realmente attive usando il timeout personalizzato dell'utente
+      conditions.push(`(
+        logout_at IS NULL AND (
+          -- Se l'utente ha timeout 0 (mai), considera sempre attiva
+          EXISTS (
+            SELECT 1 FROM users u 
+            WHERE u.id = access_logs.user_id 
+            AND COALESCE(u.inactivity_timeout_minutes, 3) = 0
+          )
+          OR
+          -- Altrimenti usa il timeout personalizzato dell'utente (o 3 minuti default)
+          last_activity_at > NOW() - INTERVAL '1 minute' * COALESCE(
+            (SELECT inactivity_timeout_minutes FROM users WHERE id = access_logs.user_id),
+            3
+          )
+        )
+      )`);
     }
 
     return { conditions, values };
@@ -59,30 +75,49 @@ module.exports = (pool) => {
 
         const dataQuery = `
           SELECT 
-            session_id,
-            user_id,
-            user_email,
-            user_name,
-            user_company,
-            user_role,
-            login_at,
-            logout_at,
-            login_ip,
-            logout_ip,
-            user_agent,
-            EXTRACT(EPOCH FROM (COALESCE(logout_at, NOW()) - login_at)) AS duration_seconds,
-            last_activity_at
-          FROM access_logs
+            al.session_id,
+            al.user_id,
+            al.user_email,
+            al.user_name,
+            al.user_company,
+            al.user_role,
+            al.login_at,
+            al.logout_at,
+            al.login_ip,
+            al.logout_ip,
+            al.user_agent,
+            EXTRACT(EPOCH FROM (COALESCE(al.logout_at, NOW()) - al.login_at)) AS duration_seconds,
+            al.last_activity_at,
+            COALESCE(u.inactivity_timeout_minutes, 3) AS user_inactivity_timeout_minutes
+          FROM access_logs al
+          LEFT JOIN users u ON u.id = al.user_id
           ${whereClause}
-          ORDER BY login_at DESC
+          ORDER BY al.login_at DESC
           LIMIT $${values.length + 1}
           OFFSET $${values.length + 2}
         `;
 
+        // Per ogni utente, usa il suo timeout personalizzato (o default 3 minuti per tecnici)
+        // Se timeout è 0 (mai), considera sempre attiva se logout_at IS NULL
         const countQuery = `
           SELECT 
             COUNT(*) AS total,
-            COUNT(*) FILTER (WHERE logout_at IS NULL AND last_activity_at > NOW() - INTERVAL '5 minutes') AS active_sessions,
+            COUNT(*) FILTER (
+              WHERE logout_at IS NULL AND (
+                -- Se l'utente ha timeout 0 (mai), considera sempre attiva
+                EXISTS (
+                  SELECT 1 FROM users u 
+                  WHERE u.id = access_logs.user_id 
+                  AND COALESCE(u.inactivity_timeout_minutes, 3) = 0
+                )
+                OR
+                -- Altrimenti usa il timeout personalizzato dell'utente (o 3 minuti default)
+                last_activity_at > NOW() - INTERVAL '1 minute' * COALESCE(
+                  (SELECT inactivity_timeout_minutes FROM users WHERE id = access_logs.user_id),
+                  3
+                )
+              )
+            ) AS active_sessions,
             COUNT(DISTINCT COALESCE(user_email, user_id::text)) AS unique_users
           FROM access_logs
           ${whereClause}

@@ -324,9 +324,13 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
                             Chiusa
                           </span>
                         ) : (() => {
-                          // Verifica se la sessione è realmente attiva (ultimi 5 minuti)
+                          // Verifica se la sessione è realmente attiva usando il timeout personalizzato dell'utente
+                          // Default: 3 minuti (180000 ms) se non specificato
+                          const userTimeoutMinutes = log.user_inactivity_timeout_minutes || 3;
+                          const timeoutMs = userTimeoutMinutes === 0 ? Infinity : userTimeoutMinutes * 60 * 1000;
+                          
                           const lastActivity = log.last_activity_at ? new Date(log.last_activity_at) : null;
-                          const isActive = lastActivity && (Date.now() - lastActivity.getTime()) < 5 * 60 * 1000;
+                          const isActive = lastActivity && (Date.now() - lastActivity.getTime()) < timeoutMs;
                           
                           return isActive ? (
                             <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">
