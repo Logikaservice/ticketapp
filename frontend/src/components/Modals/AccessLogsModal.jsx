@@ -52,7 +52,8 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
       });
       
       if (!response.ok) {
-        throw new Error('Errore nel caricamento dei log');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Errore nel caricamento dei log (${response.status})`);
       }
       
       const data = await response.json();
