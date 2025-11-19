@@ -37,17 +37,10 @@ module.exports = (pool) => {
       conditions.push(`al.login_at <= $${values.length}`);
     }
 
-    if (query.onlyActive === 'true') {
-      // Filtra solo sessioni realmente attive usando il timeout personalizzato dell'utente
-      // Nota: questa condizione verrà applicata nella query principale con il JOIN
-      conditions.push(`al.logout_at IS NULL AND (
-        COALESCE(u.inactivity_timeout_minutes, 3) = 0
-        OR
-        (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - make_interval(mins => COALESCE(u.inactivity_timeout_minutes, 3)))
-      )`);
-    }
+    // onlyActive verrà gestito dopo il JOIN nella query principale
+    // Non lo aggiungiamo qui perché richiede la tabella u che viene JOINata dopo
 
-    return { conditions, values };
+    return { conditions, values, onlyActive: query.onlyActive === 'true' };
   };
 
   router.get(
@@ -60,8 +53,20 @@ module.exports = (pool) => {
         const currentPage = Math.max(parseInt(req.query.page, 10) || 1, 1);
         const offset = (currentPage - 1) * pageSize;
 
-        const { conditions, values } = buildFilters(req.query);
-        const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+        const { conditions, values, onlyActive } = buildFilters(req.query);
+        
+        // Aggiungi la condizione onlyActive dopo il JOIN
+        let whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+        if (onlyActive) {
+          const activeCondition = `al.logout_at IS NULL AND (
+            COALESCE(u.inactivity_timeout_minutes, 3) = 0
+            OR
+            (al.last_activity_at IS NOT NULL AND al.last_activity_at > NOW() - make_interval(mins => COALESCE(u.inactivity_timeout_minutes, 3)))
+          )`;
+          whereClause = whereClause 
+            ? `${whereClause} AND ${activeCondition}`
+            : `WHERE ${activeCondition}`;
+        }
 
         const dataQuery = `
           SELECT 
