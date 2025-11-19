@@ -81,12 +81,15 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
 
   // Verifica se il cliente selezionato ha già credenziali
   useEffect(() => {
-    const checkExistingCredentials = async () => {
-      if (!selectedClientId) {
-        setHasExistingCredentials(false);
-        return;
-      }
+    // Reset immediato se non c'è cliente selezionato
+    if (!selectedClientId) {
+      setHasExistingCredentials(false);
+      return;
+    }
 
+    let cancelled = false;
+
+    const checkExistingCredentials = async () => {
       try {
         const authHeader = getAuthHeader();
         const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/has-credentials/${selectedClientId}`, {
@@ -98,6 +101,8 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
           }
         });
 
+        if (cancelled) return;
+
         if (response.ok) {
           const data = await response.json();
           setHasExistingCredentials(data.hasCredentials);
@@ -105,20 +110,20 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
           setHasExistingCredentials(false);
         }
       } catch (err) {
-        console.error('Errore verifica credenziali esistenti:', err);
-        setHasExistingCredentials(false);
+        if (!cancelled) {
+          console.error('Errore verifica credenziali esistenti:', err);
+          setHasExistingCredentials(false);
+        }
       }
     };
 
     checkExistingCredentials();
-  }, [selectedClientId, getAuthHeader]);
 
-  // Reset quando si cambia cliente
-  useEffect(() => {
-    if (!selectedClientId) {
-      setHasExistingCredentials(false);
-    }
-  }, [selectedClientId]);
+    // Cleanup per cancellare la richiesta se il componente si smonta o cambia selectedClientId
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClientId]); // Rimossa getAuthHeader dalle dipendenze
 
   const handleDeleteCredentials = async () => {
     if (!selectedClientId) return;
