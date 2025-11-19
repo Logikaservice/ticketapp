@@ -125,16 +125,31 @@ export const useAuth = (showNotification) => {
   const handleLogout = async () => {
     // Chiama l'endpoint logout per registrare la disconnessione
     const sessionId = localStorage.getItem('sessionId');
+    console.log('🔍 [LOGOUT] sessionId trovato:', sessionId);
+    
     if (sessionId) {
       try {
-        await fetch(buildApiUrl('/api/logout'), {
+        console.log('🔍 [LOGOUT] Invio richiesta logout al backend...');
+        const response = await fetch(buildApiUrl('/api/logout'), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({ sessionId })
         });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ [LOGOUT] Logout registrato con successo:', data);
+        } else {
+          console.warn('⚠️ [LOGOUT] Risposta non OK:', response.status, response.statusText);
+        }
       } catch (err) {
-        console.error('Errore registrazione logout:', err);
+        console.error('❌ [LOGOUT] Errore registrazione logout:', err);
       }
+    } else {
+      console.warn('⚠️ [LOGOUT] Nessun sessionId trovato in localStorage');
     }
     
     setIsLoggedIn(false);
