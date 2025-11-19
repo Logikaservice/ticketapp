@@ -90,29 +90,67 @@ module.exports = (pool) => {
         console.log('🔍 [ACCESS LOGS] whereClause costruito in', Date.now() - whereClauseStart, 'ms');
         console.log('🔍 [ACCESS LOGS] whereClause:', whereClause);
 
-        const dataQuery = `
-          SELECT 
-            al.session_id,
-            al.user_id,
-            al.user_email,
-            al.user_name,
-            al.user_company,
-            al.user_role,
-            al.login_at,
-            al.logout_at,
-            al.login_ip,
-            al.logout_ip,
-            al.user_agent,
-            EXTRACT(EPOCH FROM (COALESCE(al.logout_at, NOW()) - al.login_at)) AS duration_seconds,
-            al.last_activity_at,
-            COALESCE(u.inactivity_timeout_minutes, 3) AS user_inactivity_timeout_minutes
-          FROM access_logs al
-          LEFT JOIN users u ON u.id = al.user_id
-          ${whereClause}
-          ORDER BY al.login_at DESC
-          LIMIT $${values.length + 1}
-          OFFSET $${values.length + 2}
-        `;
+        // Semplifica la query: usa JOIN solo se necessario (onlyActive o filtri su users)
+        let dataQuery = '';
+        let dataQueryValues = [];
+        
+        if (onlyActive || conditions.some(c => c.includes('u.'))) {
+          // Query con JOIN solo se necessario
+          dataQuery = `
+            SELECT 
+              al.session_id,
+              al.user_id,
+              al.user_email,
+              al.user_name,
+              al.user_company,
+              al.user_role,
+              al.login_at,
+              al.logout_at,
+              al.login_ip,
+              al.logout_ip,
+              al.user_agent,
+              EXTRACT(EPOCH FROM (COALESCE(al.logout_at, NOW()) - al.login_at)) AS duration_seconds,
+              al.last_activity_at,
+              COALESCE(u.inactivity_timeout_minutes, 3) AS user_inactivity_timeout_minutes
+            FROM access_logs al
+            LEFT JOIN users u ON u.id = al.user_id
+            ${whereClause}
+            ORDER BY al.login_at DESC
+            LIMIT $${values.length + 1}
+            OFFSET $${values.length + 2}
+          `;
+          dataQueryValues = [...values, pageSize, offset];
+        } else {
+          // Query semplificata senza JOIN per massima velocità
+          const simpleConditions = conditions.filter(c => !c.includes('u.'));
+          const simpleWhereClause = simpleConditions.length ? `WHERE ${simpleConditions.join(' AND ')}` : '';
+          dataQuery = `
+            SELECT 
+              session_id,
+              user_id,
+              user_email,
+              user_name,
+              user_company,
+              user_role,
+              login_at,
+              logout_at,
+              login_ip,
+              logout_ip,
+              user_agent,
+              EXTRACT(EPOCH FROM (COALESCE(logout_at, NOW()) - login_at)) AS duration_seconds,
+              last_activity_at,
+              3 AS user_inactivity_timeout_minutes
+            FROM access_logs
+            ${simpleWhereClause}
+            ORDER BY login_at DESC
+            LIMIT $${simpleConditions.length + 1}
+            OFFSET $${simpleConditions.length + 2}
+          `;
+          dataQueryValues = [...values.filter((v, i) => {
+            const condition = conditions[i];
+            return condition && !condition.includes('u.');
+          }), pageSize, offset];
+        }
 
         console.log('🔍 [ACCESS LOGS] dataQuery costruita');
         console.log('🔍 [ACCESS LOGS] dataQuery params:', [...values, pageSize, offset]);
@@ -162,7 +200,9 @@ module.exports = (pool) => {
             (async () => {
               const start = Date.now();
               console.log('🔍 [ACCESS LOGS] Inizio dataQuery...');
-              const result = await pool.query(dataQuery, [...values, pageSize, offset]);
+              console.log('🔍 [ACCESS LOGS] dataQuery SQL:', dataQuery.substring(0, 200) + '...');
+              console.log('🔍 [ACCESS LOGS] dataQuery params:', dataQueryValues);
+              const result = await pool.query(dataQuery, dataQueryValues);
               console.log('✅ [ACCESS LOGS] dataQuery completata in', Date.now() - start, 'ms, rows:', result.rows.length);
               return result;
             })(),
