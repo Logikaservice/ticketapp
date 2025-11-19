@@ -174,7 +174,11 @@ module.exports = (pool) => {
           countValues = values;
         } else {
           // Query semplificata senza JOIN per massima velocità
-          const simpleConditions = conditions.filter(c => !c.includes('u.'));
+          // IMPORTANTE: rimuovi l'alias "al." dalle condizioni perché non c'è JOIN
+          const simpleConditions = conditions
+            .filter(c => !c.includes('u.'))
+            .map(c => c.replace(/al\./g, '')); // Rimuovi alias "al." quando non c'è JOIN
+          
           const simpleWhereClause = simpleConditions.length ? `WHERE ${simpleConditions.join(' AND ')}` : '';
           
           // Verifica se la colonna last_activity_at esiste prima di usarla
