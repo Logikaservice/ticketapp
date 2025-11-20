@@ -188,7 +188,7 @@ export const useTickets = (
         // Forza un polling immediato
         window.dispatchEvent(new Event('new-ticket-local'));
       } catch (_) {}
-      showNotification('Ticket creato con successo!', 'success');
+      // Notifica rimossa: viene mostrata automaticamente tramite WebSocket (notifica blu)
     } catch (error) {
       console.error('❌ ERRORE COMPLETO creazione ticket:', error);
       console.error('❌ Stack trace:', error.stack);
