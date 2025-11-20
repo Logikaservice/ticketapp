@@ -122,7 +122,7 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
           </div>
 
           {sessionExpiredMsg && (
-            <div className="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 rounded shadow-sm text-center font-semibold">
+            <div className="mb-4 p-3 bg-yellow-50 text-yellow-800 rounded shadow-sm text-center font-semibold border border-yellow-200">
               {sessionExpiredMsg}
             </div>
           )}
