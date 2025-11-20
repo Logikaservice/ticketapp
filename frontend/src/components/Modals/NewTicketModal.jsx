@@ -1,7 +1,7 @@
 // src/components/Modals/NewTicketModal.jsx
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { X, Save, FilePlus, ChevronDown, ChevronRight, Crown, Building, Mail, Camera, Image as ImageIcon } from 'lucide-react';
+import { X, Save, FilePlus, ChevronDown, ChevronRight, Crown, Building, Mail } from 'lucide-react';
 
 const NewTicketModal = ({
   newTicketData,
@@ -428,7 +428,6 @@ const NewTicketModal = ({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
               multiple
               onChange={handleFileSelect}
               className="hidden"
@@ -438,8 +437,8 @@ const NewTicketModal = ({
               onClick={() => fileInputRef.current?.click()}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:bg-gray-50 transition flex items-center justify-center gap-2"
             >
-              <Camera size={18} />
-              {photos.length > 0 ? `${photos.length} foto selezionate` : 'Seleziona foto'}
+              <FilePlus size={18} />
+              {photos.length > 0 ? `${photos.length} file selezionati` : 'Seleziona file'}
             </button>
             {photos.length > 0 && (
               <div className="mt-2 space-y-2">
