@@ -26,3 +26,4 @@ echo ""
 echo "📋 Log del backend (ultimi 50):"
 pm2 logs --lines 50 --nostream
 
+

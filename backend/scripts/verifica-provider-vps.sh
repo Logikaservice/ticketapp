@@ -76,3 +76,5 @@ echo "✅ Verifica completata!"
 
 
 
+
+

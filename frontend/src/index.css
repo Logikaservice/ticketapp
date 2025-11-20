@@ -3,47 +3,31 @@
 @tailwind utilities;
 
 /* Zoom globale 90% di default */
+/* Reset standard per html e body */
 html {
-  transform: scale(0.9);
-  transform-origin: top left;
-  width: 111.11%; /* Compensa la riduzione al 90% (100/0.9) */
-  height: 111.11vh; /* Compensa lo zoom per coprire tutta l'altezza */
-  overflow-x: hidden; /* Nasconde barre di scorrimento orizzontali */
-  overflow-y: auto; /* Permette scorrimento verticale quando necessario */
-}
-
-/* Sfondo fisso che copre tutta la pagina anche con zoom */
-html::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 111.11vw; /* Compensa lo zoom del 90% (100/0.9) */
-  height: 111.11vh; /* Compensa lo zoom del 90% (100/0.9) */
-  background: #f3f4f6;
-  z-index: -1;
-  transform: scale(0.9); /* Applica lo stesso zoom dell'html */
-  transform-origin: top left;
+  height: 100%;
+  overflow-x: hidden;
 }
 
 body {
-  width: 111.11vw; /* Compensa lo zoom del 90% (100/0.9) */
-  min-height: 111.11vh; /* Compensa lo zoom del 90% (100/0.9) */
-  height: auto; /* Altezza automatica basata sul contenuto */
+  height: 100%;
   margin: 0;
   padding: 0;
-  overflow-x: hidden; /* Nasconde barre di scorrimento orizzontali */
-  overflow-y: auto; /* Permette scorrimento verticale solo quando necessario */
-  position: relative;
-  background-color: transparent;
+  overflow-x: hidden;
+  background-color: #f3f4f6; /* Spostato qui dal ::before */
 }
 
 #root {
-  width: 100%;
-  min-height: 100%;
   height: 100%;
-  overflow-x: hidden;
-  position: relative;
+  isolation: isolate; /* Crea un nuovo stacking context */
+}
+
+/* Classe per lo zoom del contenuto */
+.app-zoom-wrapper {
+  transform: scale(0.9);
+  transform-origin: top left;
+  width: 111.11%; /* 100 / 0.9 */
+  min-height: 111.11vh;
 }
 
 /* Animazione personalizzata per messaggi non letti */
