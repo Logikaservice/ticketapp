@@ -144,37 +144,45 @@ export default function TicketApp() {
   // ====================================================================
   // NOTIFICHE
   // ====================================================================
-  const notify = (message, type = 'info', duration = 5000, ticketId = null) => {
+  const notify = (message, type = 'info', duration = 5000, ticketId = null, options = {}) => {
     window.dispatchEvent(new CustomEvent('toast', {
-      detail: { message, type, duration, ticketId }
+      detail: { message, type, duration, ticketId, options }
     }));
   };
 
-  const showNotification = React.useCallback((message, type = 'info', duration = 5000, ticketId = null) => {
-    const id = Date.now() + Math.random();
-    setNotifications(prev => [...prev, { id, message, type, duration, ticketId, show: true }]);
-
-    // Rimuovi automaticamente dopo la durata specificata
-    if (duration > 0) {
-      setTimeout(() => {
-        setNotifications(prev => prev.filter(n => n.id !== id));
-      }, duration);
-    }
+  const removeNotification = React.useCallback((id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
-  const handleCloseNotification = (id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  };
+  const showNotification = React.useCallback((message, type = 'info', duration = 5000, ticketId = null, options = {}) => {
+    const id = Date.now() + Math.random();
+    setNotifications(prev => [...prev, { id, message, type, duration, ticketId, show: true, sticky: !!options.sticky }]);
+
+    // Rimuovi automaticamente dopo la durata specificata
+  if (duration > 0) {
+      setTimeout(() => {
+        removeNotification(id);
+      }, duration);
+    }
+    return id;
+  }, [removeNotification]);
+
+  const handleCloseNotification = removeNotification;
 
   // Listener per eventi 'toast' (usati da notify)
   useEffect(() => {
     const handleToast = (e) => {
-      const { message, type, duration, ticketId } = e.detail || {};
+      const { message, type, duration, ticketId, options } = e.detail || {};
       if (message) {
-        showNotification(message, type, duration, ticketId);
+        showNotification(message, type, duration, ticketId, options);
       }
     };
     window.addEventListener('toast', handleToast);
+  useEffect(() => {
+    if (isLoggedIn) {
+      setNotifications(prev => prev.filter(n => !(n.sticky && n.message === 'Disconnesso per inattività')));
+    }
+  }, [isLoggedIn]);
     return () => window.removeEventListener('toast', handleToast);
   }, [showNotification]);
 
@@ -906,11 +914,19 @@ export default function TicketApp() {
           // Logout automatico
           console.log(`⏰ Timer scaduto: logout automatico dopo ${inactivityTimeout} minuti di inattività`);
           if (showNotificationRef.current) {
-            showNotificationRef.current(`Disconnessione automatica dopo ${inactivityTimeout} minuti di inattività`, 'info', 2000);
+            showNotificationRef.current(
+              'Disconnesso per inattività',
+              'warning',
+              0,
+              null,
+              { sticky: true }
+            );
           }
           // Chiama logout dopo un breve delay per mostrare la notifica
           setTimeout(() => {
             if (handleLogoutRef.current) {
+              // Imposta flag per mostrare notifica persistente al login
+              localStorage.setItem('sessionExpiredReason', 'inactivity');
               handleLogoutRef.current();
             }
           }, 1500);

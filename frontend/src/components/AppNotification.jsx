@@ -44,13 +44,15 @@ const AppNotification = ({ notification, handleClose }) => {
           Apri
         </button>
       )}
-      <button 
-        onClick={(e) => { e.stopPropagation(); handleClose(); }} 
-        className="ml-4 p-1 rounded-full hover:bg-white/20 transition-colors"
-        aria-label="Chiudi notifica"
-      >
-        <X size={20} />
-      </button>
+      {!notification.sticky && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); handleClose(); }} 
+          className="ml-4 p-1 rounded-full hover:bg-white/20 transition-colors"
+          aria-label="Chiudi notifica"
+        >
+          <X size={20} />
+        </button>
+      )}
     </div>
   );
 };
