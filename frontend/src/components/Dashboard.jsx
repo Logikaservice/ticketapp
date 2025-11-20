@@ -1377,7 +1377,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         <div>
           {/* Pulsante temporaneo per aggiornare formato eventi intervento */}
           {currentUser?.ruolo === 'tecnico' && (
-            <div className="mb-4">
+            <div className="mb-4 flex gap-2">
               <button
                 onClick={async () => {
                   try {
@@ -1422,9 +1422,57 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                     alert('Errore: ' + err.message);
                   }
                 }}
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
               >
                 🔄 Aggiorna Formato Eventi Intervento
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/logs-update-format`, {
+                      method: 'GET',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader()
+                      }
+                    });
+
+                    if (!response.ok) {
+                      throw new Error('Errore durante la lettura dei log');
+                    }
+
+                    const data = await response.json();
+                    
+                    if (!data.hasUpdateFormatActivity) {
+                      alert('Nessuna attività di aggiornamento formato trovata nei log.\n\nL\'aggiornamento potrebbe non essere ancora stato avviato o potrebbe essere già completato.');
+                      return;
+                    }
+
+                    // Mostra i log in un alert formattato
+                    let logMessage = '📋 LOG AGGIORNAMENTO FORMATO EVENTI INTERVENTO\n\n';
+                    
+                    if (data.completionMessages && data.completionMessages.length > 0) {
+                      logMessage += '✅ MESSAGGI DI COMPLETAMENTO:\n';
+                      logMessage += data.completionMessages.join('\n');
+                      logMessage += '\n\n';
+                    }
+                    
+                    if (data.updateFormatLogs && data.updateFormatLogs.length > 0) {
+                      logMessage += '📝 LOG DETTAGLIATI (ultimi 20):\n';
+                      logMessage += data.updateFormatLogs.slice(-20).join('\n'); // Mostra solo gli ultimi 20 per non sovraccaricare
+                    } else {
+                      logMessage += '⚠️ Nessun log dettagliato trovato';
+                    }
+
+                    alert(logMessage);
+                  } catch (err) {
+                    alert('Errore durante la lettura dei log: ' + err.message);
+                  }
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+                title="Controlla i log dell'aggiornamento formato eventi intervento"
+              >
+                📋 Verifica Log
               </button>
             </div>
           )}
