@@ -793,10 +793,26 @@ module.exports = (pool) => {
               for (const eventToDelete of eventsToDelete) {
                 try {
                   await calendar.events.delete({
-                    calendarId: calendarId,
+                    calendarId: interventiCalendarId,
                     eventId: eventToDelete.id,
                     sendUpdates: 'none'
                   });
+                  console.log(`✅ Evento intervento rimosso per ticket #${ticket.numero}: ${eventToDelete.id}`);
+                } catch (deleteErr) {
+                  console.error(`[UPDATE] Errore rimozione evento intervento:`, deleteErr.message);
+                }
+              }
+            } else {
+              // Se non ci sono più timelogs, rimuovi tutti gli eventi intervento per questo ticket
+              console.log(`[UPDATE] Nessun timelog per ticket #${ticket.numero}, rimozione di tutti gli eventi intervento`);
+              for (const eventToDelete of existingInterventiEvents) {
+                try {
+                  await calendar.events.delete({
+                    calendarId: interventiCalendarId,
+                    eventId: eventToDelete.id,
+                    sendUpdates: 'none'
+                  });
+                  console.log(`✅ Evento intervento rimosso per ticket #${ticket.numero}: ${eventToDelete.id}`);
                 } catch (deleteErr) {
                   console.error(`[UPDATE] Errore rimozione evento intervento:`, deleteErr.message);
                 }
