@@ -449,6 +449,14 @@ const TimeLoggerModal = ({
                             onChange={async (e) => {
                               const file = e.target.files && e.target.files[0];
                               if (!file) return;
+                              
+                              // Verifica che selectedTicket esista e abbia un id
+                              if (!selectedTicket || !selectedTicket.id) {
+                                alert('Errore: ticket non selezionato. Ricarica la pagina e riprova.');
+                                e.target.value = '';
+                                return;
+                              }
+                              
                               try {
                                 const fd = new FormData();
                                 fd.append('file', file);
@@ -458,7 +466,12 @@ const TimeLoggerModal = ({
                                   headers: authHeaders,
                                   body: fd
                                 });
-                                if (!res.ok) throw new Error('Upload fallito');
+                                
+                                if (!res.ok) {
+                                  const errorData = await res.json().catch(() => ({}));
+                                  throw new Error(errorData.error || 'Upload fallito');
+                                }
+                                
                                 const meta = await res.json();
                                 // Inserisce subito l'allegato nell'offerta locale; il salvataggio persistente avverrà con "Salva Modifiche"
                                 setTimeLogs(prev => prev.map(l => l.id === offertaOwner.id ? {
@@ -467,7 +480,7 @@ const TimeLoggerModal = ({
                                 } : l));
                               } catch (err) {
                                 console.error('Upload allegato offerta fallito:', err);
-                                alert('Caricamento allegato fallito');
+                                alert(`Caricamento allegato fallito: ${err.message || 'Errore sconosciuto'}`);
                               } finally {
                                 e.target.value = '';
                               }
