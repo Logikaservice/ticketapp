@@ -178,11 +178,6 @@ export default function TicketApp() {
       }
     };
     window.addEventListener('toast', handleToast);
-  useEffect(() => {
-    if (isLoggedIn) {
-      setNotifications(prev => prev.filter(n => !(n.sticky && n.message === 'Disconnesso per inattività')));
-    }
-  }, [isLoggedIn]);
     return () => window.removeEventListener('toast', handleToast);
   }, [showNotification]);
 
@@ -199,6 +194,12 @@ export default function TicketApp() {
     handleLogout,
     getAuthHeader
   } = useAuth(showNotification);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      setNotifications(prev => prev.filter(n => !(n.sticky && n.message === 'Disconnesso per inattività')));
+    }
+  }, [isLoggedIn]);
 
   // Aggiorna i ref per il timer di inattività
   useEffect(() => {
