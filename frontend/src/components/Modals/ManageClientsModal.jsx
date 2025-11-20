@@ -4,11 +4,7 @@ import { X, Edit2, Save, Trash2, Mail, Phone, Building, Lock, ChevronRight, Chev
 const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }) => {
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
-  const [expandedCompanies, setExpandedCompanies] = useState(() => {
-    // Espandi tutte le aziende di default (incluso "Senza azienda")
-    const companies = new Set(clienti.map(c => c.azienda || 'Senza azienda'));
-    return companies;
-  });
+  const [expandedCompanies, setExpandedCompanies] = useState(() => new Set());
 
   // Raggruppa clienti per azienda
   const clientiPerAzienda = useMemo(() => {
