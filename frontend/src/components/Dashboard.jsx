@@ -1418,6 +1418,50 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               >
                 🔄 Sincronizza Calendario Google
               </button>
+              <button
+                onClick={async () => {
+                  try {
+                    if (!window.confirm('Vuoi sincronizzare tutti gli interventi mancanti con Google Calendar?\n\nQuesto processo può richiedere alcuni minuti.')) {
+                      return;
+                    }
+                    
+                    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/sync-missing-interventi`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader()
+                      },
+                      body: JSON.stringify({})
+                    });
+
+                    if (response.ok) {
+                      const result = await response.json();
+                      if (result?.errorDetails && Array.isArray(result.errorDetails)) {
+                        console.group('Dettagli errori sincronizzazione interventi');
+                        result.errorDetails.forEach(e => console.error(`Ticket #${e?.numero || e?.ticketId}, Intervento #${e?.interventoIndex || 'N/A'}: ${e?.error}`));
+                        console.groupEnd();
+                      }
+
+                      const errorLines = (result?.errorDetails || [])
+                        .map(e => `- Ticket #${e?.numero || e?.ticketId}${e?.interventoIndex ? `, Intervento #${e.interventoIndex}` : ''}: ${e?.error}`)
+                        .join('\n');
+
+                      const details = result?.errors > 0 && errorLines
+                        ? `\n\nDettagli errori:\n${errorLines}`
+                        : '';
+
+                      alert(`Sincronizzazione interventi completata!\nEventi creati: ${result.synced}\nErrori: ${result.errors}${details}`);
+                    } else {
+                      alert('Errore durante la sincronizzazione');
+                    }
+                  } catch (err) {
+                    alert('Errore: ' + err.message);
+                  }
+                }}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+              >
+                🔧 Sincronizza Interventi Mancanti
+              </button>
             </div>
           )}
 
