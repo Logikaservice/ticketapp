@@ -296,7 +296,7 @@ export const useTickets = (
       // Aggiorna l'interfaccia IMMEDIATAMENTE (non aspettare la sincronizzazione Google Calendar)
       setTickets(prev => prev.filter(t => t.id !== id));
       if (selectedTicket?.id === id) setSelectedTicket(null);
-      showNotification('Ticket eliminato con successo!', 'success');
+      // Notifica rimossa: viene mostrata automaticamente tramite WebSocket
       
       // Sincronizzazione Google Calendar in background (NON blocca l'interfaccia)
       // Il backend gestisce già la sincronizzazione, questa è solo un fallback
