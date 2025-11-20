@@ -2098,50 +2098,57 @@ module.exports = (pool) => {
         });
       }
 
-      const authClient = await authInstance.getClient();
-      const calendar = google.calendar({ version: 'v3', auth: authClient });
+      // Invia risposta immediata per evitare timeout
+      res.json({
+        success: true,
+        message: 'Aggiornamento formato eventi intervento avviato in background',
+        status: 'processing'
+      });
 
-      // Trova calendario corretto
-      let calendarId = 'primary';
-      try {
-        const calendarList = await calendar.calendarList.list();
-        const ticketAppCalendar = calendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
-        if (ticketAppCalendar) {
-          calendarId = ticketAppCalendar.id;
-        } else if (calendarList.data.items && calendarList.data.items.length > 0) {
-          calendarId = calendarList.data.items[0].id;
-        }
-      } catch (calErr) {
-        console.error('Errore ricerca calendario:', calErr.message);
-      }
+      // Processa in background
+      setImmediate(async () => {
+        try {
+          const authClient = await authInstance.getClient();
+          const calendar = google.calendar({ version: 'v3', auth: authClient });
 
-      // Recupera tutti i ticket con timelogs
-      const client = await pool.connect();
-      const ticketsResult = await client.query(`
-        SELECT t.*, u.azienda 
-        FROM tickets t 
-        LEFT JOIN users u ON t.clienteid = u.id 
-        WHERE t.timelogs IS NOT NULL 
-          AND t.timelogs != '[]' 
-          AND t.timelogs != ''
-        ORDER BY t.dataapertura DESC
-      `);
-      client.release();
+          // Trova calendario corretto
+          let calendarId = 'primary';
+          try {
+            const calendarList = await calendar.calendarList.list();
+            const ticketAppCalendar = calendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
+            if (ticketAppCalendar) {
+              calendarId = ticketAppCalendar.id;
+            } else if (calendarList.data.items && calendarList.data.items.length > 0) {
+              calendarId = calendarList.data.items[0].id;
+            }
+          } catch (calErr) {
+            console.error('Errore ricerca calendario:', calErr.message);
+          }
 
-      const tickets = ticketsResult.rows;
-      console.log(`Trovati ${tickets.length} ticket con timelogs`);
+          // Recupera tutti i ticket con timelogs
+          const client = await pool.connect();
+          const ticketsResult = await client.query(`
+            SELECT t.*, u.azienda 
+            FROM tickets t 
+            LEFT JOIN users u ON t.clienteid = u.id 
+            WHERE t.timelogs IS NOT NULL 
+              AND t.timelogs != '[]' 
+              AND t.timelogs != ''
+            ORDER BY t.dataapertura DESC
+          `);
+          client.release();
 
-      if (tickets.length === 0) {
-        return res.json({
-          success: true,
-          message: 'Nessun ticket con timelogs trovato',
-          updated: 0
-        });
-      }
+          const tickets = ticketsResult.rows;
+          console.log(`[UPDATE-FORMAT] Trovati ${tickets.length} ticket con timelogs`);
 
-      let updatedCount = 0;
-      let errorCount = 0;
-      const errors = [];
+          if (tickets.length === 0) {
+            console.log('[UPDATE-FORMAT] Nessun ticket con timelogs trovato');
+            return;
+          }
+
+          let updatedCount = 0;
+          let errorCount = 0;
+          const errors = [];
 
       // Per ogni ticket, trova e aggiorna gli eventi intervento
       for (const ticket of tickets) {
@@ -2310,19 +2317,20 @@ module.exports = (pool) => {
         }
       }
 
-      console.log(`=== AGGIORNAMENTO FORMATO COMPLETATO ===`);
-      console.log(`Eventi aggiornati: ${updatedCount}`);
-      console.log(`Errori: ${errorCount}`);
-
-      res.json({
-        success: true,
-        message: 'Aggiornamento formato eventi intervento completato',
-        updated: updatedCount,
-        errors: errorCount,
-        errorDetails: errors.length > 0 ? errors : undefined
-      });
+          console.log(`[UPDATE-FORMAT] === AGGIORNAMENTO FORMATO COMPLETATO ===`);
+          console.log(`[UPDATE-FORMAT] Eventi aggiornati: ${updatedCount}`);
+          console.log(`[UPDATE-FORMAT] Errori: ${errorCount}`);
+          
+          if (errors.length > 0) {
+            console.error(`[UPDATE-FORMAT] Dettagli errori:`, errors);
+          }
+        } catch (err) {
+          console.error('[UPDATE-FORMAT] Errore aggiornamento formato eventi intervento:', err);
+          console.error('[UPDATE-FORMAT] Stack trace:', err.stack);
+        }
+      }); // Fine setImmediate
     } catch (err) {
-      console.error('Errore aggiornamento formato eventi intervento:', err);
+      console.error('Errore iniziale aggiornamento formato eventi intervento:', err);
       res.status(500).json({
         success: false,
         message: 'Errore interno del server',
