@@ -264,7 +264,27 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       console.log('✅ DEBUG BACKEND: Ticket creato con successo, invio risposta 201');
       console.log('✅ DEBUG BACKEND: Ticket ID:', result.rows[0]?.id);
       console.log('✅ DEBUG BACKEND: Ticket numero:', result.rows[0]?.numero);
-      res.status(201).json(result.rows[0]);
+      
+      // Parse dei campi JSON (photos, timelogs, messaggi) prima di inviare la risposta
+      const newTicket = result.rows[0];
+      let photos = [];
+      try {
+        if (newTicket.photos) {
+          photos = typeof newTicket.photos === 'string' ? JSON.parse(newTicket.photos) : newTicket.photos;
+          if (!Array.isArray(photos)) photos = [];
+        }
+      } catch (e) {
+        photos = [];
+      }
+      
+      const parsedNewTicket = {
+        ...newTicket,
+        timelogs: newTicket.timelogs ? (typeof newTicket.timelogs === 'string' ? JSON.parse(newTicket.timelogs) : newTicket.timelogs) : null,
+        messaggi: newTicket.messaggi ? (typeof newTicket.messaggi === 'string' ? JSON.parse(newTicket.messaggi) : newTicket.messaggi) : [],
+        photos: photos
+      };
+      
+      res.status(201).json(parsedNewTicket);
       
       // Invia email in background (NON bloccare la risposta HTTP)
       // Usa setImmediate per eseguire dopo che la risposta è stata inviata
@@ -514,13 +534,33 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         console.log(`✅ Ticket aggiornato: ID ${id}`);
         console.log('🔍 DEBUG BACKEND UPDATE: dataapertura salvata nel DB =', result.rows[0].dataapertura);
         
+        const ticket = result.rows[0];
+        
+        // Parse dei campi JSON (photos, timelogs, messaggi)
+        let photos = [];
+        try {
+          if (ticket.photos) {
+            photos = typeof ticket.photos === 'string' ? JSON.parse(ticket.photos) : ticket.photos;
+            if (!Array.isArray(photos)) photos = [];
+          }
+        } catch (e) {
+          photos = [];
+        }
+        
+        const parsedTicket = {
+          ...ticket,
+          timelogs: ticket.timelogs ? (typeof ticket.timelogs === 'string' ? JSON.parse(ticket.timelogs) : ticket.timelogs) : null,
+          messaggi: ticket.messaggi ? (typeof ticket.messaggi === 'string' ? JSON.parse(ticket.messaggi) : ticket.messaggi) : [],
+          photos: photos
+        };
+        
         // Invia notifica email per aggiornamento ticket (solo se sendEmail è true o undefined)
         console.log('🔍 DEBUG BACKEND UPDATE: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
         console.log('🔍 DEBUG BACKEND UPDATE: sendEmail === true =', sendEmail === true, 'sendEmail === undefined =', sendEmail === undefined);
         
         if (sendEmail === true || sendEmail === undefined) {
           try {
-            const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [result.rows[0].clienteid]);
+            const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [ticket.clienteid]);
             
             if (clientData.rows.length > 0 && clientData.rows[0].email) {
             const client = clientData.rows[0];
@@ -535,7 +575,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
                 ...(authHeader ? { 'Authorization': authHeader } : {})
               },
               body: JSON.stringify({
-                ticket: result.rows[0],
+                ticket: parsedTicket,
                 clientEmail: client.email,
                 clientName: `${client.nome} ${client.cognome}`,
                 clientAzienda: client.azienda,
@@ -554,7 +594,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
           console.log('🔍 DEBUG BACKEND UPDATE: Email aggiornamento NON inviata al cliente (sendEmail =', sendEmail, 'tipo:', typeof sendEmail, ')');
         }
         
-        res.json(result.rows[0]);
+        res.json(parsedTicket);
       } else {
         res.status(404).json({ error: 'Ticket non trovato' });
       }
