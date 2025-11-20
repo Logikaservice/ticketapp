@@ -2121,10 +2121,11 @@ export default function TicketApp() {
     }
   };
 
-  const wrappedHandleCreateTicket = async () => {
+  const wrappedHandleCreateTicket = async (photos = []) => {
     console.log('🔍 DEBUG: wrappedHandleCreateTicket chiamata');
     console.log('🔍 DEBUG: currentUser.ruolo =', currentUser.ruolo);
     console.log('🔍 DEBUG: isEditingTicket =', isEditingTicket);
+    console.log('🔍 DEBUG: photos ricevute =', photos.length, 'foto');
 
     // Se descrizione vuota, chiedi conferma
     if (!newTicketData.descrizione || newTicketData.descrizione.trim() === '') {
@@ -2151,7 +2152,8 @@ export default function TicketApp() {
         type: 'create',
         data: newTicketData,
         isEditing: isEditingTicket,
-        selectedClient: selectedClientForNewTicket
+        selectedClient: selectedClientForNewTicket,
+        photos: photos // Salva le foto nel pending action
       });
       setModalState({
         type: 'emailConfirm',
