@@ -7,6 +7,11 @@ export const useGoogleCalendar = (getAuthHeader) => {
   // Sincronizzazione automatica con Service Account (per backend)
   const syncTicketToCalendarBackend = async (ticket, action = 'create') => {
     try {
+      const payload = {
+        ticket: ticket,
+        action: action
+      };
+      
       // Invia ticket al backend per sincronizzazione automatica
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/sync-google-calendar`, {
         method: 'POST',
@@ -18,14 +23,16 @@ export const useGoogleCalendar = (getAuthHeader) => {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[GOOGLE-CALENDAR] Errore risposta backend:', response.status, errorText);
         throw new Error('Errore sincronizzazione backend');
       }
 
       const result = await response.json();
-      console.log('Ticket #' + ticket.id + ' sincronizzato via backend:', result);
+      console.log('[GOOGLE-CALENDAR] Ticket #' + ticket.id + ' sincronizzato via backend:', result);
       return result;
     } catch (err) {
-      console.error('Errore sincronizzazione backend ticket #' + ticket.id + ':', err);
+      console.error('[GOOGLE-CALENDAR] Errore sincronizzazione backend ticket #' + ticket.id + ':', err);
       return false;
     }
   };
