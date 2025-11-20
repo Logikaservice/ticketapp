@@ -67,17 +67,21 @@ const TimeLoggerModal = ({
                 </span>
                 {!fieldsDisabled && (
                   <div className="flex gap-2">
-                    {timeLogs.length > 1 && (
-                      <button
-                        onClick={() => handleRemoveTimeLog(log.id)}
-                        className="text-red-500 p-1"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Sei sicuro di voler eliminare questo intervento?')) {
+                          handleRemoveTimeLog(log.id);
+                        }
+                      }}
+                      className="text-red-500 p-1 hover:bg-red-50 rounded transition-colors"
+                      title="Elimina intervento"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                     <button
                       onClick={() => handleDuplicateTimeLog(log)}
-                      className="text-blue-500 p-1"
+                      className="text-blue-500 p-1 hover:bg-blue-50 rounded transition-colors"
+                      title="Duplica intervento"
                     >
                       <Copy size={18} />
                     </button>
