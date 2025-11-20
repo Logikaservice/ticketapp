@@ -1,6 +1,6 @@
 // src/components/Modals/EmailConfirmModal.jsx
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Check, X } from 'lucide-react';
 
 const EmailConfirmModal = ({ 
@@ -12,8 +12,45 @@ const EmailConfirmModal = ({
   statusChange = false,
   newStatus = null
 }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Gestione chiusura con ESC
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && !isProcessing) {
+        onCancel();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [onCancel, isProcessing]);
+
+  const handleConfirm = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    try {
+      await onConfirm();
+    } catch (error) {
+      console.error('Errore durante conferma email:', error);
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (isProcessing) return;
+    onCancel();
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      onClick={(e) => {
+        // Chiudi cliccando fuori dalla modale
+        if (e.target === e.currentTarget && !isProcessing) {
+          handleCancel();
+        }
+      }}
+    >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         
         {/* Header */}
@@ -99,18 +136,28 @@ const EmailConfirmModal = ({
         <div className="p-4 border-t bg-gray-50 rounded-b-2xl">
           <div className="flex gap-3">
             <button
-              onClick={onCancel}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition"
+              onClick={handleCancel}
+              disabled={isProcessing}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition ${
+                isProcessing 
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
             >
               <X size={18} />
               Non inviare
             </button>
             <button
-              onClick={onConfirm}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              onClick={handleConfirm}
+              disabled={isProcessing}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition ${
+                isProcessing 
+                  ? 'bg-blue-400 text-white cursor-not-allowed' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
             >
               <Check size={18} />
-              Invia email
+              {isProcessing ? 'Elaborazione...' : 'Invia email'}
             </button>
           </div>
         </div>

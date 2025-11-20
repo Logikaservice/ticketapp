@@ -2188,50 +2188,34 @@ export default function TicketApp() {
 
   // Gestione conferma email
   const handleConfirmEmail = async () => {
-    if (!pendingTicketAction) return;
+    if (!pendingTicketAction) {
+      // Chiudi la modale anche se non c'è pendingTicketAction
+      setPendingTicketAction(null);
+      setModalState({ type: null, data: null });
+      return;
+    }
 
     const { type, data, isEditing, selectedClient } = pendingTicketAction;
 
-    if (type === 'create') {
-      // Crea ticket con invio email
-      const photos = pendingTicketAction?.photos || [];
-      await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, true, photos);
-    } else if (type === 'update') {
-      // Aggiorna ticket con invio email
-      await updateTicket(data, isEditing, selectedClient, true);
-    } else if (type === 'changeStatus') {
-      // Cambia stato ticket con invio email
-      await changeStatus(data.id, data.status, handleOpenTimeLogger, true);
+    // Chiudi la modale IMMEDIATAMENTE prima dell'operazione asincrona
+    setPendingTicketAction(null);
+    setModalState({ type: null, data: null });
 
-      // Mostra l'effetto di evidenziazione per le card coinvolte
-      const originCardState = getTicketOriginCard(data.id);
-      const destinationCardState = data.status;
+    try {
+      if (type === 'create') {
+        // Crea ticket con invio email
+        const photos = pendingTicketAction?.photos || [];
+        await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, true, photos);
+      } else if (type === 'update') {
+        // Aggiorna ticket con invio email
+        await updateTicket(data, isEditing, selectedClient, true);
+      } else if (type === 'changeStatus') {
+        // Cambia stato ticket con invio email
+        await changeStatus(data.id, data.status, handleOpenTimeLogger, true);
 
-      // Evidenzia la card di destinazione (verde - riceve ticket)
-      window.dispatchEvent(new CustomEvent('dashboard-highlight', {
-        detail: { state: destinationCardState, type: 'up', direction: 'forward' }
-      }));
-
-      // Evidenzia la card di origine (rosso - perde ticket)
-      window.dispatchEvent(new CustomEvent('dashboard-highlight', {
-        detail: { state: originCardState, type: 'down', direction: 'forward' }
-      }));
-
-      // Mantieni la vista corrente senza rimbalzi
-      setDashboardTargetState(originCardState);
-
-      // Feedback locale rimosso (niente eventi aggiuntivi)
-      
-      // Reset del flag di protezione
-      isChangingStatusRef.current = false;
-    } else if (type === 'confirmTimeLogs') {
-      // Conferma timeLogs con invio email
-      await handleConfirmTimeLogs(data.timeLogs, true);
-
-      // Mostra l'effetto di evidenziazione per le card coinvolte
-      if (selectedTicket) {
-        const originCardState = getTicketOriginCard(selectedTicket.id);
-        const destinationCardState = 'risolto'; // TimeLogs porta sempre a risolto
+        // Mostra l'effetto di evidenziazione per le card coinvolte
+        const originCardState = getTicketOriginCard(data.id);
+        const destinationCardState = data.status;
 
         // Evidenzia la card di destinazione (verde - riceve ticket)
         window.dispatchEvent(new CustomEvent('dashboard-highlight', {
@@ -2247,57 +2231,71 @@ export default function TicketApp() {
         setDashboardTargetState(originCardState);
 
         // Feedback locale rimosso (niente eventi aggiuntivi)
+        
+        // Reset del flag di protezione
+        isChangingStatusRef.current = false;
+      } else if (type === 'confirmTimeLogs') {
+        // Conferma timeLogs con invio email
+        await handleConfirmTimeLogs(data.timeLogs, true);
+
+        // Mostra l'effetto di evidenziazione per le card coinvolte
+        if (selectedTicket) {
+          const originCardState = getTicketOriginCard(selectedTicket.id);
+          const destinationCardState = 'risolto'; // TimeLogs porta sempre a risolto
+
+          // Evidenzia la card di destinazione (verde - riceve ticket)
+          window.dispatchEvent(new CustomEvent('dashboard-highlight', {
+            detail: { state: destinationCardState, type: 'up', direction: 'forward' }
+          }));
+
+          // Evidenzia la card di origine (rosso - perde ticket)
+          window.dispatchEvent(new CustomEvent('dashboard-highlight', {
+            detail: { state: originCardState, type: 'down', direction: 'forward' }
+          }));
+
+          // Mantieni la vista corrente senza rimbalzi
+          setDashboardTargetState(originCardState);
+
+          // Feedback locale rimosso (niente eventi aggiuntivi)
+        }
+      }
+    } catch (error) {
+      console.error('Errore durante conferma email:', error);
+      // Reset del flag di protezione anche in caso di errore
+      if (type === 'changeStatus') {
+        isChangingStatusRef.current = false;
       }
     }
-
-    setPendingTicketAction(null);
-    setModalState({ type: null, data: null });
   };
 
   const handleCancelEmail = async () => {
-    if (!pendingTicketAction) return;
+    if (!pendingTicketAction) {
+      // Chiudi la modale anche se non c'è pendingTicketAction
+      setPendingTicketAction(null);
+      setModalState({ type: null, data: null });
+      return;
+    }
 
     const { type, data, isEditing, selectedClient } = pendingTicketAction;
 
-    if (type === 'create') {
-      // Crea ticket senza invio email
-      await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, false);
-    } else if (type === 'update') {
-      // Aggiorna ticket senza invio email
-      await updateTicket(data, isEditing, selectedClient, false);
-    } else if (type === 'changeStatus') {
-      // Cambia stato ticket senza invio email
-      await changeStatus(data.id, data.status, handleOpenTimeLogger, false);
+    // Chiudi la modale IMMEDIATAMENTE prima dell'operazione asincrona
+    setPendingTicketAction(null);
+    setModalState({ type: null, data: null });
 
-      // Mostra l'effetto di evidenziazione per le card coinvolte
-      const originCardState = getTicketOriginCard(data.id);
-      const destinationCardState = data.status;
+    try {
+      if (type === 'create') {
+        // Crea ticket senza invio email
+        await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, false);
+      } else if (type === 'update') {
+        // Aggiorna ticket senza invio email
+        await updateTicket(data, isEditing, selectedClient, false);
+      } else if (type === 'changeStatus') {
+        // Cambia stato ticket senza invio email
+        await changeStatus(data.id, data.status, handleOpenTimeLogger, false);
 
-      // Evidenzia la card di destinazione (verde - riceve ticket)
-      window.dispatchEvent(new CustomEvent('dashboard-highlight', {
-        detail: { state: destinationCardState, type: 'up', direction: 'forward' }
-      }));
-
-      // Evidenzia la card di origine (rosso - perde ticket)
-      window.dispatchEvent(new CustomEvent('dashboard-highlight', {
-        detail: { state: originCardState, type: 'down', direction: 'forward' }
-      }));
-
-      // Mantieni la vista corrente senza rimbalzi
-      setDashboardTargetState(originCardState);
-
-      // Feedback locale rimosso (niente eventi aggiuntivi)
-      
-      // Reset del flag di protezione
-      isChangingStatusRef.current = false;
-    } else if (type === 'confirmTimeLogs') {
-      // Conferma timeLogs senza invio email
-      await handleConfirmTimeLogs(data.timeLogs, false);
-
-      // Mostra l'effetto di evidenziazione per le card coinvolte
-      if (selectedTicket) {
-        const originCardState = getTicketOriginCard(selectedTicket.id);
-        const destinationCardState = 'risolto'; // TimeLogs porta sempre a risolto
+        // Mostra l'effetto di evidenziazione per le card coinvolte
+        const originCardState = getTicketOriginCard(data.id);
+        const destinationCardState = data.status;
 
         // Evidenzia la card di destinazione (verde - riceve ticket)
         window.dispatchEvent(new CustomEvent('dashboard-highlight', {
@@ -2313,15 +2311,40 @@ export default function TicketApp() {
         setDashboardTargetState(originCardState);
 
         // Feedback locale rimosso (niente eventi aggiuntivi)
-      }
-    }
+        
+        // Reset del flag di protezione
+        isChangingStatusRef.current = false;
+      } else if (type === 'confirmTimeLogs') {
+        // Conferma timeLogs senza invio email
+        await handleConfirmTimeLogs(data.timeLogs, false);
 
-    setPendingTicketAction(null);
-    setModalState({ type: null, data: null });
-    
-    // Reset del flag di protezione per cambio stato
-    if (type === 'changeStatus') {
-      isChangingStatusRef.current = false;
+        // Mostra l'effetto di evidenziazione per le card coinvolte
+        if (selectedTicket) {
+          const originCardState = getTicketOriginCard(selectedTicket.id);
+          const destinationCardState = 'risolto'; // TimeLogs porta sempre a risolto
+
+          // Evidenzia la card di destinazione (verde - riceve ticket)
+          window.dispatchEvent(new CustomEvent('dashboard-highlight', {
+            detail: { state: destinationCardState, type: 'up', direction: 'forward' }
+          }));
+
+          // Evidenzia la card di origine (rosso - perde ticket)
+          window.dispatchEvent(new CustomEvent('dashboard-highlight', {
+            detail: { state: originCardState, type: 'down', direction: 'forward' }
+          }));
+
+          // Mantieni la vista corrente senza rimbalzi
+          setDashboardTargetState(originCardState);
+
+          // Feedback locale rimosso (niente eventi aggiuntivi)
+        }
+      }
+    } catch (error) {
+      console.error('Errore durante annullamento email:', error);
+      // Reset del flag di protezione anche in caso di errore
+      if (type === 'changeStatus') {
+        isChangingStatusRef.current = false;
+      }
     }
   };
 

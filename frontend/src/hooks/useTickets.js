@@ -287,30 +287,30 @@ export const useTickets = (
   const handleDeleteTicket = async (id) => {
     if (!window.confirm('Sei sicuro di voler eliminare questo ticket?')) return false;
     try {
-      // Trova il ticket prima di eliminarlo per la sincronizzazione
-      const ticketToDelete = tickets.find(t => t.id === id);
-      
       const response = await fetch(buildApiUrl(`/api/tickets/${id}`), { 
         method: 'DELETE',
         headers: getAuthHeader()
       });
       if (!response.ok) throw new Error('Errore durante l\'eliminazione');
       
-      // Sincronizzazione automatica con Google Calendar per eliminazione ticket
-      if (googleCalendarSync && typeof googleCalendarSync === 'function' && ticketToDelete) {
-        try {
-          console.log('Sincronizzazione automatica eliminazione ticket #' + id + ' con Google Calendar');
-          await googleCalendarSync(ticketToDelete, 'delete');
-          console.log('Ticket #' + id + ' rimosso automaticamente da Google Calendar');
-        } catch (err) {
-          console.error('Errore sincronizzazione automatica eliminazione ticket #' + id + ':', err);
-          // Non mostriamo errore all'utente per non interrompere il flusso
-        }
-      }
-      
+      // Aggiorna l'interfaccia IMMEDIATAMENTE (non aspettare la sincronizzazione Google Calendar)
       setTickets(prev => prev.filter(t => t.id !== id));
       if (selectedTicket?.id === id) setSelectedTicket(null);
       showNotification('Ticket eliminato con successo!', 'success');
+      
+      // Sincronizzazione Google Calendar in background (NON blocca l'interfaccia)
+      // Il backend gestisce già la sincronizzazione, questa è solo un fallback
+      if (googleCalendarSync && typeof googleCalendarSync === 'function') {
+        const ticketToDelete = tickets.find(t => t.id === id);
+        if (ticketToDelete) {
+          // Esegui in background senza attendere
+          googleCalendarSync(ticketToDelete, 'delete').catch(err => {
+            console.error('Errore sincronizzazione automatica eliminazione ticket #' + id + ':', err);
+            // Non mostriamo errore all'utente per non interrompere il flusso
+          });
+        }
+      }
+      
       return true;
     } catch (error) {
       showNotification(error.message, 'error');

@@ -1114,41 +1114,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       client.release();
 
       if (result.rowCount > 0) {
-        // Se il ticket ha un ID evento Google Calendar, sincronizza la cancellazione
-        if (ticket.googlecalendareventid) {
-          console.log(`🗑️ Ticket #${ticket.id} eliminato, sincronizzazione cancellazione Google Calendar...`);
-          
-          // Chiama la sincronizzazione Google Calendar
-          try {
-            // Estrai il token JWT dall'header della richiesta originale
-            const authHeader = req.headers.authorization;
-            
-            const syncResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/sync-google-calendar`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(authHeader ? { 'Authorization': authHeader } : {})
-              },
-              body: JSON.stringify({
-                ticket: {
-                  ...ticket,
-                  googleCalendarEventId: ticket.googlecalendareventid
-                },
-                action: 'delete'
-              })
-            });
-            
-            if (syncResponse.ok) {
-              console.log(`✅ Evento Google Calendar cancellato per ticket #${ticket.id}`);
-            } else {
-              console.log(`⚠️ Errore cancellazione evento Google Calendar per ticket #${ticket.id}`);
-            }
-          } catch (syncErr) {
-            console.log(`⚠️ Errore sincronizzazione cancellazione Google Calendar:`, syncErr.message);
-          }
-        }
-        
-        // Emetti evento WebSocket per notificare tutti gli utenti
+        // Emetti evento WebSocket per notificare tutti gli utenti (PRIMA della risposta HTTP)
         if (io && ticket) {
           console.log(`📨 WebSocket: Emetto evento ticket:deleted per ticket #${ticket.id}`);
           // Notifica il cliente proprietario
@@ -1165,7 +1131,44 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
           });
         }
         
+        // Invia risposta HTTP IMMEDIATAMENTE (non attendere la sincronizzazione Google Calendar)
         res.status(200).json({ message: 'Ticket eliminato con successo' });
+        
+        // Sincronizzazione Google Calendar in background (NON blocca la risposta HTTP)
+        if (ticket.googlecalendareventid) {
+          console.log(`🗑️ Ticket #${ticket.id} eliminato, sincronizzazione cancellazione Google Calendar in background...`);
+          
+          // Usa setImmediate per eseguire dopo che la risposta è stata inviata
+          setImmediate(async () => {
+            try {
+              // Estrai il token JWT dall'header della richiesta originale
+              const authHeader = req.headers.authorization;
+              
+              const syncResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/sync-google-calendar`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(authHeader ? { 'Authorization': authHeader } : {})
+                },
+                body: JSON.stringify({
+                  ticket: {
+                    ...ticket,
+                    googleCalendarEventId: ticket.googlecalendareventid
+                  },
+                  action: 'delete'
+                })
+              });
+              
+              if (syncResponse.ok) {
+                console.log(`✅ Evento Google Calendar cancellato per ticket #${ticket.id}`);
+              } else {
+                console.log(`⚠️ Errore cancellazione evento Google Calendar per ticket #${ticket.id}`);
+              }
+            } catch (syncErr) {
+              console.log(`⚠️ Errore sincronizzazione cancellazione Google Calendar:`, syncErr.message);
+            }
+          });
+        }
       } else {
         res.status(404).json({ error: 'Ticket non trovato' });
       }
