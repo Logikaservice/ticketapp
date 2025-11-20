@@ -614,7 +614,7 @@ module.exports = (pool) => {
                 interventiCalendarId = updateCalendarList.data.items[0].id;
               }
             } catch (calErr) {
-              interventiCalendarId = calendarId; // Usa quello già trovato
+              interventiCalendarId = 'primary';
             }
             
             let timelogs = ticket.timelogs;
@@ -1368,32 +1368,9 @@ module.exports = (pool) => {
             description += `CHIUSURA: ${formatDateTime(chiusuraDate)}\n`;
           }
 
-          const event = {
-            summary: `Ticket ${ticket.numero} - ${ticket.azienda || 'Cliente Sconosciuto'}`,
-            description: description,
-            start: {
-              dateTime: startDate.toISOString(),
-              timeZone: 'Europe/Rome'
-            },
-            end: {
-              dateTime: endDate.toISOString(),
-              timeZone: 'Europe/Rome'
-            },
-            colorId: getPriorityColorId(ticket.priorita),
-            source: {
-              title: 'TicketApp',
-              url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
-            }
-          };
-
-          // Aggiorna l'evento su Google Calendar
-          await calendar.events.update({
-            calendarId: calendarId,
-            eventId: ticket.googlecalendareventid,
-            resource: event
-          });
-
-          console.log(`✅ Ticket #${ticket.numero} aggiornato con successo`);
+          // NON aggiorniamo l'evento principale - deve rimanere sempre alla data di apertura originale
+          // Solo gestiamo gli interventi (timelogs)
+          console.log(`✅ Ticket #${ticket.numero} - gestione interventi`);
           
           // Crea/Aggiorna eventi per gli interventi (timelogs)
           try {
