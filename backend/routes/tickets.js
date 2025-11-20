@@ -144,7 +144,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         console.error('❌ Errore Multer upload foto durante creazione ticket:', err);
         if (err instanceof multer.MulterError) {
           if (err.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).json({ error: 'File troppo grande. Dimensione massima: 1MB per file' });
+            return res.status(400).json({ error: 'File troppo grande. Dimensione massima: 10MB per file' });
           }
           if (err.code === 'LIMIT_FILE_COUNT') {
             return res.status(400).json({ error: 'Troppi file. Massimo 10 file per volta' });
@@ -1352,7 +1352,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         console.error('Errore Multer upload foto:', err);
         if (err instanceof multer.MulterError) {
           if (err.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).json({ error: 'File troppo grande. Dimensione massima: 1MB' });
+            return res.status(400).json({ error: 'File troppo grande. Dimensione massima: 10MB per file' });
           }
           if (err.code === 'LIMIT_FILE_COUNT') {
             return res.status(400).json({ error: 'Troppi file. Massimo 10 file per volta' });

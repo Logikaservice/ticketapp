@@ -104,13 +104,13 @@ const NewTicketModal = ({
       return;
     }
     
-    // Verifica dimensione file (massimo 1MB per file)
-    const maxSize = 1 * 1024 * 1024; // 1MB in bytes
-    const oversizedFiles = imageFiles.filter(file => file.size > maxSize);
+    // Verifica dimensione totale (massimo 10MB totali)
+    const maxTotalSize = 10 * 1024 * 1024; // 10MB in bytes
+    const totalSize = imageFiles.reduce((sum, file) => sum + file.size, 0);
     
-    if (oversizedFiles.length > 0) {
-      const fileNames = oversizedFiles.map(f => f.name).join(', ');
-      alert(`I seguenti file superano il limite di 1MB e non possono essere caricati:\n${fileNames}\n\nDimensione massima consentita: 1MB per file`);
+    if (totalSize > maxTotalSize) {
+      const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
+      alert(`La dimensione totale dei file selezionati (${totalSizeMB}MB) supera il limite di 10MB.\n\nDimensione massima consentita: 10MB totali per tutti i file.\n\nRimuovi alcuni file o seleziona file più piccoli.`);
       // Reset input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
