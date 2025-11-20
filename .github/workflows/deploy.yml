@@ -147,4 +147,14 @@ jobs:
             }
             
             echo "✅ Deploy completato!"
+            
+            # Esegui controllo avvisi e stato sistema
+            echo ""
+            echo "🔍 Esecuzione controllo avvisi e stato sistema..."
+            if [ -f "backend/scripts/controlla-avvisi-vps.sh" ]; then
+              chmod +x backend/scripts/controlla-avvisi-vps.sh
+              bash backend/scripts/controlla-avvisi-vps.sh || echo "⚠️ Errore durante controllo avvisi (continua...)"
+            else
+              echo "⚠️ Script controllo avvisi non trovato"
+            fi
 
