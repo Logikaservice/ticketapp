@@ -250,15 +250,35 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       setTimeLogs(refreshedLogs);
       
       console.log('[SAVE-TIMELOGS] ✅ Salvataggio completato');
+      console.log('[SAVE-TIMELOGS] Timelogs salvati:', parsedTimelogs.length);
       
       // Sincronizzazione immediata con Google Calendar includendo registro intervento
-      if (googleCalendarSync && typeof googleCalendarSync === 'function') {
+      if (!googleCalendarSync || typeof googleCalendarSync !== 'function') {
+        console.warn('[SAVE-TIMELOGS] ⚠️ googleCalendarSync non disponibile:', {
+          exists: !!googleCalendarSync,
+          type: typeof googleCalendarSync
+        });
+      } else if (parsedTimelogs.length === 0) {
+        console.log('[SAVE-TIMELOGS] ⚠️ Nessun timelog da sincronizzare');
+      } else {
         try {
-          console.log('[SAVE-TIMELOGS] Sincronizzazione Google Calendar con ticket:', ticketForSync);
-          await googleCalendarSync(ticketForSync, 'update');
-          console.log('[SAVE-TIMELOGS] ✅ Sincronizzazione Google Calendar completata');
+          console.log('[SAVE-TIMELOGS] 🔄 Sincronizzazione Google Calendar...');
+          console.log('[SAVE-TIMELOGS] Ticket per sync:', {
+            id: ticketForSync.id,
+            titolo: ticketForSync.titolo,
+            timelogsCount: ticketForSync.timelogs?.length || 0,
+            timelogs: ticketForSync.timelogs
+          });
+          const syncResult = await googleCalendarSync(ticketForSync, 'update');
+          console.log('[SAVE-TIMELOGS] ✅ Sincronizzazione Google Calendar completata:', syncResult);
+          if (syncResult === false) {
+            console.warn('[SAVE-TIMELOGS] ⚠️ Sincronizzazione ritornata false');
+          }
         } catch (e) {
-          console.error('[SAVE-TIMELOGS] ⚠️ Errore sincronizzazione Google Calendar:', e);
+          console.error('[SAVE-TIMELOGS] ❌ Errore sincronizzazione Google Calendar:', e);
+          console.error('[SAVE-TIMELOGS] Stack trace:', e.stack);
+          // Mostra notifica all'utente per errori di sincronizzazione
+          showNotification('Intervento salvato, ma errore nella sincronizzazione con Google Calendar', 'warning');
         }
       }
       showNotification('Modifiche salvate con successo!', 'success');

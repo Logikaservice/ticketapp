@@ -685,13 +685,26 @@ export const useTickets = (
           setTickets(prev => prev.map(t => t.id === selectedTicket.id ? ticketForSync : t));
           
           // Sincronizzazione automatica con Google Calendar per conferma timeLogs
-          if (googleCalendarSync && typeof googleCalendarSync === 'function') {
+          if (!googleCalendarSync || typeof googleCalendarSync !== 'function') {
+            console.warn('[CONFIRM-TIMELOGS] ⚠️ googleCalendarSync non disponibile');
+          } else if (parsedTimelogs.length === 0) {
+            console.log('[CONFIRM-TIMELOGS] ⚠️ Nessun timelog da sincronizzare');
+          } else {
             try {
-              console.log('Sincronizzazione automatica conferma timeLogs ticket #' + ticketForSync.id + ' con Google Calendar');
-              await googleCalendarSync(ticketForSync, 'update');
-              console.log('Ticket #' + ticketForSync.id + ' aggiornato automaticamente in Google Calendar');
+              console.log('[CONFIRM-TIMELOGS] 🔄 Sincronizzazione Google Calendar...');
+              console.log('[CONFIRM-TIMELOGS] Ticket per sync:', {
+                id: ticketForSync.id,
+                titolo: ticketForSync.titolo,
+                timelogsCount: ticketForSync.timelogs?.length || 0
+              });
+              const syncResult = await googleCalendarSync(ticketForSync, 'update');
+              console.log('[CONFIRM-TIMELOGS] ✅ Sincronizzazione completata:', syncResult);
+              if (syncResult === false) {
+                console.warn('[CONFIRM-TIMELOGS] ⚠️ Sincronizzazione ritornata false');
+              }
             } catch (err) {
-              console.error('Errore sincronizzazione automatica conferma timeLogs ticket #' + ticketForSync.id + ':', err);
+              console.error('[CONFIRM-TIMELOGS] ❌ Errore sincronizzazione:', err);
+              console.error('[CONFIRM-TIMELOGS] Stack trace:', err.stack);
               // Non mostriamo errore all'utente per non interrompere il flusso
             }
           }
