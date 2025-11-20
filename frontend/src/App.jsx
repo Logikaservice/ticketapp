@@ -2772,6 +2772,8 @@ export default function TicketApp() {
         currentUser={currentUser}
         showNotification={showNotification}
         users={users}
+        setSelectedTicket={setSelectedTicket}
+        setTickets={setTickets}
         onSaveAlert={handleSaveAlert}
         onEditAlert={handleEditAlert}
         onConfirmEmail={handleConfirmEmail}
