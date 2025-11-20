@@ -112,6 +112,7 @@ export const useAuth = (showNotification) => {
       setCurrentUser(loginResponse.user);
       setIsLoggedIn(true);
       setLoginData({ email: '', password: '' });
+      localStorage.removeItem('sessionExpiredReason');
       
       // Carica il timeout di inattività dal database (se presente) o usa localStorage
       const dbTimeout = loginResponse.user.inactivity_timeout_minutes;
