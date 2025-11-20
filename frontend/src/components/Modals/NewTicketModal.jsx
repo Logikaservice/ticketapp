@@ -95,18 +95,11 @@ const NewTicketModal = ({
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files || []);
-    const imageFiles = files.filter(file => file.type.startsWith('image/'));
-    if (imageFiles.length !== files.length) {
-      alert('Solo file immagine sono permessi');
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      return;
-    }
-    
+    if (files.length === 0) return;
+
     // Verifica dimensione per file singolo (massimo 10MB per file)
     const maxFileSize = 10 * 1024 * 1024; // 10MB in bytes
-    const oversizedFiles = imageFiles.filter(file => file.size > maxFileSize);
+    const oversizedFiles = files.filter(file => file.size > maxFileSize);
     
     if (oversizedFiles.length > 0) {
       const fileNames = oversizedFiles.map(f => `${f.name} (${(f.size / (1024 * 1024)).toFixed(2)}MB)`).join(', ');
@@ -120,7 +113,7 @@ const NewTicketModal = ({
     
     // Verifica dimensione totale (massimo 10MB totali)
     const maxTotalSize = 10 * 1024 * 1024; // 10MB in bytes
-    const totalSize = imageFiles.reduce((sum, file) => sum + file.size, 0);
+    const totalSize = files.reduce((sum, file) => sum + file.size, 0);
     
     if (totalSize > maxTotalSize) {
       const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
@@ -132,7 +125,7 @@ const NewTicketModal = ({
       return;
     }
     
-    setPhotos(imageFiles);
+    setPhotos(files);
   };
 
   const removePhoto = (index) => {
