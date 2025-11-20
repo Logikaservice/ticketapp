@@ -330,21 +330,21 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       
       // Parse dei campi JSON (photos, timelogs, messaggi) prima di inviare la risposta
       const newTicket = result.rows[0];
-      let photos = [];
+      let parsedPhotos = [];
       try {
         if (newTicket.photos) {
-          photos = typeof newTicket.photos === 'string' ? JSON.parse(newTicket.photos) : newTicket.photos;
-          if (!Array.isArray(photos)) photos = [];
+          parsedPhotos = typeof newTicket.photos === 'string' ? JSON.parse(newTicket.photos) : newTicket.photos;
+          if (!Array.isArray(parsedPhotos)) parsedPhotos = [];
         }
       } catch (e) {
-        photos = [];
+        parsedPhotos = [];
       }
       
       const parsedNewTicket = {
         ...newTicket,
         timelogs: newTicket.timelogs ? (typeof newTicket.timelogs === 'string' ? JSON.parse(newTicket.timelogs) : newTicket.timelogs) : null,
         messaggi: newTicket.messaggi ? (typeof newTicket.messaggi === 'string' ? JSON.parse(newTicket.messaggi) : newTicket.messaggi) : [],
-        photos: photos
+        photos: parsedPhotos
       };
       
       res.status(201).json(parsedNewTicket);
