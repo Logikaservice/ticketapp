@@ -64,6 +64,8 @@ export const useTickets = (
       let headers = { ...getAuthHeader() };
       
       if (photos && photos.length > 0) {
+        console.log('🔍 DEBUG useTickets: Creazione FormData con', photos.length, 'file');
+        console.log('🔍 DEBUG useTickets: Tipo file:', photos.map(f => ({ name: f.name, type: f.type, size: f.size })));
         const formData = new FormData();
         formData.append('clienteid', ticketDaInviare.clienteid || '');
         formData.append('titolo', ticketDaInviare.titolo || '');
@@ -76,9 +78,15 @@ export const useTickets = (
         formData.append('sendEmail', sendEmail ? 'true' : 'false');
         
         // Aggiungi le foto
-        photos.forEach(photo => {
+        photos.forEach((photo, index) => {
+          console.log(`🔍 DEBUG useTickets: Aggiungo file ${index + 1}/${photos.length}:`, photo.name, photo.type, photo.size);
           formData.append('photos', photo);
         });
+        
+        // Verifica che i file siano stati aggiunti
+        const formDataEntries = Array.from(formData.entries());
+        const photosInFormData = formDataEntries.filter(([key]) => key === 'photos');
+        console.log('🔍 DEBUG useTickets: File nel FormData:', photosInFormData.length);
         
         body = formData;
         // NON includere Content-Type per FormData - il browser lo imposta automaticamente
