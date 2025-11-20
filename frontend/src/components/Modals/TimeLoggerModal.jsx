@@ -20,7 +20,8 @@ const TimeLoggerModal = ({
   handleSaveTimeLogs,
   closeModal,
   readOnly = false,
-  currentUser
+  currentUser,
+  getAuthHeader
 }) => {
   // Stato locale per gestire la modalità editing
   const [isEditing, setIsEditing] = useState(false);
@@ -447,9 +448,10 @@ const TimeLoggerModal = ({
                               try {
                                 const fd = new FormData();
                                 fd.append('file', file);
+                                const authHeaders = getAuthHeader ? getAuthHeader() : {};
                                 const res = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/offerte/attachments`, {
                                   method: 'POST',
-                                  headers: { ...(window.localStorage.getItem('token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('token')}` } : {}) },
+                                  headers: authHeaders,
                                   body: fd
                                 });
                                 if (!res.ok) throw new Error('Upload fallito');
@@ -479,9 +481,10 @@ const TimeLoggerModal = ({
                               className="text-red-500"
                               onClick={async () => {
                                 try {
+                                  const authHeaders = getAuthHeader ? getAuthHeader() : {};
                                   const res = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/offerte/attachments/${encodeURIComponent(al.filename)}`, {
                                     method: 'DELETE',
-                                    headers: { ...(window.localStorage.getItem('token') ? { 'Authorization': `Bearer ${window.localStorage.getItem('token')}` } : {}) }
+                                    headers: authHeaders
                                   });
                                   if (!res.ok) throw new Error('Eliminazione fallita');
                                   setTimeLogs(prev => prev.map(l => l.id === offertaOwner.id ? {

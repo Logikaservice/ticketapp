@@ -27,6 +27,7 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             closeModal={closeModal} 
             selectedTicket={modalState.data}
             currentUser={handlers.currentUser}
+            getAuthHeader={handlers.getAuthHeader}
             {...handlers} 
           />
         );
@@ -38,6 +39,7 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             selectedTicket={modalState.data}
             readOnly={true}
             currentUser={handlers.currentUser}
+            getAuthHeader={handlers.getAuthHeader}
             handleSaveTimeLogs={handlers.handleSaveTimeLogs}
             {...handlers} 
           />
