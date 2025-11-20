@@ -154,20 +154,47 @@ const NewClientModal = ({
               </div>
 
               {newClientData.useExistingCompany ? (
-                <div>
-                  <select
-                    value={newClientData.existingCompany}
-                    onChange={(e) => setNewClientData({ ...newClientData, existingCompany: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    required
-                  >
-                    <option value="">Seleziona un'azienda...</option>
-                    {existingCompanies.map(azienda => (
-                      <option key={azienda} value={azienda}>
-                        {azienda}
-                      </option>
-                    ))}
-                  </select>
+                <div className="relative">
+                  <div className="border-2 border-green-200 rounded-2xl overflow-hidden bg-white shadow-sm focus-within:border-green-500 focus-within:ring-2 focus-within:ring-green-200 transition">
+                    <div className="px-4 pt-3 pb-1">
+                      <p className="text-xs uppercase tracking-wide text-green-700 font-semibold">
+                        Azienda esistente
+                      </p>
+                    </div>
+                    <div className="px-4 pb-4">
+                      <div className="relative">
+                        <select
+                          value={newClientData.existingCompany}
+                          onChange={(e) => setNewClientData({ ...newClientData, existingCompany: e.target.value })}
+                          className="w-full appearance-none bg-transparent pl-12 pr-10 py-3 text-base font-semibold text-gray-800 focus:outline-none cursor-pointer"
+                          required
+                        >
+                          <option value="">Seleziona un'azienda...</option>
+                          {existingCompanies.map(azienda => (
+                            <option key={azienda} value={azienda}>
+                              {azienda}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                          <span className="w-7 h-7 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold text-sm">
+                            {newClientData.existingCompany ? newClientData.existingCompany.charAt(0).toUpperCase() : 'A'}
+                          </span>
+                        </div>
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                          <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </div>
+                      {newClientData.existingCompany && (
+                        <p className="mt-2 text-xs text-gray-500 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                          Accesso condiviso con tutti i clienti di {newClientData.existingCompany}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                   {!canUseExisting && (
                     <p className="text-xs text-gray-500 mt-2">
                       Nessuna azienda disponibile. Aggiungine una nuova per poterla riutilizzare.
