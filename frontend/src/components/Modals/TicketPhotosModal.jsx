@@ -324,20 +324,12 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                   />
                 );
               } else {
-                // Per file non immagine, mostra un'icona e link di download
+                // Per file non immagine, mostra un'icona
                 return (
                   <div className="flex flex-col items-center justify-center text-white">
                     <File size={120} className="mb-4 text-gray-400" />
                     <p className="text-lg font-semibold mb-2">{currentPhoto.originalName}</p>
-                    <p className="text-sm text-gray-400 mb-4">File non visualizzabile</p>
-                    <a
-                      href={`${apiUrl}${currentPhoto.path}`}
-                      download={currentPhoto.originalName}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition flex items-center gap-2"
-                    >
-                      <Download size={18} />
-                      Scarica File
-                    </a>
+                    <p className="text-sm text-gray-400">File non visualizzabile</p>
                   </div>
                 );
               }
