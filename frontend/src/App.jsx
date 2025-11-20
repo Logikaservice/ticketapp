@@ -514,6 +514,34 @@ export default function TicketApp() {
   useEffect(() => {
     const fetchData = async () => {
       if (!currentUser) return;
+
+      // OTTIMIZZAZIONE: Avvia il caricamento utenti in parallelo (non bloccante)
+      // Questo permette di popolare la lista aziende mentre si caricano ancora i ticket/forniture
+      let usersPromise = null;
+      const isAdmin = currentUser.ruolo === 'cliente' &&
+        currentUser.admin_companies &&
+        Array.isArray(currentUser.admin_companies) &&
+        currentUser.admin_companies.length > 0;
+
+      if (currentUser.ruolo === 'tecnico' || isAdmin) {
+        usersPromise = fetch(buildApiUrl('/api/users'), {
+          headers: getAuthHeader()
+        })
+          .then(res => {
+            if (!res.ok) throw new Error('Errore caricamento utenti');
+            return res.json();
+          })
+          .then(data => {
+            // Aggiorna lo stato appena i dati sono pronti
+            setUsers(data);
+            return data;
+          })
+          .catch(err => {
+            console.error('Errore caricamento utenti background:', err);
+            return [];
+          });
+      }
+
       try {
         const ticketsResponse = await fetch(buildApiUrl('/api/tickets'), {
           headers: getAuthHeader()
@@ -745,12 +773,12 @@ export default function TicketApp() {
           currentUser.admin_companies.length > 0;
 
         if (currentUser.ruolo === 'tecnico' || isAdmin) {
-          const usersResponse = await fetch(buildApiUrl('/api/users'), {
-            headers: getAuthHeader()
-          });
-          if (usersResponse.ok) {
-            const usersData = await usersResponse.json();
-            setUsers(usersData);
+          // Attendi la promise avviata all'inizio (i dati potrebbero essere già arrivati)
+          const usersData = usersPromise ? await usersPromise : [];
+
+          if (usersData.length > 0) {
+            // setUsers è già stato chiamato nel .then() della promise
+            // setUsers(usersData);
 
             // Ri-applica la logica per i nuovi ticket dopo aver caricato users (per amministratori)
             if (isAdmin && (currentUser.ruolo === 'cliente' || currentUser.ruolo === 'tecnico')) {
