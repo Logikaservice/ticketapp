@@ -497,20 +497,29 @@ const TimeLoggerModal = ({
                             <button
                               className="text-red-500"
                               onClick={async () => {
+                                // Verifica che selectedTicket esista e abbia un id
+                                if (!selectedTicket || !selectedTicket.id) {
+                                  alert('Errore: ticket non selezionato. Ricarica la pagina e riprova.');
+                                  return;
+                                }
+                                
                                 try {
                                   const authHeaders = getAuthHeader ? getAuthHeader() : {};
                                   const res = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/offerte/attachments/${encodeURIComponent(al.filename)}`, {
                                     method: 'DELETE',
                                     headers: authHeaders
                                   });
-                                  if (!res.ok) throw new Error('Eliminazione fallita');
+                                  if (!res.ok) {
+                                    const errorData = await res.json().catch(() => ({}));
+                                    throw new Error(errorData.error || 'Eliminazione fallita');
+                                  }
                                   setTimeLogs(prev => prev.map(l => l.id === offertaOwner.id ? {
                                     ...l,
                                     offerte: l.offerte.map(o => o.id === offerta.id ? { ...o, allegati: (o.allegati || []).filter(x => x.filename !== al.filename) } : o)
                                   } : l));
                                 } catch (err) {
                                   console.error('Elimina allegato offerta fallito:', err);
-                                  alert('Eliminazione allegato fallita');
+                                  alert(`Eliminazione allegato fallita: ${err.message || 'Errore sconosciuto'}`);
                                 }
                               }}
                             >
