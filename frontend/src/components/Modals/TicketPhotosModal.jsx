@@ -173,76 +173,95 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
   };
 
   const handlePrint = () => {
-    // Usa about:blank per assicurarsi che si apra in una nuova scheda
-    const printWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
-    if (printWindow && currentPhoto) {
-      const html = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>File Ticket ${ticket?.numero || ''}</title>
-            <style>
-              body {
-                margin: 0;
-                padding: 20px;
-                font-family: Arial, sans-serif;
-              }
-              .header {
-                margin-bottom: 20px;
-                border-bottom: 2px solid #333;
-                padding-bottom: 10px;
-              }
-              .header h1 {
-                margin: 0;
-                font-size: 24px;
-                color: #333;
-              }
-              .photo-container {
-                text-align: center;
-                margin: 20px 0;
-              }
-              .photo-container img {
-                max-width: 100%;
-                max-height: 80vh;
-                object-fit: contain;
-              }
-              .photo-info {
-                margin-top: 10px;
-                font-size: 12px;
-                color: #666;
-              }
-              @media print {
-                body { padding: 0; }
-                .header { page-break-after: avoid; }
-                .photo-container { page-break-inside: avoid; }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>Ticket ${ticket?.numero || ''} - ${ticket?.titolo || ''}</h1>
-              <p>File ${currentPhotoIndex + 1} di ${localPhotos.length}</p>
-            </div>
-            <div class="photo-container">
-              <img src="${apiUrl}${currentPhoto.path}" alt="${currentPhoto.originalName}" />
-              <div class="photo-info">
-                <p><strong>Nome file:</strong> ${currentPhoto.originalName}</p>
-                <p><strong>Data caricamento:</strong> ${new Date(currentPhoto.uploadedAt).toLocaleString('it-IT')}</p>
+    if (!currentPhoto) return;
+    
+    // Verifica se è un'immagine
+    const isImage = currentPhoto.originalName?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i) || 
+                   currentPhoto.path?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
+    
+    // Costruisci URL assoluto
+    let baseUrl = apiUrl;
+    if (!baseUrl) {
+      const origin = window.location.origin;
+      if (origin.includes('159.69.121.162') || origin.includes('localhost')) {
+        baseUrl = 'https://ticket.logikaservice.it';
+      } else {
+        baseUrl = origin;
+      }
+    }
+    const fileUrl = `${baseUrl}${currentPhoto.path}`;
+    
+    if (isImage) {
+      // Per immagini: apri in nuova finestra e stampa
+      const printWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
+      if (printWindow) {
+        const html = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>File Ticket ${ticket?.numero || ''}</title>
+              <style>
+                body {
+                  margin: 0;
+                  padding: 20px;
+                  font-family: Arial, sans-serif;
+                }
+                .header {
+                  margin-bottom: 20px;
+                  border-bottom: 2px solid #333;
+                  padding-bottom: 10px;
+                }
+                .header h1 {
+                  margin: 0;
+                  font-size: 24px;
+                  color: #333;
+                }
+                .photo-container {
+                  text-align: center;
+                  margin: 20px 0;
+                }
+                .photo-container img {
+                  max-width: 100%;
+                  max-height: 80vh;
+                  object-fit: contain;
+                }
+                .photo-info {
+                  margin-top: 10px;
+                  font-size: 12px;
+                  color: #666;
+                }
+                @media print {
+                  body { padding: 0; }
+                  .header { page-break-after: avoid; }
+                  .photo-container { page-break-inside: avoid; }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <h1>Ticket ${ticket?.numero || ''} - ${ticket?.titolo || ''}</h1>
+                <p>File ${currentPhotoIndex + 1} di ${localPhotos.length}</p>
               </div>
-            </div>
-          </body>
-        </html>
-      `;
-      printWindow.document.open();
-      printWindow.document.write(html);
-      printWindow.document.close();
-      
-      // Aspetta che l'immagine si carichi prima di aprire la stampa
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-        }, 250);
-      };
+              <div class="photo-container">
+                <img src="${fileUrl}" alt="${currentPhoto.originalName}" onload="window.print()" onerror="alert('Errore nel caricamento dell\'immagine'); window.close();" />
+                <div class="photo-info">
+                  <p><strong>Nome file:</strong> ${currentPhoto.originalName}</p>
+                  <p><strong>Data caricamento:</strong> ${new Date(currentPhoto.uploadedAt || Date.now()).toLocaleString('it-IT')}</p>
+                </div>
+              </div>
+            </body>
+          </html>
+        `;
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+      }
+    } else {
+      // Per PDF e altri file: apri direttamente il file in una nuova scheda
+      // Il browser gestirà la stampa del PDF
+      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      // Mostra messaggio informativo
+      alert('Il file PDF è stato aperto in una nuova scheda. Usa il pulsante Stampa del browser per stampare il PDF.');
     }
   };
 
