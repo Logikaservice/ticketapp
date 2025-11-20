@@ -541,22 +541,11 @@ module.exports = (pool) => {
         }
         
       } else if (action === 'update') {
-        // Per UPDATE, cerca il calendario corretto (potrebbe essere diverso da 'primary')
-        try {
-          const updateCalendarList = await calendar.calendarList.list();
-          const ticketAppCalendar = updateCalendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
-          if (ticketAppCalendar) {
-            calendarId = ticketAppCalendar.id;
-          } else if (updateCalendarList.data.items && updateCalendarList.data.items.length > 0) {
-            calendarId = updateCalendarList.data.items[0].id;
-          } else {
-            calendarId = 'primary';
-          }
-        } catch (calErr) {
-          calendarId = 'primary';
-        }
+        // Per UPDATE, NON aggiorniamo l'evento principale del ticket
+        // L'evento principale deve rimanere sempre alla data di apertura originale
+        // Gestiamo solo gli interventi (timelogs)
         
-        // Normalizza eventId da payload o DB
+        // Verifica se esiste già un evento principale
         let eventId = ticket.googleCalendarEventId || ticket.googlecalendareventid;
         if (!eventId && ticket.id) {
           try {
@@ -565,13 +554,23 @@ module.exports = (pool) => {
           } catch (e) {}
         }
 
-        if (eventId) {
-          result = await calendar.events.update({
-            calendarId: calendarId,
-            eventId: eventId,
-            resource: event
-          });
-        } else {
+        // Se non esiste evento principale, crealo (solo alla prima sincronizzazione)
+        if (!eventId) {
+          // Cerca il calendario corretto
+          try {
+            const updateCalendarList = await calendar.calendarList.list();
+            const ticketAppCalendar = updateCalendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
+            if (ticketAppCalendar) {
+              calendarId = ticketAppCalendar.id;
+            } else if (updateCalendarList.data.items && updateCalendarList.data.items.length > 0) {
+              calendarId = updateCalendarList.data.items[0].id;
+            } else {
+              calendarId = 'primary';
+            }
+          } catch (calErr) {
+            calendarId = 'primary';
+          }
+          
           result = await calendar.events.insert({
             calendarId: calendarId,
             resource: event,
@@ -583,13 +582,17 @@ module.exports = (pool) => {
               await pool.query('UPDATE tickets SET googlecalendareventid = $1 WHERE id = $2', [result.data.id, ticket.id]);
             } catch (_) {}
           }
+        } else {
+          // Evento principale già esiste, non lo aggiorniamo
+          // Usa il risultato esistente per la risposta
+          result = { data: { id: eventId } };
         }
         
         // Invia risposta HTTP IMMEDIATAMENTE (non attendere la creazione eventi intervento)
         res.json({
           success: true,
           eventId: result.data?.id,
-          message: 'Ticket sincronizzato con Google Calendar',
+          message: 'Interventi sincronizzati con Google Calendar',
           eventDetails: {
             summary: event.summary,
             start: event.start,
@@ -600,6 +603,20 @@ module.exports = (pool) => {
         // Crea eventi intervento in background (NON bloccare la risposta HTTP)
         setImmediate(async () => {
           try {
+            // Cerca il calendario corretto per gli interventi
+            let interventiCalendarId = 'primary';
+            try {
+              const updateCalendarList = await calendar.calendarList.list();
+              const ticketAppCalendar = updateCalendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
+              if (ticketAppCalendar) {
+                interventiCalendarId = ticketAppCalendar.id;
+              } else if (updateCalendarList.data.items && updateCalendarList.data.items.length > 0) {
+                interventiCalendarId = updateCalendarList.data.items[0].id;
+              }
+            } catch (calErr) {
+              interventiCalendarId = calendarId; // Usa quello già trovato
+            }
+            
             let timelogs = ticket.timelogs;
             
             if (typeof timelogs === 'string') {
@@ -724,14 +741,14 @@ module.exports = (pool) => {
                 try {
                   if (existingEvent) {
                     await calendar.events.update({
-                      calendarId: calendarId,
+                      calendarId: interventiCalendarId,
                       eventId: existingEvent.id,
                       resource: interventoEvent,
                       sendUpdates: 'none'
                     });
                   } else {
                     const interventoResult = await calendar.events.insert({
-                      calendarId: calendarId,
+                      calendarId: interventiCalendarId,
                       resource: interventoEvent,
                       sendUpdates: 'none',
                       conferenceDataVersion: 0

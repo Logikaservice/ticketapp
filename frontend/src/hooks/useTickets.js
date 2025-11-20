@@ -595,17 +595,9 @@ export const useTickets = (
       setTickets(prevTickets => prevTickets.map(t => (t.id === id ? updatedTicket : t)));
       showNotification('Stato del ticket aggiornato!', 'success');
       
-      // Sincronizzazione automatica con Google Calendar per cambio stato
-      if (googleCalendarSync && typeof googleCalendarSync === 'function') {
-        try {
-          console.log('Sincronizzazione automatica cambio stato ticket #' + updatedTicket.id + ' con Google Calendar');
-          await googleCalendarSync(updatedTicket, 'update');
-          console.log('Ticket #' + updatedTicket.id + ' aggiornato automaticamente in Google Calendar');
-        } catch (err) {
-          console.error('Errore sincronizzazione automatica cambio stato ticket #' + updatedTicket.id + ':', err);
-          // Non mostriamo errore all'utente per non interrompere il flusso
-        }
-      }
+      // NON sincronizziamo più l'evento principale quando cambia lo stato
+      // L'evento principale rimane sempre alla data di apertura originale
+      // Solo gli interventi vengono sincronizzati quando vengono salvati
       
       // La logica delle email è ora gestita dal backend in base al ruolo dell'utente
       
