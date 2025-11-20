@@ -177,34 +177,42 @@ const NewClientModal = ({
 
               {newClientData.useExistingCompany ? (
                 <div ref={dropdownRef} className="relative">
+                  {/* Select nascosto per validazione form */}
+                  <select
+                    value={newClientData.existingCompany}
+                    onChange={() => {}}
+                    className="sr-only"
+                    required
+                  >
+                    <option value="">Seleziona un'azienda...</option>
+                    {existingCompanies.map(azienda => (
+                      <option key={azienda} value={azienda}>{azienda}</option>
+                    ))}
+                  </select>
+                  
+                  {/* Button che simula il select */}
                   <button
                     type="button"
                     onClick={() => canUseExisting && setShowCompanyDropdown(prev => !prev)}
                     disabled={!canUseExisting}
-                    className={`w-full border rounded-2xl px-4 py-3 flex items-center justify-between text-left transition ${
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg text-left flex items-center justify-between transition ${
                       canUseExisting
-                        ? 'border-green-200 hover:border-green-400 focus:ring-2 focus:ring-green-200'
-                        : 'border-gray-200 opacity-60 cursor-not-allowed'
+                        ? 'bg-white hover:border-green-400 focus:ring-2 focus:ring-green-500 focus:border-transparent'
+                        : 'bg-gray-100 opacity-60 cursor-not-allowed'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-green-100 text-green-700 flex items-center justify-center font-bold text-lg">
-                        {newClientData.existingCompany ? newClientData.existingCompany.charAt(0).toUpperCase() : <Building2 size={20} />}
-                      </div>
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-500">Azienda selezionata</p>
-                        <p className="text-base font-semibold text-gray-800">
-                          {newClientData.existingCompany || "Seleziona un'azienda"}
-                        </p>
-                      </div>
-                    </div>
+                    <span className={newClientData.existingCompany ? 'text-gray-800' : 'text-gray-500'}>
+                      {newClientData.existingCompany || "Seleziona un'azienda..."}
+                    </span>
                     <ChevronDown
-                      size={20}
-                      className={`text-green-700 transition-transform ${showCompanyDropdown ? 'rotate-180' : ''}`}
+                      size={18}
+                      className={`text-gray-400 transition-transform ${showCompanyDropdown ? 'rotate-180' : ''}`}
                     />
                   </button>
+                  
+                  {/* Dropdown custom con card stilizzate */}
                   {showCompanyDropdown && canUseExisting && (
-                    <div className="absolute left-0 right-0 mt-2 bg-white border border-green-100 rounded-2xl shadow-2xl max-h-64 overflow-y-auto z-10">
+                    <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl max-h-64 overflow-y-auto z-10">
                       {existingCompanies.map((azienda) => {
                         const isSelected = newClientData.existingCompany === azienda;
                         return (
@@ -216,16 +224,18 @@ const NewClientModal = ({
                               setShowCompanyDropdown(false);
                             }}
                             className={`w-full flex items-center justify-between px-4 py-3 text-left transition ${
-                              isSelected ? 'bg-green-50 border-l-4 border-green-500' : 'hover:bg-green-50'
+                              isSelected 
+                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500' 
+                                : 'hover:bg-green-50'
                             }`}
                           >
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-green-100 text-green-700 flex items-center justify-center font-bold">
+                              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                                 {azienda.charAt(0).toUpperCase()}
                               </div>
                               <span className="font-medium text-gray-800">{azienda}</span>
                             </div>
-                            {isSelected && <Check size={18} className="text-green-600" />}
+                            {isSelected && <Check size={18} className="text-green-600 flex-shrink-0" />}
                           </button>
                         );
                       })}
