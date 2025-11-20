@@ -164,6 +164,14 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
     console.log('🔍 DEBUG BACKEND: User ID:', req.user?.id || 'N/A');
     console.log('🔍 DEBUG BACKEND: User Role:', req.user?.ruolo || 'N/A');
     console.log('🔍 DEBUG BACKEND: File caricati:', req.files ? req.files.length : 0);
+    if (req.files && req.files.length > 0) {
+      console.log('🔍 DEBUG BACKEND: Dettagli file:', req.files.map(f => ({
+        filename: f.filename,
+        originalname: f.originalname,
+        size: f.size,
+        mimetype: f.mimetype
+      })));
+    }
     
     // Gestisce sia JSON che multipart/form-data
     let clienteid = req.body.clienteid;
@@ -251,6 +259,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       // Salva le foto se presenti
       let photosArray = [];
       if (photos && photos.length > 0) {
+        console.log('🔍 DEBUG BACKEND: Elaborazione', photos.length, 'foto...');
         photosArray = photos.map(file => ({
           filename: file.filename,
           originalName: file.originalname,
@@ -259,6 +268,9 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
           mimetype: file.mimetype,
           uploadedAt: new Date().toISOString()
         }));
+        console.log('🔍 DEBUG BACKEND: Foto elaborate:', photosArray.length);
+      } else {
+        console.log('🔍 DEBUG BACKEND: Nessuna foto da salvare');
       }
       
       const query = `
