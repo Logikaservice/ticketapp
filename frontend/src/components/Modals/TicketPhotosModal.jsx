@@ -294,16 +294,31 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                              currentPhoto.path?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
               
               if (isImage) {
-                // Costruisci URL assoluto se apiUrl è vuoto (usa window.location.origin)
-                const baseUrl = apiUrl || window.location.origin;
+                // Costruisci URL assoluto - usa sempre HTTPS e il dominio corretto
+                let baseUrl = apiUrl;
+                if (!baseUrl) {
+                  // Se apiUrl è vuoto, usa il dominio corrente con HTTPS
+                  const origin = window.location.origin;
+                  // Se è un IP, usa il dominio configurato
+                  if (origin.includes('159.69.121.162') || origin.includes('localhost')) {
+                    baseUrl = 'https://ticket.logikaservice.it';
+                  } else {
+                    baseUrl = origin;
+                  }
+                }
                 const imageUrl = `${baseUrl}${currentPhoto.path}`;
                 return (
                   <img
                     src={imageUrl}
                     alt={currentPhoto.originalName}
                     className="max-w-full max-h-full object-contain"
+                    crossOrigin="anonymous"
                     onError={(e) => {
-                      console.error('❌ Errore caricamento immagine:', imageUrl, e.target.error);
+                      console.error('❌ Errore caricamento immagine:', {
+                        url: imageUrl,
+                        error: e.target.error,
+                        status: e.target.naturalWidth === 0 ? 'Failed to load' : 'Unknown error'
+                      });
                       e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2U1ZTdlYiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5FcnJvcmUgY2FyaWNhbWVudG88L3RleHQ+PC9zdmc+';
                     }}
                   />
@@ -347,13 +362,25 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
-                      {isImage ? (
-                        <img
-                          src={`${apiUrl || window.location.origin}${photo.path}`}
-                          alt={photo.originalName}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
+                      {isImage ? (() => {
+                        let baseUrl = apiUrl;
+                        if (!baseUrl) {
+                          const origin = window.location.origin;
+                          if (origin.includes('159.69.121.162') || origin.includes('localhost')) {
+                            baseUrl = 'https://ticket.logikaservice.it';
+                          } else {
+                            baseUrl = origin;
+                          }
+                        }
+                        return (
+                          <img
+                            src={`${baseUrl}${photo.path}`}
+                            alt={photo.originalName}
+                            className="w-full h-full object-cover"
+                            crossOrigin="anonymous"
+                          />
+                        );
+                      })() : (
                         <File size={32} className="text-gray-400" />
                       )}
                     </button>
