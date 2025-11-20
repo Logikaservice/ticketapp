@@ -543,21 +543,16 @@ module.exports = (pool) => {
       } else if (action === 'update') {
         // Per UPDATE, cerca il calendario corretto (potrebbe essere diverso da 'primary')
         try {
-          console.log('[UPDATE] Ricerca calendario corretto per aggiornamento...');
           const updateCalendarList = await calendar.calendarList.list();
           const ticketAppCalendar = updateCalendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
           if (ticketAppCalendar) {
             calendarId = ticketAppCalendar.id;
-            console.log('[UPDATE] Trovato TicketApp Test Calendar:', calendarId);
           } else if (updateCalendarList.data.items && updateCalendarList.data.items.length > 0) {
             calendarId = updateCalendarList.data.items[0].id;
-            console.log('[UPDATE] Usando primo calendario disponibile:', calendarId);
           } else {
             calendarId = 'primary';
-            console.log('[UPDATE] Usando calendario primary (default)');
           }
         } catch (calErr) {
-          console.log('[UPDATE] Errore ricerca calendario, uso primary:', calErr.message);
           calendarId = 'primary';
         }
         
@@ -570,35 +565,27 @@ module.exports = (pool) => {
           } catch (e) {}
         }
 
-        console.log('[UPDATE] Event ID trovato:', eventId, 'Calendar ID:', calendarId);
-
         if (eventId) {
           result = await calendar.events.update({
             calendarId: calendarId,
             eventId: eventId,
             resource: event
           });
-          console.log('[UPDATE] ✅ Evento principale aggiornato:', result.data.id);
         } else {
-          // Se non esiste ancora un evento, crealo
-          console.log('[UPDATE] Evento principale non esiste, creo nuovo...');
           result = await calendar.events.insert({
             calendarId: calendarId,
             resource: event,
             sendUpdates: 'none',
             conferenceDataVersion: 0
           });
-          console.log('[UPDATE] ✅ Evento principale creato:', result.data.id);
           if (result.data?.id && ticket.id) {
             try {
               await pool.query('UPDATE tickets SET googlecalendareventid = $1 WHERE id = $2', [result.data.id, ticket.id]);
-              console.log('[UPDATE] ✅ ID evento salvato nel database');
             } catch (_) {}
           }
         }
         
         // Invia risposta HTTP IMMEDIATAMENTE (non attendere la creazione eventi intervento)
-        console.log('✅ Evento principale aggiornato, invio risposta HTTP immediata');
         res.json({
           success: true,
           eventId: result.data?.id,
@@ -613,84 +600,46 @@ module.exports = (pool) => {
         // Crea eventi intervento in background (NON bloccare la risposta HTTP)
         setImmediate(async () => {
           try {
-            console.log(`[UPDATE] ===== INIZIO GESTIONE TIMELOGS IN BACKGROUND PER TICKET #${ticket.id} =====`);
-          console.log(`[UPDATE] Ticket completo ricevuto:`, {
-            id: ticket.id,
-            numero: ticket.numero,
-            hasTimelogs: !!ticket.timelogs,
-            timelogsType: typeof ticket.timelogs,
-            timelogsIsArray: Array.isArray(ticket.timelogs),
-            timelogsLength: Array.isArray(ticket.timelogs) ? ticket.timelogs.length : 'N/A'
-          });
-          
-          let timelogs = ticket.timelogs;
-          console.log(`[UPDATE] Timelogs raw:`, typeof timelogs, Array.isArray(timelogs) ? timelogs.length : 'N/A');
-          
-          if (typeof timelogs === 'string') {
-            console.log(`[UPDATE] Timelogs è una stringa, provo a parsare...`);
-            console.log(`[UPDATE] Stringa timelogs (primi 200 caratteri):`, timelogs.substring(0, 200));
-            try { 
-              timelogs = JSON.parse(timelogs); 
-              console.log(`[UPDATE] ✅ Timelogs parsati da stringa con successo:`, timelogs.length, 'interventi');
-              console.log(`[UPDATE] Primo intervento parsato:`, timelogs[0] ? {
-                data: timelogs[0].data,
-                oraInizio: timelogs[0].oraInizio,
-                modalita: timelogs[0].modalita,
-                hasDescrizione: !!timelogs[0].descrizione
-              } : 'N/A');
-            } catch (parseErr) { 
-              console.error(`[UPDATE] ❌ Errore parsing timelogs:`, parseErr.message);
-              console.error(`[UPDATE] Stack trace:`, parseErr.stack);
-              timelogs = []; 
-            }
-          }
-          
-          if (Array.isArray(timelogs) && timelogs.length > 0) {
-            console.log(`[UPDATE] ✅ Timelogs validi trovati: ${timelogs.length} interventi`);
-            console.log(`[UPDATE] Aggiornamento/Creazione eventi per ${timelogs.length} interventi...`);
+            let timelogs = ticket.timelogs;
             
-            // Cerca eventi esistenti per questo ticket
-            let existingInterventiEvents = [];
-            try {
-              console.log(`[UPDATE] Ricerca eventi esistenti per ticket #${ticket.id}...`);
-              const eventsList = await calendar.events.list({
-                calendarId: calendarId,
-                timeMin: new Date(new Date().getFullYear() - 1, 0, 1).toISOString(),
-                timeMax: new Date(new Date().getFullYear() + 1, 11, 31).toISOString(),
-                maxResults: 2500,
-                singleEvents: true
-              });
-              
-              existingInterventiEvents = eventsList.data.items?.filter(e => 
-                e.extendedProperties?.private?.ticketId === ticket.id.toString() &&
-                e.extendedProperties?.private?.isIntervento === 'true'
-              ) || [];
-              console.log(`[UPDATE] Trovati ${existingInterventiEvents.length} eventi intervento esistenti per ticket #${ticket.id}`);
-            } catch (searchErr) {
-              console.error(`[UPDATE] ❌ Errore ricerca eventi intervento esistenti:`, searchErr.message);
-              console.error(`[UPDATE] Stack trace:`, searchErr.stack);
-              // Non bloccare il processo, continua senza eventi esistenti
+            if (typeof timelogs === 'string') {
+              try { 
+                timelogs = JSON.parse(timelogs); 
+              } catch (parseErr) { 
+                console.error(`[UPDATE] Errore parsing timelogs:`, parseErr.message);
+                timelogs = []; 
+              }
             }
             
-            for (const [idx, log] of timelogs.entries()) {
+            if (Array.isArray(timelogs) && timelogs.length > 0) {
+              // Cerca eventi esistenti per questo ticket
+              let existingInterventiEvents = [];
               try {
-                console.log(`[UPDATE] ===== ELABORAZIONE INTERVENTO #${idx + 1} =====`);
-                console.log(`[UPDATE] Dati intervento completo:`, JSON.stringify(log, null, 2));
-                console.log(`[UPDATE] Ticket ID: ${ticket.id}, Numero: ${ticket.numero}`);
+                const eventsList = await calendar.events.list({
+                  calendarId: calendarId,
+                  timeMin: new Date(new Date().getFullYear() - 1, 0, 1).toISOString(),
+                  timeMax: new Date(new Date().getFullYear() + 1, 11, 31).toISOString(),
+                  maxResults: 2500,
+                  singleEvents: true
+                });
                 
-                if (!log.data) {
-                  console.log(`[UPDATE] ⚠️ Intervento #${idx + 1} senza data, saltato`);
-                  console.log(`[UPDATE] Log completo:`, log);
-                  continue;
-                }
-                
-                console.log(`[UPDATE] ✅ Intervento #${idx + 1} ha data: ${log.data}`);
-                
-                // Prepara data e ora dell'intervento
-                let interventoStartDate;
-                let interventoEndDate;
-                
-                console.log(`[UPDATE] Intervento #${idx + 1} data:`, log.data, 'oraInizio:', log.oraInizio);
+                existingInterventiEvents = eventsList.data.items?.filter(e => 
+                  e.extendedProperties?.private?.ticketId === ticket.id.toString() &&
+                  e.extendedProperties?.private?.isIntervento === 'true'
+                ) || [];
+              } catch (searchErr) {
+                console.error(`[UPDATE] Errore ricerca eventi intervento esistenti:`, searchErr.message);
+              }
+              
+              for (const [idx, log] of timelogs.entries()) {
+                try {
+                  if (!log.data) {
+                    continue;
+                  }
+                  
+                  // Prepara data e ora dell'intervento
+                  let interventoStartDate;
+                  let interventoEndDate;
                 
                 if (log.data.includes('T')) {
                   interventoStartDate = new Date(log.data);
@@ -774,73 +723,50 @@ module.exports = (pool) => {
                 
                 try {
                   if (existingEvent) {
-                    // Aggiorna evento esistente
-                    console.log(`[UPDATE] Aggiornamento evento intervento #${idx + 1} esistente:`, existingEvent.id);
                     await calendar.events.update({
                       calendarId: calendarId,
                       eventId: existingEvent.id,
                       resource: interventoEvent,
                       sendUpdates: 'none'
                     });
-                    console.log(`[UPDATE] ✅ Evento intervento #${idx + 1} aggiornato: ${existingEvent.id}`);
                   } else {
-                    // Crea nuovo evento
-                    console.log(`[UPDATE] Creazione nuovo evento intervento #${idx + 1}...`);
-                    console.log(`[UPDATE] Evento da creare:`, {
-                      summary: interventoEvent.summary,
-                      start: interventoEvent.start,
-                      end: interventoEvent.end,
-                      calendarId: calendarId
-                    });
                     const interventoResult = await calendar.events.insert({
                       calendarId: calendarId,
                       resource: interventoEvent,
                       sendUpdates: 'none',
                       conferenceDataVersion: 0
                     });
-                    console.log(`[UPDATE] ✅ Evento intervento #${idx + 1} creato: ${interventoResult.data.id}`);
+                    console.log(`✅ Evento intervento creato per ticket #${ticket.numero}: ${interventoResult.data.id}`);
                   }
                 } catch (interventoErr) {
-                  console.error(`[UPDATE] ❌ Errore aggiornamento/creazione evento intervento #${idx + 1}:`, interventoErr.message);
-                  console.error(`[UPDATE] Stack trace:`, interventoErr.stack);
-                  console.error(`[UPDATE] Error code:`, interventoErr.code);
-                  console.error(`[UPDATE] Error details:`, interventoErr.response?.data);
-                  // Non bloccare il processo, continua con gli altri interventi
+                  console.error(`[UPDATE] Errore creazione evento intervento:`, interventoErr.message);
                 }
-            } catch (logErr) {
-              console.error(`[UPDATE] ❌ Errore elaborazione intervento #${idx + 1}:`, logErr.message);
-              console.error(`[UPDATE] Stack trace:`, logErr.stack);
-              // Continua con il prossimo intervento
-            }
-            }
-            
-            // Rimuovi eventi intervento che non esistono più nei timelogs
-            const validIndices = timelogs.map((_, idx) => idx.toString());
-            const eventsToDelete = existingInterventiEvents.filter(e => 
-              !validIndices.includes(e.extendedProperties?.private?.timelogIndex)
-            );
-            
-            for (const eventToDelete of eventsToDelete) {
-              try {
-                await calendar.events.delete({
-                  calendarId: calendarId,
-                  eventId: eventToDelete.id,
-                  sendUpdates: 'none'
-                });
-                console.log(`✅ Evento intervento rimosso: ${eventToDelete.id}`);
-              } catch (deleteErr) {
-                console.log(`⚠️ Errore rimozione evento intervento:`, deleteErr.message);
+              } catch (logErr) {
+                console.error(`[UPDATE] Errore elaborazione intervento:`, logErr.message);
+              }
+              }
+              
+              // Rimuovi eventi intervento che non esistono più nei timelogs
+              const validIndices = timelogs.map((_, idx) => idx.toString());
+              const eventsToDelete = existingInterventiEvents.filter(e => 
+                !validIndices.includes(e.extendedProperties?.private?.timelogIndex)
+              );
+              
+              for (const eventToDelete of eventsToDelete) {
+                try {
+                  await calendar.events.delete({
+                    calendarId: calendarId,
+                    eventId: eventToDelete.id,
+                    sendUpdates: 'none'
+                  });
+                } catch (deleteErr) {
+                  console.error(`[UPDATE] Errore rimozione evento intervento:`, deleteErr.message);
+                }
               }
             }
-          } else {
-            console.log(`[UPDATE] ⚠️ Nessun timelog valido trovato per ticket #${ticket.id}`);
-          }
         } catch (interventiErr) {
-          console.error(`[UPDATE] ❌ Errore gestione eventi interventi:`, interventiErr.message);
-          console.error(`[UPDATE] Stack trace:`, interventiErr.stack);
+          console.error(`[UPDATE] Errore gestione eventi interventi:`, interventiErr.message);
         }
-        
-        console.log(`[UPDATE] ===== FINE GESTIONE TIMELOGS IN BACKGROUND PER TICKET #${ticket.id} =====`);
       }); // Fine setImmediate - eventi intervento creati in background
       
       } else if (action === 'delete') {
