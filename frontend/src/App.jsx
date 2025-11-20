@@ -2226,6 +2226,7 @@ export default function TicketApp() {
       if (type === 'create') {
         // Crea ticket con invio email
         const photos = pendingTicketAction?.photos || [];
+        console.log('🔍 DEBUG handleConfirmEmail: photos =', photos.length, 'file');
         await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, true, photos);
       } else if (type === 'update') {
         // Aggiorna ticket con invio email
@@ -2306,7 +2307,9 @@ export default function TicketApp() {
     try {
       if (type === 'create') {
         // Crea ticket senza invio email
-        await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, false);
+        const photos = pendingTicketAction?.photos || [];
+        console.log('🔍 DEBUG handleCancelEmail: photos =', photos.length, 'file');
+        await createTicket(data, isEditing, wrappedHandleUpdateTicket, selectedClient, false, photos);
       } else if (type === 'update') {
         // Aggiorna ticket senza invio email
         await updateTicket(data, isEditing, selectedClient, false);
