@@ -1375,9 +1375,9 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           />
         </div>
         <div>
-          {/* Pulsante temporaneo per sincronizzazione massa Google Calendar */}
+          {/* Pulsanti per sincronizzazione Google Calendar */}
           {currentUser?.ruolo === 'tecnico' && (
-            <div className="mb-4">
+            <div className="mb-4 space-y-2">
               <button
                 onClick={async () => {
                   try {
@@ -1392,7 +1392,6 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
                     if (response.ok) {
                       const result = await response.json();
-                      // Stampa dettagli errori in console per debug
                       if (result?.errorDetails && Array.isArray(result.errorDetails)) {
                         console.group('Dettagli errori sincronizzazione Google Calendar');
                         result.errorDetails.forEach(e => console.error(`Ticket #${e?.numero || e?.ticketId}: ${e?.error}`));
