@@ -1602,8 +1602,7 @@ export default function TicketApp() {
     descrizione += `Titolo: ${alert.title}\n`;
     descrizione += `Tipo: ${alert.level === 'danger' ? 'Critico' : alert.level === 'warning' ? 'Avviso' : 'Informazione'}\n`;
     descrizione += `Data creazione: ${new Date(alert.createdAt || alert.created_at).toLocaleString('it-IT')}\n\n`;
-    descrizione += `Descrizione avviso:\n${alert.body}\n\n`;
-    descrizione += `==========================\n`;
+    descrizione += `Descrizione avviso:\n${alert.body}\n\n==========================\n`;
     
     setNewTicketData({
       titolo: `Ticket da avviso: ${alert.title}`,
