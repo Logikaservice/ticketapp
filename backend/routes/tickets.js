@@ -137,12 +137,33 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
   });
 
   // ENDPOINT: Crea un nuovo ticket (gestisce sia JSON che multipart/form-data)
-  router.post('/', uploadTicketPhotos.array('photos', 10), async (req, res) => {
+  router.post('/', (req, res, next) => {
+    // Middleware per gestire errori di Multer durante la creazione ticket
+    uploadTicketPhotos.array('photos', 10)(req, res, (err) => {
+      if (err) {
+        console.error('❌ Errore Multer upload foto durante creazione ticket:', err);
+        if (err instanceof multer.MulterError) {
+          if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ error: 'File troppo grande. Dimensione massima: 1MB per file' });
+          }
+          if (err.code === 'LIMIT_FILE_COUNT') {
+            return res.status(400).json({ error: 'Troppi file. Massimo 10 file per volta' });
+          }
+          if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+            return res.status(400).json({ error: 'Campo file non valido' });
+          }
+        }
+        return res.status(500).json({ error: 'Errore durante il caricamento delle foto: ' + err.message });
+      }
+      next();
+    });
+  }, async (req, res) => {
     console.log('🔍 DEBUG BACKEND: POST /api/tickets - Richiesta ricevuta!');
     console.log('🔍 DEBUG BACKEND: Headers:', JSON.stringify(req.headers, null, 2));
     console.log('🔍 DEBUG BACKEND: Content-Type:', req.headers['content-type']);
     console.log('🔍 DEBUG BACKEND: User ID:', req.user?.id || 'N/A');
     console.log('🔍 DEBUG BACKEND: User Role:', req.user?.ruolo || 'N/A');
+    console.log('🔍 DEBUG BACKEND: File caricati:', req.files ? req.files.length : 0);
     
     // Gestisce sia JSON che multipart/form-data
     let clienteid = req.body.clienteid;

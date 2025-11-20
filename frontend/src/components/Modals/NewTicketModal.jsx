@@ -98,8 +98,26 @@ const NewTicketModal = ({
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
     if (imageFiles.length !== files.length) {
       alert('Solo file immagine sono permessi');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       return;
     }
+    
+    // Verifica dimensione file (massimo 1MB per file)
+    const maxSize = 1 * 1024 * 1024; // 1MB in bytes
+    const oversizedFiles = imageFiles.filter(file => file.size > maxSize);
+    
+    if (oversizedFiles.length > 0) {
+      const fileNames = oversizedFiles.map(f => f.name).join(', ');
+      alert(`I seguenti file superano il limite di 1MB e non possono essere caricati:\n${fileNames}\n\nDimensione massima consentita: 1MB per file`);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+    
     setPhotos(imageFiles);
   };
 
