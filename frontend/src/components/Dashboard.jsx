@@ -1396,21 +1396,25 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
                     if (response.ok) {
                       const result = await response.json();
-                      if (result?.errorDetails && Array.isArray(result.errorDetails)) {
-                        console.group('Dettagli errori aggiornamento formato');
-                        result.errorDetails.forEach(e => console.error(`Ticket #${e?.numero || e?.ticketId}${e?.interventoIndex ? `, Intervento #${e.interventoIndex}` : ''}: ${e?.error}`));
-                        console.groupEnd();
+                      if (result.status === 'processing') {
+                        alert('Aggiornamento formato eventi intervento avviato in background.\n\nIl processo può richiedere alcuni minuti.\n\nControlla i log del backend per vedere il progresso.');
+                      } else {
+                        if (result?.errorDetails && Array.isArray(result.errorDetails)) {
+                          console.group('Dettagli errori aggiornamento formato');
+                          result.errorDetails.forEach(e => console.error(`Ticket #${e?.numero || e?.ticketId}${e?.interventoIndex ? `, Intervento #${e.interventoIndex}` : ''}: ${e?.error}`));
+                          console.groupEnd();
+                        }
+
+                        const errorLines = (result?.errorDetails || [])
+                          .map(e => `- Ticket #${e?.numero || e?.ticketId}${e?.interventoIndex ? `, Intervento #${e.interventoIndex}` : ''}: ${e?.error}`)
+                          .join('\n');
+
+                        const details = result?.errors > 0 && errorLines
+                          ? `\n\nDettagli errori:\n${errorLines}`
+                          : '';
+
+                        alert(`Aggiornamento formato completato!\nEventi aggiornati: ${result.updated}\nErrori: ${result.errors}${details}`);
                       }
-
-                      const errorLines = (result?.errorDetails || [])
-                        .map(e => `- Ticket #${e?.numero || e?.ticketId}${e?.interventoIndex ? `, Intervento #${e.interventoIndex}` : ''}: ${e?.error}`)
-                        .join('\n');
-
-                      const details = result?.errors > 0 && errorLines
-                        ? `\n\nDettagli errori:\n${errorLines}`
-                        : '';
-
-                      alert(`Aggiornamento formato completato!\nEventi aggiornati: ${result.updated}\nErrori: ${result.errors}${details}`);
                     } else {
                       alert('Errore durante l\'aggiornamento');
                     }
