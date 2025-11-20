@@ -1829,5 +1829,213 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Risincronizza tutti gli eventi ticket alla data di apertura originale
+  router.post('/resync-tickets-to-original-date', async (req, res) => {
+    try {
+      console.log('=== RISINCRONIZZAZIONE EVENTI TICKET ALLA DATA ORIGINALE ===');
+      
+      // Verifica credenziali
+      if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+        return res.json({
+          success: false,
+          message: 'Google Service Account non configurato'
+        });
+      }
+
+      const authInstance = getAuth();
+      if (!authInstance) {
+        return res.json({
+          success: false,
+          message: 'Google Auth non configurato'
+        });
+      }
+
+      const authClient = await authInstance.getClient();
+      const calendar = google.calendar({ version: 'v3', auth: authClient });
+
+      // Trova calendario corretto
+      let calendarId = 'primary';
+      try {
+        const calendarList = await calendar.calendarList.list();
+        const ticketAppCalendar = calendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
+        if (ticketAppCalendar) {
+          calendarId = ticketAppCalendar.id;
+        } else if (calendarList.data.items && calendarList.data.items.length > 0) {
+          calendarId = calendarList.data.items[0].id;
+        }
+      } catch (calErr) {
+        console.error('Errore ricerca calendario:', calErr.message);
+      }
+
+      // Recupera tutti i ticket con eventi Google Calendar
+      const client = await pool.connect();
+      const ticketsResult = await client.query(`
+        SELECT t.*, u.azienda 
+        FROM tickets t 
+        LEFT JOIN users u ON t.clienteid = u.id 
+        WHERE t.googlecalendareventid IS NOT NULL 
+        ORDER BY t.dataapertura DESC
+      `);
+      client.release();
+
+      const tickets = ticketsResult.rows;
+      console.log(`Trovati ${tickets.length} ticket con eventi Google Calendar da risincronizzare`);
+
+      if (tickets.length === 0) {
+        return res.json({
+          success: true,
+          message: 'Nessun ticket con eventi Google Calendar trovato',
+          resynced: 0
+        });
+      }
+
+      let resyncedCount = 0;
+      let errorCount = 0;
+      const errors = [];
+
+      // Funzione helper per formattare date
+      const formatDateTime = (date) => {
+        return date.toLocaleString('it-IT', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'Europe/Rome'
+        });
+      };
+
+      // Funzione per ottenere il colore della priorità
+      const getPriorityColorId = (priorita) => {
+        switch (priorita?.toLowerCase()) {
+          case 'urgente': return '11';
+          case 'alta': return '6';
+          case 'media': return '5';
+          case 'bassa': return '10';
+          default: return '1';
+        }
+      };
+
+      // Risincronizza ogni ticket alla data di apertura originale
+      for (const ticket of tickets) {
+        try {
+          // Prepara la data di apertura originale
+          let startDate;
+          if (ticket.dataapertura) {
+            if (typeof ticket.dataapertura === 'string') {
+              if (ticket.dataapertura.includes('T') && ticket.dataapertura.includes('+')) {
+                startDate = new Date(ticket.dataapertura);
+              } else if (ticket.dataapertura.includes('T')) {
+                startDate = new Date(ticket.dataapertura + '+02:00');
+              } else {
+                startDate = new Date(ticket.dataapertura + 'T00:00:00+02:00');
+              }
+            } else {
+              try { startDate = new Date(ticket.dataapertura); } catch { startDate = new Date(); }
+            }
+            if (!startDate || isNaN(startDate.getTime())) {
+              startDate = new Date();
+            }
+          } else if (ticket.created_at) {
+            startDate = new Date(ticket.created_at);
+            if (isNaN(startDate.getTime())) {
+              startDate = new Date();
+            }
+          } else {
+            startDate = new Date();
+          }
+
+          const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 ora dopo
+
+          // Costruisci descrizione (solo info base, senza stato aggiornato)
+          let description = `TITOLO: ${ticket.titolo}\n`;
+          description += `PRIORITÀ: ${ticket.priorita?.toUpperCase()}\n`;
+          description += `DESCRIZIONE: ${ticket.descrizione || ''}\n`;
+          description += `APERTURA: ${formatDateTime(startDate)}\n`;
+
+          // Aggiungi timelogs se presenti (solo per info, non per creare eventi)
+          try {
+            let timelogs = ticket.timelogs;
+            if (typeof timelogs === 'string') {
+              try { timelogs = JSON.parse(timelogs); } catch { timelogs = []; }
+            }
+            if (Array.isArray(timelogs) && timelogs.length > 0) {
+              description += `\n— REGISTRO INTERVENTO —\n`;
+              timelogs.forEach((log, idx) => {
+                const modalita = log.modalita || '';
+                const dataLog = log.data || '';
+                const oraInizio = log.oraInizio || '';
+                const oraFine = log.oraFine || '';
+                const desc = (log.descrizione || '').replace(/\n/g, ' ');
+                const ore = parseFloat(log.oreIntervento) || 0;
+                description += `#${idx + 1} ${modalita} — ${dataLog} ${oraInizio ? `(${oraInizio}` : ''}${oraFine ? `-${oraFine})` : (oraInizio ? ')' : '')}\n`;
+                if (desc) description += `  Descrizione: ${desc}\n`;
+                description += `  Ore: ${ore}h\n`;
+              });
+            }
+          } catch (_) {}
+
+          const event = {
+            summary: `Ticket ${ticket.numero} - ${ticket.azienda || 'Cliente Sconosciuto'}`,
+            description: description,
+            start: {
+              dateTime: startDate.toISOString(),
+              timeZone: 'Europe/Rome'
+            },
+            end: {
+              dateTime: endDate.toISOString(),
+              timeZone: 'Europe/Rome'
+            },
+            colorId: getPriorityColorId(ticket.priorita),
+            source: {
+              title: 'TicketApp',
+              url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
+            }
+          };
+
+          // Aggiorna l'evento alla data di apertura originale
+          await calendar.events.update({
+            calendarId: calendarId,
+            eventId: ticket.googlecalendareventid,
+            resource: event
+          });
+
+          console.log(`✅ Ticket #${ticket.numero} risincronizzato alla data originale: ${formatDateTime(startDate)}`);
+          resyncedCount++;
+
+          // Piccola pausa per evitare rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (err) {
+          console.error(`❌ Errore risincronizzazione ticket #${ticket.numero}:`, err.message);
+          errors.push({
+            ticketId: ticket.id,
+            numero: ticket.numero,
+            error: err.message
+          });
+          errorCount++;
+        }
+      }
+
+      console.log(`=== RISINCRONIZZAZIONE COMPLETATA ===`);
+      console.log(`Risincronizzati: ${resyncedCount}`);
+      console.log(`Errori: ${errorCount}`);
+
+      res.json({
+        success: true,
+        message: 'Risincronizzazione completata',
+        resynced: resyncedCount,
+        errors: errorCount,
+        errorDetails: errors.length > 0 ? errors : undefined
+      });
+    } catch (err) {
+      console.error('Errore risincronizzazione eventi ticket:', err);
+      res.status(500).json({
+        success: false,
+        message: 'Errore interno del server',
+        error: err.message
+      });
+    }
+  });
+
   return router;
 };
