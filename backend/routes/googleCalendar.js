@@ -541,6 +541,26 @@ module.exports = (pool) => {
         }
         
       } else if (action === 'update') {
+        // Per UPDATE, cerca il calendario corretto (potrebbe essere diverso da 'primary')
+        try {
+          console.log('[UPDATE] Ricerca calendario corretto per aggiornamento...');
+          const updateCalendarList = await calendar.calendarList.list();
+          const ticketAppCalendar = updateCalendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
+          if (ticketAppCalendar) {
+            calendarId = ticketAppCalendar.id;
+            console.log('[UPDATE] Trovato TicketApp Test Calendar:', calendarId);
+          } else if (updateCalendarList.data.items && updateCalendarList.data.items.length > 0) {
+            calendarId = updateCalendarList.data.items[0].id;
+            console.log('[UPDATE] Usando primo calendario disponibile:', calendarId);
+          } else {
+            calendarId = 'primary';
+            console.log('[UPDATE] Usando calendario primary (default)');
+          }
+        } catch (calErr) {
+          console.log('[UPDATE] Errore ricerca calendario, uso primary:', calErr.message);
+          calendarId = 'primary';
+        }
+        
         // Normalizza eventId da payload o DB
         let eventId = ticket.googleCalendarEventId || ticket.googlecalendareventid;
         if (!eventId && ticket.id) {
@@ -550,23 +570,29 @@ module.exports = (pool) => {
           } catch (e) {}
         }
 
+        console.log('[UPDATE] Event ID trovato:', eventId, 'Calendar ID:', calendarId);
+
         if (eventId) {
           result = await calendar.events.update({
             calendarId: calendarId,
             eventId: eventId,
             resource: event
           });
+          console.log('[UPDATE] ✅ Evento principale aggiornato:', result.data.id);
         } else {
           // Se non esiste ancora un evento, crealo
+          console.log('[UPDATE] Evento principale non esiste, creo nuovo...');
           result = await calendar.events.insert({
             calendarId: calendarId,
             resource: event,
             sendUpdates: 'none',
             conferenceDataVersion: 0
           });
+          console.log('[UPDATE] ✅ Evento principale creato:', result.data.id);
           if (result.data?.id && ticket.id) {
             try {
               await pool.query('UPDATE tickets SET googlecalendareventid = $1 WHERE id = $2', [result.data.id, ticket.id]);
+              console.log('[UPDATE] ✅ ID evento salvato nel database');
             } catch (_) {}
           }
         }
