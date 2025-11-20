@@ -661,17 +661,37 @@ export const useTickets = (
         const updatedTicket = allTickets.find(t => t.id === selectedTicket.id);
         
         if (updatedTicket) {
-          console.log('✅ Ticket aggiornato con timeLogs:', updatedTicket.timelogs);
-          setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
+          // Parsa timelogs se sono una stringa JSON
+          let parsedTimelogs = updatedTicket.timelogs;
+          if (typeof parsedTimelogs === 'string') {
+            try {
+              parsedTimelogs = JSON.parse(parsedTimelogs);
+            } catch (e) {
+              console.error('Errore parsing timelogs:', e);
+              parsedTimelogs = [];
+            }
+          }
+          if (!Array.isArray(parsedTimelogs)) {
+            parsedTimelogs = [];
+          }
+          
+          // Crea ticket con timelogs parsati
+          const ticketForSync = {
+            ...updatedTicket,
+            timelogs: parsedTimelogs
+          };
+          
+          console.log('✅ Ticket aggiornato con timeLogs:', ticketForSync.timelogs);
+          setTickets(prev => prev.map(t => t.id === selectedTicket.id ? ticketForSync : t));
           
           // Sincronizzazione automatica con Google Calendar per conferma timeLogs
           if (googleCalendarSync && typeof googleCalendarSync === 'function') {
             try {
-              console.log('Sincronizzazione automatica conferma timeLogs ticket #' + updatedTicket.id + ' con Google Calendar');
-              await googleCalendarSync(updatedTicket, 'update');
-              console.log('Ticket #' + updatedTicket.id + ' aggiornato automaticamente in Google Calendar');
+              console.log('Sincronizzazione automatica conferma timeLogs ticket #' + ticketForSync.id + ' con Google Calendar');
+              await googleCalendarSync(ticketForSync, 'update');
+              console.log('Ticket #' + ticketForSync.id + ' aggiornato automaticamente in Google Calendar');
             } catch (err) {
-              console.error('Errore sincronizzazione automatica conferma timeLogs ticket #' + updatedTicket.id + ':', err);
+              console.error('Errore sincronizzazione automatica conferma timeLogs ticket #' + ticketForSync.id + ':', err);
               // Non mostriamo errore all'utente per non interrompere il flusso
             }
           }

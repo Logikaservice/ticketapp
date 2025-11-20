@@ -1035,7 +1035,17 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
 
       if (result.rows.length > 0) {
         console.log(`✅ Timelogs salvati per ticket ID ${id}`);
-        res.json(result.rows[0]);
+        const ticket = result.rows[0];
+        // Parsa timelogs se sono una stringa JSON
+        if (ticket.timelogs && typeof ticket.timelogs === 'string') {
+          try {
+            ticket.timelogs = JSON.parse(ticket.timelogs);
+          } catch (e) {
+            console.error('Errore parsing timelogs:', e);
+            ticket.timelogs = [];
+          }
+        }
+        res.json(ticket);
       } else {
         res.status(404).json({ error: 'Ticket non trovato' });
       }

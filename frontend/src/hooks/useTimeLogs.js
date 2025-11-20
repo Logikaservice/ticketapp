@@ -215,12 +215,32 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       const updatedTicket = await response.json();
       console.log('[SAVE-TIMELOGS] Ticket aggiornato dal server:', updatedTicket);
 
+      // Parsa timelogs se sono una stringa JSON
+      let parsedTimelogs = updatedTicket.timelogs;
+      if (typeof parsedTimelogs === 'string') {
+        try {
+          parsedTimelogs = JSON.parse(parsedTimelogs);
+        } catch (e) {
+          console.error('[SAVE-TIMELOGS] Errore parsing timelogs:', e);
+          parsedTimelogs = [];
+        }
+      }
+      if (!Array.isArray(parsedTimelogs)) {
+        parsedTimelogs = [];
+      }
+      
+      // Crea ticket con timelogs parsati per la sincronizzazione
+      const ticketForSync = {
+        ...updatedTicket,
+        timelogs: parsedTimelogs
+      };
+
       // Aggiorna lo stato globale dei ticket
-      setTickets(prev => prev.map(t => t.id === selectedTicket.id ? updatedTicket : t));
-      setSelectedTicket(updatedTicket);
+      setTickets(prev => prev.map(t => t.id === selectedTicket.id ? ticketForSync : t));
+      setSelectedTicket(ticketForSync);
       
       // Aggiorna i timeLogs nel modal
-      const updatedLogs = Array.isArray(updatedTicket.timelogs) ? updatedTicket.timelogs : [];
+      const updatedLogs = Array.isArray(parsedTimelogs) ? parsedTimelogs : [];
       const refreshedLogs = updatedLogs.length > 0 ? updatedLogs.map(lg => ({ 
         ...lg, 
         id: Date.now() + Math.random(), 
@@ -234,8 +254,8 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       // Sincronizzazione immediata con Google Calendar includendo registro intervento
       if (googleCalendarSync && typeof googleCalendarSync === 'function') {
         try {
-          console.log('[SAVE-TIMELOGS] Sincronizzazione Google Calendar...');
-          await googleCalendarSync(updatedTicket, 'update');
+          console.log('[SAVE-TIMELOGS] Sincronizzazione Google Calendar con ticket:', ticketForSync);
+          await googleCalendarSync(ticketForSync, 'update');
           console.log('[SAVE-TIMELOGS] ✅ Sincronizzazione Google Calendar completata');
         } catch (e) {
           console.error('[SAVE-TIMELOGS] ⚠️ Errore sincronizzazione Google Calendar:', e);
