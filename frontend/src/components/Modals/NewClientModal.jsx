@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, UserPlus, Building2, CheckCircle2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, UserPlus, Building2, CheckCircle2, ChevronDown, Check } from 'lucide-react';
 
 const NewClientModal = ({
   newClientData,
@@ -12,12 +12,17 @@ const NewClientModal = ({
     ? newClientData.existingCompany
     : newClientData.azienda;
   const canUseExisting = existingCompanies.length > 0;
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+  const dropdownRef = useRef(null);
 
   const handleCompanyModeChange = (useExisting) => {
     setNewClientData({
       ...newClientData,
       useExistingCompany: useExisting
     });
+    if (!useExisting) {
+      setShowCompanyDropdown(false);
+    }
   };
 
   const handleAdminToggle = () => {
@@ -28,6 +33,23 @@ const NewClientModal = ({
     e.preventDefault();
     onSave();
   };
+
+  useEffect(() => {
+    if (!showCompanyDropdown) return;
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowCompanyDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showCompanyDropdown]);
+
+  useEffect(() => {
+    if (!newClientData.useExistingCompany) {
+      setShowCompanyDropdown(false);
+    }
+  }, [newClientData.useExistingCompany]);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -154,47 +176,64 @@ const NewClientModal = ({
               </div>
 
               {newClientData.useExistingCompany ? (
-                <div className="relative">
-                  <div className="border-2 border-green-200 rounded-2xl overflow-hidden bg-white shadow-sm focus-within:border-green-500 focus-within:ring-2 focus-within:ring-green-200 transition">
-                    <div className="px-4 pt-3 pb-1">
-                      <p className="text-xs uppercase tracking-wide text-green-700 font-semibold">
-                        Azienda esistente
-                      </p>
-                    </div>
-                    <div className="px-4 pb-4">
-                      <div className="relative">
-                        <select
-                          value={newClientData.existingCompany}
-                          onChange={(e) => setNewClientData({ ...newClientData, existingCompany: e.target.value })}
-                          className="w-full appearance-none bg-transparent pl-12 pr-10 py-3 text-base font-semibold text-gray-800 focus:outline-none cursor-pointer"
-                          required
-                        >
-                          <option value="">Seleziona un'azienda...</option>
-                          {existingCompanies.map(azienda => (
-                            <option key={azienda} value={azienda}>
-                              {azienda}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-                          <span className="w-7 h-7 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold text-sm">
-                            {newClientData.existingCompany ? newClientData.existingCompany.charAt(0).toUpperCase() : 'A'}
-                          </span>
-                        </div>
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-                          <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </div>
+                <div ref={dropdownRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => canUseExisting && setShowCompanyDropdown(prev => !prev)}
+                    disabled={!canUseExisting}
+                    className={`w-full border rounded-2xl px-4 py-3 flex items-center justify-between text-left transition ${
+                      canUseExisting
+                        ? 'border-green-200 hover:border-green-400 focus:ring-2 focus:ring-green-200'
+                        : 'border-gray-200 opacity-60 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-green-100 text-green-700 flex items-center justify-center font-bold text-lg">
+                        {newClientData.existingCompany ? newClientData.existingCompany.charAt(0).toUpperCase() : <Building2 size={20} />}
                       </div>
-                      {newClientData.existingCompany && (
-                        <p className="mt-2 text-xs text-gray-500 flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                          Accesso condiviso con tutti i clienti di {newClientData.existingCompany}
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-gray-500">Azienda selezionata</p>
+                        <p className="text-base font-semibold text-gray-800">
+                          {newClientData.existingCompany || "Seleziona un'azienda"}
                         </p>
+                      </div>
+                    </div>
+                    <ChevronDown
+                      size={20}
+                      className={`text-green-700 transition-transform ${showCompanyDropdown ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                  {showCompanyDropdown && canUseExisting && (
+                    <div className="absolute left-0 right-0 mt-2 bg-white border border-green-100 rounded-2xl shadow-2xl max-h-64 overflow-y-auto z-10">
+                      {existingCompanies.map((azienda) => {
+                        const isSelected = newClientData.existingCompany === azienda;
+                        return (
+                          <button
+                            type="button"
+                            key={azienda}
+                            onClick={() => {
+                              setNewClientData({ ...newClientData, existingCompany: azienda });
+                              setShowCompanyDropdown(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-4 py-3 text-left transition ${
+                              isSelected ? 'bg-green-50 border-l-4 border-green-500' : 'hover:bg-green-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-green-100 text-green-700 flex items-center justify-center font-bold">
+                                {azienda.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="font-medium text-gray-800">{azienda}</span>
+                            </div>
+                            {isSelected && <Check size={18} className="text-green-600" />}
+                          </button>
+                        );
+                      })}
+                      {existingCompanies.length === 0 && (
+                        <div className="px-4 py-3 text-sm text-gray-500">Nessuna azienda disponibile.</div>
                       )}
                     </div>
-                  </div>
+                  )}
                   {!canUseExisting && (
                     <p className="text-xs text-gray-500 mt-2">
                       Nessuna azienda disponibile. Aggiungine una nuova per poterla riutilizzare.
