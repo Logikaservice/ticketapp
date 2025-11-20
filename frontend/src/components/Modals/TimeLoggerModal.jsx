@@ -4,6 +4,8 @@ import { calculateDurationHours } from '../../utils/helpers';
 
 const TimeLoggerModal = ({
   selectedTicket,
+  setSelectedTicket,
+  setTickets,
   timeLogs,
   setTimeLogs,
   handleTimeLogChange,
@@ -478,6 +480,43 @@ const TimeLoggerModal = ({
                                   ...l,
                                   offerte: l.offerte.map(o => o.id === offerta.id ? { ...o, allegati: [...(o.allegati || []), meta] } : o)
                                 } : l));
+                                
+                                // Aggiorna anche la lista photos del ticket (il backend ha già aggiunto il file, ma aggiorniamo l'UI)
+                                // Crea un oggetto photo compatibile con la struttura photos del ticket
+                                const photoEntry = {
+                                  filename: meta.filename,
+                                  originalName: meta.originalName,
+                                  path: meta.path,
+                                  size: meta.size,
+                                  mimetype: meta.mimetype,
+                                  uploadedAt: meta.uploadedAt,
+                                  isOffertaAttachment: true
+                                };
+                                
+                                // Aggiorna selectedTicket e tickets con il nuovo file
+                                if (setSelectedTicket && selectedTicket) {
+                                  const currentPhotos = Array.isArray(selectedTicket.photos) ? selectedTicket.photos : [];
+                                  const isDuplicate = currentPhotos.some(p => p.filename === meta.filename && p.path === meta.path);
+                                  if (!isDuplicate) {
+                                    setSelectedTicket({
+                                      ...selectedTicket,
+                                      photos: [...currentPhotos, photoEntry]
+                                    });
+                                  }
+                                }
+                                
+                                if (setTickets && selectedTicket) {
+                                  setTickets(prev => prev.map(t => {
+                                    if (t.id === selectedTicket.id) {
+                                      const currentPhotos = Array.isArray(t.photos) ? t.photos : [];
+                                      const isDuplicate = currentPhotos.some(p => p.filename === meta.filename && p.path === meta.path);
+                                      if (!isDuplicate) {
+                                        return { ...t, photos: [...currentPhotos, photoEntry] };
+                                      }
+                                    }
+                                    return t;
+                                  }));
+                                }
                               } catch (err) {
                                 console.error('Upload allegato offerta fallito:', err);
                                 alert(`Caricamento allegato fallito: ${err.message || 'Errore sconosciuto'}`);
