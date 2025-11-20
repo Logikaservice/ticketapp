@@ -189,7 +189,8 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
           qta: parseInt(o.qta) || 1,
           sconto: parseFloat(o.sconto) || 0,
           totale: parseFloat(o.totale) || 0,
-          descrizione: o.descrizione
+          descrizione: o.descrizione,
+          allegati: Array.isArray(o.allegati) ? o.allegati : []
         }))
       }));
 
