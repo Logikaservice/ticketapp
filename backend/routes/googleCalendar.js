@@ -571,9 +571,23 @@ module.exports = (pool) => {
           }
         }
         
-        // Aggiorna/Crea eventi per gli interventi (timelogs)
-        try {
-          console.log(`[UPDATE] ===== INIZIO GESTIONE TIMELOGS PER TICKET #${ticket.id} =====`);
+        // Invia risposta HTTP IMMEDIATAMENTE (non attendere la creazione eventi intervento)
+        console.log('✅ Evento principale aggiornato, invio risposta HTTP immediata');
+        res.json({
+          success: true,
+          eventId: result.data?.id,
+          message: 'Ticket sincronizzato con Google Calendar',
+          eventDetails: {
+            summary: event.summary,
+            start: event.start,
+            end: event.end
+          }
+        });
+        
+        // Crea eventi intervento in background (NON bloccare la risposta HTTP)
+        setImmediate(async () => {
+          try {
+            console.log(`[UPDATE] ===== INIZIO GESTIONE TIMELOGS IN BACKGROUND PER TICKET #${ticket.id} =====`);
           console.log(`[UPDATE] Ticket completo ricevuto:`, {
             id: ticket.id,
             numero: ticket.numero,
@@ -792,10 +806,17 @@ module.exports = (pool) => {
                 console.log(`⚠️ Errore rimozione evento intervento:`, deleteErr.message);
               }
             }
+          } else {
+            console.log(`[UPDATE] ⚠️ Nessun timelog valido trovato per ticket #${ticket.id}`);
           }
         } catch (interventiErr) {
-          console.log('⚠️ Errore aggiornamento eventi interventi:', interventiErr.message);
+          console.error(`[UPDATE] ❌ Errore gestione eventi interventi:`, interventiErr.message);
+          console.error(`[UPDATE] Stack trace:`, interventiErr.stack);
         }
+        
+        console.log(`[UPDATE] ===== FINE GESTIONE TIMELOGS IN BACKGROUND PER TICKET #${ticket.id} =====`);
+      }); // Fine setImmediate - eventi intervento creati in background
+      
       } else if (action === 'delete') {
         // Normalizza eventId da payload o DB
         let eventId = ticket.googleCalendarEventId || ticket.googlecalendareventid;
@@ -869,25 +890,34 @@ module.exports = (pool) => {
         return res.status(400).json({ error: 'Azione non valida o ID evento mancante' });
       }
 
-      console.log('Ticket #' + ticket.id + ' sincronizzato con Google Calendar via backend');
-      console.log('Event details:', {
-        summary: event.summary,
-        start: event.start,
-        end: event.end,
-        calendarId: calendarId,
-        eventId: result.data?.id
-      });
-          
-          res.json({
-            success: true,
-            eventId: result.data?.id,
-            message: 'Ticket sincronizzato con Google Calendar',
-            eventDetails: {
-              summary: event.summary,
-              start: event.start,
-              end: event.end
-            }
-          });
+      // NOTA: La risposta HTTP per 'update' è già stata inviata sopra, prima del setImmediate
+      // Per 'create' e 'delete', la risposta viene inviata qui sotto
+      if (action === 'create') {
+        console.log('Ticket #' + ticket.id + ' sincronizzato con Google Calendar via backend');
+        console.log('Event details:', {
+          summary: event.summary,
+          start: event.start,
+          end: event.end,
+          calendarId: calendarId,
+          eventId: result.data?.id
+        });
+        
+        res.json({
+          success: true,
+          eventId: result.data?.id,
+          message: 'Ticket sincronizzato con Google Calendar',
+          eventDetails: {
+            summary: event.summary,
+            start: event.start,
+            end: event.end
+          }
+        });
+      } else if (action === 'delete') {
+        res.json({
+          success: true,
+          message: 'Ticket eliminato da Google Calendar'
+        });
+      }
 
     } catch (err) {
       console.error('❌ Errore sincronizzazione Google Calendar:', err);
