@@ -2077,5 +2077,259 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Aggiorna tutti gli eventi intervento esistenti con il nuovo formato
+  router.post('/update-interventi-format', async (req, res) => {
+    try {
+      console.log('=== AGGIORNAMENTO FORMATO EVENTI INTERVENTO ===');
+      
+      // Verifica credenziali
+      if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+        return res.json({
+          success: false,
+          message: 'Google Service Account non configurato'
+        });
+      }
+
+      const authInstance = getAuth();
+      if (!authInstance) {
+        return res.json({
+          success: false,
+          message: 'Google Auth non configurato'
+        });
+      }
+
+      const authClient = await authInstance.getClient();
+      const calendar = google.calendar({ version: 'v3', auth: authClient });
+
+      // Trova calendario corretto
+      let calendarId = 'primary';
+      try {
+        const calendarList = await calendar.calendarList.list();
+        const ticketAppCalendar = calendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
+        if (ticketAppCalendar) {
+          calendarId = ticketAppCalendar.id;
+        } else if (calendarList.data.items && calendarList.data.items.length > 0) {
+          calendarId = calendarList.data.items[0].id;
+        }
+      } catch (calErr) {
+        console.error('Errore ricerca calendario:', calErr.message);
+      }
+
+      // Recupera tutti i ticket con timelogs
+      const client = await pool.connect();
+      const ticketsResult = await client.query(`
+        SELECT t.*, u.azienda 
+        FROM tickets t 
+        LEFT JOIN users u ON t.clienteid = u.id 
+        WHERE t.timelogs IS NOT NULL 
+          AND t.timelogs != '[]' 
+          AND t.timelogs != ''
+        ORDER BY t.dataapertura DESC
+      `);
+      client.release();
+
+      const tickets = ticketsResult.rows;
+      console.log(`Trovati ${tickets.length} ticket con timelogs`);
+
+      if (tickets.length === 0) {
+        return res.json({
+          success: true,
+          message: 'Nessun ticket con timelogs trovato',
+          updated: 0
+        });
+      }
+
+      let updatedCount = 0;
+      let errorCount = 0;
+      const errors = [];
+
+      // Per ogni ticket, trova e aggiorna gli eventi intervento
+      for (const ticket of tickets) {
+        try {
+          // Parsa timelogs
+          let timelogs = ticket.timelogs;
+          if (typeof timelogs === 'string') {
+            try {
+              timelogs = JSON.parse(timelogs);
+            } catch {
+              continue;
+            }
+          }
+
+          if (!Array.isArray(timelogs) || timelogs.length === 0) {
+            continue;
+          }
+
+          // Cerca eventi intervento esistenti per questo ticket
+          let existingInterventiEvents = [];
+          try {
+            const eventsList = await calendar.events.list({
+              calendarId: calendarId,
+              timeMin: new Date(new Date().getFullYear() - 1, 0, 1).toISOString(),
+              timeMax: new Date(new Date().getFullYear() + 1, 11, 31).toISOString(),
+              maxResults: 2500,
+              singleEvents: true
+            });
+
+            existingInterventiEvents = eventsList.data.items?.filter(e =>
+              e.extendedProperties?.private?.ticketId === ticket.id.toString() &&
+              e.extendedProperties?.private?.isIntervento === 'true'
+            ) || [];
+          } catch (searchErr) {
+            console.error(`Errore ricerca eventi per ticket #${ticket.numero}:`, searchErr.message);
+            continue;
+          }
+
+          const clientName = ticket.azienda || 'Cliente Sconosciuto';
+
+          // Aggiorna ogni evento intervento esistente
+          for (const [idx, log] of timelogs.entries()) {
+            const existingEvent = existingInterventiEvents.find(e =>
+              e.extendedProperties?.private?.timelogIndex === idx.toString()
+            );
+
+            if (existingEvent && log.data) {
+              try {
+                // Prepara data e ora dell'intervento
+                let interventoStartDate;
+                if (log.data.includes('T')) {
+                  interventoStartDate = new Date(log.data);
+                } else {
+                  const oraInizio = log.oraInizio || '09:00';
+                  interventoStartDate = new Date(log.data + 'T' + oraInizio + ':00+02:00');
+                }
+
+                if (isNaN(interventoStartDate.getTime())) {
+                  continue;
+                }
+
+                let interventoEndDate;
+                if (log.oraFine) {
+                  const dateStr = log.data.includes('T') ? log.data.split('T')[0] : log.data;
+                  interventoEndDate = new Date(dateStr + 'T' + log.oraFine + ':00+02:00');
+                } else {
+                  const ore = parseFloat(log.oreIntervento) || 1;
+                  interventoEndDate = new Date(interventoStartDate.getTime() + ore * 60 * 60 * 1000);
+                }
+
+                if (isNaN(interventoEndDate.getTime())) {
+                  interventoEndDate = new Date(interventoStartDate.getTime() + 60 * 60 * 1000);
+                }
+
+                const modalita = log.modalita || 'Intervento';
+                const descIntervento = log.descrizione || '';
+                const oreIntervento = parseFloat(log.oreIntervento) || 0;
+
+                // Costruisci nuova descrizione con formato migliorato
+                let descInterventoText = `═══════════════════════════════════\n`;
+                descInterventoText += `🔧 INTERVENTO ESEGUITO\n`;
+                descInterventoText += `═══════════════════════════════════\n\n`;
+                descInterventoText += `📋 TICKET: #${ticket.numero}\n`;
+                descInterventoText += `📝 Titolo Ticket: ${ticket.titolo || 'N/A'}\n`;
+                descInterventoText += `👤 Cliente: ${clientName}\n`;
+                descInterventoText += `🔗 Link Ticket: ${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}\n\n`;
+                descInterventoText += `───────────────────────────────────\n`;
+                descInterventoText += `DETTAGLI INTERVENTO:\n`;
+                descInterventoText += `───────────────────────────────────\n`;
+                descInterventoText += `📅 Data: ${log.data}\n`;
+                if (log.oraInizio) descInterventoText += `⏰ Ora Inizio: ${log.oraInizio}\n`;
+                if (log.oraFine) descInterventoText += `⏰ Ora Fine: ${log.oraFine}\n`;
+                descInterventoText += `🔧 Modalità: ${modalita}\n`;
+                descInterventoText += `⏱️ Ore: ${oreIntervento}h\n`;
+                if (descIntervento) {
+                  descInterventoText += `\n📄 Descrizione Intervento:\n${descIntervento}\n`;
+                }
+
+                if (log.materials && Array.isArray(log.materials) && log.materials.length > 0) {
+                  const materials = log.materials.filter(m => m && m.nome && m.nome.trim() !== '0' && m.nome.trim() !== '');
+                  if (materials.length > 0) {
+                    descInterventoText += `\n📦 Materiali Utilizzati:\n`;
+                    materials.forEach(m => {
+                      const q = parseFloat(m.quantita) || 0;
+                      const c = parseFloat(m.costo) || 0;
+                      descInterventoText += `- ${m.nome} x${q} (€${(q * c).toFixed(2)})\n`;
+                    });
+                  }
+                }
+
+                // Aggiorna evento con nuovo formato
+                const interventoEvent = {
+                  summary: `🔧 Ticket #${ticket.numero}: ${ticket.titolo || 'Intervento'} - ${modalita}`,
+                  description: descInterventoText,
+                  start: {
+                    dateTime: interventoStartDate.toISOString(),
+                    timeZone: 'Europe/Rome'
+                  },
+                  end: {
+                    dateTime: interventoEndDate.toISOString(),
+                    timeZone: 'Europe/Rome'
+                  },
+                  colorId: '10',
+                  source: {
+                    title: 'TicketApp - Intervento',
+                    url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
+                  },
+                  extendedProperties: {
+                    private: {
+                      ticketId: ticket.id.toString(),
+                      timelogIndex: idx.toString(),
+                      isIntervento: 'true'
+                    }
+                  }
+                };
+
+                await calendar.events.update({
+                  calendarId: calendarId,
+                  eventId: existingEvent.id,
+                  resource: interventoEvent,
+                  sendUpdates: 'none'
+                });
+
+                console.log(`✅ Evento intervento aggiornato per ticket #${ticket.numero}, intervento #${idx + 1}`);
+                updatedCount++;
+              } catch (updateErr) {
+                errorCount++;
+                errors.push({
+                  ticketId: ticket.id,
+                  numero: ticket.numero,
+                  interventoIndex: idx + 1,
+                  error: updateErr.message
+                });
+                console.error(`❌ Errore aggiornamento evento per ticket #${ticket.numero}, intervento #${idx + 1}:`, updateErr.message);
+              }
+            }
+          }
+        } catch (ticketErr) {
+          errorCount++;
+          errors.push({
+            ticketId: ticket.id,
+            numero: ticket.numero,
+            error: ticketErr.message
+          });
+          console.error(`❌ Errore elaborazione ticket #${ticket.numero}:`, ticketErr.message);
+        }
+      }
+
+      console.log(`=== AGGIORNAMENTO FORMATO COMPLETATO ===`);
+      console.log(`Eventi aggiornati: ${updatedCount}`);
+      console.log(`Errori: ${errorCount}`);
+
+      res.json({
+        success: true,
+        message: 'Aggiornamento formato eventi intervento completato',
+        updated: updatedCount,
+        errors: errorCount,
+        errorDetails: errors.length > 0 ? errors : undefined
+      });
+    } catch (err) {
+      console.error('Errore aggiornamento formato eventi intervento:', err);
+      res.status(500).json({
+        success: false,
+        message: 'Errore interno del server',
+        error: err.message
+      });
+    }
+  });
+
   return router;
 };
