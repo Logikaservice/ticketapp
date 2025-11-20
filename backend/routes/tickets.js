@@ -206,8 +206,10 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
     console.log('🔍 DEBUG BACKEND: dataapertura =', dataapertura, 'tipo:', typeof dataapertura);
     console.log('🔍 DEBUG BACKEND: Body completo =', JSON.stringify(req.body, null, 2));
     
+    let client;
     try {
-      const client = await pool.connect();
+      client = await pool.connect();
+      console.log('🔍 DEBUG BACKEND: Connessione database ottenuta');
       
       // Genera ID semplice e pulito
       let numero;
@@ -234,7 +236,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       }
       
       if (!isUnique) {
-        client.release();
+        if (client) client.release();
         throw new Error('Impossibile generare ID unico dopo 10 tentativi');
       }
       
@@ -260,15 +262,26 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       let photosArray = [];
       if (photos && photos.length > 0) {
         console.log('🔍 DEBUG BACKEND: Elaborazione', photos.length, 'foto...');
-        photosArray = photos.map(file => ({
-          filename: file.filename,
-          originalName: file.originalname,
-          path: `/uploads/tickets/photos/${file.filename}`,
-          size: file.size,
-          mimetype: file.mimetype,
-          uploadedAt: new Date().toISOString()
-        }));
-        console.log('🔍 DEBUG BACKEND: Foto elaborate:', photosArray.length);
+        try {
+          photosArray = photos.map(file => {
+            if (!file || !file.filename) {
+              console.error('❌ DEBUG BACKEND: File non valido:', file);
+              throw new Error('File non valido: manca filename');
+            }
+            return {
+              filename: file.filename,
+              originalName: file.originalname || file.filename,
+              path: `/uploads/tickets/photos/${file.filename}`,
+              size: file.size || 0,
+              mimetype: file.mimetype || 'application/octet-stream',
+              uploadedAt: new Date().toISOString()
+            };
+          });
+          console.log('🔍 DEBUG BACKEND: Foto elaborate:', photosArray.length);
+        } catch (photoErr) {
+          console.error('❌ DEBUG BACKEND: Errore elaborazione foto:', photoErr);
+          throw new Error('Errore elaborazione foto: ' + photoErr.message);
+        }
       } else {
         console.log('🔍 DEBUG BACKEND: Nessuna foto da salvare');
       }
@@ -278,9 +291,26 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW(), $10) 
         RETURNING *;
       `;
-      const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza', dataAperturaValue, photosArray.length > 0 ? JSON.stringify(photosArray) : null];
+      const photosJson = photosArray.length > 0 ? JSON.stringify(photosArray) : null;
+      const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza', dataAperturaValue, photosJson];
+      
+      console.log('🔍 DEBUG BACKEND: Esecuzione query INSERT...');
+      console.log('🔍 DEBUG BACKEND: Valori query:', {
+        numero,
+        clienteid,
+        titolo: titolo?.substring(0, 50),
+        descrizione: descrizione?.substring(0, 50),
+        stato,
+        priorita,
+        nomerichiedente,
+        categoria: categoria || 'assistenza',
+        dataapertura: dataAperturaValue,
+        photos: photosJson ? `${photosArray.length} foto` : 'null'
+      });
+      
       const result = await client.query(query, values);
-      client.release();
+      console.log('✅ DEBUG BACKEND: Query INSERT completata con successo');
+      if (client) client.release();
       
       // Emetti evento WebSocket per nuovo ticket (PRIMA della risposta HTTP)
       if (io && result.rows[0]) {
@@ -530,8 +560,20 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       }); // Fine setImmediate - email inviate in background
     } catch (err) {
       console.error('❌ DEBUG BACKEND: Errore nella creazione del ticket:', err);
+      console.error('❌ DEBUG BACKEND: Messaggio errore:', err.message);
       console.error('❌ DEBUG BACKEND: Stack trace:', err.stack);
-      res.status(500).json({ error: 'Errore interno del server' });
+      if (client) {
+        try {
+          client.release();
+        } catch (releaseErr) {
+          console.error('❌ DEBUG BACKEND: Errore nel rilasciare connessione:', releaseErr);
+        }
+      }
+      // Invia messaggio di errore più dettagliato (solo in sviluppo)
+      const errorMessage = process.env.NODE_ENV === 'production' 
+        ? 'Errore interno del server' 
+        : `Errore interno del server: ${err.message}`;
+      res.status(500).json({ error: errorMessage });
     }
   });
 
