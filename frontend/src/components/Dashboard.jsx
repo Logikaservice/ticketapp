@@ -15,7 +15,7 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, car
         ? 'ring-pulse-red'
         : 'ring-pulse-green'
     : '';
-  
+
   // Mappa colori per ogni stato (colori del pannello rapido, senza gradazione - sfondo molto chiaro)
   const colorMap = {
     'aperto': { border: 'border-top-emerald', bg: 'bg-emerald-very-light' }, // Nuove funzionalità
@@ -25,9 +25,9 @@ const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, car
     'inviato': { border: 'border-top-amber', bg: 'bg-amber-very-light' }, // Impostazioni
     'fatturato': { border: 'border-top-orange', bg: 'bg-orange-very-light' } // Log accessi
   };
-  
+
   const colors = cardKey && colorMap[cardKey] ? colorMap[cardKey] : { border: '', bg: '' };
-  
+
   return (
     <button onClick={onClick} disabled={disabled} className={`card-hover text-center w-full ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
       <div className={`p-5 rounded-xl border border-gray-200 relative overflow-hidden ${colors.border} ${colors.bg || 'bg-white'} shadow-sm hover:shadow-lg ${ringClass}`}>
@@ -102,122 +102,153 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
   if (!users || !Array.isArray(users)) {
     users = [];
   }
-  
+
   return (
-  <div className="bg-white rounded-xl border">
-    <div className="p-4 border-b flex items-center justify-between">
-      <h3 className="font-semibold">Avvisi Importanti</h3>
-      <div className="flex items-center gap-2">
-        {currentUser?.ruolo === 'tecnico' && (
-          <button
-            onClick={onManageAlerts}
-            className="px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors"
-          >
-            Gestione Avvisi
-          </button>
-        )}
+    <div className="bg-white rounded-xl border">
+      <div className="p-4 border-b flex items-center justify-between">
+        <h3 className="font-semibold">Avvisi Importanti</h3>
+        <div className="flex items-center gap-2">
+          {currentUser?.ruolo === 'tecnico' && (
+            <button
+              onClick={onManageAlerts}
+              className="px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600 transition-colors"
+            >
+              Gestione Avvisi
+            </button>
+          )}
+        </div>
       </div>
-    </div>
-    <div className="p-4 space-y-3">
-      {alerts.length === 0 && (
-        <div className="text-sm text-gray-500">Nessun avviso presente.</div>
-      )}
-      {alerts.map(avv => {
-        // Determina il colore in base alla priorità
-        const getAlertColor = (level) => {
-          switch (level) {
-            case 'danger':
-              return 'border-red-300 bg-red-50 text-red-800';
-            case 'warning':
-              return 'border-yellow-300 bg-yellow-50 text-yellow-800';
-            case 'info':
-              return 'border-blue-300 bg-blue-50 text-blue-800';
-            case 'features':
-              return 'border-green-300 bg-green-50 text-green-800';
-            default:
-              return 'border-yellow-300 bg-yellow-50 text-yellow-800';
-          }
-        };
+      <div className="p-4 space-y-3">
+        {alerts.length === 0 && (
+          <div className="text-sm text-gray-500">Nessun avviso presente.</div>
+        )}
+        {alerts.map(avv => {
+          // Determina il colore in base alla priorità
+          const getAlertColor = (level) => {
+            switch (level) {
+              case 'danger':
+                return 'border-red-300 bg-red-50 text-red-800';
+              case 'warning':
+                return 'border-yellow-300 bg-yellow-50 text-yellow-800';
+              case 'info':
+                return 'border-blue-300 bg-blue-50 text-blue-800';
+              case 'features':
+                return 'border-green-300 bg-green-50 text-green-800';
+              default:
+                return 'border-yellow-300 bg-yellow-50 text-yellow-800';
+            }
+          };
 
-        const countdownInfo = getCountdown(avv);
+          const countdownInfo = getCountdown(avv);
 
-        return (
-        <div key={avv.id} className={`w-full p-3 rounded-lg border ${getAlertColor(avv.level)}`}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1">
-              <div className="font-bold flex items-center gap-2">
-                {avv.level === 'danger' ? (
-                  <AlertTriangle size={16} className="text-red-600" />
-                ) : avv.level === 'info' ? (
-                  <Info size={16} className="text-blue-600" />
-                ) : avv.level === 'features' ? (
-                  <Sparkles size={16} className="text-green-600" />
-                ) : (
-                  <AlertTriangle size={16} className="text-yellow-600" />
-                )}
-                {avv.title}
-              </div>
-              {avv.level === 'features' ? (
-                <div className="text-sm mt-1 text-justify">
-                  {(() => {
-                    // Mostra sempre solo 3 righe per gli avvisi features
-                    const textLength = avv.body ? avv.body.length : 0;
-                    const textLines = avv.body ? avv.body.split('\n').length : 0;
-                    const shouldShowMore = textLength > 150 || textLines > 3;
-                    
-                    if (shouldShowMore) {
-                      return (
-                        <div className="relative">
-                          <div className="line-clamp-3 whitespace-pre-wrap pr-16">{avv.body}</div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              if (setModalState) {
-                                setModalState({ type: 'alertsHistory', data: { alertId: avv.id } });
-                              }
-                            }}
-                            className="text-green-600 hover:text-green-700 font-semibold text-sm absolute bottom-0 right-0 bg-white pl-1 cursor-pointer"
-                          >
-                            ...altro
-                          </button>
-                        </div>
-                      );
-                    } else {
-                      return <div className="whitespace-pre-wrap">{avv.body}</div>;
-                    }
-                  })()}
-                </div>
-              ) : (
-                <div className="text-sm mt-1 whitespace-pre-wrap text-justify">{avv.body}</div>
-              )}
-              
-              <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-600">
-                <div className="flex items-center gap-1">
-                  <Clock size={12} />
-                  <span>Creato il {formatDateTime(avv.createdAt || avv.created_at)}</span>
-                </div>
-                <div className={`flex items-center gap-1 ${countdownInfo.isExpired ? 'text-red-600 font-semibold' : ''}`}>
-                  <Hourglass size={12} />
-                  <span>{countdownInfo.label}</span>
-                </div>
-                {!avv.isPermanent && avv.daysToExpire && (
-                  <div className="flex items-center gap-1 text-gray-500">
-                    <Info size={12} />
-                    <span>Durata {avv.daysToExpire} giorni</span>
+          return (
+            <div key={avv.id} className={`w-full p-3 rounded-lg border ${getAlertColor(avv.level)}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <div className="font-bold flex items-center gap-2">
+                    {avv.level === 'danger' ? (
+                      <AlertTriangle size={16} className="text-red-600" />
+                    ) : avv.level === 'info' ? (
+                      <Info size={16} className="text-blue-600" />
+                    ) : avv.level === 'features' ? (
+                      <Sparkles size={16} className="text-green-600" />
+                    ) : (
+                      <AlertTriangle size={16} className="text-yellow-600" />
+                    )}
+                    {avv.title}
                   </div>
-                )}
-              </div>
-              
-              {/* Informazioni destinatari - solo per avvisi non features */}
-              {avv.level !== 'features' && (
-                <>
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="text-xs text-gray-500 flex items-center gap-1">
-                      <Users size={12} />
-                      <span>
+                  {avv.level === 'features' ? (
+                    <div className="text-sm mt-1 text-justify">
+                      {(() => {
+                        // Mostra sempre solo 3 righe per gli avvisi features
+                        const textLength = avv.body ? avv.body.length : 0;
+                        const textLines = avv.body ? avv.body.split('\n').length : 0;
+                        const shouldShowMore = textLength > 150 || textLines > 3;
+
+                        if (shouldShowMore) {
+                          return (
+                            <div className="relative">
+                              <div className="line-clamp-3 whitespace-pre-wrap pr-16">{avv.body}</div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  if (setModalState) {
+                                    setModalState({ type: 'alertsHistory', data: { alertId: avv.id } });
+                                  }
+                                }}
+                                className="text-green-600 hover:text-green-700 font-semibold text-sm absolute bottom-0 right-0 bg-white pl-1 cursor-pointer"
+                              >
+                                ...altro
+                              </button>
+                            </div>
+                          );
+                        } else {
+                          return <div className="whitespace-pre-wrap">{avv.body}</div>;
+                        }
+                      })()}
+                    </div>
+                  ) : (
+                    <div className="text-sm mt-1 whitespace-pre-wrap text-justify">{avv.body}</div>
+                  )}
+
+                  <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-600">
+                    <div className="flex items-center gap-1">
+                      <Clock size={12} />
+                      <span>Creato il {formatDateTime(avv.createdAt || avv.created_at)}</span>
+                    </div>
+                    <div className={`flex items-center gap-1 ${countdownInfo.isExpired ? 'text-red-600 font-semibold' : ''}`}>
+                      <Hourglass size={12} />
+                      <span>{countdownInfo.label}</span>
+                    </div>
+                    {!avv.isPermanent && avv.daysToExpire && (
+                      <div className="flex items-center gap-1 text-gray-500">
+                        <Info size={12} />
+                        <span>Durata {avv.daysToExpire} giorni</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Informazioni destinatari - solo per avvisi non features */}
+                  {avv.level !== 'features' && (
+                    <>
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                          <Users size={12} />
+                          <span>
+                            {(() => {
+                              // Parsa clients se necessario
+                              let clients = [];
+                              try {
+                                if (avv.clients) {
+                                  if (Array.isArray(avv.clients)) {
+                                    clients = avv.clients;
+                                  } else if (typeof avv.clients === 'string') {
+                                    clients = JSON.parse(avv.clients);
+                                  } else {
+                                    clients = avv.clients;
+                                  }
+                                  if (!Array.isArray(clients)) {
+                                    clients = [];
+                                  }
+                                }
+                              } catch (e) {
+                                clients = [];
+                              }
+
+                              // Se ci sono clienti specifici, mostra il numero
+                              if (clients.length > 0) {
+                                return clients.length === 1
+                                  ? `Condiviso con 1 cliente`
+                                  : `Condiviso con ${clients.length} clienti`;
+                              }
+                              // Se non ci sono clienti specifici, è per tutti gli amministratori
+                              return 'Condiviso con tutti gli amministratori';
+                            })()}
+                          </span>
+                        </div>
                         {(() => {
-                          // Parsa clients se necessario
+                          // Parsa clients per la lista dettagliata
                           let clients = [];
                           try {
                             if (avv.clients) {
@@ -235,112 +266,81 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                           } catch (e) {
                             clients = [];
                           }
-                          
-                          // Se ci sono clienti specifici, mostra il numero
-                          if (clients.length > 0) {
-                            return clients.length === 1 
-                              ? `Condiviso con 1 cliente`
-                              : `Condiviso con ${clients.length} clienti`;
-                          }
-                        // Se non ci sono clienti specifici, è per tutti gli amministratori
-                        return 'Condiviso con tutti gli amministratori';
-                      })()}
-                    </span>
-                  </div>
-                  {(() => {
-                    // Parsa clients per la lista dettagliata
-                    let clients = [];
-                    try {
-                      if (avv.clients) {
-                        if (Array.isArray(avv.clients)) {
-                          clients = avv.clients;
-                        } else if (typeof avv.clients === 'string') {
-                          clients = JSON.parse(avv.clients);
-                        } else {
-                          clients = avv.clients;
-                        }
-                        if (!Array.isArray(clients)) {
-                          clients = [];
-                        }
-                      }
-                    } catch (e) {
-                      clients = [];
-                    }
-                    
-                    return clients.length > 0 && clients.length <= 3 && users && users.length > 0 ? (
-                      <div className="text-xs text-blue-600">
-                        ({clients.map(c => {
-                          const user = users.find(u => u.id === c);
-                          return user ? (user.azienda || `${user.nome} ${user.cognome}`) : 'Cliente';
-                        }).join(', ')})
+
+                          return clients.length > 0 && clients.length <= 3 && users && users.length > 0 ? (
+                            <div className="text-xs text-blue-600">
+                              ({clients.map(c => {
+                                const user = users.find(u => u.id === c);
+                                return user ? (user.azienda || `${user.nome} ${user.cognome}`) : 'Cliente';
+                              }).join(', ')})
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
-                    ) : null;
-                  })()}
-                </div>
-                </>
-              )}
-              
-              {/* Visualizza allegati se presenti */}
-              {avv.attachments && avv.attachments.length > 0 && (
-                <div className="mt-3">
-                  <div className="text-xs text-gray-500 mb-2">Allegati:</div>
-                  <div className="flex flex-wrap gap-2">
-                    {avv.attachments.map((attachment, index) => (
-                      <div key={index} className="relative">
-                        <img
-                          src={`${process.env.REACT_APP_API_URL}${attachment.path}`}
-                          alt={attachment.originalName}
-                          className="w-16 h-16 object-cover rounded border cursor-pointer hover:opacity-80 transition"
-                          onClick={() => window.open(`${process.env.REACT_APP_API_URL}${attachment.path}`, '_blank')}
-                          title={attachment.originalName}
-                        />
+                    </>
+                  )}
+
+                  {/* Visualizza allegati se presenti */}
+                  {avv.attachments && avv.attachments.length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-xs text-gray-500 mb-2">Allegati:</div>
+                      <div className="flex flex-wrap gap-2">
+                        {avv.attachments.map((attachment, index) => (
+                          <div key={index} className="relative">
+                            <img
+                              src={`${process.env.REACT_APP_API_URL}${attachment.path}`}
+                              alt={attachment.originalName}
+                              className="w-16 h-16 object-cover rounded border cursor-pointer hover:opacity-80 transition"
+                              onClick={() => window.open(`${process.env.REACT_APP_API_URL}${attachment.path}`, '_blank')}
+                              title={attachment.originalName}
+                            />
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+                  )}
+
+                  {/* Pulsante per creare ticket dall'avviso - solo per clienti, escluso per avvisi "nuove funzionalità" */}
+                  {currentUser?.ruolo === 'cliente' && onCreateTicketFromAlert && avv.level !== 'features' && (
+                    <div className="mt-3">
+                      <button
+                        onClick={() => onCreateTicketFromAlert(avv)}
+                        className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      >
+                        <FileText size={14} />
+                        Crea Ticket da questo Avviso
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {isEditable && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onEditAlert && onEditAlert(avv)}
+                      className="text-xs text-blue-600 hover:underline"
+                    >
+                      Modifica
+                    </button>
+                    <button
+                      onClick={() => onDelete && onDelete(avv.id)}
+                      className="text-red-500 hover:text-red-700 p-1"
+                      title="Rimuovi avviso"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                </div>
-              )}
-              
-              {/* Pulsante per creare ticket dall'avviso - solo per clienti, escluso per avvisi "nuove funzionalità" */}
-              {currentUser?.ruolo === 'cliente' && onCreateTicketFromAlert && avv.level !== 'features' && (
-                <div className="mt-3">
-                  <button
-                    onClick={() => onCreateTicketFromAlert(avv)}
-                    className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
-                  >
-                    <FileText size={14} />
-                    Crea Ticket da questo Avviso
-                  </button>
-                </div>
-              )}
-            </div>
-            {isEditable && (
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => onEditAlert && onEditAlert(avv)} 
-                  className="text-xs text-blue-600 hover:underline"
-                >
-                  Modifica
-                </button>
-                <button 
-                  onClick={() => onDelete && onDelete(avv.id)} 
-                  className="text-red-500 hover:text-red-700 p-1"
-                  title="Rimuovi avviso"
-                >
-                  <Trash2 size={14} />
-                </button>
+                )}
               </div>
-            )}
-          </div>
-          {avv.ticketId && (
-            <div className="mt-2">
-              <button onClick={() => onOpenTicket && onOpenTicket({ id: avv.ticketId })} className="text-xs text-blue-700 hover:underline">Apri ticket collegato</button>
+              {avv.ticketId && (
+                <div className="mt-2">
+                  <button onClick={() => onOpenTicket && onOpenTicket({ id: avv.ticketId })} className="text-xs text-blue-700 hover:underline">Apri ticket collegato</button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
-  </div>
   );
 };
 
@@ -348,12 +348,13 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   // Stati per la ricerca
   const [searchTerm, setSearchTerm] = React.useState('');
   const [searchResults, setSearchResults] = React.useState([]);
-  
+
   // Stati per la ricerca per azienda (solo tecnico)
   const [selectedCompany, setSelectedCompany] = React.useState('');
   const [companyTickets, setCompanyTickets] = React.useState([]);
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = React.useState(false);
-  
+  const [companySearchTerm, setCompanySearchTerm] = React.useState('');
+
   // Estrai lista aziende uniche dai clienti
   const companies = React.useMemo(() => {
     if (currentUser?.ruolo !== 'tecnico') return [];
@@ -366,30 +367,30 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     });
     return Array.from(aziendeSet).sort((a, b) => a.localeCompare(b));
   }, [users, currentUser]);
-  
+
   // Filtra i ticket per azienda selezionata
   React.useEffect(() => {
     if (currentUser?.ruolo !== 'tecnico' || !selectedCompany) {
       setCompanyTickets([]);
       return;
     }
-    
+
     // Trova tutti i clienti dell'azienda selezionata
-    const companyClients = users.filter(u => 
-      u.ruolo === 'cliente' && 
+    const companyClients = users.filter(u =>
+      u.ruolo === 'cliente' &&
       u.azienda === selectedCompany
     );
     const companyClientIds = companyClients.map(c => c.id);
-    
+
     // Filtra i ticket di questi clienti
     const filtered = tickets.filter(t => {
       const ticketClientId = Number(t.clienteid);
       return companyClientIds.some(id => Number(id) === ticketClientId);
     });
-    
+
     setCompanyTickets(filtered);
   }, [selectedCompany, tickets, users, currentUser]);
-  
+
   // Raggruppa i ticket per stato
   const companyTicketsByState = React.useMemo(() => {
     const grouped = {
@@ -400,17 +401,17 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       inviato: [],
       fatturato: []
     };
-    
+
     companyTickets.forEach(ticket => {
       const stato = ticket.stato || 'aperto';
       if (grouped[stato]) {
         grouped[stato].push(ticket);
       }
     });
-    
+
     return grouped;
   }, [companyTickets]);
-  
+
   const companyCounts = React.useMemo(() => ({
     aperto: companyTicketsByState.aperto.length,
     in_lavorazione: companyTicketsByState.in_lavorazione.length,
@@ -424,20 +425,20 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   const visibleTickets = React.useMemo(() => {
     if (currentUser?.ruolo === 'cliente') {
       // Verifica se è amministratore
-      const isAdmin = currentUser.admin_companies && 
-                     Array.isArray(currentUser.admin_companies) && 
-                     currentUser.admin_companies.length > 0;
-      
+      const isAdmin = currentUser.admin_companies &&
+        Array.isArray(currentUser.admin_companies) &&
+        currentUser.admin_companies.length > 0;
+
       if (isAdmin) {
         // Se è amministratore, mostra i ticket di tutti i clienti delle sue aziende
         const companyNames = currentUser.admin_companies;
-        const companyClients = users.filter(u => 
-          u.ruolo === 'cliente' && 
-          u.azienda && 
+        const companyClients = users.filter(u =>
+          u.ruolo === 'cliente' &&
+          u.azienda &&
           companyNames.includes(u.azienda)
         );
         const companyClientIds = companyClients.map(c => c.id);
-        
+
         if (companyClientIds.length > 0) {
           return tickets.filter(t => {
             const ticketClientId = Number(t.clienteid);
@@ -445,7 +446,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           });
         }
       }
-      
+
       // Non è amministratore, mostra TUTTI i suoi ticket (non solo "aperto")
       // IMPORTANTE: Converti entrambi a Number per confronto corretto
       const currentUserId = Number(currentUser.id);
@@ -481,7 +482,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   // Funzione di ricerca avanzata che cerca in tutti i campi del ticket
   const advancedSearch = (ticket, searchTerm) => {
     const searchLower = searchTerm.toLowerCase().trim();
-    
+
     // Ricerca base: numero, titolo, id, descrizione
     if (
       ticket.numero?.toLowerCase().includes(searchLower) ||
@@ -492,7 +493,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     ) {
       return true;
     }
-    
+
     // Ricerca nei messaggi (chat)
     if (ticket.messaggi && Array.isArray(ticket.messaggi)) {
       const foundInMessages = ticket.messaggi.some(message =>
@@ -501,33 +502,33 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       );
       if (foundInMessages) return true;
     }
-    
+
     // Ricerca nei timelogs (registro intervento)
     if (ticket.timelogs && Array.isArray(ticket.timelogs)) {
       const foundInTimeLogs = ticket.timelogs.some(log =>
         log.descrizione?.toLowerCase().includes(searchLower) ||
         log.modalita?.toLowerCase().includes(searchLower) ||
-        (log.materials && Array.isArray(log.materials) && log.materials.some(m => 
+        (log.materials && Array.isArray(log.materials) && log.materials.some(m =>
           m.nome?.toLowerCase().includes(searchLower)
         )) ||
-        (log.offerte && Array.isArray(log.offerte) && log.offerte.some(o => 
+        (log.offerte && Array.isArray(log.offerte) && log.offerte.some(o =>
           o.descrizione?.toLowerCase().includes(searchLower) ||
           o.numeroOfferta?.toLowerCase().includes(searchLower)
         ))
       );
       if (foundInTimeLogs) return true;
     }
-    
+
     return false;
   };
 
   // Effetto per la ricerca avanzata in tempo reale
   React.useEffect(() => {
     if (searchTerm.trim().length >= 2) {
-      const results = visibleTickets.filter(ticket => 
+      const results = visibleTickets.filter(ticket =>
         advancedSearch(ticket, searchTerm)
       ).slice(0, 10); // Limita a 10 risultati
-      
+
       setSearchResults(results);
     } else {
       setSearchResults([]);
@@ -602,20 +603,20 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             if (!entry?.password_encrypted || typeof entry.password_encrypted !== 'string' || !entry.password_encrypted.includes(':')) {
               return;
             }
-            
+
             // Estrai tutti i campi - forza estrazione anche se sembrano già stringhe
             const title = extractString(entry.title || '');
             const username = extractString(entry.username || '');
             const url = extractString(entry.url || '');
             const notes = extractString(entry.notes || '');
-            
+
             // Debug rimosso - la ricerca ora avviene lato backend
-            
+
             // Filtra entry senza titolo valido
             if (!title || title.trim() === '' || title.trim().toLowerCase() === 'senza titolo') {
               return;
             }
-            
+
             flattenedEntries.push({
               id: entry.id,
               title: title,
@@ -657,23 +658,23 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     if (!getAuthHeader) {
       return;
     }
-    
+
     if (!isKeepassAdmin) {
       return;
     }
-    
+
     const term = keepassSearchQuery.trim().toLowerCase().replace(/^["']+|["']+$/g, '').trim();
-    
+
     if (term.length < 2) {
       setKeepassSearchResults([]);
       return;
     }
-    
+
     const searchKeepass = async () => {
       if (!getAuthHeader || !isKeepassAdmin) {
         return;
       }
-      
+
       try {
         setKeepassSearchLoadingResults(true);
         const authHeader = getAuthHeader();
@@ -702,13 +703,13 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     };
 
     const timeoutId = setTimeout(searchKeepass, 300); // Debounce 300ms
-    
+
     return () => clearTimeout(timeoutId);
   }, [keepassSearchQuery]); // SOLO keepassSearchQuery come dipendenza!
 
   // Usa i risultati dal backend - ricerca ora lato backend
   const keepassResults = keepassSearchResults;
-  
+
   // Nota: ricerca ora completamente lato backend tramite /api/keepass/search
 
   React.useEffect(() => {
@@ -724,7 +725,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       });
       if (!res.ok) throw new Error('Errore caricamento avvisi');
       const allAlerts = await res.json();
-      
+
       // Parsa correttamente il campo clients se è una stringa JSON
       const parsedAlerts = allAlerts.map(alert => {
         let clients = [];
@@ -747,17 +748,17 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         }
         return { ...alert, clients };
       });
-      
+
       // Filtra gli avvisi in base al ruolo dell'utente
       let filteredAlerts = parsedAlerts;
       if (currentUser?.ruolo === 'cliente') {
         const userId = Number(currentUser.id);
-        
+
         // Verifica se il cliente è un amministratore (ha admin_companies)
-        const isAdmin = currentUser.admin_companies && 
-                       Array.isArray(currentUser.admin_companies) && 
-                       currentUser.admin_companies.length > 0;
-        
+        const isAdmin = currentUser.admin_companies &&
+          Array.isArray(currentUser.admin_companies) &&
+          currentUser.admin_companies.length > 0;
+
         // Filtra gli avvisi:
         // 1. Se l'avviso ha clienti specifici: il cliente lo vede solo se è nella lista (anche se non è amministratore)
         // 2. Se l'avviso NON ha clienti specifici: solo gli amministratori lo vedono
@@ -767,13 +768,13 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             // Il cliente vede l'avviso solo se è nella lista dei clienti specifici
             return alert.clients.some(clientId => Number(clientId) === userId);
           }
-          
+
           // Se l'avviso NON ha clienti specifici (è per tutti), solo gli amministratori lo vedono
           return isAdmin;
         });
       }
       // I tecnici vedono tutti gli avvisi (non serve filtro)
-      
+
       // Filtra gli avvisi temporanei scaduti (per tutti gli utenti)
       // IMPORTANTE: Gli avvisi "features" temporanei scaduti devono scomparire dalla dashboard
       // ma rimanere sempre visibili nel modal "Nuove funzionalità"
@@ -782,32 +783,32 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         if (alert.isPermanent) {
           return true;
         }
-        
+
         // Se è temporaneo, verifica se è scaduto
         const createdAt = new Date(alert.createdAt || alert.created_at);
         const daysToExpire = alert.daysToExpire || 7;
         const expirationDate = new Date(createdAt);
         expirationDate.setDate(expirationDate.getDate() + daysToExpire);
-        
+
         // Se è scaduto, non mostrarlo nella dashboard
         const isExpired = new Date() > expirationDate;
         if (isExpired) {
           return false;
         }
-        
+
         // Se non è scaduto, mostralo
         return true;
       });
-      
+
       setAlerts(activeAlerts);
     } catch (e) {
       console.error(e);
     }
   };
   useEffect(() => { fetchAlerts(); }, [currentUser]);
-  useEffect(() => { 
+  useEffect(() => {
     if (alertsRefreshTrigger > 0) {
-      fetchAlerts(); 
+      fetchAlerts();
     }
   }, [alertsRefreshTrigger]);
 
@@ -837,9 +838,9 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
     try {
       const res = await fetch(`${apiBase}/api/alerts/${id}`, {
         method: 'DELETE',
-        headers: { 
+        headers: {
           ...getAuthHeader(),
-          'x-user-role': 'tecnico' 
+          'x-user-role': 'tecnico'
         }
       });
       if (!res.ok) throw new Error('Errore eliminazione avviso');
@@ -860,7 +861,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       formData.append('isPermanent', alertData.isPermanent);
       formData.append('daysToExpire', alertData.daysToExpire);
       formData.append('created_by', currentUser?.nome + ' ' + currentUser?.cognome);
-      
+
       // Aggiungi i file selezionati
       if (alertData.files && alertData.files.length > 0) {
         alertData.files.forEach((file, index) => {
@@ -870,9 +871,9 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
       const res = await fetch(`${apiBase}/api/alerts`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'x-user-role': 'tecnico',
-          'x-user-id': currentUser?.id 
+          'x-user-id': currentUser?.id
         },
         body: formData
       });
@@ -894,7 +895,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       formData.append('isPermanent', alertData.isPermanent);
       formData.append('daysToExpire', alertData.daysToExpire);
       formData.append('existingAttachments', JSON.stringify(alertData.existingAttachments || []));
-      
+
       // Aggiungi i nuovi file selezionati
       if (alertData.files && alertData.files.length > 0) {
         alertData.files.forEach((file, index) => {
@@ -904,9 +905,9 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
       const res = await fetch(`${apiBase}/api/alerts/${alertData.id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'x-user-role': 'tecnico',
-          'x-user-id': currentUser?.id 
+          'x-user-id': currentUser?.id
         },
         body: formData
       });
@@ -961,9 +962,9 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                       </>
                     )}
                   </div>
-                  <ChevronDown 
-                    size={16} 
-                    className={`text-gray-400 transition-transform flex-shrink-0 ml-2 ${isCompanyDropdownOpen ? 'rotate-180' : ''}`} 
+                  <ChevronDown
+                    size={16}
+                    className={`text-gray-400 transition-transform flex-shrink-0 ml-2 ${isCompanyDropdownOpen ? 'rotate-180' : ''}`}
                   />
                 </button>
                 {selectedCompany && (
@@ -979,25 +980,44 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                   </button>
                 )}
               </div>
-              
+
               {isCompanyDropdownOpen && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-10" 
+                  <div
+                    className="fixed inset-0 z-10"
                     onClick={() => setIsCompanyDropdownOpen(false)}
                   ></div>
                   <div className="absolute z-20 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-96 overflow-y-auto" style={{ minWidth: '200px', width: 'max-content' }}>
+                    <div className="sticky top-0 bg-white p-2 border-b z-10">
+                      <div className="flex items-center gap-2 border border-gray-300 rounded-md px-2 py-1.5 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
+                        <Search size={14} className="text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Filtra aziende..."
+                          className="w-full text-sm outline-none text-gray-700 placeholder-gray-400"
+                          value={companySearchTerm}
+                          onChange={(e) => setCompanySearchTerm(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          autoFocus
+                        />
+                        {companySearchTerm && (
+                          <button onClick={(e) => { e.stopPropagation(); setCompanySearchTerm(''); }} className="text-gray-400 hover:text-gray-600">
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
                         setSelectedCompany('');
                         setIsCompanyDropdownOpen(false);
+                        setCompanySearchTerm('');
                       }}
-                      className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${
-                        !selectedCompany
-                          ? 'bg-blue-50 border-blue-500' 
+                      className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${!selectedCompany
+                          ? 'bg-blue-50 border-blue-500'
                           : 'border-transparent'
-                      }`}
+                        }`}
                     >
                       <div className="flex-1 min-w-0">
                         <span className={`text-sm font-medium ${!selectedCompany ? 'text-blue-700' : 'text-gray-900'}`}>
@@ -1008,40 +1028,48 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                         <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
                       )}
                     </button>
-                    {companies.map(azienda => {
-                      const isSelected = selectedCompany === azienda;
-                      return (
-                        <button
-                          key={azienda}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCompany(azienda);
-                            setIsCompanyDropdownOpen(false);
-                          }}
-                          className={`w-full px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center gap-2 text-left ${
-                            isSelected ? 'ring-2 ring-blue-500' : ''
-                          }`}
-                        >
-                          <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                            {azienda.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-bold text-gray-800 truncate">
-                              {azienda}
-                            </h3>
-                          </div>
-                          {isSelected && (
-                            <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
-                          )}
-                        </button>
-                      );
-                    })}
+                    {companies
+                      .filter(c => c.toLowerCase().includes(companySearchTerm.toLowerCase()))
+                      .slice(0, 50)
+                      .map(azienda => {
+                        const isSelected = selectedCompany === azienda;
+                        return (
+                          <button
+                            key={azienda}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCompany(azienda);
+                              setIsCompanyDropdownOpen(false);
+                              setCompanySearchTerm('');
+                            }}
+                            className={`w-full px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-all flex items-center gap-2 text-left ${isSelected ? 'ring-2 ring-blue-500' : ''
+                              }`}
+                          >
+                            <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                              {azienda.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-sm font-bold text-gray-800 truncate">
+                                {azienda}
+                              </h3>
+                            </div>
+                            {isSelected && (
+                              <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    {companies.filter(c => c.toLowerCase().includes(companySearchTerm.toLowerCase())).length > 50 && (
+                      <div className="px-4 py-2 text-xs text-gray-500 text-center border-t bg-gray-50">
+                        ... e altre {companies.filter(c => c.toLowerCase().includes(companySearchTerm.toLowerCase())).length - 50} aziende
+                      </div>
+                    )}
                   </div>
                 </>
               )}
             </div>
           )}
-          
+
           {/* Campo ricerca avanzata */}
           <div className="relative">
             <input
@@ -1069,7 +1097,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                 setTimeout(() => setSearchResults([]), 200);
               }}
             />
-            
+
             {/* Lista risultati ricerca avanzata */}
             {searchTerm && searchResults.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
@@ -1081,15 +1109,15 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                     if (ticket.titolo?.toLowerCase().includes(searchLower)) return 'Titolo';
                     if (ticket.descrizione?.toLowerCase().includes(searchLower)) return 'Descrizione';
                     if (ticket.nomerichiedente?.toLowerCase().includes(searchLower)) return 'Richiedente';
-                    if (ticket.messaggi && Array.isArray(ticket.messaggi) && ticket.messaggi.some(m => 
+                    if (ticket.messaggi && Array.isArray(ticket.messaggi) && ticket.messaggi.some(m =>
                       m.contenuto?.toLowerCase().includes(searchLower)
                     )) return 'Messaggi';
-                    if (ticket.timelogs && Array.isArray(ticket.timelogs) && ticket.timelogs.some(log => 
+                    if (ticket.timelogs && Array.isArray(ticket.timelogs) && ticket.timelogs.some(log =>
                       log.descrizione?.toLowerCase().includes(searchLower)
                     )) return 'Registro intervento';
                     return 'Trovato';
                   };
-                  
+
                   return (
                     <div
                       key={ticket.id}
@@ -1123,7 +1151,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                 })}
               </div>
             )}
-            
+
             {/* Messaggio nessun risultato */}
             {searchTerm && searchResults.length === 0 && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 p-3">
@@ -1153,7 +1181,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               Chiudi
             </button>
           </div>
-          
+
           {/* Statistiche per stato */}
           <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-4">
             <div className="card-hover p-4 bg-white rounded-xl border border-gray-200 border-top-blue bg-gradient-blue shadow-sm hover:shadow-lg text-center">
@@ -1199,12 +1227,12 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               <div className="text-3xl font-extrabold text-gray-600">{companyCounts.fatturato}</div>
             </div>
           </div>
-          
+
           {/* Lista ticket raggruppati per stato */}
           <div className="space-y-4">
             {Object.entries(companyTicketsByState).map(([stato, ticketsStato]) => {
               if (ticketsStato.length === 0) return null;
-              
+
               const statoLabels = {
                 aperto: 'Aperti',
                 in_lavorazione: 'In Lavorazione',
@@ -1213,7 +1241,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                 inviato: 'Inviati',
                 fatturato: 'Fatturati'
               };
-              
+
               const statoColors = {
                 aperto: 'bg-blue-50 border-blue-200 text-blue-800',
                 in_lavorazione: 'bg-yellow-50 border-yellow-200 text-yellow-800',
@@ -1222,7 +1250,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                 inviato: 'bg-teal-50 border-teal-200 text-teal-800',
                 fatturato: 'bg-gray-50 border-gray-200 text-gray-800'
               };
-              
+
               return (
                 <div key={stato} className={`border rounded-lg p-4 ${statoColors[stato] || statoColors.aperto}`}>
                   <div className="flex items-center justify-between mb-3">
@@ -1302,7 +1330,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <AlertsPanel 
+          <AlertsPanel
             alerts={alerts}
             onDelete={currentUser?.ruolo === 'tecnico' ? deleteAlert : undefined}
             isEditable={currentUser?.ruolo === 'tecnico'}
@@ -1361,7 +1389,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                       },
                       body: JSON.stringify({})
                     });
-                    
+
                     if (response.ok) {
                       const result = await response.json();
                       // Stampa dettagli errori in console per debug
@@ -1393,9 +1421,9 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
               </button>
             </div>
           )}
-          
+
           <TicketsCalendar
-            users={users} 
+            users={users}
             tickets={tickets}
             onTicketClick={(ticket) => {
               // Naviga alla sezione corretta e seleziona il ticket
@@ -1410,7 +1438,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             currentUser={currentUser}
             getAuthHeader={getAuthHeader}
           />
-          
+
           {/* Pulsante Credenziali KeePass + ricerca rapida - solo per amministratori */}
           {isKeepassAdmin && (
             <div className="mt-4">
