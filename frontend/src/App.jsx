@@ -116,6 +116,8 @@ export default function TicketApp() {
   const [prevTicketStates, setPrevTicketStates] = useState({});
   const [alertsRefreshTrigger, setAlertsRefreshTrigger] = useState(0);
   const [pendingTicketAction, setPendingTicketAction] = useState(null);
+  // Protezione contro chiamate multiple per cambio stato
+  const isChangingStatusRef = useRef(false);
   const [pendingAlertData, setPendingAlertData] = useState(null);
   // Timer di inattività (solo per clienti)
   const [inactivityTimeout, setInactivityTimeout] = useState(() => {
@@ -2219,6 +2221,9 @@ export default function TicketApp() {
       setDashboardTargetState(originCardState);
 
       // Feedback locale rimosso (niente eventi aggiuntivi)
+      
+      // Reset del flag di protezione
+      isChangingStatusRef.current = false;
     } else if (type === 'confirmTimeLogs') {
       // Conferma timeLogs con invio email
       await handleConfirmTimeLogs(data.timeLogs, true);
@@ -2282,6 +2287,9 @@ export default function TicketApp() {
       setDashboardTargetState(originCardState);
 
       // Feedback locale rimosso (niente eventi aggiuntivi)
+      
+      // Reset del flag di protezione
+      isChangingStatusRef.current = false;
     } else if (type === 'confirmTimeLogs') {
       // Conferma timeLogs senza invio email
       await handleConfirmTimeLogs(data.timeLogs, false);
@@ -2310,6 +2318,11 @@ export default function TicketApp() {
 
     setPendingTicketAction(null);
     setModalState({ type: null, data: null });
+    
+    // Reset del flag di protezione per cambio stato
+    if (type === 'changeStatus') {
+      isChangingStatusRef.current = false;
+    }
   };
 
   // Gestione richiesta assistenza veloce
@@ -2366,6 +2379,12 @@ export default function TicketApp() {
   const handleChangeStatus = (id, status) => {
     console.log('🔍 DEBUG: handleChangeStatus chiamata - id:', id, 'status:', status, 'ruolo:', currentUser.ruolo);
 
+    // Protezione contro chiamate multiple
+    if (isChangingStatusRef.current) {
+      console.log('⚠️ Cambio stato già in corso, ignoro la chiamata duplicata');
+      return;
+    }
+
     // Se è un tecnico e il status è "risolto", apri prima il TimeLoggerModal
     if (currentUser.ruolo === 'tecnico' && status === 'risolto') {
       console.log('🔍 DEBUG: Status risolto - aprendo TimeLoggerModal prima del modal email');
@@ -2377,6 +2396,14 @@ export default function TicketApp() {
     if (currentUser.ruolo === 'tecnico') {
       console.log('🔍 DEBUG: Cambio stato ticket - currentUser.ruolo =', currentUser.ruolo);
       console.log('🔍 DEBUG: Mostrando modal di conferma email per cambio stato');
+
+      // Controlla se c'è già una modale aperta
+      if (modalState.type === 'emailConfirm' && pendingTicketAction?.type === 'changeStatus') {
+        console.log('⚠️ Modale email già aperta per cambio stato, ignoro la chiamata');
+        return;
+      }
+
+      isChangingStatusRef.current = true;
 
       const ticket = tickets.find(t => t.id === id);
       const clientName = ticket ? users.find(u => u.id === ticket.clienteid)?.azienda || 'Cliente' : 'Cliente';
@@ -2402,7 +2429,10 @@ export default function TicketApp() {
     }
 
     console.log('🔍 DEBUG: Utente non è tecnico, procedendo senza modal');
-    changeStatus(id, status, handleOpenTimeLogger);
+    isChangingStatusRef.current = true;
+    changeStatus(id, status, handleOpenTimeLogger).finally(() => {
+      isChangingStatusRef.current = false;
+    });
 
     // Mostra l'effetto di evidenziazione per le card coinvolte
     const originCardState = getTicketOriginCard(id);
@@ -2424,6 +2454,15 @@ export default function TicketApp() {
 
     // Nessun feedback locale aggiuntivo
   };
+
+  // Reset del flag quando la modale email viene chiusa
+  useEffect(() => {
+    if (modalState.type !== 'emailConfirm' && isChangingStatusRef.current) {
+      // Se la modale email non è più aperta ma il flag è ancora attivo, resettalo
+      // Questo gestisce il caso in cui la modale viene chiusa senza confermare/annullare
+      isChangingStatusRef.current = false;
+    }
+  }, [modalState.type]);
 
   const handleReopenInLavorazione = (id) => handleChangeStatus(id, 'in_lavorazione');
   const handleReopenAsRisolto = (id) => handleChangeStatus(id, 'risolto');

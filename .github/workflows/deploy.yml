@@ -4,12 +4,20 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:  # Permette di attivare manualmente la workflow
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     
     steps:
+      - name: Debug - Informazioni evento
+        run: |
+          echo "🔍 Evento che ha attivato la workflow: ${{ github.event_name }}"
+          echo "🔍 Branch: ${{ github.ref }}"
+          echo "🔍 Commit: ${{ github.sha }}"
+          echo "🔍 Autore: ${{ github.actor }}"
+      
       - name: Checkout code
         uses: actions/checkout@v3
       

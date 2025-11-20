@@ -1,4 +1,5 @@
 import { buildApiUrl } from '../utils/apiConfig';
+import { useRef } from 'react';
 
 export const useTickets = (
   showNotification,
@@ -11,6 +12,10 @@ export const useTickets = (
   googleCalendarSync, // Aggiungiamo il parametro per la sincronizzazione Google Calendar
   getAuthHeader // Aggiungiamo il parametro per l'autenticazione
 ) => {
+  // Protezione contro chiamate duplicate
+  const isCreatingRef = useRef(false);
+  const isUpdatingRef = useRef(false);
+
   const handleCreateTicket = async (
     newTicketData,
     isEditingTicket,
@@ -23,9 +28,18 @@ export const useTickets = (
       handleUpdateTicket();
       return;
     }
+    
+    // Protezione contro chiamate duplicate
+    if (isCreatingRef.current) {
+      console.log('⚠️ Creazione ticket già in corso, ignoro la chiamata duplicata');
+      return;
+    }
+    
     if (!newTicketData.titolo || !newTicketData.nomerichiedente) {
       return showNotification('Titolo e richiedente sono obbligatori.', 'error');
     }
+    
+    isCreatingRef.current = true;
     const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
     if (currentUser.ruolo === 'tecnico' && !clienteId) {
       return showNotification('Devi selezionare un cliente.', 'error');
@@ -182,6 +196,9 @@ export const useTickets = (
       console.error('❌ Error message:', error.message);
       showNotification(error.message || 'Impossibile creare il ticket.', 'error');
       // In caso di errore, NON chiudere la modale per permettere all'utente di riprovare
+    } finally {
+      // Reset del flag in ogni caso (successo o errore)
+      isCreatingRef.current = false;
     }
   };
 
@@ -191,9 +208,17 @@ export const useTickets = (
     selectedClientForNewTicket,
     sendEmail = true
   ) => {
+    // Protezione contro chiamate duplicate
+    if (isUpdatingRef.current) {
+      console.log('⚠️ Aggiornamento ticket già in corso, ignoro la chiamata duplicata');
+      return;
+    }
+    
     if (!newTicketData.titolo || !newTicketData.nomerichiedente) {
       return showNotification('Titolo e richiedente sono obbligatori.', 'error');
     }
+    
+    isUpdatingRef.current = true;
     
     const clienteId = currentUser.ruolo === 'tecnico' ? parseInt(selectedClientForNewTicket) : currentUser.id;
     if (currentUser.ruolo === 'tecnico' && !clienteId) {
@@ -253,6 +278,9 @@ export const useTickets = (
       }
     } catch (error) {
       showNotification(error.message || 'Impossibile aggiornare il ticket.', 'error');
+    } finally {
+      // Reset del flag in ogni caso (successo o errore)
+      isUpdatingRef.current = false;
     }
   };
 

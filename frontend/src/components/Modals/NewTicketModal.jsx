@@ -1,6 +1,6 @@
 // src/components/Modals/NewTicketModal.jsx
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Save, FilePlus, ChevronDown, ChevronRight, Crown, Building, Mail, Camera, Image as ImageIcon } from 'lucide-react';
 
 const NewTicketModal = ({
@@ -20,6 +20,7 @@ const NewTicketModal = ({
     return new Set();
   });
   const [photos, setPhotos] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef(null);
 
   // Helper per verificare se un cliente è admin della sua azienda
@@ -106,8 +107,26 @@ const NewTicketModal = ({
     setPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSaveWithPhotos = () => {
-    onSave(photos);
+  // Reset isSaving quando la modale viene chiusa
+  useEffect(() => {
+    return () => {
+      setIsSaving(false);
+    };
+  }, []);
+
+  const handleSaveWithPhotos = async () => {
+    if (isSaving) {
+      console.log('⚠️ Salvataggio già in corso, ignoro il click');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await onSave(photos);
+      // Se il salvataggio ha successo, la modale si chiuderà e isSaving verrà resettato dal cleanup
+    } catch (error) {
+      console.error('Errore durante il salvataggio:', error);
+      setIsSaving(false);
+    }
   };
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -422,10 +441,15 @@ const NewTicketModal = ({
             </button>
             <button
               onClick={handleSaveWithPhotos}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              disabled={isSaving}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
+                isSaving 
+                  ? 'bg-gray-400 text-white cursor-not-allowed' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
             >
               <Save size={18} />
-              {isEditingTicket ? 'Salva Modifiche' : 'Crea Ticket'}
+              {isSaving ? 'Salvataggio...' : (isEditingTicket ? 'Salva Modifiche' : 'Crea Ticket')}
             </button>
           </div>
         </div>
