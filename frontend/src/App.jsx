@@ -2169,8 +2169,9 @@ export default function TicketApp() {
 
     // Per i clienti, crea direttamente il ticket con invio email obbligatorio
     console.log('🔍 DEBUG: Cliente - creazione ticket con email obbligatoria');
+    console.log('🔍 DEBUG: Cliente - photos =', photos.length, 'foto');
     try {
-      await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, []);
+      await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, photos);
     } catch (error) {
       console.error('Errore creazione ticket:', error);
       // La modale rimane aperta in caso di errore, l'errore viene mostrato dalla funzione createTicket
