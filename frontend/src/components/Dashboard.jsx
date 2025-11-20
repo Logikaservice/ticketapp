@@ -1375,6 +1375,56 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
           />
         </div>
         <div>
+          {/* Pulsante temporaneo per aggiornare formato eventi intervento */}
+          {currentUser?.ruolo === 'tecnico' && (
+            <div className="mb-4">
+              <button
+                onClick={async () => {
+                  try {
+                    if (!window.confirm('Vuoi aggiornare tutti gli eventi intervento esistenti con il nuovo formato?\n\nQuesto processo può richiedere alcuni minuti.\n\nTutti gli eventi intervento verranno aggiornati con:\n- Titolo ticket nel titolo evento\n- Link diretto al ticket\n- Descrizione formattata migliorata')) {
+                      return;
+                    }
+                    
+                    const response = await fetch(`${process.env.REACT_APP_API_URL}/api/update-interventi-format`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader()
+                      },
+                      body: JSON.stringify({})
+                    });
+
+                    if (response.ok) {
+                      const result = await response.json();
+                      if (result?.errorDetails && Array.isArray(result.errorDetails)) {
+                        console.group('Dettagli errori aggiornamento formato');
+                        result.errorDetails.forEach(e => console.error(`Ticket #${e?.numero || e?.ticketId}${e?.interventoIndex ? `, Intervento #${e.interventoIndex}` : ''}: ${e?.error}`));
+                        console.groupEnd();
+                      }
+
+                      const errorLines = (result?.errorDetails || [])
+                        .map(e => `- Ticket #${e?.numero || e?.ticketId}${e?.interventoIndex ? `, Intervento #${e.interventoIndex}` : ''}: ${e?.error}`)
+                        .join('\n');
+
+                      const details = result?.errors > 0 && errorLines
+                        ? `\n\nDettagli errori:\n${errorLines}`
+                        : '';
+
+                      alert(`Aggiornamento formato completato!\nEventi aggiornati: ${result.updated}\nErrori: ${result.errors}${details}`);
+                    } else {
+                      alert('Errore durante l\'aggiornamento');
+                    }
+                  } catch (err) {
+                    alert('Errore: ' + err.message);
+                  }
+                }}
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+              >
+                🔄 Aggiorna Formato Eventi Intervento
+              </button>
+            </div>
+          )}
+
           <TicketsCalendar
             users={users}
             tickets={tickets}
