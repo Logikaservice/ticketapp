@@ -263,6 +263,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       if (photos && photos.length > 0) {
         console.log('🔍 DEBUG BACKEND: Elaborazione', photos.length, 'foto...');
         try {
+          const uploadedById = req.user?.id || null;
           photosArray = photos.map(file => {
             if (!file || !file.filename) {
               console.error('❌ DEBUG BACKEND: File non valido:', file);
@@ -274,7 +275,8 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
               path: `/uploads/tickets/photos/${file.filename}`,
               size: file.size || 0,
               mimetype: file.mimetype || 'application/octet-stream',
-              uploadedAt: new Date().toISOString()
+              uploadedAt: new Date().toISOString(),
+              uploadedById: uploadedById
             };
           });
           console.log('🔍 DEBUG BACKEND: Foto elaborate:', photosArray.length);
@@ -1455,14 +1457,16 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         existingPhotos = [];
       }
       
-      // Aggiungi le nuove foto
+      // Aggiungi le nuove foto con informazioni sull'utente che le ha caricate
+      const uploadedById = req.user?.id || null;
       const newPhotos = req.files.map(file => ({
         filename: file.filename,
         originalName: file.originalname,
         path: `/uploads/tickets/photos/${file.filename}`,
         size: file.size,
         mimetype: file.mimetype,
-        uploadedAt: new Date().toISOString()
+        uploadedAt: new Date().toISOString(),
+        uploadedById: uploadedById
       }));
       
       const updatedPhotos = [...existingPhotos, ...newPhotos];

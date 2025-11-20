@@ -714,6 +714,7 @@ app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), a
     const numero = `TKT-2025-${count.toString().padStart(3, '0')}`;
     
     // Salva le foto se presenti
+    // Nota: per quick-request non c'è req.user, quindi uploadedById sarà null
     let photosArray = [];
     if (photos && photos.length > 0) {
       photosArray = photos.map(file => ({
@@ -722,7 +723,8 @@ app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), a
         path: `/uploads/tickets/photos/${file.filename}`,
         size: file.size,
         mimetype: file.mimetype,
-        uploadedAt: new Date().toISOString()
+        uploadedAt: new Date().toISOString(),
+        uploadedById: null // Quick request non ha autenticazione
       }));
     }
     

@@ -276,8 +276,13 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
     }
   };
 
-  const canDelete = currentUser?.ruolo === 'tecnico' || 
-                   (ticket?.stato && ['aperto', 'in_lavorazione', 'risolto'].includes(ticket.stato));
+  // Il cliente può eliminare solo i file che ha caricato lui stesso
+  // Il tecnico può eliminare sempre (se lo stato lo permette)
+  const canDelete = currentUser?.ruolo === 'tecnico' 
+    ? (ticket?.stato && ['aperto', 'in_lavorazione', 'risolto'].includes(ticket.stato))
+    : (currentUser?.ruolo === 'cliente' && 
+       currentPhoto?.uploadedById === currentUser?.id &&
+       ticket?.stato && ['aperto', 'in_lavorazione', 'risolto'].includes(ticket.stato));
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
