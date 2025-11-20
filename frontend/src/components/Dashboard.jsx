@@ -300,14 +300,15 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                     </div>
                   )}
 
-                  {/* Pulsante per creare ticket dall'avviso - solo per clienti, escluso per avvisi "nuove funzionalità" */}
-                  {currentUser?.ruolo === 'cliente' && onCreateTicketFromAlert && avv.level !== 'features' && (
+                  {/* Pulsante per creare ticket dall'avviso - solo per clienti, solo per avvisi Informazione, Avviso e Critico */}
+                  {currentUser?.ruolo === 'cliente' && onCreateTicketFromAlert && (avv.level === 'info' || avv.level === 'warning' || avv.level === 'danger') && (
                     <div className="mt-3">
                       <button
                         onClick={() => onCreateTicketFromAlert(avv)}
-                        className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
+                        className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-md"
+                        title="Crea un ticket basato su questo avviso. Potrai modificare e aggiungere informazioni prima di inviarlo."
                       >
-                        <FileText size={14} />
+                        <FileText size={16} />
                         Crea Ticket da questo Avviso
                       </button>
                     </div>

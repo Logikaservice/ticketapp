@@ -1586,11 +1586,31 @@ export default function TicketApp() {
   // Funzione per creare un ticket da un avviso
   const handleCreateTicketFromAlert = (alert) => {
     const nomeRichiedente = currentUser?.ruolo === 'cliente' ? `${currentUser.nome} ${currentUser.cognome || ''}`.trim() : '';
+    
+    // Determina la priorità in base al livello dell'avviso
+    let priorita = 'media';
+    if (alert.level === 'danger') {
+      priorita = 'alta';
+    } else if (alert.level === 'warning') {
+      priorita = 'media';
+    } else if (alert.level === 'info') {
+      priorita = 'bassa';
+    }
+    
+    // Costruisci la descrizione con tutte le informazioni dell'avviso
+    let descrizione = `=== AVVISO ORIGINALE ===\n`;
+    descrizione += `Titolo: ${alert.title}\n`;
+    descrizione += `Tipo: ${alert.level === 'danger' ? 'Critico' : alert.level === 'warning' ? 'Avviso' : 'Informazione'}\n`;
+    descrizione += `Data creazione: ${new Date(alert.createdAt || alert.created_at).toLocaleString('it-IT')}\n\n`;
+    descrizione += `Descrizione avviso:\n${alert.body}\n\n`;
+    descrizione += `=== INFORMAZIONI AGGIUNTIVE ===\n`;
+    descrizione += `(Aggiungi qui ulteriori dettagli, domande o informazioni relative a questo avviso)\n\n`;
+    
     setNewTicketData({
       titolo: `Ticket da avviso: ${alert.title}`,
-      descrizione: `Avviso: ${alert.title}\n\n${alert.body}`,
+      descrizione: descrizione,
       categoria: 'assistenza',
-      priorita: 'media',
+      priorita: priorita,
       nomerichiedente: nomeRichiedente,
       dataapertura: ''
     });
