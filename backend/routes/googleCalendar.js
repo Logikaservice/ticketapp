@@ -475,20 +475,30 @@ module.exports = (pool) => {
               const descIntervento = log.descrizione || '';
               const oreIntervento = parseFloat(log.oreIntervento) || 0;
               
-              let descInterventoText = `INTERVENTO ESEGUITO\n`;
-              descInterventoText += `Ticket: #${ticket.numero}\n`;
-              descInterventoText += `Cliente: ${clientName}\n`;
-              descInterventoText += `Modalità: ${modalita}\n`;
-              descInterventoText += `Ore: ${oreIntervento}h\n`;
+              let descInterventoText = `═══════════════════════════════════\n`;
+              descInterventoText += `🔧 INTERVENTO ESEGUITO\n`;
+              descInterventoText += `═══════════════════════════════════\n\n`;
+              descInterventoText += `📋 TICKET: #${ticket.numero}\n`;
+              descInterventoText += `📝 Titolo Ticket: ${ticket.titolo || 'N/A'}\n`;
+              descInterventoText += `👤 Cliente: ${clientName}\n`;
+              descInterventoText += `🔗 Link Ticket: ${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}\n\n`;
+              descInterventoText += `───────────────────────────────────\n`;
+              descInterventoText += `DETTAGLI INTERVENTO:\n`;
+              descInterventoText += `───────────────────────────────────\n`;
+              descInterventoText += `📅 Data: ${log.data}\n`;
+              if (log.oraInizio) descInterventoText += `⏰ Ora Inizio: ${log.oraInizio}\n`;
+              if (log.oraFine) descInterventoText += `⏰ Ora Fine: ${log.oraFine}\n`;
+              descInterventoText += `🔧 Modalità: ${modalita}\n`;
+              descInterventoText += `⏱️ Ore: ${oreIntervento}h\n`;
               if (descIntervento) {
-                descInterventoText += `Descrizione: ${descIntervento}\n`;
+                descInterventoText += `\n📄 Descrizione Intervento:\n${descIntervento}\n`;
               }
               
               // Materiali
               if (log.materials && Array.isArray(log.materials) && log.materials.length > 0) {
                 const materials = log.materials.filter(m => m && m.nome && m.nome.trim() !== '0' && m.nome.trim() !== '');
                 if (materials.length > 0) {
-                  descInterventoText += `\nMateriali:\n`;
+                  descInterventoText += `\n📦 Materiali Utilizzati:\n`;
                   materials.forEach(m => {
                     const q = parseFloat(m.quantita) || 0;
                     const c = parseFloat(m.costo) || 0;
@@ -499,7 +509,7 @@ module.exports = (pool) => {
               
               // Crea evento per l'intervento
               const interventoEvent = {
-                summary: `🔧 Intervento: Ticket #${ticket.numero} - ${modalita}`,
+                summary: `🔧 Ticket #${ticket.numero}: ${ticket.titolo || 'Intervento'} - ${modalita}`,
                 description: descInterventoText,
                 start: {
                   dateTime: interventoStartDate.toISOString(),
@@ -1675,19 +1685,29 @@ module.exports = (pool) => {
         const descIntervento = log.descrizione || '';
         const oreIntervento = parseFloat(log.oreIntervento) || 0;
 
-        let descInterventoText = `INTERVENTO ESEGUITO\n`;
-        descInterventoText += `Ticket: #${ticket.numero}\n`;
-        descInterventoText += `Cliente: ${clientName}\n`;
-        descInterventoText += `Modalità: ${modalita}\n`;
-        descInterventoText += `Ore: ${oreIntervento}h\n`;
+        let descInterventoText = `═══════════════════════════════════\n`;
+        descInterventoText += `🔧 INTERVENTO ESEGUITO\n`;
+        descInterventoText += `═══════════════════════════════════\n\n`;
+        descInterventoText += `📋 TICKET: #${ticket.numero}\n`;
+        descInterventoText += `📝 Titolo Ticket: ${ticket.titolo || 'N/A'}\n`;
+        descInterventoText += `👤 Cliente: ${clientName}\n`;
+        descInterventoText += `🔗 Link Ticket: ${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}\n\n`;
+        descInterventoText += `───────────────────────────────────\n`;
+        descInterventoText += `DETTAGLI INTERVENTO:\n`;
+        descInterventoText += `───────────────────────────────────\n`;
+        descInterventoText += `📅 Data: ${log.data}\n`;
+        if (log.oraInizio) descInterventoText += `⏰ Ora Inizio: ${log.oraInizio}\n`;
+        if (log.oraFine) descInterventoText += `⏰ Ora Fine: ${log.oraFine}\n`;
+        descInterventoText += `🔧 Modalità: ${modalita}\n`;
+        descInterventoText += `⏱️ Ore: ${oreIntervento}h\n`;
         if (descIntervento) {
-          descInterventoText += `Descrizione: ${descIntervento}\n`;
+          descInterventoText += `\n📄 Descrizione Intervento:\n${descIntervento}\n`;
         }
 
         if (log.materials && Array.isArray(log.materials) && log.materials.length > 0) {
           const materials = log.materials.filter(m => m && m.nome && m.nome.trim() !== '0' && m.nome.trim() !== '');
           if (materials.length > 0) {
-            descInterventoText += `\nMateriali:\n`;
+            descInterventoText += `\n📦 Materiali Utilizzati:\n`;
             materials.forEach(m => {
               const q = parseFloat(m.quantita) || 0;
               const c = parseFloat(m.costo) || 0;
@@ -1697,7 +1717,7 @@ module.exports = (pool) => {
         }
 
         const interventoEvent = {
-          summary: `🔧 Intervento: Ticket #${ticket.numero} - ${modalita}`,
+          summary: `🔧 Ticket #${ticket.numero}: ${ticket.titolo || 'Intervento'} - ${modalita}`,
           description: descInterventoText,
           start: {
             dateTime: interventoStartDate.toISOString(),
