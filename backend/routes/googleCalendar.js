@@ -1583,5 +1583,257 @@ module.exports = (pool) => {
     }
   });
 
+  // ENDPOINT: Sincronizza interventi mancanti (timelogs senza eventi Google Calendar)
+  router.post('/sync-missing-interventi', async (req, res) => {
+    try {
+      console.log('=== SINCRONIZZAZIONE INTERVENTI MANCANTI ===');
+      
+      // Verifica credenziali
+      if (!process.env.GOOGLE_CLIENT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY) {
+        return res.json({
+          success: false,
+          message: 'Google Service Account non configurato'
+        });
+      }
+
+      const authInstance = getAuth();
+      if (!authInstance) {
+        return res.json({
+          success: false,
+          message: 'Google Auth non configurato'
+        });
+      }
+
+      const authClient = await authInstance.getClient();
+      const calendar = google.calendar({ version: 'v3', auth: authClient });
+
+      // Trova calendario corretto
+      let calendarId = 'primary';
+      try {
+        const calendarList = await calendar.calendarList.list();
+        const ticketAppCalendar = calendarList.data.items?.find(cal => cal.summary === 'TicketApp Test Calendar');
+        if (ticketAppCalendar) {
+          calendarId = ticketAppCalendar.id;
+        } else if (calendarList.data.items && calendarList.data.items.length > 0) {
+          calendarId = calendarList.data.items[0].id;
+        }
+      } catch (calErr) {
+        console.error('Errore ricerca calendario:', calErr.message);
+      }
+
+      // Recupera tutti i ticket con timelogs
+      const client = await pool.connect();
+      const ticketsResult = await client.query(`
+        SELECT t.*, u.azienda 
+        FROM tickets t 
+        LEFT JOIN users u ON t.clienteid = u.id 
+        WHERE t.timelogs IS NOT NULL 
+          AND t.timelogs != '[]' 
+          AND t.timelogs != ''
+        ORDER BY t.dataapertura DESC
+      `);
+      client.release();
+
+      const tickets = ticketsResult.rows;
+      console.log(`Trovati ${tickets.length} ticket con timelogs da verificare`);
+
+      if (tickets.length === 0) {
+        return res.json({
+          success: true,
+          message: 'Nessun ticket con timelogs trovato',
+          synced: 0,
+          errors: 0
+        });
+      }
+
+      let syncedCount = 0;
+      let errorCount = 0;
+      const errors = [];
+
+      // Funzione helper per creare evento intervento
+      const createInterventoEvent = async (ticket, log, idx, clientName) => {
+        if (!log.data) return null;
+
+        let interventoStartDate;
+        if (log.data.includes('T')) {
+          interventoStartDate = new Date(log.data);
+        } else {
+          const oraInizio = log.oraInizio || '09:00';
+          interventoStartDate = new Date(log.data + 'T' + oraInizio + ':00+02:00');
+        }
+
+        if (isNaN(interventoStartDate.getTime())) return null;
+
+        let interventoEndDate;
+        if (log.oraFine) {
+          const dateStr = log.data.includes('T') ? log.data.split('T')[0] : log.data;
+          interventoEndDate = new Date(dateStr + 'T' + log.oraFine + ':00+02:00');
+        } else {
+          const ore = parseFloat(log.oreIntervento) || 1;
+          interventoEndDate = new Date(interventoStartDate.getTime() + ore * 60 * 60 * 1000);
+        }
+
+        if (isNaN(interventoEndDate.getTime())) {
+          interventoEndDate = new Date(interventoStartDate.getTime() + 60 * 60 * 1000);
+        }
+
+        const modalita = log.modalita || 'Intervento';
+        const descIntervento = log.descrizione || '';
+        const oreIntervento = parseFloat(log.oreIntervento) || 0;
+
+        let descInterventoText = `INTERVENTO ESEGUITO\n`;
+        descInterventoText += `Ticket: #${ticket.numero}\n`;
+        descInterventoText += `Cliente: ${clientName}\n`;
+        descInterventoText += `Modalità: ${modalita}\n`;
+        descInterventoText += `Ore: ${oreIntervento}h\n`;
+        if (descIntervento) {
+          descInterventoText += `Descrizione: ${descIntervento}\n`;
+        }
+
+        if (log.materials && Array.isArray(log.materials) && log.materials.length > 0) {
+          const materials = log.materials.filter(m => m && m.nome && m.nome.trim() !== '0' && m.nome.trim() !== '');
+          if (materials.length > 0) {
+            descInterventoText += `\nMateriali:\n`;
+            materials.forEach(m => {
+              const q = parseFloat(m.quantita) || 0;
+              const c = parseFloat(m.costo) || 0;
+              descInterventoText += `- ${m.nome} x${q} (€${(q * c).toFixed(2)})\n`;
+            });
+          }
+        }
+
+        const interventoEvent = {
+          summary: `🔧 Intervento: Ticket #${ticket.numero} - ${modalita}`,
+          description: descInterventoText,
+          start: {
+            dateTime: interventoStartDate.toISOString(),
+            timeZone: 'Europe/Rome'
+          },
+          end: {
+            dateTime: interventoEndDate.toISOString(),
+            timeZone: 'Europe/Rome'
+          },
+          colorId: '10',
+          source: {
+            title: 'TicketApp - Intervento',
+            url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
+          },
+          extendedProperties: {
+            private: {
+              ticketId: ticket.id.toString(),
+              timelogIndex: idx.toString(),
+              isIntervento: 'true'
+            }
+          }
+        };
+
+        return await calendar.events.insert({
+          calendarId: calendarId,
+          resource: interventoEvent,
+          sendUpdates: 'none',
+          conferenceDataVersion: 0
+        });
+      };
+
+      // Per ogni ticket, verifica e crea eventi intervento mancanti
+      for (const ticket of tickets) {
+        try {
+          // Parsa timelogs
+          let timelogs = ticket.timelogs;
+          if (typeof timelogs === 'string') {
+            try {
+              timelogs = JSON.parse(timelogs);
+            } catch {
+              continue;
+            }
+          }
+
+          if (!Array.isArray(timelogs) || timelogs.length === 0) {
+            continue;
+          }
+
+          // Cerca eventi intervento esistenti per questo ticket
+          let existingInterventiEvents = [];
+          try {
+            const eventsList = await calendar.events.list({
+              calendarId: calendarId,
+              timeMin: new Date(new Date().getFullYear() - 1, 0, 1).toISOString(),
+              timeMax: new Date(new Date().getFullYear() + 1, 11, 31).toISOString(),
+              maxResults: 2500,
+              singleEvents: true
+            });
+
+            existingInterventiEvents = eventsList.data.items?.filter(e =>
+              e.extendedProperties?.private?.ticketId === ticket.id.toString() &&
+              e.extendedProperties?.private?.isIntervento === 'true'
+            ) || [];
+          } catch (searchErr) {
+            console.error(`Errore ricerca eventi per ticket #${ticket.numero}:`, searchErr.message);
+            continue;
+          }
+
+          const clientName = ticket.azienda || 'Cliente Sconosciuto';
+          let ticketSynced = 0;
+
+          // Crea eventi per timelogs che non hanno ancora un evento
+          for (const [idx, log] of timelogs.entries()) {
+            const existingEvent = existingInterventiEvents.find(e =>
+              e.extendedProperties?.private?.timelogIndex === idx.toString()
+            );
+
+            if (!existingEvent && log.data) {
+              try {
+                await createInterventoEvent(ticket, log, idx, clientName);
+                ticketSynced++;
+                syncedCount++;
+                console.log(`✅ Evento intervento creato per ticket #${ticket.numero}, intervento #${idx + 1}`);
+              } catch (createErr) {
+                errorCount++;
+                errors.push({
+                  ticketId: ticket.id,
+                  numero: ticket.numero,
+                  interventoIndex: idx + 1,
+                  error: createErr.message
+                });
+                console.error(`❌ Errore creazione evento per ticket #${ticket.numero}, intervento #${idx + 1}:`, createErr.message);
+              }
+            }
+          }
+
+          if (ticketSynced > 0) {
+            console.log(`✅ Ticket #${ticket.numero}: creati ${ticketSynced} eventi intervento`);
+          }
+        } catch (ticketErr) {
+          errorCount++;
+          errors.push({
+            ticketId: ticket.id,
+            numero: ticket.numero,
+            error: ticketErr.message
+          });
+          console.error(`❌ Errore elaborazione ticket #${ticket.numero}:`, ticketErr.message);
+        }
+      }
+
+      console.log(`=== SINCRONIZZAZIONE INTERVENTI COMPLETATA ===`);
+      console.log(`Eventi creati: ${syncedCount}`);
+      console.log(`Errori: ${errorCount}`);
+
+      res.json({
+        success: true,
+        message: 'Sincronizzazione interventi completata',
+        synced: syncedCount,
+        errors: errorCount,
+        errorDetails: errors.length > 0 ? errors : undefined
+      });
+    } catch (err) {
+      console.error('Errore sincronizzazione interventi mancanti:', err);
+      res.status(500).json({
+        success: false,
+        message: 'Errore interno del server',
+        error: err.message
+      });
+    }
+  });
+
   return router;
 };
