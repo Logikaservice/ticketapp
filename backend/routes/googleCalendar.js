@@ -573,21 +573,40 @@ module.exports = (pool) => {
         
         // Aggiorna/Crea eventi per gli interventi (timelogs)
         try {
-          console.log(`[UPDATE] Inizio gestione timelogs per ticket #${ticket.id}`);
+          console.log(`[UPDATE] ===== INIZIO GESTIONE TIMELOGS PER TICKET #${ticket.id} =====`);
+          console.log(`[UPDATE] Ticket completo ricevuto:`, {
+            id: ticket.id,
+            numero: ticket.numero,
+            hasTimelogs: !!ticket.timelogs,
+            timelogsType: typeof ticket.timelogs,
+            timelogsIsArray: Array.isArray(ticket.timelogs),
+            timelogsLength: Array.isArray(ticket.timelogs) ? ticket.timelogs.length : 'N/A'
+          });
+          
           let timelogs = ticket.timelogs;
           console.log(`[UPDATE] Timelogs raw:`, typeof timelogs, Array.isArray(timelogs) ? timelogs.length : 'N/A');
           
           if (typeof timelogs === 'string') {
+            console.log(`[UPDATE] Timelogs è una stringa, provo a parsare...`);
+            console.log(`[UPDATE] Stringa timelogs (primi 200 caratteri):`, timelogs.substring(0, 200));
             try { 
               timelogs = JSON.parse(timelogs); 
-              console.log(`[UPDATE] Timelogs parsati da stringa:`, timelogs.length);
+              console.log(`[UPDATE] ✅ Timelogs parsati da stringa con successo:`, timelogs.length, 'interventi');
+              console.log(`[UPDATE] Primo intervento parsato:`, timelogs[0] ? {
+                data: timelogs[0].data,
+                oraInizio: timelogs[0].oraInizio,
+                modalita: timelogs[0].modalita,
+                hasDescrizione: !!timelogs[0].descrizione
+              } : 'N/A');
             } catch (parseErr) { 
-              console.error(`[UPDATE] Errore parsing timelogs:`, parseErr.message);
+              console.error(`[UPDATE] ❌ Errore parsing timelogs:`, parseErr.message);
+              console.error(`[UPDATE] Stack trace:`, parseErr.stack);
               timelogs = []; 
             }
           }
           
           if (Array.isArray(timelogs) && timelogs.length > 0) {
+            console.log(`[UPDATE] ✅ Timelogs validi trovati: ${timelogs.length} interventi`);
             console.log(`[UPDATE] Aggiornamento/Creazione eventi per ${timelogs.length} interventi...`);
             
             // Cerca eventi esistenti per questo ticket
@@ -615,12 +634,17 @@ module.exports = (pool) => {
             
             for (const [idx, log] of timelogs.entries()) {
               try {
-                console.log(`[UPDATE] Elaborazione intervento #${idx + 1} per ticket #${ticket.id}`);
+                console.log(`[UPDATE] ===== ELABORAZIONE INTERVENTO #${idx + 1} =====`);
+                console.log(`[UPDATE] Dati intervento completo:`, JSON.stringify(log, null, 2));
+                console.log(`[UPDATE] Ticket ID: ${ticket.id}, Numero: ${ticket.numero}`);
                 
                 if (!log.data) {
                   console.log(`[UPDATE] ⚠️ Intervento #${idx + 1} senza data, saltato`);
+                  console.log(`[UPDATE] Log completo:`, log);
                   continue;
                 }
+                
+                console.log(`[UPDATE] ✅ Intervento #${idx + 1} ha data: ${log.data}`);
                 
                 // Prepara data e ora dell'intervento
                 let interventoStartDate;
