@@ -294,13 +294,28 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                              currentPhoto.path?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
               
               if (isImage) {
+                const imageUrl = `${apiUrl}${currentPhoto.path}`;
+                console.log('🔍 DEBUG TicketPhotosModal: Caricamento immagine:', {
+                  apiUrl,
+                  path: currentPhoto.path,
+                  fullUrl: imageUrl,
+                  originalName: currentPhoto.originalName
+                });
                 return (
                   <img
-                    src={`${apiUrl}${currentPhoto.path}`}
+                    src={imageUrl}
                     alt={currentPhoto.originalName}
                     className="max-w-full max-h-full object-contain"
                     onError={(e) => {
+                      console.error('❌ DEBUG TicketPhotosModal: Errore caricamento immagine:', {
+                        url: imageUrl,
+                        error: e.target.error,
+                        currentSrc: e.target.currentSrc
+                      });
                       e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2U1ZTdlYiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5FcnJvcmUgY2FyaWNhbWVudG88L3RleHQ+PC9zdmc+';
+                    }}
+                    onLoad={() => {
+                      console.log('✅ DEBUG TicketPhotosModal: Immagine caricata con successo:', imageUrl);
                     }}
                   />
                 );
