@@ -201,7 +201,7 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                       <Hourglass size={12} />
                       <span>{countdownInfo.label}</span>
                     </div>
-                    {!avv.isPermanent && avv.daysToExpire && (
+                    {!avv.isPermanent && avv.daysToExpire && countdownInfo?.label && !/scad/i.test(countdownInfo.label) && (
                       <div className="flex items-center gap-1 text-gray-500">
                         <Info size={12} />
                         <span>Durata {avv.daysToExpire} giorni</span>
