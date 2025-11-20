@@ -437,7 +437,7 @@ const NewTicketModal = ({
               <div className="mt-2 space-y-2">
                 {photos.map((photo, index) => (
                   <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                    <ImageIcon size={16} className="text-gray-600" />
+                    <FilePlus size={16} className="text-gray-600" />
                     <span className="text-sm text-gray-700 flex-1 truncate">{photo.name}</span>
                     <button
                       type="button"
