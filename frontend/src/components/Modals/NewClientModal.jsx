@@ -212,7 +212,7 @@ const NewClientModal = ({
                   
                   {/* Dropdown custom con card stilizzate */}
                   {showCompanyDropdown && canUseExisting && (
-                    <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl max-h-64 overflow-y-auto z-10">
+                    <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl max-h-64 overflow-y-auto z-10">
                       {existingCompanies.map((azienda) => {
                         const isSelected = newClientData.existingCompany === azienda;
                         return (
@@ -223,19 +223,19 @@ const NewClientModal = ({
                               setNewClientData({ ...newClientData, existingCompany: azienda });
                               setShowCompanyDropdown(false);
                             }}
-                            className={`w-full flex items-center justify-between px-4 py-3 text-left transition ${
+                            className={`w-full flex items-center justify-between px-3 py-1.5 text-left transition ${
                               isSelected 
                                 ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500' 
                                 : 'hover:bg-green-50'
                             }`}
                           >
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                                 {azienda.charAt(0).toUpperCase()}
                               </div>
-                              <span className="font-medium text-gray-800">{azienda}</span>
+                              <span className="font-medium text-gray-800 text-sm">{azienda}</span>
                             </div>
-                            {isSelected && <Check size={18} className="text-green-600 flex-shrink-0" />}
+                            {isSelected && <Check size={16} className="text-green-600 flex-shrink-0" />}
                           </button>
                         );
                       })}
