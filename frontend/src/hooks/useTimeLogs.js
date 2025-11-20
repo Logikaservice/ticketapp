@@ -252,7 +252,15 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       console.log('[SAVE-TIMELOGS] ✅ Salvataggio completato');
       console.log('[SAVE-TIMELOGS] Timelogs salvati:', parsedTimelogs.length);
       
-      // Sincronizzazione immediata con Google Calendar includendo registro intervento
+      // Mostra notifica e modal IMMEDIATAMENTE (non aspettare la sincronizzazione Google Calendar)
+      showNotification('Modifiche salvate con successo!', 'success');
+      
+      // Mostra modal per chiedere se inviare la mail IMMEDIATAMENTE
+      if (setModalState) {
+        setModalState({ type: 'sendEmailConfirm', data: updatedTicket });
+      }
+      
+      // Sincronizzazione Google Calendar in background (NON blocca l'interfaccia)
       if (!googleCalendarSync || typeof googleCalendarSync !== 'function') {
         console.warn('[SAVE-TIMELOGS] ⚠️ googleCalendarSync non disponibile:', {
           exists: !!googleCalendarSync,
@@ -261,31 +269,29 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       } else if (parsedTimelogs.length === 0) {
         console.log('[SAVE-TIMELOGS] ⚠️ Nessun timelog da sincronizzare');
       } else {
-        try {
-          console.log('[SAVE-TIMELOGS] 🔄 Sincronizzazione Google Calendar...');
-          console.log('[SAVE-TIMELOGS] Ticket per sync:', {
-            id: ticketForSync.id,
-            titolo: ticketForSync.titolo,
-            timelogsCount: ticketForSync.timelogs?.length || 0,
-            timelogs: ticketForSync.timelogs
+        // Esegui sincronizzazione in background senza attendere
+        console.log('[SAVE-TIMELOGS] 🔄 Sincronizzazione Google Calendar in background...');
+        console.log('[SAVE-TIMELOGS] Ticket per sync:', {
+          id: ticketForSync.id,
+          titolo: ticketForSync.titolo,
+          timelogsCount: ticketForSync.timelogs?.length || 0,
+          timelogs: ticketForSync.timelogs
+        });
+        
+        // Esegui in background senza bloccare
+        googleCalendarSync(ticketForSync, 'update')
+          .then(syncResult => {
+            console.log('[SAVE-TIMELOGS] ✅ Sincronizzazione Google Calendar completata:', syncResult);
+            if (syncResult === false) {
+              console.warn('[SAVE-TIMELOGS] ⚠️ Sincronizzazione ritornata false');
+            }
+          })
+          .catch(e => {
+            console.error('[SAVE-TIMELOGS] ❌ Errore sincronizzazione Google Calendar:', e);
+            console.error('[SAVE-TIMELOGS] Stack trace:', e.stack);
+            // Non mostriamo notifica all'utente per non interrompere il flusso
+            // L'intervento è già stato salvato con successo
           });
-          const syncResult = await googleCalendarSync(ticketForSync, 'update');
-          console.log('[SAVE-TIMELOGS] ✅ Sincronizzazione Google Calendar completata:', syncResult);
-          if (syncResult === false) {
-            console.warn('[SAVE-TIMELOGS] ⚠️ Sincronizzazione ritornata false');
-          }
-        } catch (e) {
-          console.error('[SAVE-TIMELOGS] ❌ Errore sincronizzazione Google Calendar:', e);
-          console.error('[SAVE-TIMELOGS] Stack trace:', e.stack);
-          // Mostra notifica all'utente per errori di sincronizzazione
-          showNotification('Intervento salvato, ma errore nella sincronizzazione con Google Calendar', 'warning');
-        }
-      }
-      showNotification('Modifiche salvate con successo!', 'success');
-      
-      // Mostra modal per chiedere se inviare la mail
-      if (setModalState) {
-        setModalState({ type: 'sendEmailConfirm', data: updatedTicket });
       }
     } catch (error) {
       console.error('[SAVE-TIMELOGS] ❌ Errore:', error);
