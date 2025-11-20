@@ -638,25 +638,26 @@ module.exports = (pool) => {
               }
             }
             
+            // Cerca eventi esistenti per questo ticket (sempre, anche se non ci sono timelogs)
+            let existingInterventiEvents = [];
+            try {
+              const eventsList = await calendar.events.list({
+                calendarId: interventiCalendarId,
+                timeMin: new Date(new Date().getFullYear() - 1, 0, 1).toISOString(),
+                timeMax: new Date(new Date().getFullYear() + 1, 11, 31).toISOString(),
+                maxResults: 2500,
+                singleEvents: true
+              });
+              
+              existingInterventiEvents = eventsList.data.items?.filter(e => 
+                e.extendedProperties?.private?.ticketId === ticket.id.toString() &&
+                e.extendedProperties?.private?.isIntervento === 'true'
+              ) || [];
+            } catch (searchErr) {
+              console.error(`[UPDATE] Errore ricerca eventi intervento esistenti:`, searchErr.message);
+            }
+            
             if (Array.isArray(timelogs) && timelogs.length > 0) {
-              // Cerca eventi esistenti per questo ticket
-              let existingInterventiEvents = [];
-              try {
-                const eventsList = await calendar.events.list({
-                  calendarId: calendarId,
-                  timeMin: new Date(new Date().getFullYear() - 1, 0, 1).toISOString(),
-                  timeMax: new Date(new Date().getFullYear() + 1, 11, 31).toISOString(),
-                  maxResults: 2500,
-                  singleEvents: true
-                });
-                
-                existingInterventiEvents = eventsList.data.items?.filter(e => 
-                  e.extendedProperties?.private?.ticketId === ticket.id.toString() &&
-                  e.extendedProperties?.private?.isIntervento === 'true'
-                ) || [];
-              } catch (searchErr) {
-                console.error(`[UPDATE] Errore ricerca eventi intervento esistenti:`, searchErr.message);
-              }
               
               for (const [idx, log] of timelogs.entries()) {
                 try {

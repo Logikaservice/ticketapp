@@ -258,7 +258,8 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
       }
       
       // Sincronizzazione Google Calendar in background (NON blocca l'interfaccia)
-      if (googleCalendarSync && typeof googleCalendarSync === 'function' && parsedTimelogs.length > 0) {
+      // Sincronizza sempre, anche se non ci sono interventi (per rimuovere eventi eliminati)
+      if (googleCalendarSync && typeof googleCalendarSync === 'function') {
         googleCalendarSync(ticketForSync, 'update').catch(e => {
           console.error('[SAVE-TIMELOGS] Errore sincronizzazione Google Calendar:', e);
         });
