@@ -7,7 +7,39 @@ export const useGoogleCalendar = (getAuthHeader) => {
   // Sincronizzazione automatica con Service Account (per backend)
   const syncTicketToCalendarBackend = async (ticket, action = 'create') => {
     try {
-      console.log(`Sincronizzazione automatica ticket #${ticket.id} (${action}) via Service Account`);
+      console.log(`[GOOGLE-CALENDAR] Sincronizzazione automatica ticket #${ticket.id} (${action}) via Service Account`);
+      console.log(`[GOOGLE-CALENDAR] Ticket completo:`, {
+        id: ticket.id,
+        numero: ticket.numero,
+        titolo: ticket.titolo,
+        hasTimelogs: !!ticket.timelogs,
+        timelogsType: typeof ticket.timelogs,
+        timelogsIsArray: Array.isArray(ticket.timelogs),
+        timelogsLength: Array.isArray(ticket.timelogs) ? ticket.timelogs.length : (typeof ticket.timelogs === 'string' ? ticket.timelogs.length : 'N/A')
+      });
+      
+      if (ticket.timelogs) {
+        console.log(`[GOOGLE-CALENDAR] Timelogs presenti:`, Array.isArray(ticket.timelogs) ? ticket.timelogs : 'Stringa o altro tipo');
+        if (Array.isArray(ticket.timelogs) && ticket.timelogs.length > 0) {
+          console.log(`[GOOGLE-CALENDAR] Primo timelog:`, ticket.timelogs[0]);
+        }
+      } else {
+        console.warn(`[GOOGLE-CALENDAR] ⚠️ Nessun timelog nel ticket!`);
+      }
+      
+      const payload = {
+        ticket: ticket,
+        action: action
+      };
+      
+      console.log(`[GOOGLE-CALENDAR] Payload da inviare:`, {
+        ticketId: payload.ticket.id,
+        action: payload.action,
+        hasTimelogs: !!payload.ticket.timelogs,
+        timelogsPreview: Array.isArray(payload.ticket.timelogs) ? 
+          payload.ticket.timelogs.map(tl => ({ data: tl.data, modalita: tl.modalita })) : 
+          (typeof payload.ticket.timelogs === 'string' ? payload.ticket.timelogs.substring(0, 100) : 'N/A')
+      });
       
       // Invia ticket al backend per sincronizzazione automatica
       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/sync-google-calendar`, {
@@ -16,10 +48,7 @@ export const useGoogleCalendar = (getAuthHeader) => {
           'Content-Type': 'application/json',
           ...getAuthHeader()
         },
-        body: JSON.stringify({
-          ticket: ticket,
-          action: action
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
