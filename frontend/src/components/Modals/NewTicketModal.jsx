@@ -104,6 +104,20 @@ const NewTicketModal = ({
       return;
     }
     
+    // Verifica dimensione per file singolo (massimo 10MB per file)
+    const maxFileSize = 10 * 1024 * 1024; // 10MB in bytes
+    const oversizedFiles = imageFiles.filter(file => file.size > maxFileSize);
+    
+    if (oversizedFiles.length > 0) {
+      const fileNames = oversizedFiles.map(f => `${f.name} (${(f.size / (1024 * 1024)).toFixed(2)}MB)`).join(', ');
+      alert(`I seguenti file superano il limite di 10MB per file:\n${fileNames}\n\nDimensione massima consentita: 10MB per file.\n\nSeleziona file più piccoli.`);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+    
     // Verifica dimensione totale (massimo 10MB totali)
     const maxTotalSize = 10 * 1024 * 1024; // 10MB in bytes
     const totalSize = imageFiles.reduce((sum, file) => sum + file.size, 0);
