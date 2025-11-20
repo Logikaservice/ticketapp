@@ -1173,12 +1173,16 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
   });
 
   // Upload documento per Offerta (ritorna metadati, nessuna scrittura DB qui)
+  // Aggiunge anche il file alla lista photos del ticket per visibilità
   router.post('/:id/offerte/attachments', uploadOffertaDocs.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'Nessun file caricato' });
       }
+      const ticketId = parseInt(req.params.id);
       const f = req.file;
+      const uploadedById = req.user?.id || null;
+      
       const meta = {
         filename: f.filename,
         originalName: f.originalname,
@@ -1187,6 +1191,52 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         mimetype: f.mimetype,
         uploadedAt: new Date().toISOString()
       };
+      
+      // Aggiungi anche il file alla lista photos del ticket per visibilità
+      try {
+        const client = await pool.connect();
+        const ticketResult = await client.query('SELECT photos FROM tickets WHERE id = $1', [ticketId]);
+        
+        if (ticketResult.rows.length > 0) {
+          let existingPhotos = [];
+          try {
+            if (ticketResult.rows[0].photos) {
+              existingPhotos = typeof ticketResult.rows[0].photos === 'string' 
+                ? JSON.parse(ticketResult.rows[0].photos) 
+                : ticketResult.rows[0].photos;
+              if (!Array.isArray(existingPhotos)) existingPhotos = [];
+            }
+          } catch (e) {
+            existingPhotos = [];
+          }
+          
+          // Crea un oggetto photo compatibile con la struttura photos del ticket
+          // Usa lo stesso path dell'offerta per mantenere coerenza
+          const photoEntry = {
+            filename: f.filename,
+            originalName: f.originalname,
+            path: `/uploads/tickets/offerte/${f.filename}`, // Mantieni il path originale dell'offerta
+            size: f.size,
+            mimetype: f.mimetype,
+            uploadedAt: new Date().toISOString(),
+            uploadedById: uploadedById,
+            isOffertaAttachment: true // Flag per identificare che proviene da un'offerta
+          };
+          
+          // Verifica se il file non è già presente (evita duplicati)
+          const isDuplicate = existingPhotos.some(p => p.filename === f.filename && p.path === photoEntry.path);
+          if (!isDuplicate) {
+            const updatedPhotos = [...existingPhotos, photoEntry];
+            await client.query('UPDATE tickets SET photos = $1 WHERE id = $2', [JSON.stringify(updatedPhotos), ticketId]);
+            console.log(`✅ Allegato offerta aggiunto anche alla lista photos del ticket #${ticketId}`);
+          }
+        }
+        client.release();
+      } catch (photoErr) {
+        // Non bloccare l'upload se c'è un errore nell'aggiunta alla lista photos
+        console.error('⚠️ Errore aggiunta allegato offerta alla lista photos:', photoErr);
+      }
+      
       res.json(meta);
     } catch (err) {
       console.error('Errore upload allegato offerta:', err);
