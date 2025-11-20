@@ -260,15 +260,45 @@ const uploadAlerts = multer({
 // Configurazione Multer per foto ticket
 const storageTicketPhotos = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, 'uploads', 'tickets', 'photos');
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
+    try {
+      const uploadPath = path.join(__dirname, 'uploads', 'tickets', 'photos');
+      console.log('🔍 DEBUG MULTER: Tentativo creazione directory:', uploadPath);
+      
+      if (!fs.existsSync(uploadPath)) {
+        console.log('🔍 DEBUG MULTER: Directory non esiste, creazione...');
+        fs.mkdirSync(uploadPath, { recursive: true });
+        console.log('✅ DEBUG MULTER: Directory creata con successo');
+      } else {
+        console.log('✅ DEBUG MULTER: Directory già esistente');
+      }
+      
+      // Verifica che la directory sia scrivibile
+      try {
+        fs.accessSync(uploadPath, fs.constants.W_OK);
+        console.log('✅ DEBUG MULTER: Directory scrivibile');
+      } catch (accessErr) {
+        console.error('❌ DEBUG MULTER: Directory non scrivibile:', accessErr.message);
+        return cb(new Error('Directory upload non scrivibile: ' + accessErr.message));
+      }
+      
+      cb(null, uploadPath);
+    } catch (err) {
+      console.error('❌ DEBUG MULTER: Errore creazione directory:', err.message);
+      console.error('❌ DEBUG MULTER: Stack:', err.stack);
+      cb(new Error('Errore creazione directory upload: ' + err.message));
     }
-    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, `ticket-photo-${uniqueSuffix}${path.extname(file.originalname)}`);
+    try {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      const ext = path.extname(file.originalname || '');
+      const filename = `ticket-photo-${uniqueSuffix}${ext}`;
+      console.log('🔍 DEBUG MULTER: Nome file generato:', filename);
+      cb(null, filename);
+    } catch (err) {
+      console.error('❌ DEBUG MULTER: Errore generazione nome file:', err.message);
+      cb(new Error('Errore generazione nome file: ' + err.message));
+    }
   }
 });
 
