@@ -388,10 +388,68 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
   const addDepartment = () => {
     if (!newDeptName.trim() || departmentsStructure[selectedCompany]?.includes(newDeptName)) return;
-    setDepartmentsStructure(prev => ({ ...prev, [selectedCompany]: [...(prev[selectedCompany] || []), newDeptName] }));
-    setEmployeesData(prev => ({ ...prev, [`${selectedCompany}-${newDeptName}`]: [] }));
+    
+    setDepartmentsStructure(prev => {
+      const updated = { ...prev, [selectedCompany]: [...(prev[selectedCompany] || []), newDeptName] };
+      // Salva con lo stato aggiornato
+      setTimeout(() => {
+        setEmployeesData(empData => {
+          const updatedEmpData = { ...empData, [`${selectedCompany}-${newDeptName}`]: [] };
+          // Salva tutti i dati aggiornati
+          saveDataWithStructure(updated, updatedEmpData);
+          return updatedEmpData;
+        });
+      }, 100);
+      return updated;
+    });
     setNewDeptName('');
-    saveData();
+  };
+  
+  // Funzione helper per salvare con struttura aggiornata
+  const saveDataWithStructure = async (deptStructure, empData) => {
+    try {
+      // Usa una funzione che legge lo stato più recente
+      setSchedule(currentSchedule => {
+        const dataToSave = {
+          companies,
+          departments: deptStructure || departmentsStructure,
+          employees: empData || employeesData,
+          schedule: currentSchedule
+        };
+        
+        const cleanData = JSON.parse(JSON.stringify(dataToSave));
+        
+        fetch(buildApiUrl('/api/orari/save'), {
+          method: 'POST',
+          headers: {
+            ...getAuthHeader(),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(cleanData)
+        })
+        .then(response => {
+          if (response.ok) {
+            return response.json();
+          } else {
+            return response.json().catch(() => ({}));
+          }
+        })
+        .then(result => {
+          if (result.success) {
+            console.log('✅ Reparti salvati con successo:', result);
+          } else {
+            console.error('❌ Errore salvataggio reparti:', result);
+          }
+        })
+        .catch(error => {
+          console.error('❌ Errore salvataggio reparti:', error);
+        });
+        
+        return currentSchedule;
+      });
+    } catch (error) {
+      console.error('❌ Errore salvataggio reparti:', error);
+    }
   };
 
   const triggerDeleteDepartment = (deptToDelete) => {
@@ -403,18 +461,27 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   const deleteDepartment = (deptToDelete) => {
-    setDepartmentsStructure(prev => ({ ...prev, [selectedCompany]: prev[selectedCompany].filter(d => d !== deptToDelete) }));
-    if (selectedDept === deptToDelete) {
-      const remaining = departmentsStructure[selectedCompany].filter(d => d !== deptToDelete);
-      setSelectedDept(remaining[0] || '');
-    }
-    const key = `${selectedCompany}-${deptToDelete}`;
-    setEmployeesData(prev => {
-      const newData = { ...prev };
-      delete newData[key];
-      return newData;
+    setDepartmentsStructure(prev => {
+      const updated = { ...prev, [selectedCompany]: prev[selectedCompany].filter(d => d !== deptToDelete) };
+      
+      if (selectedDept === deptToDelete) {
+        const remaining = updated[selectedCompany];
+        setSelectedDept(remaining[0] || '');
+      }
+      
+      const key = `${selectedCompany}-${deptToDelete}`;
+      setEmployeesData(empData => {
+        const newData = { ...empData };
+        delete newData[key];
+        // Salva con lo stato aggiornato
+        setTimeout(() => {
+          saveDataWithStructure(updated, newData);
+        }, 100);
+        return newData;
+      });
+      
+      return updated;
     });
-    saveData();
   };
 
   const addEmployee = () => {
