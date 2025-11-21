@@ -44,6 +44,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   const [schedule, setSchedule] = useState({});
   const [newDeptName, setNewDeptName] = useState('');
   const [newEmployeeName, setNewEmployeeName] = useState('');
+  
+  // Stato per sostituzione dipendente
+  const [replaceEmployeeModal, setReplaceEmployeeModal] = useState({
+    isOpen: false,
+    oldEmployeeId: null,
+    oldEmployeeName: '',
+    newEmployeeName: '',
+    newEmployeeId: null
+  });
 
   const days = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
 
@@ -354,6 +363,70 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       return newSchedule;
     });
     saveData();
+  };
+
+  // --- SOSTITUZIONE DIPENDENTE ---
+  const openReplaceEmployeeModal = (empId) => {
+    const emp = currentEmployees.find(e => e.id === empId);
+    if (!emp) return;
+    setReplaceEmployeeModal({
+      isOpen: true,
+      oldEmployeeId: empId,
+      oldEmployeeName: emp.name,
+      newEmployeeName: '',
+      newEmployeeId: null
+    });
+  };
+
+  const closeReplaceEmployeeModal = () => {
+    setReplaceEmployeeModal({
+      isOpen: false,
+      oldEmployeeId: null,
+      oldEmployeeName: '',
+      newEmployeeName: '',
+      newEmployeeId: null
+    });
+  };
+
+  const handleReplaceEmployee = () => {
+    const { oldEmployeeId, newEmployeeName, newEmployeeId } = replaceEmployeeModal;
+    if (!newEmployeeName.trim()) return;
+
+    const key = getCurrentContextKey();
+    let targetEmployeeId = newEmployeeId;
+
+    // Se il nuovo dipendente non esiste, crealo
+    if (!targetEmployeeId) {
+      targetEmployeeId = Date.now();
+      const newEmployee = { id: targetEmployeeId, name: newEmployeeName.toUpperCase() };
+      setEmployeesData(prev => ({
+        ...prev,
+        [key]: [...(prev[key] || []), newEmployee]
+      }));
+    }
+
+    // Trasferisci gli orari dal vecchio al nuovo dipendente
+    setSchedule(prev => {
+      const newSchedule = { ...prev };
+      if (newSchedule[oldEmployeeId]) {
+        newSchedule[targetEmployeeId] = { ...newSchedule[oldEmployeeId] };
+        delete newSchedule[oldEmployeeId];
+      }
+      return newSchedule;
+    });
+
+    // Sostituisci il dipendente nella lista
+    setEmployeesData(prev => ({
+      ...prev,
+      [key]: prev[key].map(emp => 
+        emp.id === oldEmployeeId 
+          ? { id: targetEmployeeId, name: newEmployeeName.toUpperCase() }
+          : emp
+      )
+    }));
+
+    saveData();
+    closeReplaceEmployeeModal();
   };
 
   // --- EXPORT EXCEL PERFETTO ---
@@ -797,9 +870,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               </thead>
               <tbody>
                 {currentEmployees.map((emp) => (
-                  <tr key={emp.id} className="bg-white border-b hover:bg-blue-50 transition-colors">
+                  <tr key={emp.id} className="bg-white border-b hover:bg-blue-50 transition-colors group">
                     <td className="px-2 py-3 border font-bold text-gray-800 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                      {emp.name}
+                      <div className="flex items-center gap-2">
+                        <span>{emp.name}</span>
+                        <button
+                          onClick={() => openReplaceEmployeeModal(emp.id)}
+                          className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-blue-500 hover:text-blue-700 p-1 rounded transition-opacity"
+                          title="Sostituisci dipendente (mantiene orari)"
+                        >
+                          <UserPlus size={14} />
+                        </button>
+                      </div>
                     </td>
                     {days.map((day, dayIdx) => {
                       const cellData = schedule[emp.id]?.[dayIdx] || {};
