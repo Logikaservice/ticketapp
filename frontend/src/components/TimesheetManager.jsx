@@ -193,6 +193,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         depts.forEach(dept => {
           const key = getContextKey(company, dept);
           const employees = employeesData[key] || [];
+          console.log(`📋 Azienda: ${company}, Reparto: ${dept}, Key: ${key}, Dipendenti:`, employees);
           // Aggiungi informazioni azienda e reparto a ogni dipendente
           employees.forEach(emp => {
             allEmployees.push({
@@ -204,6 +205,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           });
         });
       });
+      console.log('👥 Totale dipendenti in modalità multi-azienda:', allEmployees.length);
       return allEmployees;
     } else {
       // Modalità singola azienda (comportamento originale)
@@ -212,6 +214,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       const dept = selectedDept || departmentsStructure[company]?.[0] || '';
       const key = getContextKey(company, dept);
       const employees = employeesData[key] || [];
+      console.log(`📋 Azienda singola: ${company}, Reparto: ${dept}, Key: ${key}, Dipendenti:`, employees);
       return employees.map(emp => ({
         ...emp,
         company: company,
@@ -386,14 +389,83 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       dept = departmentsStructure[selectedCompanies[0]]?.[0] || '';
     }
     
+    // Verifica che company e dept siano validi
+    if (!company || !dept) {
+      console.error('❌ Errore: company o dept non validi', { company, dept });
+      return;
+    }
+    
     const key = getContextKey(company, dept);
     const newId = Date.now();
-    setEmployeesData(prev => ({
+    
+    console.log('➕ Aggiungo dipendente:', {
+      name: quickAddName.toUpperCase(),
+      company,
+      dept,
+      key,
+      id: newId
+    });
+    
+    setEmployeesData(prev => {
+      const updated = {
         ...prev,
         [key]: [...(prev[key] || []), { id: newId, name: quickAddName.toUpperCase() }]
-    }));
+      };
+      
+      // Salva immediatamente con lo stato aggiornato
+      setTimeout(() => {
+        saveDataWithEmployees(updated);
+      }, 100);
+      
+      return updated;
+    });
     setQuickAddName('');
-    saveData();
+  };
+  
+  // Funzione helper per salvare con dipendenti aggiornati
+  const saveDataWithEmployees = async (empData) => {
+    try {
+      setSchedule(currentSchedule => {
+        const dataToSave = {
+          companies,
+          departments: departmentsStructure,
+          employees: empData || employeesData,
+          schedule: currentSchedule || schedule
+        };
+        
+        const cleanData = JSON.parse(JSON.stringify(dataToSave));
+        
+        fetch(buildApiUrl('/api/orari/save'), {
+          method: 'POST',
+          headers: {
+            ...getAuthHeader(),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(cleanData)
+        })
+        .then(response => {
+          if (response.ok) {
+            return response.json();
+          } else {
+            return response.json().catch(() => ({}));
+          }
+        })
+        .then(result => {
+          if (result.success) {
+            console.log('✅ Dipendente salvato con successo:', result);
+          } else {
+            console.error('❌ Errore salvataggio dipendente:', result);
+          }
+        })
+        .catch(error => {
+          console.error('❌ Errore salvataggio dipendente:', error);
+        });
+        
+        return currentSchedule;
+      });
+    } catch (error) {
+      console.error('❌ Errore salvataggio dipendente:', error);
+    }
   };
 
   const addDepartment = () => {
