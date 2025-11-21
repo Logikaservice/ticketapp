@@ -481,9 +481,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       });
       
       // Salva usando lo stato più recente
+      // IMPORTANTE: Salva TUTTO lo stato employeesData aggiornato, non solo la chiave corrente
       pendingSaveRef.current = updated;
-      console.log('⏳ Trigger salvataggio chiamato...');
-      triggerSave();
+      console.log('⏳ Trigger salvataggio chiamato con dati:', {
+        chiavi: Object.keys(updated),
+        totaleDipendenti: Object.keys(updated).reduce((sum, k) => sum + (updated[k]?.length || 0), 0)
+      });
+      
+      // Chiama triggerSave in modo asincrono per non bloccare l'aggiornamento dello stato
+      setTimeout(() => {
+        triggerSave();
+      }, 0);
       
       return updated;
     });

@@ -7,9 +7,10 @@ echo ""
 
 cd /var/www/ticketapp/backend
 
-# Carica variabili d'ambiente
+# Carica variabili d'ambiente in modo sicuro
 if [ -f .env ]; then
-    export $(cat .env | grep -v '^#' | xargs)
+    # Leggi DATABASE_URL direttamente senza export problematico
+    DATABASE_URL=$(grep "^DATABASE_URL=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
 else
     echo "❌ File .env non trovato"
     exit 1
