@@ -23,49 +23,49 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
     switch (modalState.type) {
       case 'timeLogger':
         return (
-          <TimeLoggerModal 
-            closeModal={closeModal} 
+          <TimeLoggerModal
+            closeModal={closeModal}
             selectedTicket={modalState.data}
             currentUser={handlers.currentUser}
             getAuthHeader={handlers.getAuthHeader}
-            {...handlers} 
+            {...handlers}
           />
         );
-      
+
       case 'viewTimeLogger':
         return (
-          <TimeLoggerModal 
-            closeModal={closeModal} 
+          <TimeLoggerModal
+            closeModal={closeModal}
             selectedTicket={modalState.data}
             readOnly={true}
             currentUser={handlers.currentUser}
             getAuthHeader={handlers.getAuthHeader}
             handleSaveTimeLogs={handlers.handleSaveTimeLogs}
-            {...handlers} 
+            {...handlers}
           />
         );
-        
+
       case 'settings':
         return <SettingsModal closeModal={closeModal} currentUser={handlers.currentUser} {...handlers} />;
-        
+
       case 'urgentConfirm':
         return <UrgentConfirmModal closeModal={closeModal} {...handlers} />;
-        
+
       case 'emptyDescriptionConfirm':
         return <EmptyDescriptionConfirmModal closeModal={closeEmptyDescriptionModal || closeModal} {...handlers} />;
-        
+
       case 'reportHTML':
         return (
-          <ReportModal 
-            closeModal={closeModal} 
+          <ReportModal
+            closeModal={closeModal}
             title={modalState.data.title}
             htmlContent={modalState.data.htmlContent}
           />
         );
-        
+
       case 'manageAlerts':
         return (
-          <ManageAlertsModal 
+          <ManageAlertsModal
             isOpen={true}
             onClose={closeModal}
             users={handlers.users}
@@ -75,10 +75,10 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             onRequestEmailConfirm={handlers.onRequestEmailConfirm}
           />
         );
-        
+
       case 'emailConfirm':
         return (
-          <EmailConfirmModal 
+          <EmailConfirmModal
             onConfirm={handlers.onConfirmEmail}
             onCancel={handlers.onCancelEmail}
             isEditing={modalState.data?.isEditing}
@@ -88,28 +88,28 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             newStatus={modalState.data?.newStatus}
           />
         );
-        
+
       case 'alertEmailConfirm':
         return (
-          <AlertEmailConfirmModal 
+          <AlertEmailConfirmModal
             onConfirm={handlers.onConfirmAlertEmail}
             onCancel={handlers.onCancelAlertEmail}
             users={handlers.users}
           />
         );
-        
+
       case 'sendEmailConfirm':
         return (
-          <SendEmailConfirmModal 
+          <SendEmailConfirmModal
             onConfirm={handlers.onConfirmSendEmail}
             onCancel={handlers.onCancelSendEmail}
             ticket={modalState.data}
           />
         );
-        
+
       case 'alertsHistory':
         return (
-          <AlertsHistoryModal 
+          <AlertsHistoryModal
             isOpen={true}
             onClose={closeModal}
             currentUser={handlers.currentUser}
@@ -118,10 +118,10 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             initialAlertId={modalState.data?.alertId || null}
           />
         );
-      
+
       case 'importKeepass':
         return (
-          <ImportKeepassModal 
+          <ImportKeepassModal
             isOpen={true}
             onClose={closeModal}
             users={handlers.users}
@@ -129,10 +129,10 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             onSuccess={handlers.onKeepassImportSuccess}
           />
         );
-      
+
       case 'keepassCredentials':
         return (
-          <KeepassCredentialsModal 
+          <KeepassCredentialsModal
             isOpen={true}
             onClose={closeModal}
             currentUser={handlers.currentUser}
@@ -140,17 +140,17 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             highlightEntryId={modalState.data?.highlightEntryId || null}
           />
         );
-      
+
       case 'analytics':
         return (
-          <AnalyticsModal 
+          <AnalyticsModal
             currentUser={handlers.currentUser}
             users={handlers.users}
             getAuthHeader={handlers.getAuthHeader}
             onClose={closeModal}
           />
         );
-      
+
       case 'accessLogs':
         return (
           <AccessLogsModal
@@ -159,18 +159,20 @@ const AllModals = ({ modalState, closeModal, closeEmptyDescriptionModal, ...hand
             getAuthHeader={handlers.getAuthHeader}
           />
         );
-      
+
       default:
         return null;
     }
   };
-  
+
   const content = renderModalContent();
   if (!content) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-40">
-      {content}
+    <div className="fixed inset-0 bg-black bg-opacity-60 z-40 overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center p-4">
+        {content}
+      </div>
     </div>
   );
 };
