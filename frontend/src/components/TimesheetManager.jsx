@@ -426,9 +426,48 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     }
   };
 
-  // Ref per tracciare se c'è un salvataggio in corso
-  const savingRef = useRef(false);
-  const pendingSaveRef = useRef(null);
+  // Funzione per salvare direttamente i dati dipendenti
+  const saveDataDirectly = async (empData) => {
+    try {
+      // Pulisci i dati employees
+      const cleanedEmployees = {};
+      if (empData) {
+        Object.keys(empData).forEach(key => {
+          const cleanKey = String(key).trim();
+          if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(empData[key])) {
+            cleanedEmployees[cleanKey] = empData[key];
+          }
+        });
+      }
+      
+      const dataToSave = {
+        companies: (companies || []).map(c => String(c).trim()),
+        departments: departmentsStructure || {},
+        employees: cleanedEmployees,
+        schedule: schedule || {}
+      };
+      
+      const response = await fetch(buildApiUrl('/api/orari/save'), {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dataToSave)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Errore nel salvataggio');
+      }
+      
+      const result = await response.json();
+      console.log('✅ Dipendente salvato con successo');
+    } catch (error) {
+      console.error('❌ Errore salvataggio dipendente:', error);
+      alert(`Errore nel salvataggio: ${error.message}`);
+    }
+  };
 
   // --- AZIONI STRUTTURA ---
   const handleQuickAddEmployee = (targetCompany = null, targetDept = null) => {
@@ -465,7 +504,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       id: newId
     });
     
-    // Aggiorna lo stato
+    // Aggiorna lo stato e salva immediatamente
     setEmployeesData(prev => {
       const currentEmployees = prev[key] || [];
       const updated = {
@@ -473,33 +512,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         [key]: [...currentEmployees, { id: newId, name: employeeName }]
       };
       
-      console.log('📝 Stato aggiornato - Dipendenti per chiave:', {
-        chiave: key,
-        prima: currentEmployees.length,
-        dopo: updated[key].length,
-        dipendenti: updated[key]
-      });
-      
-      // Salva usando lo stato più recente
-      // IMPORTANTE: Salva TUTTO lo stato employeesData aggiornato, non solo la chiave corrente
-      pendingSaveRef.current = updated;
-      console.log('⏳ Trigger salvataggio chiamato con dati:', {
-        chiavi: Object.keys(updated),
-        totaleDipendenti: Object.keys(updated).reduce((sum, k) => sum + (updated[k]?.length || 0), 0),
-        dipendentiPerChiave: Object.keys(updated).reduce((obj, k) => {
-          obj[k] = updated[k]?.length || 0;
-          return obj;
-        }, {})
-      });
-      
-      // Chiama triggerSave immediatamente (non aspettare il prossimo ciclo)
-      // Usa requestAnimationFrame per assicurarsi che lo stato sia aggiornato
-      requestAnimationFrame(() => {
-        console.log('🎯 Eseguo triggerSave...');
-        triggerSave().catch(err => {
-          console.error('❌ Errore in triggerSave:', err);
-        });
-      });
+      // Salva immediatamente con i dati aggiornati
+      setTimeout(() => {
+        saveDataDirectly(updated);
+      }, 100);
       
       return updated;
     });
@@ -512,147 +528,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     }
   };
   
-  // Funzione per triggerare il salvataggio (gestisce la coda)
-  const triggerSave = async () => {
-    console.log('🚀 triggerSave chiamato');
-    
-    // Se c'è già un salvataggio in corso, aspetta
-    if (savingRef.current) {
-      console.log('⏸️ Salvataggio già in corso, metto in coda...');
-      // Il salvataggio verrà fatto quando quello corrente finisce
-      return;
-    }
-    
-    console.log('⏳ Attendo 300ms per raggruppare salvataggi rapidi...');
-    // Aspetta un po' per raggruppare salvataggi rapidi
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // Prendi lo stato più recente
-    const empDataToSave = pendingSaveRef.current;
-    if (!empDataToSave) {
-      console.warn('⚠️ Nessun dato da salvare in pendingSaveRef - questo non dovrebbe succedere!');
-      console.warn('⚠️ Stato attuale employeesData:', employeesData);
-      return;
-    }
-    
-    console.log('💾 Avvio salvataggio con dati:', {
-      chiavi: Object.keys(empDataToSave),
-      totaleChiavi: Object.keys(empDataToSave).length,
-      dipendentiPerChiave: Object.keys(empDataToSave).reduce((obj, k) => {
-        obj[k] = empDataToSave[k]?.length || 0;
-        return obj;
-      }, {})
-    });
-    
-    // Marca come in salvataggio
-    savingRef.current = true;
-    const dataToSave = empDataToSave; // Salva una copia prima di azzerare
-    pendingSaveRef.current = null;
-    
-    try {
-      await saveDataWithEmployees(dataToSave);
-      console.log('✅ Salvataggio completato con successo');
-    } catch (error) {
-      console.error('❌ Errore durante salvataggio:', error);
-      // In caso di errore, ripristina pendingSaveRef per permettere il retry
-      pendingSaveRef.current = dataToSave;
-    } finally {
-      savingRef.current = false;
-      
-      // Se c'è un altro salvataggio in attesa, fallo ora
-      if (pendingSaveRef.current) {
-        console.log('🔄 C\'è un altro salvataggio in attesa, lo eseguo ora...');
-        setTimeout(() => triggerSave(), 100);
-      }
-    }
-  };
-  
-  // Funzione helper per salvare con dipendenti aggiornati
-  const saveDataWithEmployees = async (empData) => {
-    try {
-      console.log('💾 SALVATAGGIO DIPENDENTI - Dati ricevuti:', {
-        chiavi: Object.keys(empData || {}),
-        totaleChiavi: Object.keys(empData || {}).length
-      });
-      
-      // Pulisci i dati employees per assicurarsi che le chiavi siano stringhe valide
-      const cleanedEmployees = {};
-      if (empData) {
-        Object.keys(empData).forEach(key => {
-          // Rimuovi chiavi con [object Object] e assicurati che siano stringhe valide
-          const cleanKey = String(key).trim();
-          if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(empData[key])) {
-            cleanedEmployees[cleanKey] = empData[key];
-            console.log(`   ✅ Chiave valida: ${cleanKey} - ${empData[key].length} dipendenti`);
-          } else {
-            console.warn(`   ⚠️ Chiave invalida rimossa: ${key}`);
-          }
-        });
-      }
-      
-      console.log('🧹 Dipendenti puliti:', {
-        chiavi: Object.keys(cleanedEmployees),
-        totale: Object.keys(cleanedEmployees).reduce((sum, k) => sum + cleanedEmployees[k].length, 0)
-      });
-      
-      // Verifica che cleanedEmployees non sia vuoto
-      if (Object.keys(cleanedEmployees).length === 0) {
-        console.error('❌ ERRORE: cleanedEmployees è vuoto! Usando employeesData come fallback');
-        // Usa employeesData come fallback
-        Object.keys(employeesData).forEach(key => {
-          const cleanKey = String(key).trim();
-          if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(employeesData[key])) {
-            cleanedEmployees[cleanKey] = employeesData[key];
-          }
-        });
-        console.log('🔄 Fallback a employeesData:', {
-          chiavi: Object.keys(cleanedEmployees),
-          totale: Object.keys(cleanedEmployees).reduce((sum, k) => sum + cleanedEmployees[k].length, 0)
-        });
-      }
-      
-      // Usa lo stato corrente per tutti i dati
-      const dataToSave = {
-        companies: (companies || []).map(c => String(c).trim()),
-        departments: departmentsStructure || {},
-        employees: cleanedEmployees,
-        schedule: schedule || {}
-      };
-      
-      // Log dettagliato per ogni chiave
-      Object.keys(cleanedEmployees).forEach(key => {
-        console.log(`📤 Chiave da salvare: ${key} - ${cleanedEmployees[key].length} dipendenti:`, cleanedEmployees[key]);
-      });
-      
-      const cleanData = JSON.parse(JSON.stringify(dataToSave));
-      
-      console.log('📤 Invio dati al backend...');
-      const response = await fetch(buildApiUrl('/api/orari/save'), {
-        method: 'POST',
-        headers: {
-          ...getAuthHeader(),
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(cleanData)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Errore risposta backend:', errorData);
-        throw new Error(errorData.error || 'Errore nel salvataggio');
-      }
-      
-      const result = await response.json();
-      console.log('✅ Salvataggio completato con successo:', result);
-      
-      // NON ricaricare i dati qui - potrebbe sovrascrivere modifiche in corso
-      // I dati verranno ricaricati al prossimo refresh della pagina
-    } catch (error) {
-      console.error('❌ Errore salvataggio:', error);
-      alert(`Errore nel salvataggio: ${error.message}`);
-      throw error; // Rilancia per gestire il retry
-    }
-  };
 
   const addDepartment = () => {
     if (!newDeptName.trim() || departmentsStructure[selectedCompany]?.includes(newDeptName)) return;
@@ -679,10 +554,22 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   // Funzione helper per salvare con struttura aggiornata
   const saveDataWithStructure = async (deptStructure, empData, currentSchedule) => {
     try {
+      // Pulisci i dati employees
+      const cleanedEmployees = {};
+      const empDataToUse = empData || employeesData;
+      if (empDataToUse) {
+        Object.keys(empDataToUse).forEach(key => {
+          const cleanKey = String(key).trim();
+          if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(empDataToUse[key])) {
+            cleanedEmployees[cleanKey] = empDataToUse[key];
+          }
+        });
+      }
+      
       const dataToSave = {
-        companies,
+        companies: (companies || []).map(c => String(c).trim()),
         departments: deptStructure || departmentsStructure,
-        employees: empData || employeesData,
+        employees: cleanedEmployees,
         schedule: currentSchedule || schedule
       };
       
@@ -699,13 +586,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Reparti salvati con successo:', result);
+        console.log('✅ Dati salvati con successo');
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Errore salvataggio reparti:', errorData);
+        console.error('❌ Errore salvataggio:', errorData);
       }
     } catch (error) {
-      console.error('❌ Errore salvataggio reparti:', error);
+      console.error('❌ Errore salvataggio:', error);
     }
   };
 
