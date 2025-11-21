@@ -5,8 +5,8 @@ import { buildApiUrl } from '../utils/apiConfig';
 const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   // --- STATI GENERALI ---
   const [showSettings, setShowSettings] = useState(false);
+  // weekRange non è più usato direttamente, ma mantenuto per compatibilità
   const [weekRange, setWeekRange] = useState(() => {
-    // Calcola la settimana corrente
     const today = new Date();
     const monday = new Date(today);
     monday.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
@@ -88,6 +88,47 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   ]);
 
   const days = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
+
+  // --- FUNZIONI HELPER PER SETTIMANE ---
+  // Calcola il lunedì di una settimana (offset: 0 = questa settimana, 1 = prossima, -1 = scorsa, ecc.)
+  const getWeekDates = (offset = 0) => {
+    const today = new Date();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
+    monday.setDate(monday.getDate() + (offset * 7));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const formatDate = (d) => {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    };
+    return {
+      monday,
+      sunday,
+      formatted: `${formatDate(monday)} al ${formatDate(sunday)}`,
+      label: offset === 0 ? 'Questa settimana' : 
+             offset === 1 ? 'Prossima settimana' : 
+             offset === -1 ? 'Settimana scorsa' :
+             offset > 1 ? `Tra ${offset} settimane` :
+             `${Math.abs(offset)} settimane fa`
+    };
+  };
+
+  // Genera opzioni settimane (da -2 a +8 settimane)
+  const getWeekOptions = () => {
+    const options = [];
+    for (let i = -2; i <= 8; i++) {
+      const week = getWeekDates(i);
+      options.push({
+        value: week.formatted,
+        label: `${week.label} (${week.formatted})`,
+        offset: i
+      });
+    }
+    return options;
+  };
 
   // --- CARICAMENTO LIBRERIA EXCEL (Versione con STILI) ---
   useEffect(() => {
@@ -1169,13 +1210,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               {/* Filtro Settimana */}
               <div className="flex flex-col">
                 <label className="text-xs font-semibold text-gray-600 mb-1">Settimana</label>
-                <input
-                  type="text"
-                  value={listWeekRange || ''}
+                <select
+                  value={listWeekRange || getWeekDates(0).formatted}
                   onChange={(e) => updateListFilter(id, 'weekRange', e.target.value)}
-                  placeholder="gg/mm/aaaa al gg/mm/aaaa"
-                  className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-52"
-                />
+                  className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
+                >
+                  {getWeekOptions().map((option, idx) => (
+                    <option key={idx} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
