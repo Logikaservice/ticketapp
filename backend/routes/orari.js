@@ -108,7 +108,7 @@ module.exports = (poolOrari) => {
     }
   });
 
-  // ENDPOINT: Verifica stato database (per debug)
+  // ENDPOINT: Verifica stato database (per debug) - Accessibile senza autenticazione
   router.get('/debug', async (req, res) => {
     try {
       const result = await pool.query('SELECT id, updated_at, data FROM orari_data ORDER BY id DESC LIMIT 1');

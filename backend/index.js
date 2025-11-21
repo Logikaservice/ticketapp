@@ -991,7 +991,28 @@ app.use('/api/availability', authenticateToken, availabilityRoutes);
 app.use('/api/analytics', authenticateToken, requireRole('tecnico'), analyticsRoutes);
 app.use('/api/access-logs', accessLogsRoutes);
 // Route Orari e Turni (solo per tecnico/admin)
+// Endpoint /debug accessibile senza autenticazione per diagnostica
 app.use('/api/orari', authenticateToken, requireRole(['tecnico', 'admin']), orariRoutes);
+// Endpoint debug pubblico (solo per diagnostica - rimuovere in produzione)
+app.get('/api/orari/debug-public', async (req, res) => {
+  try {
+    const orariRoutes = require('./routes/orari')(pool);
+    // Crea una richiesta mock per accedere all'endpoint debug
+    const mockReq = { ...req };
+    const mockRes = {
+      json: (data) => res.json(data),
+      status: (code) => ({ json: (data) => res.status(code).json(data) })
+    };
+    // Chiama direttamente l'endpoint debug
+    const debugRoute = orariRoutes.stack.find(layer => layer.route?.path === '/debug');
+    if (debugRoute) {
+      return debugRoute.route.stack[0].handle(mockReq, mockRes);
+    }
+    res.status(404).json({ error: 'Debug endpoint not found' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Funzione per chiusura automatica ticket risolti da più di 5 giorni
 const closeExpiredTickets = async () => {

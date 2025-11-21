@@ -134,6 +134,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           }
           
           console.log('✅ Dipendenti puliti e caricati:', Object.keys(cleanedEmployees));
+          console.log('📊 Dettaglio dipendenti caricati:', cleanedEmployees);
+          
+          // Verifica che i dipendenti siano stati caricati correttamente
+          Object.keys(cleanedEmployees).forEach(key => {
+            const count = Array.isArray(cleanedEmployees[key]) ? cleanedEmployees[key].length : 0;
+            console.log(`   ✅ ${key}: ${count} dipendenti caricati`, cleanedEmployees[key]);
+          });
+          
           setEmployeesData(cleanedEmployees);
           setSchedule(data.schedule || {});
           
@@ -142,6 +150,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           if (firstDept) {
             setSelectedDept(firstDept);
           }
+          
+          // Verifica finale dopo il setState
+          setTimeout(() => {
+            console.log('🔍 Verifica finale stato dopo caricamento:', {
+              employeesDataKeys: Object.keys(cleanedEmployees),
+              employeesDataCount: Object.keys(cleanedEmployees).reduce((sum, key) => sum + (cleanedEmployees[key]?.length || 0), 0)
+            });
+          }, 100);
           
           // Inizializza con la prima azienda selezionata (ma non in modalità multi-azienda)
           // setSelectedCompanies([]); // Non selezionare nessuna azienda di default
