@@ -1472,27 +1472,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             </div>
 
             <div className="flex gap-3 items-center">
-              {companies.length > 0 && (
-                <div className="bg-slate-700 p-1.5 rounded flex items-center gap-2">
-                  <Building2 size={16} className="text-slate-300" />
-                  <select
-                    value={selectedCompany}
-                    onChange={(e) => {
-                      setSelectedCompany(e.target.value);
-                      const firstDept = departmentsStructure[e.target.value]?.[0];
-                      setSelectedDept(firstDept || '');
-                      // Se non ci sono aziende selezionate per multi-azienda, usa questa come default
-                      if (selectedCompanies.length === 0) {
-                        setSelectedCompanies([e.target.value]);
-                      }
-                    }}
-                    className="bg-slate-600 text-white border-none rounded text-sm p-1 focus:ring-2 focus:ring-blue-500"
-                  >
-                    {companies.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-              )}
-
               <button
                 onClick={() => setShowSettings(!showSettings)}
                 className={`p-2 rounded transition-colors ${showSettings ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
