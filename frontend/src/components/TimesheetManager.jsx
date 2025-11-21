@@ -485,13 +485,21 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       pendingSaveRef.current = updated;
       console.log('⏳ Trigger salvataggio chiamato con dati:', {
         chiavi: Object.keys(updated),
-        totaleDipendenti: Object.keys(updated).reduce((sum, k) => sum + (updated[k]?.length || 0), 0)
+        totaleDipendenti: Object.keys(updated).reduce((sum, k) => sum + (updated[k]?.length || 0), 0),
+        dipendentiPerChiave: Object.keys(updated).reduce((obj, k) => {
+          obj[k] = updated[k]?.length || 0;
+          return obj;
+        }, {})
       });
       
-      // Chiama triggerSave in modo asincrono per non bloccare l'aggiornamento dello stato
-      setTimeout(() => {
-        triggerSave();
-      }, 0);
+      // Chiama triggerSave immediatamente (non aspettare il prossimo ciclo)
+      // Usa requestAnimationFrame per assicurarsi che lo stato sia aggiornato
+      requestAnimationFrame(() => {
+        console.log('🎯 Eseguo triggerSave...');
+        triggerSave().catch(err => {
+          console.error('❌ Errore in triggerSave:', err);
+        });
+      });
       
       return updated;
     });
@@ -506,6 +514,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   
   // Funzione per triggerare il salvataggio (gestisce la coda)
   const triggerSave = async () => {
+    console.log('🚀 triggerSave chiamato');
+    
     // Se c'è già un salvataggio in corso, aspetta
     if (savingRef.current) {
       console.log('⏸️ Salvataggio già in corso, metto in coda...');
@@ -520,24 +530,32 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     // Prendi lo stato più recente
     const empDataToSave = pendingSaveRef.current;
     if (!empDataToSave) {
-      console.warn('⚠️ Nessun dato da salvare in pendingSaveRef');
+      console.warn('⚠️ Nessun dato da salvare in pendingSaveRef - questo non dovrebbe succedere!');
+      console.warn('⚠️ Stato attuale employeesData:', employeesData);
       return;
     }
     
     console.log('💾 Avvio salvataggio con dati:', {
       chiavi: Object.keys(empDataToSave),
-      totaleChiavi: Object.keys(empDataToSave).length
+      totaleChiavi: Object.keys(empDataToSave).length,
+      dipendentiPerChiave: Object.keys(empDataToSave).reduce((obj, k) => {
+        obj[k] = empDataToSave[k]?.length || 0;
+        return obj;
+      }, {})
     });
     
     // Marca come in salvataggio
     savingRef.current = true;
+    const dataToSave = empDataToSave; // Salva una copia prima di azzerare
     pendingSaveRef.current = null;
     
     try {
-      await saveDataWithEmployees(empDataToSave);
+      await saveDataWithEmployees(dataToSave);
       console.log('✅ Salvataggio completato con successo');
     } catch (error) {
       console.error('❌ Errore durante salvataggio:', error);
+      // In caso di errore, ripristina pendingSaveRef per permettere il retry
+      pendingSaveRef.current = dataToSave;
     } finally {
       savingRef.current = false;
       
