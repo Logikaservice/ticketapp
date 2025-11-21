@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Trash2, Plus, Download, Calculator, Calendar, Settings, X, UserPlus, Building2, FileSpreadsheet, Wand2, AlertTriangle } from 'lucide-react';
+import { Save, Trash2, Plus, Download, Calculator, Calendar, Settings, X, UserPlus, Building2, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const TimesheetManager = ({ currentUser, getAuthHeader }) => {
@@ -181,44 +181,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     closeConfirm();
   };
 
-  // --- FUNZIONE DATI CASUALI ---
-  const triggerFillRandomData = () => {
-    openConfirm(
-      "Generazione Dati Casuali",
-      "Attenzione: Questo sovrascriverà gli orari attuali visibili con dati casuali di esempio. Vuoi procedere?",
-      () => fillRandomData()
-    );
-  };
-
-  const fillRandomData = () => {
-    const newSchedule = JSON.parse(JSON.stringify(schedule));
-    
-    currentEmployees.forEach(emp => {
-      if (!newSchedule[emp.id]) newSchedule[emp.id] = {};
-      days.forEach((_, dayIdx) => {
-        const rand = Math.random();
-        if (rand < 0.15) {
-           newSchedule[emp.id][dayIdx] = { code: 'R', in1: '', out1: '', in2: '', out2: '' };
-        } else if (rand < 0.20) {
-           newSchedule[emp.id][dayIdx] = { code: 'FERIE', in1: '', out1: '', in2: '', out2: '' };
-        } else {
-           const shiftType = Math.floor(Math.random() * 3);
-           let dayData = { code: '', in1: '', out1: '', in2: '', out2: '' };
-           if (shiftType === 0) { // Spezzato
-             dayData.in1 = '10.30'; dayData.out1 = '15.00';
-             dayData.in2 = '18.30'; dayData.out2 = '23.00';
-           } else if (shiftType === 1) { // Unico lungo
-             dayData.in1 = '09.00'; dayData.out1 = '16.00';
-           } else { // Sera
-             dayData.in1 = '17.00'; dayData.out1 = '23.30';
-           }
-           newSchedule[emp.id][dayIdx] = dayData;
-        }
-      });
-    });
-    setSchedule(newSchedule);
-    saveData();
-  };
 
   // --- CALCOLI SICURI ---
   const timeToDecimal = (timeStr) => {
@@ -778,14 +740,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                   </div>
                 </>
               )}
-
-              <button 
-                onClick={triggerFillRandomData}
-                className="p-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors shadow-sm"
-                title="Genera Dati Casuali (Demo)"
-              >
-                <Wand2 size={20} />
-              </button>
 
               <button 
                 onClick={() => setShowSettings(!showSettings)}
