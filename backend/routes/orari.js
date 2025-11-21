@@ -56,9 +56,11 @@ module.exports = (poolOrari) => {
   // ENDPOINT: Ottieni tutti i dati
   router.get('/data', async (req, res) => {
     try {
-      const result = await pool.query('SELECT data FROM orari_data ORDER BY id DESC LIMIT 1');
+      console.log('📥 Richiesta lettura dati orari');
+      const result = await pool.query('SELECT id, data, updated_at FROM orari_data ORDER BY id DESC LIMIT 1');
       
       if (result.rows.length === 0) {
+        console.log('📝 Nessun record trovato, creo dati iniziali');
         // Dati iniziali con aziende di default
         const initialData = {
           companies: ['La Torre', 'Mercurio', 'Albatros'],
@@ -79,6 +81,7 @@ module.exports = (poolOrari) => {
           'INSERT INTO orari_data (data) VALUES ($1)',
           [JSON.stringify(initialData)]
         );
+        console.log('✅ Dati iniziali creati');
         return res.json(initialData);
       }
 
@@ -88,10 +91,19 @@ module.exports = (poolOrari) => {
         employees: {},
         schedule: {}
       };
+      
+      // Log dei dati restituiti
+      const employeeKeys = Object.keys(data.employees || {});
+      console.log('📤 Dati restituiti - Chiavi dipendenti:', employeeKeys);
+      employeeKeys.forEach(key => {
+        const count = Array.isArray(data.employees[key]) ? data.employees[key].length : 0;
+        console.log(`   - ${key}: ${count} dipendenti`);
+      });
 
       res.json(data);
     } catch (err) {
       console.error('❌ Errore lettura dati orari:', err);
+      console.error('❌ Stack:', err.stack);
       res.status(500).json({ error: 'Errore lettura dati' });
     }
   });
@@ -136,15 +148,41 @@ module.exports = (poolOrari) => {
       if (check.rows.length > 0) {
         const recordId = check.rows[0].id;
         console.log(`💾 Aggiornamento record esistente ID: ${recordId}`);
+        
+        // Log dettagliato prima del salvataggio
+        console.log('📤 Dati da salvare (primi 500 caratteri):', JSON.stringify(cleanData).substring(0, 500));
+        
         const result = await pool.query(
           'UPDATE orari_data SET data = $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING id',
           [JSON.stringify(cleanData), recordId]
         );
+        
+        if (result.rows.length === 0) {
+          console.error('❌ ERRORE: UPDATE non ha aggiornato nessun record!');
+          throw new Error('UPDATE fallito');
+        }
+        
         console.log('✅ Dati orari aggiornati, ID:', result.rows[0].id);
         
-        // Verifica che i dati siano stati salvati
-        const verify = await pool.query('SELECT jsonb_object_keys(data->\'employees\') as key FROM orari_data WHERE id = $1', [recordId]);
-        console.log('✅ Verifica salvataggio - Chiavi dipendenti nel DB:', verify.rows.map(r => r.key));
+        // Verifica immediata che i dati siano stati salvati
+        const verify = await pool.query(
+          'SELECT data->\'employees\' as employees FROM orari_data WHERE id = $1',
+          [recordId]
+        );
+        
+        if (verify.rows.length > 0) {
+          const savedEmployees = verify.rows[0].employees;
+          const savedKeys = Object.keys(savedEmployees || {});
+          console.log('✅ Verifica salvataggio - Chiavi dipendenti nel DB:', savedKeys);
+          
+          // Conta dipendenti per chiave
+          savedKeys.forEach(key => {
+            const count = Array.isArray(savedEmployees[key]) ? savedEmployees[key].length : 0;
+            console.log(`   - ${key}: ${count} dipendenti`);
+          });
+        } else {
+          console.error('❌ ERRORE: Record non trovato dopo UPDATE!');
+        }
       } else {
         console.log('💾 Inserimento nuovo record');
         const result = await pool.query(
