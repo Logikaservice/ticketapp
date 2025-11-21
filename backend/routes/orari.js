@@ -108,6 +108,46 @@ module.exports = (poolOrari) => {
     }
   });
 
+  // ENDPOINT: Verifica stato database (per debug)
+  router.get('/debug', async (req, res) => {
+    try {
+      const result = await pool.query('SELECT id, updated_at, data FROM orari_data ORDER BY id DESC LIMIT 1');
+      
+      if (result.rows.length === 0) {
+        return res.json({ 
+          exists: false, 
+          message: 'Nessun record trovato nel database' 
+        });
+      }
+
+      const record = result.rows[0];
+      const data = record.data || {};
+      const employeeKeys = Object.keys(data.employees || {});
+      
+      const employeeDetails = {};
+      employeeKeys.forEach(key => {
+        employeeDetails[key] = {
+          count: Array.isArray(data.employees[key]) ? data.employees[key].length : 0,
+          employees: data.employees[key] || []
+        };
+      });
+
+      res.json({
+        exists: true,
+        recordId: record.id,
+        updatedAt: record.updated_at,
+        companies: data.companies || [],
+        departments: Object.keys(data.departments || {}),
+        employeeKeys: employeeKeys,
+        employeeDetails: employeeDetails,
+        totalEmployees: Object.values(data.employees || {}).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)
+      });
+    } catch (err) {
+      console.error('❌ Errore debug orari:', err);
+      res.status(500).json({ error: 'Errore debug', details: err.message });
+    }
+  });
+
   // ENDPOINT: Salva dati
   router.post('/save', async (req, res) => {
     try {
@@ -203,4 +243,3 @@ module.exports = (poolOrari) => {
 
   return router;
 };
-
