@@ -1345,9 +1345,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       <button 
                         onClick={() => {
                           if (multiCompanyMode && selectedCompanies.length > 0) {
-                            const company = selectedCompanies[0];
-                            const dept = departmentsStructure[company]?.[0] || '';
+                            const company = selectedAddCompany || selectedCompanies[0];
+                            const dept = selectedAddDept || departmentsStructure[selectedCompanies[0]]?.[0] || '';
                             handleQuickAddEmployee(company, dept);
+                            // Reset dopo l'aggiunta
+                            setSelectedAddCompany('');
+                            setSelectedAddDept('');
                           } else {
                             handleQuickAddEmployee();
                           }
@@ -1365,9 +1368,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             if (multiCompanyMode && selectedCompanies.length > 0) {
-                              const company = selectedCompanies[0];
-                              const dept = departmentsStructure[company]?.[0] || '';
+                              const company = selectedAddCompany || selectedCompanies[0];
+                              const dept = selectedAddDept || departmentsStructure[selectedCompanies[0]]?.[0] || '';
                               handleQuickAddEmployee(company, dept);
+                              // Reset dopo l'aggiunta
+                              setSelectedAddCompany('');
+                              setSelectedAddDept('');
                             } else {
                               handleQuickAddEmployee();
                             }
