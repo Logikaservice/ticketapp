@@ -37,7 +37,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   const [selectedDept, setSelectedDept] = useState('');
   // Aziende selezionate per visualizzazione multipla
   const [selectedCompanies, setSelectedCompanies] = useState([]);
-  const [multiCompanyMode, setMultiCompanyMode] = useState(false);
+  const [showCompanyFilter, setShowCompanyFilter] = useState(false);
+  
+  // Modalità multi-azienda attiva quando ci sono aziende selezionate
+  const multiCompanyMode = selectedCompanies.length > 0;
 
   // Struttura dei reparti per ogni azienda
   const [departmentsStructure, setDepartmentsStructure] = useState({});
@@ -102,6 +105,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           if (firstDept) {
             setSelectedDept(firstDept);
           }
+          
+          // Inizializza con la prima azienda selezionata (ma non in modalità multi-azienda)
+          // setSelectedCompanies([]); // Non selezionare nessuna azienda di default
         } else {
           // Se non ci sono dati, inizializza con le aziende di default
           const defaultData = {
@@ -201,12 +207,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       return allEmployees;
     } else {
       // Modalità singola azienda (comportamento originale)
-      const employees = employeesData[getCurrentContextKey()] || [];
+      // Se non ci sono aziende selezionate, usa l'azienda selezionata nel dropdown
+      const company = selectedCompany || companies[0];
+      const dept = selectedDept || departmentsStructure[company]?.[0] || '';
+      const key = getContextKey(company, dept);
+      const employees = employeesData[key] || [];
       return employees.map(emp => ({
         ...emp,
-        company: selectedCompany,
-        department: selectedDept,
-        contextKey: getCurrentContextKey()
+        company: company,
+        department: dept,
+        contextKey: key
       }));
     }
   };
@@ -954,67 +964,24 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
             <div className="flex gap-3 items-center">
               {companies.length > 0 && (
-                <>
-                  <div className="bg-slate-700 p-1.5 rounded flex items-center gap-2">
-                     <Building2 size={16} className="text-slate-300"/>
-                     <label className="flex items-center gap-2 text-slate-300 text-xs">
-                       <input
-                         type="checkbox"
-                         checked={multiCompanyMode}
-                         onChange={(e) => {
-                           setMultiCompanyMode(e.target.checked);
-                           if (!e.target.checked) {
-                             setSelectedCompanies([]);
-                           } else {
-                             setSelectedCompanies([selectedCompany].filter(Boolean));
-                           }
-                         }}
-                         className="w-4 h-4"
-                       />
-                       Multi-azienda
-                     </label>
-                  </div>
-                  
-                  {!multiCompanyMode ? (
-                    <div className="bg-slate-700 p-1.5 rounded flex items-center gap-2">
-                       <Building2 size={16} className="text-slate-300"/>
-                       <select 
-                        value={selectedCompany}
-                        onChange={(e) => {
-                          setSelectedCompany(e.target.value);
-                          const firstDept = departmentsStructure[e.target.value]?.[0];
-                          setSelectedDept(firstDept || '');
-                        }}
-                        className="bg-slate-600 text-white border-none rounded text-sm p-1 focus:ring-2 focus:ring-blue-500"
-                       >
-                         {companies.map(c => <option key={c} value={c}>{c}</option>)}
-                       </select>
-                    </div>
-                  ) : (
-                    <div className="bg-slate-700 p-1.5 rounded flex items-center gap-2">
-                       <Building2 size={16} className="text-slate-300"/>
-                       <div className="flex flex-wrap gap-2">
-                         {companies.map(company => (
-                           <label key={company} className="flex items-center gap-1 text-white text-xs cursor-pointer">
-                             <input
-                               type="checkbox"
-                               checked={selectedCompanies.includes(company)}
-                               onChange={(e) => {
-                                 if (e.target.checked) {
-                                   setSelectedCompanies(prev => [...prev, company]);
-                                 } else {
-                                   setSelectedCompanies(prev => prev.filter(c => c !== company));
-                                 }
-                               }}
-                               className="w-3 h-3"
-                             />
-                             {company}
-                           </label>
-                         ))}
-                       </div>
-                    </div>
-                  )}
-                </>
+                <div className="bg-slate-700 p-1.5 rounded flex items-center gap-2">
+                   <Building2 size={16} className="text-slate-300"/>
+                   <select 
+                    value={selectedCompany}
+                    onChange={(e) => {
+                      setSelectedCompany(e.target.value);
+                      const firstDept = departmentsStructure[e.target.value]?.[0];
+                      setSelectedDept(firstDept || '');
+                      // Se non ci sono aziende selezionate per multi-azienda, usa questa come default
+                      if (selectedCompanies.length === 0) {
+                        setSelectedCompanies([e.target.value]);
+                      }
+                    }}
+                    className="bg-slate-600 text-white border-none rounded text-sm p-1 focus:ring-2 focus:ring-blue-500"
+                   >
+                     {companies.map(c => <option key={c} value={c}>{c}</option>)}
+                   </select>
+                </div>
               )}
 
               <button 
