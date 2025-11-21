@@ -77,6 +77,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       });
       if (response.ok) {
         const data = await response.json();
+        // Se ci sono aziende, carica i dati
         if (data.companies && data.companies.length > 0) {
           setCompanies(data.companies);
           setSelectedCompany(data.companies[0]);
@@ -89,6 +90,30 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           if (firstDept) {
             setSelectedDept(firstDept);
           }
+        } else {
+          // Se non ci sono dati, inizializza con le aziende di default
+          const defaultData = {
+            companies: ['La Torre', 'Mercurio', 'Albatros'],
+            departments: {
+              'La Torre': ['Cucina'],
+              'Mercurio': ['Cucina'],
+              'Albatros': ['Cucina']
+            },
+            employees: {
+              'La Torre-Cucina': [],
+              'Mercurio-Cucina': [],
+              'Albatros-Cucina': []
+            },
+            schedule: {}
+          };
+          setCompanies(defaultData.companies);
+          setSelectedCompany(defaultData.companies[0]);
+          setDepartmentsStructure(defaultData.departments);
+          setEmployeesData(defaultData.employees);
+          setSchedule(defaultData.schedule);
+          setSelectedDept('Cucina');
+          // Salva i dati iniziali
+          setTimeout(() => saveData(), 500);
         }
       }
     } catch (error) {

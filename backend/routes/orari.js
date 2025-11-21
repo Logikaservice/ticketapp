@@ -20,13 +20,28 @@ module.exports = (poolOrari) => {
         )
       `);
       
-      // Inserisci record iniziale se non esiste
+      // Inserisci record iniziale con aziende di default se non esiste
       const check = await pool.query('SELECT COUNT(*) FROM orari_data');
       if (parseInt(check.rows[0].count) === 0) {
+        const initialData = {
+          companies: ['La Torre', 'Mercurio', 'Albatros'],
+          departments: {
+            'La Torre': ['Cucina'],
+            'Mercurio': ['Cucina'],
+            'Albatros': ['Cucina']
+          },
+          employees: {
+            'La Torre-Cucina': [],
+            'Mercurio-Cucina': [],
+            'Albatros-Cucina': []
+          },
+          schedule: {}
+        };
         await pool.query(`
           INSERT INTO orari_data (data) 
-          VALUES ('{"companies": [], "departments": {}, "employees": {}, "schedule": {}}'::jsonb)
-        `);
+          VALUES ($1::jsonb)
+        `, [JSON.stringify(initialData)]);
+        console.log('✅ Dati iniziali creati con aziende: La Torre, Mercurio, Albatros');
       }
       
       console.log('✅ Tabella orari_data inizializzata');
@@ -44,13 +59,26 @@ module.exports = (poolOrari) => {
       const result = await pool.query('SELECT data FROM orari_data ORDER BY id DESC LIMIT 1');
       
       if (result.rows.length === 0) {
-        // Dati iniziali
+        // Dati iniziali con aziende di default
         const initialData = {
-          companies: [],
-          departments: {},
-          employees: {},
+          companies: ['La Torre', 'Mercurio', 'Albatros'],
+          departments: {
+            'La Torre': ['Cucina'],
+            'Mercurio': ['Cucina'],
+            'Albatros': ['Cucina']
+          },
+          employees: {
+            'La Torre-Cucina': [],
+            'Mercurio-Cucina': [],
+            'Albatros-Cucina': []
+          },
           schedule: {}
         };
+        // Salva i dati iniziali nel database
+        await pool.query(
+          'INSERT INTO orari_data (data) VALUES ($1)',
+          [JSON.stringify(initialData)]
+        );
         return res.json(initialData);
       }
 
