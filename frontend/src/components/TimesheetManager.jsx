@@ -90,11 +90,29 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log('📥 Caricamento dati dal backend...');
       const response = await fetch(buildApiUrl('/api/orari/data'), {
         headers: getAuthHeader()
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('📥 Dati ricevuti dal backend:', {
+          companies: data.companies?.length || 0,
+          departments: Object.keys(data.departments || {}).length,
+          employees: Object.keys(data.employees || {}).length,
+          schedule: Object.keys(data.schedule || {}).length
+        });
+        
+        // Log dettagliato dipendenti ricevuti
+        if (data.employees) {
+          const employeeKeys = Object.keys(data.employees);
+          console.log('👥 Chiavi dipendenti ricevute dal backend:', employeeKeys);
+          employeeKeys.forEach(key => {
+            const count = Array.isArray(data.employees[key]) ? data.employees[key].length : 0;
+            console.log(`   - ${key}: ${count} dipendenti`, data.employees[key]);
+          });
+        }
+        
         // Se ci sono aziende, carica i dati
         if (data.companies && data.companies.length > 0) {
           setCompanies(data.companies.map(c => String(c).trim()));
@@ -109,9 +127,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               // Rimuovi chiavi con [object Object] o chiavi invalide
               if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(data.employees[key])) {
                 cleanedEmployees[cleanKey] = data.employees[key];
+              } else {
+                console.warn('⚠️ Chiave invalida rimossa:', key);
               }
             });
           }
+          
+          console.log('✅ Dipendenti puliti e caricati:', Object.keys(cleanedEmployees));
           setEmployeesData(cleanedEmployees);
           setSchedule(data.schedule || {});
           
