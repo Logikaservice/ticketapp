@@ -376,6 +376,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     }
   };
 
+  // Ref per tracciare se c'è un salvataggio in corso
+  const savingRef = useRef(false);
+  const pendingSaveRef = useRef(null);
+
   // --- AZIONI STRUTTURA ---
   const handleQuickAddEmployee = (targetCompany = null, targetDept = null) => {
     if (!quickAddName.trim()) return;
@@ -399,7 +403,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     const newId = Date.now();
     const employeeName = quickAddName.toUpperCase().trim();
     
-    // Aggiorna lo stato e salva
+    // Aggiorna lo stato
     setEmployeesData(prev => {
       const currentEmployees = prev[key] || [];
       const updated = {
@@ -407,10 +411,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         [key]: [...currentEmployees, { id: newId, name: employeeName }]
       };
       
-      // Salva immediatamente con lo stato aggiornato
-      setTimeout(() => {
-        saveDataWithEmployees(updated);
-      }, 100);
+      // Salva usando lo stato più recente
+      pendingSaveRef.current = updated;
+      triggerSave();
       
       return updated;
     });
@@ -423,9 +426,41 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     }
   };
   
+  // Funzione per triggerare il salvataggio (gestisce la coda)
+  const triggerSave = async () => {
+    // Se c'è già un salvataggio in corso, aspetta
+    if (savingRef.current) {
+      // Il salvataggio verrà fatto quando quello corrente finisce
+      return;
+    }
+    
+    // Aspetta un po' per raggruppare salvataggi rapidi
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Prendi lo stato più recente
+    const empDataToSave = pendingSaveRef.current;
+    if (!empDataToSave) return;
+    
+    // Marca come in salvataggio
+    savingRef.current = true;
+    pendingSaveRef.current = null;
+    
+    try {
+      await saveDataWithEmployees(empDataToSave);
+    } finally {
+      savingRef.current = false;
+      
+      // Se c'è un altro salvataggio in attesa, fallo ora
+      if (pendingSaveRef.current) {
+        setTimeout(() => triggerSave(), 100);
+      }
+    }
+  };
+  
   // Funzione helper per salvare con dipendenti aggiornati
   const saveDataWithEmployees = async (empData) => {
     try {
+      // Usa lo stato corrente per tutti i dati
       const dataToSave = {
         companies: companies || [],
         departments: departmentsStructure || {},
@@ -449,20 +484,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         throw new Error(errorData.error || 'Errore nel salvataggio');
       }
       
-      // Ricarica i dati per sincronizzare
-      const reloadResponse = await fetch(buildApiUrl('/api/orari/data'), {
-        headers: getAuthHeader()
-      });
-      
-      if (reloadResponse.ok) {
-        const reloadData = await reloadResponse.json();
-        setEmployeesData(reloadData.employees || {});
-        setDepartmentsStructure(reloadData.departments || {});
-        setSchedule(reloadData.schedule || {});
-      }
+      // NON ricaricare i dati qui - potrebbe sovrascrivere modifiche in corso
+      // I dati verranno ricaricati al prossimo refresh della pagina
     } catch (error) {
       console.error('Errore salvataggio:', error);
       alert(`Errore nel salvataggio: ${error.message}`);
+      throw error; // Rilancia per gestire il retry
     }
   };
 
