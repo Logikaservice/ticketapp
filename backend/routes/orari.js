@@ -99,7 +99,26 @@ module.exports = (poolOrari) => {
   // ENDPOINT: Salva dati
   router.post('/save', async (req, res) => {
     try {
+      console.log('📥 Richiesta salvataggio orari ricevuta');
       const { companies, departments, employees, schedule } = req.body;
+
+      // Log dei dati ricevuti
+      console.log('📊 Dati ricevuti:', {
+        companies: companies?.length || 0,
+        departments: Object.keys(departments || {}).length,
+        employees: Object.keys(employees || {}).length,
+        schedule: Object.keys(schedule || {}).length
+      });
+
+      // Log dettagliato dipendenti
+      if (employees) {
+        const employeeKeys = Object.keys(employees);
+        console.log('👥 Chiavi dipendenti ricevute:', employeeKeys);
+        employeeKeys.forEach(key => {
+          const count = Array.isArray(employees[key]) ? employees[key].length : 0;
+          console.log(`   - ${key}: ${count} dipendenti`);
+        });
+      }
 
       const dataToSave = {
         companies: companies || [],
@@ -115,12 +134,19 @@ module.exports = (poolOrari) => {
       const check = await pool.query('SELECT id FROM orari_data ORDER BY id DESC LIMIT 1');
       
       if (check.rows.length > 0) {
+        const recordId = check.rows[0].id;
+        console.log(`💾 Aggiornamento record esistente ID: ${recordId}`);
         const result = await pool.query(
           'UPDATE orari_data SET data = $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING id',
-          [JSON.stringify(cleanData), check.rows[0].id]
+          [JSON.stringify(cleanData), recordId]
         );
         console.log('✅ Dati orari aggiornati, ID:', result.rows[0].id);
+        
+        // Verifica che i dati siano stati salvati
+        const verify = await pool.query('SELECT jsonb_object_keys(data->\'employees\') as key FROM orari_data WHERE id = $1', [recordId]);
+        console.log('✅ Verifica salvataggio - Chiavi dipendenti nel DB:', verify.rows.map(r => r.key));
       } else {
+        console.log('💾 Inserimento nuovo record');
         const result = await pool.query(
           'INSERT INTO orari_data (data) VALUES ($1::jsonb) RETURNING id',
           [JSON.stringify(cleanData)]
@@ -132,6 +158,7 @@ module.exports = (poolOrari) => {
     } catch (err) {
       console.error('❌ Errore salvataggio dati orari:', err);
       console.error('❌ Stack:', err.stack);
+      console.error('❌ Body ricevuto:', JSON.stringify(req.body, null, 2));
       res.status(500).json({ error: 'Errore salvataggio dati', details: err.message });
     }
   });
