@@ -457,6 +457,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     const newId = Date.now();
     const employeeName = quickAddName.toUpperCase().trim();
     
+    console.log('➕ AGGIUNTA DIPENDENTE:', {
+      nome: employeeName,
+      azienda: company,
+      reparto: dept,
+      chiave: key,
+      id: newId
+    });
+    
     // Aggiorna lo stato
     setEmployeesData(prev => {
       const currentEmployees = prev[key] || [];
@@ -465,8 +473,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         [key]: [...currentEmployees, { id: newId, name: employeeName }]
       };
       
+      console.log('📝 Stato aggiornato - Dipendenti per chiave:', {
+        chiave: key,
+        prima: currentEmployees.length,
+        dopo: updated[key].length,
+        dipendenti: updated[key]
+      });
+      
       // Salva usando lo stato più recente
       pendingSaveRef.current = updated;
+      console.log('⏳ Trigger salvataggio chiamato...');
       triggerSave();
       
       return updated;
@@ -484,16 +500,26 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   const triggerSave = async () => {
     // Se c'è già un salvataggio in corso, aspetta
     if (savingRef.current) {
+      console.log('⏸️ Salvataggio già in corso, metto in coda...');
       // Il salvataggio verrà fatto quando quello corrente finisce
       return;
     }
     
+    console.log('⏳ Attendo 300ms per raggruppare salvataggi rapidi...');
     // Aspetta un po' per raggruppare salvataggi rapidi
     await new Promise(resolve => setTimeout(resolve, 300));
     
     // Prendi lo stato più recente
     const empDataToSave = pendingSaveRef.current;
-    if (!empDataToSave) return;
+    if (!empDataToSave) {
+      console.warn('⚠️ Nessun dato da salvare in pendingSaveRef');
+      return;
+    }
+    
+    console.log('💾 Avvio salvataggio con dati:', {
+      chiavi: Object.keys(empDataToSave),
+      totaleChiavi: Object.keys(empDataToSave).length
+    });
     
     // Marca come in salvataggio
     savingRef.current = true;
@@ -501,11 +527,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     
     try {
       await saveDataWithEmployees(empDataToSave);
+      console.log('✅ Salvataggio completato con successo');
+    } catch (error) {
+      console.error('❌ Errore durante salvataggio:', error);
     } finally {
       savingRef.current = false;
       
       // Se c'è un altro salvataggio in attesa, fallo ora
       if (pendingSaveRef.current) {
+        console.log('🔄 C\'è un altro salvataggio in attesa, lo eseguo ora...');
         setTimeout(() => triggerSave(), 100);
       }
     }
@@ -514,6 +544,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   // Funzione helper per salvare con dipendenti aggiornati
   const saveDataWithEmployees = async (empData) => {
     try {
+      console.log('💾 SALVATAGGIO DIPENDENTI - Dati ricevuti:', {
+        chiavi: Object.keys(empData || {}),
+        totaleChiavi: Object.keys(empData || {}).length
+      });
+      
       // Pulisci i dati employees per assicurarsi che le chiavi siano stringhe valide
       const cleanedEmployees = {};
       if (empData) {
@@ -522,7 +557,31 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           const cleanKey = String(key).trim();
           if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(empData[key])) {
             cleanedEmployees[cleanKey] = empData[key];
+            console.log(`   ✅ Chiave valida: ${cleanKey} - ${empData[key].length} dipendenti`);
+          } else {
+            console.warn(`   ⚠️ Chiave invalida rimossa: ${key}`);
           }
+        });
+      }
+      
+      console.log('🧹 Dipendenti puliti:', {
+        chiavi: Object.keys(cleanedEmployees),
+        totale: Object.keys(cleanedEmployees).reduce((sum, k) => sum + cleanedEmployees[k].length, 0)
+      });
+      
+      // Verifica che cleanedEmployees non sia vuoto
+      if (Object.keys(cleanedEmployees).length === 0) {
+        console.error('❌ ERRORE: cleanedEmployees è vuoto! Usando employeesData come fallback');
+        // Usa employeesData come fallback
+        Object.keys(employeesData).forEach(key => {
+          const cleanKey = String(key).trim();
+          if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(employeesData[key])) {
+            cleanedEmployees[cleanKey] = employeesData[key];
+          }
+        });
+        console.log('🔄 Fallback a employeesData:', {
+          chiavi: Object.keys(cleanedEmployees),
+          totale: Object.keys(cleanedEmployees).reduce((sum, k) => sum + cleanedEmployees[k].length, 0)
         });
       }
       
@@ -530,12 +589,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       const dataToSave = {
         companies: (companies || []).map(c => String(c).trim()),
         departments: departmentsStructure || {},
-        employees: cleanedEmployees || employeesData,
+        employees: cleanedEmployees,
         schedule: schedule || {}
       };
       
+      // Log dettagliato per ogni chiave
+      Object.keys(cleanedEmployees).forEach(key => {
+        console.log(`📤 Chiave da salvare: ${key} - ${cleanedEmployees[key].length} dipendenti:`, cleanedEmployees[key]);
+      });
+      
       const cleanData = JSON.parse(JSON.stringify(dataToSave));
       
+      console.log('📤 Invio dati al backend...');
       const response = await fetch(buildApiUrl('/api/orari/save'), {
         method: 'POST',
         headers: {
@@ -547,13 +612,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Errore risposta backend:', errorData);
         throw new Error(errorData.error || 'Errore nel salvataggio');
       }
+      
+      const result = await response.json();
+      console.log('✅ Salvataggio completato con successo:', result);
       
       // NON ricaricare i dati qui - potrebbe sovrascrivere modifiche in corso
       // I dati verranno ricaricati al prossimo refresh della pagina
     } catch (error) {
-      console.error('Errore salvataggio:', error);
+      console.error('❌ Errore salvataggio:', error);
       alert(`Errore nel salvataggio: ${error.message}`);
       throw error; // Rilancia per gestire il retry
     }
