@@ -355,36 +355,51 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     if (!newEmployeeName.trim()) return;
 
     const key = getCurrentContextKey();
+    const newNameUpper = newEmployeeName.toUpperCase().trim();
     let targetEmployeeId = newEmployeeId;
 
-    // Se il nuovo dipendente non esiste, crealo
-    if (!targetEmployeeId) {
+    // Verifica se esiste già un dipendente con questo nome (case-insensitive)
+    const existingEmployee = currentEmployees.find(
+      emp => emp.id !== oldEmployeeId && emp.name.toUpperCase() === newNameUpper
+    );
+
+    if (existingEmployee) {
+      // Usa il dipendente esistente
+      targetEmployeeId = existingEmployee.id;
+    } else if (!targetEmployeeId) {
+      // Crea un nuovo dipendente solo se non esiste già
       targetEmployeeId = Date.now();
-      const newEmployee = { id: targetEmployeeId, name: newEmployeeName.toUpperCase() };
+      const newEmployee = { id: targetEmployeeId, name: newNameUpper };
       setEmployeesData(prev => ({
         ...prev,
         [key]: [...(prev[key] || []), newEmployee]
       }));
+    } else {
+      // Usa l'ID fornito (dipendente selezionato dalla lista)
+      targetEmployeeId = newEmployeeId;
     }
 
     // Trasferisci gli orari dal vecchio al nuovo dipendente
     setSchedule(prev => {
       const newSchedule = { ...prev };
       if (newSchedule[oldEmployeeId]) {
-        newSchedule[targetEmployeeId] = { ...newSchedule[oldEmployeeId] };
+        // Se il nuovo dipendente ha già degli orari, uniscili (o sovrascrivi)
+        if (newSchedule[targetEmployeeId]) {
+          // Unisci gli orari: mantieni quelli del nuovo se esistono, altrimenti usa quelli del vecchio
+          newSchedule[targetEmployeeId] = { ...newSchedule[oldEmployeeId], ...newSchedule[targetEmployeeId] };
+        } else {
+          // Trasferisci tutti gli orari
+          newSchedule[targetEmployeeId] = { ...newSchedule[oldEmployeeId] };
+        }
         delete newSchedule[oldEmployeeId];
       }
       return newSchedule;
     });
 
-    // Sostituisci il dipendente nella lista
+    // Rimuovi il vecchio dipendente dalla lista (non sostituirlo, rimuoverlo)
     setEmployeesData(prev => ({
       ...prev,
-      [key]: prev[key].map(emp => 
-        emp.id === oldEmployeeId 
-          ? { id: targetEmployeeId, name: newEmployeeName.toUpperCase() }
-          : emp
-      )
+      [key]: prev[key].filter(emp => emp.id !== oldEmployeeId)
     }));
 
     saveData();
