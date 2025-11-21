@@ -638,6 +638,80 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   return (
     <div className="p-4 bg-gray-50 min-h-screen font-sans relative">
       
+      {/* MODALE SOSTITUZIONE DIPENDENTE */}
+      {replaceEmployeeModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="bg-blue-600 p-4 text-white">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <UserPlus size={20} />
+                Sostituisci Dipendente
+              </h3>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                Stai sostituendo <strong>{replaceEmployeeModal.oldEmployeeName}</strong> con un nuovo dipendente.
+                <br />
+                <span className="text-sm text-gray-500">Gli orari verranno mantenuti.</span>
+              </p>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nuovo dipendente (o seleziona esistente)
+                </label>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={replaceEmployeeModal.newEmployeeName}
+                    onChange={(e) => setReplaceEmployeeModal(prev => ({ ...prev, newEmployeeName: e.target.value, newEmployeeId: null }))}
+                    placeholder="Nome nuovo dipendente"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onKeyDown={(e) => e.key === 'Enter' && handleReplaceEmployee()}
+                  />
+                  {currentEmployees.length > 0 && (
+                    <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg">
+                      {currentEmployees
+                        .filter(e => e.id !== replaceEmployeeModal.oldEmployeeId)
+                        .map(emp => (
+                          <button
+                            key={emp.id}
+                            onClick={() => setReplaceEmployeeModal(prev => ({ 
+                              ...prev, 
+                              newEmployeeName: emp.name,
+                              newEmployeeId: emp.id
+                            }))}
+                            className={`w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 ${
+                              replaceEmployeeModal.newEmployeeId === emp.id ? 'bg-blue-100' : ''
+                            }`}
+                          >
+                            {emp.name}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={closeReplaceEmployeeModal}
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium transition-colors"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={handleReplaceEmployee}
+                  disabled={!replaceEmployeeModal.newEmployeeName.trim()}
+                  className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Sostituisci
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODALE DI CONFERMA CUSTOM */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
