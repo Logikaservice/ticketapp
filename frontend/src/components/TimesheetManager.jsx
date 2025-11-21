@@ -22,7 +22,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   });
   const [quickAddName, setQuickAddName] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   // --- GESTIONE MODALE SICURA ---
   const onConfirmAction = useRef(null);
   const [confirmModal, setConfirmModal] = useState({
@@ -41,7 +41,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   // Stato per selezionare azienda/reparto quando si aggiunge un dipendente in modalità multi-azienda
   const [selectedAddCompany, setSelectedAddCompany] = useState('');
   const [selectedAddDept, setSelectedAddDept] = useState('');
-  
+
   // Modalità multi-azienda attiva quando ci sono aziende selezionate
   const multiCompanyMode = selectedCompanies.length > 0;
 
@@ -53,7 +53,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   const [schedule, setSchedule] = useState({});
   const [newDeptName, setNewDeptName] = useState('');
   const [newEmployeeName, setNewEmployeeName] = useState('');
-  
+
   // Stato per sostituzione dipendente
   const [replaceEmployeeModal, setReplaceEmployeeModal] = useState({
     isOpen: false,
@@ -102,7 +102,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           employees: Object.keys(data.employees || {}).length,
           schedule: Object.keys(data.schedule || {}).length
         });
-        
+
         // Log dettagliato dipendenti ricevuti
         if (data.employees) {
           const employeeKeys = Object.keys(data.employees);
@@ -112,13 +112,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             console.log(`   - ${key}: ${count} dipendenti`, data.employees[key]);
           });
         }
-        
+
         // Se ci sono aziende, carica i dati
         if (data.companies && data.companies.length > 0) {
           setCompanies(data.companies.map(c => String(c).trim()));
           setSelectedCompany(String(data.companies[0]).trim());
           setDepartmentsStructure(data.departments || {});
-          
+
           // Pulisci i dati employees rimuovendo chiavi invalide
           const cleanedEmployees = {};
           if (data.employees) {
@@ -132,25 +132,25 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               }
             });
           }
-          
+
           console.log('✅ Dipendenti puliti e caricati:', Object.keys(cleanedEmployees));
           console.log('📊 Dettaglio dipendenti caricati:', cleanedEmployees);
-          
+
           // Verifica che i dipendenti siano stati caricati correttamente
           Object.keys(cleanedEmployees).forEach(key => {
             const count = Array.isArray(cleanedEmployees[key]) ? cleanedEmployees[key].length : 0;
             console.log(`   ✅ ${key}: ${count} dipendenti caricati`, cleanedEmployees[key]);
           });
-          
+
           setEmployeesData(cleanedEmployees);
           setSchedule(data.schedule || {});
-          
+
           // Imposta il primo reparto della prima azienda
           const firstDept = data.departments?.[data.companies[0]]?.[0];
           if (firstDept) {
             setSelectedDept(firstDept);
           }
-          
+
           // Verifica finale dopo il setState
           setTimeout(() => {
             console.log('🔍 Verifica finale stato dopo caricamento:', {
@@ -158,7 +158,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               employeesDataCount: Object.keys(cleanedEmployees).reduce((sum, key) => sum + (cleanedEmployees[key]?.length || 0), 0)
             });
           }, 100);
-          
+
           // Inizializza con la prima azienda selezionata (ma non in modalità multi-azienda)
           // setSelectedCompanies([]); // Non selezionare nessuna azienda di default
         } else {
@@ -204,10 +204,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         employees: employeesData,
         schedule
       };
-      
+
       // Pulisci i dati prima di salvare (rimuovi undefined, null, etc.)
       const cleanData = JSON.parse(JSON.stringify(dataToSave));
-      
+
       const response = await fetch(buildApiUrl('/api/orari/save'), {
         method: 'POST',
         headers: {
@@ -216,7 +216,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         },
         body: JSON.stringify(cleanData)
       });
-      
+
       if (response.ok) {
         const result = await response.json();
         console.log('✅ Dati salvati con successo:', result);
@@ -235,7 +235,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   // --- HELPER ---
   const getCurrentContextKey = () => `${selectedCompany}-${selectedDept}`;
   const getContextKey = (company, dept) => `${company}-${dept}`;
-  
+
   // Ottieni dipendenti: modalità singola azienda o multipla
   const getCurrentEmployees = () => {
     if (multiCompanyMode && selectedCompanies.length > 0) {
@@ -273,12 +273,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       }));
     }
   };
-  
+
   const currentEmployees = getCurrentEmployees();
 
   // --- FUNZIONI MODALE ---
   const openConfirm = (title, message, action) => {
-    onConfirmAction.current = action; 
+    onConfirmAction.current = action;
     setConfirmModal({ isOpen: true, title, message });
   };
 
@@ -340,7 +340,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   const handleInputChange = (empId, dayIndex, field, value, contextKey = null) => {
     // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
     const scheduleKey = contextKey ? `${contextKey}-${empId}` : empId;
-    
+
     setSchedule(prev => ({
       ...prev,
       [scheduleKey]: { ...prev[scheduleKey], [dayIndex]: { ...prev[scheduleKey]?.[dayIndex], [field]: value } }
@@ -350,38 +350,38 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   const handleBlur = (empId, dayIndex, field, value, contextKey = null) => {
-     if (!value) return;
-     const strValue = String(value);
-     let formatted = strValue.replace(',', '.').replace(':', '.').trim();
-     if (!formatted.includes('.')) formatted += '.00';
-     const parts = formatted.split('.');
-     if (parts[0].length === 1) parts[0] = '0' + parts[0];
-     if (parts[1].length === 1) parts[1] = parts[1] + '0';
-     formatted = parts.join('.');
-     if (formatted !== value) handleInputChange(empId, dayIndex, field, formatted, contextKey);
-     // Salva automaticamente dopo ogni modifica
-     setTimeout(() => saveData(), 500);
+    if (!value) return;
+    const strValue = String(value);
+    let formatted = strValue.replace(',', '.').replace(':', '.').trim();
+    if (!formatted.includes('.')) formatted += '.00';
+    const parts = formatted.split('.');
+    if (parts[0].length === 1) parts[0] = '0' + parts[0];
+    if (parts[1].length === 1) parts[1] = parts[1] + '0';
+    formatted = parts.join('.');
+    if (formatted !== value) handleInputChange(empId, dayIndex, field, formatted, contextKey);
+    // Salva automaticamente dopo ogni modifica
+    setTimeout(() => saveData(), 500);
   };
 
   const handleQuickCode = (empId, dayIndex, code, contextKey = null) => {
     // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
     const scheduleKey = contextKey ? `${contextKey}-${empId}` : empId;
-    
+
     setSchedule(prev => {
       const newSchedule = {
         ...prev,
-        [scheduleKey]: { 
-          ...prev[scheduleKey], 
-          [dayIndex]: { 
-            code: code || '', 
-            in1: code ? '' : (prev[scheduleKey]?.[dayIndex]?.in1 || ''), 
-            out1: code ? '' : (prev[scheduleKey]?.[dayIndex]?.out1 || ''), 
-            in2: code ? '' : (prev[scheduleKey]?.[dayIndex]?.in2 || ''), 
-            out2: code ? '' : (prev[scheduleKey]?.[dayIndex]?.out2 || '') 
-          } 
+        [scheduleKey]: {
+          ...prev[scheduleKey],
+          [dayIndex]: {
+            code: code || '',
+            in1: code ? '' : (prev[scheduleKey]?.[dayIndex]?.in1 || ''),
+            out1: code ? '' : (prev[scheduleKey]?.[dayIndex]?.out1 || ''),
+            in2: code ? '' : (prev[scheduleKey]?.[dayIndex]?.in2 || ''),
+            out2: code ? '' : (prev[scheduleKey]?.[dayIndex]?.out2 || '')
+          }
         }
       };
-      
+
       // Salva con lo stato aggiornato usando una funzione che accede allo stato corrente
       setTimeout(() => {
         // Usa una funzione che legge lo stato più recente
@@ -390,7 +390,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           return currentSchedule;
         });
       }, 200);
-      
+
       return newSchedule;
     });
   };
@@ -404,7 +404,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         employees: employeesData,
         schedule: scheduleToSave || schedule
       };
-      
+
       const response = await fetch(buildApiUrl('/api/orari/save'), {
         method: 'POST',
         headers: {
@@ -413,7 +413,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         },
         body: JSON.stringify(dataToSave)
       });
-      
+
       if (response.ok) {
         const result = await response.json();
         console.log('✅ Dati salvati con successo (codice):', result);
@@ -427,8 +427,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   // Funzione per salvare direttamente i dati dipendenti
-  const saveDataDirectly = async (empData) => {
+  const saveDataDirectly = async (empData, companiesData, deptsData, scheduleData) => {
     try {
+      console.log('💾 saveDataDirectly chiamata con:', {
+        empDataKeys: Object.keys(empData || {}),
+        companiesCount: companiesData?.length || 0,
+        deptsKeys: Object.keys(deptsData || {}),
+        scheduleKeys: Object.keys(scheduleData || {})
+      });
+
       // Pulisci i dati employees
       const cleanedEmployees = {};
       if (empData) {
@@ -436,17 +443,27 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           const cleanKey = String(key).trim();
           if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(empData[key])) {
             cleanedEmployees[cleanKey] = empData[key];
+            console.log(`   ✅ Chiave pulita: ${cleanKey} con ${empData[key].length} dipendenti`);
+          } else {
+            console.warn(`   ⚠️ Chiave scartata: ${key}`);
           }
         });
       }
-      
+
       const dataToSave = {
-        companies: (companies || []).map(c => String(c).trim()),
-        departments: departmentsStructure || {},
+        companies: (companiesData || []).map(c => String(c).trim()),
+        departments: deptsData || {},
         employees: cleanedEmployees,
-        schedule: schedule || {}
+        schedule: scheduleData || {}
       };
-      
+
+      console.log('📤 Invio dati al backend:', {
+        companies: dataToSave.companies,
+        departmentsKeys: Object.keys(dataToSave.departments),
+        employeesKeys: Object.keys(dataToSave.employees),
+        scheduleKeys: Object.keys(dataToSave.schedule)
+      });
+
       const response = await fetch(buildApiUrl('/api/orari/save'), {
         method: 'POST',
         headers: {
@@ -455,47 +472,49 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         },
         body: JSON.stringify(dataToSave)
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Errore nel salvataggio');
       }
-      
+
       const result = await response.json();
-      console.log('✅ Dipendente salvato con successo');
+      console.log('✅ Dipendente salvato con successo:', result);
+      return true;
     } catch (error) {
       console.error('❌ Errore salvataggio dipendente:', error);
       alert(`Errore nel salvataggio: ${error.message}`);
+      return false;
     }
   };
 
   // --- AZIONI STRUTTURA ---
   const handleQuickAddEmployee = (targetCompany = null, targetDept = null) => {
     if (!quickAddName.trim()) return;
-    
+
     // Se modalità multi-azienda e non specificato, usa la prima azienda selezionata
     let company = targetCompany || selectedCompany;
     let dept = targetDept || selectedDept;
-    
+
     if (multiCompanyMode && selectedCompanies.length > 0 && !targetCompany) {
       company = selectedAddCompany || selectedCompanies[0];
       dept = selectedAddDept || departmentsStructure[selectedCompanies[0]]?.[0] || '';
     }
-    
+
     // Assicurati che company e dept siano stringhe (non oggetti)
     company = String(company || '').trim();
     dept = String(dept || '').trim();
-    
+
     // Verifica che company e dept siano validi
     if (!company || !dept) {
       alert(`Errore: Azienda o reparto non validi. Azienda: ${company || 'non selezionata'}, Reparto: ${dept || 'non selezionato'}`);
       return;
     }
-    
+
     const key = getContextKey(company, dept);
     const newId = Date.now();
     const employeeName = quickAddName.toUpperCase().trim();
-    
+
     console.log('➕ AGGIUNTA DIPENDENTE:', {
       nome: employeeName,
       azienda: company,
@@ -503,7 +522,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       chiave: key,
       id: newId
     });
-    
+
     // Aggiorna lo stato e salva immediatamente
     setEmployeesData(prev => {
       const currentEmployees = prev[key] || [];
@@ -511,15 +530,39 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         ...prev,
         [key]: [...currentEmployees, { id: newId, name: employeeName }]
       };
-      
-      // Salva immediatamente con i dati aggiornati
+
+      console.log('📊 Stato dipendenti aggiornato:', {
+        chiave: key,
+        dipendentiPrecedenti: currentEmployees.length,
+        dipendentiNuovi: updated[key].length,
+        nuovoDipendente: { id: newId, name: employeeName }
+      });
+
+      // Salva immediatamente con i dati aggiornati usando lo stato corrente
       setTimeout(() => {
-        saveDataDirectly(updated);
+        // Accedi allo stato più recente tramite callback
+        setCompanies(currentCompanies => {
+          setDepartmentsStructure(currentDepts => {
+            setSchedule(currentSchedule => {
+              console.log('💾 Preparazione salvataggio con stato corrente:', {
+                companies: currentCompanies,
+                departmentsKeys: Object.keys(currentDepts),
+                employeesKeys: Object.keys(updated),
+                scheduleKeys: Object.keys(currentSchedule)
+              });
+
+              saveDataDirectly(updated, currentCompanies, currentDepts, currentSchedule);
+              return currentSchedule;
+            });
+            return currentDepts;
+          });
+          return currentCompanies;
+        });
       }, 100);
-      
+
       return updated;
     });
-    
+
     // Reset campi
     setQuickAddName('');
     if (multiCompanyMode) {
@@ -527,11 +570,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       setSelectedAddDept('');
     }
   };
-  
+
 
   const addDepartment = () => {
     if (!newDeptName.trim() || departmentsStructure[selectedCompany]?.includes(newDeptName)) return;
-    
+
     setDepartmentsStructure(prev => {
       const updated = { ...prev, [selectedCompany]: [...(prev[selectedCompany] || []), newDeptName] };
       // Salva con lo stato aggiornato
@@ -550,7 +593,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     });
     setNewDeptName('');
   };
-  
+
   // Funzione helper per salvare con struttura aggiornata
   const saveDataWithStructure = async (deptStructure, empData, currentSchedule) => {
     try {
@@ -565,16 +608,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           }
         });
       }
-      
+
       const dataToSave = {
         companies: (companies || []).map(c => String(c).trim()),
         departments: deptStructure || departmentsStructure,
         employees: cleanedEmployees,
         schedule: currentSchedule || schedule
       };
-      
+
       const cleanData = JSON.parse(JSON.stringify(dataToSave));
-      
+
       const response = await fetch(buildApiUrl('/api/orari/save'), {
         method: 'POST',
         headers: {
@@ -583,7 +626,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         },
         body: JSON.stringify(cleanData)
       });
-      
+
       if (response.ok) {
         const result = await response.json();
         console.log('✅ Dati salvati con successo');
@@ -607,12 +650,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   const deleteDepartment = (deptToDelete) => {
     setDepartmentsStructure(prev => {
       const updated = { ...prev, [selectedCompany]: prev[selectedCompany].filter(d => d !== deptToDelete) };
-      
+
       if (selectedDept === deptToDelete) {
         const remaining = updated[selectedCompany];
         setSelectedDept(remaining[0] || '');
       }
-      
+
       const key = `${selectedCompany}-${deptToDelete}`;
       setEmployeesData(empData => {
         const newData = { ...empData };
@@ -626,7 +669,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         }, 100);
         return newData;
       });
-      
+
       return updated;
     });
   };
@@ -773,199 +816,199 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   const strToExcelTime = (timeStr) => {
     if (!timeStr || typeof timeStr !== 'string') return null;
     const cleanStr = timeStr.replace(',', '.').replace(':', '.').trim();
-    
+
     if (!cleanStr.includes('.')) {
-        const val = parseFloat(cleanStr);
-        return isNaN(val) ? null : val / 24;
+      const val = parseFloat(cleanStr);
+      return isNaN(val) ? null : val / 24;
     }
 
     const parts = cleanStr.split('.');
     const hours = parseInt(parts[0]);
     const minutes = parseInt(parts[1]);
-    
+
     if (isNaN(hours)) return null;
     const safeMinutes = isNaN(minutes) ? 0 : minutes;
-    
-    return (hours + safeMinutes / 60) / 24; 
+
+    return (hours + safeMinutes / 60) / 24;
   };
 
   const exportExcel = () => {
     try {
-        if (!window.XLSX) {
-          openConfirm("Errore Libreria", "La libreria Excel non è ancora caricata. Attendi...", null);
-          return;
-        }
+      if (!window.XLSX) {
+        openConfirm("Errore Libreria", "La libreria Excel non è ancora caricata. Attendi...", null);
+        return;
+      }
 
-        const XLSX = window.XLSX;
-        const wb = XLSX.utils.book_new();
-        
-        const borderThin = {
-          top: { style: "thin", color: { rgb: "000000" } },
-          bottom: { style: "thin", color: { rgb: "000000" } },
-          left: { style: "thin", color: { rgb: "000000" } },
-          right: { style: "thin", color: { rgb: "000000" } }
-        };
+      const XLSX = window.XLSX;
+      const wb = XLSX.utils.book_new();
 
-        const styleTitle = { 
-          font: { bold: true, sz: 14 }, 
-          alignment: { horizontal: "center", vertical: "center" },
-          border: borderThin
-        };
-        
-        const styleHeader = { 
-            font: { bold: true, color: { rgb: "000000" } }, 
-            fill: { fgColor: { rgb: "D9D9D9" } },
-            border: borderThin,
-            alignment: { horizontal: "center", vertical: "center" }
-        };
+      const borderThin = {
+        top: { style: "thin", color: { rgb: "000000" } },
+        bottom: { style: "thin", color: { rgb: "000000" } },
+        left: { style: "thin", color: { rgb: "000000" } },
+        right: { style: "thin", color: { rgb: "000000" } }
+      };
 
-        const styleTotalHeader = {
-            font: { bold: true }, 
-            fill: { fgColor: { rgb: "FFFF00" } },
-            border: borderThin,
-            alignment: { horizontal: "center", vertical: "center" }
-        };
+      const styleTitle = {
+        font: { bold: true, sz: 14 },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: borderThin
+      };
 
-        const styleCell = { 
-            border: borderThin,
-            alignment: { horizontal: "center", vertical: "center" }
-        };
+      const styleHeader = {
+        font: { bold: true, color: { rgb: "000000" } },
+        fill: { fgColor: { rgb: "D9D9D9" } },
+        border: borderThin,
+        alignment: { horizontal: "center", vertical: "center" }
+      };
 
-        const styleEmpName = {
-            font: { bold: true },
-            border: borderThin,
-            alignment: { horizontal: "left", vertical: "center" }
-        };
+      const styleTotalHeader = {
+        font: { bold: true },
+        fill: { fgColor: { rgb: "FFFF00" } },
+        border: borderThin,
+        alignment: { horizontal: "center", vertical: "center" }
+      };
 
-        const styleTotalCell = {
-            font: { bold: true },
-            fill: { fgColor: { rgb: "FFFF99" } },
-            border: borderThin,
-            alignment: { horizontal: "center", vertical: "center" }
-        };
+      const styleCell = {
+        border: borderThin,
+        alignment: { horizontal: "center", vertical: "center" }
+      };
 
-        const wsData = [];
-        const merges = [];
+      const styleEmpName = {
+        font: { bold: true },
+        border: borderThin,
+        alignment: { horizontal: "left", vertical: "center" }
+      };
 
-        const titleRow = new Array(16).fill({ v: "", s: styleTitle });
-        titleRow[0] = { v: `REPARTO ${selectedCompany.toUpperCase()} - ${selectedDept.toUpperCase()}`, s: styleTitle };
-        wsData.push(titleRow);
-        merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 15 } });
+      const styleTotalCell = {
+        font: { bold: true },
+        fill: { fgColor: { rgb: "FFFF99" } },
+        border: borderThin,
+        alignment: { horizontal: "center", vertical: "center" }
+      };
 
-        const subTitleRow = new Array(16).fill({ v: "", s: styleTitle });
-        subTitleRow[0] = { v: `Orario settimanale: ${weekRange}`, s: { ...styleTitle, font: { sz: 11 } } };
-        wsData.push(subTitleRow);
-        merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 15 } });
+      const wsData = [];
+      const merges = [];
 
-        const headerRow1 = new Array(16).fill(null);
-        headerRow1[0] = { v: "DIPENDENTE", s: styleHeader };
-        headerRow1[15] = { v: "TOTALE", s: styleTotalHeader };
-        
-        for(let i=0; i<7; i++) {
-            const col = 1 + (i*2);
-            headerRow1[col] = { v: days[i], s: styleHeader };
-            headerRow1[col+1] = { v: "", s: styleHeader }; 
-            merges.push({ s: { r: 2, c: col }, e: { r: 2, c: col+1 } });
-        }
-        wsData.push(headerRow1);
+      const titleRow = new Array(16).fill({ v: "", s: styleTitle });
+      titleRow[0] = { v: `REPARTO ${selectedCompany.toUpperCase()} - ${selectedDept.toUpperCase()}`, s: styleTitle };
+      wsData.push(titleRow);
+      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 15 } });
 
-        const headerRow2 = new Array(16).fill(null);
-        headerRow2[0] = { v: "", s: styleHeader }; 
-        headerRow2[15] = { v: "", s: styleTotalHeader }; 
-        
-        merges.push({ s: { r: 2, c: 0 }, e: { r: 3, c: 0 } });
-        merges.push({ s: { r: 2, c: 15 }, e: { r: 3, c: 15 } });
+      const subTitleRow = new Array(16).fill({ v: "", s: styleTitle });
+      subTitleRow[0] = { v: `Orario settimanale: ${weekRange}`, s: { ...styleTitle, font: { sz: 11 } } };
+      wsData.push(subTitleRow);
+      merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 15 } });
 
-        for(let i=0; i<7; i++) {
-            const col = 1 + (i*2);
-            headerRow2[col] = { v: "Entrata", s: styleHeader };
-            headerRow2[col+1] = { v: "Uscita", s: styleHeader };
-        }
-        wsData.push(headerRow2);
+      const headerRow1 = new Array(16).fill(null);
+      headerRow1[0] = { v: "DIPENDENTE", s: styleHeader };
+      headerRow1[15] = { v: "TOTALE", s: styleTotalHeader };
 
-        // Usa getCurrentEmployees() per ottenere i dipendenti corretti
-        const employeesForExport = getCurrentEmployees();
-        employeesForExport.forEach(emp => {
-            const startRowIndex = wsData.length;
-            const scheduleKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
-            
-            const row1 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
-            const row2 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
+      for (let i = 0; i < 7; i++) {
+        const col = 1 + (i * 2);
+        headerRow1[col] = { v: days[i], s: styleHeader };
+        headerRow1[col + 1] = { v: "", s: styleHeader };
+        merges.push({ s: { r: 2, c: col }, e: { r: 2, c: col + 1 } });
+      }
+      wsData.push(headerRow1);
 
-            // Se modalità multi-azienda, mostra anche azienda e reparto
-            const empNameDisplay = multiCompanyMode ? `${emp.name} (${emp.company} - ${emp.department})` : emp.name;
-            row1[0] = { v: empNameDisplay, s: styleEmpName };
-            row2[0] = { v: "", s: styleEmpName };
-            merges.push({ s: { r: startRowIndex, c: 0 }, e: { r: startRowIndex + 1, c: 0 } });
+      const headerRow2 = new Array(16).fill(null);
+      headerRow2[0] = { v: "", s: styleHeader };
+      headerRow2[15] = { v: "", s: styleTotalHeader };
 
-            row1[15] = { v: "", s: styleTotalCell };
-            row2[15] = { v: "", s: styleTotalCell };
-            merges.push({ s: { r: startRowIndex, c: 15 }, e: { r: startRowIndex + 1, c: 15 } });
+      merges.push({ s: { r: 2, c: 0 }, e: { r: 3, c: 0 } });
+      merges.push({ s: { r: 2, c: 15 }, e: { r: 3, c: 15 } });
 
-            let formulaParts = [];
+      for (let i = 0; i < 7; i++) {
+        const col = 1 + (i * 2);
+        headerRow2[col] = { v: "Entrata", s: styleHeader };
+        headerRow2[col + 1] = { v: "Uscita", s: styleHeader };
+      }
+      wsData.push(headerRow2);
 
-            days.forEach((_, dayIdx) => {
-                const data = schedule[scheduleKey]?.[dayIdx];
-                const colIdx = 1 + (dayIdx * 2);
-                
-                if (data?.code) {
-                    row1[colIdx] = { v: data.code, s: styleCell };
-                    row1[colIdx+1] = { v: data.code, s: styleCell };
-                    merges.push({ s: { r: startRowIndex, c: colIdx }, e: { r: startRowIndex + 1, c: colIdx } });
-                    merges.push({ s: { r: startRowIndex, c: colIdx+1 }, e: { r: startRowIndex + 1, c: colIdx+1 } });
-                } else {
-                    const valIn1 = strToExcelTime(data?.in1);
-                    const valOut1 = strToExcelTime(data?.out1);
-                    if (valIn1 !== null) row1[colIdx] = { v: valIn1, t: 'n', z: 'h:mm', s: styleCell };
-                    if (valOut1 !== null) row1[colIdx+1] = { v: valOut1, t: 'n', z: 'h:mm', s: styleCell };
+      // Usa getCurrentEmployees() per ottenere i dipendenti corretti
+      const employeesForExport = getCurrentEmployees();
+      employeesForExport.forEach(emp => {
+        const startRowIndex = wsData.length;
+        const scheduleKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
 
-                    const valIn2 = strToExcelTime(data?.in2);
-                    const valOut2 = strToExcelTime(data?.out2);
-                    if (valIn2 !== null) row2[colIdx] = { v: valIn2, t: 'n', z: 'h:mm', s: styleCell };
-                    if (valOut2 !== null) row2[colIdx+1] = { v: valOut2, t: 'n', z: 'h:mm', s: styleCell };
+        const row1 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
+        const row2 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
 
-                    const r1 = startRowIndex + 1;
-                    const r2 = startRowIndex + 2;
-                    const cIn = XLSX.utils.encode_col(colIdx);
-                    const cOut = XLSX.utils.encode_col(colIdx + 1);
+        // Se modalità multi-azienda, mostra anche azienda e reparto
+        const empNameDisplay = multiCompanyMode ? `${emp.name} (${emp.company} - ${emp.department})` : emp.name;
+        row1[0] = { v: empNameDisplay, s: styleEmpName };
+        row2[0] = { v: "", s: styleEmpName };
+        merges.push({ s: { r: startRowIndex, c: 0 }, e: { r: startRowIndex + 1, c: 0 } });
 
-                    if (valIn1 !== null && valOut1 !== null) formulaParts.push(`(${cOut}${r1}-${cIn}${r1})`);
-                    if (valIn2 !== null && valOut2 !== null) formulaParts.push(`(${cOut}${r2}-${cIn}${r2})`);
-                }
-            });
+        row1[15] = { v: "", s: styleTotalCell };
+        row2[15] = { v: "", s: styleTotalCell };
+        merges.push({ s: { r: startRowIndex, c: 15 }, e: { r: startRowIndex + 1, c: 15 } });
 
-            const formula = formulaParts.length > 0 ? `SUM(${formulaParts.join(',')})*24` : "0";
-            row1[15] = { f: formula, t: 'n', z: '0.0', s: styleTotalCell };
-            
-            wsData.push(row1);
-            wsData.push(row2);
+        let formulaParts = [];
+
+        days.forEach((_, dayIdx) => {
+          const data = schedule[scheduleKey]?.[dayIdx];
+          const colIdx = 1 + (dayIdx * 2);
+
+          if (data?.code) {
+            row1[colIdx] = { v: data.code, s: styleCell };
+            row1[colIdx + 1] = { v: data.code, s: styleCell };
+            merges.push({ s: { r: startRowIndex, c: colIdx }, e: { r: startRowIndex + 1, c: colIdx } });
+            merges.push({ s: { r: startRowIndex, c: colIdx + 1 }, e: { r: startRowIndex + 1, c: colIdx + 1 } });
+          } else {
+            const valIn1 = strToExcelTime(data?.in1);
+            const valOut1 = strToExcelTime(data?.out1);
+            if (valIn1 !== null) row1[colIdx] = { v: valIn1, t: 'n', z: 'h:mm', s: styleCell };
+            if (valOut1 !== null) row1[colIdx + 1] = { v: valOut1, t: 'n', z: 'h:mm', s: styleCell };
+
+            const valIn2 = strToExcelTime(data?.in2);
+            const valOut2 = strToExcelTime(data?.out2);
+            if (valIn2 !== null) row2[colIdx] = { v: valIn2, t: 'n', z: 'h:mm', s: styleCell };
+            if (valOut2 !== null) row2[colIdx + 1] = { v: valOut2, t: 'n', z: 'h:mm', s: styleCell };
+
+            const r1 = startRowIndex + 1;
+            const r2 = startRowIndex + 2;
+            const cIn = XLSX.utils.encode_col(colIdx);
+            const cOut = XLSX.utils.encode_col(colIdx + 1);
+
+            if (valIn1 !== null && valOut1 !== null) formulaParts.push(`(${cOut}${r1}-${cIn}${r1})`);
+            if (valIn2 !== null && valOut2 !== null) formulaParts.push(`(${cOut}${r2}-${cIn}${r2})`);
+          }
         });
 
-        const ws = XLSX.utils.aoa_to_sheet([]);
-        const range = { s: { c: 0, r: 0 }, e: { c: 15, r: wsData.length - 1 } };
-        ws['!ref'] = XLSX.utils.encode_range(range);
-        
-        for (let R = 0; R < wsData.length; ++R) {
-            for (let C = 0; C < wsData[R].length; ++C) {
-                const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
-                ws[cellRef] = wsData[R][C] || { v: "", s: styleCell };
-            }
+        const formula = formulaParts.length > 0 ? `SUM(${formulaParts.join(',')})*24` : "0";
+        row1[15] = { f: formula, t: 'n', z: '0.0', s: styleTotalCell };
+
+        wsData.push(row1);
+        wsData.push(row2);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet([]);
+      const range = { s: { c: 0, r: 0 }, e: { c: 15, r: wsData.length - 1 } };
+      ws['!ref'] = XLSX.utils.encode_range(range);
+
+      for (let R = 0; R < wsData.length; ++R) {
+        for (let C = 0; C < wsData[R].length; ++C) {
+          const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
+          ws[cellRef] = wsData[R][C] || { v: "", s: styleCell };
         }
+      }
 
-        ws['!merges'] = merges;
-        
-        const wscols = [{ wch: 25 }]; 
-        for(let i=0; i<14; i++) wscols.push({ wch: 9 }); 
-        wscols.push({ wch: 10 });
-        ws['!cols'] = wscols;
+      ws['!merges'] = merges;
 
-        XLSX.utils.book_append_sheet(wb, ws, "Turni");
-        const fileName = `Turni_${selectedCompany}_${selectedDept}_${weekRange.replace(/\//g, '-')}.xlsx`;
-        XLSX.writeFile(wb, fileName);
+      const wscols = [{ wch: 25 }];
+      for (let i = 0; i < 14; i++) wscols.push({ wch: 9 });
+      wscols.push({ wch: 10 });
+      ws['!cols'] = wscols;
+
+      XLSX.utils.book_append_sheet(wb, ws, "Turni");
+      const fileName = `Turni_${selectedCompany}_${selectedDept}_${weekRange.replace(/\//g, '-')}.xlsx`;
+      XLSX.writeFile(wb, fileName);
 
     } catch (error) {
-        console.error("Export error:", error);
-        openConfirm("Errore Esportazione", "Si è verificato un errore. Prova a ricaricare la pagina.", null);
+      console.error("Export error:", error);
+      openConfirm("Errore Esportazione", "Si è verificato un errore. Prova a ricaricare la pagina.", null);
     }
   };
 
@@ -982,7 +1025,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
   return (
     <div className="p-4 bg-gray-50 min-h-screen font-sans relative">
-      
+
       {/* MODALE SOSTITUZIONE DIPENDENTE */}
       {replaceEmployeeModal.isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -999,7 +1042,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                 <br />
                 <span className="text-sm text-gray-500">Gli orari verranno mantenuti.</span>
               </p>
-              
+
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Nuovo dipendente (o seleziona esistente)
@@ -1020,14 +1063,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                         .map(emp => (
                           <button
                             key={emp.id}
-                            onClick={() => setReplaceEmployeeModal(prev => ({ 
-                              ...prev, 
+                            onClick={() => setReplaceEmployeeModal(prev => ({
+                              ...prev,
                               newEmployeeName: emp.name,
                               newEmployeeId: emp.id
                             }))}
-                            className={`w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 ${
-                              replaceEmployeeModal.newEmployeeId === emp.id ? 'bg-blue-100' : ''
-                            }`}
+                            className={`w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 ${replaceEmployeeModal.newEmployeeId === emp.id ? 'bg-blue-100' : ''
+                              }`}
                           >
                             {emp.name}
                           </button>
@@ -1068,14 +1110,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             <div className="p-6">
               <p className="text-gray-700 mb-6">{confirmModal.message}</p>
               <div className="flex justify-end gap-3">
-                <button 
+                <button
                   onClick={closeConfirm}
                   className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium transition-colors"
                 >
                   Annulla
                 </button>
                 {onConfirmAction.current && (
-                  <button 
+                  <button
                     onClick={handleConfirm}
                     className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white font-medium transition-colors shadow-lg"
                   >
@@ -1089,7 +1131,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       )}
 
       <div className="max-w-full mx-auto bg-white shadow-xl rounded-lg overflow-hidden min-h-[600px]">
-        
+
         {/* HEADER PRINCIPALE */}
         <div className="bg-slate-800 text-white p-4">
           <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
@@ -1110,8 +1152,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             <div className="flex gap-3 items-center">
               {companies.length > 0 && (
                 <div className="bg-slate-700 p-1.5 rounded flex items-center gap-2">
-                   <Building2 size={16} className="text-slate-300"/>
-                   <select 
+                  <Building2 size={16} className="text-slate-300" />
+                  <select
                     value={selectedCompany}
                     onChange={(e) => {
                       setSelectedCompany(e.target.value);
@@ -1123,13 +1165,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       }
                     }}
                     className="bg-slate-600 text-white border-none rounded text-sm p-1 focus:ring-2 focus:ring-blue-500"
-                   >
-                     {companies.map(c => <option key={c} value={c}>{c}</option>)}
-                   </select>
+                  >
+                    {companies.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
               )}
 
-              <button 
+              <button
                 onClick={() => setShowSettings(!showSettings)}
                 className={`p-2 rounded transition-colors ${showSettings ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
                 title="Impostazioni Reparti"
@@ -1142,14 +1184,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           <div className="flex justify-between items-end border-t border-slate-700 pt-3">
             <div className="flex items-center gap-2">
               <span className="text-sm text-slate-400">Settimana:</span>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={weekRange}
                 onChange={(e) => setWeekRange(e.target.value)}
                 className="bg-slate-900 text-white border border-slate-600 rounded px-2 py-1 text-sm w-52 text-center"
               />
             </div>
-            <button 
+            <button
               onClick={exportExcel}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors shadow-md"
             >
@@ -1163,26 +1205,26 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           <div className="bg-blue-50 border-b-4 border-blue-200 p-6 animate-in slide-in-from-top-5">
             <div className="flex justify-between items-start mb-4">
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <Settings className="w-5 h-5 text-blue-600"/>
+                <Settings className="w-5 h-5 text-blue-600" />
                 Configurazione Reparti - {selectedCompany}
               </h2>
               <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={24} />
               </button>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
                 <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">Gestione Reparti per {selectedCompany}</h3>
                 <div className="flex gap-2 mb-4">
-                  <input 
-                    type="text" 
-                    placeholder="Nuovo reparto (es. Pizzeria)" 
+                  <input
+                    type="text"
+                    placeholder="Nuovo reparto (es. Pizzeria)"
                     value={newDeptName}
                     onChange={(e) => setNewDeptName(e.target.value)}
                     className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
                   />
-                  <button 
+                  <button
                     onClick={addDepartment}
                     className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700"
                   >
@@ -1191,20 +1233,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                 </div>
                 <ul className="space-y-2">
                   {departmentsStructure[selectedCompany]?.map(dept => (
-                    <li 
-                      key={dept} 
-                      className={`flex justify-between items-center p-2 rounded border cursor-pointer transition-colors ${
-                        selectedDept === dept 
-                          ? 'bg-blue-100 border-blue-400 shadow-md' 
+                    <li
+                      key={dept}
+                      className={`flex justify-between items-center p-2 rounded border cursor-pointer transition-colors ${selectedDept === dept
+                          ? 'bg-blue-100 border-blue-400 shadow-md'
                           : 'bg-slate-50 hover:bg-blue-50'
-                      }`}
+                        }`}
                       onClick={() => setSelectedDept(dept)}
                     >
                       <span className={`font-medium ${selectedDept === dept ? 'text-blue-800 font-bold' : 'text-slate-700'}`}>
                         {dept}
                         {selectedDept === dept && <span className="ml-2 text-xs">✓ Selezionato</span>}
                       </span>
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.stopPropagation(); // Evita che il click selezioni il reparto
                           triggerDeleteDepartment(dept);
@@ -1227,14 +1268,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                   Dipendenti in: {selectedCompany} - {selectedDept}
                 </h3>
                 <div className="flex gap-2 mb-4">
-                  <input 
-                    type="text" 
-                    placeholder="Nome dipendente" 
+                  <input
+                    type="text"
+                    placeholder="Nome dipendente"
                     value={newEmployeeName}
                     onChange={(e) => setNewEmployeeName(e.target.value)}
                     className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
                   />
-                  <button 
+                  <button
                     onClick={addEmployee}
                     className="bg-emerald-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-emerald-700"
                   >
@@ -1247,7 +1288,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       {currentEmployees.map(emp => (
                         <li key={emp.id} className="flex justify-between items-center bg-slate-50 p-2 rounded border text-sm">
                           <span>{emp.name}</span>
-                          <button 
+                          <button
                             onClick={() => triggerDeleteEmployee(emp.id)}
                             className="text-red-400 hover:text-red-600"
                           >
@@ -1317,11 +1358,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       const scheduleKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
                       const cellData = schedule[scheduleKey]?.[dayIdx] || {};
                       const isRest = cellData.code === 'R';
-                      
+
                       return (
                         <td key={dayIdx} className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''}`}>
                           <div className="absolute top-0 right-0 opacity-0 hover:opacity-100 z-10">
-                            <select 
+                            <select
                               className="text-[10px] bg-slate-800 text-white p-0.5 rounded shadow-lg cursor-pointer"
                               onChange={(e) => handleQuickCode(emp.id, dayIdx, e.target.value, multiCompanyMode ? emp.contextKey : null)}
                               value={cellData.code || ''}
@@ -1342,15 +1383,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                           ) : (
                             <div className="flex flex-col gap-1">
                               <div className="flex gap-1">
-                                <input 
-                                  type="text" 
+                                <input
+                                  type="text"
                                   className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
                                   value={cellData.in1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
                                 />
-                                <input 
-                                  type="text" 
+                                <input
+                                  type="text"
                                   className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
                                   value={cellData.out1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
@@ -1359,15 +1400,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                               </div>
                               {(cellData.in1 || cellData.in2 || cellData.out1) && (
                                 <div className="flex gap-1 animate-in fade-in duration-300">
-                                  <input 
-                                    type="text" 
+                                  <input
+                                    type="text"
                                     className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
                                     value={cellData.in2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
                                   />
-                                  <input 
-                                    type="text" 
+                                  <input
+                                    type="text"
                                     className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
                                     value={cellData.out2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
@@ -1399,7 +1440,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                           }}
                           className="text-xs bg-gray-100 border border-gray-300 rounded px-1 py-1 w-full"
                         >
-                          {selectedCompanies.map(company => 
+                          {selectedCompanies.map(company =>
                             (departmentsStructure[company] || []).map(dept => (
                               <option key={`${company}-${dept}`} value={`${company}-${dept}`}>
                                 {company} - {dept}
@@ -1412,7 +1453,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                   )}
                   <td className={`px-2 py-3 border font-bold text-gray-500 ${multiCompanyMode ? '' : 'sticky left-0 bg-gray-50 z-10 group-hover:bg-blue-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]'}`}>
                     <div className="flex items-center gap-2">
-                      <button 
+                      <button
                         onClick={() => {
                           if (multiCompanyMode && selectedCompanies.length > 0) {
                             const company = String(selectedAddCompany || selectedCompanies[0] || '').trim();
@@ -1434,9 +1475,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       >
                         <Plus size={16} />
                       </button>
-                      <input 
-                        type="text" 
-                        placeholder="Nuovo Dipendente..." 
+                      <input
+                        type="text"
+                        placeholder="Nuovo Dipendente..."
                         value={quickAddName}
                         onChange={(e) => setQuickAddName(e.target.value)}
                         onKeyDown={(e) => {
@@ -1466,7 +1507,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                   ))}
                   <td className="p-1 border bg-gray-50 group-hover:bg-blue-50"></td>
                 </tr>
-                
+
                 {/* MODULO RICERCA E FILTRO AZIENDE */}
                 <tr className="bg-blue-50 border-t-2 border-blue-200">
                   <td colSpan={multiCompanyMode ? 10 : 9} className="px-4 py-3">
@@ -1497,7 +1538,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                         </button>
                       )}
                     </div>
-                    
+
                     {showCompanyFilter && (
                       <div className="mt-3 p-3 bg-white rounded border border-blue-200 shadow-sm">
                         <h4 className="text-sm font-bold text-gray-700 mb-2">Seleziona Aziende da Visualizzare:</h4>
@@ -1532,26 +1573,26 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               </tbody>
             </table>
           ) : (
-             <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-white">
-               <UserPlus size={48} className="mb-4 opacity-20" />
-               <p className="text-lg">Nessun dipendente in questo reparto.</p>
-               <div className="mt-4 flex gap-2">
-                 <input 
-                    type="text" 
-                    placeholder="Nome dipendente" 
-                    value={quickAddName}
-                    onChange={(e) => setQuickAddName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee()}
-                    className="border border-gray-300 rounded px-3 py-2"
-                  />
-                  <button 
-                    onClick={handleQuickAddEmployee}
-                    className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                  >
-                    Aggiungi
-                  </button>
-               </div>
-             </div>
+            <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-white">
+              <UserPlus size={48} className="mb-4 opacity-20" />
+              <p className="text-lg">Nessun dipendente in questo reparto.</p>
+              <div className="mt-4 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Nome dipendente"
+                  value={quickAddName}
+                  onChange={(e) => setQuickAddName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee()}
+                  className="border border-gray-300 rounded px-3 py-2"
+                />
+                <button
+                  onClick={handleQuickAddEmployee}
+                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                >
+                  Aggiungi
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>
