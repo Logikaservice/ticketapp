@@ -2764,138 +2764,138 @@ export default function TicketApp() {
             </div>
           )}
         </main>
-      </div>
 
-      <AllModals
-        modalState={modalState}
-        closeModal={closeModal}
-        closeEmptyDescriptionModal={closeEmptyDescriptionModal}
-        handleUpdateSettings={handleUpdateSettings}
-        handleConfirmUrgentCreation={handleConfirmUrgentCreation}
-        handleConfirmEmptyDescription={handleConfirmEmptyDescription}
-        settingsData={settingsData}
-        setSettingsData={setSettingsData}
-        timeLogs={timeLogs}
-        setTimeLogs={setTimeLogs}
-        onKeepassImportSuccess={onKeepassImportSuccess}
-        handleTimeLogChange={handleTimeLogChange}
-        handleAddTimeLog={handleAddTimeLog}
-        handleRemoveTimeLog={handleRemoveTimeLog}
-        handleDuplicateTimeLog={handleDuplicateTimeLog}
-        handleMaterialChange={handleMaterialChange}
-        handleAddMaterial={handleAddMaterial}
-        handleRemoveMaterial={handleRemoveMaterial}
-        handleOffertaChange={handleOffertaChange}
-        handleAddOfferta={handleAddOfferta}
-        handleRemoveOfferta={handleRemoveOfferta}
-        handleConfirmTimeLogs={wrappedHandleConfirmTimeLogs}
-        handleSaveTimeLogs={handleSaveTimeLogs}
-        currentUser={currentUser}
-        showNotification={showNotification}
-        users={users}
-        setSelectedTicket={setSelectedTicket}
-        setTickets={setTickets}
-        onSaveAlert={handleSaveAlert}
-        onEditAlert={handleEditAlert}
-        onConfirmEmail={handleConfirmEmail}
-        onCancelEmail={handleCancelEmail}
-        onRequestEmailConfirm={handleRequestEmailConfirm}
-        onConfirmAlertEmail={handleConfirmAlertEmail}
-        onCancelAlertEmail={handleCancelAlertEmail}
-        onConfirmSendEmail={handleConfirmSendEmail}
-        onCancelSendEmail={handleCancelSendEmail}
-        getAuthHeader={getAuthHeader}
-        alertsRefreshTrigger={alertsRefreshTrigger}
-      />
-
-      {modalState.type === 'manageClients' && (
-        <ManageClientsModal
-          clienti={users.filter(u => u.ruolo === 'cliente')}
-          onClose={closeModal}
-          onUpdateClient={handleUpdateClient}
-          onDeleteClient={handleDeleteClient}
-        />
-      )}
-
-      {modalState.type === 'newClient' && (
-        <NewClientModal
-          newClientData={newClientData}
-          setNewClientData={setNewClientData}
-          onClose={closeModal}
-          onSave={wrappedHandleCreateClient}
-          existingCompanies={existingCompanies}
-        />
-      )}
-
-      {modalState.type === 'newTicket' && (
-        <NewTicketModal
-          onClose={closeModal}
-          onSave={isEditingTicket ? wrappedHandleUpdateTicket : wrappedHandleCreateTicket}
-          newTicketData={newTicketData}
-          setNewTicketData={setNewTicketData}
-          isEditingTicket={isEditingTicket}
-          currentUser={currentUser}
-          clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
-          selectedClientForNewTicket={selectedClientForNewTicket}
-          setSelectedClientForNewTicket={setSelectedClientForNewTicket}
-        />
-      )}
-
-      {modalState.type === 'inactivityTimer' && (
-        <InactivityTimerModal
+        <AllModals
+          modalState={modalState}
           closeModal={closeModal}
-          currentTimeout={inactivityTimeout}
-          onTimeoutChange={handleInactivityTimeoutChange}
-        />
-      )}
-
-      {fornitureModalTicket && (
-        <FornitureModal
-          ticket={fornitureModalTicket}
-          onClose={() => setFornitureModalTicket(null)}
-          onFornitureCountChange={handleFornitureCountChange}
+          closeEmptyDescriptionModal={closeEmptyDescriptionModal}
+          handleUpdateSettings={handleUpdateSettings}
+          handleConfirmUrgentCreation={handleConfirmUrgentCreation}
+          handleConfirmEmptyDescription={handleConfirmEmptyDescription}
+          settingsData={settingsData}
+          setSettingsData={setSettingsData}
+          timeLogs={timeLogs}
+          setTimeLogs={setTimeLogs}
+          onKeepassImportSuccess={onKeepassImportSuccess}
+          handleTimeLogChange={handleTimeLogChange}
+          handleAddTimeLog={handleAddTimeLog}
+          handleRemoveTimeLog={handleRemoveTimeLog}
+          handleDuplicateTimeLog={handleDuplicateTimeLog}
+          handleMaterialChange={handleMaterialChange}
+          handleAddMaterial={handleAddMaterial}
+          handleRemoveMaterial={handleRemoveMaterial}
+          handleOffertaChange={handleOffertaChange}
+          handleAddOfferta={handleAddOfferta}
+          handleRemoveOfferta={handleRemoveOfferta}
+          handleConfirmTimeLogs={wrappedHandleConfirmTimeLogs}
+          handleSaveTimeLogs={handleSaveTimeLogs}
           currentUser={currentUser}
+          showNotification={showNotification}
+          users={users}
+          setSelectedTicket={setSelectedTicket}
+          setTickets={setTickets}
+          onSaveAlert={handleSaveAlert}
+          onEditAlert={handleEditAlert}
+          onConfirmEmail={handleConfirmEmail}
+          onCancelEmail={handleCancelEmail}
+          onRequestEmailConfirm={handleRequestEmailConfirm}
+          onConfirmAlertEmail={handleConfirmAlertEmail}
+          onCancelAlertEmail={handleCancelAlertEmail}
+          onConfirmSendEmail={handleConfirmSendEmail}
+          onCancelSendEmail={handleCancelSendEmail}
           getAuthHeader={getAuthHeader}
+          alertsRefreshTrigger={alertsRefreshTrigger}
         />
-      )}
 
-      {showUnreadModal && (
-        <UnreadMessagesModal
-          tickets={tickets}
-          getUnreadCount={getUnreadCount}
-          onClose={() => setShowUnreadModal(false)}
-          onOpenTicket={handleOpenTicketFromModal}
-          currentUser={currentUser}
-        />
-      )}
+        {modalState.type === 'manageClients' && (
+          <ManageClientsModal
+            clienti={users.filter(u => u.ruolo === 'cliente')}
+            onClose={closeModal}
+            onUpdateClient={handleUpdateClient}
+            onDeleteClient={handleDeleteClient}
+          />
+        )}
 
-      {photosModalTicket && (
-        <TicketPhotosModal
-          ticket={photosModalTicket}
-          photos={photosModalTicket.photos || []}
-          onClose={() => {
-            // Aggiorna il ticket dal database prima di chiudere
-            const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
-            if (updatedTicket) {
-              setPhotosModalTicket(null);
-            } else {
-              setPhotosModalTicket(null);
-            }
-          }}
-          onUploadPhotos={handleUploadTicketPhotos}
-          onDeletePhoto={async (photoFilename) => {
-            const updatedPhotos = await handleDeleteTicketPhoto(photosModalTicket.id, photoFilename);
-            // Aggiorna il ticket nel modal
-            const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
-            if (updatedTicket) {
-              setPhotosModalTicket({ ...updatedTicket, photos: updatedPhotos });
-            }
-            return updatedPhotos;
-          }}
-          getAuthHeader={getAuthHeader}
-          currentUser={currentUser}
-        />
-      )}
+        {modalState.type === 'newClient' && (
+          <NewClientModal
+            newClientData={newClientData}
+            setNewClientData={setNewClientData}
+            onClose={closeModal}
+            onSave={wrappedHandleCreateClient}
+            existingCompanies={existingCompanies}
+          />
+        )}
+
+        {modalState.type === 'newTicket' && (
+          <NewTicketModal
+            onClose={closeModal}
+            onSave={isEditingTicket ? wrappedHandleUpdateTicket : wrappedHandleCreateTicket}
+            newTicketData={newTicketData}
+            setNewTicketData={setNewTicketData}
+            isEditingTicket={isEditingTicket}
+            currentUser={currentUser}
+            clientiAttivi={users.filter(u => u.ruolo === 'cliente')}
+            selectedClientForNewTicket={selectedClientForNewTicket}
+            setSelectedClientForNewTicket={setSelectedClientForNewTicket}
+          />
+        )}
+
+        {modalState.type === 'inactivityTimer' && (
+          <InactivityTimerModal
+            closeModal={closeModal}
+            currentTimeout={inactivityTimeout}
+            onTimeoutChange={handleInactivityTimeoutChange}
+          />
+        )}
+
+        {fornitureModalTicket && (
+          <FornitureModal
+            ticket={fornitureModalTicket}
+            onClose={() => setFornitureModalTicket(null)}
+            onFornitureCountChange={handleFornitureCountChange}
+            currentUser={currentUser}
+            getAuthHeader={getAuthHeader}
+          />
+        )}
+
+        {showUnreadModal && (
+          <UnreadMessagesModal
+            tickets={tickets}
+            getUnreadCount={getUnreadCount}
+            onClose={() => setShowUnreadModal(false)}
+            onOpenTicket={handleOpenTicketFromModal}
+            currentUser={currentUser}
+          />
+        )}
+
+        {photosModalTicket && (
+          <TicketPhotosModal
+            ticket={photosModalTicket}
+            photos={photosModalTicket.photos || []}
+            onClose={() => {
+              // Aggiorna il ticket dal database prima di chiudere
+              const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
+              if (updatedTicket) {
+                setPhotosModalTicket(null);
+              } else {
+                setPhotosModalTicket(null);
+              }
+            }}
+            onUploadPhotos={handleUploadTicketPhotos}
+            onDeletePhoto={async (photoFilename) => {
+              const updatedPhotos = await handleDeleteTicketPhoto(photosModalTicket.id, photoFilename);
+              // Aggiorna il ticket nel modal
+              const updatedTicket = tickets.find(t => t.id === photosModalTicket.id);
+              if (updatedTicket) {
+                setPhotosModalTicket({ ...updatedTicket, photos: updatedPhotos });
+              }
+              return updatedPhotos;
+            }}
+            getAuthHeader={getAuthHeader}
+            currentUser={currentUser}
+          />
+        )}
+      </div>
     </div>
   );
 }
