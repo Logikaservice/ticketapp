@@ -393,6 +393,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       dept = selectedAddDept || departmentsStructure[selectedCompanies[0]]?.[0] || '';
     }
     
+    // Assicurati che company e dept siano stringhe (non oggetti)
+    company = String(company || '').trim();
+    dept = String(dept || '').trim();
+    
     // Verifica che company e dept siano validi
     if (!company || !dept) {
       alert(`Errore: Azienda o reparto non validi. Azienda: ${company || 'non selezionata'}, Reparto: ${dept || 'non selezionato'}`);
@@ -460,11 +464,23 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   // Funzione helper per salvare con dipendenti aggiornati
   const saveDataWithEmployees = async (empData) => {
     try {
+      // Pulisci i dati employees per assicurarsi che le chiavi siano stringhe valide
+      const cleanedEmployees = {};
+      if (empData) {
+        Object.keys(empData).forEach(key => {
+          // Rimuovi chiavi con [object Object] e assicurati che siano stringhe valide
+          const cleanKey = String(key).trim();
+          if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(empData[key])) {
+            cleanedEmployees[cleanKey] = empData[key];
+          }
+        });
+      }
+      
       // Usa lo stato corrente per tutti i dati
       const dataToSave = {
-        companies: companies || [],
+        companies: (companies || []).map(c => String(c).trim()),
         departments: departmentsStructure || {},
-        employees: empData || employeesData,
+        employees: cleanedEmployees || employeesData,
         schedule: schedule || {}
       };
       
@@ -1343,11 +1359,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                     <td className="px-2 py-3 border text-xs text-gray-500 sticky left-0 bg-gray-50 z-10 group-hover:bg-blue-50">
                       {selectedCompanies.length > 0 && (
                         <select
-                          value={selectedAddCompany && selectedAddDept ? `${selectedAddCompany}-${selectedAddDept}` : `${selectedCompanies[0]}-${departmentsStructure[selectedCompanies[0]]?.[0] || ''}`}
+                          value={selectedAddCompany && selectedAddDept ? `${String(selectedAddCompany)}-${String(selectedAddDept)}` : `${String(selectedCompanies[0] || '')}-${String(departmentsStructure[selectedCompanies[0]]?.[0] || '')}`}
                           onChange={(e) => {
                             const [company, dept] = e.target.value.split('-');
-                            setSelectedAddCompany(company);
-                            setSelectedAddDept(dept);
+                            setSelectedAddCompany(String(company || '').trim());
+                            setSelectedAddDept(String(dept || '').trim());
                           }}
                           className="text-xs bg-gray-100 border border-gray-300 rounded px-1 py-1 w-full"
                         >
@@ -1367,12 +1383,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       <button 
                         onClick={() => {
                           if (multiCompanyMode && selectedCompanies.length > 0) {
-                            const company = selectedAddCompany || selectedCompanies[0];
-                            const dept = selectedAddDept || departmentsStructure[selectedCompanies[0]]?.[0] || '';
-                            handleQuickAddEmployee(company, dept);
-                            // Reset dopo l'aggiunta
-                            setSelectedAddCompany('');
-                            setSelectedAddDept('');
+                            const company = String(selectedAddCompany || selectedCompanies[0] || '').trim();
+                            const dept = String(selectedAddDept || departmentsStructure[selectedCompanies[0]]?.[0] || '').trim();
+                            if (company && dept) {
+                              handleQuickAddEmployee(company, dept);
+                              // Reset dopo l'aggiunta
+                              setSelectedAddCompany('');
+                              setSelectedAddDept('');
+                            } else {
+                              alert('Seleziona azienda e reparto dal dropdown');
+                            }
                           } else {
                             handleQuickAddEmployee();
                           }
@@ -1390,12 +1410,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             if (multiCompanyMode && selectedCompanies.length > 0) {
-                              const company = selectedAddCompany || selectedCompanies[0];
-                              const dept = selectedAddDept || departmentsStructure[selectedCompanies[0]]?.[0] || '';
-                              handleQuickAddEmployee(company, dept);
-                              // Reset dopo l'aggiunta
-                              setSelectedAddCompany('');
-                              setSelectedAddDept('');
+                              const company = String(selectedAddCompany || selectedCompanies[0] || '').trim();
+                              const dept = String(selectedAddDept || departmentsStructure[selectedCompanies[0]]?.[0] || '').trim();
+                              if (company && dept) {
+                                handleQuickAddEmployee(company, dept);
+                                // Reset dopo l'aggiunta
+                                setSelectedAddCompany('');
+                                setSelectedAddDept('');
+                              } else {
+                                alert('Seleziona azienda e reparto dal dropdown');
+                              }
                             } else {
                               handleQuickAddEmployee();
                             }
