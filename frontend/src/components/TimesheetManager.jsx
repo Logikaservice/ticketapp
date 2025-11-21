@@ -411,9 +411,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     return total;
   };
 
-  const calculateWeeklyTotal = (empId) => {
+  const calculateWeeklyTotal = (empId, contextKey = null, weekRangeValue = null) => {
     let total = 0;
-    const empSchedule = schedule[empId] || {};
+    // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
+    const currentWeek = weekRangeValue || weekRange;
+    // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    // Chiave completa: settimana-baseKey
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+    const empSchedule = schedule[scheduleKey] || {};
     days.forEach((_, index) => {
       total += calculateDailyHours(empSchedule[index]);
     });
@@ -421,9 +427,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   // --- INPUT HANDLERS ---
-  const handleInputChange = (empId, dayIndex, field, value, contextKey = null) => {
+  const handleInputChange = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
+    // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
+    const currentWeek = weekRangeValue || weekRange;
     // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
-    const scheduleKey = contextKey ? `${contextKey}-${empId}` : empId;
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    // Chiave completa: settimana-baseKey
+    const scheduleKey = `${currentWeek}-${baseKey}`;
 
     setSchedule(prev => ({
       ...prev,
@@ -433,23 +443,27 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     setTimeout(() => saveData(), 500);
   };
 
-  const handleBlur = (empId, dayIndex, field, value, contextKey = null) => {
-    if (!value) return;
-    const strValue = String(value);
-    let formatted = strValue.replace(',', '.').replace(':', '.').trim();
-    if (!formatted.includes('.')) formatted += '.00';
-    const parts = formatted.split('.');
-    if (parts[0].length === 1) parts[0] = '0' + parts[0];
-    if (parts[1].length === 1) parts[1] = parts[1] + '0';
-    formatted = parts.join('.');
-    if (formatted !== value) handleInputChange(empId, dayIndex, field, formatted, contextKey);
-    // Salva automaticamente dopo ogni modifica
-    setTimeout(() => saveData(), 500);
-  };
+  const handleBlur = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
+     if (!value) return;
+     const strValue = String(value);
+     let formatted = strValue.replace(',', '.').replace(':', '.').trim();
+     if (!formatted.includes('.')) formatted += '.00';
+     const parts = formatted.split('.');
+     if (parts[0].length === 1) parts[0] = '0' + parts[0];
+     if (parts[1].length === 1) parts[1] = parts[1] + '0';
+     formatted = parts.join('.');
+     if (formatted !== value) handleInputChange(empId, dayIndex, field, formatted, contextKey, weekRangeValue);
+     // Salva automaticamente dopo ogni modifica
+     setTimeout(() => saveData(), 500);
+   };
 
-  const handleQuickCode = (empId, dayIndex, code, contextKey = null) => {
+  const handleQuickCode = (empId, dayIndex, code, contextKey = null, weekRangeValue = null) => {
+    // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
+    const currentWeek = weekRangeValue || weekRange;
     // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
-    const scheduleKey = contextKey ? `${contextKey}-${empId}` : empId;
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    // Chiave completa: settimana-baseKey
+    const scheduleKey = `${currentWeek}-${baseKey}`;
 
     setSchedule(prev => {
       const newSchedule = {
@@ -1292,9 +1306,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       </div>
                     </td>
                     {days.map((day, dayIdx) => {
-                      // NOTA: Qui usiamo emp.id come chiave schedule. 
-                      // TODO: In futuro supportare schedule per settimana specifica usando listWeekRange
-                      const scheduleKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
+                      // Usa la settimana della lista corrente per la chiave schedule
+                      const currentWeek = listWeekRange || getWeekDates(0).formatted;
+                      const baseKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
+                      const scheduleKey = `${currentWeek}-${baseKey}`;
                       const cellData = schedule[scheduleKey]?.[dayIdx] || {};
                       const isRest = cellData.code === 'R';
 
@@ -1303,7 +1318,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                           <div className="absolute top-0 right-0 opacity-0 hover:opacity-100 z-10">
                             <select
                               className="text-[10px] bg-slate-800 text-white p-0.5 rounded shadow-lg cursor-pointer"
-                              onChange={(e) => handleQuickCode(emp.id, dayIdx, e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                              onChange={(e) => handleQuickCode(emp.id, dayIdx, e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
                               value={cellData.code || ''}
                             >
                               <option value="">Orario</option>
@@ -1326,15 +1341,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                   type="text"
                                   className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
                                   value={cellData.in1 || ''}
-                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
-                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
                                 />
                                 <input
                                   type="text"
                                   className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
                                   value={cellData.out1 || ''}
-                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
-                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
                                 />
                               </div>
                               {(cellData.in1 || cellData.in2 || cellData.out1) && (
@@ -1343,15 +1358,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                     type="text"
                                     className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
                                     value={cellData.in2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
                                   />
                                   <input
                                     type="text"
                                     className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
                                     value={cellData.out2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
                                   />
                                 </div>
                               )}
@@ -1361,7 +1376,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       );
                     })}
                     <td className="px-2 py-3 border text-center font-bold text-lg bg-yellow-50 text-slate-800">
-                      {calculateWeeklyTotal(emp.id, multiCompanyMode ? emp.contextKey : null)}
+                      {calculateWeeklyTotal(emp.id, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
                     </td>
                   </tr>
                 ))}
