@@ -1465,6 +1465,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
             <div className="flex gap-3 items-center">
               <button
+                onClick={exportExcel}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors shadow-md"
+              >
+                <FileSpreadsheet size={16} /> Scarica Excel (.xlsx)
+              </button>
+              <button
                 onClick={() => setShowSettings(!showSettings)}
                 className={`p-2 rounded transition-colors ${showSettings ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
                 title="Impostazioni Reparti"
@@ -1472,24 +1478,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                 <Settings size={20} />
               </button>
             </div>
-          </div>
-
-          <div className="flex justify-between items-end border-t border-slate-700 pt-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-400">Settimana:</span>
-              <input
-                type="text"
-                value={weekRange}
-                onChange={(e) => setWeekRange(e.target.value)}
-                className="bg-slate-900 text-white border border-slate-600 rounded px-2 py-1 text-sm w-52 text-center"
-              />
-            </div>
-            <button
-              onClick={exportExcel}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors shadow-md"
-            >
-              <FileSpreadsheet size={16} /> Scarica Excel (.xlsx)
-            </button>
           </div>
         </div>
 
