@@ -29,7 +29,7 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
     // Verifica dimensione totale (massimo 10MB totali)
     const maxTotalSize = 10 * 1024 * 1024; // 10MB in bytes
     const totalSize = files.reduce((sum, file) => sum + file.size, 0);
-    
+
     if (totalSize > maxTotalSize) {
       const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
       alert(`La dimensione totale dei file selezionati (${totalSizeMB}MB) supera il limite di 10MB.\n\nDimensione massima consentita: 10MB totali per tutti i file.\n\nRimuovi alcuni file o seleziona file più piccoli.`);
@@ -56,14 +56,14 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
     requestAnimationFrame(() => {
       setTimeout(() => {
         setIsUploading(true);
-        
+
         // Avvia l'upload in modo asincrono
         (async () => {
           try {
             console.log('🔄 Caricamento file...', files.length, 'file');
             const uploadedPhotos = await onUploadPhotos(ticket.id, files);
             console.log('✅ File caricati:', uploadedPhotos);
-            
+
             // NON aggiornare localPhotos qui - verrà aggiornato automaticamente tramite useEffect quando photos prop cambia
             // Usa requestAnimationFrame + setTimeout multipli per deferire completamente
             requestAnimationFrame(() => {
@@ -75,7 +75,7 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                     if (fileInputRef.current) {
                       fileInputRef.current.value = '';
                     }
-                    
+
                     // Aggiorna l'indice solo se necessario, dopo che le props si sono aggiornate
                     setTimeout(() => {
                       if (uploadedPhotos.length > localPhotos.length) {
@@ -111,7 +111,7 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
           <div className="text-center py-8">
             <File size={64} className="mx-auto text-gray-300 mb-4" />
             <p className="text-gray-500 text-lg mb-4">Nessun file disponibile per questo ticket</p>
-            
+
             {canManagePhotos && onUploadPhotos && (
               <>
                 <input
@@ -131,7 +131,7 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                 </button>
               </>
             )}
-            
+
             <button
               onClick={onClose}
               className="mt-4 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition"
@@ -148,19 +148,19 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
 
   const handleDelete = async () => {
     if (!window.confirm('Sei sicuro di voler eliminare questo file?')) return;
-    
+
     setIsDeleting(true);
     try {
       // Elimina e aggiorna la lista locale
       const updatedPhotos = await onDeletePhoto(currentPhoto.filename);
       setLocalPhotos(updatedPhotos);
-      
+
       // Se era l'ultimo file, chiudi il modal
       if (updatedPhotos.length === 0) {
         onClose();
         return;
       }
-      
+
       // Altrimenti vai al file precedente o successivo
       if (currentPhotoIndex >= updatedPhotos.length) {
         setCurrentPhotoIndex(Math.max(0, updatedPhotos.length - 1));
@@ -174,11 +174,11 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
 
   const handlePrint = () => {
     if (!currentPhoto) return;
-    
+
     // Verifica se è un'immagine
-    const isImage = currentPhoto.originalName?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i) || 
-                   currentPhoto.path?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
-    
+    const isImage = currentPhoto.originalName?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i) ||
+      currentPhoto.path?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
+
     // Costruisci URL assoluto
     let baseUrl = apiUrl;
     if (!baseUrl) {
@@ -190,7 +190,7 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
       }
     }
     const fileUrl = `${baseUrl}${currentPhoto.path}`;
-    
+
     if (isImage) {
       // Per immagini: apri in nuova finestra e stampa
       const printWindow = window.open('about:blank', '_blank', 'noopener,noreferrer');
@@ -278,11 +278,11 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
 
   // Il cliente può eliminare solo i file che ha caricato lui stesso
   // Il tecnico può eliminare sempre (se lo stato lo permette)
-  const canDelete = currentUser?.ruolo === 'tecnico' 
+  const canDelete = currentUser?.ruolo === 'tecnico'
     ? (ticket?.stato && ['aperto', 'in_lavorazione', 'risolto'].includes(ticket.stato))
-    : (currentUser?.ruolo === 'cliente' && 
-       currentPhoto?.uploadedById === currentUser?.id &&
-       ticket?.stato && ['aperto', 'in_lavorazione', 'risolto'].includes(ticket.stato));
+    : (currentUser?.ruolo === 'cliente' &&
+      currentPhoto?.uploadedById === currentUser?.id &&
+      ticket?.stato && ['aperto', 'in_lavorazione', 'risolto'].includes(ticket.stato));
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -314,32 +314,37 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
           <div className="flex-1 flex items-center justify-center bg-gray-900 p-4">
             {currentPhoto && (() => {
               // Verifica se è un'immagine basandosi sull'estensione o sul path
-              const isImage = currentPhoto.originalName?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i) || 
-                             currentPhoto.path?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
-              
-              if (isImage) {
-                // Costruisci URL assoluto - usa sempre HTTPS e il dominio corretto
-                let baseUrl = apiUrl;
-                if (!baseUrl) {
-                  // Se apiUrl è vuoto, usa il dominio corrente con HTTPS
-                  const origin = window.location.origin;
-                  // Se è un IP, usa il dominio configurato
-                  if (origin.includes('159.69.121.162') || origin.includes('localhost')) {
-                    baseUrl = 'https://ticket.logikaservice.it';
-                  } else {
-                    baseUrl = origin;
-                  }
+              const isImage = currentPhoto.originalName?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i) ||
+                currentPhoto.path?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
+
+              // Verifica se è un PDF
+              const isPdf = currentPhoto.originalName?.match(/\.pdf$/i) ||
+                currentPhoto.path?.match(/\.pdf$/i);
+
+              // Costruisci URL assoluto - usa sempre HTTPS e il dominio corretto
+              let baseUrl = apiUrl;
+              if (!baseUrl) {
+                // Se apiUrl è vuoto, usa il dominio corrente con HTTPS
+                const origin = window.location.origin;
+                // Se è un IP, usa il dominio configurato
+                if (origin.includes('159.69.121.162') || origin.includes('localhost')) {
+                  baseUrl = 'https://ticket.logikaservice.it';
+                } else {
+                  baseUrl = origin;
                 }
-                const imageUrl = `${baseUrl}${currentPhoto.path}`;
+              }
+              const fileUrl = `${baseUrl}${currentPhoto.path}`;
+
+              if (isImage) {
                 return (
                   <img
-                    src={imageUrl}
+                    src={fileUrl}
                     alt={currentPhoto.originalName}
                     className="max-w-full max-h-full object-contain"
                     crossOrigin="anonymous"
                     onError={(e) => {
                       console.error('❌ Errore caricamento immagine:', {
-                        url: imageUrl,
+                        url: fileUrl,
                         error: e.target.error,
                         status: e.target.naturalWidth === 0 ? 'Failed to load' : 'Unknown error'
                       });
@@ -347,8 +352,17 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
                     }}
                   />
                 );
+              } else if (isPdf) {
+                return (
+                  <iframe
+                    src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                    title={currentPhoto.originalName}
+                    className="w-full h-full rounded-lg bg-white"
+                    style={{ border: 'none' }}
+                  />
+                );
               } else {
-                // Per file non immagine, mostra un'icona
+                // Per file non immagine/PDF, mostra un'icona
                 return (
                   <div className="flex flex-col items-center justify-center text-white">
                     <File size={120} className="mb-4 text-gray-400" />
@@ -365,18 +379,17 @@ const TicketPhotosModal = ({ ticket, photos, onClose, onDeletePhoto, onUploadPho
             <div className="w-32 border-l bg-gray-50 overflow-y-auto p-2">
               <div className="space-y-2">
                 {localPhotos.map((photo, index) => {
-                  const isImage = photo.originalName?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i) || 
-                                 photo.path?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
-                  
+                  const isImage = photo.originalName?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i) ||
+                    photo.path?.match(/\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i);
+
                   return (
                     <button
                       key={index}
                       onClick={() => setCurrentPhotoIndex(index)}
-                      className={`w-full aspect-square rounded-lg overflow-hidden border-2 transition flex items-center justify-center ${
-                        index === currentPhotoIndex
+                      className={`w-full aspect-square rounded-lg overflow-hidden border-2 transition flex items-center justify-center ${index === currentPhotoIndex
                           ? 'border-blue-500 ring-2 ring-blue-300'
                           : 'border-gray-200 hover:border-gray-300'
-                      }`}
+                        }`}
                     >
                       {isImage ? (() => {
                         let baseUrl = apiUrl;
