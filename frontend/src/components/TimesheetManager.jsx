@@ -1319,7 +1319,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             <div className="flex flex-col items-center justify-center h-48 text-slate-400 bg-white border-2 border-dashed border-gray-200 rounded-lg">
               <UserPlus size={32} className="mb-2 opacity-20" />
               <p className="text-sm flex items-center gap-2">
-                Utilizza l'<Settings size={16} className="text-blue-600 inline" /> ingranaggio per creare nuovi reparti o nuovi dipendenti
+                Utilizza l'<Settings size={16} className="text-blue-600 inline" /> per creare nuovi reparti o nuovi dipendenti
               </p>
             </div>
           )}
