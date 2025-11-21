@@ -35,6 +35,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   const [companies, setCompanies] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState('');
   const [selectedDept, setSelectedDept] = useState('');
+  // Aziende selezionate per visualizzazione multipla
+  const [selectedCompanies, setSelectedCompanies] = useState([]);
+  const [multiCompanyMode, setMultiCompanyMode] = useState(false);
 
   // Struttura dei reparti per ogni azienda
   const [departmentsStructure, setDepartmentsStructure] = useState({});
@@ -172,7 +175,43 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
   // --- HELPER ---
   const getCurrentContextKey = () => `${selectedCompany}-${selectedDept}`;
-  const currentEmployees = employeesData[getCurrentContextKey()] || [];
+  const getContextKey = (company, dept) => `${company}-${dept}`;
+  
+  // Ottieni dipendenti: modalità singola azienda o multipla
+  const getCurrentEmployees = () => {
+    if (multiCompanyMode && selectedCompanies.length > 0) {
+      // Modalità multi-azienda: unisci tutti i dipendenti delle aziende selezionate
+      const allEmployees = [];
+      selectedCompanies.forEach(company => {
+        const depts = departmentsStructure[company] || [];
+        depts.forEach(dept => {
+          const key = getContextKey(company, dept);
+          const employees = employeesData[key] || [];
+          // Aggiungi informazioni azienda e reparto a ogni dipendente
+          employees.forEach(emp => {
+            allEmployees.push({
+              ...emp,
+              company: company,
+              department: dept,
+              contextKey: key
+            });
+          });
+        });
+      });
+      return allEmployees;
+    } else {
+      // Modalità singola azienda (comportamento originale)
+      const employees = employeesData[getCurrentContextKey()] || [];
+      return employees.map(emp => ({
+        ...emp,
+        company: selectedCompany,
+        department: selectedDept,
+        contextKey: getCurrentContextKey()
+      }));
+    }
+  };
+  
+  const currentEmployees = getCurrentEmployees();
 
   // --- FUNZIONI MODALE ---
   const openConfirm = (title, message, action) => {
@@ -235,14 +274,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   // --- INPUT HANDLERS ---
-  const handleInputChange = (empId, dayIndex, field, value) => {
+  const handleInputChange = (empId, dayIndex, field, value, contextKey = null) => {
+    // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
+    const scheduleKey = contextKey ? `${contextKey}-${empId}` : empId;
+    
     setSchedule(prev => ({
       ...prev,
-      [empId]: { ...prev[empId], [dayIndex]: { ...prev[empId]?.[dayIndex], [field]: value } }
+      [scheduleKey]: { ...prev[scheduleKey], [dayIndex]: { ...prev[scheduleKey]?.[dayIndex], [field]: value } }
     }));
+    // Salva automaticamente dopo ogni modifica
+    setTimeout(() => saveData(), 500);
   };
 
-  const handleBlur = (empId, dayIndex, field, value) => {
+  const handleBlur = (empId, dayIndex, field, value, contextKey = null) => {
      if (!value) return;
      const strValue = String(value);
      let formatted = strValue.replace(',', '.').replace(':', '.').trim();
@@ -251,23 +295,26 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
      if (parts[0].length === 1) parts[0] = '0' + parts[0];
      if (parts[1].length === 1) parts[1] = parts[1] + '0';
      formatted = parts.join('.');
-     if (formatted !== value) handleInputChange(empId, dayIndex, field, formatted);
+     if (formatted !== value) handleInputChange(empId, dayIndex, field, formatted, contextKey);
      // Salva automaticamente dopo ogni modifica
      setTimeout(() => saveData(), 500);
   };
 
-  const handleQuickCode = (empId, dayIndex, code) => {
+  const handleQuickCode = (empId, dayIndex, code, contextKey = null) => {
+    // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
+    const scheduleKey = contextKey ? `${contextKey}-${empId}` : empId;
+    
     setSchedule(prev => {
       const newSchedule = {
         ...prev,
-        [empId]: { 
-          ...prev[empId], 
+        [scheduleKey]: { 
+          ...prev[scheduleKey], 
           [dayIndex]: { 
             code: code || '', 
-            in1: code ? '' : (prev[empId]?.[dayIndex]?.in1 || ''), 
-            out1: code ? '' : (prev[empId]?.[dayIndex]?.out1 || ''), 
-            in2: code ? '' : (prev[empId]?.[dayIndex]?.in2 || ''), 
-            out2: code ? '' : (prev[empId]?.[dayIndex]?.out2 || '') 
+            in1: code ? '' : (prev[scheduleKey]?.[dayIndex]?.in1 || ''), 
+            out1: code ? '' : (prev[scheduleKey]?.[dayIndex]?.out1 || ''), 
+            in2: code ? '' : (prev[scheduleKey]?.[dayIndex]?.in2 || ''), 
+            out2: code ? '' : (prev[scheduleKey]?.[dayIndex]?.out2 || '') 
           } 
         }
       };
@@ -317,9 +364,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   // --- AZIONI STRUTTURA ---
-  const handleQuickAddEmployee = () => {
+  const handleQuickAddEmployee = (targetCompany = null, targetDept = null) => {
     if (!quickAddName.trim()) return;
-    const key = getCurrentContextKey();
+    
+    // Se modalità multi-azienda e non specificato, usa la prima azienda selezionata
+    let company = targetCompany || selectedCompany;
+    let dept = targetDept || selectedDept;
+    
+    if (multiCompanyMode && selectedCompanies.length > 0 && !targetCompany) {
+      company = selectedCompanies[0];
+      dept = departmentsStructure[selectedCompanies[0]]?.[0] || '';
+    }
+    
+    const key = getContextKey(company, dept);
     const newId = Date.now();
     setEmployeesData(prev => ({
         ...prev,
@@ -612,13 +669,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         }
         wsData.push(headerRow2);
 
-        currentEmployees.forEach(emp => {
+        // Usa getCurrentEmployees() per ottenere i dipendenti corretti
+        const employeesForExport = getCurrentEmployees();
+        employeesForExport.forEach(emp => {
             const startRowIndex = wsData.length;
+            const scheduleKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
             
             const row1 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
             const row2 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
 
-            row1[0] = { v: emp.name, s: styleEmpName };
+            // Se modalità multi-azienda, mostra anche azienda e reparto
+            const empNameDisplay = multiCompanyMode ? `${emp.name} (${emp.company} - ${emp.department})` : emp.name;
+            row1[0] = { v: empNameDisplay, s: styleEmpName };
             row2[0] = { v: "", s: styleEmpName };
             merges.push({ s: { r: startRowIndex, c: 0 }, e: { r: startRowIndex + 1, c: 0 } });
 
@@ -629,7 +691,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             let formulaParts = [];
 
             days.forEach((_, dayIdx) => {
-                const data = schedule[emp.id]?.[dayIdx];
+                const data = schedule[scheduleKey]?.[dayIdx];
                 const colIdx = 1 + (dayIdx * 2);
                 
                 if (data?.code) {
@@ -822,9 +884,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                 <Calendar className="w-6 h-6" />
                 Gestione Turni
               </h1>
-              {selectedCompany && selectedDept && (
+              {multiCompanyMode && selectedCompanies.length > 0 ? (
+                <p className="text-slate-400 text-xs">
+                  {selectedCompanies.length} {selectedCompanies.length === 1 ? 'azienda' : 'aziende'} selezionate
+                </p>
+              ) : selectedCompany && selectedDept ? (
                 <p className="text-slate-400 text-xs">{selectedCompany} &gt; {selectedDept}</p>
-              )}
+              ) : null}
             </div>
 
             <div className="flex gap-3 items-center">
@@ -832,19 +898,63 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                 <>
                   <div className="bg-slate-700 p-1.5 rounded flex items-center gap-2">
                      <Building2 size={16} className="text-slate-300"/>
-                     <select 
-                      value={selectedCompany}
-                      onChange={(e) => {
-                        setSelectedCompany(e.target.value);
-                        // Quando cambia azienda, seleziona il primo reparto se disponibile
-                        const firstDept = departmentsStructure[e.target.value]?.[0];
-                        setSelectedDept(firstDept || '');
-                      }}
-                      className="bg-slate-600 text-white border-none rounded text-sm p-1 focus:ring-2 focus:ring-blue-500"
-                     >
-                       {companies.map(c => <option key={c} value={c}>{c}</option>)}
-                     </select>
+                     <label className="flex items-center gap-2 text-slate-300 text-xs">
+                       <input
+                         type="checkbox"
+                         checked={multiCompanyMode}
+                         onChange={(e) => {
+                           setMultiCompanyMode(e.target.checked);
+                           if (!e.target.checked) {
+                             setSelectedCompanies([]);
+                           } else {
+                             setSelectedCompanies([selectedCompany].filter(Boolean));
+                           }
+                         }}
+                         className="w-4 h-4"
+                       />
+                       Multi-azienda
+                     </label>
                   </div>
+                  
+                  {!multiCompanyMode ? (
+                    <div className="bg-slate-700 p-1.5 rounded flex items-center gap-2">
+                       <Building2 size={16} className="text-slate-300"/>
+                       <select 
+                        value={selectedCompany}
+                        onChange={(e) => {
+                          setSelectedCompany(e.target.value);
+                          const firstDept = departmentsStructure[e.target.value]?.[0];
+                          setSelectedDept(firstDept || '');
+                        }}
+                        className="bg-slate-600 text-white border-none rounded text-sm p-1 focus:ring-2 focus:ring-blue-500"
+                       >
+                         {companies.map(c => <option key={c} value={c}>{c}</option>)}
+                       </select>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-700 p-1.5 rounded flex items-center gap-2">
+                       <Building2 size={16} className="text-slate-300"/>
+                       <div className="flex flex-wrap gap-2">
+                         {companies.map(company => (
+                           <label key={company} className="flex items-center gap-1 text-white text-xs cursor-pointer">
+                             <input
+                               type="checkbox"
+                               checked={selectedCompanies.includes(company)}
+                               onChange={(e) => {
+                                 if (e.target.checked) {
+                                   setSelectedCompanies(prev => [...prev, company]);
+                                 } else {
+                                   setSelectedCompanies(prev => prev.filter(c => c !== company));
+                                 }
+                               }}
+                               className="w-3 h-3"
+                             />
+                             {company}
+                           </label>
+                         ))}
+                       </div>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -1005,12 +1115,25 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               </thead>
               <tbody>
                 {currentEmployees.map((emp) => (
-                  <tr key={emp.id} className="bg-white border-b hover:bg-blue-50 transition-colors group">
-                    <td className="px-2 py-3 border font-bold text-gray-800 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                  <tr key={`${emp.contextKey}-${emp.id}`} className="bg-white border-b hover:bg-blue-50 transition-colors group">
+                    {multiCompanyMode && (
+                      <td className="px-2 py-3 border text-xs text-gray-600 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                        <div className="font-semibold">{emp.company}</div>
+                        <div className="text-gray-500">{emp.department}</div>
+                      </td>
+                    )}
+                    <td className={`px-2 py-3 border font-bold text-gray-800 ${multiCompanyMode ? '' : 'sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]'}`}>
                       <div className="flex items-center gap-2">
                         <span>{emp.name}</span>
                         <button
-                          onClick={() => openReplaceEmployeeModal(emp.id)}
+                          onClick={() => {
+                            // Imposta azienda e reparto prima di aprire il modal
+                            if (multiCompanyMode) {
+                              setSelectedCompany(emp.company);
+                              setSelectedDept(emp.department);
+                            }
+                            openReplaceEmployeeModal(emp.id);
+                          }}
                           className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-blue-500 hover:text-blue-700 p-1 rounded transition-opacity"
                           title="Sostituisci dipendente (mantiene orari)"
                         >
@@ -1019,7 +1142,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       </div>
                     </td>
                     {days.map((day, dayIdx) => {
-                      const cellData = schedule[emp.id]?.[dayIdx] || {};
+                      // Usa contextKey per gestire dipendenti con stesso ID in aziende diverse
+                      const scheduleKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
+                      const cellData = schedule[scheduleKey]?.[dayIdx] || {};
                       const isRest = cellData.code === 'R';
                       
                       return (
@@ -1027,7 +1152,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                           <div className="absolute top-0 right-0 opacity-0 hover:opacity-100 z-10">
                             <select 
                               className="text-[10px] bg-slate-800 text-white p-0.5 rounded shadow-lg cursor-pointer"
-                              onChange={(e) => handleQuickCode(emp.id, dayIdx, e.target.value)}
+                              onChange={(e) => handleQuickCode(emp.id, dayIdx, e.target.value, multiCompanyMode ? emp.contextKey : null)}
                               value={cellData.code || ''}
                             >
                               <option value="">Orario</option>
@@ -1050,15 +1175,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                   type="text" 
                                   className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
                                   value={cellData.in1 || ''}
-                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value)}
-                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value)}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
                                 />
                                 <input 
                                   type="text" 
                                   className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
                                   value={cellData.out1 || ''}
-                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value)}
-                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value)}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
                                 />
                               </div>
                               {(cellData.in1 || cellData.in2 || cellData.out1) && (
@@ -1067,15 +1192,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                     type="text" 
                                     className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
                                     value={cellData.in2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value)}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
                                   />
                                   <input 
                                     type="text" 
                                     className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
                                     value={cellData.out2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value)}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
                                   />
                                 </div>
                               )}
@@ -1085,16 +1210,46 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       );
                     })}
                     <td className="px-2 py-3 border text-center font-bold text-lg bg-yellow-50 text-slate-800">
-                      {calculateWeeklyTotal(emp.id)}
+                      {calculateWeeklyTotal(emp.id, multiCompanyMode ? emp.contextKey : null)}
                     </td>
                   </tr>
                 ))}
                 {/* RIGA AGGIUNTA RAPIDA */}
                 <tr className="bg-gray-50 border-b border-dashed border-gray-300 hover:bg-blue-50 transition-colors group">
-                  <td className="px-2 py-3 border font-bold text-gray-500 sticky left-0 bg-gray-50 z-10 group-hover:bg-blue-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                  {multiCompanyMode && (
+                    <td className="px-2 py-3 border text-xs text-gray-500 sticky left-0 bg-gray-50 z-10 group-hover:bg-blue-50">
+                      {selectedCompanies.length > 0 && (
+                        <select
+                          value={`${selectedCompanies[0]}-${departmentsStructure[selectedCompanies[0]]?.[0] || ''}`}
+                          onChange={(e) => {
+                            const [company, dept] = e.target.value.split('-');
+                            handleQuickAddEmployee(company, dept);
+                          }}
+                          className="text-xs bg-gray-100 border border-gray-300 rounded px-1 py-1 w-full"
+                        >
+                          {selectedCompanies.map(company => 
+                            (departmentsStructure[company] || []).map(dept => (
+                              <option key={`${company}-${dept}`} value={`${company}-${dept}`}>
+                                {company} - {dept}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                      )}
+                    </td>
+                  )}
+                  <td className={`px-2 py-3 border font-bold text-gray-500 ${multiCompanyMode ? '' : 'sticky left-0 bg-gray-50 z-10 group-hover:bg-blue-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]'}`}>
                     <div className="flex items-center gap-2">
                       <button 
-                        onClick={handleQuickAddEmployee}
+                        onClick={() => {
+                          if (multiCompanyMode && selectedCompanies.length > 0) {
+                            const company = selectedCompanies[0];
+                            const dept = departmentsStructure[company]?.[0] || '';
+                            handleQuickAddEmployee(company, dept);
+                          } else {
+                            handleQuickAddEmployee();
+                          }
+                        }}
                         className="p-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
                         title="Aggiungi Dipendente"
                       >
@@ -1105,7 +1260,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                         placeholder="Nuovo Dipendente..." 
                         value={quickAddName}
                         onChange={(e) => setQuickAddName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            if (multiCompanyMode && selectedCompanies.length > 0) {
+                              const company = selectedCompanies[0];
+                              const dept = departmentsStructure[company]?.[0] || '';
+                              handleQuickAddEmployee(company, dept);
+                            } else {
+                              handleQuickAddEmployee();
+                            }
+                          }
+                        }}
                         className="w-full bg-transparent border-b border-gray-400 focus:border-blue-500 outline-none text-sm uppercase placeholder-gray-400"
                       />
                     </div>
