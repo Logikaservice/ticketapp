@@ -913,6 +913,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
       const XLSX = window.XLSX;
       const wb = XLSX.utils.book_new();
+      let hasExportedData = false;
 
       const borderThin = {
         top: { style: "thin", color: { rgb: "000000" } },
@@ -959,788 +960,693 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         alignment: { horizontal: "center", vertical: "center" }
       };
 
-      const wsData = [];
-      const merges = [];
+      viewLists.forEach((list, listIndex) => {
+        const { company, department, weekRange: listWeekRange } = list;
+        if (!company || !department) return;
 
-      const titleRow = new Array(16).fill({ v: "", s: styleTitle });
-      titleRow[0] = { v: `REPARTO ${selectedCompany.toUpperCase()} - ${selectedDept.toUpperCase()}`, s: styleTitle };
-      wsData.push(titleRow);
-      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 15 } });
+        const listEmployees = getEmployeesForList(list);
+        if (listEmployees.length === 0) return;
 
-      const subTitleRow = new Array(16).fill({ v: "", s: styleTitle });
-      subTitleRow[0] = { v: `Orario settimanale: ${weekRange}`, s: { ...styleTitle, font: { sz: 11 } } };
-      wsData.push(subTitleRow);
-      merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 15 } });
+        hasExportedData = true;
 
-      const headerRow1 = new Array(16).fill(null);
-      headerRow1[0] = { v: "DIPENDENTE", s: styleHeader };
-      headerRow1[15] = { v: "TOTALE", s: styleTotalHeader };
+        const wsData = [];
+        const merges = [];
 
-      for (let i = 0; i < 7; i++) {
-        const col = 1 + (i * 2);
-        headerRow1[col] = { v: days[i], s: styleHeader };
-        headerRow1[col + 1] = { v: "", s: styleHeader };
-        merges.push({ s: { r: 2, c: col }, e: { r: 2, c: col + 1 } });
-      }
-      wsData.push(headerRow1);
+        const titleRow = new Array(16).fill({ v: "", s: styleTitle });
+        titleRow[0] = { v: `REPARTO ${company.toUpperCase()} - ${department.toUpperCase()}`, s: styleTitle };
+        wsData.push(titleRow);
+        merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 15 } });
 
-      const headerRow2 = new Array(16).fill(null);
-      headerRow2[0] = { v: "", s: styleHeader };
-      headerRow2[15] = { v: "", s: styleTotalHeader };
+        const subTitleRow = new Array(16).fill({ v: "", s: styleTitle });
+        subTitleRow[0] = { v: `Orario settimanale: ${listWeekRange}`, s: { ...styleTitle, font: { sz: 11 } } };
+        wsData.push(subTitleRow);
+        merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 15 } });
 
-      merges.push({ s: { r: 2, c: 0 }, e: { r: 3, c: 0 } });
-      merges.push({ s: { r: 2, c: 15 }, e: { r: 3, c: 15 } });
+        const headerRow1 = new Array(16).fill(null);
+        headerRow1[0] = { v: "DIPENDENTE", s: styleHeader };
+        headerRow1[15] = { v: "TOTALE", s: styleTotalHeader };
 
-      for (let i = 0; i < 7; i++) {
-        const col = 1 + (i * 2);
-        headerRow2[col] = { v: "Entrata", s: styleHeader };
-        headerRow2[col + 1] = { v: "Uscita", s: styleHeader };
-      }
-      wsData.push(headerRow2);
+        for (let i = 0; i < 7; i++) {
+          const col = 1 + (i * 2);
+          headerRow1[col] = { v: days[i], s: styleHeader };
+          headerRow1[col + 1] = { v: "", s: styleHeader };
+          merges.push({ s: { r: 2, c: col }, e: { r: 2, c: col + 1 } });
+        }
+        wsData.push(headerRow1);
 
-      const exportExcel = () => {
-        try {
-          if (!window.XLSX) {
-            openConfirm("Errore Libreria", "La libreria Excel non è ancora caricata. Attendi...", null);
-            return;
-          }
+        const headerRow2 = new Array(16).fill(null);
+        headerRow2[0] = { v: "", s: styleHeader };
+        headerRow2[15] = { v: "", s: styleTotalHeader };
 
-          const XLSX = window.XLSX;
-          const wb = XLSX.utils.book_new();
-          let hasExportedData = false;
+        merges.push({ s: { r: 2, c: 0 }, e: { r: 3, c: 0 } });
+        merges.push({ s: { r: 2, c: 15 }, e: { r: 3, c: 15 } });
 
-          const borderThin = {
-            top: { style: "thin", color: { rgb: "000000" } },
-            bottom: { style: "thin", color: { rgb: "000000" } },
-            left: { style: "thin", color: { rgb: "000000" } },
-            right: { style: "thin", color: { rgb: "000000" } }
-          };
+        for (let i = 0; i < 7; i++) {
+          const col = 1 + (i * 2);
+          headerRow2[col] = { v: "Entrata", s: styleHeader };
+          headerRow2[col + 1] = { v: "Uscita", s: styleHeader };
+        }
+        wsData.push(headerRow2);
 
-          const styleTitle = {
-            font: { bold: true, sz: 14 },
-            alignment: { horizontal: "center", vertical: "center" }
-          };
+        listEmployees.forEach(emp => {
+          const startRowIndex = wsData.length;
+          // Usa contextKey per gestire dipendenti con stesso ID in aziende diverse
+          const scheduleKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
 
-          const styleHeader = {
-            font: { bold: true },
-            fill: { fgColor: { rgb: "E0E0E0" } },
-            border: borderThin,
-            alignment: { horizontal: "center", vertical: "center" }
-          };
+          const row1 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
+          const row2 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
 
-          const styleTotalHeader = {
-            font: { bold: true },
-            fill: { fgColor: { rgb: "FFFF99" } },
-            border: borderThin,
-            alignment: { horizontal: "center", vertical: "center" }
-          };
+          const empNameDisplay = multiCompanyMode ? `${emp.name} (${emp.company} - ${emp.department})` : emp.name;
+          row1[0] = { v: empNameDisplay, s: styleEmpName };
+          row2[0] = { v: "", s: styleEmpName };
+          merges.push({ s: { r: startRowIndex, c: 0 }, e: { r: startRowIndex + 1, c: 0 } });
 
-          const styleEmpName = {
-            font: { bold: true },
-            border: borderThin,
-            alignment: { horizontal: "left", vertical: "center" }
-          };
+          row1[15] = { v: "", s: styleTotalCell };
+          row2[15] = { v: "", s: styleTotalCell };
+          merges.push({ s: { r: startRowIndex, c: 15 }, e: { r: startRowIndex + 1, c: 15 } });
 
-          const styleCell = {
-            font: { bold: true },
-            border: borderThin,
-            alignment: { horizontal: "left", vertical: "center" }
-          };
+          let formulaParts = [];
 
-          const styleTotalCell = {
-            font: { bold: true },
-            fill: { fgColor: { rgb: "FFFF99" } },
-            border: borderThin,
-            alignment: { horizontal: "center", vertical: "center" }
-          };
+          days.forEach((_, dayIdx) => {
+            const data = schedule[scheduleKey]?.[dayIdx];
+            const colIdx = 1 + (dayIdx * 2);
 
-          viewLists.forEach((list, listIndex) => {
-            const { company, department, weekRange: listWeekRange } = list;
-            if (!company || !department) return;
+            if (data?.code) {
+              row1[colIdx] = { v: data.code, s: styleCell };
+              row1[colIdx + 1] = { v: data.code, s: styleCell };
+              merges.push({ s: { r: startRowIndex, c: colIdx }, e: { r: startRowIndex + 1, c: colIdx } });
+              merges.push({ s: { r: startRowIndex, c: colIdx + 1 }, e: { r: startRowIndex + 1, c: colIdx + 1 } });
+            } else {
+              const valIn1 = strToExcelTime(data?.in1);
+              const valOut1 = strToExcelTime(data?.out1);
+              if (valIn1 !== null) row1[colIdx] = { v: valIn1, t: 'n', z: 'h:mm', s: styleCell };
+              if (valOut1 !== null) row1[colIdx + 1] = { v: valOut1, t: 'n', z: 'h:mm', s: styleCell };
 
-            const listEmployees = getEmployeesForList(list);
-            if (listEmployees.length === 0) return;
+              const valIn2 = strToExcelTime(data?.in2);
+              const valOut2 = strToExcelTime(data?.out2);
+              if (valIn2 !== null) row2[colIdx] = { v: valIn2, t: 'n', z: 'h:mm', s: styleCell };
+              if (valOut2 !== null) row2[colIdx + 1] = { v: valOut2, t: 'n', z: 'h:mm', s: styleCell };
 
-            hasExportedData = true;
+              const r1 = startRowIndex + 1;
+              const r2 = startRowIndex + 2;
+              const cIn = XLSX.utils.encode_col(colIdx);
+              const cOut = XLSX.utils.encode_col(colIdx + 1);
 
-            const wsData = [];
-            const merges = [];
-
-            const titleRow = new Array(16).fill({ v: "", s: styleTitle });
-            titleRow[0] = { v: `REPARTO ${company.toUpperCase()} - ${department.toUpperCase()}`, s: styleTitle };
-            wsData.push(titleRow);
-            merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 15 } });
-
-            const subTitleRow = new Array(16).fill({ v: "", s: styleTitle });
-            subTitleRow[0] = { v: `Orario settimanale: ${listWeekRange}`, s: { ...styleTitle, font: { sz: 11 } } };
-            wsData.push(subTitleRow);
-            merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 15 } });
-
-            const headerRow1 = new Array(16).fill(null);
-            headerRow1[0] = { v: "DIPENDENTE", s: styleHeader };
-            headerRow1[15] = { v: "TOTALE", s: styleTotalHeader };
-
-            for (let i = 0; i < 7; i++) {
-              const col = 1 + (i * 2);
-              headerRow1[col] = { v: days[i], s: styleHeader };
-              headerRow1[col + 1] = { v: "", s: styleHeader };
-              merges.push({ s: { r: 2, c: col }, e: { r: 2, c: col + 1 } });
+              if (valIn1 !== null && valOut1 !== null) formulaParts.push(`(${cOut}${r1}-${cIn}${r1})`);
+              if (valIn2 !== null && valOut2 !== null) formulaParts.push(`(${cOut}${r2}-${cIn}${r2})`);
             }
-            wsData.push(headerRow1);
-
-            const headerRow2 = new Array(16).fill(null);
-            headerRow2[0] = { v: "", s: styleHeader };
-            headerRow2[15] = { v: "", s: styleTotalHeader };
-
-            merges.push({ s: { r: 2, c: 0 }, e: { r: 3, c: 0 } });
-            merges.push({ s: { r: 2, c: 15 }, e: { r: 3, c: 15 } });
-
-            for (let i = 0; i < 7; i++) {
-              const col = 1 + (i * 2);
-              headerRow2[col] = { v: "Entrata", s: styleHeader };
-              headerRow2[col + 1] = { v: "Uscita", s: styleHeader };
-            }
-            wsData.push(headerRow2);
-
-            listEmployees.forEach(emp => {
-              const startRowIndex = wsData.length;
-              // Usa contextKey per gestire dipendenti con stesso ID in aziende diverse
-              const scheduleKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
-
-              const row1 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
-              const row2 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
-
-              const empNameDisplay = multiCompanyMode ? `${emp.name} (${emp.company} - ${emp.department})` : emp.name;
-              row1[0] = { v: empNameDisplay, s: styleEmpName };
-              row2[0] = { v: "", s: styleEmpName };
-              merges.push({ s: { r: startRowIndex, c: 0 }, e: { r: startRowIndex + 1, c: 0 } });
-
-              row1[15] = { v: "", s: styleTotalCell };
-              row2[15] = { v: "", s: styleTotalCell };
-              merges.push({ s: { r: startRowIndex, c: 15 }, e: { r: startRowIndex + 1, c: 15 } });
-
-              let formulaParts = [];
-
-              days.forEach((_, dayIdx) => {
-                const data = schedule[scheduleKey]?.[dayIdx];
-                const colIdx = 1 + (dayIdx * 2);
-
-                if (data?.code) {
-                  row1[colIdx] = { v: data.code, s: styleCell };
-                  row1[colIdx + 1] = { v: data.code, s: styleCell };
-                  merges.push({ s: { r: startRowIndex, c: colIdx }, e: { r: startRowIndex + 1, c: colIdx } });
-                  merges.push({ s: { r: startRowIndex, c: colIdx + 1 }, e: { r: startRowIndex + 1, c: colIdx + 1 } });
-                } else {
-                  const valIn1 = strToExcelTime(data?.in1);
-                  const valOut1 = strToExcelTime(data?.out1);
-                  if (valIn1 !== null) row1[colIdx] = { v: valIn1, t: 'n', z: 'h:mm', s: styleCell };
-                  if (valOut1 !== null) row1[colIdx + 1] = { v: valOut1, t: 'n', z: 'h:mm', s: styleCell };
-
-                  const valIn2 = strToExcelTime(data?.in2);
-                  const valOut2 = strToExcelTime(data?.out2);
-                  if (valIn2 !== null) row2[colIdx] = { v: valIn2, t: 'n', z: 'h:mm', s: styleCell };
-                  if (valOut2 !== null) row2[colIdx + 1] = { v: valOut2, t: 'n', z: 'h:mm', s: styleCell };
-
-                  const r1 = startRowIndex + 1;
-                  const r2 = startRowIndex + 2;
-                  const cIn = XLSX.utils.encode_col(colIdx);
-                  const cOut = XLSX.utils.encode_col(colIdx + 1);
-
-                  if (valIn1 !== null && valOut1 !== null) formulaParts.push(`(${cOut}${r1}-${cIn}${r1})`);
-                  if (valIn2 !== null && valOut2 !== null) formulaParts.push(`(${cOut}${r2}-${cIn}${r2})`);
-                }
-              });
-
-              const formula = formulaParts.length > 0 ? `SUM(${formulaParts.join(',')})*24` : "0";
-              row1[15] = { f: formula, t: 'n', z: '0.0', s: styleTotalCell };
-
-              wsData.push(row1);
-              wsData.push(row2);
-            });
-
-            const ws = XLSX.utils.aoa_to_sheet([]);
-            const range = { s: { c: 0, r: 0 }, e: { c: 15, r: wsData.length - 1 } };
-            ws['!ref'] = XLSX.utils.encode_range(range);
-
-            for (let R = 0; R < wsData.length; ++R) {
-              for (let C = 0; C < wsData[R].length; ++C) {
-                const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
-                ws[cellRef] = wsData[R][C] || { v: "", s: styleCell };
-              }
-            }
-
-            ws['!merges'] = merges;
-
-            const wscols = [{ wch: 25 }];
-            for (let i = 0; i < 14; i++) wscols.push({ wch: 9 });
-            wscols.push({ wch: 10 });
-            ws['!cols'] = wscols;
-
-            let sheetName = `${company} - ${department}`;
-            const duplicateCount = viewLists.filter((l, i) => i < listIndex && l.company === company && l.department === department).length;
-            if (duplicateCount > 0) {
-              sheetName += ` (${duplicateCount + 1})`;
-            }
-            sheetName = sheetName.substring(0, 31).replace(/[:\/?*\[\]\\]/g, "");
-
-            XLSX.utils.book_append_sheet(wb, ws, sheetName);
           });
 
-          if (!hasExportedData) {
-            alert("Nessun dato da esportare nelle liste visualizzate.");
-            return;
+          const formula = formulaParts.length > 0 ? `SUM(${formulaParts.join(',')})*24` : "0";
+          row1[15] = { f: formula, t: 'n', z: '0.0', s: styleTotalCell };
+
+          wsData.push(row1);
+          wsData.push(row2);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet([]);
+        const range = { s: { c: 0, r: 0 }, e: { c: 15, r: wsData.length - 1 } };
+        ws['!ref'] = XLSX.utils.encode_range(range);
+
+        for (let R = 0; R < wsData.length; ++R) {
+          for (let C = 0; C < wsData[R].length; ++C) {
+            const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
+            ws[cellRef] = wsData[R][C] || { v: "", s: styleCell };
           }
-
-          const fileName = `Turni_Multi_${new Date().toISOString().slice(0, 10)}.xlsx`;
-          XLSX.writeFile(wb, fileName);
-
-        } catch (error) {
-          console.error("Export error:", error);
-          openConfirm("Errore Esportazione", "Si è verificato un errore. Prova a ricaricare la pagina.", null);
         }
-      };
 
-      // --- RENDER LISTA ---
-      const renderEmployeeList = (listConfig, index) => {
-        const { id, company, department, weekRange: listWeekRange } = listConfig;
-        const listEmployees = getEmployeesForList(listConfig);
-        const isFirstList = index === 0;
+        ws['!merges'] = merges;
 
-        return (
-          <div key={id} className="mb-8 border-b-4 border-slate-200 pb-8 last:border-0">
-            {/* FILTRI LISTA */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4 mb-4 mx-4">
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-3 flex-1">
-                  {/* Filtro Azienda */}
-                  <div className="flex flex-col">
-                    <label className="text-xs font-semibold text-gray-600 mb-1">Azienda</label>
-                    <select
-                      value={company || ''}
-                      onChange={(e) => updateListFilter(id, 'company', e.target.value)}
-                      className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Seleziona Azienda</option>
-                      {companies.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
+        const wscols = [{ wch: 25 }];
+        for (let i = 0; i < 14; i++) wscols.push({ wch: 9 });
+        wscols.push({ wch: 10 });
+        ws['!cols'] = wscols;
 
-                  {/* Filtro Reparto */}
-                  <div className="flex flex-col">
-                    <label className="text-xs font-semibold text-gray-600 mb-1">Reparto</label>
-                    <select
-                      value={department || ''}
-                      onChange={(e) => updateListFilter(id, 'department', e.target.value)}
-                      disabled={!company}
-                      className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <option value="">Seleziona Reparto</option>
-                      {(departmentsStructure[company] || []).map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </div>
+        let sheetName = `${company} - ${department}`;
+        const duplicateCount = viewLists.filter((l, i) => i < listIndex && l.company === company && l.department === department).length;
+        if (duplicateCount > 0) {
+          sheetName += ` (${duplicateCount + 1})`;
+        }
+        sheetName = sheetName.substring(0, 31).replace(/[^a-zA-Z0-9 -]/g, "");
 
-                  {/* Filtro Settimana */}
-                  <div className="flex flex-col">
-                    <label className="text-xs font-semibold text-gray-600 mb-1">Settimana</label>
-                    <input
-                      type="text"
-                      value={listWeekRange || ''}
-                      onChange={(e) => updateListFilter(id, 'weekRange', e.target.value)}
-                      placeholder="gg/mm/aaaa al gg/mm/aaaa"
-                      className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-52"
-                    />
-                  </div>
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      });
+
+      if (!hasExportedData) {
+        alert("Nessun dato da esportare nelle liste visualizzate.");
+        return;
+      }
+
+      const fileName = `Turni_Multi_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+    } catch (error) {
+      console.error("Export error:", error);
+      openConfirm("Errore Esportazione", "Si è verificato un errore. Prova a ricaricare la pagina.", null);
+    }
+  };
+
+  // --- RENDER LISTA ---
+  const renderEmployeeList = (listConfig, index) => {
+    const { id, company, department, weekRange: listWeekRange } = listConfig;
+    const listEmployees = getEmployeesForList(listConfig);
+    const isFirstList = index === 0;
+
+    return (
+      <div key={id} className="mb-8 border-b-4 border-slate-200 pb-8 last:border-0">
+        {/* FILTRI LISTA */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4 mb-4 mx-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 flex-1">
+              {/* Filtro Azienda */}
+              <div className="flex flex-col">
+                <label className="text-xs font-semibold text-gray-600 mb-1">Azienda</label>
+                <select
+                  value={company || ''}
+                  onChange={(e) => updateListFilter(id, 'company', e.target.value)}
+                  className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Seleziona Azienda</option>
+                  {companies.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
+              {/* Filtro Reparto */}
+              <div className="flex flex-col">
+                <label className="text-xs font-semibold text-gray-600 mb-1">Reparto</label>
+                <select
+                  value={department || ''}
+                  onChange={(e) => updateListFilter(id, 'department', e.target.value)}
+                  disabled={!company}
+                  className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">Seleziona Reparto</option>
+                  {(departmentsStructure[company] || []).map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+
+              {/* Filtro Settimana */}
+              <div className="flex flex-col">
+                <label className="text-xs font-semibold text-gray-600 mb-1">Settimana</label>
+                <input
+                  type="text"
+                  value={listWeekRange || ''}
+                  onChange={(e) => updateListFilter(id, 'weekRange', e.target.value)}
+                  placeholder="gg/mm/aaaa al gg/mm/aaaa"
+                  className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-52"
+                />
+              </div>
+            </div>
+
+            {/* Pulsante Rimuovi (solo per liste aggiuntive) */}
+            {!isFirstList && (
+              <button
+                onClick={() => removeList(id)}
+                className="bg-red-100 text-red-600 p-2 rounded-full hover:bg-red-200 transition-colors"
+                title="Rimuovi questa lista"
+              >
+                <X size={20} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* TABELLA ORARI */}
+        <div className="overflow-x-auto min-h-[200px] mx-4">
+          {listEmployees.length > 0 ? (
+            <table className="w-full text-sm text-left border-collapse shadow-md">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-200 sticky top-0 z-10 shadow-sm">
+                <tr>
+                  <th className="px-2 py-3 border bg-gray-200 w-32 min-w-[120px] z-20">DIPENDENTE</th>
+                  {days.map((day, i) => (
+                    <th key={i} className="px-1 py-2 border text-center min-w-[140px]">
+                      {day}
+                      <div className="flex justify-between text-[10px] text-gray-500 mt-1 px-2 font-normal normal-case">
+                        <span>Entrata</span>
+                        <span>Uscita</span>
+                      </div>
+                    </th>
+                  ))}
+                  <th className="px-2 py-3 border bg-yellow-100 w-20 text-center font-bold text-black">TOTALE</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listEmployees.map((emp) => (
+                  <tr key={`${emp.contextKey}-${emp.id}`} className="bg-white border-b hover:bg-blue-50 transition-colors group">
+                    <td className="px-2 py-3 border font-bold text-gray-800 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                      <div className="flex items-center gap-2">
+                        <span>{emp.name}</span>
+                        <button
+                          onClick={() => {
+                            // Imposta azienda e reparto prima di aprire il modal
+                            if (multiCompanyMode) {
+                              setSelectedCompany(emp.company);
+                              setSelectedDept(emp.department);
+                            }
+                            openReplaceEmployeeModal(emp.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-blue-500 hover:text-blue-700 p-1 rounded transition-opacity"
+                          title="Sostituisci dipendente"
+                        >
+                          <UserPlus size={14} />
+                        </button>
+                      </div>
+                    </td>
+                    {days.map((day, dayIdx) => {
+                      // NOTA: Qui usiamo emp.id come chiave schedule. 
+                      // TODO: In futuro supportare schedule per settimana specifica usando listWeekRange
+                      const scheduleKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
+                      const cellData = schedule[scheduleKey]?.[dayIdx] || {};
+                      const isRest = cellData.code === 'R';
+
+                      return (
+                        <td key={dayIdx} className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''}`}>
+                          <div className="absolute top-0 right-0 opacity-0 hover:opacity-100 z-10">
+                            <select
+                              className="text-[10px] bg-slate-800 text-white p-0.5 rounded shadow-lg cursor-pointer"
+                              onChange={(e) => handleQuickCode(emp.id, dayIdx, e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                              value={cellData.code || ''}
+                            >
+                              <option value="">Orario</option>
+                              <option value="R">Riposo</option>
+                              <option value="FERIE">Ferie</option>
+                              <option value="MAL">Malattia</option>
+                              <option value="AV">Avellino</option>
+                              <option value="AT">Atripalda</option>
+                            </select>
+                          </div>
+
+                          {cellData.code ? (
+                            <div className="h-14 flex items-center justify-center font-bold text-lg text-slate-500 bg-opacity-50">
+                              {cellData.code}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex gap-1">
+                                <input
+                                  type="text"
+                                  className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  value={cellData.in1 || ''}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                />
+                                <input
+                                  type="text"
+                                  className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  value={cellData.out1 || ''}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                />
+                              </div>
+                              {(cellData.in1 || cellData.in2 || cellData.out1) && (
+                                <div className="flex gap-1 animate-in fade-in duration-300">
+                                  <input
+                                    type="text"
+                                    className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
+                                    value={cellData.in2 || ''}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                  />
+                                  <input
+                                    type="text"
+                                    className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
+                                    value={cellData.out2 || ''}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="px-2 py-3 border text-center font-bold text-lg bg-yellow-50 text-slate-800">
+                      {calculateWeeklyTotal(emp.id, multiCompanyMode ? emp.contextKey : null)}
+                    </td>
+                  </tr>
+                ))}
+
+                {/* RIGA AGGIUNTA RAPIDA (Solo se ci sono dipendenti o per permettere l'aggiunta) */}
+                <tr className="bg-gray-50 border-b border-dashed border-gray-300 hover:bg-blue-50 transition-colors group">
+                  <td className="px-2 py-3 border font-bold text-gray-500 sticky left-0 bg-gray-50 z-10 group-hover:bg-blue-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleQuickAddEmployee(company, department)}
+                        className="p-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                        title="Aggiungi Dipendente a questa lista"
+                      >
+                        <Plus size={16} />
+                      </button>
+                      <input
+                        type="text"
+                        placeholder="Nuovo Dipendente..."
+                        value={quickAddName}
+                        onChange={(e) => setQuickAddName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department)}
+                        className="w-full bg-transparent border-b border-gray-400 focus:border-blue-500 outline-none text-sm uppercase placeholder-gray-400"
+                      />
+                    </div>
+                  </td>
+                  {days.map((_, i) => (
+                    <td key={i} className="p-1 border bg-gray-50 group-hover:bg-blue-50"></td>
+                  ))}
+                  <td className="p-1 border bg-gray-50 group-hover:bg-blue-50"></td>
+                </tr>
+              </tbody>
+            </table>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-48 text-slate-400 bg-white border-2 border-dashed border-gray-200 rounded-lg">
+              <UserPlus size={32} className="mb-2 opacity-20" />
+              <p className="text-sm">Nessun dipendente in {company} - {department}</p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => handleQuickAddEmployee(company, department)}
+                  className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded hover:bg-blue-100 font-medium"
+                >
+                  + Aggiungi Dipendente
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  if (loading && companies.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Caricamento dati...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 bg-gray-50 min-h-screen font-sans relative">
+
+      {/* MODALE SOSTITUZIONE DIPENDENTE */}
+      {replaceEmployeeModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="bg-blue-600 p-4 text-white">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <UserPlus size={20} />
+                Sostituisci Dipendente
+              </h3>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                Stai sostituendo <strong>{replaceEmployeeModal.oldEmployeeName}</strong> con un nuovo dipendente.
+                <br />
+                <span className="text-sm text-gray-500">Gli orari verranno mantenuti.</span>
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nuovo dipendente (o seleziona esistente)
+                </label>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={replaceEmployeeModal.newEmployeeName}
+                    onChange={(e) => setReplaceEmployeeModal(prev => ({ ...prev, newEmployeeName: e.target.value, newEmployeeId: null }))}
+                    placeholder="Nome nuovo dipendente"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onKeyDown={(e) => e.key === 'Enter' && handleReplaceEmployee()}
+                  />
+                  {currentEmployees.length > 0 && (
+                    <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg">
+                      {currentEmployees
+                        .filter(e => e.id !== replaceEmployeeModal.oldEmployeeId)
+                        .map(emp => (
+                          <button
+                            key={emp.id}
+                            onClick={() => setReplaceEmployeeModal(prev => ({
+                              ...prev,
+                              newEmployeeName: emp.name,
+                              newEmployeeId: emp.id
+                            }))}
+                            className={`w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 ${replaceEmployeeModal.newEmployeeId === emp.id ? 'bg-blue-100' : ''
+                              }`}
+                          >
+                            {emp.name}
+                          </button>
+                        ))}
+                    </div>
+                  )}
                 </div>
+              </div>
 
-                {/* Pulsante Rimuovi (solo per liste aggiuntive) */}
-                {!isFirstList && (
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={closeReplaceEmployeeModal}
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium transition-colors"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={handleReplaceEmployee}
+                  disabled={!replaceEmployeeModal.newEmployeeName.trim()}
+                  className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Sostituisci
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE DI CONFERMA CUSTOM */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden transform scale-100 transition-all">
+            <div className="bg-slate-800 p-4 text-white flex items-center gap-3">
+              <AlertTriangle className="w-6 h-6 text-yellow-400" />
+              <h3 className="text-lg font-bold">{confirmModal.title}</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700 mb-6">{confirmModal.message}</p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={closeConfirm}
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium transition-colors"
+                >
+                  Annulla
+                </button>
+                {onConfirmAction.current && (
                   <button
-                    onClick={() => removeList(id)}
-                    className="bg-red-100 text-red-600 p-2 rounded-full hover:bg-red-200 transition-colors"
-                    title="Rimuovi questa lista"
+                    onClick={handleConfirm}
+                    className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white font-medium transition-colors shadow-lg"
                   >
-                    <X size={20} />
+                    Conferma
                   </button>
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
 
-            {/* TABELLA ORARI */}
-            <div className="overflow-x-auto min-h-[200px] mx-4">
-              {listEmployees.length > 0 ? (
-                <table className="w-full text-sm text-left border-collapse shadow-md">
-                  <thead className="text-xs text-gray-700 uppercase bg-gray-200 sticky top-0 z-10 shadow-sm">
-                    <tr>
-                      <th className="px-2 py-3 border bg-gray-200 w-32 min-w-[120px] z-20">DIPENDENTE</th>
-                      {days.map((day, i) => (
-                        <th key={i} className="px-1 py-2 border text-center min-w-[140px]">
-                          {day}
-                          <div className="flex justify-between text-[10px] text-gray-500 mt-1 px-2 font-normal normal-case">
-                            <span>Entrata</span>
-                            <span>Uscita</span>
-                          </div>
-                        </th>
-                      ))}
-                      <th className="px-2 py-3 border bg-yellow-100 w-20 text-center font-bold text-black">TOTALE</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {listEmployees.map((emp) => (
-                      <tr key={`${emp.contextKey}-${emp.id}`} className="bg-white border-b hover:bg-blue-50 transition-colors group">
-                        <td className="px-2 py-3 border font-bold text-gray-800 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                          <div className="flex items-center gap-2">
-                            <span>{emp.name}</span>
-                            <button
-                              onClick={() => {
-                                // Imposta azienda e reparto prima di aprire il modal
-                                if (multiCompanyMode) {
-                                  setSelectedCompany(emp.company);
-                                  setSelectedDept(emp.department);
-                                }
-                                openReplaceEmployeeModal(emp.id);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-blue-500 hover:text-blue-700 p-1 rounded transition-opacity"
-                              title="Sostituisci dipendente"
-                            >
-                              <UserPlus size={14} />
-                            </button>
-                          </div>
-                        </td>
-                        {days.map((day, dayIdx) => {
-                          // NOTA: Qui usiamo emp.id come chiave schedule. 
-                          // TODO: In futuro supportare schedule per settimana specifica usando listWeekRange
-                          const scheduleKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
-                          const cellData = schedule[scheduleKey]?.[dayIdx] || {};
-                          const isRest = cellData.code === 'R';
+      <div className="max-w-full mx-auto bg-white shadow-xl rounded-lg overflow-hidden min-h-[600px]">
 
-                          return (
-                            <td key={dayIdx} className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''}`}>
-                              <div className="absolute top-0 right-0 opacity-0 hover:opacity-100 z-10">
-                                <select
-                                  className="text-[10px] bg-slate-800 text-white p-0.5 rounded shadow-lg cursor-pointer"
-                                  onChange={(e) => handleQuickCode(emp.id, dayIdx, e.target.value, multiCompanyMode ? emp.contextKey : null)}
-                                  value={cellData.code || ''}
-                                >
-                                  <option value="">Orario</option>
-                                  <option value="R">Riposo</option>
-                                  <option value="FERIE">Ferie</option>
-                                  <option value="MAL">Malattia</option>
-                                  <option value="AV">Avellino</option>
-                                  <option value="AT">Atripalda</option>
-                                </select>
-                              </div>
+        {/* HEADER PRINCIPALE */}
+        <div className="bg-slate-800 text-white p-4">
+          <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <Calendar className="w-6 h-6" />
+                Gestione Turni
+              </h1>
+              {multiCompanyMode && selectedCompanies.length > 0 ? (
+                <p className="text-slate-400 text-xs">
+                  {selectedCompanies.length} {selectedCompanies.length === 1 ? 'azienda' : 'aziende'} selezionate
+                </p>
+              ) : selectedCompany && selectedDept ? (
+                <p className="text-slate-400 text-xs">{selectedCompany} &gt; {selectedDept}</p>
+              ) : null}
+            </div>
 
-                              {cellData.code ? (
-                                <div className="h-14 flex items-center justify-center font-bold text-lg text-slate-500 bg-opacity-50">
-                                  {cellData.code}
-                                </div>
-                              ) : (
-                                <div className="flex flex-col gap-1">
-                                  <div className="flex gap-1">
-                                    <input
-                                      type="text"
-                                      className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
-                                      value={cellData.in1 || ''}
-                                      onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
-                                      onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
-                                    />
-                                    <input
-                                      type="text"
-                                      className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
-                                      value={cellData.out1 || ''}
-                                      onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
-                                      onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, multiCompanyMode ? emp.contextKey : null)}
-                                    />
-                                  </div>
-                                  {(cellData.in1 || cellData.in2 || cellData.out1) && (
-                                    <div className="flex gap-1 animate-in fade-in duration-300">
-                                      <input
-                                        type="text"
-                                        className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
-                                        value={cellData.in2 || ''}
-                                        onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
-                                        onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
-                                      />
-                                      <input
-                                        type="text"
-                                        className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
-                                        value={cellData.out2 || ''}
-                                        onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
-                                        onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, multiCompanyMode ? emp.contextKey : null)}
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                          );
-                        })}
-                        <td className="px-2 py-3 border text-center font-bold text-lg bg-yellow-50 text-slate-800">
-                          {calculateWeeklyTotal(emp.id, multiCompanyMode ? emp.contextKey : null)}
-                        </td>
-                      </tr>
-                    ))}
-
-                    {/* RIGA AGGIUNTA RAPIDA (Solo se ci sono dipendenti o per permettere l'aggiunta) */}
-                    <tr className="bg-gray-50 border-b border-dashed border-gray-300 hover:bg-blue-50 transition-colors group">
-                      <td className="px-2 py-3 border font-bold text-gray-500 sticky left-0 bg-gray-50 z-10 group-hover:bg-blue-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleQuickAddEmployee(company, department)}
-                            className="p-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-                            title="Aggiungi Dipendente a questa lista"
-                          >
-                            <Plus size={16} />
-                          </button>
-                          <input
-                            type="text"
-                            placeholder="Nuovo Dipendente..."
-                            value={quickAddName}
-                            onChange={(e) => setQuickAddName(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department)}
-                            className="w-full bg-transparent border-b border-gray-400 focus:border-blue-500 outline-none text-sm uppercase placeholder-gray-400"
-                          />
-                        </div>
-                      </td>
-                      {days.map((_, i) => (
-                        <td key={i} className="p-1 border bg-gray-50 group-hover:bg-blue-50"></td>
-                      ))}
-                      <td className="p-1 border bg-gray-50 group-hover:bg-blue-50"></td>
-                    </tr>
-                  </tbody>
-                </table>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-48 text-slate-400 bg-white border-2 border-dashed border-gray-200 rounded-lg">
-                  <UserPlus size={32} className="mb-2 opacity-20" />
-                  <p className="text-sm">Nessun dipendente in {company} - {department}</p>
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      onClick={() => handleQuickAddEmployee(company, department)}
-                      className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded hover:bg-blue-100 font-medium"
-                    >
-                      + Aggiungi Dipendente
-                    </button>
-                  </div>
+            <div className="flex gap-3 items-center">
+              {companies.length > 0 && (
+                <div className="bg-slate-700 p-1.5 rounded flex items-center gap-2">
+                  <Building2 size={16} className="text-slate-300" />
+                  <select
+                    value={selectedCompany}
+                    onChange={(e) => {
+                      setSelectedCompany(e.target.value);
+                      const firstDept = departmentsStructure[e.target.value]?.[0];
+                      setSelectedDept(firstDept || '');
+                      // Se non ci sono aziende selezionate per multi-azienda, usa questa come default
+                      if (selectedCompanies.length === 0) {
+                        setSelectedCompanies([e.target.value]);
+                      }
+                    }}
+                    className="bg-slate-600 text-white border-none rounded text-sm p-1 focus:ring-2 focus:ring-blue-500"
+                  >
+                    {companies.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
                 </div>
               )}
-            </div>
-          </div>
-        );
-      };
 
-      if (loading && companies.length === 0) {
-        return (
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Caricamento dati...</p>
-            </div>
-          </div>
-        );
-      }
-
-      return (
-        <div className="p-4 bg-gray-50 min-h-screen font-sans relative">
-
-          {/* MODALE SOSTITUZIONE DIPENDENTE */}
-          {replaceEmployeeModal.isOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-              <div className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden">
-                <div className="bg-blue-600 p-4 text-white">
-                  <h3 className="text-lg font-bold flex items-center gap-2">
-                    <UserPlus size={20} />
-                    Sostituisci Dipendente
-                  </h3>
-                </div>
-                <div className="p-6">
-                  <p className="text-gray-700 mb-4">
-                    Stai sostituendo <strong>{replaceEmployeeModal.oldEmployeeName}</strong> con un nuovo dipendente.
-                    <br />
-                    <span className="text-sm text-gray-500">Gli orari verranno mantenuti.</span>
-                  </p>
-
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Nuovo dipendente (o seleziona esistente)
-                    </label>
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        value={replaceEmployeeModal.newEmployeeName}
-                        onChange={(e) => setReplaceEmployeeModal(prev => ({ ...prev, newEmployeeName: e.target.value, newEmployeeId: null }))}
-                        placeholder="Nome nuovo dipendente"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        onKeyDown={(e) => e.key === 'Enter' && handleReplaceEmployee()}
-                      />
-                      {currentEmployees.length > 0 && (
-                        <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg">
-                          {currentEmployees
-                            .filter(e => e.id !== replaceEmployeeModal.oldEmployeeId)
-                            .map(emp => (
-                              <button
-                                key={emp.id}
-                                onClick={() => setReplaceEmployeeModal(prev => ({
-                                  ...prev,
-                                  newEmployeeName: emp.name,
-                                  newEmployeeId: emp.id
-                                }))}
-                                className={`w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 ${replaceEmployeeModal.newEmployeeId === emp.id ? 'bg-blue-100' : ''
-                                  }`}
-                              >
-                                {emp.name}
-                              </button>
-                            ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3">
-                    <button
-                      onClick={closeReplaceEmployeeModal}
-                      className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium transition-colors"
-                    >
-                      Annulla
-                    </button>
-                    <button
-                      onClick={handleReplaceEmployee}
-                      disabled={!replaceEmployeeModal.newEmployeeName.trim()}
-                      className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Sostituisci
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* MODALE DI CONFERMA CUSTOM */}
-          {confirmModal.isOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-              <div className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden transform scale-100 transition-all">
-                <div className="bg-slate-800 p-4 text-white flex items-center gap-3">
-                  <AlertTriangle className="w-6 h-6 text-yellow-400" />
-                  <h3 className="text-lg font-bold">{confirmModal.title}</h3>
-                </div>
-                <div className="p-6">
-                  <p className="text-gray-700 mb-6">{confirmModal.message}</p>
-                  <div className="flex justify-end gap-3">
-                    <button
-                      onClick={closeConfirm}
-                      className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium transition-colors"
-                    >
-                      Annulla
-                    </button>
-                    {onConfirmAction.current && (
-                      <button
-                        onClick={handleConfirm}
-                        className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white font-medium transition-colors shadow-lg"
-                      >
-                        Conferma
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="max-w-full mx-auto bg-white shadow-xl rounded-lg overflow-hidden min-h-[600px]">
-
-            {/* HEADER PRINCIPALE */}
-            <div className="bg-slate-800 text-white p-4">
-              <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
-                <div>
-                  <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <Calendar className="w-6 h-6" />
-                    Gestione Turni
-                  </h1>
-                  {multiCompanyMode && selectedCompanies.length > 0 ? (
-                    <p className="text-slate-400 text-xs">
-                      {selectedCompanies.length} {selectedCompanies.length === 1 ? 'azienda' : 'aziende'} selezionate
-                    </p>
-                  ) : selectedCompany && selectedDept ? (
-                    <p className="text-slate-400 text-xs">{selectedCompany} &gt; {selectedDept}</p>
-                  ) : null}
-                </div>
-
-                <div className="flex gap-3 items-center">
-                  {companies.length > 0 && (
-                    <div className="bg-slate-700 p-1.5 rounded flex items-center gap-2">
-                      <Building2 size={16} className="text-slate-300" />
-                      <select
-                        value={selectedCompany}
-                        onChange={(e) => {
-                          setSelectedCompany(e.target.value);
-                          const firstDept = departmentsStructure[e.target.value]?.[0];
-                          setSelectedDept(firstDept || '');
-                          // Se non ci sono aziende selezionate per multi-azienda, usa questa come default
-                          if (selectedCompanies.length === 0) {
-                            setSelectedCompanies([e.target.value]);
-                          }
-                        }}
-                        className="bg-slate-600 text-white border-none rounded text-sm p-1 focus:ring-2 focus:ring-blue-500"
-                      >
-                        {companies.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => setShowSettings(!showSettings)}
-                    className={`p-2 rounded transition-colors ${showSettings ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
-                    title="Impostazioni Reparti"
-                  >
-                    <Settings size={20} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-end border-t border-slate-700 pt-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-400">Settimana:</span>
-                  <input
-                    type="text"
-                    value={weekRange}
-                    onChange={(e) => setWeekRange(e.target.value)}
-                    className="bg-slate-900 text-white border border-slate-600 rounded px-2 py-1 text-sm w-52 text-center"
-                  />
-                </div>
-                <button
-                  onClick={exportExcel}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors shadow-md"
-                >
-                  <FileSpreadsheet size={16} /> Scarica Excel (.xlsx)
-                </button>
-              </div>
-            </div>
-
-            {/* PANNELLO IMPOSTAZIONI */}
-            {showSettings && (
-              <div className="bg-blue-50 border-b-4 border-blue-200 p-6 animate-in slide-in-from-top-5">
-                <div className="flex justify-between items-start mb-4">
-                  <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <Settings className="w-5 h-5 text-blue-600" />
-                    Configurazione Reparti - {selectedCompany}
-                  </h2>
-                  <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-600">
-                    <X size={24} />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
-                    <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">Gestione Reparti per {selectedCompany}</h3>
-                    <div className="flex gap-2 mb-4">
-                      <input
-                        type="text"
-                        placeholder="Nuovo reparto (es. Pizzeria)"
-                        value={newDeptName}
-                        onChange={(e) => setNewDeptName(e.target.value)}
-                        className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
-                      />
-                      <button
-                        onClick={addDepartment}
-                        className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700"
-                      >
-                        <Plus size={16} /> Aggiungi
-                      </button>
-                    </div>
-                    <ul className="space-y-2">
-                      {departmentsStructure[selectedCompany]?.map(dept => (
-                        <li
-                          key={dept}
-                          className={`flex justify-between items-center p-2 rounded border cursor-pointer transition-colors ${selectedDept === dept
-                            ? 'bg-blue-100 border-blue-400 shadow-md'
-                            : 'bg-slate-50 hover:bg-blue-50'
-                            }`}
-                          onClick={() => setSelectedDept(dept)}
-                        >
-                          <span className={`font-medium ${selectedDept === dept ? 'text-blue-800 font-bold' : 'text-slate-700'}`}>
-                            {dept}
-                            {selectedDept === dept && <span className="ml-2 text-xs">✓ Selezionato</span>}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation(); // Evita che il click selezioni il reparto
-                              triggerDeleteDepartment(dept);
-                            }}
-                            className="text-red-500 hover:bg-red-50 p-1 rounded"
-                            title="Elimina reparto"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </li>
-                      ))}
-                      {(!departmentsStructure[selectedCompany] || departmentsStructure[selectedCompany].length === 0) && (
-                        <li className="text-gray-400 text-sm italic">Nessun reparto presente. Aggiungine uno.</li>
-                      )}
-                    </ul>
-                  </div>
-
-                  <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
-                    <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">
-                      Dipendenti in: {selectedCompany} - {selectedDept}
-                    </h3>
-                    <div className="flex gap-2 mb-4">
-                      <input
-                        type="text"
-                        placeholder="Nome dipendente"
-                        value={newEmployeeName}
-                        onChange={(e) => setNewEmployeeName(e.target.value)}
-                        className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
-                      />
-                      <button
-                        onClick={addEmployee}
-                        className="bg-emerald-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-emerald-700"
-                      >
-                        <UserPlus size={16} /> Aggiungi
-                      </button>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto">
-                      {currentEmployees.length > 0 ? (
-                        <ul className="space-y-2">
-                          {currentEmployees.map(emp => (
-                            <li key={emp.id} className="flex justify-between items-center bg-slate-50 p-2 rounded border text-sm">
-                              <span>{emp.name}</span>
-                              <button
-                                onClick={() => triggerDeleteEmployee(emp.id)}
-                                className="text-red-400 hover:text-red-600"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-gray-400 text-sm">Nessun dipendente in questo reparto.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* LISTE ORARI */}
-            <div className="p-4">
-              {viewLists.map((list, index) => renderEmployeeList(list, index))}
-            </div>
-
-            {/* PULSANTE AGGIUNGI LISTA */}
-            <div className="p-4 border-t bg-gray-50 flex justify-center">
               <button
-                onClick={addNewList}
-                className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-blue-700 transition-all transform hover:scale-105"
+                onClick={() => setShowSettings(!showSettings)}
+                className={`p-2 rounded transition-colors ${showSettings ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                title="Impostazioni Reparti"
               >
-                <Plus size={20} />
-                Aggiungi un'altra lista di confronto
+                <Settings size={20} />
               </button>
             </div>
           </div>
-        </div>
-      );
-    };
 
-    export default TimesheetManager;
+          <div className="flex justify-between items-end border-t border-slate-700 pt-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-400">Settimana:</span>
+              <input
+                type="text"
+                value={weekRange}
+                onChange={(e) => setWeekRange(e.target.value)}
+                className="bg-slate-900 text-white border border-slate-600 rounded px-2 py-1 text-sm w-52 text-center"
+              />
+            </div>
+            <button
+              onClick={exportExcel}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors shadow-md"
+            >
+              <FileSpreadsheet size={16} /> Scarica Excel (.xlsx)
+            </button>
+          </div>
+        </div>
+
+        {/* PANNELLO IMPOSTAZIONI */}
+        {showSettings && (
+          <div className="bg-blue-50 border-b-4 border-blue-200 p-6 animate-in slide-in-from-top-5">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <Settings className="w-5 h-5 text-blue-600" />
+                Configurazione Reparti - {selectedCompany}
+              </h2>
+              <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
+                <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">Gestione Reparti per {selectedCompany}</h3>
+                <div className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Nuovo reparto (es. Pizzeria)"
+                    value={newDeptName}
+                    onChange={(e) => setNewDeptName(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+                  />
+                  <button
+                    onClick={addDepartment}
+                    className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700"
+                  >
+                    <Plus size={16} /> Aggiungi
+                  </button>
+                </div>
+                <ul className="space-y-2">
+                  {departmentsStructure[selectedCompany]?.map(dept => (
+                    <li
+                      key={dept}
+                      className={`flex justify-between items-center p-2 rounded border cursor-pointer transition-colors ${selectedDept === dept
+                        ? 'bg-blue-100 border-blue-400 shadow-md'
+                        : 'bg-slate-50 hover:bg-blue-50'
+                        }`}
+                      onClick={() => setSelectedDept(dept)}
+                    >
+                      <span className={`font-medium ${selectedDept === dept ? 'text-blue-800 font-bold' : 'text-slate-700'}`}>
+                        {dept}
+                        {selectedDept === dept && <span className="ml-2 text-xs">✓ Selezionato</span>}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation(); // Evita che il click selezioni il reparto
+                          triggerDeleteDepartment(dept);
+                        }}
+                        className="text-red-500 hover:bg-red-50 p-1 rounded"
+                        title="Elimina reparto"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </li>
+                  ))}
+                  {(!departmentsStructure[selectedCompany] || departmentsStructure[selectedCompany].length === 0) && (
+                    <li className="text-gray-400 text-sm italic">Nessun reparto presente. Aggiungine uno.</li>
+                  )}
+                </ul>
+              </div>
+
+              <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
+                <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">
+                  Dipendenti in: {selectedCompany} - {selectedDept}
+                </h3>
+                <div className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Nome dipendente"
+                    value={newEmployeeName}
+                    onChange={(e) => setNewEmployeeName(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+                  />
+                  <button
+                    onClick={addEmployee}
+                    className="bg-emerald-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-emerald-700"
+                  >
+                    <UserPlus size={16} /> Aggiungi
+                  </button>
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {currentEmployees.length > 0 ? (
+                    <ul className="space-y-2">
+                      {currentEmployees.map(emp => (
+                        <li key={emp.id} className="flex justify-between items-center bg-slate-50 p-2 rounded border text-sm">
+                          <span>{emp.name}</span>
+                          <button
+                            onClick={() => triggerDeleteEmployee(emp.id)}
+                            className="text-red-400 hover:text-red-600"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-gray-400 text-sm">Nessun dipendente in questo reparto.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* LISTE ORARI */}
+        <div className="p-4">
+          {viewLists.map((list, index) => renderEmployeeList(list, index))}
+        </div>
+
+        {/* PULSANTE AGGIUNGI LISTA */}
+        <div className="p-4 border-t bg-gray-50 flex justify-center">
+          <button
+            onClick={addNewList}
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-blue-700 transition-all transform hover:scale-105"
+          >
+            <Plus size={20} />
+            Aggiungi un'altra lista di confronto
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TimesheetManager;
 
