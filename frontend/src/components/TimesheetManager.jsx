@@ -87,6 +87,25 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     }
   }, [currentUser]);
 
+  // --- SALVATAGGIO AUTOMATICO QUANDO CAMBIANO I DIPENDENTI ---
+  useEffect(() => {
+    // Non salvare durante il caricamento iniziale
+    if (loading) return;
+
+    // Non salvare se non ci sono dati
+    if (Object.keys(employeesData).length === 0) return;
+
+    console.log('🔄 employeesData cambiato, salvataggio automatico tra 500ms...');
+
+    // Debounce: salva dopo 500ms dall'ultimo cambiamento
+    const timeoutId = setTimeout(() => {
+      console.log('💾 Esecuzione salvataggio automatico...');
+      saveData();
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [employeesData]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -523,7 +542,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       id: newId
     });
 
-    // Aggiorna lo stato e salva immediatamente
+    // Aggiorna lo stato - il salvataggio avverrà automaticamente tramite useEffect
     setEmployeesData(prev => {
       const currentEmployees = prev[key] || [];
       const updated = {
@@ -535,30 +554,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         chiave: key,
         dipendentiPrecedenti: currentEmployees.length,
         dipendentiNuovi: updated[key].length,
-        nuovoDipendente: { id: newId, name: employeeName }
+        nuovoDipendente: { id: newId, name: employeeName },
+        tutteLeChiavi: Object.keys(updated)
       });
-
-      // Salva immediatamente con i dati aggiornati usando lo stato corrente
-      setTimeout(() => {
-        // Accedi allo stato più recente tramite callback
-        setCompanies(currentCompanies => {
-          setDepartmentsStructure(currentDepts => {
-            setSchedule(currentSchedule => {
-              console.log('💾 Preparazione salvataggio con stato corrente:', {
-                companies: currentCompanies,
-                departmentsKeys: Object.keys(currentDepts),
-                employeesKeys: Object.keys(updated),
-                scheduleKeys: Object.keys(currentSchedule)
-              });
-
-              saveDataDirectly(updated, currentCompanies, currentDepts, currentSchedule);
-              return currentSchedule;
-            });
-            return currentDepts;
-          });
-          return currentCompanies;
-        });
-      }, 100);
 
       return updated;
     });
@@ -1236,8 +1234,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                     <li
                       key={dept}
                       className={`flex justify-between items-center p-2 rounded border cursor-pointer transition-colors ${selectedDept === dept
-                          ? 'bg-blue-100 border-blue-400 shadow-md'
-                          : 'bg-slate-50 hover:bg-blue-50'
+                        ? 'bg-blue-100 border-blue-400 shadow-md'
+                        : 'bg-slate-50 hover:bg-blue-50'
                         }`}
                       onClick={() => setSelectedDept(dept)}
                     >
