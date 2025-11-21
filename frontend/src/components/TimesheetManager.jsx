@@ -620,26 +620,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       value={selectedCompany}
                       onChange={(e) => {
                         setSelectedCompany(e.target.value);
+                        // Quando cambia azienda, seleziona il primo reparto se disponibile
                         const firstDept = departmentsStructure[e.target.value]?.[0];
                         setSelectedDept(firstDept || '');
                       }}
                       className="bg-slate-600 text-white border-none rounded text-sm p-1 focus:ring-2 focus:ring-blue-500"
                      >
                        {companies.map(c => <option key={c} value={c}>{c}</option>)}
-                     </select>
-                  </div>
-
-                  <div className="bg-slate-700 p-1.5 rounded flex items-center gap-2">
-                     <span className="text-slate-300 text-sm font-bold px-1">Reparto:</span>
-                     <select 
-                      value={selectedDept}
-                      onChange={(e) => setSelectedDept(e.target.value)}
-                      className="bg-slate-600 text-white border-none rounded text-sm p-1 w-32 focus:ring-2 focus:ring-blue-500"
-                     >
-                       {departmentsStructure[selectedCompany]?.map(d => (
-                         <option key={d} value={d}>{d}</option>
-                       ))}
-                       {(!departmentsStructure[selectedCompany] || departmentsStructure[selectedCompany].length === 0) && <option value="">Nessun reparto</option>}
                      </select>
                   </div>
                 </>
@@ -715,10 +702,24 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                 </div>
                 <ul className="space-y-2">
                   {departmentsStructure[selectedCompany]?.map(dept => (
-                    <li key={dept} className="flex justify-between items-center bg-slate-50 p-2 rounded border">
-                      <span className="font-medium text-slate-700">{dept}</span>
+                    <li 
+                      key={dept} 
+                      className={`flex justify-between items-center p-2 rounded border cursor-pointer transition-colors ${
+                        selectedDept === dept 
+                          ? 'bg-blue-100 border-blue-400 shadow-md' 
+                          : 'bg-slate-50 hover:bg-blue-50'
+                      }`}
+                      onClick={() => setSelectedDept(dept)}
+                    >
+                      <span className={`font-medium ${selectedDept === dept ? 'text-blue-800 font-bold' : 'text-slate-700'}`}>
+                        {dept}
+                        {selectedDept === dept && <span className="ml-2 text-xs">✓ Selezionato</span>}
+                      </span>
                       <button 
-                        onClick={() => triggerDeleteDepartment(dept)}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Evita che il click selezioni il reparto
+                          triggerDeleteDepartment(dept);
+                        }}
                         className="text-red-500 hover:bg-red-50 p-1 rounded"
                         title="Elimina reparto"
                       >
