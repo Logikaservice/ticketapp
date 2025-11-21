@@ -97,10 +97,22 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         const data = await response.json();
         // Se ci sono aziende, carica i dati
         if (data.companies && data.companies.length > 0) {
-          setCompanies(data.companies);
-          setSelectedCompany(data.companies[0]);
+          setCompanies(data.companies.map(c => String(c).trim()));
+          setSelectedCompany(String(data.companies[0]).trim());
           setDepartmentsStructure(data.departments || {});
-          setEmployeesData(data.employees || {});
+          
+          // Pulisci i dati employees rimuovendo chiavi invalide
+          const cleanedEmployees = {};
+          if (data.employees) {
+            Object.keys(data.employees).forEach(key => {
+              const cleanKey = String(key).trim();
+              // Rimuovi chiavi con [object Object] o chiavi invalide
+              if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(data.employees[key])) {
+                cleanedEmployees[cleanKey] = data.employees[key];
+              }
+            });
+          }
+          setEmployeesData(cleanedEmployees);
           setSchedule(data.schedule || {});
           
           // Imposta il primo reparto della prima azienda
