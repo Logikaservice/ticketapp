@@ -2666,7 +2666,7 @@ export default function TicketApp() {
           <Notification key={notif.id} notification={notif} handleClose={() => handleCloseNotification(notif.id)} />
         ))}
       </div>
-      <div className="app-zoom-wrapper">
+      <div className={`app-zoom-wrapper ${modalState.type ? 'min-h-0' : ''}`}>
         <Header
           {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer }}
         />
