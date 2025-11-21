@@ -395,8 +395,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       setTimeout(() => {
         setEmployeesData(empData => {
           const updatedEmpData = { ...empData, [`${selectedCompany}-${newDeptName}`]: [] };
-          // Salva tutti i dati aggiornati
-          saveDataWithStructure(updated, updatedEmpData);
+          // Salva tutti i dati aggiornati usando lo stato corrente
+          setSchedule(currentSchedule => {
+            saveDataWithStructure(updated, updatedEmpData, currentSchedule);
+            return currentSchedule;
+          });
           return updatedEmpData;
         });
       }, 100);
@@ -406,47 +409,33 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
   
   // Funzione helper per salvare con struttura aggiornata
-  const saveDataWithStructure = async (deptStructure, empData) => {
+  const saveDataWithStructure = async (deptStructure, empData, currentSchedule) => {
     try {
-      // Usa una funzione che legge lo stato più recente
-      setSchedule(currentSchedule => {
-        const dataToSave = {
-          companies,
-          departments: deptStructure || departmentsStructure,
-          employees: empData || employeesData,
-          schedule: currentSchedule
-        };
-        
-        const cleanData = JSON.parse(JSON.stringify(dataToSave));
-        
-        fetch(buildApiUrl('/api/orari/save'), {
-          method: 'POST',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(cleanData)
-        })
-        .then(response => {
-          if (response.ok) {
-            return response.json();
-          } else {
-            return response.json().catch(() => ({}));
-          }
-        })
-        .then(result => {
-          if (result.success) {
-            console.log('✅ Reparti salvati con successo:', result);
-          } else {
-            console.error('❌ Errore salvataggio reparti:', result);
-          }
-        })
-        .catch(error => {
-          console.error('❌ Errore salvataggio reparti:', error);
-        });
-        
-        return currentSchedule;
+      const dataToSave = {
+        companies,
+        departments: deptStructure || departmentsStructure,
+        employees: empData || employeesData,
+        schedule: currentSchedule || schedule
+      };
+      
+      const cleanData = JSON.parse(JSON.stringify(dataToSave));
+      
+      const response = await fetch(buildApiUrl('/api/orari/save'), {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(cleanData)
       });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Reparti salvati con successo:', result);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Errore salvataggio reparti:', errorData);
+      }
     } catch (error) {
       console.error('❌ Errore salvataggio reparti:', error);
     }
@@ -475,7 +464,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         delete newData[key];
         // Salva con lo stato aggiornato
         setTimeout(() => {
-          saveDataWithStructure(updated, newData);
+          setSchedule(currentSchedule => {
+            saveDataWithStructure(updated, newData, currentSchedule);
+            return currentSchedule;
+          });
         }, 100);
         return newData;
       });
