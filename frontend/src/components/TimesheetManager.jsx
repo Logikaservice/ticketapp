@@ -143,24 +143,30 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         schedule
       };
       
+      // Pulisci i dati prima di salvare (rimuovi undefined, null, etc.)
+      const cleanData = JSON.parse(JSON.stringify(dataToSave));
+      
       const response = await fetch(buildApiUrl('/api/orari/save'), {
         method: 'POST',
         headers: {
           ...getAuthHeader(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(dataToSave)
+        body: JSON.stringify(cleanData)
       });
       
       if (response.ok) {
         const result = await response.json();
         console.log('✅ Dati salvati con successo:', result);
+        return true;
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error('❌ Errore salvataggio:', errorData);
+        return false;
       }
     } catch (error) {
       console.error('❌ Errore salvataggio:', error);
+      return false;
     }
   };
 
@@ -257,7 +263,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         [empId]: { 
           ...prev[empId], 
           [dayIndex]: { 
-            ...prev[empId]?.[dayIndex], 
             code: code || '', 
             in1: code ? '' : (prev[empId]?.[dayIndex]?.in1 || ''), 
             out1: code ? '' : (prev[empId]?.[dayIndex]?.out1 || ''), 
@@ -266,12 +271,49 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           } 
         }
       };
-      // Salva immediatamente dopo l'aggiornamento
+      
+      // Salva con lo stato aggiornato usando una funzione che accede allo stato corrente
       setTimeout(() => {
-        saveData();
-      }, 100);
+        // Usa una funzione che legge lo stato più recente
+        setSchedule(currentSchedule => {
+          saveDataWithSchedule(currentSchedule);
+          return currentSchedule;
+        });
+      }, 200);
+      
       return newSchedule;
     });
+  };
+
+  // Funzione helper per salvare con uno schedule specifico
+  const saveDataWithSchedule = async (scheduleToSave) => {
+    try {
+      const dataToSave = {
+        companies,
+        departments: departmentsStructure,
+        employees: employeesData,
+        schedule: scheduleToSave || schedule
+      };
+      
+      const response = await fetch(buildApiUrl('/api/orari/save'), {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dataToSave)
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Dati salvati con successo (codice):', result);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Errore salvataggio:', errorData);
+      }
+    } catch (error) {
+      console.error('❌ Errore salvataggio:', error);
+    }
   };
 
   // --- AZIONI STRUTTURA ---
