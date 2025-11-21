@@ -38,6 +38,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   // Aziende selezionate per visualizzazione multipla
   const [selectedCompanies, setSelectedCompanies] = useState([]);
   const [showCompanyFilter, setShowCompanyFilter] = useState(false);
+  // Stato per selezionare azienda/reparto quando si aggiunge un dipendente in modalità multi-azienda
+  const [selectedAddCompany, setSelectedAddCompany] = useState('');
+  const [selectedAddDept, setSelectedAddDept] = useState('');
   
   // Modalità multi-azienda attiva quando ci sono aziende selezionate
   const multiCompanyMode = selectedCompanies.length > 0;
@@ -1318,10 +1321,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                     <td className="px-2 py-3 border text-xs text-gray-500 sticky left-0 bg-gray-50 z-10 group-hover:bg-blue-50">
                       {selectedCompanies.length > 0 && (
                         <select
-                          value={`${selectedCompanies[0]}-${departmentsStructure[selectedCompanies[0]]?.[0] || ''}`}
+                          value={selectedAddCompany && selectedAddDept ? `${selectedAddCompany}-${selectedAddDept}` : `${selectedCompanies[0]}-${departmentsStructure[selectedCompanies[0]]?.[0] || ''}`}
                           onChange={(e) => {
                             const [company, dept] = e.target.value.split('-');
-                            handleQuickAddEmployee(company, dept);
+                            setSelectedAddCompany(company);
+                            setSelectedAddDept(dept);
                           }}
                           className="text-xs bg-gray-100 border border-gray-300 rounded px-1 py-1 w-full"
                         >
