@@ -1363,7 +1363,30 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       const currentWeek = listWeekRange || getWeekDates(0).formatted;
                       const baseKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
                       const scheduleKey = `${currentWeek}-${baseKey}`;
-                      const cellData = schedule[scheduleKey]?.[dayIdx] || {};
+                      // Fallback: se non trovi dati con la nuova chiave, prova con la vecchia (per compatibilità con dati esistenti)
+                      let cellData = schedule[scheduleKey]?.[dayIdx] || {};
+                      if (!cellData || Object.keys(cellData).length === 0) {
+                        // Prova con la vecchia chiave (senza settimana)
+                        const oldKey = baseKey;
+                        const oldData = schedule[oldKey]?.[dayIdx];
+                        if (oldData && Object.keys(oldData).length > 0) {
+                          // Migra automaticamente i dati vecchi alla nuova struttura
+                          cellData = oldData;
+                          // Salva con la nuova chiave (migrazione automatica)
+                          setSchedule(prev => {
+                            const newSchedule = {
+                              ...prev,
+                              [scheduleKey]: {
+                                ...prev[scheduleKey],
+                                [dayIdx]: oldData
+                              }
+                            };
+                            // Salva la migrazione
+                            setTimeout(() => saveData(), 100);
+                            return newSchedule;
+                          });
+                        }
+                      }
                       const isRest = cellData.code === 'R';
 
                       return (
