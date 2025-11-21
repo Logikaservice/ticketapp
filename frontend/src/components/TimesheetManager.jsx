@@ -726,6 +726,27 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     saveData();
   };
 
+  // Rimuove dipendente solo dalla visualizzazione della settimana corrente (non dal database)
+  const removeEmployeeFromWeek = (empId, contextKey = null) => {
+    const key = contextKey || getCurrentContextKey();
+    // Rimuovi solo dalla lista visualizzata, non dal database
+    // Non chiamiamo saveData() quindi non viene salvato nel database
+    setEmployeesData(prev => {
+      const updated = { ...prev };
+      if (updated[key]) {
+        updated[key] = updated[key].filter(e => e.id !== empId);
+      }
+      return updated;
+    });
+    // Rimuovi anche gli orari dalla visualizzazione
+    const scheduleKey = contextKey ? `${contextKey}-${empId}` : empId;
+    setSchedule(prev => {
+      const newSchedule = { ...prev };
+      delete newSchedule[scheduleKey];
+      return newSchedule;
+    });
+  };
+
   // --- SOSTITUZIONE DIPENDENTE ---
   const openReplaceEmployeeModal = (empId) => {
     const emp = currentEmployees.find(e => e.id === empId);
@@ -1196,20 +1217,33 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                     <td className="px-2 py-3 border font-bold text-gray-800 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                       <div className="flex items-center gap-2">
                         <span>{emp.name}</span>
-                        <button
-                          onClick={() => {
-                            // Imposta azienda e reparto prima di aprire il modal
-                            if (multiCompanyMode) {
-                              setSelectedCompany(emp.company);
-                              setSelectedDept(emp.department);
-                            }
-                            openReplaceEmployeeModal(emp.id);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-blue-500 hover:text-blue-700 p-1 rounded transition-opacity"
-                          title="Sostituisci dipendente"
-                        >
-                          <UserPlus size={14} />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              // Imposta azienda e reparto prima di aprire il modal
+                              if (multiCompanyMode) {
+                                setSelectedCompany(emp.company);
+                                setSelectedDept(emp.department);
+                              }
+                              openReplaceEmployeeModal(emp.id);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-blue-500 hover:text-blue-700 p-1 rounded transition-opacity"
+                            title="Sostituisci dipendente"
+                          >
+                            <UserPlus size={14} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Rimuovere ${emp.name} da questa settimana? (Non verrà eliminato dal database)`)) {
+                                removeEmployeeFromWeek(emp.id, multiCompanyMode ? emp.contextKey : null);
+                              }
+                            }}
+                            className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-red-500 hover:text-red-700 p-1 rounded transition-opacity"
+                            title="Rimuovi dalla settimana (non elimina dal database)"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     </td>
                     {days.map((day, dayIdx) => {
