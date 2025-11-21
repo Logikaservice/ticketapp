@@ -161,7 +161,7 @@ export default function TicketApp() {
     setNotifications(prev => [...prev, { id, message, type, duration, ticketId, show: true, sticky: !!options.sticky }]);
 
     // Rimuovi automaticamente dopo la durata specificata
-  if (duration > 0) {
+    if (duration > 0) {
       setTimeout(() => {
         removeNotification(id);
       }, duration);
@@ -1586,7 +1586,7 @@ export default function TicketApp() {
   // Funzione per creare un ticket da un avviso
   const handleCreateTicketFromAlert = (alert) => {
     const nomeRichiedente = currentUser?.ruolo === 'cliente' ? `${currentUser.nome} ${currentUser.cognome || ''}`.trim() : '';
-    
+
     // Determina la priorità in base al livello dell'avviso
     let priorita = 'media';
     if (alert.level === 'danger') {
@@ -1596,14 +1596,14 @@ export default function TicketApp() {
     } else if (alert.level === 'info') {
       priorita = 'bassa';
     }
-    
+
     // Costruisci la descrizione con tutte le informazioni dell'avviso
     let descrizione = `=== AVVISO ORIGINALE ===\n`;
     descrizione += `Titolo: ${alert.title}\n`;
     descrizione += `Tipo: ${alert.level === 'danger' ? 'Critico' : alert.level === 'warning' ? 'Avviso' : 'Informazione'}\n`;
     descrizione += `Data creazione: ${new Date(alert.createdAt || alert.created_at).toLocaleString('it-IT')}\n\n`;
     descrizione += `Descrizione avviso:\n${alert.body}\n\n==========================\n`;
-    
+
     setNewTicketData({
       titolo: `Ticket da avviso: ${alert.title}`,
       descrizione: descrizione,
@@ -1950,6 +1950,10 @@ export default function TicketApp() {
   const handleConfirmUrgentCreation = async () => {
     // Conferma creazione URGENTE: per i tecnici mostra modal email, per clienti crea direttamente
 
+    // Recupera le foto dal modalState se presenti
+    const photos = modalState.data?.photos || [];
+    console.log('🔍 DEBUG: handleConfirmUrgentCreation - photos recuperate:', photos.length);
+
     // Per i tecnici, mostra il modal di conferma email anche per priorità urgente
     if (currentUser.ruolo === 'tecnico') {
       console.log('🔍 DEBUG: Priorità urgente confermata - mostrando modal email per tecnico');
@@ -1960,7 +1964,8 @@ export default function TicketApp() {
         type: 'create',
         data: newTicketData,
         isEditing: isEditingTicket,
-        selectedClient: selectedClientForNewTicket
+        selectedClient: selectedClientForNewTicket,
+        photos: photos // Passa le foto al pending action
       });
       setModalState({
         type: 'emailConfirm',
@@ -1973,16 +1978,21 @@ export default function TicketApp() {
     }
 
     // Per i clienti, crea direttamente il ticket con invio email obbligatorio
-    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, []);
+    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, photos);
     resetNewTicketData();
     setModalState({ type: null, data: null });
   };
 
   const handleConfirmEmptyDescription = async () => {
     // L'utente ha confermato di voler procedere senza descrizione
+    // Recupera le foto dal modalState se presenti
+    const photos = modalState.data?.photos || [];
+    console.log('🔍 DEBUG: handleConfirmEmptyDescription - photos recuperate:', photos.length);
+
     // Controlla se è anche URGENTE
     if (!isEditingTicket && newTicketData.priorita === 'urgente') {
-      setModalState({ type: 'urgentConfirm' });
+      // Passa le foto al prossimo modal
+      setModalState({ type: 'urgentConfirm', data: { photos } });
       return;
     }
 
@@ -1996,7 +2006,8 @@ export default function TicketApp() {
         type: 'create',
         data: newTicketData,
         isEditing: isEditingTicket,
-        selectedClient: selectedClientForNewTicket
+        selectedClient: selectedClientForNewTicket,
+        photos: photos // Passa le foto al pending action
       });
       setModalState({
         type: 'emailConfirm',
@@ -2009,7 +2020,7 @@ export default function TicketApp() {
     }
 
     // Per i clienti, crea direttamente il ticket con invio email obbligatorio
-    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, []);
+    await createTicket(newTicketData, isEditingTicket, wrappedHandleUpdateTicket, selectedClientForNewTicket, true, photos);
     resetNewTicketData();
     setModalState({ type: null, data: null });
   };
@@ -2064,6 +2075,11 @@ export default function TicketApp() {
               // Aggiorna anche selectedTicket se è quello corretto
               if (selectedTicket && selectedTicket.id === ticketId) {
                 setSelectedTicket({ ...selectedTicket, photos: result.photos });
+              }
+
+              // Aggiorna anche photosModalTicket se è aperto e corrisponde al ticket
+              if (photosModalTicket && photosModalTicket.id === ticketId) {
+                setPhotosModalTicket(prev => ({ ...prev, photos: result.photos }));
               }
 
               showNotification(result.message || 'File caricati con successo', 'success');
@@ -2130,13 +2146,15 @@ export default function TicketApp() {
     // Se descrizione vuota, chiedi conferma
     if (!newTicketData.descrizione || newTicketData.descrizione.trim() === '') {
       console.log('🔍 DEBUG: Descrizione vuota, mostrando modal conferma');
-      setModalState({ type: 'emptyDescriptionConfirm' });
+      // Passa le foto nel data del modalState
+      setModalState({ type: 'emptyDescriptionConfirm', data: { photos } });
       return;
     }
     // Se priorità URGENTE e stiamo creando (non edit), mostra conferma
     if (!isEditingTicket && newTicketData.priorita === 'urgente') {
       console.log('🔍 DEBUG: Priorità urgente, mostrando modal conferma');
-      setModalState({ type: 'urgentConfirm' });
+      // Passa le foto nel data del modalState
+      setModalState({ type: 'urgentConfirm', data: { photos } });
       return;
     }
 
@@ -2253,7 +2271,7 @@ export default function TicketApp() {
         setDashboardTargetState(originCardState);
 
         // Feedback locale rimosso (niente eventi aggiuntivi)
-        
+
         // Reset del flag di protezione
         isChangingStatusRef.current = false;
       } else if (type === 'confirmTimeLogs') {
@@ -2335,7 +2353,7 @@ export default function TicketApp() {
         setDashboardTargetState(originCardState);
 
         // Feedback locale rimosso (niente eventi aggiuntivi)
-        
+
         // Reset del flag di protezione
         isChangingStatusRef.current = false;
       } else if (type === 'confirmTimeLogs') {
