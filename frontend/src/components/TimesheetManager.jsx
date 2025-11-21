@@ -1224,17 +1224,70 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               {/* Filtro Settimana */}
               <div className="flex flex-col">
                 <label className="text-xs font-semibold text-gray-600 mb-1">Settimana</label>
-                <select
-                  value={listWeekRange || getWeekDates(0).formatted}
-                  onChange={(e) => updateListFilter(id, 'weekRange', e.target.value)}
-                  className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
-                >
-                  {getWeekOptions().map((option, idx) => (
-                    <option key={idx} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={(() => {
+                      // Estrai la data di inizio dal weekRange (formato: "dd/mm/yyyy al dd/mm/yyyy")
+                      if (listWeekRange) {
+                        const startDateStr = listWeekRange.split(' al ')[0];
+                        const [day, month, year] = startDateStr.split('/');
+                        return `${year}-${month}-${day}`;
+                      }
+                      const week = getWeekDates(0);
+                      const [day, month, year] = week.formatted.split(' al ')[0].split('/');
+                      return `${year}-${month}-${day}`;
+                    })()}
+                    onChange={(e) => {
+                      const selectedDate = new Date(e.target.value);
+                      const monday = new Date(selectedDate);
+                      monday.setDate(selectedDate.getDate() - (selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1));
+                      const sunday = new Date(monday);
+                      sunday.setDate(monday.getDate() + 6);
+                      const formatDate = (d) => {
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const year = d.getFullYear();
+                        return `${day}/${month}/${year}`;
+                      };
+                      const newWeekRange = `${formatDate(monday)} al ${formatDate(sunday)}`;
+                      updateListFilter(id, 'weekRange', newWeekRange);
+                    }}
+                    className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <span className="text-xs text-gray-500">al</span>
+                  <input
+                    type="date"
+                    value={(() => {
+                      // Estrai la data di fine dal weekRange
+                      if (listWeekRange) {
+                        const endDateStr = listWeekRange.split(' al ')[1];
+                        const [day, month, year] = endDateStr.split('/');
+                        return `${year}-${month}-${day}`;
+                      }
+                      const week = getWeekDates(0);
+                      const [day, month, year] = week.formatted.split(' al ')[1].split('/');
+                      return `${year}-${month}-${day}`;
+                    })()}
+                    onChange={(e) => {
+                      const selectedDate = new Date(e.target.value);
+                      // Calcola il lunedì della settimana che contiene questa data
+                      const monday = new Date(selectedDate);
+                      monday.setDate(selectedDate.getDate() - (selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1));
+                      const sunday = new Date(monday);
+                      sunday.setDate(monday.getDate() + 6);
+                      const formatDate = (d) => {
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const year = d.getFullYear();
+                        return `${day}/${month}/${year}`;
+                      };
+                      const newWeekRange = `${formatDate(monday)} al ${formatDate(sunday)}`;
+                      updateListFilter(id, 'weekRange', newWeekRange);
+                    }}
+                    className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
               </div>
             </div>
 
