@@ -135,27 +135,32 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   // --- SALVATAGGIO DATI ---
   const saveData = async () => {
     try {
-      setLoading(true);
+      // Usa lo stato corrente per assicurarsi di salvare i dati più recenti
+      const dataToSave = {
+        companies,
+        departments: departmentsStructure,
+        employees: employeesData,
+        schedule
+      };
+      
       const response = await fetch(buildApiUrl('/api/orari/save'), {
         method: 'POST',
         headers: {
           ...getAuthHeader(),
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          companies,
-          departments: departmentsStructure,
-          employees: employeesData,
-          schedule
-        })
+        body: JSON.stringify(dataToSave)
       });
+      
       if (response.ok) {
-        console.log('✅ Dati salvati con successo');
+        const result = await response.json();
+        console.log('✅ Dati salvati con successo:', result);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Errore salvataggio:', errorData);
       }
     } catch (error) {
-      console.error('Errore salvataggio:', error);
-    } finally {
-      setLoading(false);
+      console.error('❌ Errore salvataggio:', error);
     }
   };
 
@@ -246,11 +251,27 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   const handleQuickCode = (empId, dayIndex, code) => {
-    setSchedule(prev => ({
-      ...prev,
-      [empId]: { ...prev[empId], [dayIndex]: { ...prev[empId]?.[dayIndex], code: code, in1: '', out1: '', in2: '', out2: '' } }
-    }));
-    setTimeout(() => saveData(), 500);
+    setSchedule(prev => {
+      const newSchedule = {
+        ...prev,
+        [empId]: { 
+          ...prev[empId], 
+          [dayIndex]: { 
+            ...prev[empId]?.[dayIndex], 
+            code: code || '', 
+            in1: code ? '' : (prev[empId]?.[dayIndex]?.in1 || ''), 
+            out1: code ? '' : (prev[empId]?.[dayIndex]?.out1 || ''), 
+            in2: code ? '' : (prev[empId]?.[dayIndex]?.in2 || ''), 
+            out2: code ? '' : (prev[empId]?.[dayIndex]?.out2 || '') 
+          } 
+        }
+      };
+      // Salva immediatamente dopo l'aggiornamento
+      setTimeout(() => {
+        saveData();
+      }, 100);
+      return newSchedule;
+    });
   };
 
   // --- AZIONI STRUTTURA ---

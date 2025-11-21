@@ -108,25 +108,31 @@ module.exports = (poolOrari) => {
         schedule: schedule || {}
       };
 
+      // Pulisci il JSON per evitare problemi (rimuovi undefined, null, etc.)
+      const cleanData = JSON.parse(JSON.stringify(dataToSave));
+
       // Aggiorna o inserisci
       const check = await pool.query('SELECT id FROM orari_data ORDER BY id DESC LIMIT 1');
       
       if (check.rows.length > 0) {
-        await pool.query(
-          'UPDATE orari_data SET data = $1, updated_at = NOW() WHERE id = $2',
-          [JSON.stringify(dataToSave), check.rows[0].id]
+        const result = await pool.query(
+          'UPDATE orari_data SET data = $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING id',
+          [JSON.stringify(cleanData), check.rows[0].id]
         );
+        console.log('✅ Dati orari aggiornati, ID:', result.rows[0].id);
       } else {
-        await pool.query(
-          'INSERT INTO orari_data (data) VALUES ($1)',
-          [JSON.stringify(dataToSave)]
+        const result = await pool.query(
+          'INSERT INTO orari_data (data) VALUES ($1::jsonb) RETURNING id',
+          [JSON.stringify(cleanData)]
         );
+        console.log('✅ Dati orari inseriti, ID:', result.rows[0].id);
       }
 
       res.json({ success: true, message: 'Dati salvati con successo' });
     } catch (err) {
       console.error('❌ Errore salvataggio dati orari:', err);
-      res.status(500).json({ error: 'Errore salvataggio dati' });
+      console.error('❌ Stack:', err.stack);
+      res.status(500).json({ error: 'Errore salvataggio dati', details: err.message });
     }
   });
 
