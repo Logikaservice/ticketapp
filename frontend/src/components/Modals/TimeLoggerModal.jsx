@@ -34,7 +34,7 @@ const TimeLoggerModal = ({
   const fieldsDisabled = readOnly && !isEditing;
 
   return (
-    <div className="bg-white rounded-xl max-w-4xl w-full p-6">
+    <div className="bg-white rounded-xl max-w-4xl w-full p-6 max-h-[85vh] overflow-y-auto">
       <div className="flex items-center justify-between mb-6 border-b pb-3">
         <h2 className="text-2xl font-bold text-blue-700 flex items-center gap-2">
           {readOnly ? (
