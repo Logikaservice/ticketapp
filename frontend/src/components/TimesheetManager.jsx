@@ -227,7 +227,38 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           });
 
           setEmployeesData(cleanedEmployees);
-          setSchedule(data.schedule || {});
+          
+          // Migra automaticamente i dati vecchi (senza settimana) alla settimana corrente
+          const currentWeek = getWeekDates(0).formatted;
+          const oldSchedule = data.schedule || {};
+          const migratedSchedule = { ...oldSchedule };
+          
+          // Trova tutte le chiavi vecchie (che non contengono una data nel formato "dd/mm/yyyy al dd/mm/yyyy")
+          const weekPattern = /^\d{2}\/\d{2}\/\d{4} al \d{2}\/\d{2}\/\d{4}-/;
+          Object.keys(oldSchedule).forEach(oldKey => {
+            // Se la chiave non contiene una settimana, è una chiave vecchia
+            if (!weekPattern.test(oldKey)) {
+              // Per ogni dipendente, migra i dati alla settimana corrente
+              const employeeSchedule = oldSchedule[oldKey];
+              if (employeeSchedule && typeof employeeSchedule === 'object') {
+                const newKey = `${currentWeek}-${oldKey}`;
+                // Migra solo se non esiste già una chiave nuova per questa settimana
+                if (!migratedSchedule[newKey]) {
+                  migratedSchedule[newKey] = employeeSchedule;
+                  console.log(`🔄 Migrato dati da "${oldKey}" a "${newKey}"`);
+                }
+              }
+            }
+          });
+          
+          setSchedule(migratedSchedule);
+          
+          // Salva la migrazione se ci sono state modifiche
+          if (Object.keys(migratedSchedule).length > Object.keys(oldSchedule).length) {
+            setTimeout(() => {
+              saveData();
+            }, 1000);
+          }
 
           // Imposta il primo reparto della prima azienda
           const firstDept = data.departments?.[data.companies[0]]?.[0];
