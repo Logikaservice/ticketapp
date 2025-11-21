@@ -1306,6 +1306,69 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                   ))}
                   <td className="p-1 border bg-gray-50 group-hover:bg-blue-50"></td>
                 </tr>
+                
+                {/* MODULO RICERCA E FILTRO AZIENDE */}
+                <tr className="bg-blue-50 border-t-2 border-blue-200">
+                  <td colSpan={multiCompanyMode ? 10 : 9} className="px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setShowCompanyFilter(!showCompanyFilter)}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition-colors"
+                        >
+                          <Building2 size={16} />
+                          {showCompanyFilter ? 'Nascondi' : 'Mostra'} Filtro Aziende
+                        </button>
+                        {multiCompanyMode && (
+                          <span className="text-sm text-gray-600">
+                            {selectedCompanies.length} {selectedCompanies.length === 1 ? 'azienda' : 'aziende'} selezionate
+                          </span>
+                        )}
+                      </div>
+                      {multiCompanyMode && (
+                        <button
+                          onClick={() => {
+                            setSelectedCompanies([]);
+                            setShowCompanyFilter(false);
+                          }}
+                          className="px-3 py-1.5 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 transition-colors"
+                        >
+                          Reset Filtro
+                        </button>
+                      )}
+                    </div>
+                    
+                    {showCompanyFilter && (
+                      <div className="mt-3 p-3 bg-white rounded border border-blue-200 shadow-sm">
+                        <h4 className="text-sm font-bold text-gray-700 mb-2">Seleziona Aziende da Visualizzare:</h4>
+                        <div className="flex flex-wrap gap-3">
+                          {companies.map(company => (
+                            <label key={company} className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded cursor-pointer hover:bg-blue-50 transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={selectedCompanies.includes(company)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedCompanies(prev => [...prev, company]);
+                                  } else {
+                                    setSelectedCompanies(prev => prev.filter(c => c !== company));
+                                  }
+                                }}
+                                className="w-4 h-4 text-blue-600"
+                              />
+                              <span className="text-sm font-medium text-gray-700">{company}</span>
+                            </label>
+                          ))}
+                        </div>
+                        {selectedCompanies.length === 0 && (
+                          <p className="mt-2 text-xs text-gray-500 italic">
+                            Seleziona almeno un'azienda per visualizzare i dipendenti. Se non selezioni nessuna azienda, verrà mostrata solo l'azienda selezionata nel menu principale.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
               </tbody>
             </table>
           ) : (
