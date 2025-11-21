@@ -1319,14 +1319,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             <div className="flex flex-col items-center justify-center h-48 text-slate-400 bg-white border-2 border-dashed border-gray-200 rounded-lg">
               <UserPlus size={32} className="mb-2 opacity-20" />
               <p className="text-sm">Nessun dipendente in {company} - {department}</p>
-              <div className="mt-2 flex gap-2">
-                <button
-                  onClick={() => handleQuickAddEmployee(company, department)}
-                  className="text-xs bg-blue-50 text-blue-600 px-3 py-1 rounded hover:bg-blue-100 font-medium"
-                >
-                  + Aggiungi Dipendente
-                </button>
-              </div>
             </div>
           )}
         </div>
