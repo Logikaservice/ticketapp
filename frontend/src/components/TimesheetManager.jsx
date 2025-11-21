@@ -63,6 +63,30 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     newEmployeeId: null
   });
 
+  // --- SISTEMA MULTI-LISTA ---
+  // Ogni lista ha filtri indipendenti per confrontare reparti/aziende/settimane diverse
+  const [viewLists, setViewLists] = useState([
+    {
+      id: 1,
+      company: '',
+      department: '',
+      weekRange: (() => {
+        const today = new Date();
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        const formatDate = (d) => {
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          return `${day}/${month}/${year}`;
+        };
+        return `${formatDate(monday)} al ${formatDate(sunday)}`;
+      })()
+    }
+  ]);
+
   const days = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
 
   // --- CARICAMENTO LIBRERIA EXCEL (Versione con STILI) ---
@@ -808,6 +832,56 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
     saveData();
     closeReplaceEmployeeModal();
+  };
+
+  // --- GESTIONE MULTI-LISTA ---
+  const addNewList = () => {
+    const newId = Date.now();
+    const newList = {
+      id: newId,
+      company: companies[0] || '',
+      department: departmentsStructure[companies[0]]?.[0] || '',
+      weekRange: weekRange
+    };
+    setViewLists(prev => [...prev, newList]);
+    console.log('➕ Nuova lista aggiunta:', newList);
+  };
+
+  const removeList = (listId) => {
+    setViewLists(prev => prev.filter(list => list.id !== listId));
+    console.log('🗑️ Lista rimossa:', listId);
+  };
+
+  const updateListFilter = (listId, filterType, value) => {
+    setViewLists(prev => prev.map(list => {
+      if (list.id === listId) {
+        const updated = { ...list, [filterType]: value };
+
+        // Se cambia l'azienda, resetta il reparto al primo disponibile
+        if (filterType === 'company') {
+          updated.department = departmentsStructure[value]?.[0] || '';
+        }
+
+        console.log(`🔄 Filtro aggiornato per lista ${listId}:`, filterType, '=', value);
+        return updated;
+      }
+      return list;
+    }));
+  };
+
+  const getEmployeesForList = (listConfig) => {
+    const { company, department } = listConfig;
+    if (!company || !department) return [];
+
+    const key = getContextKey(company, department);
+    const employees = employeesData[key] || [];
+
+    return employees.map(emp => ({
+      ...emp,
+      company: company,
+      department: department,
+      contextKey: key
+    }));
   };
 
   // --- EXPORT EXCEL PERFETTO ---
