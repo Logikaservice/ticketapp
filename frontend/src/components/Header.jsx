@@ -1,9 +1,9 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar } from 'lucide-react';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
@@ -114,6 +114,17 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       color: 'orange',
       visible: currentUser?.ruolo === 'tecnico' && openAccessLogs,
       onClick: () => handleQuickActionClick('accessLogs')
+    },
+    {
+      id: 'progetti',
+      label: 'Progetti',
+      icon: FolderOpen,
+      color: 'violet',
+      visible: currentUser?.ruolo === 'tecnico',
+      hasSubActions: true,
+      subActions: [
+        { label: 'Orari e Turni', icon: Calendar, color: 'violet', onClick: openOrariTurni }
+      ]
     }
   ].filter(action => action.visible);
 
@@ -192,7 +203,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
               amber: 'bg-amber-50 text-amber-700 hover:bg-amber-100',
               orange: 'bg-orange-50 text-orange-700 hover:bg-orange-100',
               sky: 'bg-sky-50 text-sky-700 hover:bg-sky-100',
-              blue: 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+              blue: 'bg-blue-50 text-blue-700 hover:bg-blue-100',
+              violet: 'bg-violet-50 text-violet-700 hover:bg-violet-100'
             };
 
             const getIconBgClass = (color) => {
@@ -204,7 +216,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                 amber: 'bg-amber-100 text-amber-600',
                 orange: 'bg-orange-100 text-orange-600',
                 sky: 'bg-sky-100 text-sky-600',
-                blue: 'bg-blue-100 text-blue-600'
+                blue: 'bg-blue-100 text-blue-600',
+                violet: 'bg-violet-100 text-violet-600'
               };
               return classes[color] || 'bg-gray-100 text-gray-600';
             };
@@ -218,7 +231,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                 amber: 'text-amber-600',
                 orange: 'text-orange-600',
                 sky: 'text-sky-600',
-                blue: 'text-blue-600'
+                blue: 'text-blue-600',
+                violet: 'text-violet-600'
               };
               return classes[color] || 'text-gray-600';
             };

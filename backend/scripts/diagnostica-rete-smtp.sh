@@ -127,3 +127,5 @@ echo "4. Controlla i log del sistema: journalctl -u ufw | tail -n 50"
 
 
 
+
+

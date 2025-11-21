@@ -549,6 +549,8 @@ const availabilityRoutes = require('./routes/availability')(pool);
 const keepassRoutes = require('./routes/keepass')(pool);
 const analyticsRoutes = require('./routes/analytics')(pool);
 const accessLogsRoutes = require('./routes/accessLogs')(pool);
+// Route per Orari e Turni (usa stesso pool ma tabella separata orari_data)
+const orariRoutes = require('./routes/orari')(pool);
 
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
@@ -988,6 +990,8 @@ app.use('/api/email', authenticateToken, emailNotificationsRoutes);
 app.use('/api/availability', authenticateToken, availabilityRoutes);
 app.use('/api/analytics', authenticateToken, requireRole('tecnico'), analyticsRoutes);
 app.use('/api/access-logs', accessLogsRoutes);
+// Route Orari e Turni (solo per tecnico/admin)
+app.use('/api/orari', authenticateToken, requireRole(['tecnico', 'admin']), orariRoutes);
 
 // Funzione per chiusura automatica ticket risolti da più di 5 giorni
 const closeExpiredTickets = async () => {

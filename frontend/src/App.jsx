@@ -24,6 +24,7 @@ import { useTemporarySuppliesFromTickets } from './hooks/useTemporarySuppliesFro
 import { useGoogleCalendar } from './hooks/useGoogleCalendar';
 import { useWebSocket } from './hooks/useWebSocket';
 import GoogleCallback from './components/GoogleCallback';
+import TimesheetManager from './components/TimesheetManager';
 import { buildApiUrl } from './utils/apiConfig';
 
 const INITIAL_NEW_CLIENT_DATA = {
@@ -111,6 +112,7 @@ export default function TicketApp() {
   const [photosModalTicket, setPhotosModalTicket] = useState(null);
   const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
   const [showDashboard, setShowDashboard] = useState(true);
+  const [showOrariTurni, setShowOrariTurni] = useState(false);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
@@ -2668,20 +2670,24 @@ export default function TicketApp() {
       </div>
       <div className="app-zoom-wrapper">
         <Header
-          {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer }}
+          {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); } }}
         />
 
-        {!showDashboard && (
+        {(!showDashboard || showOrariTurni) && (
           <div
             className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
-            onClick={() => setShowDashboard(true)}
+            onClick={() => { setShowDashboard(true); setShowOrariTurni(false); }}
           >
             Torna alla Dashboard
           </div>
         )}
 
         <main className="max-w-7xl mx-auto px-4 py-6">
-          {showDashboard ? (
+          {showOrariTurni ? (
+            <div className="animate-slideInRight">
+              <TimesheetManager currentUser={currentUser} getAuthHeader={getAuthHeader} />
+            </div>
+          ) : showDashboard ? (
             <div className="animate-slideInRight">
               <Dashboard
                 currentUser={currentUser}

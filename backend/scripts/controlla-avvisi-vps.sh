@@ -205,3 +205,5 @@ echo "💡 Per vedere i log in tempo reale:"
 echo "   pm2 logs ticketapp-backend"
 echo "   tail -f /var/log/nginx/error.log"
 
+
+

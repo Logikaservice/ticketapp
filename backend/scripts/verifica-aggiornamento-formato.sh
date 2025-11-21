@@ -68,3 +68,5 @@ echo "   pm2 logs ticketapp-backend --lines 200 --nostream | grep -i 'UPDATE-FOR
 echo ""
 echo -e "${GREEN}✅ Verifica completata!${NC}"
 
+
+
