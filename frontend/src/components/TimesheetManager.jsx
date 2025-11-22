@@ -300,7 +300,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           // Inizializza con la prima azienda selezionata (ma non in modalità multi-azienda)
           // setSelectedCompanies([]); // Non selezionare nessuna azienda di default
           // Carica i codici orari se presenti, altrimenti mantieni i default
+          console.log('📋 Codici orari ricevuti dal backend:', {
+            timeCodes: data.timeCodes ? Object.keys(data.timeCodes) : 'NON PRESENTI',
+            timeCodesOrder: data.timeCodesOrder || 'NON PRESENTE',
+            count: data.timeCodes ? Object.keys(data.timeCodes).length : 0
+          });
+          
           if (data.timeCodes && Object.keys(data.timeCodes).length > 0) {
+            console.log('✅ Caricamento codici orari dal database:', data.timeCodes);
             setTimeCodes(data.timeCodes);
             // Carica l'ordine se presente, altrimenti usa l'ordine delle chiavi
             if (data.timeCodesOrder && Array.isArray(data.timeCodesOrder)) {
@@ -309,6 +316,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               // Retrocompatibilità: genera l'ordine dalle chiavi esistenti
               setTimeCodesOrder(Object.keys(data.timeCodes));
             }
+          } else {
+            console.log('⚠️ Nessun codice orario nel database, uso i default');
           }
         } else {
           // Se non ci sono dati, inizializza con le aziende di default
@@ -363,6 +372,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         timeCodes,
         timeCodesOrder
       };
+
+      // Log codici orari prima del salvataggio
+      console.log('💾 Salvataggio dati - Codici orari inclusi:', {
+        timeCodes: timeCodes ? Object.keys(timeCodes) : 'NON PRESENTI',
+        timeCodesOrder: timeCodesOrder || 'NON PRESENTE',
+        count: timeCodes ? Object.keys(timeCodes).length : 0,
+        details: timeCodes || {}
+      });
 
       // Pulisci i dati prima di salvare (rimuovi undefined, null, etc.)
       const cleanData = JSON.parse(JSON.stringify(dataToSave));
@@ -826,12 +843,24 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     }
 
     const newCodes = { ...timeCodes, [key]: newCodeLabel.trim() };
+    const newOrder = [...timeCodesOrder, key];
+    
+    console.log('➕ Aggiunta nuovo codice orario:', {
+      key: key,
+      label: newCodeLabel.trim(),
+      timeCodes: newCodes,
+      timeCodesOrder: newOrder
+    });
+    
     setTimeCodes(newCodes);
-    setTimeCodesOrder([...timeCodesOrder, key]); // Aggiungi alla fine dell'ordine
+    setTimeCodesOrder(newOrder); // Aggiungi alla fine dell'ordine
     setNewCodeKey('');
     setNewCodeLabel('');
     // Salva automaticamente
-    setTimeout(() => saveData(), 500);
+    setTimeout(() => {
+      console.log('💾 Salvataggio dopo aggiunta codice orario...');
+      saveData();
+    }, 500);
   };
 
   const deleteTimeCode = (key) => {

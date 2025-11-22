@@ -35,7 +35,15 @@ module.exports = (poolOrari) => {
             'Mercurio-Cucina': [],
             'Albatros-Cucina': []
           },
-          schedule: {}
+          schedule: {},
+          timeCodes: {
+            'R': 'Riposo',
+            'F': 'Ferie',
+            'M': 'Malattia',
+            'P': 'Permesso',
+            'I': 'Infortunio'
+          },
+          timeCodesOrder: ['R', 'F', 'M', 'P', 'I']
         };
         await pool.query(`
           INSERT INTO orari_data (data) 
@@ -74,7 +82,15 @@ module.exports = (poolOrari) => {
             'Mercurio-Cucina': [],
             'Albatros-Cucina': []
           },
-          schedule: {}
+          schedule: {},
+          timeCodes: {
+            'R': 'Riposo',
+            'F': 'Ferie',
+            'M': 'Malattia',
+            'P': 'Permesso',
+            'I': 'Infortunio'
+          },
+          timeCodesOrder: ['R', 'F', 'M', 'P', 'I']
         };
         // Salva i dati iniziali nel database
         await pool.query(
@@ -98,6 +114,13 @@ module.exports = (poolOrari) => {
       employeeKeys.forEach(key => {
         const count = Array.isArray(data.employees[key]) ? data.employees[key].length : 0;
         console.log(`   - ${key}: ${count} dipendenti`);
+      });
+
+      // Log codici orari
+      console.log('📋 Codici orari nel database:', {
+        timeCodes: data.timeCodes ? Object.keys(data.timeCodes) : 'NON PRESENTI',
+        timeCodesOrder: data.timeCodesOrder || 'NON PRESENTE',
+        count: data.timeCodes ? Object.keys(data.timeCodes).length : 0
       });
 
       res.json(data);
@@ -195,6 +218,14 @@ module.exports = (poolOrari) => {
 
         // Log dettagliato prima del salvataggio
         console.log('📤 Dati da salvare (primi 500 caratteri):', JSON.stringify(cleanData).substring(0, 500));
+        
+        // Log specifico per codici orari
+        console.log('💾 Codici orari da salvare:', {
+          timeCodes: cleanData.timeCodes ? Object.keys(cleanData.timeCodes) : 'NON PRESENTI',
+          timeCodesOrder: cleanData.timeCodesOrder || 'NON PRESENTE',
+          count: cleanData.timeCodes ? Object.keys(cleanData.timeCodes).length : 0,
+          details: cleanData.timeCodes || {}
+        });
 
         const result = await pool.query(
           'UPDATE orari_data SET data = $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING id',
@@ -210,7 +241,7 @@ module.exports = (poolOrari) => {
 
         // Verifica immediata che i dati siano stati salvati
         const verify = await pool.query(
-          'SELECT data->\'employees\' as employees FROM orari_data WHERE id = $1',
+          'SELECT data->\'employees\' as employees, data->\'timeCodes\' as timeCodes, data->\'timeCodesOrder\' as timeCodesOrder FROM orari_data WHERE id = $1',
           [recordId]
         );
 
@@ -223,6 +254,16 @@ module.exports = (poolOrari) => {
           savedKeys.forEach(key => {
             const count = Array.isArray(savedEmployees[key]) ? savedEmployees[key].length : 0;
             console.log(`   - ${key}: ${count} dipendenti`);
+          });
+
+          // Verifica codici orari salvati
+          const savedTimeCodes = verify.rows[0].timeCodes;
+          const savedTimeCodesOrder = verify.rows[0].timeCodesOrder;
+          console.log('✅ Verifica salvataggio - Codici orari nel DB:', {
+            timeCodes: savedTimeCodes ? Object.keys(savedTimeCodes) : 'NON PRESENTI',
+            timeCodesOrder: savedTimeCodesOrder || 'NON PRESENTE',
+            count: savedTimeCodes ? Object.keys(savedTimeCodes).length : 0,
+            details: savedTimeCodes || {}
           });
         } else {
           console.error('❌ ERRORE: Record non trovato dopo UPDATE!');
