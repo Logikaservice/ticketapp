@@ -63,8 +63,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     'P': 'Permesso',
     'I': 'Infortunio'
   });
+  const [timeCodesOrder, setTimeCodesOrder] = useState(['R', 'F', 'M', 'P', 'I']); // Ordine di visualizzazione
   const [newCodeKey, setNewCodeKey] = useState('');
   const [newCodeLabel, setNewCodeLabel] = useState('');
+  const [draggedCodeIndex, setDraggedCodeIndex] = useState(null);
   const [contextMenu, setContextMenu] = useState({
     visible: false,
     x: 0,
@@ -300,6 +302,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           // Carica i codici orari se presenti, altrimenti mantieni i default
           if (data.timeCodes && Object.keys(data.timeCodes).length > 0) {
             setTimeCodes(data.timeCodes);
+            // Carica l'ordine se presente, altrimenti usa l'ordine delle chiavi
+            if (data.timeCodesOrder && Array.isArray(data.timeCodesOrder)) {
+              setTimeCodesOrder(data.timeCodesOrder);
+            } else {
+              // Retrocompatibilità: genera l'ordine dalle chiavi esistenti
+              setTimeCodesOrder(Object.keys(data.timeCodes));
+            }
           }
         } else {
           // Se non ci sono dati, inizializza con le aziende di default
@@ -351,7 +360,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         departments: departmentsStructure,
         employees: employeesData,
         schedule,
-        timeCodes
+        timeCodes,
+        timeCodesOrder
       };
 
       // Pulisci i dati prima di salvare (rimuovi undefined, null, etc.)
@@ -817,6 +827,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
     const newCodes = { ...timeCodes, [key]: newCodeLabel.trim() };
     setTimeCodes(newCodes);
+    setTimeCodesOrder([...timeCodesOrder, key]); // Aggiungi alla fine dell'ordine
     setNewCodeKey('');
     setNewCodeLabel('');
     // Salva automaticamente
@@ -827,6 +838,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     const newCodes = { ...timeCodes };
     delete newCodes[key];
     setTimeCodes(newCodes);
+    setTimeCodesOrder(timeCodesOrder.filter(k => k !== key)); // Rimuovi dall'ordine
+    // Salva automaticamente
+    setTimeout(() => saveData(), 500);
+  };
+
+  const reorderTimeCodes = (fromIndex, toIndex) => {
+    const newOrder = [...timeCodesOrder];
+    const [movedItem] = newOrder.splice(fromIndex, 1);
+    newOrder.splice(toIndex, 0, movedItem);
+    setTimeCodesOrder(newOrder);
     // Salva automaticamente
     setTimeout(() => saveData(), 500);
   };
@@ -2044,24 +2065,44 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {Object.entries(timeCodes).map(([key, label]) => (
-                  <div key={key} className="flex justify-between items-center bg-purple-50 p-2 rounded border border-purple-100">
-                    <div className="flex items-center gap-2">
-                      <span className="bg-purple-200 text-purple-800 font-bold px-2 py-0.5 rounded text-xs w-8 text-center">
-                        {key}
-                      </span>
-                      <span className="text-sm font-medium text-gray-700">{label}</span>
-                    </div>
-                    <button
-                      onClick={() => deleteTimeCode(key)}
-                      className="text-red-400 hover:text-red-600 p-1"
-                      title="Elimina codice"
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {timeCodesOrder.map((key, index) => {
+                  const label = timeCodes[key];
+                  if (!label) return null; // Skip se il codice non esiste più
+
+                  return (
+                    <div
+                      key={key}
+                      draggable
+                      onDragStart={() => setDraggedCodeIndex(index)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => {
+                        if (draggedCodeIndex !== null && draggedCodeIndex !== index) {
+                          reorderTimeCodes(draggedCodeIndex, index);
+                        }
+                        setDraggedCodeIndex(null);
+                      }}
+                      onDragEnd={() => setDraggedCodeIndex(null)}
+                      className={`flex justify-between items-center bg-purple-50 p-2 rounded border border-purple-100 cursor-move hover:bg-purple-100 transition-all ${draggedCodeIndex === index ? 'opacity-50 scale-95' : ''
+                        }`}
                     >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400 cursor-grab active:cursor-grabbing" title="Trascina per riordinare">⋮⋮</span>
+                        <span className="bg-purple-200 text-purple-800 font-bold px-2 py-0.5 rounded text-xs w-8 text-center">
+                          {key}
+                        </span>
+                        <span className="text-sm font-medium text-gray-700">{label}</span>
+                      </div>
+                      <button
+                        onClick={() => deleteTimeCode(key)}
+                        className="text-red-400 hover:text-red-600 p-1"
+                        title="Elimina codice"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -2188,19 +2229,24 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             <div className="px-3 py-2 border-b border-gray-100 bg-gray-50 text-xs font-bold text-gray-500">
               Inserisci Codice
             </div>
-            {Object.entries(timeCodes).map(([code, label]) => (
-              <button
-                key={code}
-                className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm flex items-center justify-between group"
-                onClick={() => {
-                  handleQuickCode(contextMenu.empId, contextMenu.dayIndex, label, contextMenu.contextKey, contextMenu.weekRangeValue);
-                  closeContextMenu();
-                }}
-              >
-                <span className="font-medium text-gray-700">{label}</span>
-                <span className="text-xs bg-gray-100 text-gray-500 px-1.5 rounded group-hover:bg-blue-100 group-hover:text-blue-600">{code}</span>
-              </button>
-            ))}
+            {timeCodesOrder.map((code) => {
+              const label = timeCodes[code];
+              if (!label) return null; // Skip se il codice non esiste più
+
+              return (
+                <button
+                  key={code}
+                  className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm flex items-center justify-between group"
+                  onClick={() => {
+                    handleQuickCode(contextMenu.empId, contextMenu.dayIndex, label, contextMenu.contextKey, contextMenu.weekRangeValue);
+                    closeContextMenu();
+                  }}
+                >
+                  <span className="font-medium text-gray-700">{label}</span>
+                  <span className="text-xs bg-gray-100 text-gray-500 px-1.5 rounded group-hover:bg-blue-100 group-hover:text-blue-600">{code}</span>
+                </button>
+              );
+            })}
             <div className="border-t border-gray-100 mt-1 pt-1">
               <button
                 className="w-full text-left px-3 py-2 hover:bg-red-50 text-sm text-red-600 flex items-center gap-2"
