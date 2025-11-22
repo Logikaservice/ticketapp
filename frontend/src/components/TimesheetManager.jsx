@@ -714,22 +714,48 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
     const scheduleKey = `${currentWeek}-${baseKey}`;
 
+    // Estrai azienda e reparto dal contextKey
+    let currentCompany = '';
+    let currentDept = '';
+    if (contextKey) {
+      const parts = contextKey.split('-');
+      currentCompany = parts[0] || '';
+      currentDept = parts.slice(1).join('-') || '';
+    }
+
+    // Trova tutte le aziende dove questo dipendente è presente
+    const companiesWithEmployee = [];
+    Object.keys(employeesData).forEach(key => {
+      const employees = employeesData[key] || [];
+      const employee = employees.find(e => e.id === empId);
+      if (employee) {
+        const [company, ...deptParts] = key.split('-');
+        const dept = deptParts.join('-');
+        companiesWithEmployee.push({ company, dept, key });
+      }
+    });
+
     setSchedule(prev => {
       const newSchedule = { ...prev };
-      if (!newSchedule[scheduleKey]) {
-        newSchedule[scheduleKey] = {};
-      }
 
-      // Applica il codice ai giorni consecutivi
-      for (let i = 0; i < days && (startDayIndex + i) < 7; i++) {
-        newSchedule[scheduleKey][startDayIndex + i] = {
-          code: code,
-          in1: '',
-          out1: '',
-          in2: '',
-          out2: ''
-        };
-      }
+      // Applica il codice assenza a tutte le aziende dove il dipendente è presente
+      companiesWithEmployee.forEach(({ company, dept, key }) => {
+        const empScheduleKey = `${currentWeek}-${key}-${empId}`;
+        if (!newSchedule[empScheduleKey]) {
+          newSchedule[empScheduleKey] = {};
+        }
+
+        // Applica il codice ai giorni consecutivi per questa azienda
+        for (let i = 0; i < days && (startDayIndex + i) < 7; i++) {
+          newSchedule[empScheduleKey][startDayIndex + i] = {
+            code: code,
+            in1: '',
+            out1: '',
+            in2: '',
+            out2: ''
+          };
+        }
+      });
 
       setTimeout(() => {
         setSchedule(currentSchedule => {
