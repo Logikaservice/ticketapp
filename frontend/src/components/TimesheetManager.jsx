@@ -1727,6 +1727,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       const wb = XLSX.utils.book_new();
       let hasExportedData = false;
 
+      // Bordi migliorati
       const borderThin = {
         top: { style: "thin", color: { rgb: "000000" } },
         bottom: { style: "thin", color: { rgb: "000000" } },
@@ -1734,40 +1735,64 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         right: { style: "thin", color: { rgb: "000000" } }
       };
 
+      const borderThick = {
+        top: { style: "thick", color: { rgb: "000000" } },
+        bottom: { style: "thick", color: { rgb: "000000" } },
+        left: { style: "thick", color: { rgb: "000000" } },
+        right: { style: "thick", color: { rgb: "000000" } }
+      };
+
+      // Stile per riga separatrice tra dipendenti (spessa e scura per facilitare il taglio)
+      const styleSeparator = {
+        fill: { fgColor: { rgb: "000000" } },
+        border: borderThick,
+        alignment: { horizontal: "center", vertical: "center" }
+      };
+
+      // Stile titolo migliorato
       const styleTitle = {
-        font: { bold: true, sz: 14 },
-        alignment: { horizontal: "center", vertical: "center" },
+        font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "4472C4" } },
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
         border: borderThin
       };
 
+      // Stile header migliorato
       const styleHeader = {
-        font: { bold: true, color: { rgb: "000000" } },
-        fill: { fgColor: { rgb: "D9D9D9" } },
+        font: { bold: true, sz: 11, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "5B9BD5" } },
         border: borderThin,
-        alignment: { horizontal: "center", vertical: "center" }
+        alignment: { horizontal: "center", vertical: "center", wrapText: true }
       };
 
+      // Stile header totale migliorato
       const styleTotalHeader = {
-        font: { bold: true },
-        fill: { fgColor: { rgb: "FFFF00" } },
+        font: { bold: true, sz: 11, color: { rgb: "000000" } },
+        fill: { fgColor: { rgb: "FFC000" } },
         border: borderThin,
-        alignment: { horizontal: "center", vertical: "center" }
+        alignment: { horizontal: "center", vertical: "center", wrapText: true }
       };
 
+      // Stile celle normali migliorato
       const styleCell = {
+        font: { sz: 10 },
         border: borderThin,
-        alignment: { horizontal: "center", vertical: "center" }
+        alignment: { horizontal: "center", vertical: "center" },
+        fill: { fgColor: { rgb: "FFFFFF" } }
       };
 
+      // Stile nome dipendente migliorato
       const styleEmpName = {
-        font: { bold: true },
+        font: { bold: true, sz: 11, color: { rgb: "000000" } },
+        fill: { fgColor: { rgb: "E7E6E6" } },
         border: borderThin,
-        alignment: { horizontal: "left", vertical: "center" }
+        alignment: { horizontal: "left", vertical: "center", indent: 1 }
       };
 
+      // Stile cella totale migliorato
       const styleTotalCell = {
-        font: { bold: true },
-        fill: { fgColor: { rgb: "FFFF99" } },
+        font: { bold: true, sz: 11, color: { rgb: "000000" } },
+        fill: { fgColor: { rgb: "FFE699" } },
         border: borderThin,
         alignment: { horizontal: "center", vertical: "center" }
       };
@@ -1820,7 +1845,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         }
         wsData.push(headerRow2);
 
-        listEmployees.forEach(emp => {
+        listEmployees.forEach((emp, empIndex) => {
+          // Aggiungi riga separatrice spessa PRIMA di ogni dipendente (tranne il primo)
+          if (empIndex > 0) {
+            const separatorRow = new Array(16).fill({ v: "", s: styleSeparator });
+            wsData.push(separatorRow);
+          }
+
           const startRowIndex = wsData.length;
           // Costruisci la chiave corretta includendo la settimana
           const currentWeek = listWeekRange || getWeekDates(0).formatted;
@@ -1848,8 +1879,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             const colIdx = 1 + (dayIdx * 2);
 
             if (data?.code) {
-              row1[colIdx] = { v: data.code, s: styleCell };
-              row1[colIdx + 1] = { v: data.code, s: styleCell };
+              // Mostra il label del codice invece della chiave
+              const codeLabel = getCodeLabel(data.code);
+              row1[colIdx] = { v: codeLabel, s: styleCell };
+              row1[colIdx + 1] = { v: codeLabel, s: styleCell };
               merges.push({ s: { r: startRowIndex, c: colIdx }, e: { r: startRowIndex + 1, c: colIdx } });
               merges.push({ s: { r: startRowIndex, c: colIdx + 1 }, e: { r: startRowIndex + 1, c: colIdx + 1 } });
             } else {
@@ -1892,6 +1925,24 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         }
 
         ws['!merges'] = merges;
+
+        // Imposta altezze righe per migliorare la leggibilità e facilitare il taglio
+        ws['!rows'] = [];
+        // Titolo più alto
+        ws['!rows'][0] = { hpt: 30 };
+        ws['!rows'][1] = { hpt: 25 };
+        // Header più alto
+        ws['!rows'][2] = { hpt: 25 };
+        ws['!rows'][3] = { hpt: 20 };
+        // Riga separatrice tra dipendenti più alta (per facilitare il taglio)
+        for (let R = 4; R < wsData.length; R++) {
+          const cell = wsData[R]?.[0];
+          if (cell && cell.s && cell.s.fill && cell.s.fill.fgColor && cell.s.fill.fgColor.rgb === "000000") {
+            ws['!rows'][R] = { hpt: 8 }; // Riga separatrice nera più alta
+          } else {
+            ws['!rows'][R] = { hpt: 20 }; // Righe normali
+          }
+        }
 
         const wscols = [{ wch: 25 }];
         for (let i = 0; i < 14; i++) wscols.push({ wch: 9 });
