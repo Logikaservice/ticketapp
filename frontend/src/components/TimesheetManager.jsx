@@ -936,12 +936,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     const key = getContextKey(company, dept);
     const employeeName = nameToUse.toUpperCase().trim();
 
-    // Cerca il dipendente tra quelli già creati per questa azienda/reparto
-    const existingEmployees = employeesData[key] || [];
-
-    const foundEmployee = existingEmployees.find(emp => {
-      const empName = String(emp.name || '').toUpperCase().trim();
-      return empName === employeeName;
+    // Cerca il dipendente tra quelli già creati - cerca in TUTTE le aziende (perché i dipendenti sono unificati)
+    let foundEmployee = null;
+    
+    // Cerca in tutte le aziende
+    Object.keys(employeesData).forEach(empKey => {
+      const employees = employeesData[empKey] || [];
+      const emp = employees.find(e => {
+        const empName = String(e.name || '').toUpperCase().trim();
+        return empName === employeeName;
+      });
+      if (emp && !foundEmployee) {
+        foundEmployee = emp; // Usa il primo trovato (stesso ID e nome in tutte le aziende)
+      }
     });
 
     if (!foundEmployee) {
@@ -999,19 +1006,31 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
     const company = targetCompany || selectedCompany;
     const dept = targetDept || selectedDept;
-    const key = getContextKey(company, dept);
     const newId = Date.now();
     const newName = name.toUpperCase().trim();
 
-    // 1. Crea il dipendente in employeesData
+    // 1. Crea il dipendente in employeesData - aggiungilo a TUTTE le aziende e reparti
     setEmployeesData(prev => {
-      const updated = {
-        ...prev,
-        [key]: [...(prev[key] || []), { id: newId, name: newName }]
-      };
+      const updated = { ...prev };
+      
+      // Per ogni azienda
+      companies.forEach(comp => {
+        const depts = departmentsStructure[comp] || [];
+        // Per ogni reparto di ogni azienda
+        depts.forEach(d => {
+          const key = getContextKey(comp, d);
+          const existingEmployees = updated[key] || [];
+          // Verifica se esiste già (stesso ID o stesso nome)
+          const exists = existingEmployees.some(e => e.id === newId || e.name === newName);
+          if (!exists) {
+            updated[key] = [...existingEmployees, { id: newId, name: newName }];
+          }
+        });
+      });
 
-      // 2. Aggiungi subito alla settimana corrente
+      // 2. Aggiungi subito alla settimana corrente per l'azienda/reparto selezionato
       const currentWeek = weekRangeValue || getWeekDates(0).formatted;
+      const key = getContextKey(company, dept);
       const scheduleKey = `${currentWeek}-${key}-${newId}`;
 
       setSchedule(prevSchedule => {
@@ -1255,9 +1274,31 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
   const addEmployee = () => {
     if (!newEmployeeName.trim()) return;
-    const key = getCurrentContextKey();
     const newId = Date.now();
-    setEmployeesData(prev => ({ ...prev, [key]: [...(prev[key] || []), { id: newId, name: newEmployeeName.toUpperCase() }] }));
+    const newName = newEmployeeName.toUpperCase().trim();
+    
+    // Aggiungi il dipendente a TUTTE le aziende e reparti
+    setEmployeesData(prev => {
+      const updated = { ...prev };
+      
+      // Per ogni azienda
+      companies.forEach(company => {
+        const depts = departmentsStructure[company] || [];
+        // Per ogni reparto di ogni azienda
+        depts.forEach(dept => {
+          const key = getContextKey(company, dept);
+          const existingEmployees = updated[key] || [];
+          // Verifica se esiste già (stesso ID o stesso nome)
+          const exists = existingEmployees.some(e => e.id === newId || e.name === newName);
+          if (!exists) {
+            updated[key] = [...existingEmployees, { id: newId, name: newName }];
+          }
+        });
+      });
+      
+      return updated;
+    });
+    
     setNewEmployeeName('');
     saveData();
   };
