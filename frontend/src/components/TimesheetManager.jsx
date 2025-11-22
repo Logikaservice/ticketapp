@@ -1937,14 +1937,45 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
                       // Se viene da altra azienda con codice geografico, mostra gli input (non il codice)
                       const showGeographicInputs = isFromOtherCompany && hasGeographicCode;
+                      
+                      // Verifica se questo dipendente è impegnato in un'altra azienda in questo giorno
+                      // Cerca se in altre aziende c'è un codice geografico che punta a questa azienda
+                      let isBusyInOtherCompany = false;
+                      let busyInCompany = null;
+                      if (isGeographic && codeKey) {
+                        // Se c'è un codice geografico, il dipendente è impegnato nell'altra azienda
+                        isBusyInOtherCompany = true;
+                        busyInCompany = getCompanyFromGeographicCode(codeKey);
+                      } else {
+                        // Verifica se in altre aziende c'è un codice geografico per questa azienda
+                        const currentCompany = emp.company || company;
+                        Object.keys(employeesData).forEach(otherKey => {
+                          if (otherKey === emp.contextKey) return; // Salta l'azienda corrente
+                          const [otherCompany] = otherKey.split('-');
+                          if (otherCompany === currentCompany) return; // Salta se è la stessa azienda
+                          
+                          const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
+                          const otherDayData = schedule[otherScheduleKey]?.[dayIdx];
+                          if (otherDayData && otherDayData.code) {
+                            const otherCodeKey = Object.keys(timeCodes).find(k => timeCodes[k] === otherDayData.code);
+                            if (otherCodeKey && isGeographicCode(otherCodeKey)) {
+                              const targetCompany = getCompanyFromGeographicCode(otherCodeKey);
+                              if (targetCompany === currentCompany) {
+                                isBusyInOtherCompany = true;
+                                busyInCompany = otherCompany;
+                              }
+                            }
+                          }
+                        });
+                      }
 
                       return (
                         <td 
                           key={dayIdx} 
-                          className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-50' : ''}`}
+                          className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-50' : ''} ${isBusyInOtherCompany ? 'bg-red-50' : ''}`}
                           onContextMenu={(e) => {
-                            // Se c'è un codice, permetti il menu contestuale anche cliccando sulla cella
-                            if (cellData.code && !showGeographicInputs) {
+                            // Se c'è un codice, permetti il menu contestuale anche cliccando sulla cella (ma non se è bloccato)
+                            if (cellData.code && !showGeographicInputs && !isBusyInOtherCompany) {
                               handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange);
                             }
                           }}
@@ -1953,12 +1984,21 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
                           {cellData.code && !showGeographicInputs ? (
                             <div 
-                              className={`h-14 flex items-center justify-center font-bold text-lg ${isGeographic || isFromOtherCompany ? 'text-yellow-700' : 'text-slate-500'} bg-opacity-50 cursor-pointer hover:bg-gray-100 transition-colors`}
-                              onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                              title="Tasto destro per modificare"
+                              className={`h-14 flex flex-col items-center justify-center font-bold text-lg ${isGeographic || isFromOtherCompany ? 'text-yellow-700' : 'text-slate-500'} bg-opacity-50 ${isBusyInOtherCompany ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-100'} transition-colors relative`}
+                              onContextMenu={(e) => {
+                                if (!isBusyInOtherCompany) {
+                                  handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange);
+                                }
+                              }}
+                              title={isBusyInOtherCompany ? `Impegnato in ${busyInCompany}` : "Tasto destro per modificare"}
                             >
                               {cellData.code}
-                              {isFromOtherCompany && (
+                              {isBusyInOtherCompany && (
+                                <span className="text-[10px] text-red-600 mt-0.5" title={`Impegnato in ${busyInCompany}`}>
+                                  🔒 {busyInCompany}
+                                </span>
+                              )}
+                              {isFromOtherCompany && !isBusyInOtherCompany && (
                                 <span className="ml-1 text-xs text-yellow-600" title={`Da ${cellData.fromCompany}`}>
                                   ⚠
                                 </span>
@@ -2016,25 +2056,34 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                             </div>
                           ) : (
                             <div className="flex flex-col gap-1">
-                              <div className="flex gap-1">
-                                <input
-                                  id={`input-${emp.id}-${dayIdx}-in1`}
-                                  type="text"
-                                  className="w-full border border-gray-300 rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
-                                  value={cellData.in1 || ''}
-                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
-                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
-                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                />
-                                <input
-                                  type="text"
-                                  className="w-full border border-gray-300 rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
-                                  value={cellData.out1 || ''}
-                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
-                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
-                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                />
-                              </div>
+                              {isBusyInOtherCompany ? (
+                                // Se è impegnato in un'altra azienda, mostra un indicatore
+                                <div className="h-14 flex flex-col items-center justify-center bg-red-50 border-2 border-red-300 rounded">
+                                  <div className="text-xs font-bold text-red-700">🔒</div>
+                                  <div className="text-[10px] text-red-600 mt-0.5">{busyInCompany}</div>
+                                </div>
+                              ) : (
+                                <div className="flex gap-1">
+                                  <input
+                                    id={`input-${emp.id}-${dayIdx}-in1`}
+                                    type="text"
+                                    className="w-full border border-gray-300 rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
+                                    value={cellData.in1 || ''}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
+                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  />
+                                  <input
+                                    type="text"
+                                    className="w-full border border-gray-300 rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
+                                    value={cellData.out1 || ''}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
+                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  />
+                                </div>
+                              )}
+                              {!isBusyInOtherCompany && (cellData.in1 || cellData.in2 || cellData.out1) && (
                               {(cellData.in1 || cellData.in2 || cellData.out1) && (
                                 <div className="flex gap-1 animate-in fade-in duration-300">
                                   <input
