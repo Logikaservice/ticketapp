@@ -1452,17 +1452,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             <table className="w-full text-sm text-left border-collapse shadow-md">
               <thead className="text-xs text-gray-700 uppercase bg-gray-200 sticky top-0 z-10 shadow-sm">
                 <tr>
-                  <th className="px-2 py-3 border bg-gray-200 w-32 min-w-[120px] z-20">DIPENDENTE</th>
+                  <th className="px-2 py-3 border bg-gray-200 w-28 min-w-[100px] z-20">DIPENDENTE</th>
                   {days.map((day, i) => (
-                    <th key={i} className="px-1 py-2 border text-center min-w-[140px]">
+                    <th key={i} className="px-1 py-2 border text-center min-w-[100px]">
                       {day}
-                      <div className="flex justify-between text-[10px] text-gray-500 mt-1 px-2 font-normal normal-case">
+                      <div className="flex justify-between text-[10px] text-gray-500 mt-1 px-1 font-normal normal-case">
                         <span>Entrata</span>
                         <span>Uscita</span>
                       </div>
                     </th>
                   ))}
-                  <th className="px-2 py-3 border bg-yellow-100 w-20 text-center font-bold text-black">TOTALE</th>
+                  <th className="px-2 py-3 border bg-yellow-100 w-16 text-center font-bold text-black">TOTALE</th>
                 </tr>
               </thead>
               <tbody>
@@ -1558,14 +1558,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                 <input
                                   id={`input-${emp.id}-${dayIdx}-in1`}
                                   type="text"
-                                  className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  className="w-full border border-gray-300 rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
                                   value={cellData.in1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
                                 />
                                 <input
                                   type="text"
-                                  className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  className="w-full border border-gray-300 rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
                                   value={cellData.out1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
@@ -1575,14 +1575,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                 <div className="flex gap-1 animate-in fade-in duration-300">
                                   <input
                                     type="text"
-                                    className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
+                                    className="w-full border border-gray-200 rounded px-0.5 py-0.5 text-center text-[10px] focus:border-blue-500 outline-none bg-gray-50"
                                     value={cellData.in2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
                                   />
                                   <input
                                     type="text"
-                                    className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
+                                    className="w-full border border-gray-200 rounded px-0.5 py-0.5 text-center text-[10px] focus:border-blue-500 outline-none bg-gray-50"
                                     value={cellData.out2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
@@ -1599,18 +1599,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                     </td>
                   </tr>
                 ))}
-
-                {/* RIGA AGGIUNTA RAPIDA (Solo se ci sono dipendenti o per permettere l'aggiunta) */}
+                {/* RIGA AGGIUNTA RAPIDA */}
                 <tr className="bg-gray-50 border-b border-dashed border-gray-300 hover:bg-blue-50 transition-colors group">
                   <td className="px-2 py-3 border font-bold text-gray-500 sticky left-0 bg-gray-50 z-10 group-hover:bg-blue-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleQuickAddEmployee(company, department, listWeekRange)}
-                        className="p-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-                        title="Cerca e aggiungi dipendente esistente a questa settimana"
-                      >
-                        <Plus size={16} />
-                      </button>
                       <div className="relative w-full">
                         <input
                           type="text"
@@ -1683,13 +1675,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                     Nessun dipendente con orari per questa settimana.
                   </p>
                   <div className="flex items-center gap-2 w-full max-w-md">
-                    <button
-                      onClick={() => handleQuickAddEmployee(company, department, listWeekRange)}
-                      className="p-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors flex-shrink-0"
-                      title="Cerca e aggiungi dipendente esistente a questa settimana"
-                    >
-                      <Plus size={20} />
-                    </button>
                     <div className="relative flex-1">
                       <input
                         type="text"
@@ -1760,17 +1745,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       </div>
     );
   };
-
-  if (loading && companies.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Caricamento dati...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="p-4 bg-gray-50 min-h-screen font-sans relative">
