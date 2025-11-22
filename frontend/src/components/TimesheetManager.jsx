@@ -645,12 +645,26 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
     // Cerca il dipendente tra quelli già creati per questa azienda/reparto
     const existingEmployees = employeesData[key] || [];
-    const foundEmployee = existingEmployees.find(emp => 
-      emp.name.toUpperCase().trim() === employeeName
-    );
+    
+    console.log('🔍 Ricerca dipendente:', {
+      nomeCercato: employeeName,
+      azienda: company,
+      reparto: dept,
+      chiave: key,
+      dipendentiDisponibili: existingEmployees.map(e => e.name),
+      totaleDipendenti: existingEmployees.length
+    });
+    
+    const foundEmployee = existingEmployees.find(emp => {
+      const empName = String(emp.name || '').toUpperCase().trim();
+      const match = empName === employeeName;
+      console.log(`   - Confronto: "${empName}" === "${employeeName}" = ${match}`);
+      return match;
+    });
 
     if (!foundEmployee) {
-      alert(`Dipendente "${employeeName}" non trovato in ${company} - ${dept}.\n\nCrea prima il dipendente dall'ingranaggio (⚙️) nelle impostazioni.`);
+      const availableNames = existingEmployees.map(e => e.name).join(', ') || 'nessuno';
+      alert(`Dipendente "${employeeName}" non trovato in ${company} - ${dept}.\n\nDipendenti disponibili: ${availableNames}\n\nCrea prima il dipendente dall'ingranaggio (⚙️) nelle impostazioni.`);
       setQuickAddName('');
       return;
     }
