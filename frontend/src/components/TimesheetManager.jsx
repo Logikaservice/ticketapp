@@ -618,7 +618,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   // --- AZIONI STRUTTURA ---
-  const handleQuickAddEmployee = (targetCompany = null, targetDept = null) => {
+  const handleQuickAddEmployee = (targetCompany = null, targetDept = null, weekRangeValue = null) => {
     if (!quickAddName.trim()) return;
 
     // Se modalità multi-azienda e non specificato, usa la prima azienda selezionata
@@ -641,34 +641,42 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     }
 
     const key = getContextKey(company, dept);
-    const newId = Date.now();
     const employeeName = quickAddName.toUpperCase().trim();
 
-    console.log('➕ AGGIUNTA DIPENDENTE:', {
-      nome: employeeName,
+    // Cerca il dipendente tra quelli già creati per questa azienda/reparto
+    const existingEmployees = employeesData[key] || [];
+    const foundEmployee = existingEmployees.find(emp => 
+      emp.name.toUpperCase().trim() === employeeName
+    );
+
+    if (!foundEmployee) {
+      alert(`Dipendente "${employeeName}" non trovato in ${company} - ${dept}.\n\nCrea prima il dipendente dall'ingranaggio (⚙️) nelle impostazioni.`);
+      setQuickAddName('');
+      return;
+    }
+
+    // Se il dipendente esiste, aggiungi gli orari vuoti per la settimana corrente
+    const currentWeek = weekRangeValue || getWeekDates(0).formatted;
+    const baseKey = key;
+    const scheduleKey = `${currentWeek}-${baseKey}-${foundEmployee.id}`;
+
+    // Verifica se ha già orari per questa settimana
+    if (!schedule[scheduleKey]) {
+      // Crea una struttura vuota per questa settimana
+      setSchedule(prev => ({
+        ...prev,
+        [scheduleKey]: {}
+      }));
+      // Salva automaticamente
+      setTimeout(() => saveData(), 500);
+    }
+
+    console.log('✅ Dipendente aggiunto alla settimana:', {
+      nome: foundEmployee.name,
       azienda: company,
       reparto: dept,
-      chiave: key,
-      id: newId
-    });
-
-    // Aggiorna lo stato - il salvataggio avverrà automaticamente tramite useEffect
-    setEmployeesData(prev => {
-      const currentEmployees = prev[key] || [];
-      const updated = {
-        ...prev,
-        [key]: [...currentEmployees, { id: newId, name: employeeName }]
-      };
-
-      console.log('📊 Stato dipendenti aggiornato:', {
-        chiave: key,
-        dipendentiPrecedenti: currentEmployees.length,
-        dipendentiNuovi: updated[key].length,
-        nuovoDipendente: { id: newId, name: employeeName },
-        tutteLeChiavi: Object.keys(updated)
-      });
-
-      return updated;
+      settimana: currentWeek,
+      id: foundEmployee.id
     });
 
     // Reset campi
@@ -977,13 +985,38 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   const getEmployeesForList = (listConfig) => {
-    const { company, department } = listConfig;
+    const { company, department, weekRange: listWeekRange } = listConfig;
     if (!company || !department) return [];
 
     const key = getContextKey(company, department);
     const employees = employeesData[key] || [];
+    const currentWeek = listWeekRange || getWeekDates(0).formatted;
 
-    return employees.map(emp => ({
+    // Filtra solo i dipendenti che hanno orari compilati per questa settimana
+    const employeesWithSchedule = employees.filter(emp => {
+      const baseKey = key.includes('-') ? key : `${company}-${department}`;
+      const scheduleKey = `${currentWeek}-${baseKey}-${emp.id}`;
+      // Prova anche con la vecchia chiave per compatibilità
+      const oldScheduleKey = `${baseKey}-${emp.id}`;
+      const hasSchedule = schedule[scheduleKey] || schedule[oldScheduleKey];
+      if (hasSchedule) {
+        // Verifica che ci sia almeno un giorno con dati
+        const scheduleData = schedule[scheduleKey] || schedule[oldScheduleKey];
+        return Object.keys(scheduleData).some(dayIdx => {
+          const dayData = scheduleData[dayIdx];
+          return dayData && (
+            dayData.code || 
+            dayData.in1 || 
+            dayData.out1 || 
+            dayData.in2 || 
+            dayData.out2
+          );
+        });
+      }
+      return false;
+    });
+
+    return employeesWithSchedule.map(emp => ({
       ...emp,
       company: company,
       department: department,
