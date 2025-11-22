@@ -810,7 +810,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     });
   };
 
-  // Applica codice assenza a giorni consecutivi (SOLO nell'azienda corrente, NON in altre aziende)
+  // Applica codice assenza a giorni consecutivi in TUTTE le aziende dove il dipendente è presente
   const applyAbsenceCode = (empId, startDayIndex, code, codeKey, days, contextKey = null, weekRangeValue = null) => {
     const currentWeek = weekRangeValue || weekRange;
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
@@ -821,21 +821,35 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
     setSchedule(prev => {
       const newSchedule = { ...prev };
-      if (!newSchedule[scheduleKey]) {
-        newSchedule[scheduleKey] = {};
-      }
+      
+      // Trova tutte le aziende-reparti dove il dipendente è presente
+      const allCompanyKeys = [];
+      Object.keys(employeesData).forEach(empKey => {
+        const employees = employeesData[empKey] || [];
+        const exists = employees.some(e => e.id === empId);
+        if (exists) {
+          allCompanyKeys.push(empKey);
+        }
+      });
 
-      // Applica il codice ai giorni consecutivi SOLO nell'azienda corrente
-      // Salva sempre la CHIAVE, non il label, per coerenza
-      for (let i = 0; i < days && (startDayIndex + i) < 7; i++) {
-        newSchedule[scheduleKey][startDayIndex + i] = {
-          code: keyToSave,
-          in1: '',
-          out1: '',
-          in2: '',
-          out2: ''
-        };
-      }
+      // Applica il codice ai giorni consecutivi in TUTTE le aziende dove il dipendente è presente
+      allCompanyKeys.forEach(empKey => {
+        const targetScheduleKey = `${currentWeek}-${empKey}-${empId}`;
+        if (!newSchedule[targetScheduleKey]) {
+          newSchedule[targetScheduleKey] = {};
+        }
+
+        // Salva sempre la CHIAVE, non il label, per coerenza
+        for (let i = 0; i < days && (startDayIndex + i) < 7; i++) {
+          newSchedule[targetScheduleKey][startDayIndex + i] = {
+            code: keyToSave,
+            in1: '',
+            out1: '',
+            in2: '',
+            out2: ''
+          };
+        }
+      });
 
       setTimeout(() => {
         setSchedule(currentSchedule => {
