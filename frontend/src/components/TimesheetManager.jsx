@@ -1228,8 +1228,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
         listEmployees.forEach(emp => {
           const startRowIndex = wsData.length;
-          // Usa contextKey per gestire dipendenti con stesso ID in aziende diverse
-          const scheduleKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
+          // Costruisci la chiave corretta includendo la settimana
+          const currentWeek = listWeekRange || getWeekDates(0).formatted;
+          // Usa contextKey se disponibile (modalità multi-azienda), altrimenti usa empId
+          // Nota: getEmployeesForList aggiunge sempre contextKey
+          const baseKey = emp.contextKey ? `${emp.contextKey}-${emp.id}` : emp.id;
+          const scheduleKey = `${currentWeek}-${baseKey}`;
 
           const row1 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
           const row2 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
