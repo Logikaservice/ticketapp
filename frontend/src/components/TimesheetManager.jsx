@@ -1472,7 +1472,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                           <button
                             onClick={() => {
                               if (window.confirm(`Rimuovere ${emp.name} da questa settimana? (Rimarrà disponibile per il futuro)`)) {
-                                removeEmployeeFromWeek(emp.id, multiCompanyMode ? emp.contextKey : null, listWeekRange);
+                                removeEmployeeFromWeek(emp.id, emp.contextKey, listWeekRange);
                               }
                             }}
                             className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-red-500 hover:text-red-700 p-1 rounded transition-opacity"
@@ -1486,7 +1486,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                     {days.map((day, dayIdx) => {
                       // Usa la settimana della lista corrente per la chiave schedule
                       const currentWeek = listWeekRange || getWeekDates(0).formatted;
-                      const baseKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : `${emp.contextKey || getContextKey(emp.company, emp.department)}-${emp.id}`;
+                      const baseKey = `${emp.contextKey}-${emp.id}`;
                       const scheduleKey = `${currentWeek}-${baseKey}`;
                       // Fallback: se non trovi dati con la nuova chiave, prova con la vecchia (per compatibilità con dati esistenti)
                       let cellData = schedule[scheduleKey]?.[dayIdx] || {};
@@ -1519,7 +1519,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                           <div className="absolute top-0 right-0 opacity-0 hover:opacity-100 z-10">
                             <select
                               className="text-[10px] bg-slate-800 text-white p-0.5 rounded shadow-lg cursor-pointer"
-                              onChange={(e) => handleQuickCode(emp.id, dayIdx, e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
+                              onChange={(e) => handleQuickCode(emp.id, dayIdx, e.target.value, emp.contextKey, listWeekRange)}
                               value={cellData.code || ''}
                             >
                               <option value="">Orario</option>
@@ -1543,15 +1543,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                   type="text"
                                   className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
                                   value={cellData.in1 || ''}
-                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
-                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
                                 />
                                 <input
                                   type="text"
                                   className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
                                   value={cellData.out1 || ''}
-                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
-                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
                                 />
                               </div>
                               {(cellData.in1 || cellData.in2 || cellData.out1) && (
@@ -1560,15 +1560,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                     type="text"
                                     className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
                                     value={cellData.in2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
                                   />
                                   <input
                                     type="text"
                                     className="w-full border border-gray-200 rounded px-1 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
                                     value={cellData.out2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
                                   />
                                 </div>
                               )}
@@ -1578,7 +1578,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       );
                     })}
                     <td className="px-2 py-3 border text-center font-bold text-lg bg-yellow-50 text-slate-800">
-                      {calculateWeeklyTotal(emp.id, multiCompanyMode ? emp.contextKey : null, listWeekRange)}
+                      {calculateWeeklyTotal(emp.id, emp.contextKey, listWeekRange)}
                     </td>
                   </tr>
                 ))}
