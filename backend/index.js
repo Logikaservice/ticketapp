@@ -1033,9 +1033,39 @@ app.use('/api/email', authenticateToken, emailNotificationsRoutes);
 app.use('/api/availability', authenticateToken, availabilityRoutes);
 app.use('/api/analytics', authenticateToken, requireRole('tecnico'), analyticsRoutes);
 app.use('/api/access-logs', accessLogsRoutes);
-// Route Orari e Turni (solo per tecnico/admin)
+// Route Orari e Turni (per tecnico/admin e clienti con permesso progetto orari)
 // Endpoint /debug accessibile senza autenticazione per diagnostica
-app.use('/api/orari', authenticateToken, requireRole(['tecnico', 'admin']), orariRoutes);
+app.use('/api/orari', authenticateToken, (req, res, next) => {
+  // Permetti tecnico e admin sempre
+  if (req.user && (req.user.ruolo === 'tecnico' || req.user.ruolo === 'admin')) {
+    return next();
+  }
+  
+  // Per clienti, verifica che abbiano il progetto "orari" abilitato nel token
+  if (req.user && req.user.ruolo === 'cliente') {
+    // Il token JWT dovrebbe contenere enabled_projects, ma se non c'è, verifica dal database
+    let enabledProjects = req.user.enabled_projects || [];
+    
+    // Se non è nel token, prova a leggerlo dal database (fallback)
+    if (!enabledProjects || enabledProjects.length === 0) {
+      // Non possiamo fare query async qui, quindi se non c'è nel token, nega l'accesso
+      // L'utente dovrà rifare login per aggiornare il token
+      console.log(`⚠️ enabled_projects non presente nel token per ${req.user.email}`);
+    }
+    
+    if (Array.isArray(enabledProjects) && 
+        (enabledProjects.includes('orari') || enabledProjects.includes('turni'))) {
+      console.log(`✅ Cliente ${req.user.email} ha accesso a orari/turni`);
+      return next();
+    }
+  }
+  
+  // Accesso negato
+  console.log(`❌ Accesso negato a /api/orari per ${req.user?.email} (${req.user?.ruolo})`);
+  return res.status(403).json({ 
+    error: 'Accesso negato. Non hai i permessi per accedere a Orari e Turni.' 
+  });
+}, orariRoutes);
 // Endpoint debug pubblico (solo per diagnostica - rimuovere in produzione)
 app.get('/api/orari/debug-public', async (req, res) => {
   try {

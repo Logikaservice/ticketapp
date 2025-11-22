@@ -30,6 +30,7 @@ const generateToken = (user) => {
     console.log('JWT_SECRET length:', JWT_SECRET ? JWT_SECRET.length : 'N/A');
     console.log('JWT_EXPIRES_IN:', JWT_EXPIRES_IN);
     
+    // Includi enabled_projects se presente
     const payload = {
       id: user.id,
       email: user.email,
@@ -38,6 +39,7 @@ const generateToken = (user) => {
       cognome: user.cognome,
       telefono: user.telefono,
       azienda: user.azienda,
+      enabled_projects: user.enabled_projects || ['ticket'], // Includi progetti abilitati
       iat: Math.floor(Date.now() / 1000) // Issued at
     };
     

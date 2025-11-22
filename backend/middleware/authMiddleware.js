@@ -30,7 +30,8 @@ const authenticateToken = (req, res, next) => {
       nome: decoded.nome,
       cognome: decoded.cognome,
       telefono: decoded.telefono,
-      azienda: decoded.azienda
+      azienda: decoded.azienda,
+      enabled_projects: decoded.enabled_projects || ['ticket'] // Includi progetti abilitati dal token
     };
     
     console.log(`🔐 Utente autenticato: ${req.user.email} (${req.user.ruolo})`);
