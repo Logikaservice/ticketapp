@@ -74,7 +74,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     empId: null,
     dayIndex: null,
     contextKey: null,
-    weekRangeValue: null
+    weekRangeValue: null,
+    hasCode: false // Flag per sapere se il campo ha un codice
   });
 
   // Stato per popup giorni assenza
@@ -729,6 +730,41 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           out2: ''
         };
       }
+
+      setTimeout(() => {
+        setSchedule(currentSchedule => {
+          saveDataWithSchedule(currentSchedule);
+          return currentSchedule;
+        });
+      }, 200);
+
+      return newSchedule;
+    });
+  };
+
+  // Converti campo con codice in campo orario normale
+  const convertCodeToTime = (empId, dayIndex, contextKey = null, weekRangeValue = null) => {
+    const currentWeek = weekRangeValue || weekRange;
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+
+    setSchedule(prev => {
+      const newSchedule = {
+        ...prev,
+        [scheduleKey]: {
+          ...prev[scheduleKey],
+          [dayIndex]: {
+            code: '', // Rimuovi il codice
+            in1: '', // Lascia vuoto per permettere inserimento orari
+            out1: '',
+            in2: '',
+            out2: '',
+            // Rimuovi anche i flag geografici se presenti
+            fromCompany: undefined,
+            geographicCode: undefined
+          }
+        }
+      };
 
       setTimeout(() => {
         setSchedule(currentSchedule => {
@@ -1898,7 +1934,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
 
                           {cellData.code && !showGeographicInputs ? (
-                            <div className={`h-14 flex items-center justify-center font-bold text-lg ${isGeographic || isFromOtherCompany ? 'text-yellow-700' : 'text-slate-500'} bg-opacity-50`}>
+                            <div 
+                              className={`h-14 flex items-center justify-center font-bold text-lg ${isGeographic || isFromOtherCompany ? 'text-yellow-700' : 'text-slate-500'} bg-opacity-50 cursor-pointer hover:bg-gray-100 transition-colors`}
+                              onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                              title="Tasto destro per modificare"
+                            >
                               {cellData.code}
                               {isFromOtherCompany && (
                                 <span className="ml-1 text-xs text-yellow-600" title={`Da ${cellData.fromCompany}`}>
@@ -2535,8 +2575,24 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
             <div className="px-3 py-2 border-b border-gray-100 bg-gray-50 text-xs font-bold text-gray-500">
-              Inserisci Codice
+              {contextMenu.hasCode ? 'Modifica Campo' : 'Inserisci Codice'}
             </div>
+            
+            {/* Se ha un codice, mostra opzione per convertire in orario */}
+            {contextMenu.hasCode && (
+              <div className="border-b border-gray-100">
+                <button
+                  className="w-full text-left px-3 py-2 hover:bg-green-50 text-sm text-green-700 flex items-center gap-2 font-medium"
+                  onClick={() => {
+                    convertCodeToTime(contextMenu.empId, contextMenu.dayIndex, contextMenu.contextKey, contextMenu.weekRangeValue);
+                    closeContextMenu();
+                  }}
+                >
+                  <Calendar size={14} /> Converti in Orario
+                </button>
+              </div>
+            )}
+            
             {timeCodesOrder.map((code) => {
               const label = timeCodes[code];
               if (!label) return null; // Skip se il codice non esiste più
