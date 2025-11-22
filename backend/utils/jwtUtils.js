@@ -194,6 +194,28 @@ const generateLoginResponse = (user) => {
       adminCompanies = [];
     }
     
+    // Assicurati che enabled_projects sia incluso e sia un array
+    let enabledProjects = [];
+    try {
+      if (user.enabled_projects) {
+        if (Array.isArray(user.enabled_projects)) {
+          enabledProjects = user.enabled_projects;
+        } else if (typeof user.enabled_projects === 'string') {
+          enabledProjects = JSON.parse(user.enabled_projects);
+        } else {
+          enabledProjects = user.enabled_projects;
+        }
+        if (!Array.isArray(enabledProjects)) {
+          enabledProjects = ['ticket']; // Default
+        }
+      } else {
+        enabledProjects = ['ticket']; // Default se non presente
+      }
+    } catch (e) {
+      console.error('Errore parsing enabled_projects:', e);
+      enabledProjects = ['ticket'];
+    }
+    
     const response = {
       success: true,
       token,
@@ -208,6 +230,7 @@ const generateLoginResponse = (user) => {
         azienda: user.azienda,
         password: user.password,
         admin_companies: adminCompanies,
+        enabled_projects: enabledProjects,
         inactivity_timeout_minutes: user.inactivity_timeout_minutes || 3
       }
     };

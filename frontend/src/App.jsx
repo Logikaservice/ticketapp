@@ -44,6 +44,12 @@ export default function TicketApp() {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
 
+  // Rileva se siamo su orari.logikaservice.it o turni.logikaservice.it
+  const isOrariDomain = window.location.hostname === 'orari.logikaservice.it' || 
+                        window.location.hostname === 'turni.logikaservice.it' ||
+                        window.location.hostname.includes('orari') ||
+                        window.location.hostname.includes('turni');
+
   // Controlla se abbiamo un codice OAuth nell'URL (solo una volta)
   const [oauthCode, setOauthCode] = useState(null);
   const [isGoogleCallback, setIsGoogleCallback] = useState(false);
@@ -111,8 +117,8 @@ export default function TicketApp() {
   const [fornitureModalTicket, setFornitureModalTicket] = useState(null);
   const [photosModalTicket, setPhotosModalTicket] = useState(null);
   const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
-  const [showDashboard, setShowDashboard] = useState(true);
-  const [showOrariTurni, setShowOrariTurni] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(!isOrariDomain); // Se siamo su orari, non mostrare dashboard di default
+  const [showOrariTurni, setShowOrariTurni] = useState(isOrariDomain); // Se siamo su orari, mostra subito orari
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
@@ -2670,10 +2676,24 @@ export default function TicketApp() {
       </div>
       <div className="app-zoom-wrapper">
         <Header
-          {...{ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); } }}
+          {...{ 
+            currentUser, 
+            handleLogout, 
+            openNewTicketModal, 
+            openNewClientModal, 
+            openSettings, 
+            openManageClientsModal, 
+            openAlertsHistory, 
+            openImportKeepass, 
+            openAnalytics, 
+            openAccessLogs, 
+            openInactivityTimer, 
+            openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); },
+            isOrariDomain: isOrariDomain
+          }}
         />
 
-        {(!showDashboard || showOrariTurni) && (
+        {(!showDashboard || showOrariTurni) && !isOrariDomain && (
           <div
             className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
             onClick={() => { setShowDashboard(true); setShowOrariTurni(false); }}

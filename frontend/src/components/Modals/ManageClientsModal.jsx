@@ -1,10 +1,17 @@
 import React, { useState, useMemo } from 'react';
-import { X, Edit2, Save, Trash2, Mail, Phone, Building, Lock, ChevronRight, ChevronDown, Crown } from 'lucide-react';
+import { X, Edit2, Save, Trash2, Mail, Phone, Building, Lock, ChevronRight, ChevronDown, Crown, FolderOpen } from 'lucide-react';
 
 const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }) => {
   const [editingId, setEditingId] = useState(null);
   const [editData, setEditData] = useState({});
   const [expandedCompanies, setExpandedCompanies] = useState(() => new Set());
+  const [showProjectsMenu, setShowProjectsMenu] = useState(null); // ID del cliente per cui mostrare il menu
+  
+  // Lista progetti disponibili
+  const availableProjects = [
+    { id: 'ticket', name: 'Ticket', description: 'Sistema di gestione ticket' },
+    { id: 'orari', name: 'Orari e Turni', description: 'Gestione orari e turni dipendenti' }
+  ];
 
   // Raggruppa clienti per azienda
   const clientiPerAzienda = useMemo(() => {
@@ -55,6 +62,20 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
 
   const handleStartEdit = (cliente) => {
     setEditingId(cliente.id);
+    // Gestisci enabled_projects: default ['ticket'] se non presente
+    let enabledProjects = ['ticket'];
+    if (cliente.enabled_projects) {
+      if (Array.isArray(cliente.enabled_projects)) {
+        enabledProjects = cliente.enabled_projects;
+      } else if (typeof cliente.enabled_projects === 'string') {
+        try {
+          enabledProjects = JSON.parse(cliente.enabled_projects);
+        } catch (e) {
+          enabledProjects = ['ticket'];
+        }
+      }
+    }
+    
     setEditData({
       nome: cliente.nome || '',
       cognome: cliente.cognome || '',
@@ -63,7 +84,8 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
       azienda: cliente.azienda || '',
       password: cliente.password || '', // Password attuale editabile
       isAdmin: isAdminOfCompany(cliente, cliente.azienda || ''),
-      admin_companies: cliente.admin_companies || []
+      admin_companies: cliente.admin_companies || [],
+      enabled_projects: enabledProjects
     });
   };
 
@@ -95,17 +117,28 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
       dataToSend.admin_companies = currentAdminCompanies;
     }
     
+    // Gestione enabled_projects: assicurati che sia un array valido
+    if (dataToSend.enabled_projects) {
+      if (!Array.isArray(dataToSend.enabled_projects) || dataToSend.enabled_projects.length === 0) {
+        dataToSend.enabled_projects = ['ticket']; // Default se vuoto o non valido
+      }
+    } else {
+      dataToSend.enabled_projects = ['ticket']; // Default se non presente
+    }
+    
     // Rimuovi isAdmin dal dataToSend (è solo per UI)
     delete dataToSend.isAdmin;
     
     onUpdateClient(id, dataToSend);
     setEditingId(null);
     setEditData({});
+    setShowProjectsMenu(null);
   };
 
   const handleCancel = () => {
     setEditingId(null);
     setEditData({});
+    setShowProjectsMenu(null);
   };
 
   const handleDelete = (cliente) => {
@@ -191,7 +224,7 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                               // Modalità Modifica
                               <div className="p-4">
                                 {/* INTESTAZIONE CLIENTE (sempre visibile) */}
-                                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200">
+                                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200 relative">
                                   <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">
                                     {cliente.nome ? cliente.nome.charAt(0).toUpperCase() : '?'}
                                   </div>
@@ -203,11 +236,77 @@ const ManageClientsModal = ({ clienti, onClose, onUpdateClient, onDeleteClient }
                                       {azienda}
                                     </p>
                                   </div>
-                                  <div>
+                                  <div className="flex items-center gap-2">
+                                    {/* Pulsante Progetti - A SINISTRA di "In modifica" */}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowProjectsMenu(showProjectsMenu === cliente.id ? null : cliente.id);
+                                      }}
+                                      className="px-3 py-1.5 text-xs font-medium bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition flex items-center gap-1.5 border border-purple-300"
+                                      title="Gestisci progetti abilitati"
+                                    >
+                                      <FolderOpen size={16} />
+                                      <span>Progetti</span>
+                                    </button>
                                     <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
                                       In modifica
                                     </span>
                                   </div>
+                                  
+                                  {/* Menu Progetti Dropdown */}
+                                  {showProjectsMenu === cliente.id && (
+                                    <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-50 p-3 min-w-[250px]">
+                                      <div className="text-xs font-bold text-gray-700 mb-2">Progetti Abilitati</div>
+                                      <div className="space-y-2">
+                                        {availableProjects.map(project => {
+                                          const isEnabled = (editData.enabled_projects || ['ticket']).includes(project.id);
+                                          return (
+                                            <label
+                                              key={project.id}
+                                              className="flex items-start gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                                            >
+                                              <input
+                                                type="checkbox"
+                                                checked={isEnabled}
+                                                onChange={(e) => {
+                                                  const currentProjects = editData.enabled_projects || ['ticket'];
+                                                  let newProjects;
+                                                  if (e.target.checked) {
+                                                    // Aggiungi progetto se non presente
+                                                    newProjects = currentProjects.includes(project.id)
+                                                      ? currentProjects
+                                                      : [...currentProjects, project.id];
+                                                  } else {
+                                                    // Rimuovi progetto, ma mantieni almeno 'ticket'
+                                                    if (project.id === 'ticket' && currentProjects.length === 1) {
+                                                      // Non permettere di rimuovere l'ultimo progetto se è ticket
+                                                      return;
+                                                    }
+                                                    newProjects = currentProjects.filter(p => p !== project.id);
+                                                    // Se rimuovi tutto, mantieni almeno ticket
+                                                    if (newProjects.length === 0) {
+                                                      newProjects = ['ticket'];
+                                                    }
+                                                  }
+                                                  setEditData({ ...editData, enabled_projects: newProjects });
+                                                }}
+                                                className="mt-0.5 w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                                              />
+                                              <div className="flex-1">
+                                                <div className="text-sm font-medium text-gray-800">{project.name}</div>
+                                                <div className="text-xs text-gray-500">{project.description}</div>
+                                              </div>
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                      <div className="mt-3 pt-2 border-t border-gray-200 text-xs text-gray-500">
+                                        Progetti selezionati: {(editData.enabled_projects || ['ticket']).join(', ')}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
 
                                 {/* FORM DI MODIFICA */}

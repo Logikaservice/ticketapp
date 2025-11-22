@@ -9,7 +9,7 @@ module.exports = (pool) => {
   router.get('/', async (req, res) => {
     try {
       const client = await pool.connect();
-      const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies FROM users');
+      const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies, COALESCE(enabled_projects, \'["ticket"]\'::jsonb) as enabled_projects FROM users');
       
       // Per il tecnico, mostra sempre la password in chiaro
       const usersWithPlainPasswords = result.rows.map(user => ({
@@ -30,7 +30,7 @@ module.exports = (pool) => {
     try {
       const { id } = req.params;
       const client = await pool.connect();
-      const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies FROM users WHERE id = $1', [id]);
+      const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies, COALESCE(enabled_projects, \'["ticket"]\'::jsonb) as enabled_projects FROM users WHERE id = $1', [id]);
       
       if (result.rows.length === 0) {
         client.release();
@@ -54,7 +54,7 @@ module.exports = (pool) => {
 
   // ENDPOINT: Crea un nuovo cliente (utente) - SICURO con hash password
   router.post('/', async (req, res) => {
-    const { email, password, telefono, azienda, ruolo, nome, cognome, admin_companies } = req.body;
+    const { email, password, telefono, azienda, ruolo, nome, cognome, admin_companies, enabled_projects } = req.body;
 
     if (!email || !password || !azienda) {
       return res.status(400).json({ error: 'Email, password e azienda sono obbligatori' });
@@ -69,17 +69,23 @@ module.exports = (pool) => {
         ? admin_companies.filter(Boolean)
         : [];
       const adminCompaniesJsonb = JSON.stringify(sanitizedAdminCompanies);
+      
+      // Gestisci enabled_projects: default ['ticket'] se non specificato
+      const sanitizedEnabledProjects = Array.isArray(enabled_projects)
+        ? enabled_projects.filter(Boolean)
+        : ['ticket']; // Default: tutti hanno accesso a ticket
+      const enabledProjectsJsonb = JSON.stringify(sanitizedEnabledProjects);
 
       // Salva la password in chiaro per permettere la visualizzazione
       console.log(`🔓 Password salvata in chiaro per nuovo utente: ${email}`);
       
       const client = await pool.connect();
       const query = `
-        INSERT INTO users (email, password, telefono, azienda, ruolo, nome, cognome, admin_companies) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb) 
-        RETURNING id, email, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, '[]'::jsonb) as admin_companies;
+        INSERT INTO users (email, password, telefono, azienda, ruolo, nome, cognome, admin_companies, enabled_projects) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb) 
+        RETURNING id, email, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(enabled_projects, '["ticket"]'::jsonb) as enabled_projects;
       `;
-      const values = [email, password, telefono || null, azienda, ruolo || 'cliente', nome, cognome, adminCompaniesJsonb];
+      const values = [email, password, telefono || null, azienda, ruolo || 'cliente', nome, cognome, adminCompaniesJsonb, enabledProjectsJsonb];
       const result = await client.query(query, values);
       client.release();
       
@@ -116,7 +122,7 @@ module.exports = (pool) => {
   // ENDPOINT: Aggiorna un utente/cliente - SICURO con hash password
   router.patch('/:id', async (req, res) => {
     const { id } = req.params;
-    const { nome, cognome, email, telefono, azienda, password, admin_companies, inactivity_timeout_minutes } = req.body;
+    const { nome, cognome, email, telefono, azienda, password, admin_companies, enabled_projects, inactivity_timeout_minutes } = req.body;
     
     try {
       const client = await pool.connect();
@@ -128,63 +134,67 @@ module.exports = (pool) => {
         ? JSON.stringify(Array.isArray(admin_companies) ? admin_companies : []) 
         : null;
       
-      if (password && password.trim() !== '') {
-        // Salva la password in chiaro per il tecnico (non hashata)
-        console.log(`🔓 Password salvata in chiaro per aggiornamento utente ID: ${id}`);
-        
-        if (adminCompaniesJsonb !== null) {
-          query = `
-            UPDATE users 
-            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, password = $6, admin_companies = $7::jsonb
-            WHERE id = $8 
-            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies;
-          `;
-          values = [nome, cognome, email, telefono, azienda, password, adminCompaniesJsonb, id];
-        } else {
-          query = `
-            UPDATE users 
-            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, password = $6
-            WHERE id = $7 
-            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies;
-          `;
-          values = [nome, cognome, email, telefono, azienda, password, id];
-        }
-      } else {
-        const timeoutValue = inactivity_timeout_minutes !== undefined ? inactivity_timeout_minutes : null;
-        if (adminCompaniesJsonb !== null && timeoutValue !== null) {
-          query = `
-            UPDATE users 
-            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, admin_companies = $6::jsonb, inactivity_timeout_minutes = $7
-            WHERE id = $8 
-            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes;
-          `;
-          values = [nome, cognome, email, telefono, azienda, adminCompaniesJsonb, timeoutValue, id];
-        } else if (adminCompaniesJsonb !== null) {
-          query = `
-            UPDATE users 
-            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, admin_companies = $6::jsonb
-            WHERE id = $7 
-            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes;
-          `;
-          values = [nome, cognome, email, telefono, azienda, adminCompaniesJsonb, id];
-        } else if (timeoutValue !== null) {
-          query = `
-            UPDATE users 
-            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5, inactivity_timeout_minutes = $6
-            WHERE id = $7 
-            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes;
-          `;
-          values = [nome, cognome, email, telefono, azienda, timeoutValue, id];
-        } else {
-          query = `
-            UPDATE users 
-            SET nome = $1, cognome = $2, email = $3, telefono = $4, azienda = $5
-            WHERE id = $6 
-            RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes;
-          `;
-          values = [nome, cognome, email, telefono, azienda, id];
-        }
+      // Converti enabled_projects in JSONB se fornito
+      const enabledProjectsJsonb = enabled_projects !== undefined && enabled_projects !== null
+        ? JSON.stringify(Array.isArray(enabled_projects) ? enabled_projects : ['ticket'])
+        : null;
+      
+      // Costruisci query dinamica per gestire tutti i campi opzionali
+      const updateFields = [];
+      const updateValues = [];
+      let paramIndex = 1;
+      
+      if (nome !== undefined) {
+        updateFields.push(`nome = $${paramIndex++}`);
+        updateValues.push(nome);
       }
+      if (cognome !== undefined) {
+        updateFields.push(`cognome = $${paramIndex++}`);
+        updateValues.push(cognome);
+      }
+      if (email !== undefined) {
+        updateFields.push(`email = $${paramIndex++}`);
+        updateValues.push(email);
+      }
+      if (telefono !== undefined) {
+        updateFields.push(`telefono = $${paramIndex++}`);
+        updateValues.push(telefono);
+      }
+      if (azienda !== undefined) {
+        updateFields.push(`azienda = $${paramIndex++}`);
+        updateValues.push(azienda);
+      }
+      if (password && password.trim() !== '') {
+        updateFields.push(`password = $${paramIndex++}`);
+        updateValues.push(password);
+        console.log(`🔓 Password salvata in chiaro per aggiornamento utente ID: ${id}`);
+      }
+      if (adminCompaniesJsonb !== null) {
+        updateFields.push(`admin_companies = $${paramIndex++}::jsonb`);
+        updateValues.push(adminCompaniesJsonb);
+      }
+      if (enabledProjectsJsonb !== null) {
+        updateFields.push(`enabled_projects = $${paramIndex++}::jsonb`);
+        updateValues.push(enabledProjectsJsonb);
+      }
+      if (inactivity_timeout_minutes !== undefined && inactivity_timeout_minutes !== null) {
+        updateFields.push(`inactivity_timeout_minutes = $${paramIndex++}`);
+        updateValues.push(inactivity_timeout_minutes);
+      }
+      
+      if (updateFields.length === 0) {
+        client.release();
+        return res.status(400).json({ error: 'Nessun campo da aggiornare' });
+      }
+      
+      updateValues.push(id);
+      query = `
+        UPDATE users 
+        SET ${updateFields.join(', ')}
+        WHERE id = $${paramIndex}
+        RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(enabled_projects, '["ticket"]'::jsonb) as enabled_projects, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes;
+      `;
+      values = updateValues;
       
       const result = await client.query(query, values);
       client.release();

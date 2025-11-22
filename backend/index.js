@@ -361,15 +361,21 @@ const { generateLoginResponse, verifyRefreshToken, generateToken } = require('./
 // ENDPOINT: Login utente (TEMPORANEO senza JWT per debug)
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
+  // Rileva il dominio/progetto richiesto dall'header Host
+  const host = req.get('host') || '';
+  const isOrariDomain = host.includes('orari') || host.includes('turni');
+  const requestedProject = isOrariDomain ? 'orari' : 'ticket';
+  
   console.log('🔍 LOGIN DEBUG - Senza JWT');
   console.log('Email:', email);
   console.log('Password length:', password ? password.length : 0);
+  console.log('Host:', host, '| Progetto richiesto:', requestedProject);
   
   try {
     const client = await pool.connect();
     
-    // Prima cerca l'utente per email, includendo admin_companies e inactivity_timeout_minutes
-    const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes FROM users WHERE email = $1', [email]);
+    // Prima cerca l'utente per email, includendo admin_companies, inactivity_timeout_minutes e enabled_projects
+    const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes, COALESCE(enabled_projects, \'["ticket"]\'::jsonb) as enabled_projects FROM users WHERE email = $1', [email]);
     console.log('Utenti trovati:', result.rows.length);
     
     if (result.rows.length === 0) {
@@ -379,6 +385,39 @@ app.post('/api/login', async (req, res) => {
     }
     
     const user = result.rows[0];
+    
+    // Verifica permessi progetto
+    let enabledProjects = [];
+    try {
+      if (user.enabled_projects) {
+        if (Array.isArray(user.enabled_projects)) {
+          enabledProjects = user.enabled_projects;
+        } else if (typeof user.enabled_projects === 'string') {
+          enabledProjects = JSON.parse(user.enabled_projects);
+        } else {
+          enabledProjects = user.enabled_projects;
+        }
+        if (!Array.isArray(enabledProjects)) {
+          enabledProjects = ['ticket']; // Default
+        }
+      } else {
+        enabledProjects = ['ticket']; // Default se non presente
+      }
+    } catch (e) {
+      console.error('Errore parsing enabled_projects:', e);
+      enabledProjects = ['ticket'];
+    }
+    
+    // Se l'utente non ha accesso al progetto richiesto, nega l'accesso
+    if (!enabledProjects.includes(requestedProject)) {
+      client.release();
+      console.log(`❌ Utente ${email} non ha accesso al progetto ${requestedProject}`);
+      return res.status(403).json({ 
+        error: `Accesso negato. Non hai i permessi per accedere a ${requestedProject === 'orari' ? 'Orari e Turni' : 'Ticket'}. Contatta l'amministratore.` 
+      });
+    }
+    
+    console.log(`✅ Utente ${email} ha accesso ai progetti:`, enabledProjects);
     const storedPassword = user.password;
     console.log('Password stored length:', storedPassword ? storedPassword.length : 0);
     console.log('Password is hashed:', storedPassword && storedPassword.startsWith('$2b$'));
@@ -454,6 +493,7 @@ app.post('/api/login', async (req, res) => {
             azienda: user.azienda,
             password: user.password,
             admin_companies: adminCompanies,
+            enabled_projects: enabledProjects,
             inactivity_timeout_minutes: user.inactivity_timeout_minutes || 3
           },
           sessionId
@@ -1203,6 +1243,14 @@ app.post('/api/init-db', async (req, res) => {
       console.log("⚠️ Errore aggiunta colonna inactivity_timeout_minutes (potrebbe già esistere):", alterErr.message);
     }
     
+    // Aggiungi colonna enabled_projects alla tabella users se non esiste (JSONB array di progetti abilitati)
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS enabled_projects JSONB DEFAULT '["ticket"]'::jsonb`);
+      console.log("✅ Colonna enabled_projects aggiunta alla tabella users");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonna enabled_projects (potrebbe già esistere):", alterErr.message);
+    }
+    
     // Crea tabella unavailable_days se non esiste
     try {
       await pool.query(`
@@ -1415,6 +1463,14 @@ const startServer = async () => {
       console.log("✅ Colonna inactivity_timeout_minutes aggiunta alla tabella users (auto-init)");
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna inactivity_timeout_minutes (auto-init):", alterErr.message);
+    }
+    
+    // Aggiungi colonna enabled_projects alla tabella users se non esiste (auto-init)
+    try {
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS enabled_projects JSONB DEFAULT '["ticket"]'::jsonb`);
+      console.log("✅ Colonna enabled_projects aggiunta alla tabella users (auto-init)");
+    } catch (alterErr) {
+      console.log("⚠️ Errore aggiunta colonna enabled_projects (auto-init):", alterErr.message);
     }
     
     // Crea tabella unavailable_days se non esiste (auto-init)

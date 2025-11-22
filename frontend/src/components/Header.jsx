@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar } from 'lucide-react';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, isOrariDomain = false }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
@@ -54,7 +54,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Nuove funzionalità',
       icon: Sparkles,
       color: 'emerald',
-      visible: currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'cliente',
+      visible: !isOrariDomain && (currentUser?.ruolo === 'tecnico' || currentUser?.ruolo === 'cliente'),
       onClick: () => handleQuickActionClick('alerts')
     },
     {
@@ -62,7 +62,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Gestione Clienti',
       icon: Users,
       color: 'cyan',
-      visible: currentUser?.ruolo === 'tecnico',
+      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
       hasSubActions: true,
       subActions: [
         { label: 'Nuovo Cliente', icon: UserPlus, color: 'emerald', onClick: openNewClientModal },
@@ -74,7 +74,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Importa KeePass',
       icon: Key,
       color: 'indigo',
-      visible: currentUser?.ruolo === 'tecnico' && openImportKeepass,
+      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openImportKeepass,
       onClick: () => handleQuickActionClick('importKeepass')
     },
     {
@@ -82,7 +82,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Analytics',
       icon: BarChart3,
       color: 'purple',
-      visible: currentUser?.ruolo === 'tecnico' && openAnalytics,
+      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openAnalytics,
       onClick: () => handleQuickActionClick('analytics')
     },
     {
@@ -90,7 +90,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Timer Inattività',
       icon: Clock,
       color: 'blue',
-      visible: currentUser?.ruolo === 'cliente' && openInactivityTimer,
+      visible: !isOrariDomain && currentUser?.ruolo === 'cliente' && openInactivityTimer,
       onClick: () => {
         if (openInactivityTimer) {
           openInactivityTimer();
@@ -112,7 +112,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Log accessi',
       icon: Activity,
       color: 'orange',
-      visible: currentUser?.ruolo === 'tecnico' && openAccessLogs,
+      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico' && openAccessLogs,
       onClick: () => handleQuickActionClick('accessLogs')
     },
     {
@@ -120,7 +120,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       label: 'Progetti',
       icon: FolderOpen,
       color: 'violet',
-      visible: currentUser?.ruolo === 'tecnico',
+      visible: !isOrariDomain && currentUser?.ruolo === 'tecnico',
       hasSubActions: true,
       subActions: [
         { label: 'Orari e Turni', icon: Calendar, color: 'violet', onClick: openOrariTurni }
@@ -143,7 +143,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
             </button>
             
             <div>
-              <h1 className="text-2xl font-bold">Sistema Gestione Ticket</h1>
+              <h1 className="text-2xl font-bold">{isOrariDomain ? 'Gestione Orari e Turni' : 'Sistema Gestione Ticket'}</h1>
             <p className="text-sm text-gray-600 mt-1">
               {/* --- CODICE CORRETTO --- */}
               <span className={`px-2 py-0.5 rounded text-xs font-medium ${roleClasses}`}>
@@ -156,7 +156,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
           </div>
           
           <div className="flex items-center gap-2">
-            {currentUser?.ruolo === 'cliente' && (
+            {!isOrariDomain && currentUser?.ruolo === 'cliente' && (
               <button 
                 onClick={openNewTicketModal} 
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -166,7 +166,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
               </button>
             )}
             
-            {currentUser?.ruolo === 'tecnico' && (
+            {!isOrariDomain && currentUser?.ruolo === 'tecnico' && (
               <button 
                 onClick={openNewTicketModal} 
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
