@@ -539,9 +539,41 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     return isNaN(result) ? 0 : result;
   };
 
+  // Helper: converte label in chiave o viceversa
+  // Queste funzioni devono essere definite prima di calculateDailyHours
+  const getCodeKey = (code) => {
+    if (!code) return null;
+    // Se è già una chiave valida, restituiscila
+    if (timeCodes[code]) return code;
+    // Altrimenti cerca la chiave partendo dal label
+    return Object.keys(timeCodes).find(key => timeCodes[key] === code) || null;
+  };
+
+  const getCodeLabel = (code) => {
+    if (!code) return '';
+    // Se è una chiave, restituisci il label
+    if (timeCodes[code]) return timeCodes[code];
+    // Se è già un label, restituiscilo
+    return code;
+  };
+
+  // Verifica se un codice è assenza
+  const isAbsenceCode = (code) => {
+    return ['R', 'F', 'M', 'P', 'I'].includes(code);
+  };
+
+  // Verifica se un codice è di assenza (non conta ore) - usa getCodeKey per gestire sia chiavi che label
+  const isAbsenceCodeForHours = (code) => {
+    if (!code) return false;
+    const codeKey = getCodeKey(code);
+    if (!codeKey) return false;
+    return isAbsenceCode(codeKey);
+  };
+
   const calculateDailyHours = (dayData) => {
     if (!dayData) return 0;
-    if (dayData.code && ['R', 'FERIE', 'MAL', 'AV', 'AT'].includes(dayData.code.toUpperCase())) return 0;
+    // Usa la funzione helper per verificare se è un codice di assenza
+    if (dayData.code && isAbsenceCodeForHours(dayData.code)) return 0;
     let total = 0;
     if (dayData.in1 && dayData.out1) {
       const start = timeToDecimal(dayData.in1);
@@ -629,11 +661,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     return ['AT', 'AV', 'L'].includes(code);
   };
 
-  // Verifica se un codice è assenza
-  const isAbsenceCode = (code) => {
-    return ['R', 'F', 'M', 'P', 'I'].includes(code);
-  };
-
   const handleQuickCode = (empId, dayIndex, code, contextKey = null, weekRangeValue = null) => {
     // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
     const currentWeek = weekRangeValue || weekRange;
@@ -656,7 +683,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     }
 
     // Trova il codice key dal label (es. "Avellino" → "AV")
-    const codeKey = Object.keys(timeCodes).find(key => timeCodes[key] === code) || '';
+    const codeKey = getCodeKey(code) || '';
     
     // Se è un codice assenza, mostra popup per giorni
     if (isAbsenceCode(codeKey)) {
@@ -673,17 +700,20 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       return; // Non applicare subito, aspetta conferma giorni
     }
 
+    // Per codici non-assenza (geografici), salva la chiave invece del label
+    const keyToSave = codeKey || code;
+
     setSchedule(prev => {
       const newSchedule = {
         ...prev,
         [scheduleKey]: {
           ...prev[scheduleKey],
           [dayIndex]: {
-            code: code || '',
-            in1: code ? '' : (prev[scheduleKey]?.[dayIndex]?.in1 || ''),
-            out1: code ? '' : (prev[scheduleKey]?.[dayIndex]?.out1 || ''),
-            in2: code ? '' : (prev[scheduleKey]?.[dayIndex]?.in2 || ''),
-            out2: code ? '' : (prev[scheduleKey]?.[dayIndex]?.out2 || '')
+            code: keyToSave || '',
+            in1: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.in1 || ''),
+            out1: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.out1 || ''),
+            in2: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.in2 || ''),
+            out2: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.out2 || '')
           }
         }
       };
@@ -728,9 +758,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             
             // Se il giorno corrente nell'azienda originale ha un codice di assenza, copialo
             if (sourceSchedule[dayIndex] && sourceSchedule[dayIndex].code) {
-              const sourceCodeKey = Object.keys(timeCodes).find(k => timeCodes[k] === sourceSchedule[dayIndex].code);
+              const sourceCodeKey = getCodeKey(sourceSchedule[dayIndex].code);
               if (sourceCodeKey && isAbsenceCode(sourceCodeKey)) {
-                targetDayData.code = sourceSchedule[dayIndex].code;
+                // Salva sempre la chiave, non il label
+                targetDayData.code = sourceCodeKey;
               }
             }
             
@@ -743,12 +774,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             Object.keys(sourceSchedule).forEach(dayIdx => {
               const dayData = sourceSchedule[dayIdx];
               if (dayData && dayData.code) {
-                const dayCodeKey = Object.keys(timeCodes).find(k => timeCodes[k] === dayData.code);
+                const dayCodeKey = getCodeKey(dayData.code);
                 if (dayCodeKey && isAbsenceCode(dayCodeKey)) {
                   // Se non è già stato impostato per questo giorno (tranne il giorno corrente che ha il codice geografico)
                   if (parseInt(dayIdx) !== dayIndex) {
+                    // Salva sempre la chiave, non il label
                     newSchedule[targetScheduleKey][dayIdx] = {
-                      code: dayData.code,
+                      code: dayCodeKey,
                       in1: '',
                       out1: '',
                       in2: '',
@@ -784,6 +816,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
     const scheduleKey = `${currentWeek}-${baseKey}`;
 
+    // Usa codeKey se disponibile, altrimenti cerca la chiave dal label
+    const keyToSave = codeKey || getCodeKey(code) || code;
+
     setSchedule(prev => {
       const newSchedule = { ...prev };
       if (!newSchedule[scheduleKey]) {
@@ -791,9 +826,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       }
 
       // Applica il codice ai giorni consecutivi SOLO nell'azienda corrente
+      // Salva sempre la CHIAVE, non il label, per coerenza
       for (let i = 0; i < days && (startDayIndex + i) < 7; i++) {
         newSchedule[scheduleKey][startDayIndex + i] = {
-          code: code,
+          code: keyToSave,
           in1: '',
           out1: '',
           in2: '',
@@ -1604,8 +1640,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             // Verifica se ha un codice geografico per questa azienda
             const hasGeographicCode = Object.values(otherSchedule).some(dayData => {
               if (!dayData || !dayData.code) return false;
-              const dayCodeKey = Object.keys(timeCodes).find(k => timeCodes[k] === dayData.code);
-              return geographicCodes.includes(dayCodeKey);
+              const dayCodeKey = getCodeKey(dayData.code);
+              return dayCodeKey && geographicCodes.includes(dayCodeKey);
             });
             
             if (hasGeographicCode) {
@@ -2077,9 +2113,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                           });
                         }
                       }
-                      const isRest = cellData.code === 'R';
                       // Verifica se è un codice geografico o se viene da altra azienda
-                      const codeKey = cellData.code ? Object.keys(timeCodes).find(k => timeCodes[k] === cellData.code) : null;
+                      // Usa la funzione helper per ottenere la chiave (gestisce sia chiavi che label)
+                      const codeKey = getCodeKey(cellData.code);
+                      // Verifica se è riposo: usa la chiave per il controllo
+                      const isRest = codeKey === 'R';
                       const isGeographic = codeKey && isGeographicCode(codeKey);
                       const isFromOtherCompany = cellData.fromCompany && cellData.fromCompany !== emp.company;
                       const hasGeographicCode = cellData.geographicCode && !cellData.code; // Ha codice geografico ma non è un codice normale
@@ -2137,7 +2175,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                               onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                               title="Tasto destro per modificare"
                             >
-                              {cellData.code}
+                              {getCodeLabel(cellData.code)}
                             </div>
                           ) : showGeographicInputs ? (
                             // Mostra gli input per compilare gli orari quando viene da altra azienda
