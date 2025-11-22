@@ -2084,7 +2084,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                 </div>
                               )}
                               {!isBusyInOtherCompany && (cellData.in1 || cellData.in2 || cellData.out1) && (
-                              {(cellData.in1 || cellData.in2 || cellData.out1) && (
                                 <div className="flex gap-1 animate-in fade-in duration-300">
                                   <input
                                     type="text"
