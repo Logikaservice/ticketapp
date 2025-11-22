@@ -1084,6 +1084,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   // --- MENU CONTESTUALE ---
   const handleContextMenu = (e, empId, dayIndex, contextKey = null, weekRangeValue = null) => {
     e.preventDefault();
+    
+    // Verifica se il campo ha un codice
+    const currentWeek = weekRangeValue || weekRange;
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+    const cellData = schedule[scheduleKey]?.[dayIndex] || {};
+    const hasCode = cellData.code && cellData.code.trim() !== '';
+    
     setContextMenu({
       visible: true,
       x: e.pageX,
@@ -1091,7 +1099,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       empId,
       dayIndex,
       contextKey,
-      weekRangeValue
+      weekRangeValue,
+      hasCode // Flag per sapere se ha un codice
     });
   };
 
@@ -1930,7 +1939,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       const showGeographicInputs = isFromOtherCompany && hasGeographicCode;
 
                       return (
-                        <td key={dayIdx} className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-50' : ''}`}>
+                        <td 
+                          key={dayIdx} 
+                          className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-50' : ''}`}
+                          onContextMenu={(e) => {
+                            // Se c'è un codice, permetti il menu contestuale anche cliccando sulla cella
+                            if (cellData.code && !showGeographicInputs) {
+                              handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange);
+                            }
+                          }}
+                        >
 
 
                           {cellData.code && !showGeographicInputs ? (
