@@ -2713,7 +2713,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
               <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
                 <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">
-                  Dipendenti in: {selectedCompany} - {selectedDept}
+                  Dipendenti
                 </h3>
                 <div className="flex gap-2 mb-4">
                   <input
