@@ -596,7 +596,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
   // Verifica se un codice è assenza
   const isAbsenceCode = (code) => {
-    return ['R', 'F', 'M', 'I'].includes(code);
+    return ['R', 'F', 'M', 'P', 'I'].includes(code);
   };
 
   const handleQuickCode = (empId, dayIndex, code, contextKey = null, weekRangeValue = null) => {
