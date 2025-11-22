@@ -55,6 +55,26 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   const [newDeptName, setNewDeptName] = useState('');
   const [newEmployeeName, setNewEmployeeName] = useState('');
 
+  // --- STATO CODICI ORARI ---
+  const [timeCodes, setTimeCodes] = useState({
+    'R': 'Riposo',
+    'F': 'Ferie',
+    'M': 'Malattia',
+    'P': 'Permesso',
+    'I': 'Infortunio'
+  });
+  const [newCodeKey, setNewCodeKey] = useState('');
+  const [newCodeLabel, setNewCodeLabel] = useState('');
+  const [contextMenu, setContextMenu] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    empId: null,
+    dayIndex: null,
+    contextKey: null,
+    weekRangeValue: null
+  });
+
   // Stato per sostituzione dipendente
   const [replaceEmployeeModal, setReplaceEmployeeModal] = useState({
     isOpen: false,
@@ -277,6 +297,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
           // Inizializza con la prima azienda selezionata (ma non in modalità multi-azienda)
           // setSelectedCompanies([]); // Non selezionare nessuna azienda di default
+          // Carica i codici orari se presenti, altrimenti mantieni i default
+          if (data.timeCodes && Object.keys(data.timeCodes).length > 0) {
+            setTimeCodes(data.timeCodes);
+          }
         } else {
           // Se non ci sono dati, inizializza con le aziende di default
           const defaultData = {
@@ -291,13 +315,21 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               'Mercurio-Cucina': [],
               'Albatros-Cucina': []
             },
-            schedule: {}
+            schedule: {},
+            timeCodes: {
+              'R': 'Riposo',
+              'F': 'Ferie',
+              'M': 'Malattia',
+              'P': 'Permesso',
+              'I': 'Infortunio'
+            }
           };
           setCompanies(defaultData.companies);
           setSelectedCompany(defaultData.companies[0]);
           setDepartmentsStructure(defaultData.departments);
           setEmployeesData(defaultData.employees);
           setSchedule(defaultData.schedule);
+          setTimeCodes(defaultData.timeCodes);
           setSelectedDept('Cucina');
           // Salva i dati iniziali
           setTimeout(() => saveData(), 500);
@@ -318,7 +350,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         companies,
         departments: departmentsStructure,
         employees: employeesData,
-        schedule
+        schedule,
+        timeCodes
       };
 
       // Pulisci i dati prima di salvare (rimuovi undefined, null, etc.)
@@ -479,13 +512,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     // Logica Shortcut su in1
     if (field === 'in1' && value) {
       const upperVal = String(value).toUpperCase();
-      const shortcuts = {
-        'R': 'Riposo',
-        'F': 'Ferie',
-        'M': 'Malattia',
-        'P': 'Permesso',
-        'I': 'Infortunio'
-      };
+      // Usa i codici dinamici dallo stato
+      const shortcuts = timeCodes;
 
       if (shortcuts[upperVal]) {
         handleQuickCode(empId, dayIndex, shortcuts[upperVal], contextKey, weekRangeValue);
@@ -549,7 +577,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         companies,
         departments: departmentsStructure,
         employees: employeesData,
-        schedule: scheduleToSave || schedule
+        schedule: scheduleToSave || schedule,
+        timeCodes
       };
 
       const response = await fetch(buildApiUrl('/api/orari/save'), {
@@ -601,7 +630,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         companies: (companiesData || []).map(c => String(c).trim()),
         departments: deptsData || {},
         employees: cleanedEmployees,
-        schedule: scheduleData || {}
+        schedule: scheduleData || {},
+        timeCodes: timeCodes
       };
 
       console.log('📤 Invio dati al backend:', {
@@ -771,6 +801,60 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     }, 600); // Ritardo leggermente maggiore perché c'è anche il salvataggio struttura
   };
 
+
+  // --- GESTIONE CODICI ORARI ---
+  const addTimeCode = () => {
+    if (!newCodeKey.trim() || !newCodeLabel.trim()) return;
+    const key = newCodeKey.toUpperCase().trim();
+    if (key.length > 2) {
+      alert("Il codice deve essere di massimo 2 caratteri (es. M, F, P)");
+      return;
+    }
+    if (timeCodes[key]) {
+      alert("Questo codice esiste già!");
+      return;
+    }
+
+    const newCodes = { ...timeCodes, [key]: newCodeLabel.trim() };
+    setTimeCodes(newCodes);
+    setNewCodeKey('');
+    setNewCodeLabel('');
+    // Salva automaticamente
+    setTimeout(() => saveData(), 500);
+  };
+
+  const deleteTimeCode = (key) => {
+    const newCodes = { ...timeCodes };
+    delete newCodes[key];
+    setTimeCodes(newCodes);
+    // Salva automaticamente
+    setTimeout(() => saveData(), 500);
+  };
+
+  // --- MENU CONTESTUALE ---
+  const handleContextMenu = (e, empId, dayIndex, contextKey = null, weekRangeValue = null) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.pageX,
+      y: e.pageY,
+      empId,
+      dayIndex,
+      contextKey,
+      weekRangeValue
+    });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(prev => ({ ...prev, visible: false }));
+  };
+
+  // Chiudi menu al click fuori
+  useEffect(() => {
+    const handleClick = () => closeContextMenu();
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
 
   const addDepartment = () => {
     if (!newDeptName.trim() || departmentsStructure[selectedCompany]?.includes(newDeptName)) return;
@@ -1566,6 +1650,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                   value={cellData.in1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                                 />
                                 <input
                                   type="text"
@@ -1573,6 +1658,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                   value={cellData.out1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                                 />
                               </div>
                               {(cellData.in1 || cellData.in2 || cellData.out1) && (
@@ -1583,6 +1669,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                     value={cellData.in2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                                   />
                                   <input
                                     type="text"
@@ -1590,6 +1677,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                     value={cellData.out2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                                   />
                                 </div>
                               )}
@@ -1746,7 +1834,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             </div>
           )}
         </div>
-      </div>
+      </div >
     );
   };
 
@@ -1900,7 +1988,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             <div className="flex justify-between items-start mb-4">
               <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <Settings className="w-5 h-5 text-blue-600" />
-                Configurazione Reparti - {selectedCompany}
+                Impostazioni e Configurazione - {selectedCompany}
               </h2>
               <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={24} />
@@ -1927,6 +2015,67 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
+            </div>
+
+            {/* GESTIONE CODICI ORARI */}
+            <div className="mb-8 bg-white p-4 rounded shadow-sm border border-purple-200">
+              <h3 className="font-bold text-slate-600 mb-3 border-b pb-2 flex items-center gap-2">
+                <span className="bg-purple-100 text-purple-600 p-1 rounded"><Settings size={16} /></span>
+                Gestione Codici Orari (Shortcut)
+              </h3>
+              <p className="text-xs text-gray-500 mb-4">
+                Definisci i codici rapidi da usare negli orari. Esempio: scrivi "M" nel campo orario per inserire "Malattia".
+              </p>
+
+              <div className="flex gap-2 mb-4 items-end">
+                <div className="w-24">
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Codice</label>
+                  <input
+                    type="text"
+                    placeholder="Es. M"
+                    maxLength={2}
+                    value={newCodeKey}
+                    onChange={(e) => setNewCodeKey(e.target.value.toUpperCase())}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm uppercase text-center font-bold"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-gray-500 mb-1">Descrizione Estesa</label>
+                  <input
+                    type="text"
+                    placeholder="Es. Malattia"
+                    value={newCodeLabel}
+                    onChange={(e) => setNewCodeLabel(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                  />
+                </div>
+                <button
+                  onClick={addTimeCode}
+                  className="bg-purple-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-purple-700 h-[38px]"
+                >
+                  <Plus size={16} /> Aggiungi
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {Object.entries(timeCodes).map(([key, label]) => (
+                  <div key={key} className="flex justify-between items-center bg-purple-50 p-2 rounded border border-purple-100">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-purple-200 text-purple-800 font-bold px-2 py-0.5 rounded text-xs w-8 text-center">
+                        {key}
+                      </span>
+                      <span className="text-sm font-medium text-gray-700">{label}</span>
+                    </div>
+                    <button
+                      onClick={() => deleteTimeCode(key)}
+                      className="text-red-400 hover:text-red-600 p-1"
+                      title="Elimina codice"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -2018,8 +2167,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                   )}
                 </div>
               </div>
+
             </div>
           </div>
+
         )}
 
         {/* LISTE ORARI */}
@@ -2038,7 +2189,47 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           </button>
         </div>
       </div>
-    </div>
+
+
+      {/* MENU CONTESTUALE */}
+      {
+        contextMenu.visible && (
+          <div
+            className="fixed bg-white shadow-xl rounded border border-gray-200 z-[100] py-1 min-w-[150px] animate-in fade-in zoom-in-95 duration-100"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+          >
+            <div className="px-3 py-2 border-b border-gray-100 bg-gray-50 text-xs font-bold text-gray-500">
+              Inserisci Codice
+            </div>
+            {Object.entries(timeCodes).map(([code, label]) => (
+              <button
+                key={code}
+                className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm flex items-center justify-between group"
+                onClick={() => {
+                  handleQuickCode(contextMenu.empId, contextMenu.dayIndex, label, contextMenu.contextKey, contextMenu.weekRangeValue);
+                  closeContextMenu();
+                }}
+              >
+                <span className="font-medium text-gray-700">{label}</span>
+                <span className="text-xs bg-gray-100 text-gray-500 px-1.5 rounded group-hover:bg-blue-100 group-hover:text-blue-600">{code}</span>
+              </button>
+            ))}
+            <div className="border-t border-gray-100 mt-1 pt-1">
+              <button
+                className="w-full text-left px-3 py-2 hover:bg-red-50 text-sm text-red-600 flex items-center gap-2"
+                onClick={() => {
+                  handleQuickCode(contextMenu.empId, contextMenu.dayIndex, '', contextMenu.contextKey, contextMenu.weekRangeValue);
+                  closeContextMenu();
+                }}
+              >
+                <Trash2 size={14} /> Pulisci Cella
+              </button>
+            </div>
+          </div>
+        )
+      }
+
+    </div >
   );
 };
 
