@@ -19,7 +19,7 @@ module.exports = (poolOrari) => {
           updated_at TIMESTAMPTZ DEFAULT NOW()
         )
       `);
-      
+
       // Inserisci record iniziale con aziende di default se non esiste
       const check = await pool.query('SELECT COUNT(*) FROM orari_data');
       if (parseInt(check.rows[0].count) === 0) {
@@ -43,7 +43,7 @@ module.exports = (poolOrari) => {
         `, [JSON.stringify(initialData)]);
         console.log('✅ Dati iniziali creati con aziende: La Torre, Mercurio, Albatros');
       }
-      
+
       console.log('✅ Tabella orari_data inizializzata');
     } catch (err) {
       console.error('❌ Errore inizializzazione orari_data:', err);
@@ -58,7 +58,7 @@ module.exports = (poolOrari) => {
     try {
       console.log('📥 Richiesta lettura dati orari');
       const result = await pool.query('SELECT id, data, updated_at FROM orari_data ORDER BY id DESC LIMIT 1');
-      
+
       if (result.rows.length === 0) {
         console.log('📝 Nessun record trovato, creo dati iniziali');
         // Dati iniziali con aziende di default
@@ -91,7 +91,7 @@ module.exports = (poolOrari) => {
         employees: {},
         schedule: {}
       };
-      
+
       // Log dei dati restituiti
       const employeeKeys = Object.keys(data.employees || {});
       console.log('📤 Dati restituiti - Chiavi dipendenti:', employeeKeys);
@@ -112,18 +112,18 @@ module.exports = (poolOrari) => {
   router.get('/debug', async (req, res) => {
     try {
       const result = await pool.query('SELECT id, updated_at, data FROM orari_data ORDER BY id DESC LIMIT 1');
-      
+
       if (result.rows.length === 0) {
-        return res.json({ 
-          exists: false, 
-          message: 'Nessun record trovato nel database' 
+        return res.json({
+          exists: false,
+          message: 'Nessun record trovato nel database'
         });
       }
 
       const record = result.rows[0];
       const data = record.data || {};
       const employeeKeys = Object.keys(data.employees || {});
-      
+
       const employeeDetails = {};
       employeeKeys.forEach(key => {
         employeeDetails[key] = {
@@ -152,14 +152,16 @@ module.exports = (poolOrari) => {
   router.post('/save', async (req, res) => {
     try {
       console.log('📥 Richiesta salvataggio orari ricevuta');
-      const { companies, departments, employees, schedule } = req.body;
+      const { companies, departments, employees, schedule, timeCodes, timeCodesOrder } = req.body;
 
       // Log dei dati ricevuti
       console.log('📊 Dati ricevuti:', {
         companies: companies?.length || 0,
         departments: Object.keys(departments || {}).length,
         employees: Object.keys(employees || {}).length,
-        schedule: Object.keys(schedule || {}).length
+        schedule: Object.keys(schedule || {}).length,
+        timeCodes: Object.keys(timeCodes || {}).length,
+        timeCodesOrder: timeCodesOrder?.length || 0
       });
 
       // Log dettagliato dipendenti
@@ -176,7 +178,9 @@ module.exports = (poolOrari) => {
         companies: companies || [],
         departments: departments || {},
         employees: employees || {},
-        schedule: schedule || {}
+        schedule: schedule || {},
+        timeCodes: timeCodes || {},
+        timeCodesOrder: timeCodesOrder || []
       };
 
       // Pulisci il JSON per evitare problemi (rimuovi undefined, null, etc.)
@@ -184,37 +188,37 @@ module.exports = (poolOrari) => {
 
       // Aggiorna o inserisci
       const check = await pool.query('SELECT id FROM orari_data ORDER BY id DESC LIMIT 1');
-      
+
       if (check.rows.length > 0) {
         const recordId = check.rows[0].id;
         console.log(`💾 Aggiornamento record esistente ID: ${recordId}`);
-        
+
         // Log dettagliato prima del salvataggio
         console.log('📤 Dati da salvare (primi 500 caratteri):', JSON.stringify(cleanData).substring(0, 500));
-        
+
         const result = await pool.query(
           'UPDATE orari_data SET data = $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING id',
           [JSON.stringify(cleanData), recordId]
         );
-        
+
         if (result.rows.length === 0) {
           console.error('❌ ERRORE: UPDATE non ha aggiornato nessun record!');
           throw new Error('UPDATE fallito');
         }
-        
+
         console.log('✅ Dati orari aggiornati, ID:', result.rows[0].id);
-        
+
         // Verifica immediata che i dati siano stati salvati
         const verify = await pool.query(
           'SELECT data->\'employees\' as employees FROM orari_data WHERE id = $1',
           [recordId]
         );
-        
+
         if (verify.rows.length > 0) {
           const savedEmployees = verify.rows[0].employees;
           const savedKeys = Object.keys(savedEmployees || {});
           console.log('✅ Verifica salvataggio - Chiavi dipendenti nel DB:', savedKeys);
-          
+
           // Conta dipendenti per chiave
           savedKeys.forEach(key => {
             const count = Array.isArray(savedEmployees[key]) ? savedEmployees[key].length : 0;
