@@ -1425,7 +1425,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                     {days.map((day, dayIdx) => {
                       // Usa la settimana della lista corrente per la chiave schedule
                       const currentWeek = listWeekRange || getWeekDates(0).formatted;
-                      const baseKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : emp.id;
+                      const baseKey = multiCompanyMode ? `${emp.contextKey}-${emp.id}` : `${emp.contextKey || getContextKey(emp.company, emp.department)}-${emp.id}`;
                       const scheduleKey = `${currentWeek}-${baseKey}`;
                       // Fallback: se non trovi dati con la nuova chiave, prova con la vecchia (per compatibilità con dati esistenti)
                       let cellData = schedule[scheduleKey]?.[dayIdx] || {};
@@ -1526,18 +1526,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                   <td className="px-2 py-3 border font-bold text-gray-500 sticky left-0 bg-gray-50 z-10 group-hover:bg-blue-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => handleQuickAddEmployee(company, department)}
+                        onClick={() => handleQuickAddEmployee(company, department, listWeekRange)}
                         className="p-1 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-                        title="Aggiungi Dipendente a questa lista"
+                        title="Cerca e aggiungi dipendente esistente a questa settimana"
                       >
                         <Plus size={16} />
                       </button>
                       <input
                         type="text"
-                        placeholder="Nuovo Dipendente..."
+                        placeholder="Cerca dipendente..."
                         value={quickAddName}
                         onChange={(e) => setQuickAddName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department, listWeekRange)}
                         className="w-full bg-transparent border-b border-gray-400 focus:border-blue-500 outline-none text-sm uppercase placeholder-gray-400"
                       />
                     </div>
