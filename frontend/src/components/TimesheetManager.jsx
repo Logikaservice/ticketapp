@@ -1513,9 +1513,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     });
 
     // Combina i dipendenti normali con quelli geografici (evita duplicati)
+    // IMPORTANTE: Se un dipendente è già presente come normale (perché è stato aggiunto a employeesData),
+    // non aggiungerlo anche come geografico per evitare duplicazioni
     const allEmployees = [...employeesWithSchedule];
+    const existingIds = new Set(employeesWithSchedule.map(e => e.id));
+    
     geographicEmployees.forEach(geoEmp => {
-      if (!allEmployees.some(e => e.id === geoEmp.id && e.contextKey === geoEmp.contextKey)) {
+      // Aggiungi solo se NON è già presente come dipendente normale
+      // (cioè se non è stato ancora aggiunto a employeesData per questa azienda)
+      if (!existingIds.has(geoEmp.id)) {
         allEmployees.push(geoEmp);
       }
     });
