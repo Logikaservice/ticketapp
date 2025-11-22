@@ -1992,11 +1992,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                               title="Tasto destro per modificare"
                             >
                               {cellData.code}
-                              {isFromOtherCompany && (
-                                <span className="ml-1 text-xs text-yellow-600" title={`Da ${cellData.fromCompany}`}>
-                                  ⚠
-                                </span>
-                              )}
                             </div>
                           ) : showGeographicInputs ? (
                             // Mostra gli input per compilare gli orari quando viene da altra azienda
@@ -2044,9 +2039,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                   />
                                 </div>
                               )}
-                              <div className="text-[10px] text-yellow-700 text-center mt-0.5" title={`Da ${cellData.fromCompany}`}>
-                                ⚠ Da {cellData.fromCompany}
-                              </div>
                             </div>
                           ) : (
                             <div className="flex flex-col gap-1">
