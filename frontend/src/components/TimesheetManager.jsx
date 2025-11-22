@@ -691,6 +691,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       setSelectedAddCompany('');
       setSelectedAddDept('');
     }
+
+    // Focus automatico sul primo campo orario (Lunedì Entrata)
+    setTimeout(() => {
+      const inputId = `input-${foundEmployee.id}-0-in1`;
+      const element = document.getElementById(inputId);
+      if (element) {
+        element.focus();
+        element.select(); // Seleziona anche il contenuto se presente
+      }
+    }, 300); // Piccolo ritardo per permettere il render
   };
 
   const handleCreateAndAddEmployee = (name, targetCompany, targetDept, weekRangeValue) => {
@@ -732,6 +742,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
     setQuickAddName('');
     setShowSuggestions(false);
+
+    // Focus automatico sul primo campo orario (Lunedì Entrata)
+    setTimeout(() => {
+      const inputId = `input-${newId}-0-in1`;
+      const element = document.getElementById(inputId);
+      if (element) {
+        element.focus();
+        element.select();
+      }
+    }, 600); // Ritardo leggermente maggiore perché c'è anche il salvataggio struttura
   };
 
 
@@ -1525,6 +1545,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                             <div className="flex flex-col gap-1">
                               <div className="flex gap-1">
                                 <input
+                                  id={`input-${emp.id}-${dayIdx}-in1`}
                                   type="text"
                                   className="w-full border border-gray-300 rounded px-1 py-0.5 text-center focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
                                   value={cellData.in1 || ''}
