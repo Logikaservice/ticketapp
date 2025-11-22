@@ -684,18 +684,53 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
             // Salva gli orari vuoti nell'azienda target (non il codice, ma gli input da compilare)
             const targetScheduleKey = `${currentWeek}-${targetKey}-${empId}`;
-            newSchedule[targetScheduleKey] = {
-              ...newSchedule[targetScheduleKey],
-              [dayIndex]: {
-                // NON salvare il codice, ma solo gli orari vuoti
-                in1: '',
-                out1: '',
-                in2: '',
-                out2: '',
-                fromCompany: currentCompany, // Flag per indicare da dove viene
-                geographicCode: codeKey // Salva il codice geografico per riferimento
+            const sourceScheduleKey = `${currentWeek}-${empKey}-${empId}`;
+            const sourceSchedule = schedule[sourceScheduleKey] || {};
+            
+            // Copia i codici di assenza dall'azienda originale all'azienda target
+            const targetDayData = { ...newSchedule[targetScheduleKey]?.[dayIndex] };
+            targetDayData.in1 = '';
+            targetDayData.out1 = '';
+            targetDayData.in2 = '';
+            targetDayData.out2 = '';
+            targetDayData.fromCompany = currentCompany;
+            targetDayData.geographicCode = codeKey;
+            
+            // Se il giorno corrente nell'azienda originale ha un codice di assenza, copialo
+            if (sourceSchedule[dayIndex] && sourceSchedule[dayIndex].code) {
+              const sourceCodeKey = Object.keys(timeCodes).find(k => timeCodes[k] === sourceSchedule[dayIndex].code);
+              if (sourceCodeKey && isAbsenceCode(sourceCodeKey)) {
+                targetDayData.code = sourceSchedule[dayIndex].code;
               }
-            };
+            }
+            
+            // Copia anche tutti gli altri giorni che hanno codici di assenza dall'azienda originale
+            if (!newSchedule[targetScheduleKey]) {
+              newSchedule[targetScheduleKey] = {};
+            }
+            
+            // Copia tutti i giorni con codici di assenza dall'azienda originale
+            Object.keys(sourceSchedule).forEach(dayIdx => {
+              const dayData = sourceSchedule[dayIdx];
+              if (dayData && dayData.code) {
+                const dayCodeKey = Object.keys(timeCodes).find(k => timeCodes[k] === dayData.code);
+                if (dayCodeKey && isAbsenceCode(dayCodeKey)) {
+                  // Se non è già stato impostato per questo giorno (tranne il giorno corrente che ha il codice geografico)
+                  if (parseInt(dayIdx) !== dayIndex) {
+                    newSchedule[targetScheduleKey][dayIdx] = {
+                      code: dayData.code,
+                      in1: '',
+                      out1: '',
+                      in2: '',
+                      out2: ''
+                    };
+                  }
+                }
+              }
+            });
+            
+            // Imposta il giorno corrente con il codice geografico
+            newSchedule[targetScheduleKey][dayIndex] = targetDayData;
           }
         }
       }
@@ -713,54 +748,28 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     });
   };
 
-  // Applica codice assenza a giorni consecutivi
+  // Applica codice assenza a giorni consecutivi (SOLO nell'azienda corrente, NON in altre aziende)
   const applyAbsenceCode = (empId, startDayIndex, code, codeKey, days, contextKey = null, weekRangeValue = null) => {
     const currentWeek = weekRangeValue || weekRange;
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
     const scheduleKey = `${currentWeek}-${baseKey}`;
 
-    // Estrai azienda e reparto dal contextKey
-    let currentCompany = '';
-    let currentDept = '';
-    if (contextKey) {
-      const parts = contextKey.split('-');
-      currentCompany = parts[0] || '';
-      currentDept = parts.slice(1).join('-') || '';
-    }
-
-    // Trova tutte le aziende dove questo dipendente è presente
-    const companiesWithEmployee = [];
-    Object.keys(employeesData).forEach(key => {
-      const employees = employeesData[key] || [];
-      const employee = employees.find(e => e.id === empId);
-      if (employee) {
-        const [company, ...deptParts] = key.split('-');
-        const dept = deptParts.join('-');
-        companiesWithEmployee.push({ company, dept, key });
-      }
-    });
-
     setSchedule(prev => {
       const newSchedule = { ...prev };
+      if (!newSchedule[scheduleKey]) {
+        newSchedule[scheduleKey] = {};
+      }
 
-      // Applica il codice assenza a tutte le aziende dove il dipendente è presente
-      companiesWithEmployee.forEach(({ company, dept, key }) => {
-        const empScheduleKey = `${currentWeek}-${key}-${empId}`;
-        if (!newSchedule[empScheduleKey]) {
-          newSchedule[empScheduleKey] = {};
-        }
-
-        // Applica il codice ai giorni consecutivi per questa azienda
-        for (let i = 0; i < days && (startDayIndex + i) < 7; i++) {
-          newSchedule[empScheduleKey][startDayIndex + i] = {
-            code: code,
-            in1: '',
-            out1: '',
-            in2: '',
-            out2: ''
-          };
-        }
-      });
+      // Applica il codice ai giorni consecutivi SOLO nell'azienda corrente
+      for (let i = 0; i < days && (startDayIndex + i) < 7; i++) {
+        newSchedule[scheduleKey][startDayIndex + i] = {
+          code: code,
+          in1: '',
+          out1: '',
+          in2: '',
+          out2: ''
+        };
+      }
 
       setTimeout(() => {
         setSchedule(currentSchedule => {
