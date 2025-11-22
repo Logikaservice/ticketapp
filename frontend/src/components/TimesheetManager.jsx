@@ -1550,10 +1550,30 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               </tbody>
             </table>
           ) : (
-            <div className="flex flex-col items-center justify-center h-48 text-slate-400 bg-white border-2 border-dashed border-gray-200 rounded-lg">
-              <UserPlus size={32} className="mb-2 opacity-20" />
-              <p className="text-sm flex items-center gap-2">
-                Utilizza l'<Settings size={16} className="text-blue-600 inline" /> per creare nuovi reparti o nuovi dipendenti
+            <div className="flex flex-col items-center justify-center h-48 text-slate-400 bg-white border-2 border-dashed border-gray-200 rounded-lg p-6">
+              <UserPlus size={32} className="mb-4 opacity-20" />
+              <p className="text-sm text-center px-4 mb-4">
+                Nessun dipendente con orari per questa settimana.
+              </p>
+              <div className="flex items-center gap-2 w-full max-w-md">
+                <button
+                  onClick={() => handleQuickAddEmployee(company, department, listWeekRange)}
+                  className="p-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors flex-shrink-0"
+                  title="Cerca e aggiungi dipendente esistente a questa settimana"
+                >
+                  <Plus size={20} />
+                </button>
+                <input
+                  type="text"
+                  placeholder="Inserisci il primo dipendente..."
+                  value={quickAddName}
+                  onChange={(e) => setQuickAddName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department, listWeekRange)}
+                  className="flex-1 border-2 border-blue-300 rounded px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none uppercase placeholder-gray-400"
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-2 text-center">
+                Cerca tra i dipendenti già creati dall'<Settings size={12} className="text-blue-600 inline" /> per questa azienda e reparto
               </p>
             </div>
           )}
