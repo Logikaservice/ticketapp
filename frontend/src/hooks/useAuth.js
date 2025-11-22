@@ -76,7 +76,14 @@ export const useAuth = (showNotification) => {
   const handleLogin = async () => {
     if (!loginData.email || !loginData.password) return showNotification('Inserisci email e password.', 'error');
     try {
-      const response = await fetch(buildApiUrl('/api/login'), {
+      // Aggiungi il parametro domain se presente nell'URL o in localStorage
+      const urlParams = new URLSearchParams(window.location.search);
+      const domainParam = urlParams.get('domain') || localStorage.getItem('requestedDomain');
+      const loginUrl = domainParam 
+        ? `${buildApiUrl('/api/login')}?domain=${domainParam}`
+        : buildApiUrl('/api/login');
+      
+      const response = await fetch(loginUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginData)

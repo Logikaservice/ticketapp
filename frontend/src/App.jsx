@@ -45,7 +45,19 @@ export default function TicketApp() {
   const [selectedTicket, setSelectedTicket] = useState(null);
 
   // Rileva se siamo su orari.logikaservice.it o turni.logikaservice.it
-  const isOrariDomain = window.location.hostname === 'orari.logikaservice.it' || 
+  // Supporta anche parametro URL ?domain=orari per test locali
+  const urlParams = new URLSearchParams(window.location.search);
+  const testDomain = urlParams.get('domain');
+  
+  // Salva il dominio richiesto in localStorage se presente nell'URL
+  if (testDomain === 'orari' || testDomain === 'turni') {
+    localStorage.setItem('requestedDomain', testDomain);
+  }
+  
+  // Leggi il dominio richiesto da localStorage o dall'URL
+  const requestedDomain = testDomain || localStorage.getItem('requestedDomain') || null;
+  const isOrariDomain = requestedDomain === 'orari' || requestedDomain === 'turni' ||
+                        window.location.hostname === 'orari.logikaservice.it' || 
                         window.location.hostname === 'turni.logikaservice.it' ||
                         window.location.hostname.includes('orari') ||
                         window.location.hostname.includes('turni');
@@ -117,8 +129,27 @@ export default function TicketApp() {
   const [fornitureModalTicket, setFornitureModalTicket] = useState(null);
   const [photosModalTicket, setPhotosModalTicket] = useState(null);
   const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
-  const [showDashboard, setShowDashboard] = useState(!isOrariDomain); // Se siamo su orari, non mostrare dashboard di default
-  const [showOrariTurni, setShowOrariTurni] = useState(isOrariDomain); // Se siamo su orari, mostra subito orari
+  // Inizializza lo stato in base al dominio richiesto
+  const [showDashboard, setShowDashboard] = useState(() => {
+    // Se c'è un dominio richiesto (orari/turni), non mostrare dashboard
+    const savedDomain = localStorage.getItem('requestedDomain');
+    return !(savedDomain === 'orari' || savedDomain === 'turni' || isOrariDomain);
+  });
+  
+  const [showOrariTurni, setShowOrariTurni] = useState(() => {
+    // Se c'è un dominio richiesto (orari/turni), mostra subito orari
+    const savedDomain = localStorage.getItem('requestedDomain');
+    return savedDomain === 'orari' || savedDomain === 'turni' || isOrariDomain;
+  });
+  
+  // Aggiorna lo stato quando cambia il dominio richiesto
+  useEffect(() => {
+    const savedDomain = localStorage.getItem('requestedDomain');
+    if (savedDomain === 'orari' || savedDomain === 'turni' || isOrariDomain) {
+      setShowDashboard(false);
+      setShowOrariTurni(true);
+    }
+  }, [isOrariDomain]);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
@@ -208,6 +239,13 @@ export default function TicketApp() {
   useEffect(() => {
     if (isLoggedIn) {
       setNotifications(prev => prev.filter(n => !(n.sticky && n.message === 'Disconnesso per inattività')));
+      
+      // Dopo il login, verifica se c'è un dominio richiesto e mostra la gestione orari se necessario
+      const savedDomain = localStorage.getItem('requestedDomain');
+      if (savedDomain === 'orari' || savedDomain === 'turni') {
+        setShowDashboard(false);
+        setShowOrariTurni(true);
+      }
     }
   }, [isLoggedIn]);
 
@@ -337,8 +375,18 @@ export default function TicketApp() {
   useEffect(() => {
     if (isLoggedIn) {
       setSelectedTicket(null);
-      setShowDashboard(true); // all'accesso parte dalla dashboard
       localStorage.setItem('openTicketId', 'null');
+      
+      // Verifica se c'è un dominio richiesto (orari/turni)
+      const savedDomain = localStorage.getItem('requestedDomain');
+      if (savedDomain === 'orari' || savedDomain === 'turni') {
+        // Se c'è un dominio richiesto, mostra la gestione orari
+        setShowDashboard(false);
+        setShowOrariTurni(true);
+      } else {
+        // Altrimenti mostra la dashboard
+        setShowDashboard(true);
+      }
 
       // NON resettare modalState se contiene keepassCredentials (preservato dall'URL)
       // Il modalState viene già inizializzato dall'URL, non resettarlo qui
@@ -2620,7 +2668,33 @@ export default function TicketApp() {
             <Notification key={notif.id} notification={notif} handleClose={() => handleCloseNotification(notif.id)} />
           ))}
         </div>
-        <LoginScreen {...{ loginData, setLoginData, handleLogin, onQuickRequest: handleQuickRequest, existingClients: users.filter(u => u.ruolo === 'cliente') }} />
+        <LoginScreen 
+          {...{ 
+            loginData, 
+            setLoginData, 
+            handleLogin, 
+            onQuickRequest: handleQuickRequest, 
+            existingClients: users.filter(u => u.ruolo === 'cliente'),
+            // Personalizzazione per dominio orari
+            ...(isOrariDomain ? {
+              title: 'Gestione Orari e Turni',
+              subtitle: 'Accedi per gestire orari e turni dei dipendenti',
+              bgGradient: 'from-purple-600 to-violet-600',
+              iconBgColor: 'bg-purple-100',
+              iconColor: 'text-purple-600',
+              buttonColor: 'bg-purple-600 hover:bg-purple-700',
+              linkColor: 'text-purple-600 hover:text-purple-800'
+            } : {
+              title: 'Sistema Ticketing',
+              subtitle: 'Accedi per gestire i tuoi ticket',
+              bgGradient: 'from-blue-600 to-indigo-600',
+              iconBgColor: 'bg-blue-100',
+              iconColor: 'text-blue-600',
+              buttonColor: 'bg-blue-600 hover:bg-blue-700',
+              linkColor: 'text-blue-600 hover:text-blue-800'
+            })
+          }} 
+        />
         {/* Renderizza AllModals anche se non loggato, per preservare il modalState dall'URL */}
         {modalState.type === 'keepassCredentials' && (
           <AllModals

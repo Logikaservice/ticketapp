@@ -362,8 +362,11 @@ const { generateLoginResponse, verifyRefreshToken, generateToken } = require('./
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   // Rileva il dominio/progetto richiesto dall'header Host
+  // Supporta anche parametro ?domain=orari per test locali
   const host = req.get('host') || '';
-  const isOrariDomain = host.includes('orari') || host.includes('turni');
+  const testDomain = req.query.domain;
+  const isOrariDomain = testDomain === 'orari' || testDomain === 'turni' || 
+                        host.includes('orari') || host.includes('turni');
   const requestedProject = isOrariDomain ? 'orari' : 'ticket';
   
   console.log('🔍 LOGIN DEBUG - Senza JWT');

@@ -2,7 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { User } from 'lucide-react';
 import QuickRequestModal from './Modals/QuickRequestModal';
 
-const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, existingClients = [] }) => {
+const LoginScreen = ({ 
+  loginData, 
+  setLoginData, 
+  handleLogin, 
+  onQuickRequest, 
+  existingClients = [],
+  // Props per personalizzazione
+  title = 'Sistema Ticketing',
+  subtitle = 'Accedi per gestire i tuoi ticket',
+  bgGradient = 'from-blue-600 to-indigo-600',
+  iconBgColor = 'bg-blue-100',
+  iconColor = 'text-blue-600',
+  buttonColor = 'bg-blue-600 hover:bg-blue-700',
+  linkColor = 'text-blue-600 hover:text-blue-800'
+}) => {
   const [showQuickRequest, setShowQuickRequest] = useState(false);
   const [clients, setClients] = useState(existingClients);
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState(null);
@@ -88,7 +102,7 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
         />
       )}
       <div
-        className="fixed bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center"
+        className={`fixed bg-gradient-to-br ${bgGradient} flex items-center justify-center`}
         style={{
           overflow: 'hidden',
           position: 'fixed',
@@ -114,11 +128,11 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
           }}
         >
           <div className="text-center mb-4 sm:mb-6">
-            <div className="bg-blue-100 w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3">
-              <User size={24} className="sm:w-7 sm:h-7 md:w-8 md:h-8 text-blue-600" />
+            <div className={`${iconBgColor} w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3`}>
+              <User size={24} className={`sm:w-7 sm:h-7 md:w-8 md:h-8 ${iconColor}`} />
             </div>
-            <h1 className="text-2xl sm:text-2xl md:text-3xl font-bold">Sistema Ticketing</h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">Accedi per gestire i tuoi ticket</p>
+            <h1 className="text-2xl sm:text-2xl md:text-3xl font-bold">{title}</h1>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">{subtitle}</p>
           </div>
 
           {sessionExpiredMsg && (
@@ -154,7 +168,7 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
 
             <button
               onClick={handleLogin}
-              className="w-full py-2 sm:py-2.5 md:py-3 text-sm sm:text-base bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition"
+              className={`w-full py-2 sm:py-2.5 md:py-3 text-sm sm:text-base ${buttonColor} text-white font-semibold rounded-lg transition`}
             >
               Accedi
             </button>
@@ -164,7 +178,7 @@ const LoginScreen = ({ loginData, setLoginData, handleLogin, onQuickRequest, exi
           <div className="mt-4 sm:mt-5 md:mt-6 text-center">
             <button
               onClick={() => setShowQuickRequest(true)}
-              className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 underline transition"
+              className={`text-xs sm:text-sm ${linkColor} underline transition`}
             >
               Richiesta Assistenza Veloce
             </button>
