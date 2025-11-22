@@ -2199,7 +2199,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                   id={`input-${emp.id}-${dayIdx}-in1-geo`}
                                   type="text"
                                   className="w-full border border-gray-300 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
-                                  placeholder="Entrata"
+                                  placeholder=""
                                   value={cellData.in1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
@@ -2208,7 +2208,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                 <input
                                   type="text"
                                   className="w-full border border-gray-300 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
-                                  placeholder="Uscita"
+                                  placeholder=""
                                   value={cellData.out1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
@@ -2220,7 +2220,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                   <input
                                     type="text"
                                     className="w-full border border-gray-200 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none"
-                                    placeholder="Entrata 2"
+                                    placeholder=""
                                     value={cellData.in2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
@@ -2229,7 +2229,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                   <input
                                     type="text"
                                     className="w-full border border-gray-200 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none"
-                                    placeholder="Uscita 2"
+                                    placeholder=""
                                     value={cellData.out2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
