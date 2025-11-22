@@ -41,9 +41,12 @@ module.exports = (poolOrari) => {
             'F': 'Ferie',
             'M': 'Malattia',
             'P': 'Permesso',
-            'I': 'Infortunio'
+            'I': 'Infortunio',
+            'AT': 'Atripalda',
+            'AV': 'Avellino',
+            'L': 'Lioni'
           },
-          timeCodesOrder: ['R', 'F', 'M', 'P', 'I']
+          timeCodesOrder: ['R', 'F', 'M', 'P', 'I', 'AT', 'AV', 'L']
         };
         await pool.query(`
           INSERT INTO orari_data (data) 
@@ -88,9 +91,12 @@ module.exports = (poolOrari) => {
             'F': 'Ferie',
             'M': 'Malattia',
             'P': 'Permesso',
-            'I': 'Infortunio'
+            'I': 'Infortunio',
+            'AT': 'Atripalda',
+            'AV': 'Avellino',
+            'L': 'Lioni'
           },
-          timeCodesOrder: ['R', 'F', 'M', 'P', 'I']
+          timeCodesOrder: ['R', 'F', 'M', 'P', 'I', 'AT', 'AV', 'L']
         };
         // Salva i dati iniziali nel database
         await pool.query(
@@ -107,6 +113,64 @@ module.exports = (poolOrari) => {
         employees: {},
         schedule: {}
       };
+
+      // GARANZIA: Se i codici orari mancano o sono vuoti, ripristina quelli di default
+      const defaultTimeCodes = {
+        'R': 'Riposo',
+        'F': 'Ferie',
+        'M': 'Malattia',
+        'P': 'Permesso',
+        'I': 'Infortunio',
+        'AT': 'Atripalda',
+        'AV': 'Avellino',
+        'L': 'Lioni'
+      };
+      const defaultTimeCodesOrder = ['R', 'F', 'M', 'P', 'I', 'AT', 'AV', 'L'];
+      
+      if (!data.timeCodes || Object.keys(data.timeCodes).length === 0) {
+        console.log('⚠️ Codici orari mancanti o vuoti, ripristino quelli di default');
+        data.timeCodes = defaultTimeCodes;
+        data.timeCodesOrder = defaultTimeCodesOrder;
+        
+        // Salva immediatamente nel database
+        await pool.query(
+          'UPDATE orari_data SET data = $1::jsonb, updated_at = NOW() WHERE id = $2',
+          [JSON.stringify(data), result.rows[0].id]
+        );
+        console.log('✅ Codici orari di default ripristinati e salvati nel database');
+      } else {
+        // Assicurati che tutti i codici di default siano presenti (merge)
+        let needsUpdate = false;
+        Object.keys(defaultTimeCodes).forEach(key => {
+          if (!data.timeCodes[key]) {
+            data.timeCodes[key] = defaultTimeCodes[key];
+            needsUpdate = true;
+          }
+        });
+        
+        // Aggiorna l'ordine se mancano codici
+        if (!data.timeCodesOrder || data.timeCodesOrder.length === 0) {
+          data.timeCodesOrder = defaultTimeCodesOrder;
+          needsUpdate = true;
+        } else {
+          // Aggiungi codici mancanti all'ordine
+          defaultTimeCodesOrder.forEach(key => {
+            if (!data.timeCodesOrder.includes(key)) {
+              data.timeCodesOrder.push(key);
+              needsUpdate = true;
+            }
+          });
+        }
+        
+        if (needsUpdate) {
+          console.log('⚠️ Aggiunti codici orari mancanti, aggiorno database');
+          await pool.query(
+            'UPDATE orari_data SET data = $1::jsonb, updated_at = NOW() WHERE id = $2',
+            [JSON.stringify(data), result.rows[0].id]
+          );
+          console.log('✅ Codici orari aggiornati nel database');
+        }
+      }
 
       // Log dei dati restituiti
       const employeeKeys = Object.keys(data.employees || {});
