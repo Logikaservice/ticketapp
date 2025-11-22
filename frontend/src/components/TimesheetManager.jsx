@@ -21,6 +21,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     return `${formatDate(monday)} al ${formatDate(sunday)}`;
   });
   const [quickAddName, setQuickAddName] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // --- GESTIONE MODALE SICURA ---
@@ -108,11 +109,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       monday,
       sunday,
       formatted: `${formatDate(monday)} al ${formatDate(sunday)}`,
-      label: offset === 0 ? 'Questa settimana' : 
-             offset === 1 ? 'Prossima settimana' : 
-             offset === -1 ? 'Settimana scorsa' :
-             offset > 1 ? `Tra ${offset} settimane` :
-             `${Math.abs(offset)} settimane fa`
+      label: offset === 0 ? 'Questa settimana' :
+        offset === 1 ? 'Prossima settimana' :
+          offset === -1 ? 'Settimana scorsa' :
+            offset > 1 ? `Tra ${offset} settimane` :
+              `${Math.abs(offset)} settimane fa`
     };
   };
 
@@ -227,12 +228,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           });
 
           setEmployeesData(cleanedEmployees);
-          
+
           // Migra automaticamente i dati vecchi (senza settimana) alla settimana corrente
           const currentWeek = getWeekDates(0).formatted;
           const oldSchedule = data.schedule || {};
           const migratedSchedule = { ...oldSchedule };
-          
+
           // Trova tutte le chiavi vecchie (che non contengono una data nel formato "dd/mm/yyyy al dd/mm/yyyy")
           const weekPattern = /^\d{2}\/\d{2}\/\d{4} al \d{2}\/\d{2}\/\d{4}-/;
           Object.keys(oldSchedule).forEach(oldKey => {
@@ -250,9 +251,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               }
             }
           });
-          
+
           setSchedule(migratedSchedule);
-          
+
           // Salva la migrazione se ci sono state modifiche
           if (Object.keys(migratedSchedule).length > Object.keys(oldSchedule).length) {
             setTimeout(() => {
@@ -475,18 +476,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   const handleBlur = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
-     if (!value) return;
-     const strValue = String(value);
-     let formatted = strValue.replace(',', '.').replace(':', '.').trim();
-     if (!formatted.includes('.')) formatted += '.00';
-     const parts = formatted.split('.');
-     if (parts[0].length === 1) parts[0] = '0' + parts[0];
-     if (parts[1].length === 1) parts[1] = parts[1] + '0';
-     formatted = parts.join('.');
-     if (formatted !== value) handleInputChange(empId, dayIndex, field, formatted, contextKey, weekRangeValue);
-     // Salva automaticamente dopo ogni modifica
-     setTimeout(() => saveData(), 500);
-   };
+    if (!value) return;
+    const strValue = String(value);
+    let formatted = strValue.replace(',', '.').replace(':', '.').trim();
+    if (!formatted.includes('.')) formatted += '.00';
+    const parts = formatted.split('.');
+    if (parts[0].length === 1) parts[0] = '0' + parts[0];
+    if (parts[1].length === 1) parts[1] = parts[1] + '0';
+    formatted = parts.join('.');
+    if (formatted !== value) handleInputChange(empId, dayIndex, field, formatted, contextKey, weekRangeValue);
+    // Salva automaticamente dopo ogni modifica
+    setTimeout(() => saveData(), 500);
+  };
 
   const handleQuickCode = (empId, dayIndex, code, contextKey = null, weekRangeValue = null) => {
     // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
@@ -618,8 +619,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   // --- AZIONI STRUTTURA ---
-  const handleQuickAddEmployee = (targetCompany = null, targetDept = null, weekRangeValue = null) => {
-    if (!quickAddName.trim()) return;
+  const handleQuickAddEmployee = (targetCompany = null, targetDept = null, weekRangeValue = null, forceName = null) => {
+    const nameToUse = forceName || quickAddName;
+    if (!nameToUse.trim()) return;
 
     // Se modalità multi-azienda e non specificato, usa la prima azienda selezionata
     let company = targetCompany || selectedCompany;
@@ -641,31 +643,20 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     }
 
     const key = getContextKey(company, dept);
-    const employeeName = quickAddName.toUpperCase().trim();
+    const employeeName = nameToUse.toUpperCase().trim();
 
     // Cerca il dipendente tra quelli già creati per questa azienda/reparto
     const existingEmployees = employeesData[key] || [];
-    
-    console.log('🔍 Ricerca dipendente:', {
-      nomeCercato: employeeName,
-      azienda: company,
-      reparto: dept,
-      chiave: key,
-      dipendentiDisponibili: existingEmployees.map(e => e.name),
-      totaleDipendenti: existingEmployees.length
-    });
-    
+
     const foundEmployee = existingEmployees.find(emp => {
       const empName = String(emp.name || '').toUpperCase().trim();
-      const match = empName === employeeName;
-      console.log(`   - Confronto: "${empName}" === "${employeeName}" = ${match}`);
-      return match;
+      return empName === employeeName;
     });
 
     if (!foundEmployee) {
-      const availableNames = existingEmployees.map(e => e.name).join(', ') || 'nessuno';
-      alert(`Dipendente "${employeeName}" non trovato in ${company} - ${dept}.\n\nDipendenti disponibili: ${availableNames}\n\nCrea prima il dipendente dall'ingranaggio (⚙️) nelle impostazioni.`);
-      setQuickAddName('');
+      // Rimosso alert come richiesto
+      // alert(`Dipendente "${employeeName}" non trovato in ${company} - ${dept}.\n\nDipendenti disponibili: ${availableNames}\n\nCrea prima il dipendente dall'ingranaggio (⚙️) nelle impostazioni.`);
+      // setQuickAddName('');
       return;
     }
 
@@ -695,10 +686,52 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
     // Reset campi
     setQuickAddName('');
+    setShowSuggestions(false);
     if (multiCompanyMode) {
       setSelectedAddCompany('');
       setSelectedAddDept('');
     }
+  };
+
+  const handleCreateAndAddEmployee = (name, targetCompany, targetDept, weekRangeValue) => {
+    if (!name.trim()) return;
+
+    const company = targetCompany || selectedCompany;
+    const dept = targetDept || selectedDept;
+    const key = getContextKey(company, dept);
+    const newId = Date.now();
+    const newName = name.toUpperCase().trim();
+
+    // 1. Crea il dipendente in employeesData
+    setEmployeesData(prev => {
+      const updated = {
+        ...prev,
+        [key]: [...(prev[key] || []), { id: newId, name: newName }]
+      };
+
+      // 2. Aggiungi subito alla settimana corrente
+      const currentWeek = weekRangeValue || getWeekDates(0).formatted;
+      const scheduleKey = `${currentWeek}-${key}-${newId}`;
+
+      setSchedule(prevSchedule => {
+        const newSchedule = {
+          ...prevSchedule,
+          [scheduleKey]: {}
+        };
+
+        // 3. Salva tutto
+        setTimeout(() => {
+          saveDataWithStructure(departmentsStructure, updated, newSchedule);
+        }, 500);
+
+        return newSchedule;
+      });
+
+      return updated;
+    });
+
+    setQuickAddName('');
+    setShowSuggestions(false);
   };
 
 
@@ -1019,10 +1052,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         return Object.keys(scheduleData).some(dayIdx => {
           const dayData = scheduleData[dayIdx];
           return dayData && (
-            dayData.code || 
-            dayData.in1 || 
-            dayData.out1 || 
-            dayData.in2 || 
+            dayData.code ||
+            dayData.in1 ||
+            dayData.out1 ||
+            dayData.in2 ||
             dayData.out2
           );
         });
@@ -1546,14 +1579,60 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       >
                         <Plus size={16} />
                       </button>
-                      <input
-                        type="text"
-                        placeholder="Cerca dipendente..."
-                        value={quickAddName}
-                        onChange={(e) => setQuickAddName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department, listWeekRange)}
-                        className="w-full bg-transparent border-b border-gray-400 focus:border-blue-500 outline-none text-sm uppercase placeholder-gray-400"
-                      />
+                      <div className="relative w-full">
+                        <input
+                          type="text"
+                          placeholder="Cerca dipendente..."
+                          value={quickAddName}
+                          onChange={(e) => {
+                            setQuickAddName(e.target.value);
+                            setShowSuggestions(true);
+                          }}
+                          onFocus={() => setShowSuggestions(true)}
+                          onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department, listWeekRange)}
+                          className="w-full bg-transparent border-b border-gray-400 focus:border-blue-500 outline-none text-sm uppercase placeholder-gray-400"
+                        />
+                        {showSuggestions && quickAddName && (
+                          <div className="absolute bottom-full left-0 w-full min-w-[200px] bg-white border border-gray-300 shadow-xl rounded-md z-50 max-h-60 overflow-y-auto mb-1">
+                            {(() => {
+                              const key = getContextKey(company, department);
+                              const existingEmployees = employeesData[key] || [];
+                              const searchTerm = quickAddName.toUpperCase().trim();
+                              const filtered = existingEmployees.filter(emp => emp.name.toUpperCase().includes(searchTerm));
+                              const exactMatch = existingEmployees.some(emp => emp.name.toUpperCase() === searchTerm);
+                              const showAddOption = searchTerm.length > 3 && !exactMatch;
+
+                              return (
+                                <>
+                                  {filtered.map(emp => (
+                                    <div
+                                      key={emp.id}
+                                      className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-100 last:border-0 text-gray-700"
+                                      onClick={() => handleQuickAddEmployee(company, department, listWeekRange, emp.name)}
+                                    >
+                                      {emp.name}
+                                    </div>
+                                  ))}
+                                  {showAddOption && (
+                                    <div
+                                      className="px-3 py-2 hover:bg-green-50 cursor-pointer text-sm text-green-700 font-semibold border-t border-gray-200 flex items-center gap-2"
+                                      onClick={() => handleCreateAndAddEmployee(quickAddName, company, department, listWeekRange)}
+                                    >
+                                      <Plus size={14} /> Aggiungi "{searchTerm}"
+                                    </div>
+                                  )}
+                                  {filtered.length === 0 && !showAddOption && (
+                                    <div className="px-3 py-2 text-xs text-gray-400 italic">
+                                      Nessun risultato
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </td>
                   {days.map((_, i) => (
@@ -1579,14 +1658,60 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                     >
                       <Plus size={20} />
                     </button>
-                    <input
-                      type="text"
-                      placeholder="Inserisci il primo dipendente..."
-                      value={quickAddName}
-                      onChange={(e) => setQuickAddName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department, listWeekRange)}
-                      className="flex-1 border-2 border-blue-300 rounded px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none uppercase placeholder-gray-400"
-                    />
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder="Inserisci il primo dipendente..."
+                        value={quickAddName}
+                        onChange={(e) => {
+                          setQuickAddName(e.target.value);
+                          setShowSuggestions(true);
+                        }}
+                        onFocus={() => setShowSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department, listWeekRange)}
+                        className="w-full border-2 border-blue-300 rounded px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none uppercase placeholder-gray-400"
+                      />
+                      {showSuggestions && quickAddName && (
+                        <div className="absolute top-full left-0 w-full bg-white border border-gray-300 shadow-xl rounded-md z-50 max-h-60 overflow-y-auto mt-1">
+                          {(() => {
+                            const key = getContextKey(company, department);
+                            const existingEmployees = employeesData[key] || [];
+                            const searchTerm = quickAddName.toUpperCase().trim();
+                            const filtered = existingEmployees.filter(emp => emp.name.toUpperCase().includes(searchTerm));
+                            const exactMatch = existingEmployees.some(emp => emp.name.toUpperCase() === searchTerm);
+                            const showAddOption = searchTerm.length > 3 && !exactMatch;
+
+                            return (
+                              <>
+                                {filtered.map(emp => (
+                                  <div
+                                    key={emp.id}
+                                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-100 last:border-0 text-gray-700"
+                                    onClick={() => handleQuickAddEmployee(company, department, listWeekRange, emp.name)}
+                                  >
+                                    {emp.name}
+                                  </div>
+                                ))}
+                                {showAddOption && (
+                                  <div
+                                    className="px-3 py-2 hover:bg-green-50 cursor-pointer text-sm text-green-700 font-semibold border-t border-gray-200 flex items-center gap-2"
+                                    onClick={() => handleCreateAndAddEmployee(quickAddName, company, department, listWeekRange)}
+                                  >
+                                    <Plus size={14} /> Aggiungi "{searchTerm}"
+                                  </div>
+                                )}
+                                {filtered.length === 0 && !showAddOption && (
+                                  <div className="px-3 py-2 text-xs text-gray-400 italic">
+                                    Nessun risultato
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-gray-400 mt-2 text-center">
                     Cerca tra i dipendenti già creati dall'<Settings size={12} className="text-blue-600 inline" /> per questa azienda e reparto
