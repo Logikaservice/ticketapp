@@ -2014,7 +2014,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       return (
                         <td 
                           key={dayIdx} 
-                          className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-50' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-300' : ''}`}
+                          className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-50' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''}`}
                           onContextMenu={(e) => {
                             // Se c'è un codice, permetti il menu contestuale anche cliccando sulla cella
                             if (cellData.code && !showGeographicInputs) {
@@ -2121,7 +2121,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                 <div className="flex gap-1 animate-in fade-in duration-300">
                                   <input
                                     type="text"
-                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none ${hasScheduleInOtherCompany ? 'border-gray-400 bg-gray-300' : 'border-gray-200 bg-gray-50'}`}
+                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100' : 'border-gray-200 bg-gray-50'}`}
                                     value={cellData.in2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
@@ -2129,7 +2129,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                   />
                                   <input
                                     type="text"
-                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none ${hasScheduleInOtherCompany ? 'border-gray-400 bg-gray-300' : 'border-gray-200 bg-gray-50'}`}
+                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100' : 'border-gray-200 bg-gray-50'}`}
                                     value={cellData.out2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
