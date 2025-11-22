@@ -888,22 +888,25 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   // Rimuove dipendente solo dalla visualizzazione della settimana corrente (non dal database)
-  const removeEmployeeFromWeek = (empId, contextKey = null) => {
-    const key = contextKey || getCurrentContextKey();
-    // Rimuovi solo dalla lista visualizzata, non dal database
-    // Non chiamiamo saveData() quindi non viene salvato nel database
-    setEmployeesData(prev => {
-      const updated = { ...prev };
-      if (updated[key]) {
-        updated[key] = updated[key].filter(e => e.id !== empId);
-      }
-      return updated;
-    });
-    // Rimuovi anche gli orari dalla visualizzazione
-    const scheduleKey = contextKey ? `${contextKey}-${empId}` : empId;
+  const removeEmployeeFromWeek = (empId, contextKey = null, weekRangeValue = null) => {
+    // NOTA: Non rimuoviamo più da employeesData, così il dipendente rimane nel DB
+
+    // Rimuovi solo gli orari per questa settimana
+    const currentWeek = weekRangeValue || getWeekDates(0).formatted;
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+
     setSchedule(prev => {
       const newSchedule = { ...prev };
       delete newSchedule[scheduleKey];
+
+      // Se c'era una vecchia chiave (compatibilità), rimuovi anche quella
+      const oldKey = `${baseKey}`; // Se baseKey era solo empId o context-empId
+      if (newSchedule[oldKey]) delete newSchedule[oldKey];
+
+      // Salva le modifiche
+      setTimeout(() => saveDataWithSchedule(newSchedule), 100);
+
       return newSchedule;
     });
   };
@@ -1468,8 +1471,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                           </button>
                           <button
                             onClick={() => {
-                              if (window.confirm(`Rimuovere ${emp.name} da questa settimana? (Non verrà eliminato dal database)`)) {
-                                removeEmployeeFromWeek(emp.id, multiCompanyMode ? emp.contextKey : null);
+                              if (window.confirm(`Rimuovere ${emp.name} da questa settimana? (Rimarrà disponibile per il futuro)`)) {
+                                removeEmployeeFromWeek(emp.id, multiCompanyMode ? emp.contextKey : null, listWeekRange);
                               }
                             }}
                             className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-red-500 hover:text-red-700 p-1 rounded transition-opacity"
