@@ -449,36 +449,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     const currentWeek = weekRangeValue || weekRange;
     // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
-    // Chiave completa: settimana-baseKey
-    const scheduleKey = `${currentWeek}-${baseKey}`;
-    const empSchedule = schedule[scheduleKey] || {};
-    days.forEach((_, index) => {
-      total += calculateDailyHours(empSchedule[index]);
-    });
-    return isNaN(total) ? "0.0" : total.toFixed(1);
-  };
-
-  // --- INPUT HANDLERS ---
-  const handleInputChange = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
-    // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
-    const currentWeek = weekRangeValue || weekRange;
-    // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
-    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
-    // Chiave completa: settimana-baseKey
-    const scheduleKey = `${currentWeek}-${baseKey}`;
-
-    setSchedule(prev => ({
-      ...prev,
-      [scheduleKey]: { ...prev[scheduleKey], [dayIndex]: { ...prev[scheduleKey]?.[dayIndex], [field]: value } }
-    }));
-    // Salva automaticamente dopo ogni modifica
-    setTimeout(() => saveData(), 500);
-  };
-
-  const handleBlur = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
-    if (!value) return;
-    const strValue = String(value);
-    let formatted = strValue.replace(',', '.').replace(':', '.').trim();
     if (!formatted.includes('.')) formatted += '.00';
     const parts = formatted.split('.');
     if (parts[0].length === 1) parts[0] = '0' + parts[0];
@@ -1910,6 +1880,28 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={24} />
               </button>
+            </div>
+
+            {/* SELETTORE AZIENDA PER CONFIGURAZIONE */}
+            <div className="mb-6 bg-white p-4 rounded shadow-sm border border-blue-100">
+              <label className="block text-sm font-bold text-slate-700 mb-2">
+                Azienda da Configurare
+              </label>
+              <select
+                value={selectedCompany}
+                onChange={(e) => {
+                  setSelectedCompany(e.target.value);
+                  // Reset del reparto selezionato quando cambia l'azienda per evitare incongruenze
+                  const firstDept = departmentsStructure[e.target.value]?.[0];
+                  if (firstDept) setSelectedDept(firstDept);
+                  else setSelectedDept('');
+                }}
+                className="w-full md:w-1/3 border-2 border-blue-300 rounded px-3 py-2 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {companies.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
