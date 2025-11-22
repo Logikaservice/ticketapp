@@ -1431,7 +1431,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       let cellData = schedule[scheduleKey]?.[dayIdx] || {};
                       if (!cellData || Object.keys(cellData).length === 0) {
                         // Prova con la vecchia chiave (senza settimana)
-                        const oldKey = baseKey;
+                        const oldKey = `${baseKey}-${emp.id}`;
                         const oldData = schedule[oldKey]?.[dayIdx];
                         if (oldData && Object.keys(oldData).length > 0) {
                           // Migra automaticamente i dati vecchi alla nuova struttura
