@@ -2100,7 +2100,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                 <input
                                   id={`input-${emp.id}-${dayIdx}-in1`}
                                   type="text"
-                                  className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${hasScheduleInOtherCompany ? 'border-gray-400 bg-gray-300 cursor-help' : 'border-gray-300 focus:border-blue-500'}`}
+                                  className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100 cursor-help' : 'border-gray-300 focus:border-blue-500'}`}
                                   value={cellData.in1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
@@ -2109,7 +2109,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                 />
                                 <input
                                   type="text"
-                                  className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${hasScheduleInOtherCompany ? 'border-gray-400 bg-gray-300 cursor-help' : 'border-gray-300 focus:border-blue-500'}`}
+                                  className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100 cursor-help' : 'border-gray-300 focus:border-blue-500'}`}
                                   value={cellData.out1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
