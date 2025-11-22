@@ -1628,11 +1628,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                               value={cellData.code || ''}
                             >
                               <option value="">Orario</option>
-                              <option value="R">Riposo</option>
-                              <option value="FERIE">Ferie</option>
-                              <option value="MAL">Malattia</option>
-                              <option value="AV">Avellino</option>
-                              <option value="AT">Atripalda</option>
+                              {Object.entries(timeCodes).map(([code, label]) => (
+                                <option key={code} value={label}>{label}</option>
+                              ))}
                             </select>
                           </div>
 
