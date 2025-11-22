@@ -581,9 +581,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   // Mappatura codici geografici → aziende
   const getCompanyFromGeographicCode = (code) => {
     const codeMap = {
-      'AT': 'Atripalda',
-      'AV': 'Avellino',
-      'L': 'Lioni'
+      'AT': 'Mercurio',  // Atripalda → Mercurio
+      'AV': 'La Torre',  // Avellino → La Torre
+      'L': 'Albatros'    // Lioni → Albatros
     };
     return codeMap[code] || null;
   };
@@ -652,7 +652,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         }
       };
 
-      // Se è un codice geografico, salva anche nell'altra azienda
+      // Se è un codice geografico, crea il dipendente nell'altra azienda con orari da compilare
       if (isGeographicCode(codeKey) && currentCompany) {
         const targetCompany = getCompanyFromGeographicCode(codeKey);
         if (targetCompany && targetCompany !== currentCompany) {
@@ -676,17 +676,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               return prev;
             });
 
-            // Salva lo stesso orario nell'azienda target
+            // Salva gli orari vuoti nell'azienda target (non il codice, ma gli input da compilare)
             const targetScheduleKey = `${currentWeek}-${targetKey}-${empId}`;
             newSchedule[targetScheduleKey] = {
               ...newSchedule[targetScheduleKey],
               [dayIndex]: {
-                code: code,
+                // NON salvare il codice, ma solo gli orari vuoti
                 in1: '',
                 out1: '',
                 in2: '',
                 out2: '',
-                fromCompany: currentCompany // Flag per indicare da dove viene
+                fromCompany: currentCompany, // Flag per indicare da dove viene
+                geographicCode: codeKey // Salva il codice geografico per riferimento
               }
             };
           }
@@ -1883,16 +1884,20 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                         }
                       }
                       const isRest = cellData.code === 'R';
-                      // Verifica se è un codice geografico
+                      // Verifica se è un codice geografico o se viene da altra azienda
                       const codeKey = cellData.code ? Object.keys(timeCodes).find(k => timeCodes[k] === cellData.code) : null;
                       const isGeographic = codeKey && isGeographicCode(codeKey);
                       const isFromOtherCompany = cellData.fromCompany && cellData.fromCompany !== emp.company;
+                      const hasGeographicCode = cellData.geographicCode && !cellData.code; // Ha codice geografico ma non è un codice normale
+
+                      // Se viene da altra azienda con codice geografico, mostra gli input (non il codice)
+                      const showGeographicInputs = isFromOtherCompany && hasGeographicCode;
 
                       return (
-                        <td key={dayIdx} className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isGeographic || isFromOtherCompany ? 'bg-yellow-50' : ''}`}>
+                        <td key={dayIdx} className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-50' : ''}`}>
 
 
-                          {cellData.code ? (
+                          {cellData.code && !showGeographicInputs ? (
                             <div className={`h-14 flex items-center justify-center font-bold text-lg ${isGeographic || isFromOtherCompany ? 'text-yellow-700' : 'text-slate-500'} bg-opacity-50`}>
                               {cellData.code}
                               {isFromOtherCompany && (
@@ -1900,6 +1905,56 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                   ⚠
                                 </span>
                               )}
+                            </div>
+                          ) : showGeographicInputs ? (
+                            // Mostra gli input per compilare gli orari quando viene da altra azienda
+                            <div className="flex flex-col gap-1">
+                              <div className="flex gap-1">
+                                <input
+                                  id={`input-${emp.id}-${dayIdx}-in1-geo`}
+                                  type="text"
+                                  className="w-full border-2 border-yellow-400 bg-yellow-50 rounded px-0.5 py-0.5 text-center text-xs focus:border-yellow-600 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  placeholder="Entrata"
+                                  value={cellData.in1 || ''}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                />
+                                <input
+                                  type="text"
+                                  className="w-full border-2 border-yellow-400 bg-yellow-50 rounded px-0.5 py-0.5 text-center text-xs focus:border-yellow-600 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  placeholder="Uscita"
+                                  value={cellData.out1 || ''}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                />
+                              </div>
+                              {(cellData.in1 || cellData.in2 || cellData.out1) && (
+                                <div className="flex gap-1 animate-in fade-in duration-300">
+                                  <input
+                                    type="text"
+                                    className="w-full border-2 border-yellow-300 bg-yellow-50 rounded px-0.5 py-0.5 text-center text-xs focus:border-yellow-600 outline-none"
+                                    placeholder="Entrata 2"
+                                    value={cellData.in2 || ''}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  />
+                                  <input
+                                    type="text"
+                                    className="w-full border-2 border-yellow-300 bg-yellow-50 rounded px-0.5 py-0.5 text-center text-xs focus:border-yellow-600 outline-none"
+                                    placeholder="Uscita 2"
+                                    value={cellData.out2 || ''}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  />
+                                </div>
+                              )}
+                              <div className="text-[10px] text-yellow-700 text-center mt-0.5" title={`Da ${cellData.fromCompany}`}>
+                                ⚠ Da {cellData.fromCompany}
+                              </div>
                             </div>
                           ) : (
                             <div className="flex flex-col gap-1">
