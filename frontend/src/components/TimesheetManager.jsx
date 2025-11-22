@@ -1621,18 +1621,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
                       return (
                         <td key={dayIdx} className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''}`}>
-                          <div className="absolute top-0 right-0 opacity-0 hover:opacity-100 z-10">
-                            <select
-                              className="text-[10px] bg-slate-800 text-white p-0.5 rounded shadow-lg cursor-pointer"
-                              onChange={(e) => handleQuickCode(emp.id, dayIdx, e.target.value, emp.contextKey, listWeekRange)}
-                              value={cellData.code || ''}
-                            >
-                              <option value="">Orario</option>
-                              {Object.entries(timeCodes).map(([code, label]) => (
-                                <option key={code} value={label}>{label}</option>
-                              ))}
-                            </select>
-                          </div>
+
 
                           {cellData.code ? (
                             <div className="h-14 flex items-center justify-center font-bold text-lg text-slate-500 bg-opacity-50">
