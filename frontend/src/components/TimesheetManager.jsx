@@ -1579,14 +1579,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                 <div className="flex gap-1 animate-in fade-in duration-300">
                                   <input
                                     type="text"
-                                    className="w-full border border-gray-200 rounded px-0.5 py-0.5 text-center text-[10px] focus:border-blue-500 outline-none bg-gray-50"
+                                    className="w-full border border-gray-200 rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
                                     value={cellData.in2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
                                   />
                                   <input
                                     type="text"
-                                    className="w-full border border-gray-200 rounded px-0.5 py-0.5 text-center text-[10px] focus:border-blue-500 outline-none bg-gray-50"
+                                    className="w-full border border-gray-200 rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
                                     value={cellData.out2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
