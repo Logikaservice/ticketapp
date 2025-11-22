@@ -1742,33 +1742,33 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         right: { style: "thick", color: { rgb: "000000" } }
       };
 
-      // Stile per riga separatrice tra dipendenti (spessa e scura per facilitare il taglio)
+      // Stile per riga separatrice tra dipendenti (sottile e scura per facilitare il taglio)
       const styleSeparator = {
         fill: { fgColor: { rgb: "000000" } },
         border: borderThick,
         alignment: { horizontal: "center", vertical: "center" }
       };
 
-      // Stile titolo migliorato
+      // Stile titolo migliorato - grigio scuro per stampa B&N
       const styleTitle = {
         font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
-        fill: { fgColor: { rgb: "4472C4" } },
+        fill: { fgColor: { rgb: "404040" } }, // Grigio scuro invece di blu
         alignment: { horizontal: "center", vertical: "center", wrapText: true },
         border: borderThin
       };
 
-      // Stile header migliorato
+      // Stile header migliorato - grigio medio per stampa B&N
       const styleHeader = {
         font: { bold: true, sz: 11, color: { rgb: "FFFFFF" } },
-        fill: { fgColor: { rgb: "5B9BD5" } },
+        fill: { fgColor: { rgb: "808080" } }, // Grigio medio invece di blu chiaro
         border: borderThin,
         alignment: { horizontal: "center", vertical: "center", wrapText: true }
       };
 
-      // Stile header totale migliorato
+      // Stile header totale migliorato - grigio chiaro per stampa B&N
       const styleTotalHeader = {
         font: { bold: true, sz: 11, color: { rgb: "000000" } },
-        fill: { fgColor: { rgb: "FFC000" } },
+        fill: { fgColor: { rgb: "D3D3D3" } }, // Grigio chiaro invece di giallo
         border: borderThin,
         alignment: { horizontal: "center", vertical: "center", wrapText: true }
       };
@@ -1781,18 +1781,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         fill: { fgColor: { rgb: "FFFFFF" } }
       };
 
-      // Stile nome dipendente migliorato
+      // Stile nome dipendente migliorato - grigio molto chiaro per stampa B&N
       const styleEmpName = {
         font: { bold: true, sz: 11, color: { rgb: "000000" } },
-        fill: { fgColor: { rgb: "E7E6E6" } },
+        fill: { fgColor: { rgb: "E7E6E6" } }, // Grigio chiaro (già ok per B&N)
         border: borderThin,
         alignment: { horizontal: "left", vertical: "center", indent: 1 }
       };
 
-      // Stile cella totale migliorato
+      // Stile cella totale migliorato - grigio medio-chiaro per stampa B&N
       const styleTotalCell = {
         font: { bold: true, sz: 11, color: { rgb: "000000" } },
-        fill: { fgColor: { rgb: "FFE699" } },
+        fill: { fgColor: { rgb: "C0C0C0" } }, // Grigio medio-chiaro invece di giallo
         border: borderThin,
         alignment: { horizontal: "center", vertical: "center" }
       };
@@ -1934,20 +1934,50 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         // Header più alto
         ws['!rows'][2] = { hpt: 25 };
         ws['!rows'][3] = { hpt: 20 };
-        // Riga separatrice tra dipendenti più alta (per facilitare il taglio)
+        // Riga separatrice tra dipendenti molto sottile (1px) per facilitare il taglio
         for (let R = 4; R < wsData.length; R++) {
           const cell = wsData[R]?.[0];
           if (cell && cell.s && cell.s.fill && cell.s.fill.fgColor && cell.s.fill.fgColor.rgb === "000000") {
-            ws['!rows'][R] = { hpt: 8 }; // Riga separatrice nera più alta
+            ws['!rows'][R] = { hpt: 1 }; // Riga separatrice nera molto sottile (1px)
           } else {
             ws['!rows'][R] = { hpt: 20 }; // Righe normali
           }
         }
 
-        const wscols = [{ wch: 25 }];
-        for (let i = 0; i < 14; i++) wscols.push({ wch: 9 });
-        wscols.push({ wch: 10 });
+        // Ottimizza larghezze colonne per A4 orizzontale
+        // A4 landscape: ~277mm disponibili con margini standard
+        // Riduciamo le colonne per far entrare tutto
+        const wscols = [{ wch: 18 }]; // Nome dipendente ridotto
+        for (let i = 0; i < 14; i++) wscols.push({ wch: 7 }); // Colonne orari ridotte
+        wscols.push({ wch: 8 }); // Totale ridotto
         ws['!cols'] = wscols;
+
+        // Impostazioni di stampa per A4 orizzontale
+        ws['!margins'] = {
+          left: 0.5,   // 0.5 inch = ~12.7mm
+          right: 0.5,
+          top: 0.5,
+          bottom: 0.5,
+          header: 0.3,
+          footer: 0.3
+        };
+
+        // Impostazioni pagina: A4 orizzontale
+        ws['!pageSetup'] = {
+          paperSize: 9, // A4
+          orientation: 'landscape', // Orizzontale
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 0, // 0 = adatta automaticamente
+          scale: 100
+        };
+
+        // Impostazioni print options
+        ws['!printOptions'] = {
+          gridLines: true,
+          horizontalCentered: true,
+          verticalCentered: false
+        };
 
         let sheetName = `${company} - ${department}`;
         const duplicateCount = viewLists.filter((l, i) => i < listIndex && l.company === company && l.department === department).length;
