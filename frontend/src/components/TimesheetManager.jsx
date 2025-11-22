@@ -1771,7 +1771,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                           className="w-full bg-transparent border-b border-gray-400 focus:border-blue-500 outline-none text-sm uppercase placeholder-gray-400"
                         />
                         {showSuggestions && quickAddName && (
-                          <div className="absolute top-full left-0 w-full min-w-[200px] bg-white border-2 border-blue-400 shadow-2xl rounded-lg z-[9999] max-h-60 overflow-y-auto mt-1">
+                          <div className="absolute bottom-full left-0 w-full min-w-[200px] bg-white border-2 border-blue-400 shadow-2xl rounded-lg z-[9999] max-h-60 overflow-y-auto mb-1">
                             {(() => {
                               const key = getContextKey(company, department);
                               const existingEmployees = employeesData[key] || [];
@@ -1843,7 +1843,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                         className="w-full border-2 border-blue-300 rounded px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none uppercase placeholder-gray-400"
                       />
                       {showSuggestions && quickAddName && (
-                        <div className="absolute top-full left-0 w-full bg-white border border-gray-300 shadow-xl rounded-md z-50 max-h-60 overflow-y-auto mt-1">
+                        <div className="absolute bottom-full left-0 w-full bg-white border border-gray-300 shadow-xl rounded-md z-50 max-h-60 overflow-y-auto mb-1">
                           {(() => {
                             const key = getContextKey(company, department);
                             const existingEmployees = employeesData[key] || [];
