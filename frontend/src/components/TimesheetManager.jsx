@@ -296,6 +296,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             }, 1000);
           }
 
+          // Sincronizza codici assenza tra tutte le aziende dopo il caricamento
+          setTimeout(() => {
+            synchronizeAbsenceCodes(migratedSchedule, cleanedEmployees);
+          }, 1500);
+
           // Imposta il primo reparto della prima azienda
           const firstDept = data.departments?.[data.companies[0]]?.[0];
           if (firstDept) {
