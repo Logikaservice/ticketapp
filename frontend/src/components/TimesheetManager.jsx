@@ -361,24 +361,29 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   // --- SALVATAGGIO DATI ---
-  const saveData = async () => {
+  const saveData = async (overrideTimeCodes = null, overrideTimeCodesOrder = null) => {
     try {
+      // Usa i parametri override se forniti, altrimenti usa lo stato corrente
+      const codesToSave = overrideTimeCodes !== null ? overrideTimeCodes : timeCodes;
+      const orderToSave = overrideTimeCodesOrder !== null ? overrideTimeCodesOrder : timeCodesOrder;
+      
       // Usa lo stato corrente per assicurarsi di salvare i dati più recenti
       const dataToSave = {
         companies,
         departments: departmentsStructure,
         employees: employeesData,
         schedule,
-        timeCodes,
-        timeCodesOrder
+        timeCodes: codesToSave,
+        timeCodesOrder: orderToSave
       };
 
       // Log codici orari prima del salvataggio
       console.log('💾 Salvataggio dati - Codici orari inclusi:', {
-        timeCodes: timeCodes ? Object.keys(timeCodes) : 'NON PRESENTI',
-        timeCodesOrder: timeCodesOrder || 'NON PRESENTE',
-        count: timeCodes ? Object.keys(timeCodes).length : 0,
-        details: timeCodes || {}
+        timeCodes: codesToSave ? Object.keys(codesToSave) : 'NON PRESENTI',
+        timeCodesOrder: orderToSave || 'NON PRESENTE',
+        count: codesToSave ? Object.keys(codesToSave).length : 0,
+        details: codesToSave || {},
+        source: overrideTimeCodes !== null ? 'PARAMETRI DIRETTI' : 'STATO REACT'
       });
 
       // Pulisci i dati prima di salvare (rimuovi undefined, null, etc.)
@@ -849,36 +854,55 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       key: key,
       label: newCodeLabel.trim(),
       timeCodes: newCodes,
-      timeCodesOrder: newOrder
+      timeCodesOrder: newOrder,
+      count: Object.keys(newCodes).length
     });
     
+    // Aggiorna lo stato
     setTimeCodes(newCodes);
     setTimeCodesOrder(newOrder); // Aggiungi alla fine dell'ordine
     setNewCodeKey('');
     setNewCodeLabel('');
-    // Salva automaticamente
+    
+    // Salva IMMEDIATAMENTE con i nuovi valori (non aspettare che React aggiorni lo stato)
     setTimeout(() => {
-      console.log('💾 Salvataggio dopo aggiunta codice orario...');
-      saveData();
-    }, 500);
+      console.log('💾 Salvataggio dopo aggiunta codice orario con valori diretti...');
+      saveData(newCodes, newOrder); // Passa i nuovi valori direttamente
+    }, 100); // Ridotto a 100ms per salvare più velocemente
   };
 
   const deleteTimeCode = (key) => {
     const newCodes = { ...timeCodes };
     delete newCodes[key];
+    const newOrder = timeCodesOrder.filter(k => k !== key); // Rimuovi dall'ordine
+    
+    console.log('🗑️ Eliminazione codice orario:', {
+      key: key,
+      timeCodes: newCodes,
+      timeCodesOrder: newOrder,
+      count: Object.keys(newCodes).length
+    });
+    
     setTimeCodes(newCodes);
-    setTimeCodesOrder(timeCodesOrder.filter(k => k !== key)); // Rimuovi dall'ordine
-    // Salva automaticamente
-    setTimeout(() => saveData(), 500);
+    setTimeCodesOrder(newOrder);
+    // Salva IMMEDIATAMENTE con i nuovi valori
+    setTimeout(() => saveData(newCodes, newOrder), 100);
   };
 
   const reorderTimeCodes = (fromIndex, toIndex) => {
     const newOrder = [...timeCodesOrder];
     const [movedItem] = newOrder.splice(fromIndex, 1);
     newOrder.splice(toIndex, 0, movedItem);
+    
+    console.log('🔄 Riordinamento codici orari:', {
+      fromIndex: fromIndex,
+      toIndex: toIndex,
+      newOrder: newOrder
+    });
+    
     setTimeCodesOrder(newOrder);
-    // Salva automaticamente
-    setTimeout(() => saveData(), 500);
+    // Salva IMMEDIATAMENTE con il nuovo ordine
+    setTimeout(() => saveData(timeCodes, newOrder), 100);
   };
 
   // --- MENU CONTESTUALE ---
