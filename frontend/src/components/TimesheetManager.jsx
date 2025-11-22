@@ -2014,7 +2014,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       return (
                         <td 
                           key={dayIdx} 
-                          className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-50' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''}`}
+                          className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''}`}
                           onContextMenu={(e) => {
                             // Se c'è un codice, permetti il menu contestuale anche cliccando sulla cella
                             if (cellData.code && !showGeographicInputs) {
@@ -2039,7 +2039,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                 <input
                                   id={`input-${emp.id}-${dayIdx}-in1-geo`}
                                   type="text"
-                                  className="w-full border-2 border-yellow-400 bg-yellow-50 rounded px-0.5 py-0.5 text-center text-xs focus:border-yellow-600 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  className="w-full border border-gray-300 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
                                   placeholder="Entrata"
                                   value={cellData.in1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
@@ -2048,7 +2048,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                 />
                                 <input
                                   type="text"
-                                  className="w-full border-2 border-yellow-400 bg-yellow-50 rounded px-0.5 py-0.5 text-center text-xs focus:border-yellow-600 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  className="w-full border border-gray-300 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
                                   placeholder="Uscita"
                                   value={cellData.out1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
@@ -2060,7 +2060,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                 <div className="flex gap-1 animate-in fade-in duration-300">
                                   <input
                                     type="text"
-                                    className="w-full border-2 border-yellow-300 bg-yellow-50 rounded px-0.5 py-0.5 text-center text-xs focus:border-yellow-600 outline-none"
+                                    className="w-full border border-gray-200 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none"
                                     placeholder="Entrata 2"
                                     value={cellData.in2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
@@ -2069,7 +2069,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                   />
                                   <input
                                     type="text"
-                                    className="w-full border-2 border-yellow-300 bg-yellow-50 rounded px-0.5 py-0.5 text-center text-xs focus:border-yellow-600 outline-none"
+                                    className="w-full border border-gray-200 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none"
                                     placeholder="Uscita 2"
                                     value={cellData.out2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
