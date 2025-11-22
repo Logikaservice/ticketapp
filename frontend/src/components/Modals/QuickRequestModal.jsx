@@ -152,31 +152,31 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="p-6 border-b bg-gradient-to-r from-blue-600 to-sky-600 text-white rounded-t-2xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <FileText size={28} />
-            <h2 className="text-2xl font-bold">Richiesta Assistenza Veloce</h2>
+        <div className="p-4 border-b bg-gradient-to-r from-blue-600 to-sky-600 text-white rounded-t-2xl flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText size={24} />
+            <h2 className="text-xl font-bold">Richiesta Assistenza Veloce</h2>
           </div>
           <button 
             onClick={onClose}
             className="text-white hover:text-gray-200 transition"
           >
-            <X size={24} />
+            <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* Informazioni Personali */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <User size={20} />
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+              <User size={18} />
               Informazioni Personali
             </h3>
             
             {/* Email in alto su una riga separata */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">
                 Email *
               </label>
               <input
@@ -185,20 +185,20 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="esempio@azienda.com"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-500 mt-0.5">
                 Utilizzare la mail aziendale e non quella personale
               </p>
             </div>
             
             {/* Azienda subito sotto Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">
                 Azienda
                 {aziendaLocked && (
-                  <span className="text-xs text-blue-600 ml-2">
+                  <span className="text-xs text-blue-600 ml-1">
                     (Auto-rilevata)
                   </span>
                 )}
@@ -211,7 +211,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                   onChange={handleChange}
                   onBlur={() => setTimeout(() => setShowAziendaSuggestions(false), 150)}
                   readOnly={false}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  className={`w-full px-2.5 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     aziendaLocked 
                       ? 'bg-blue-50 border-blue-200 text-blue-800 cursor-not-allowed' 
                       : 'border-gray-300'
@@ -243,9 +243,9 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
             </div>
 
             {/* Nome e Cognome in grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">
                   Nome *
                 </label>
                 <input
@@ -254,12 +254,12 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                   value={formData.nome}
                   onChange={handleChange}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">
                   Cognome *
                 </label>
                 <input
@@ -268,14 +268,14 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                   value={formData.cognome}
                   onChange={handleChange}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
 
             {/* Telefono su una riga separata */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">
                 Telefono
               </label>
               <input
@@ -283,7 +283,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                 name="telefono"
                 value={formData.telefono}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="+39 123 456 7890"
               />
             </div>
@@ -291,14 +291,14 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
           </div>
 
           {/* Dettagli Richiesta */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <AlertTriangle size={20} />
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+              <AlertTriangle size={18} />
               Dettagli Richiesta
             </h3>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">
                 Titolo Richiesta *
               </label>
               <input
@@ -308,12 +308,12 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                 onChange={handleChange}
                 required
                 placeholder="Breve descrizione del problema"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">
                 Descrizione *
               </label>
               <textarea
@@ -321,21 +321,21 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
                 value={formData.descrizione}
                 onChange={handleChange}
                 required
-                rows={4}
+                rows={3}
                 placeholder="Descrivi il problema in dettaglio..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">
                 Priorità
               </label>
               <select
                 name="priorita"
                 value={formData.priorita}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="bassa">Bassa</option>
                 <option value="media">Media</option>
@@ -345,7 +345,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-gray-700 mb-0.5">
                 Foto (opzionale)
               </label>
               <input
@@ -359,21 +359,21 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:bg-gray-50 transition flex items-center justify-center gap-2"
+                className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:bg-gray-50 transition flex items-center justify-center gap-2"
               >
-                <Camera size={18} />
+                <Camera size={16} />
                 {photos.length > 0 ? `${photos.length} foto selezionate` : 'Seleziona foto'}
               </button>
               {photos.length > 0 && (
-                <div className="mt-2 space-y-2">
+                <div className="mt-1.5 space-y-1.5">
                   {photos.map((photo, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                      <ImageIcon size={16} className="text-gray-600" />
-                      <span className="text-sm text-gray-700 flex-1 truncate">{photo.name}</span>
+                    <div key={index} className="flex items-center gap-2 p-1.5 bg-gray-50 rounded-lg">
+                      <ImageIcon size={14} className="text-gray-600" />
+                      <span className="text-xs text-gray-700 flex-1 truncate">{photo.name}</span>
                       <button
                         type="button"
                         onClick={() => removePhoto(index)}
-                        className="text-red-600 hover:text-red-800 text-sm"
+                        className="text-red-600 hover:text-red-800 text-xs"
                       >
                         Rimuovi
                       </button>
@@ -385,27 +385,27 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
           </div>
 
           {/* Footer */}
-          <div className="flex gap-3 pt-6 border-t">
+          <div className="flex gap-2 pt-4 border-t">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+              className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
             >
               Annulla
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
+              className="flex-1 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   Invio in corso...
                 </>
               ) : (
                 <>
-                  <Send size={18} />
+                  <Send size={16} />
                   Invia Richiesta
                 </>
               )}
