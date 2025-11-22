@@ -1066,19 +1066,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       // Prova anche con la vecchia chiave per compatibilità
       const oldScheduleKey = `${baseKey}-${emp.id}`;
       const hasSchedule = schedule[scheduleKey] || schedule[oldScheduleKey];
+
       if (hasSchedule) {
-        // Verifica che ci sia almeno un giorno con dati
-        const scheduleData = schedule[scheduleKey] || schedule[oldScheduleKey];
-        return Object.keys(scheduleData).some(dayIdx => {
-          const dayData = scheduleData[dayIdx];
-          return dayData && (
-            dayData.code ||
-            dayData.in1 ||
-            dayData.out1 ||
-            dayData.in2 ||
-            dayData.out2
-          );
-        });
+        // Se esiste l'oggetto schedule (anche vuoto), mostra il dipendente
+        return true;
       }
       return false;
     });
