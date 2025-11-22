@@ -449,6 +449,53 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     const currentWeek = weekRangeValue || weekRange;
     // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    // Chiave completa: settimana-baseKey
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+    const empSchedule = schedule[scheduleKey] || {};
+    days.forEach((_, index) => {
+      total += calculateDailyHours(empSchedule[index]);
+    });
+    return isNaN(total) ? "0.0" : total.toFixed(1);
+  };
+
+  // --- INPUT HANDLERS ---
+  const handleInputChange = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
+    // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
+    const currentWeek = weekRangeValue || weekRange;
+    // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    // Chiave completa: settimana-baseKey
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+
+    setSchedule(prev => ({
+      ...prev,
+      [scheduleKey]: { ...prev[scheduleKey], [dayIndex]: { ...prev[scheduleKey]?.[dayIndex], [field]: value } }
+    }));
+    // Salva automaticamente dopo ogni modifica
+    setTimeout(() => saveData(), 500);
+  };
+
+  const handleBlur = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
+    // Logica Shortcut su in1
+    if (field === 'in1' && value) {
+      const upperVal = String(value).toUpperCase();
+      const shortcuts = {
+        'R': 'Riposo',
+        'F': 'Ferie',
+        'M': 'Malattia',
+        'P': 'Permesso',
+        'I': 'Infortunio'
+      };
+
+      if (shortcuts[upperVal]) {
+        handleQuickCode(empId, dayIndex, shortcuts[upperVal], contextKey, weekRangeValue);
+        return; // Interrompi il salvataggio normale dell'orario
+      }
+    }
+
+    if (!value) return;
+    const strValue = String(value);
+    let formatted = strValue.replace(',', '.').replace(':', '.').trim();
     if (!formatted.includes('.')) formatted += '.00';
     const parts = formatted.split('.');
     if (parts[0].length === 1) parts[0] = '0' + parts[0];
