@@ -296,10 +296,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             }, 1000);
           }
 
-          // Sincronizza codici assenza tra tutte le aziende dopo il caricamento
-          setTimeout(() => {
-            synchronizeAbsenceCodes(migratedSchedule, cleanedEmployees);
-          }, 1500);
 
           // Imposta il primo reparto della prima azienda
           const firstDept = data.departments?.[data.companies[0]]?.[0];
@@ -1984,13 +1980,41 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       // Se viene da altra azienda con codice geografico, mostra gli input (non il codice)
                       const showGeographicInputs = isFromOtherCompany && hasGeographicCode;
                       
-                      // NON bloccare i campi - sempre modificabili
-                      // Rimuovo la logica di blocco, mantengo solo l'evidenziazione
+                      // Verifica se il dipendente ha orari in altre aziende per questo giorno
+                      let hasScheduleInOtherCompany = false;
+                      let otherCompanySchedule = null;
+                      let otherCompanyName = null;
+                      
+                      if (!cellData.code && !showGeographicInputs) {
+                        // Cerca in tutte le altre aziende dove il dipendente è presente
+                        Object.keys(employeesData).forEach(otherKey => {
+                          if (otherKey === emp.contextKey) return; // Salta l'azienda corrente
+                          
+                          const [otherCompany, ...otherDeptParts] = otherKey.split('-');
+                          const otherDept = otherDeptParts.join('-');
+                          
+                          // Verifica se il dipendente è presente in questa azienda
+                          const otherEmployees = employeesData[otherKey] || [];
+                          const existsInOther = otherEmployees.some(e => e.id === emp.id);
+                          
+                          if (existsInOther) {
+                            const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
+                            const otherDayData = schedule[otherScheduleKey]?.[dayIdx];
+                            
+                            // Se ha orari (non codice) in questa azienda
+                            if (otherDayData && !otherDayData.code && (otherDayData.in1 || otherDayData.in2 || otherDayData.out1 || otherDayData.out2)) {
+                              hasScheduleInOtherCompany = true;
+                              otherCompanySchedule = otherDayData;
+                              otherCompanyName = otherCompany;
+                            }
+                          }
+                        });
+                      }
 
                       return (
                         <td 
                           key={dayIdx} 
-                          className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-50' : ''}`}
+                          className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-50' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-300' : ''}`}
                           onContextMenu={(e) => {
                             // Se c'è un codice, permetti il menu contestuale anche cliccando sulla cella
                             if (cellData.code && !showGeographicInputs) {
@@ -2056,31 +2080,48 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                               )}
                             </div>
                           ) : (
-                            <div className="flex flex-col gap-1">
+                            <div className="flex flex-col gap-1 relative group">
+                              {/* Tooltip per orari in altra azienda */}
+                              {hasScheduleInOtherCompany && otherCompanySchedule && (
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-pre-line text-center min-w-[120px]">
+                                  <div className="font-bold mb-1">{otherCompanyName}</div>
+                                  {otherCompanySchedule.in1 && otherCompanySchedule.out1 && (
+                                    <div>{otherCompanySchedule.in1} - {otherCompanySchedule.out1}</div>
+                                  )}
+                                  {otherCompanySchedule.in2 && otherCompanySchedule.out2 && (
+                                    <div>{otherCompanySchedule.in2} - {otherCompanySchedule.out2}</div>
+                                  )}
+                                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
+                                    <div className="border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
+                                </div>
+                              )}
                               <div className="flex gap-1">
                                 <input
                                   id={`input-${emp.id}-${dayIdx}-in1`}
                                   type="text"
-                                  className="w-full border border-gray-300 rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${hasScheduleInOtherCompany ? 'border-gray-400 bg-gray-300 cursor-help' : 'border-gray-300 focus:border-blue-500'}`}
                                   value={cellData.in1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
                                   onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : ''}
                                 />
                                 <input
                                   type="text"
-                                  className="w-full border border-gray-300 rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${hasScheduleInOtherCompany ? 'border-gray-400 bg-gray-300 cursor-help' : 'border-gray-300 focus:border-blue-500'}`}
                                   value={cellData.out1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
                                   onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : ''}
                                 />
                               </div>
                               {(cellData.in1 || cellData.in2 || cellData.out1) && (
                                 <div className="flex gap-1 animate-in fade-in duration-300">
                                   <input
                                     type="text"
-                                    className="w-full border border-gray-200 rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
+                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none ${hasScheduleInOtherCompany ? 'border-gray-400 bg-gray-300' : 'border-gray-200 bg-gray-50'}`}
                                     value={cellData.in2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
@@ -2088,7 +2129,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                   />
                                   <input
                                     type="text"
-                                    className="w-full border border-gray-200 rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none bg-gray-50"
+                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none ${hasScheduleInOtherCompany ? 'border-gray-400 bg-gray-300' : 'border-gray-200 bg-gray-50'}`}
                                     value={cellData.out2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
