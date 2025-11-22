@@ -1749,26 +1749,26 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         alignment: { horizontal: "center", vertical: "center" }
       };
 
-      // Stile titolo migliorato - grigio scuro per stampa B&N
+      // Stile titolo migliorato
       const styleTitle = {
         font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
-        fill: { fgColor: { rgb: "404040" } }, // Grigio scuro invece di blu
+        fill: { fgColor: { rgb: "4472C4" } }, // Blu scuro
         alignment: { horizontal: "center", vertical: "center", wrapText: true },
         border: borderThin
       };
 
-      // Stile header migliorato - grigio medio per stampa B&N
+      // Stile header migliorato
       const styleHeader = {
         font: { bold: true, sz: 11, color: { rgb: "FFFFFF" } },
-        fill: { fgColor: { rgb: "808080" } }, // Grigio medio invece di blu chiaro
+        fill: { fgColor: { rgb: "5B9BD5" } }, // Blu chiaro
         border: borderThin,
         alignment: { horizontal: "center", vertical: "center", wrapText: true }
       };
 
-      // Stile header totale migliorato - grigio chiaro per stampa B&N
+      // Stile header totale migliorato
       const styleTotalHeader = {
         font: { bold: true, sz: 11, color: { rgb: "000000" } },
-        fill: { fgColor: { rgb: "D3D3D3" } }, // Grigio chiaro invece di giallo
+        fill: { fgColor: { rgb: "FFC000" } }, // Giallo
         border: borderThin,
         alignment: { horizontal: "center", vertical: "center", wrapText: true }
       };
@@ -1781,18 +1781,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         fill: { fgColor: { rgb: "FFFFFF" } }
       };
 
-      // Stile nome dipendente migliorato - grigio molto chiaro per stampa B&N
+      // Stile nome dipendente migliorato
       const styleEmpName = {
         font: { bold: true, sz: 11, color: { rgb: "000000" } },
-        fill: { fgColor: { rgb: "E7E6E6" } }, // Grigio chiaro (già ok per B&N)
+        fill: { fgColor: { rgb: "E7E6E6" } }, // Grigio chiaro
         border: borderThin,
         alignment: { horizontal: "left", vertical: "center", indent: 1 }
       };
 
-      // Stile cella totale migliorato - grigio medio-chiaro per stampa B&N
+      // Stile cella totale migliorato
       const styleTotalCell = {
         font: { bold: true, sz: 11, color: { rgb: "000000" } },
-        fill: { fgColor: { rgb: "C0C0C0" } }, // Grigio medio-chiaro invece di giallo
+        fill: { fgColor: { rgb: "FFE699" } }, // Giallo chiaro
         border: borderThin,
         alignment: { horizontal: "center", vertical: "center" }
       };
