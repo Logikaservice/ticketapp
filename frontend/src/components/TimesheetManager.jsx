@@ -2140,84 +2140,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         return list;
       });
 
-      // Se è la prima lista e cambia la settimana, sincronizza anche le liste automatiche
-      if (isFirstList && filterType === 'weekRange') {
-        const updatedFirstList = updatedLists[0];
-        updatedLists = updatedLists.map(list => {
-          // Se è una lista automatica (stesso reparto ma azienda diversa dalla prima)
-          if (list.id !== listId &&
-            list.company !== updatedFirstList.company &&
-            list.department === updatedFirstList.department) {
-            return { ...list, weekRange: value };
-          }
-          return list;
-        });
-      }
-
-      // Se è la prima lista e sia azienda che reparto sono selezionati, gestisci le liste automatiche
-      if (isFirstList) {
-        const updatedFirstList = updatedLists[0];
-
-        // Verifica se sia azienda che reparto sono selezionati
-        if (updatedFirstList.company && updatedFirstList.department) {
-          // Trova tutte le altre aziende che hanno lo stesso reparto
-          const otherCompanies = companies.filter(c =>
-            c !== updatedFirstList.company &&
-            departmentsStructure[c]?.includes(updatedFirstList.department)
-          );
-
-          // Identifica le liste manuali (non automatiche)
-          // Una lista è automatica SOLO se: stesso reparto MA azienda diversa dalla prima
-          // Tutte le altre liste sono manuali e vanno mantenute
-          const manualLists = updatedLists.filter(list => {
-            // Sempre mantieni la prima lista
-            if (list.id === updatedFirstList.id) return true;
-
-            // Una lista è automatica se: stesso reparto E azienda diversa dalla prima
-            const isAutoList = list.department === updatedFirstList.department &&
-              list.company !== updatedFirstList.company;
-
-            // Mantieni tutte le liste che NON sono automatiche
-            return !isAutoList;
-          });
-
-          // Crea nuove liste automatiche per ogni altra azienda con lo stesso reparto
-          const autoLists = [];
-          otherCompanies.forEach(otherCompany => {
-            // Verifica se esiste già una lista (manuale o automatica) per questa combinazione
-            // Controlla sia in manualLists che in updatedLists per evitare duplicati
-            const existsInManual = manualLists.some(l =>
-              l.company === otherCompany && l.department === updatedFirstList.department
-            );
-            const existsInUpdated = updatedLists.some(l =>
-              l.company === otherCompany && l.department === updatedFirstList.department
-            );
-
-            // Non creare se esiste già (sia manuale che automatica)
-            if (!existsInManual && !existsInUpdated) {
-              autoLists.push({
-                id: Date.now() + Math.random() + otherCompany.length, // ID univoco
-                company: otherCompany,
-                department: updatedFirstList.department,
-                weekRange: updatedFirstList.weekRange // Usa la stessa settimana della prima lista
-              });
-            }
-          });
-
-          return [...manualLists, ...autoLists];
-        } else {
-          // Se azienda o reparto non sono selezionati, rimuovi solo le liste automatiche
-          // Una lista è automatica se: stesso reparto MA azienda diversa dalla prima
-          return updatedLists.filter(list => {
-            if (list.id === updatedFirstList.id) return true; // Sempre mantieni la prima
-
-            // Rimuovi solo le liste automatiche (stesso reparto, azienda diversa)
-            const isAutoList = list.department === updatedFirstList.department &&
-              list.company !== updatedFirstList.company;
-            return !isAutoList;
-          });
-        }
-      }
+      // RIMOSSA: Logica che crea automaticamente liste di confronto
+      // Ora le liste vengono create solo manualmente tramite il pulsante "Aggiungi Lista"
 
       return updatedLists;
     });
