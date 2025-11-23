@@ -1146,40 +1146,49 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             
             // Rimuovi anche il dipendente da employeesData
             const currentKey = contextKey || `${currentCompany}-${currentDept}`;
-            setTimeout(() => {
-              // Verifica se ci sono altri schedule per questo dipendente in altri reparti della stessa azienda
-              const hasOtherSchedules = Object.keys(newSchedule).some(key => {
-                if (key.includes(`-${currentCompany}-`) && key.endsWith(`-${empId}`) && key !== scheduleKey) {
-                  const otherSchedule = newSchedule[key];
-                  if (otherSchedule && Object.keys(otherSchedule).length > 0) {
-                    // Verifica se ha dati
-                    return Object.values(otherSchedule).some(dayData => {
-                      if (!dayData) return false;
-                      return (dayData.code && dayData.code.trim() !== '') ||
-                             (dayData.in1 && dayData.in1.trim() !== '') ||
-                             (dayData.out1 && dayData.out1.trim() !== '') ||
-                             (dayData.in2 && dayData.in2.trim() !== '') ||
-                             (dayData.out2 && dayData.out2.trim() !== '');
-                    });
-                  }
+            // Salva la chiave per usarla nel setTimeout
+            const keyToRemove = currentKey;
+            const empIdToRemove = empId;
+            const companyToCheck = currentCompany;
+            const scheduleKeyToCheck = scheduleKey;
+            
+            // Rimuovi immediatamente il dipendente da employeesData (lo schedule è già stato eliminato)
+            // Verifica se ci sono altri schedule per questo dipendente in altri reparti della stessa azienda
+            const hasOtherSchedules = Object.keys(newSchedule).some(key => {
+              if (key.includes(`-${companyToCheck}-`) && key.endsWith(`-${empIdToRemove}`) && key !== scheduleKeyToCheck) {
+                const otherSchedule = newSchedule[key];
+                if (otherSchedule && Object.keys(otherSchedule).length > 0) {
+                  // Verifica se ha dati
+                  return Object.values(otherSchedule).some(dayData => {
+                    if (!dayData) return false;
+                    return (dayData.code && dayData.code.trim() !== '') ||
+                           (dayData.in1 && dayData.in1.trim() !== '') ||
+                           (dayData.out1 && dayData.out1.trim() !== '') ||
+                           (dayData.in2 && dayData.in2.trim() !== '') ||
+                           (dayData.out2 && dayData.out2.trim() !== '');
+                  });
                 }
-                return false;
-              });
-              
-              // Rimuovi il dipendente solo se non ha altri schedule in altri reparti
-              if (!hasOtherSchedules) {
+              }
+              return false;
+            });
+            
+            // Rimuovi il dipendente solo se non ha altri schedule in altri reparti
+            if (!hasOtherSchedules) {
+              // Usa setTimeout per assicurarsi che lo schedule sia stato aggiornato
+              setTimeout(() => {
                 setEmployeesData(prev => {
-                  const targetEmployees = prev[currentKey] || [];
-                  if (targetEmployees.some(e => e.id === empId)) {
+                  const targetEmployees = prev[keyToRemove] || [];
+                  if (targetEmployees.some(e => e.id === empIdToRemove)) {
+                    console.log(`🗑️ Rimozione dipendente ${empIdToRemove} da ${keyToRemove} - schedule vuoto`);
                     return {
                       ...prev,
-                      [currentKey]: targetEmployees.filter(e => e.id !== empId)
+                      [keyToRemove]: targetEmployees.filter(e => e.id !== empIdToRemove)
                     };
                   }
                   return prev;
                 });
-              }
-            }, 100);
+              }, 100);
+            }
           }
         }
 
