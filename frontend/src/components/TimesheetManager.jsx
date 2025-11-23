@@ -815,22 +815,40 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
   const handleInputChange = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
     // 1. Gestione Codici Rapidi
+    // IMPORTANTE: Non applicare codici durante la digitazione se la stringa è troppo corta
+    // Questo evita che "A" venga interpretato come "Malattia" quando l'utente vuole digitare "AT" o "AV"
     if (['in1', 'out1', 'in2', 'out2'].includes(field) && value && String(value).trim() !== '') {
       const strValue = String(value).trim().toUpperCase();
       let detectedCode = null;
 
+      // Se la stringa è esattamente una chiave di codice, usala
       if (timeCodes[strValue]) {
         detectedCode = strValue;
       } else {
-        const foundKey = Object.keys(timeCodes).find(key =>
-          timeCodes[key].toUpperCase() === strValue ||
-          timeCodes[key].toUpperCase().includes(strValue) ||
-          strValue.includes(timeCodes[key].toUpperCase())
-        );
+        // Cerca corrispondenza esatta o che il label inizi con la stringa digitata
+        // NON usare includes() perché "A" verrebbe trovato in "MALATTIA"
+        const foundKey = Object.keys(timeCodes).find(key => {
+          const label = timeCodes[key].toUpperCase();
+          // Corrispondenza esatta
+          if (label === strValue) return true;
+          // Il label inizia con la stringa digitata (per codici come "AT", "AV", "MALATTIA")
+          if (label.startsWith(strValue)) return true;
+          // La stringa digitata inizia con il label (per codici corti come "R", "M", "F")
+          if (strValue.startsWith(label)) return true;
+          return false;
+        });
         if (foundKey) detectedCode = foundKey;
       }
 
-      if (detectedCode && strValue.length <= 10) {
+      // Applica il codice solo se:
+      // 1. La stringa ha almeno 2 caratteri (per evitare che "A" venga interpretato come "Malattia")
+      // 2. OPPURE è una corrispondenza esatta con una chiave di codice (es. "R", "M", "F")
+      // 3. OPPURE la stringa corrisponde esattamente a un label (es. "MALATTIA", "RIPOSO")
+      const isExactKeyMatch = timeCodes[strValue] !== undefined;
+      const isExactLabelMatch = Object.values(timeCodes).some(label => label.toUpperCase() === strValue);
+      const shouldApply = (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch) && strValue.length <= 10;
+
+      if (detectedCode && shouldApply) {
         handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
         return;
       }
@@ -857,6 +875,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
   const handleBlur = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
     // 1. Gestione Codici Rapidi (anche su blur)
+    // Su blur possiamo essere più permissivi, ma evitiamo ancora che "A" venga interpretato come "Malattia"
     if (['in1', 'out1', 'in2', 'out2'].includes(field) && value) {
       const strValue = String(value).trim().toUpperCase();
       let detectedCode = null;
@@ -864,14 +883,30 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       if (timeCodes[strValue]) {
         detectedCode = strValue;
       } else {
+        // Cerca corrispondenza esatta o che il label inizi con la stringa digitata
+        // NON usare includes() perché "A" verrebbe trovato in "MALATTIA"
         const foundKey = Object.keys(timeCodes).find(key => {
           const label = timeCodes[key].toUpperCase();
-          return label === strValue || label.startsWith(strValue) || strValue.startsWith(label);
+          // Corrispondenza esatta
+          if (label === strValue) return true;
+          // Il label inizia con la stringa digitata (per codici come "AT", "AV", "MALATTIA")
+          if (label.startsWith(strValue)) return true;
+          // La stringa digitata inizia con il label (per codici corti come "R", "M", "F")
+          if (strValue.startsWith(label)) return true;
+          return false;
         });
         if (foundKey) detectedCode = foundKey;
       }
 
-      if (detectedCode && strValue.length <= 15) {
+      // Su blur, applica solo se:
+      // 1. La stringa ha almeno 2 caratteri (per evitare che "A" venga interpretato come "Malattia")
+      // 2. OPPURE è una corrispondenza esatta con una chiave di codice (es. "R", "M", "F")
+      // 3. OPPURE la stringa corrisponde esattamente a un label (es. "MALATTIA", "RIPOSO")
+      const isExactKeyMatch = timeCodes[strValue] !== undefined;
+      const isExactLabelMatch = Object.values(timeCodes).some(label => label.toUpperCase() === strValue);
+      const shouldApply = (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch) && strValue.length <= 15;
+
+      if (detectedCode && shouldApply) {
         handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
         return;
       }
