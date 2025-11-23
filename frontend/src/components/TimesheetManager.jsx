@@ -1199,19 +1199,33 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     // Trova il codice key dal label (es. "Avellino" → "AV")
     const codeKey = getCodeKey(code) || '';
 
-    // Se è un codice assenza, mostra popup per giorni
+    // Se è un codice assenza, applica direttamente al giorno selezionato (senza popup)
     if (isAbsenceCode(codeKey)) {
-      setAbsenceDaysModal({
-        isOpen: true,
-        empId,
-        dayIndex,
-        code,
-        codeKey,
-        contextKey,
-        weekRangeValue,
-        days: 1
+      // Applica direttamente il codice al giorno selezionato (solo 1 giorno, manuale)
+      const keyToSave = codeKey;
+      
+      setSchedule(prev => {
+        const newSchedule = { ...prev };
+        if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
+        if (!newSchedule[scheduleKey][dayIndex]) newSchedule[scheduleKey][dayIndex] = {};
+
+        // Applica il codice solo al giorno selezionato
+        newSchedule[scheduleKey][dayIndex] = {
+          code: keyToSave,
+          in1: '',
+          out1: '',
+          in2: '',
+          out2: '',
+          fromCompany: undefined,
+          geographicCode: undefined
+        };
+
+        return newSchedule;
       });
-      return; // Non applicare subito, aspetta conferma giorni
+
+      // Salva dopo l'aggiornamento
+      setTimeout(() => saveData(), 500);
+      return;
     }
 
     // Per codici non-assenza (geografici), salva la chiave invece del label
