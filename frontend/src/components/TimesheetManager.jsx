@@ -1395,55 +1395,68 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     const key = getContextKey(company, dept);
     const employeeName = nameToUse.toUpperCase().trim();
 
-    const newId = Date.now();
+    // Cerca se esiste già un dipendente con questo nome (nella lista globale o nella lista specifica)
+    const globalList = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
+    const specificList = employeesData[key] || [];
+    const existingEmployee = globalList.find(e => e.name === employeeName) || 
+                             specificList.find(e => e.name === employeeName);
+
+    // Usa l'ID esistente se trovato, altrimenti crea un nuovo ID
+    const employeeId = existingEmployee ? existingEmployee.id : Date.now();
     const newName = employeeName;
 
-    // 1. Crea il dipendente in employeesData - aggiungilo a TUTTE le aziende e reparti E alla lista globale
-    setEmployeesData(prev => {
-      const updated = { ...prev };
+    // 1. Se il dipendente non esiste, aggiungilo a TUTTE le aziende e reparti E alla lista globale
+    if (!existingEmployee) {
+      setEmployeesData(prev => {
+        const updated = { ...prev };
 
-      // Aggiungi alla lista globale GLOBAL_EMPLOYEES_KEY
-      const globalList = updated[GLOBAL_EMPLOYEES_KEY] || [];
-      const existsInGlobal = globalList.some(e => e.id === newId || e.name === newName);
-      if (!existsInGlobal) {
-        updated[GLOBAL_EMPLOYEES_KEY] = [...globalList, { id: newId, name: newName }];
+        // Aggiungi alla lista globale GLOBAL_EMPLOYEES_KEY
+        const globalList = updated[GLOBAL_EMPLOYEES_KEY] || [];
+        const existsInGlobal = globalList.some(e => e.id === employeeId || e.name === newName);
+        if (!existsInGlobal) {
+          updated[GLOBAL_EMPLOYEES_KEY] = [...globalList, { id: employeeId, name: newName }];
+        }
+
+        // Per ogni azienda
+        companies.forEach(comp => {
+          const depts = departmentsStructure[comp] || [];
+          // Per ogni reparto di ogni azienda
+          depts.forEach(d => {
+            const key = getContextKey(comp, d);
+            const existingEmployees = updated[key] || [];
+            // Verifica se esiste già (stesso ID o stesso nome)
+            const exists = existingEmployees.some(e => e.id === employeeId || e.name === newName);
+            if (!exists) {
+              updated[key] = [...existingEmployees, { id: employeeId, name: newName }];
+            }
+          });
+        });
+
+        return updated;
+      });
+    }
+
+    // 2. Aggiungi subito alla settimana corrente per l'azienda/reparto selezionato (anche se il dipendente esiste già)
+    const currentWeek = weekRangeValue || getWeekDates(0).formatted;
+    const scheduleKey = `${currentWeek}-${key}-${employeeId}`;
+
+    setSchedule(prevSchedule => {
+      // Se esiste già uno schedule per questo dipendente/settimana, non sovrascriverlo
+      if (prevSchedule[scheduleKey] !== undefined) {
+        return prevSchedule;
       }
 
-      // Per ogni azienda
-      companies.forEach(comp => {
-        const depts = departmentsStructure[comp] || [];
-        // Per ogni reparto di ogni azienda
-        depts.forEach(d => {
-          const key = getContextKey(comp, d);
-          const existingEmployees = updated[key] || [];
-          // Verifica se esiste già (stesso ID o stesso nome)
-          const exists = existingEmployees.some(e => e.id === newId || e.name === newName);
-          if (!exists) {
-            updated[key] = [...existingEmployees, { id: newId, name: newName }];
-          }
-        });
-      });
+      const newSchedule = {
+        ...prevSchedule,
+        [scheduleKey]: {}
+      };
 
-      // 2. Aggiungi subito alla settimana corrente per l'azienda/reparto selezionato
-      const currentWeek = weekRangeValue || getWeekDates(0).formatted;
-      const key = getContextKey(company, dept);
-      const scheduleKey = `${currentWeek}-${key}-${newId}`;
+      // 3. Salva tutto
+      setTimeout(() => {
+        saveData();
+      }, 500);
 
-      setSchedule(prevSchedule => {
-        const newSchedule = {
-          ...prevSchedule,
-          [scheduleKey]: {}
-        };
-
-        // 3. Salva tutto
-        setTimeout(() => {
-          saveDataWithStructure(departmentsStructure, updated, newSchedule);
-        }, 500);
-
-        return newSchedule;
-      });
-
-      return updated;
+      return newSchedule;
     });
 
     setQuickAddName('');
@@ -1451,7 +1464,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
     // Focus automatico sul primo campo orario (Lunedì Entrata)
     setTimeout(() => {
-      const inputId = `input-${newId}-0-in1`;
+      const inputId = `input-${employeeId}-0-in1`;
       const element = document.getElementById(inputId);
       if (element) {
         element.focus();
