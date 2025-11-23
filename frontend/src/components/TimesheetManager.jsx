@@ -2285,11 +2285,25 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
     if (geographicCodes.length > 0) {
       // 1. Cerca nello schedule dell'azienda CORRENTE per dipendenti con geographicCode
+      // IMPORTANTE: Verifica che lo schedule abbia effettivamente dei dati, non solo che esista
       Object.keys(schedule).forEach(scheduleKey => {
         // Pattern: settimana-contextKey-empId
         if (scheduleKey.startsWith(`${currentWeek}-${key}-`)) {
           const empId = parseInt(scheduleKey.split('-').pop());
           const daySchedule = schedule[scheduleKey];
+
+          // Verifica se lo schedule ha dati (non vuoto)
+          const hasData = Object.values(daySchedule).some(dayData => {
+            if (!dayData) return false;
+            return (dayData.code && dayData.code.trim() !== '') ||
+                   (dayData.in1 && dayData.in1.trim() !== '') ||
+                   (dayData.out1 && dayData.out1.trim() !== '') ||
+                   (dayData.in2 && dayData.in2.trim() !== '') ||
+                   (dayData.out2 && dayData.out2.trim() !== '') ||
+                   (dayData.geographicCode && dayData.geographicCode.trim() !== '');
+          });
+
+          if (!hasData) return; // Salta se lo schedule è vuoto
 
           // Verifica se ha un geographicCode che punta a questa azienda
           const hasGeographicCode = Object.values(daySchedule).some(dayData => {
@@ -2317,7 +2331,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       });
 
       // 2. Cerca anche nelle altre aziende, ma SOLO se il dipendente ha uno schedule nel reparto specifico di questa lista
-      // IMPORTANTE: Verifica che lo schedule esista nel reparto corretto, non solo che abbia un codice geografico
+      // IMPORTANTE: Verifica che lo schedule esista nel reparto corretto E abbia dati, non solo che abbia un codice geografico
       const targetScheduleKey = `${currentWeek}-${key}-`;
       Object.keys(schedule).forEach(scheduleKey => {
         // Verifica che lo schedule sia per questa azienda/reparto specifico
@@ -2327,6 +2341,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         const daySchedule = schedule[scheduleKey];
         
         if (!daySchedule) return;
+
+        // IMPORTANTE: Verifica che lo schedule abbia effettivamente dei dati (non vuoto)
+        const hasData = Object.values(daySchedule).some(dayData => {
+          if (!dayData) return false;
+          return (dayData.code && dayData.code.trim() !== '') ||
+                 (dayData.in1 && dayData.in1.trim() !== '') ||
+                 (dayData.out1 && dayData.out1.trim() !== '') ||
+                 (dayData.in2 && dayData.in2.trim() !== '') ||
+                 (dayData.out2 && dayData.out2.trim() !== '') ||
+                 (dayData.geographicCode && dayData.geographicCode.trim() !== '');
+        });
+
+        if (!hasData) return; // Salta se lo schedule è vuoto
 
         // Verifica se ha un codice geografico per questa azienda
         const hasGeographicCode = Object.values(daySchedule).some(dayData => {
