@@ -426,7 +426,8 @@ app.post('/api/login', async (req, res) => {
     }
 
     // Se l'utente non ha accesso al progetto richiesto, nega l'accesso
-    if (!enabledProjects.includes(requestedProject)) {
+    // ECCEZIONE: Gli admin hanno sempre accesso a tutto
+    if (user.ruolo !== 'admin' && !enabledProjects.includes(requestedProject)) {
       client.release();
       console.log(`❌ Utente ${email} non ha accesso al progetto ${requestedProject}`);
       return res.status(403).json({

@@ -2792,8 +2792,8 @@ export default function TicketApp() {
 
         <main className="max-w-7xl mx-auto px-4 py-6">
           {showOrariTurni ? (
-            // Verifica accesso al sistema orari
-            currentUser?.enabled_projects?.includes('orari') ? (
+            // Verifica accesso al sistema orari (admin ha sempre accesso)
+            (currentUser?.ruolo === 'admin' || currentUser?.enabled_projects?.includes('orari')) ? (
               <div className="animate-slideInRight">
                 <TimesheetManager currentUser={currentUser} getAuthHeader={getAuthHeader} />
               </div>

@@ -12,6 +12,12 @@ module.exports = (poolOrari) => {
 
   // Middleware per verificare accesso al progetto orari
   const requireOrariAccess = (req, res, next) => {
+    // Se l'utente è admin, ha sempre accesso
+    if (req.user?.ruolo === 'admin') {
+      console.log(`✅ Accesso orari autorizzato per ADMIN ${req.user.email}`);
+      return next();
+    }
+
     const enabledProjects = req.user?.enabled_projects || ['ticket'];
 
     if (!enabledProjects.includes('orari')) {
