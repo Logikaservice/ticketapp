@@ -746,25 +746,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     if (!inTime && !outTime) return { valid: true, error: null };
     if (!inTime || !outTime) return { valid: true, error: null }; // Non validare se manca uno dei due
     
-    const inMinutes = timeToMinutes(inTime);
-    const outMinutes = timeToMinutes(outTime);
-    
-    // Gestione turni notturni (es. 22.00-06.00)
-    if (isNightShift || (inMinutes > outMinutes && inMinutes >= 22 * 60)) {
-      // Turno notturno: l'uscita può essere minore dell'entrata se l'entrata è dopo le 22
-      const nextDayMinutes = outMinutes + (24 * 60);
-      if (nextDayMinutes <= inMinutes) {
-        return { valid: false, error: 'L\'uscita deve essere dopo l\'entrata (per turni notturni, usa 22.00-06.00)' };
-      }
-      return { valid: true, error: null };
-    }
-    
-    // Turno normale: l'uscita deve essere dopo l'entrata
-    if (outMinutes <= inMinutes) {
-      return { valid: false, error: 'L\'uscita deve essere dopo l\'entrata' };
-    }
-    
-    // Nessun limite di durata massima - rimosso controllo 16 ore
+    // Rimossi tutti i controlli di validazione - permettere qualsiasi combinazione di orari
     
     return { valid: true, error: null };
   };
