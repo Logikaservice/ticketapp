@@ -280,14 +280,32 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     try {
       setLoading(true);
 
-      const response = await fetchWithRetry(
-        buildApiUrl('/api/orari/data'),
-        {
-          headers: getAuthHeader()
-        },
-        3,
-        'caricamento dati'
-      );
+      let response;
+      try {
+        response = await fetchWithRetry(
+          buildApiUrl('/api/orari/data'),
+          {
+            headers: getAuthHeader()
+          },
+          3,
+          'caricamento dati'
+        );
+      } catch (error) {
+        // Se fetchWithRetry fallisce completamente, prova con fetch normale come fallback
+        console.warn('⚠️ fetchWithRetry fallito, provo con fetch normale:', error);
+        try {
+          response = await fetch(buildApiUrl('/api/orari/data'), {
+            headers: getAuthHeader()
+          });
+        } catch (fallbackError) {
+          console.error('❌ Errore caricamento dati (anche fallback fallito):', fallbackError);
+          if (showNotification) {
+            showNotification('Errore nel caricamento dei dati. Riprova più tardi.', 'error', 6000);
+          }
+          setLoading(false);
+          return;
+        }
+      }
 
       // Gestione errore accesso negato
       if (response.status === 403) {
@@ -303,6 +321,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           }, 2000);
           return;
         }
+      }
+
+      // Gestione altri errori HTTP
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Errore caricamento dati:', response.status, errorData);
+        if (showNotification) {
+          showNotification(`Errore nel caricamento dei dati (${response.status}). Riprova più tardi.`, 'error', 6000);
+        }
+        setLoading(false);
+        return;
       }
 
       if (response.ok) {
@@ -352,10 +381,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             const count = Array.isArray(cleanedEmployees[key]) ? cleanedEmployees[key].length : 0;
           });
 
-          // MIGRAZIONE AUTOMATICA: Sposta tutti i dipendenti dalle vecchie chiavi alla lista globale
+          // PRESERVA TUTTI I DATI ESISTENTI - Non fare migrazione automatica che potrebbe cancellare dati
+          // Mantieni sia la lista globale che le vecchie chiavi per compatibilità
           let globalList = cleanedEmployees[GLOBAL_EMPLOYEES_KEY] || [];
 
           // Se la lista globale è vuota, raccoglie tutti i dipendenti dalle vecchie chiavi
+          // MA mantiene anche le vecchie chiavi per non perdere dati
           if (globalList.length === 0) {
             const uniqueEmployees = new Map(); // { "id": { id, name } }
 
@@ -377,15 +408,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             // Converti la Map in array
             globalList = Array.from(uniqueEmployees.values());
 
-            console.log(`🔄 MIGRAZIONE: Spostati ${globalList.length} dipendenti unici nella lista globale`);
+            if (globalList.length > 0) {
+              console.log(`🔄 MIGRAZIONE: Trovati ${globalList.length} dipendenti unici da migrare`);
+            }
           }
 
-          // Salva solo la lista globale, rimuovendo le vecchie chiavi
-          const migratedEmployees = {
-            [GLOBAL_EMPLOYEES_KEY]: globalList
+          // IMPORTANTE: Mantieni TUTTI i dati esistenti, non solo la lista globale
+          // Questo preserva i dati vecchi e i nuovi
+          const preservedEmployees = {
+            ...cleanedEmployees, // Mantieni tutte le vecchie chiavi
+            [GLOBAL_EMPLOYEES_KEY]: globalList // Aggiungi/aggiorna la lista globale
           };
 
-          setEmployeesData(migratedEmployees);
+          setEmployeesData(preservedEmployees);
 
           // Migra automaticamente i dati vecchi (senza settimana) alla settimana corrente
           const currentWeek = getWeekDates(0).formatted;
@@ -412,16 +447,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
           setSchedule(migratedSchedule);
 
-          // Salva la migrazione se ci sono state modifiche agli schedule O ai dipendenti
-          const needsMigrationSave = Object.keys(migratedSchedule).length > Object.keys(oldSchedule).length ||
-            (globalList.length > 0 && Object.keys(cleanedEmployees).length > 1);
-
-          if (needsMigrationSave) {
-            console.log('💾 Salvataggio automatico dopo migrazione dati...');
-            setTimeout(() => {
-              saveData();
-            }, 1000);
-          }
+          // NON salvare automaticamente dopo la migrazione per evitare di sovrascrivere dati
+          // La migrazione viene salvata solo quando l'utente modifica manualmente i dati
+          // Questo previene la perdita di dati durante il caricamento
 
 
           // Imposta il primo reparto della prima azienda
