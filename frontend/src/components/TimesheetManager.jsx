@@ -2676,7 +2676,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                               openConfirm(
                                 "Rimuovi Dipendente dalla Settimana",
                                 `ATTENZIONE: Se procedi, tutti i dati presenti per ${emp.name} in questa settimana (${listWeekRange}) saranno cancellati definitivamente dal database.\n\nVuoi continuare?`,
-                                () => removeEmployeeFromWeek(emp.id, emp.contextKey, listWeekRange, list.company, list.department)
+                                () => removeEmployeeFromWeek(emp.id, emp.contextKey, listWeekRange, company, department)
                               );
                             }}
                             className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-red-500 hover:text-red-700 p-1 rounded transition-opacity"
