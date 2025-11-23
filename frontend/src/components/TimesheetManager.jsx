@@ -2078,6 +2078,25 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             updated.department = departmentsStructure[value]?.[0] || '';
           }
 
+          // Controlla se questa combinazione (azienda/reparto/settimana) esiste già in un'altra lista
+          if (updated.company && updated.department && updated.weekRange) {
+            const isDuplicate = prev.some(otherList => 
+              otherList.id !== listId && 
+              otherList.company === updated.company && 
+              otherList.department === updated.department && 
+              otherList.weekRange === updated.weekRange
+            );
+            
+            if (isDuplicate) {
+              // Se è un duplicato, mostra avviso e non applicare la modifica
+              if (showNotification) {
+                showNotification('⚠️ Questa combinazione (Azienda/Reparto/Settimana) esiste già in un\'altra lista. Seleziona una settimana diversa (precedente o successiva).', 'warning', 5000);
+              }
+              // Restituisci la lista originale senza modifiche
+              return list;
+            }
+          }
+
           return updated;
         }
         return list;
