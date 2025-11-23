@@ -1091,27 +1091,32 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           const employee = employees.find(e => e.id === empId);
 
           if (employee) {
-            // LOGICA MIGLIORATA: Cerca se il dipendente esiste già nell'azienda target (in qualsiasi reparto)
-            let targetDeptToUse = currentDept;
+            // LOGICA CORRETTA: Usa lo STESSO reparto dell'azienda target (se esiste)
+            // Esempio: se Carmela è in "La Torre -> Cucina", va in "Mercurio -> Cucina" (stesso reparto)
             const targetDepts = departmentsStructure[targetCompany] || [];
+            let targetDeptToUse = null;
 
-            // Se l'azienda target non ha reparti configurati, usa il reparto corrente
-            if (targetDepts.length === 0) {
+            // PRIMA: Verifica se il reparto corrente esiste nell'azienda target
+            if (currentDept && targetDepts.includes(currentDept)) {
+              // Il reparto esiste nell'azienda target, usalo
               targetDeptToUse = currentDept;
-            } else {
-              // Cerca in tutti i reparti dell'azienda target
+            } else if (targetDepts.length > 0) {
+              // Il reparto non esiste, verifica se il dipendente è già presente in qualche reparto
               for (const dept of targetDepts) {
                 const checkKey = `${targetCompany}-${dept}`;
                 const deptEmployees = employeesData[checkKey] || [];
                 if (deptEmployees.some(e => e.id === empId)) {
                   targetDeptToUse = dept;
-                  break; // Trovato! Usa questo reparto
+                  break; // Trovato! Usa questo reparto dove è già presente
                 }
               }
               // Se non trovato in nessun reparto, usa il primo reparto disponibile
-              if (!targetDepts.includes(targetDeptToUse)) {
+              if (!targetDeptToUse) {
                 targetDeptToUse = targetDepts[0];
               }
+            } else {
+              // L'azienda target non ha reparti configurati, usa il reparto corrente
+              targetDeptToUse = currentDept;
             }
 
             // Crea/salva il dipendente nell'azienda target se non esiste
