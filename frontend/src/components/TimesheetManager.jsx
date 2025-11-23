@@ -3004,51 +3004,52 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           // Se ha uno schedule o è in employeesData, controlla i dati del giorno
                           if (otherDayData || existsInOther) {
                             if (otherDayData) {
-                            // Se ha un codice di assenza in questa azienda, mostralo
-                            if (otherDayData.code) {
-                              const otherCodeKey = getCodeKey(otherDayData.code);
-                              if (otherCodeKey && isAbsenceCode(otherCodeKey)) {
-                                hasCodeInOtherCompany = true;
-                                otherCompanyCode = getCodeLabel(otherDayData.code);
-                                otherCompanyName = otherCompany;
-                                // Se non c'è già un codice nella cella corrente, salvalo nello schedule corrente
-                                // così può essere pulito con "Pulisci Cella"
-                                if (!cellData.code) {
-                                  const currentScheduleKey = `${currentWeek}-${emp.contextKey}-${emp.id}`;
-                                  // Verifica se esiste già nello schedule (per evitare loop infiniti)
-                                  const existingSchedule = schedule[currentScheduleKey]?.[dayIdx];
-                                  if (!existingSchedule || !existingSchedule.code) {
-                                    // Salva il codice nello schedule corrente con riferimento all'azienda originale
-                                    setSchedule(prev => {
-                                      const newSchedule = { ...prev };
-                                      if (!newSchedule[currentScheduleKey]) newSchedule[currentScheduleKey] = {};
-                                      newSchedule[currentScheduleKey][dayIdx] = {
-                                        code: otherCodeKey,
-                                        fromCompany: otherCompany,
-                                        in1: '',
-                                        out1: '',
-                                        in2: '',
-                                        out2: ''
-                                      };
-                                      return newSchedule;
-                                    });
+                              // Se ha un codice di assenza in questa azienda, mostralo
+                              if (otherDayData.code) {
+                                const otherCodeKey = getCodeKey(otherDayData.code);
+                                if (otherCodeKey && isAbsenceCode(otherCodeKey)) {
+                                  hasCodeInOtherCompany = true;
+                                  otherCompanyCode = getCodeLabel(otherDayData.code);
+                                  otherCompanyName = otherCompany;
+                                  // Se non c'è già un codice nella cella corrente, salvalo nello schedule corrente
+                                  // così può essere pulito con "Pulisci Cella"
+                                  if (!cellData.code) {
+                                    const currentScheduleKey = `${currentWeek}-${emp.contextKey}-${emp.id}`;
+                                    // Verifica se esiste già nello schedule (per evitare loop infiniti)
+                                    const existingSchedule = schedule[currentScheduleKey]?.[dayIdx];
+                                    if (!existingSchedule || !existingSchedule.code) {
+                                      // Salva il codice nello schedule corrente con riferimento all'azienda originale
+                                      setSchedule(prev => {
+                                        const newSchedule = { ...prev };
+                                        if (!newSchedule[currentScheduleKey]) newSchedule[currentScheduleKey] = {};
+                                        newSchedule[currentScheduleKey][dayIdx] = {
+                                          code: otherCodeKey,
+                                          fromCompany: otherCompany,
+                                          in1: '',
+                                          out1: '',
+                                          in2: '',
+                                          out2: ''
+                                        };
+                                        return newSchedule;
+                                      });
+                                    }
+                                    // Aggiorna cellData per il rendering
+                                    cellData = {
+                                      ...cellData,
+                                      code: otherCodeKey,
+                                      fromCompany: otherCompany
+                                    };
                                   }
-                                  // Aggiorna cellData per il rendering
-                                  cellData = {
-                                    ...cellData,
-                                    code: otherCodeKey,
-                                    fromCompany: otherCompany
-                                  };
                                 }
                               }
-                            }
-                            // Se ha orari o codici in questa azienda (mostra sempre il tooltip)
-                            if (!showGeographicInputs && (otherDayData.in1 || otherDayData.in2 || otherDayData.out1 || otherDayData.out2 || otherDayData.code)) {
-                              hasScheduleInOtherCompany = true;
-                              if (!otherCompanySchedule) {
-                                otherCompanySchedule = otherDayData;
+                              // Se ha orari o codici in questa azienda (mostra sempre il tooltip)
+                              if (!showGeographicInputs && (otherDayData.in1 || otherDayData.in2 || otherDayData.out1 || otherDayData.out2 || otherDayData.code)) {
+                                hasScheduleInOtherCompany = true;
+                                if (!otherCompanySchedule) {
+                                  otherCompanySchedule = otherDayData;
+                                }
+                                if (!otherCompanyName) otherCompanyName = otherCompany;
                               }
-                              if (!otherCompanyName) otherCompanyName = otherCompany;
                             }
                           }
                         });
