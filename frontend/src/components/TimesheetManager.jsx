@@ -8,6 +8,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   // weekRange non è più usato direttamente, ma mantenuto per compatibilità
   const [weekRange, setWeekRange] = useState(() => {
     const today = new Date();
+    // Imposta di default alla settimana successiva (+7 giorni) per facilitare la pianificazione turni
+    today.setDate(today.getDate() + 7);
+
     const monday = new Date(today);
     monday.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
     const sunday = new Date(monday);
