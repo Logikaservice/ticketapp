@@ -2899,7 +2899,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               <p className="text-xs text-gray-500 italic mb-4">
                 💡 Per una corretta identificazione è consigliato creare i dipendenti con <strong>nome.cognome</strong> per evitare omonimie.
               </p>
-              <div className="max-h-60 overflow-y-auto">
+              <div className="max-h-40 overflow-y-auto">
                 {currentEmployees.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {currentEmployees.map(emp => (
