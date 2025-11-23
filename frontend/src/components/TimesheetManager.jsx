@@ -2327,6 +2327,61 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     }));
   };
 
+  // Funzione per verificare se ci sono dipendenti con trasferte verso l'azienda selezionata
+  const checkTransfersToCompany = (company, department, weekRangeValue = null) => {
+    if (!company) return [];
+    
+    const currentWeek = weekRangeValue || weekRange;
+    const transfers = [];
+    
+    // Verifica quali codici geografici puntano a questa azienda
+    const geographicCodes = Object.keys(timeCodes).filter(codeKey => {
+      const targetCompany = getCompanyFromGeographicCode(codeKey);
+      return targetCompany === company;
+    });
+    
+    if (geographicCodes.length === 0) return [];
+    
+    // Cerca nello schedule tutti i dipendenti che hanno un geographicCode che punta a questa azienda
+    Object.keys(schedule).forEach(scheduleKey => {
+      // Pattern: settimana-contextKey-empId
+      if (!scheduleKey.startsWith(`${currentWeek}-`)) return;
+      
+      const daySchedule = schedule[scheduleKey];
+      if (!daySchedule) return;
+      
+      // Verifica se ha un geographicCode che punta a questa azienda
+      const hasGeographicCode = Object.values(daySchedule).some(dayData => {
+        if (!dayData) return false;
+        return dayData.geographicCode && geographicCodes.includes(dayData.geographicCode);
+      });
+      
+      if (hasGeographicCode) {
+        const empId = parseInt(scheduleKey.split('-').pop());
+        const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
+        const employee = globalEmployees.find(e => e.id === empId);
+        
+        if (employee) {
+          // Estrai l'azienda di origine dal fromCompany o dal contextKey
+          const fromCompany = Object.values(daySchedule).find(d => d?.fromCompany)?.fromCompany;
+          const contextKey = scheduleKey.replace(`${currentWeek}-`, '').replace(`-${empId}`, '');
+          const sourceCompany = fromCompany || (contextKey ? contextKey.split('-')[0] : '');
+          
+          if (sourceCompany && sourceCompany !== company) {
+            transfers.push({
+              employeeName: employee.name,
+              sourceCompany: sourceCompany,
+              targetCompany: company,
+              geographicCode: Object.values(daySchedule).find(d => d?.geographicCode)?.geographicCode
+            });
+          }
+        }
+      }
+    });
+    
+    return transfers;
+  };
+
   // --- EXPORT EXCEL PERFETTO ---
   const strToExcelTime = (timeStr) => {
     if (!timeStr || typeof timeStr !== 'string') return null;
@@ -3623,6 +3678,89 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         <div className="p-4">
           {viewLists.map((list, index) => renderEmployeeList(list, index))}
         </div>
+
+        {/* AVVISO TRASFERTE - Mostra solo se ci sono trasferte verso le aziende delle liste */}
+        {(() => {
+          // Raccogli tutte le trasferte da tutte le liste
+          const allTransfers = [];
+          viewLists.forEach(list => {
+            if (list.company && list.department) {
+              const transfers = checkTransfersToCompany(list.company, list.department, list.weekRange);
+              transfers.forEach(transfer => {
+                // Aggiungi anche l'azienda target per identificare la lista
+                const key = `${transfer.employeeName}-${transfer.sourceCompany}-${list.company}`;
+                if (!allTransfers.find(t => `${t.employeeName}-${t.sourceCompany}-${t.targetCompany}` === key)) {
+                  allTransfers.push({ ...transfer, targetCompany: list.company, listId: list.id });
+                }
+              });
+            }
+          });
+          
+          if (allTransfers.length === 0) return null;
+          
+          // Raggruppa per azienda target
+          const transfersByCompany = allTransfers.reduce((acc, transfer) => {
+            if (!acc[transfer.targetCompany]) {
+              acc[transfer.targetCompany] = [];
+            }
+            acc[transfer.targetCompany].push(transfer);
+            return acc;
+          }, {});
+          
+          return Object.entries(transfersByCompany).map(([targetCompany, transfers]) => {
+            const uniqueTransfers = transfers.reduce((acc, transfer) => {
+              const key = `${transfer.employeeName}-${transfer.sourceCompany}`;
+              if (!acc[key]) {
+                acc[key] = transfer;
+              }
+              return acc;
+            }, {});
+            
+            const transferList = Object.values(uniqueTransfers);
+            
+            return (
+              <div key={targetCompany} className="px-4 pb-2">
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3 flex-1">
+                      <h3 className="text-sm font-medium text-yellow-800">
+                        Trasferte in arrivo presso {targetCompany}
+                      </h3>
+                      <div className="mt-2 text-sm text-yellow-700">
+                        <p className="mb-1">
+                          {transferList.length === 1 ? (
+                            <>
+                              Il dipendente <strong>{transferList[0].employeeName}</strong> ha una trasferta da <strong>{transferList[0].sourceCompany}</strong> presso questo punto vendita.
+                            </>
+                          ) : (
+                            <>
+                              {transferList.length} dipendenti hanno trasferte presso questo punto vendita:
+                              <ul className="list-disc list-inside mt-1 space-y-1">
+                                {transferList.map((transfer, idx) => (
+                                  <li key={idx}>
+                                    <strong>{transfer.employeeName}</strong> da <strong>{transfer.sourceCompany}</strong>
+                                  </li>
+                                ))}
+                              </ul>
+                            </>
+                          )}
+                        </p>
+                        <p className="mt-2 font-medium">
+                          Gestisci l'orario di occupazione per questi dipendenti.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          });
+        })()}
 
         {/* PULSANTE AGGIUNGI LISTA */}
         <div className="p-4 border-t bg-gray-50 flex justify-center">
