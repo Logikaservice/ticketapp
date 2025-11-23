@@ -398,7 +398,8 @@ app.post('/api/login', async (req, res) => {
     if (result.rows.length === 0) {
       client.release();
       console.log('❌ Utente non trovato');
-      return res.status(401).json({ error: 'Credenziali non valide' });
+      // DEBUG: Messaggio specifico
+      return res.status(401).json({ error: 'Credenziali non valide (Utente non trovato)' });
     }
 
     const user = result.rows[0];
@@ -519,7 +520,8 @@ app.post('/api/login', async (req, res) => {
       }
     } else {
       console.log(`❌ Login fallito per: ${email}`);
-      res.status(401).json({ error: 'Credenziali non valide' });
+      // DEBUG: Messaggio specifico
+      res.status(401).json({ error: 'Credenziali non valide (Password errata)' });
     }
   } catch (err) {
     console.error('❌ Errore durante il login:', err);
