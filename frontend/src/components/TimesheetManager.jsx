@@ -214,6 +214,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       const response = await fetch(buildApiUrl('/api/orari/data'), {
         headers: getAuthHeader()
       });
+
+      // Gestione errore accesso negato
+      if (response.status === 403) {
+        const error = await response.json();
+        if (error.code === 'ORARI_ACCESS_DENIED') {
+          console.error('❌ Accesso negato al sistema orari:', error.message);
+          alert('Accesso negato: non hai i permessi per accedere al sistema orari.\n\nContatta l\'amministratore per richiedere l\'accesso.');
+          // Reindirizza alla home
+          window.location.href = '/';
+          return;
+        }
+      }
+
       if (response.ok) {
         const data = await response.json();
         console.log('📥 Dati ricevuti dal backend:', {
@@ -264,10 +277,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
           // Unifica dipendenti: assicura che ogni dipendente con stesso ID e nome sia presente in tutte le aziende-reparti
           const unifiedEmployees = { ...cleanedEmployees };
-          
+
           // Raggruppa tutti i dipendenti unici per ID e nome
           const uniqueEmployees = new Map(); // { "id-name": { id, name } }
-          
+
           Object.keys(unifiedEmployees).forEach(key => {
             const employees = unifiedEmployees[key] || [];
             employees.forEach(emp => {
@@ -277,7 +290,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               }
             });
           });
-          
+
           // Assicura che ogni dipendente unico sia presente in tutte le combinazioni azienda-reparto
           uniqueEmployees.forEach((empInfo) => {
             companies.forEach(comp => {
@@ -353,7 +366,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             timeCodesOrder: data.timeCodesOrder || 'NON PRESENTE',
             count: data.timeCodes ? Object.keys(data.timeCodes).length : 0
           });
-          
+
           if (data.timeCodes && Object.keys(data.timeCodes).length > 0) {
             console.log('✅ Caricamento codici orari dal database:', data.timeCodes);
             setTimeCodes(data.timeCodes);
@@ -414,7 +427,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       // Usa i parametri override se forniti, altrimenti usa lo stato corrente
       const codesToSave = overrideTimeCodes !== null ? overrideTimeCodes : timeCodes;
       const orderToSave = overrideTimeCodesOrder !== null ? overrideTimeCodesOrder : timeCodesOrder;
-      
+
       // Usa lo stato corrente per assicurarsi di salvare i dati più recenti
       const dataToSave = {
         companies,
@@ -684,7 +697,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
     // Trova il codice key dal label (es. "Avellino" → "AV")
     const codeKey = getCodeKey(code) || '';
-    
+
     // Se è un codice assenza, mostra popup per giorni
     if (isAbsenceCode(codeKey)) {
       setAbsenceDaysModal({
@@ -726,7 +739,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           const empKey = contextKey || `${currentCompany}-${currentDept}`;
           const employees = employeesData[empKey] || [];
           const employee = employees.find(e => e.id === empId);
-          
+
           if (employee) {
             // Crea/salva il dipendente nell'azienda target se non esiste
             const targetKey = `${targetCompany}-${currentDept}`;
@@ -746,7 +759,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             const targetScheduleKey = `${currentWeek}-${targetKey}-${empId}`;
             const sourceScheduleKey = `${currentWeek}-${empKey}-${empId}`;
             const sourceSchedule = schedule[sourceScheduleKey] || {};
-            
+
             // Copia i codici di assenza dall'azienda originale all'azienda target
             const targetDayData = { ...newSchedule[targetScheduleKey]?.[dayIndex] };
             targetDayData.in1 = '';
@@ -755,7 +768,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             targetDayData.out2 = '';
             targetDayData.fromCompany = currentCompany;
             targetDayData.geographicCode = codeKey;
-            
+
             // Se il giorno corrente nell'azienda originale ha un codice di assenza, copialo
             if (sourceSchedule[dayIndex] && sourceSchedule[dayIndex].code) {
               const sourceCodeKey = getCodeKey(sourceSchedule[dayIndex].code);
@@ -764,12 +777,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                 targetDayData.code = sourceCodeKey;
               }
             }
-            
+
             // Copia anche tutti gli altri giorni che hanno codici di assenza dall'azienda originale
             if (!newSchedule[targetScheduleKey]) {
               newSchedule[targetScheduleKey] = {};
             }
-            
+
             // Copia tutti i giorni con codici di assenza dall'azienda originale
             Object.keys(sourceSchedule).forEach(dayIdx => {
               const dayData = sourceSchedule[dayIdx];
@@ -790,7 +803,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                 }
               }
             });
-            
+
             // Imposta il giorno corrente con il codice geografico
             newSchedule[targetScheduleKey][dayIndex] = targetDayData;
           }
@@ -821,7 +834,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
     setSchedule(prev => {
       const newSchedule = { ...prev };
-      
+
       // Trova tutte le aziende-reparti dove il dipendente è presente
       const allCompanyKeys = [];
       Object.keys(employeesData).forEach(empKey => {
@@ -1022,7 +1035,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
     // Cerca il dipendente tra quelli già creati - cerca in TUTTE le aziende (perché i dipendenti sono unificati)
     let foundEmployee = null;
-    
+
     // Cerca in tutte le aziende
     Object.keys(employeesData).forEach(empKey => {
       const employees = employeesData[empKey] || [];
@@ -1096,7 +1109,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     // 1. Crea il dipendente in employeesData - aggiungilo a TUTTE le aziende e reparti
     setEmployeesData(prev => {
       const updated = { ...prev };
-      
+
       // Per ogni azienda
       companies.forEach(comp => {
         const depts = departmentsStructure[comp] || [];
@@ -1164,7 +1177,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
     const newCodes = { ...timeCodes, [key]: newCodeLabel.trim() };
     const newOrder = [...timeCodesOrder, key];
-    
+
     console.log('➕ Aggiunta nuovo codice orario:', {
       key: key,
       label: newCodeLabel.trim(),
@@ -1172,13 +1185,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       timeCodesOrder: newOrder,
       count: Object.keys(newCodes).length
     });
-    
+
     // Aggiorna lo stato
     setTimeCodes(newCodes);
     setTimeCodesOrder(newOrder); // Aggiungi alla fine dell'ordine
     setNewCodeKey('');
     setNewCodeLabel('');
-    
+
     // Salva IMMEDIATAMENTE con i nuovi valori (non aspettare che React aggiorni lo stato)
     setTimeout(() => {
       console.log('💾 Salvataggio dopo aggiunta codice orario con valori diretti...');
@@ -1190,14 +1203,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     const newCodes = { ...timeCodes };
     delete newCodes[key];
     const newOrder = timeCodesOrder.filter(k => k !== key); // Rimuovi dall'ordine
-    
+
     console.log('🗑️ Eliminazione codice orario:', {
       key: key,
       timeCodes: newCodes,
       timeCodesOrder: newOrder,
       count: Object.keys(newCodes).length
     });
-    
+
     setTimeCodes(newCodes);
     setTimeCodesOrder(newOrder);
     // Salva IMMEDIATAMENTE con i nuovi valori
@@ -1208,13 +1221,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     const newOrder = [...timeCodesOrder];
     const [movedItem] = newOrder.splice(fromIndex, 1);
     newOrder.splice(toIndex, 0, movedItem);
-    
+
     console.log('🔄 Riordinamento codici orari:', {
       fromIndex: fromIndex,
       toIndex: toIndex,
       newOrder: newOrder
     });
-    
+
     setTimeCodesOrder(newOrder);
     // Salva IMMEDIATAMENTE con il nuovo ordine
     setTimeout(() => saveData(timeCodes, newOrder), 100);
@@ -1223,14 +1236,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   // --- MENU CONTESTUALE ---
   const handleContextMenu = (e, empId, dayIndex, contextKey = null, weekRangeValue = null) => {
     e.preventDefault();
-    
+
     // Verifica se il campo ha un codice
     const currentWeek = weekRangeValue || weekRange;
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
     const scheduleKey = `${currentWeek}-${baseKey}`;
     const cellData = schedule[scheduleKey]?.[dayIndex] || {};
     const hasCode = cellData.code && cellData.code.trim() !== '';
-    
+
     setContextMenu({
       visible: true,
       x: e.pageX,
@@ -1360,11 +1373,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     if (!newEmployeeName.trim()) return;
     const newId = Date.now();
     const newName = newEmployeeName.toUpperCase().trim();
-    
+
     // Aggiungi il dipendente a TUTTE le aziende e reparti
     setEmployeesData(prev => {
       const updated = { ...prev };
-      
+
       // Per ogni azienda
       companies.forEach(company => {
         const depts = departmentsStructure[company] || [];
@@ -1379,10 +1392,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           }
         });
       });
-      
+
       return updated;
     });
-    
+
     setNewEmployeeName('');
     saveData();
   };
@@ -1405,7 +1418,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       });
       return updated;
     });
-    
+
     // Rimuovi anche gli orari (cerca tutte le chiavi che contengono questo empId)
     setSchedule(prev => {
       const newSchedule = { ...prev };
@@ -1634,22 +1647,22 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     const geographicEmployees = [];
     Object.keys(employeesData).forEach(otherKey => {
       if (otherKey === key) return; // Salta l'azienda corrente
-      
+
       const [otherCompany, ...otherDeptParts] = otherKey.split('-');
       const otherDept = otherDeptParts.join('-');
-      
+
       // Verifica se questa azienda è target di un codice geografico
       const geographicCodes = Object.keys(timeCodes).filter(codeKey => {
         const targetCompany = getCompanyFromGeographicCode(codeKey);
         return targetCompany === company;
       });
-      
+
       if (geographicCodes.length > 0) {
         const otherEmployees = employeesData[otherKey] || [];
         otherEmployees.forEach(emp => {
           const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
           const otherSchedule = schedule[otherScheduleKey];
-          
+
           if (otherSchedule) {
             // Verifica se ha un codice geografico per questa azienda
             const hasGeographicCode = Object.values(otherSchedule).some(dayData => {
@@ -1657,7 +1670,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               const dayCodeKey = getCodeKey(dayData.code);
               return dayCodeKey && geographicCodes.includes(dayCodeKey);
             });
-            
+
             if (hasGeographicCode) {
               geographicEmployees.push({
                 ...emp,
@@ -1679,7 +1692,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     // non aggiungerlo anche come geografico per evitare duplicazioni
     const allEmployees = [...employeesWithSchedule];
     const existingIds = new Set(employeesWithSchedule.map(e => e.id));
-    
+
     geographicEmployees.forEach(geoEmp => {
       // Aggiungi solo se NON è già presente come dipendente normale
       // (cioè se non è stato ancora aggiunto a employeesData per questa azienda)
@@ -2219,28 +2232,28 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
                       // Se viene da altra azienda con codice geografico, mostra gli input (non il codice)
                       const showGeographicInputs = isFromOtherCompany && hasGeographicCode;
-                      
+
                       // Verifica se il dipendente ha orari in altre aziende per questo giorno
                       let hasScheduleInOtherCompany = false;
                       let otherCompanySchedule = null;
                       let otherCompanyName = null;
-                      
+
                       if (!cellData.code && !showGeographicInputs) {
                         // Cerca in tutte le altre aziende dove il dipendente è presente
                         Object.keys(employeesData).forEach(otherKey => {
                           if (otherKey === emp.contextKey) return; // Salta l'azienda corrente
-                          
+
                           const [otherCompany, ...otherDeptParts] = otherKey.split('-');
                           const otherDept = otherDeptParts.join('-');
-                          
+
                           // Verifica se il dipendente è presente in questa azienda
                           const otherEmployees = employeesData[otherKey] || [];
                           const existsInOther = otherEmployees.some(e => e.id === emp.id);
-                          
+
                           if (existsInOther) {
                             const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
                             const otherDayData = schedule[otherScheduleKey]?.[dayIdx];
-                            
+
                             // Se ha orari (non codice) in questa azienda
                             if (otherDayData && !otherDayData.code && (otherDayData.in1 || otherDayData.in2 || otherDayData.out1 || otherDayData.out2)) {
                               hasScheduleInOtherCompany = true;
@@ -2252,8 +2265,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                       }
 
                       return (
-                        <td 
-                          key={dayIdx} 
+                        <td
+                          key={dayIdx}
                           className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''}`}
                           onContextMenu={(e) => {
                             // Se c'è un codice, permetti il menu contestuale anche cliccando sulla cella
@@ -2265,7 +2278,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
 
                           {cellData.code && !showGeographicInputs ? (
-                            <div 
+                            <div
                               className={`h-14 flex items-center justify-center font-bold text-lg ${isGeographic || isFromOtherCompany ? 'text-yellow-700' : 'text-slate-500'} bg-opacity-50 cursor-pointer hover:bg-gray-100 transition-colors`}
                               onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                               title="Tasto destro per modificare"
@@ -2917,7 +2930,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             <div className="px-3 py-2 border-b border-gray-100 bg-gray-50 text-xs font-bold text-gray-500">
               {contextMenu.hasCode ? 'Modifica Campo' : 'Inserisci Codice'}
             </div>
-            
+
             {/* Se ha un codice, mostra opzione per convertire in orario */}
             {contextMenu.hasCode && (
               <div className="border-b border-gray-100">
@@ -2932,7 +2945,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                 </button>
               </div>
             )}
-            
+
             {timeCodesOrder.map((code) => {
               const label = timeCodes[code];
               if (!label) return null; // Skip se il codice non esiste più
@@ -2965,57 +2978,56 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           </div>
         )}
 
-        {/* MODAL GIORNI ASSENZA */}
-        {absenceDaysModal.isOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200]">
-            <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">
-                Inserisci {absenceDaysModal.code}
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Quanti giorni consecutivi vuoi applicare questo codice a partire da oggi?
-              </p>
-              <div className="flex items-center gap-4 mb-6">
-                <label className="text-sm font-medium text-gray-700">Giorni:</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="7"
-                  value={absenceDaysModal.days}
-                  onChange={(e) => setAbsenceDaysModal(prev => ({ ...prev, days: parseInt(e.target.value) || 1 }))}
-                  className="border-2 border-blue-300 rounded px-4 py-2 text-lg font-bold text-center w-20 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  autoFocus
-                />
-              </div>
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => setAbsenceDaysModal(prev => ({ ...prev, isOpen: false }))}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-medium"
-                >
-                  Annulla
-                </button>
-                <button
-                  onClick={() => {
-                    applyAbsenceCode(
-                      absenceDaysModal.empId,
-                      absenceDaysModal.dayIndex,
-                      absenceDaysModal.code,
-                      absenceDaysModal.codeKey,
-                      absenceDaysModal.days,
-                      absenceDaysModal.contextKey,
-                      absenceDaysModal.weekRangeValue
-                    );
-                    setAbsenceDaysModal(prev => ({ ...prev, isOpen: false }));
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-                >
-                  Applica
-                </button>
-              </div>
+      {/* MODAL GIORNI ASSENZA */}
+      {absenceDaysModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200]">
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">
+              Inserisci {absenceDaysModal.code}
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Quanti giorni consecutivi vuoi applicare questo codice a partire da oggi?
+            </p>
+            <div className="flex items-center gap-4 mb-6">
+              <label className="text-sm font-medium text-gray-700">Giorni:</label>
+              <input
+                type="number"
+                min="1"
+                max="7"
+                value={absenceDaysModal.days}
+                onChange={(e) => setAbsenceDaysModal(prev => ({ ...prev, days: parseInt(e.target.value) || 1 }))}
+                className="border-2 border-blue-300 rounded px-4 py-2 text-lg font-bold text-center w-20 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setAbsenceDaysModal(prev => ({ ...prev, isOpen: false }))}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-medium"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => {
+                  applyAbsenceCode(
+                    absenceDaysModal.empId,
+                    absenceDaysModal.dayIndex,
+                    absenceDaysModal.code,
+                    absenceDaysModal.codeKey,
+                    absenceDaysModal.days,
+                    absenceDaysModal.contextKey,
+                    absenceDaysModal.weekRangeValue
+                  );
+                  setAbsenceDaysModal(prev => ({ ...prev, isOpen: false }));
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+              >
+                Applica
+              </button>
             </div>
           </div>
-        )}
-      }
+        </div>
+      )}
 
     </div >
   );

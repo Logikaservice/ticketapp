@@ -2,12 +2,30 @@
 
 const express = require('express');
 const { Pool } = require('pg');
+const { authenticateToken } = require('../middleware/authMiddleware');
 const router = express.Router();
 
 module.exports = (poolOrari) => {
   // Pool per database orari separato
   // Se non fornito, usa lo stesso pool ma con tabella separata
   const pool = poolOrari;
+
+  // Middleware per verificare accesso al progetto orari
+  const requireOrariAccess = (req, res, next) => {
+    const enabledProjects = req.user?.enabled_projects || ['ticket'];
+
+    if (!enabledProjects.includes('orari')) {
+      console.log(`❌ Accesso negato al sistema orari per ${req.user?.email || 'utente sconosciuto'}`);
+      return res.status(403).json({
+        error: 'Accesso negato: non hai i permessi per accedere al sistema orari',
+        code: 'ORARI_ACCESS_DENIED',
+        message: 'Contatta l\'amministratore per richiedere l\'accesso al modulo Orari e Turni'
+      });
+    }
+
+    console.log(`✅ Accesso orari autorizzato per ${req.user.email}`);
+    next();
+  };
 
   // Inizializza tabella orari_data se non esiste
   const initOrariTable = async () => {
@@ -65,7 +83,7 @@ module.exports = (poolOrari) => {
   initOrariTable();
 
   // ENDPOINT: Ottieni tutti i dati
-  router.get('/data', async (req, res) => {
+  router.get('/data', authenticateToken, requireOrariAccess, async (req, res) => {
     try {
       console.log('📥 Richiesta lettura dati orari');
       const result = await pool.query('SELECT id, data, updated_at FROM orari_data ORDER BY id DESC LIMIT 1');
@@ -126,12 +144,12 @@ module.exports = (poolOrari) => {
         'L': 'Lioni'
       };
       const defaultTimeCodesOrder = ['R', 'F', 'M', 'P', 'I', 'AT', 'AV', 'L'];
-      
+
       if (!data.timeCodes || Object.keys(data.timeCodes).length === 0) {
         console.log('⚠️ Codici orari mancanti o vuoti, ripristino quelli di default');
         data.timeCodes = defaultTimeCodes;
         data.timeCodesOrder = defaultTimeCodesOrder;
-        
+
         // Salva immediatamente nel database
         await pool.query(
           'UPDATE orari_data SET data = $1::jsonb, updated_at = NOW() WHERE id = $2',
@@ -147,7 +165,7 @@ module.exports = (poolOrari) => {
             needsUpdate = true;
           }
         });
-        
+
         // Aggiorna l'ordine se mancano codici
         if (!data.timeCodesOrder || data.timeCodesOrder.length === 0) {
           data.timeCodesOrder = defaultTimeCodesOrder;
@@ -161,7 +179,7 @@ module.exports = (poolOrari) => {
             }
           });
         }
-        
+
         if (needsUpdate) {
           console.log('⚠️ Aggiunti codici orari mancanti, aggiorno database');
           await pool.query(
@@ -236,7 +254,7 @@ module.exports = (poolOrari) => {
   });
 
   // ENDPOINT: Salva dati
-  router.post('/save', async (req, res) => {
+  router.post('/save', authenticateToken, requireOrariAccess, async (req, res) => {
     try {
       console.log('📥 Richiesta salvataggio orari ricevuta');
       const { companies, departments, employees, schedule, timeCodes, timeCodesOrder } = req.body;
@@ -282,7 +300,7 @@ module.exports = (poolOrari) => {
 
         // Log dettagliato prima del salvataggio
         console.log('📤 Dati da salvare (primi 500 caratteri):', JSON.stringify(cleanData).substring(0, 500));
-        
+
         // Log specifico per codici orari
         console.log('💾 Codici orari da salvare:', {
           timeCodes: cleanData.timeCodes ? Object.keys(cleanData.timeCodes) : 'NON PRESENTI',
