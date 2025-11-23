@@ -996,7 +996,65 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       setSchedule(prev => {
         const newSchedule = { ...prev };
         if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
-        if (!newSchedule[scheduleKey][dayIndex]) newSchedule[scheduleKey][dayIndex] = {};
+        const currentDayData = newSchedule[scheduleKey][dayIndex] || {};
+
+        // PRIMA: Se questa cella aveva un codice geografico, elimina anche lo schedule nell'azienda di destinazione
+        if (currentDayData.geographicCode) {
+          const targetCompany = getCompanyFromGeographicCode(currentDayData.geographicCode);
+          
+          if (targetCompany) {
+            // Estrai azienda e reparto dal contextKey
+            let currentCompany = '';
+            let currentDept = '';
+            if (contextKey) {
+              const parts = contextKey.split('-');
+              currentCompany = parts[0] || '';
+              currentDept = parts.slice(1).join('-') || '';
+            } else {
+              currentCompany = selectedCompany || companies[0] || '';
+              currentDept = selectedDept || '';
+            }
+
+            // Usa lo stesso reparto nell'azienda target
+            const targetDepts = departmentsStructure[targetCompany] || [];
+            let targetDept = currentDept;
+            
+            // Verifica se il reparto corrente esiste nell'azienda target
+            if (!targetDepts.includes(currentDept) && targetDepts.length > 0) {
+              // Se il reparto non esiste, verifica se il dipendente è già presente in qualche reparto
+              for (const dept of targetDepts) {
+                const checkKey = `${targetCompany}-${dept}`;
+                const deptEmployees = employeesData[checkKey] || [];
+                if (deptEmployees.some(e => e.id === empId)) {
+                  targetDept = dept;
+                  break;
+                }
+              }
+              // Se non trovato, usa il primo reparto disponibile
+              if (!targetDepts.includes(targetDept)) {
+                targetDept = targetDepts[0];
+              }
+            }
+
+            // Elimina lo schedule nell'azienda target per questo giorno
+            const targetKey = `${targetCompany}-${targetDept}`;
+            const targetScheduleKey = `${currentWeek}-${targetKey}-${empId}`;
+            
+            if (newSchedule[targetScheduleKey]) {
+              const targetDaySchedule = newSchedule[targetScheduleKey];
+              
+              // Se c'è solo questo giorno nello schedule, elimina completamente lo schedule
+              if (Object.keys(targetDaySchedule).length === 1 && targetDaySchedule[dayIndex]) {
+                delete newSchedule[targetScheduleKey];
+              } else {
+                // Altrimenti elimina solo questo giorno
+                const updatedTargetSchedule = { ...targetDaySchedule };
+                delete updatedTargetSchedule[dayIndex];
+                newSchedule[targetScheduleKey] = updatedTargetSchedule;
+              }
+            }
+          }
+        }
 
         // Pulisci SOLO i campi di quella cella specifica, mantenendo la struttura
         newSchedule[scheduleKey][dayIndex] = {
