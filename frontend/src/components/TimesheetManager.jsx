@@ -1965,7 +1965,32 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       return newSchedule;
     });
 
-    // Non tocchiamo employeesData perché la visibilità è determinata dallo schedule
+    // IMPORTANTE: Rimuovi anche il dipendente da employeesData per quella specifica azienda/reparto
+    // Questo è necessario perché getEmployeesForList mostra anche dipendenti in employeesData senza schedule
+    if (company && department) {
+      const checkKey = getContextKey(company, department);
+      setEmployeesData(prev => {
+        const specificEmployees = prev[checkKey] || [];
+        if (specificEmployees.some(e => e.id === empId)) {
+          return {
+            ...prev,
+            [checkKey]: specificEmployees.filter(e => e.id !== empId)
+          };
+        }
+        return prev;
+      });
+    } else if (contextKey) {
+      setEmployeesData(prev => {
+        const specificEmployees = prev[contextKey] || [];
+        if (specificEmployees.some(e => e.id === empId)) {
+          return {
+            ...prev,
+            [contextKey]: specificEmployees.filter(e => e.id !== empId)
+          };
+        }
+        return prev;
+      });
+    }
   };
 
   // --- SOSTITUZIONE DIPENDENTE ---
