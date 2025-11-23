@@ -764,11 +764,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       return { valid: false, error: 'L\'uscita deve essere dopo l\'entrata' };
     }
     
-    // Verifica che il turno non sia troppo lungo (più di 16 ore)
-    const duration = outMinutes - inMinutes;
-    if (duration > 16 * 60) {
-      return { valid: false, error: 'Il turno non può superare 16 ore' };
-    }
+    // Nessun limite di durata massima - rimosso controllo 16 ore
     
     return { valid: true, error: null };
   };
