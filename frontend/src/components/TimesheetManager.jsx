@@ -853,6 +853,36 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   };
 
   const handleInputChange = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
+    // Se il campo è uno dei campi orario (in1, out1, in2, out2), verifica se il valore è un codice
+    if (['in1', 'out1', 'in2', 'out2'].includes(field)) {
+      const strValue = String(value).trim().toUpperCase();
+      
+      // Verifica se il valore inserito è un codice (chiave o label)
+      let detectedCode = null;
+      
+      // Controlla se è una chiave diretta (es. "R", "F", "AT")
+      if (timeCodes[strValue]) {
+        detectedCode = strValue;
+      } else {
+        // Controlla se è un label (es. "Riposo", "Ferie", "Avellino")
+        const foundKey = Object.keys(timeCodes).find(key => 
+          timeCodes[key].toUpperCase() === strValue || 
+          timeCodes[key].toUpperCase().includes(strValue) ||
+          strValue.includes(timeCodes[key].toUpperCase())
+        );
+        if (foundKey) {
+          detectedCode = foundKey;
+        }
+      }
+      
+      // Se è stato rilevato un codice, applicalo invece di salvarlo come orario
+      if (detectedCode && strValue.length <= 10) { // Limita a 10 caratteri per evitare falsi positivi
+        const codeLabel = timeCodes[detectedCode];
+        handleQuickCode(empId, dayIndex, codeLabel, contextKey, weekRangeValue);
+        return; // Esci senza salvare come orario
+      }
+    }
+
     // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
     const currentWeek = weekRangeValue || weekRange;
     // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
@@ -876,6 +906,38 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   };
 
   const handleBlur = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
+    // Se il campo è uno dei campi orario, verifica se il valore è un codice prima di formattare come orario
+    if (['in1', 'out1', 'in2', 'out2'].includes(field) && value) {
+      const strValue = String(value).trim().toUpperCase();
+      
+      // Verifica se il valore inserito è un codice (chiave o label)
+      let detectedCode = null;
+      
+      // Controlla se è una chiave diretta (es. "R", "F", "AT")
+      if (timeCodes[strValue]) {
+        detectedCode = strValue;
+      } else {
+        // Controlla se è un label completo o parziale (es. "Riposo", "Ferie", "Avellino")
+        const foundKey = Object.keys(timeCodes).find(key => {
+          const label = timeCodes[key].toUpperCase();
+          return label === strValue || 
+                 label.startsWith(strValue) || 
+                 strValue.startsWith(label) ||
+                 (strValue.length >= 2 && label.includes(strValue));
+        });
+        if (foundKey) {
+          detectedCode = foundKey;
+        }
+      }
+      
+      // Se è stato rilevato un codice, applicalo invece di formattare come orario
+      if (detectedCode && strValue.length <= 15) { // Limita a 15 caratteri per evitare falsi positivi
+        const codeLabel = timeCodes[detectedCode];
+        handleQuickCode(empId, dayIndex, codeLabel, contextKey, weekRangeValue);
+        return; // Esci senza formattare come orario
+      }
+    }
+
     // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
     const currentWeek = weekRangeValue || weekRange;
     // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
