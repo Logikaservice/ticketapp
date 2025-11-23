@@ -970,6 +970,23 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     }
     
     const strValue = String(value);
+    
+    // Verifica se il valore contiene lettere o caratteri non validi per un orario (es. "0R.00", "OR.00")
+    const hasInvalidChars = /[A-Za-z]/.test(strValue);
+    if (hasInvalidChars && !strValue.match(/^[A-Z]{1,2}$/)) {
+      // Se contiene lettere ma non è un codice valido (1-2 lettere), segnala errore
+      setValidationErrors(prev => ({
+        ...prev,
+        [errorKey]: 'Valore non valido. Inserisci un orario (es. 08.00) o un codice (es. R, AT)'
+      }));
+      if (showNotification) {
+        showNotification('Valore non valido. Inserisci un orario (es. 08.00) o un codice (es. R, AT)', 'warning', 4000);
+      }
+      // Pulisci il campo non valido
+      handleInputChange(empId, dayIndex, field, '', contextKey, weekRangeValue);
+      return;
+    }
+    
     let formatted = strValue.replace(',', '.').replace(':', '.').trim();
     if (!formatted.includes('.')) formatted += '.00';
     const parts = formatted.split('.');
@@ -1289,39 +1306,26 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     setSchedule(prev => {
       const newSchedule = { ...prev };
 
-      // Trova tutte le aziende-reparti dove il dipendente è presente
-      const allCompanyKeys = [];
-      Object.keys(employeesData).forEach(empKey => {
-        const employees = employeesData[empKey] || [];
-        const exists = employees.some(e => e.id === empId);
-        if (exists) {
-          allCompanyKeys.push(empKey);
-        }
-      });
+      // Applica il codice SOLO all'azienda/reparto corrente (non a tutte le aziende)
+      if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
 
-      // Applica il codice ai giorni consecutivi in TUTTE le aziende dove il dipendente è presente
-      allCompanyKeys.forEach(empKey => {
-        const targetScheduleKey = `${currentWeek}-${empKey}-${empId}`;
-        if (!newSchedule[targetScheduleKey]) newSchedule[targetScheduleKey] = {};
+      for (let i = 0; i < days; i++) {
+        const dayIdx = startDayIndex + i;
+        if (dayIdx >= 7) continue; // Skip if out of week bounds
 
-        for (let i = 0; i < days; i++) {
-          const dayIdx = startDayIndex + i;
-          if (dayIdx >= 7) continue; // Skip if out of week bounds
+        if (!newSchedule[scheduleKey][dayIdx]) newSchedule[scheduleKey][dayIdx] = {};
 
-          if (!newSchedule[targetScheduleKey][dayIdx]) newSchedule[targetScheduleKey][dayIdx] = {};
-
-          newSchedule[targetScheduleKey][dayIdx] = {
-            ...newSchedule[targetScheduleKey][dayIdx],
-            code: keyToSave,
-            in1: '',
-            out1: '',
-            in2: '',
-            out2: '',
-            fromCompany: undefined,
-            geographicCode: undefined
-          };
-        }
-      });
+        newSchedule[scheduleKey][dayIdx] = {
+          ...newSchedule[scheduleKey][dayIdx],
+          code: keyToSave,
+          in1: '',
+          out1: '',
+          in2: '',
+          out2: '',
+          fromCompany: undefined,
+          geographicCode: undefined
+        };
+      }
 
       return newSchedule;
     });
@@ -1637,6 +1641,36 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       weekRangeValue,
       hasCode // Flag per sapere se ha un codice
     });
+  };
+
+  // Funzione per convertire un codice in orario (rimuove il codice e pulisce i campi)
+  const convertCodeToTime = (empId, dayIndex, contextKey = null, weekRangeValue = null) => {
+    const currentWeek = weekRangeValue || weekRange;
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+
+    setSchedule(prev => {
+      const newSchedule = { ...prev };
+      if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
+      if (!newSchedule[scheduleKey][dayIndex]) newSchedule[scheduleKey][dayIndex] = {};
+
+      // Rimuovi il codice e pulisci tutti i campi orario
+      newSchedule[scheduleKey][dayIndex] = {
+        ...newSchedule[scheduleKey][dayIndex],
+        code: '',
+        in1: '',
+        out1: '',
+        in2: '',
+        out2: '',
+        fromCompany: undefined,
+        geographicCode: undefined
+      };
+
+      return newSchedule;
+    });
+
+    // Salva dopo l'aggiornamento
+    setTimeout(() => saveData(), 500);
   };
 
   const closeContextMenu = () => {
