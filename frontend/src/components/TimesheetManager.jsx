@@ -966,10 +966,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
   // Mappatura codici geografici → aziende
   const getCompanyFromGeographicCode = (code) => {
+    // PRIMA: Verifica se il nome del codice geografico esiste come azienda
+    const codeName = timeCodes[code]; // Es. "Atripalda", "Avellino", "Lioni"
+    if (codeName && companies.includes(codeName)) {
+      return codeName; // Usa direttamente il nome del codice se esiste come azienda
+    }
+    
+    // ALTRIMENTI: Usa il mapping di fallback
     const codeMap = {
-      'AT': 'Mercurio',  // Atripalda → Mercurio
-      'AV': 'La Torre',  // Avellino → La Torre
-      'L': 'Albatros'    // Lioni → Albatros
+      'AT': 'Mercurio',  // Atripalda → Mercurio (se Atripalda non esiste come azienda)
+      'AV': 'La Torre',  // Avellino → La Torre (se Avellino non esiste come azienda)
+      'L': 'Albatros'    // Lioni → Albatros (se Lioni non esiste come azienda)
     };
     return codeMap[code] || null;
   };
@@ -1088,13 +1095,22 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             let targetDeptToUse = currentDept;
             const targetDepts = departmentsStructure[targetCompany] || [];
 
-            // Cerca in tutti i reparti dell'azienda target
-            for (const dept of targetDepts) {
-              const checkKey = `${targetCompany}-${dept}`;
-              const deptEmployees = employeesData[checkKey] || [];
-              if (deptEmployees.some(e => e.id === empId)) {
-                targetDeptToUse = dept;
-                break; // Trovato! Usa questo reparto
+            // Se l'azienda target non ha reparti configurati, usa il reparto corrente
+            if (targetDepts.length === 0) {
+              targetDeptToUse = currentDept;
+            } else {
+              // Cerca in tutti i reparti dell'azienda target
+              for (const dept of targetDepts) {
+                const checkKey = `${targetCompany}-${dept}`;
+                const deptEmployees = employeesData[checkKey] || [];
+                if (deptEmployees.some(e => e.id === empId)) {
+                  targetDeptToUse = dept;
+                  break; // Trovato! Usa questo reparto
+                }
+              }
+              // Se non trovato in nessun reparto, usa il primo reparto disponibile
+              if (!targetDepts.includes(targetDeptToUse)) {
+                targetDeptToUse = targetDepts[0];
               }
             }
 
@@ -1958,6 +1974,29 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     return dept ? `${company}-${dept}` : company;
   };
 
+  // Helper per trovare lo schedule di un dipendente in un'azienda (cerca in tutti i reparti)
+  const getEmployeeSchedule = (empId, company, department, weekRangeValue = null) => {
+    const currentWeek = weekRangeValue || weekRange;
+    const companyDepts = departmentsStructure[company] || [];
+    const deptsToCheck = department && companyDepts.includes(department) 
+      ? [department, ...companyDepts.filter(d => d !== department)]
+      : companyDepts.length > 0 ? companyDepts : [department].filter(Boolean);
+    
+    // Cerca lo schedule in tutti i reparti dell'azienda
+    for (const dept of deptsToCheck) {
+      const checkKey = getContextKey(company, dept);
+      const scheduleKey = `${currentWeek}-${checkKey}-${empId}`;
+      if (schedule[scheduleKey] !== undefined) {
+        return { scheduleKey, schedule: schedule[scheduleKey], department: dept };
+      }
+    }
+    
+    // Fallback: usa il reparto selezionato anche se non ha schedule
+    const fallbackKey = getContextKey(company, department);
+    const fallbackScheduleKey = `${currentWeek}-${fallbackKey}-${empId}`;
+    return { scheduleKey: fallbackScheduleKey, schedule: schedule[fallbackScheduleKey] || {}, department: department || companyDepts[0] || '' };
+  };
+
   const getEmployeesForList = (list) => {
     const { company, department, weekRange: listWeekRange } = list;
     const currentWeek = listWeekRange || weekRange;
@@ -1965,10 +2004,23 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
     // FIX: Usa la lista globale e filtra per presenza nello schedule corrente
     const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
+    
+    // Cerca i reparti dell'azienda (incluso il reparto selezionato)
+    const companyDepts = departmentsStructure[company] || [];
+    const deptsToCheck = department && companyDepts.includes(department) 
+      ? [department, ...companyDepts.filter(d => d !== department)]
+      : companyDepts.length > 0 ? companyDepts : [department].filter(Boolean);
+    
     const employeesWithSchedule = globalEmployees.filter(emp => {
-      const scheduleKey = `${currentWeek}-${key}-${emp.id}`;
-      // Mostra il dipendente se ha una entry nello schedule (anche vuota) per questo contesto
-      return schedule[scheduleKey] !== undefined;
+      // Cerca lo schedule in tutti i reparti dell'azienda
+      for (const dept of deptsToCheck) {
+        const checkKey = getContextKey(company, dept);
+        const scheduleKey = `${currentWeek}-${checkKey}-${emp.id}`;
+        if (schedule[scheduleKey] !== undefined) {
+          return true; // Trovato! Il dipendente ha uno schedule in questa azienda
+        }
+      }
+      return false;
     });
 
     // Cerca anche dipendenti di altre aziende che hanno codici geografici per questa azienda
