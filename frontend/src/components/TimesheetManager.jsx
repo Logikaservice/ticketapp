@@ -1295,6 +1295,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
     // Per codici non-assenza (geografici), salva la chiave invece del label
     const keyToSave = codeKey || code;
+    
+    // Se è un codice geografico, salva anche in geographicCode per permettere la ricerca
+    const isGeoCode = isGeographicCode(codeKey);
+    
+    // Estrai azienda e reparto dal contextKey corrente per salvare l'azienda di origine
+    let currentCompany = '';
+    if (contextKey) {
+      const parts = contextKey.split('-');
+      currentCompany = parts[0] || '';
+    } else {
+      currentCompany = selectedCompany || companies[0] || '';
+    }
 
     setSchedule(prev => {
       const newSchedule = {
@@ -1306,7 +1318,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             in1: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.in1 || ''),
             out1: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.out1 || ''),
             in2: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.in2 || ''),
-            out2: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.out2 || '')
+            out2: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.out2 || ''),
+            // Se è un codice geografico, salva anche in geographicCode e fromCompany
+            geographicCode: isGeoCode ? codeKey : (prev[scheduleKey]?.[dayIndex]?.geographicCode || undefined),
+            fromCompany: isGeoCode ? currentCompany : (prev[scheduleKey]?.[dayIndex]?.fromCompany || undefined)
           }
         }
       };
