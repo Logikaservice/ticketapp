@@ -1595,6 +1595,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
         return updated;
       });
+    } else {
+      // 2. Se il dipendente esiste già, assicurati che sia presente in employeesData[key] per questa azienda/reparto
+      // Questo è necessario perché getEmployeesForList mostra dipendenti in employeesData[key] anche senza schedule
+      setEmployeesData(prev => {
+        const updated = { ...prev };
+        const specificEmployees = updated[key] || [];
+        const existsInSpecific = specificEmployees.some(e => e.id === employeeId || e.name === newName);
+        if (!existsInSpecific) {
+          updated[key] = [...specificEmployees, { id: employeeId, name: newName }];
+        }
+        return updated;
+      });
     }
 
     // 2. Aggiungi subito alla settimana corrente per l'azienda/reparto selezionato (anche se il dipendente esiste già)
