@@ -997,23 +997,26 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       const currentDayData = schedule[scheduleKey]?.[dayIndex] || {};
       let targetKeyToRemove = null;
       let targetScheduleKeyToRemove = null;
+      let sourceKeyToRemove = null;
+      let sourceScheduleKeyToRemove = null;
 
+      // Estrai azienda e reparto dal contextKey corrente
+      let currentCompany = '';
+      let currentDept = '';
+      if (contextKey) {
+        const parts = contextKey.split('-');
+        currentCompany = parts[0] || '';
+        currentDept = parts.slice(1).join('-') || '';
+      } else {
+        currentCompany = selectedCompany || companies[0] || '';
+        currentDept = selectedDept || '';
+      }
+
+      // CASO 1: Se si cancella dall'azienda di origine e c'è un codice geografico
       if (currentDayData.geographicCode) {
         const targetCompany = getCompanyFromGeographicCode(currentDayData.geographicCode);
         
         if (targetCompany) {
-          // Estrai azienda e reparto dal contextKey
-          let currentCompany = '';
-          let currentDept = '';
-          if (contextKey) {
-            const parts = contextKey.split('-');
-            currentCompany = parts[0] || '';
-            currentDept = parts.slice(1).join('-') || '';
-          } else {
-            currentCompany = selectedCompany || companies[0] || '';
-            currentDept = selectedDept || '';
-          }
-
           // Usa lo stesso reparto nell'azienda target
           const targetDepts = departmentsStructure[targetCompany] || [];
           let targetDept = currentDept;
@@ -1039,12 +1042,21 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           targetScheduleKeyToRemove = `${currentWeek}-${targetKeyToRemove}-${empId}`;
         }
       }
+      
+      // CASO 2: Se si cancella dall'azienda target (ha fromCompany), elimina anche il codice geografico dall'azienda di origine
+      if (currentDayData.fromCompany && currentDayData.fromCompany !== currentCompany) {
+        const sourceCompany = currentDayData.fromCompany;
+        const sourceDept = currentDept; // Usa lo stesso reparto dell'azienda di origine
+        
+        sourceKeyToRemove = `${sourceCompany}-${sourceDept}`;
+        sourceScheduleKeyToRemove = `${currentWeek}-${sourceKeyToRemove}-${empId}`;
+      }
 
       setSchedule(prev => {
         const newSchedule = { ...prev };
         if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
 
-        // Elimina lo schedule nell'azienda target se esiste
+        // Elimina lo schedule nell'azienda target se esiste (CASO 1: cancellazione dall'azienda di origine)
         if (targetScheduleKeyToRemove && newSchedule[targetScheduleKeyToRemove]) {
           const targetDaySchedule = newSchedule[targetScheduleKeyToRemove];
           
@@ -1072,6 +1084,37 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           }
         }
 
+        // Elimina il codice geografico dall'azienda di origine se si cancella dall'azienda target (CASO 2)
+        if (sourceScheduleKeyToRemove && newSchedule[sourceScheduleKeyToRemove]) {
+          const sourceDaySchedule = newSchedule[sourceScheduleKeyToRemove];
+          
+          if (sourceDaySchedule[dayIndex]) {
+            // Trova il codice geografico che punta all'azienda corrente
+            const sourceDayData = sourceDaySchedule[dayIndex];
+            if (sourceDayData.geographicCode) {
+              const targetCompanyFromCode = getCompanyFromGeographicCode(sourceDayData.geographicCode);
+              // Se il codice geografico punta all'azienda corrente, eliminalo
+              if (targetCompanyFromCode === currentCompany) {
+                const updatedSourceDayData = { ...sourceDayData };
+                updatedSourceDayData.geographicCode = undefined;
+                updatedSourceDayData.fromCompany = undefined;
+                // Se non ci sono altri dati, elimina completamente il giorno
+                const hasOtherData = (updatedSourceDayData.code && updatedSourceDayData.code.trim() !== '') ||
+                                    (updatedSourceDayData.in1 && updatedSourceDayData.in1.trim() !== '') ||
+                                    (updatedSourceDayData.out1 && updatedSourceDayData.out1.trim() !== '') ||
+                                    (updatedSourceDayData.in2 && updatedSourceDayData.in2.trim() !== '') ||
+                                    (updatedSourceDayData.out2 && updatedSourceDayData.out2.trim() !== '');
+                
+                if (hasOtherData) {
+                  newSchedule[sourceScheduleKeyToRemove][dayIndex] = updatedSourceDayData;
+                } else {
+                  delete newSchedule[sourceScheduleKeyToRemove][dayIndex];
+                }
+              }
+            }
+          }
+        }
+
         // Pulisci SOLO i campi di quella cella specifica, mantenendo la struttura
         newSchedule[scheduleKey][dayIndex] = {
           code: '',
@@ -1087,6 +1130,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       });
 
       // Dopo aver aggiornato lo schedule, verifica se bisogna rimuovere il dipendente da employeesData
+      // CASO 1: Cancellazione dall'azienda di origine (targetKeyToRemove)
       if (targetKeyToRemove && targetScheduleKeyToRemove) {
         // Usa setTimeout per verificare lo stato aggiornato dopo che React ha applicato le modifiche
         setTimeout(() => {
@@ -1121,6 +1165,52 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                   return {
                     ...prev,
                     [targetKeyToRemove]: targetEmployees.filter(e => e.id !== empId)
+                  };
+                }
+                return prev;
+              });
+            }
+          }
+        }, 200);
+      }
+      
+      // CASO 2: Cancellazione dall'azienda target (currentKey è l'azienda target)
+      // Se si cancella dall'azienda target e lo schedule è vuoto, rimuovi il dipendente
+      if (currentDayData.fromCompany && currentDayData.fromCompany !== currentCompany) {
+        const currentKey = contextKey || `${currentCompany}-${currentDept}`;
+        const currentScheduleKey = `${currentWeek}-${currentKey}-${empId}`;
+        
+        setTimeout(() => {
+          // Verifica se lo schedule corrente è completamente vuoto
+          const currentSchedule = schedule[currentScheduleKey];
+          if (!currentSchedule || Object.keys(currentSchedule).length === 0) {
+            // Verifica se ci sono altri schedule per questo dipendente in altri reparti della stessa azienda
+            const hasOtherSchedules = Object.keys(schedule).some(key => {
+              if (key.includes(`-${currentCompany}-`) && key.endsWith(`-${empId}`) && key !== currentScheduleKey) {
+                const otherSchedule = schedule[key];
+                if (otherSchedule && Object.keys(otherSchedule).length > 0) {
+                  // Verifica se ha dati
+                  return Object.values(otherSchedule).some(dayData => {
+                    if (!dayData) return false;
+                    return (dayData.code && dayData.code.trim() !== '') ||
+                           (dayData.in1 && dayData.in1.trim() !== '') ||
+                           (dayData.out1 && dayData.out1.trim() !== '') ||
+                           (dayData.in2 && dayData.in2.trim() !== '') ||
+                           (dayData.out2 && dayData.out2.trim() !== '');
+                  });
+                }
+              }
+              return false;
+            });
+            
+            // Rimuovi il dipendente solo se non ha altri schedule in altri reparti
+            if (!hasOtherSchedules) {
+              setEmployeesData(prev => {
+                const targetEmployees = prev[currentKey] || [];
+                if (targetEmployees.some(e => e.id === empId)) {
+                  return {
+                    ...prev,
+                    [currentKey]: targetEmployees.filter(e => e.id !== empId)
                   };
                 }
                 return prev;
