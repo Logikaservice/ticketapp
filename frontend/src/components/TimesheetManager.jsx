@@ -1146,6 +1146,35 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   };
 
   const handleQuickCode = (empId, dayIndex, code, contextKey = null, weekRangeValue = null) => {
+    // Se il codice è vuoto, pulisci la cella
+    if (!code || code.trim() === '') {
+      const currentWeek = weekRangeValue || weekRange;
+      const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+      const scheduleKey = `${currentWeek}-${baseKey}`;
+
+      setSchedule(prev => {
+        const newSchedule = { ...prev };
+        if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
+        
+        // Pulisci completamente la cella
+        newSchedule[scheduleKey][dayIndex] = {
+          code: '',
+          in1: '',
+          out1: '',
+          in2: '',
+          out2: '',
+          fromCompany: undefined,
+          geographicCode: undefined
+        };
+
+        return newSchedule;
+      });
+
+      // Salva dopo la pulizia
+      setTimeout(() => saveData(), 500);
+      return;
+    }
+
     // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
     const currentWeek = weekRangeValue || weekRange;
     // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
@@ -2770,10 +2799,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                         getCompanyFromGeographicCode(cellData.geographicCode) === company &&
                         cellData.fromCompany !== company;
 
+                      // I codici di assenza (Riposo, Malattia, ecc.) devono essere grigi, non gialli
+                      // Il giallo è solo per codici geografici o input geografici
+                      const shouldBeGray = cellData.code && (isAbsenceCode(getCodeKey(cellData.code)) || hasCodeInOtherCompany);
+                      const shouldBeYellow = (isGeographic || isFromOtherCompany) && !shouldBeGray;
+
                       return (
                         <td
                           key={dayIdx}
-                          className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs || hasCodeInOtherCompany ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''} ${isGeographicTargetDay ? 'bg-blue-100 ring-2 ring-blue-400' : ''}`}
+                          className={`p-1 border relative ${isRest || shouldBeGray ? 'bg-gray-200' : ''} ${shouldBeYellow || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''} ${isGeographicTargetDay ? 'bg-blue-100 ring-2 ring-blue-400' : ''}`}
                           onContextMenu={(e) => {
                             // Se c'è un codice, permetti il menu contestuale anche cliccando sulla cella
                             if (cellData.code && !showGeographicInputs) {
@@ -2785,7 +2819,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
                           {cellData.code && !showGeographicInputs ? (
                             <div
-                              className={`h-14 flex items-center justify-center font-bold text-lg ${isGeographic || isFromOtherCompany || hasCodeInOtherCompany ? 'text-yellow-700' : 'text-slate-500'} bg-opacity-50 cursor-pointer hover:bg-gray-100 transition-colors`}
+                              className={`h-14 flex items-center justify-center font-bold text-lg ${(isGeographic || isFromOtherCompany) && !shouldBeGray ? 'text-yellow-700' : 'text-slate-500'} bg-opacity-50 cursor-pointer hover:bg-gray-100 transition-colors`}
                               onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                               title={hasCodeInOtherCompany && otherCompanyName ? `${getCodeLabel(cellData.code)} (da ${otherCompanyName}) - Tasto destro per modificare` : "Tasto destro per modificare"}
                             >
