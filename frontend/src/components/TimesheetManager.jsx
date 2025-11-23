@@ -1084,8 +1084,22 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           const employee = employees.find(e => e.id === empId);
 
           if (employee) {
+            // LOGICA MIGLIORATA: Cerca se il dipendente esiste già nell'azienda target (in qualsiasi reparto)
+            let targetDeptToUse = currentDept;
+            const targetDepts = departmentsStructure[targetCompany] || [];
+
+            // Cerca in tutti i reparti dell'azienda target
+            for (const dept of targetDepts) {
+              const checkKey = `${targetCompany}-${dept}`;
+              const deptEmployees = employeesData[checkKey] || [];
+              if (deptEmployees.some(e => e.id === empId)) {
+                targetDeptToUse = dept;
+                break; // Trovato! Usa questo reparto
+              }
+            }
+
             // Crea/salva il dipendente nell'azienda target se non esiste
-            const targetKey = `${targetCompany}-${currentDept}`;
+            const targetKey = `${targetCompany}-${targetDeptToUse}`;
             setEmployeesData(prev => {
               const targetEmployees = prev[targetKey] || [];
               const exists = targetEmployees.some(e => e.id === empId && e.name === employee.name);
@@ -3371,6 +3385,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             {timeCodesOrder.map((code) => {
               const label = timeCodes[code];
               if (!label) return null; // Skip se il codice non esiste più
+
+              // LOGICA MIGLIORATA: Nascondi codici geografici se siamo già nell'azienda target
+              let currentCompany = '';
+              if (contextMenu.contextKey) {
+                currentCompany = contextMenu.contextKey.split('-')[0];
+              } else if (selectedCompany) {
+                currentCompany = selectedCompany;
+              }
+
+              const targetCompany = getCompanyFromGeographicCode(code);
+              if (targetCompany && targetCompany === currentCompany) {
+                return null; // Nascondi opzione ridondante
+              }
 
               return (
                 <button
