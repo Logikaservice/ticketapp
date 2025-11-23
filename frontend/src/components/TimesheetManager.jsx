@@ -1880,43 +1880,64 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     saveData();
   };
 
-  // Rimuove TUTTI i dati del dipendente per quella settimana (definitivamente dal database)
+  // Rimuove SOLO i dati del dipendente per quella settimana e quella specifica combinazione azienda/reparto
   const removeEmployeeFromWeek = (empId, contextKey = null, weekRangeValue = null) => {
     const currentWeek = weekRangeValue || getWeekDates(0).formatted;
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
     const scheduleKey = `${currentWeek}-${baseKey}`;
 
+    // Rimuovi il dipendente SOLO dalla lista specifica (quella combinazione azienda/reparto)
+    if (contextKey) {
+      setEmployeesData(prev => {
+        const updated = { ...prev };
+        const listEmployees = updated[contextKey] || [];
+        // Rimuovi solo da questa lista specifica
+        updated[contextKey] = listEmployees.filter(e => e.id !== empId);
+        return updated;
+      });
+    }
+
     setSchedule(prev => {
       const newSchedule = { ...prev };
       
-      // Rimuovi la chiave principale dello schedule per questa settimana
+      // Rimuovi SOLO la chiave specifica per questa combinazione azienda/reparto/settimana
       if (newSchedule[scheduleKey]) {
         delete newSchedule[scheduleKey];
       }
 
-      // Rimuovi TUTTI i dati di questo dipendente per questa settimana in TUTTE le aziende
-      // Cerca tutte le chiavi che contengono l'empId e la settimana corrente
-      Object.keys(newSchedule).forEach(key => {
-        if (key.startsWith(currentWeek) && key.includes(`-${empId}`)) {
-          // Rimuovi tutte le varianti: 
-          // - `${currentWeek}-${contextKey}-${empId}`
-          // - `${currentWeek}-${company}-${dept}-${empId}`
-          // - `${currentWeek}-${empId}` (vecchia struttura)
-          delete newSchedule[key];
-        }
-      });
-
-      // Rimuovi anche chiavi vecchie senza settimana (compatibilità con dati esistenti)
-      Object.keys(newSchedule).forEach(key => {
-        if (key.includes(`-${empId}`) && !key.includes(currentWeek)) {
-          // Rimuovi chiavi vecchie che potrebbero riferirsi a questo dipendente
+      // Se contextKey è specificato, rimuovi SOLO i dati relativi a quel contextKey
+      // NON rimuovere dati di altre aziende/reparti per lo stesso dipendente
+      if (contextKey) {
+        // Rimuovi solo le chiavi che corrispondono a questo contextKey specifico per tutte le settimane
+        Object.keys(newSchedule).forEach(key => {
+          // Verifica che la chiave corrisponda a: settimana-contextKey-empId
+          // Il contextKey può contenere trattini (es. "La Torre-Cucina"), quindi devo fare un match più preciso
           const keyParts = key.split('-');
-          const lastPart = keyParts[keyParts.length - 1];
-          if (lastPart === empId.toString()) {
-            delete newSchedule[key];
+          if (keyParts.length >= 3) {
+            // Estrai l'empId (ultima parte)
+            const keyEmpId = keyParts[keyParts.length - 1];
+            // Estrai il contextKey (tutto tranne la prima parte - settimana - e l'ultima - empId)
+            const keyContextKey = keyParts.slice(1, -1).join('-');
+            
+            // Verifica che corrisponda esattamente a questo contextKey e empId
+            if (keyContextKey === contextKey && keyEmpId === empId.toString()) {
+              delete newSchedule[key];
+            }
           }
-        }
-      });
+        });
+      } else {
+        // Se non c'è contextKey, rimuovi solo le chiavi vecchie senza contextKey per questa settimana
+        Object.keys(newSchedule).forEach(key => {
+          if (key.startsWith(currentWeek) && key.endsWith(`-${empId}`)) {
+            // Verifica che non ci siano altri trattini oltre alla settimana e empId
+            const parts = key.split('-');
+            if (parts.length === 2) {
+              // Chiave vecchia: settimana-empId (senza contextKey)
+              delete newSchedule[key];
+            }
+          }
+        });
+      }
 
       // Salva le modifiche (rimuove definitivamente dal database)
       setTimeout(() => saveDataWithSchedule(newSchedule), 100);
