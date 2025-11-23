@@ -1255,54 +1255,24 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
             // Salva gli orari vuoti nell'azienda target (non il codice, ma gli input da compilare)
             const targetScheduleKey = `${currentWeek}-${targetKey}-${empId}`;
-            const sourceScheduleKey = `${currentWeek}-${empKey}-${empId}`;
-            const sourceSchedule = schedule[sourceScheduleKey] || {};
+            
+            // NON copiare codici di assenza dall'azienda originale - solo creare input vuoti
+            const targetDayData = {
+              in1: '',
+              out1: '',
+              in2: '',
+              out2: '',
+              fromCompany: currentCompany,
+              geographicCode: codeKey,
+              code: '' // NON copiare codici di assenza
+            };
 
-            // Copia i codici di assenza dall'azienda originale all'azienda target
-            const targetDayData = { ...newSchedule[targetScheduleKey]?.[dayIndex] };
-            targetDayData.in1 = '';
-            targetDayData.out1 = '';
-            targetDayData.in2 = '';
-            targetDayData.out2 = '';
-            targetDayData.fromCompany = currentCompany;
-            targetDayData.geographicCode = codeKey;
-
-            // Se il giorno corrente nell'azienda originale ha un codice di assenza, copialo
-            if (sourceSchedule[dayIndex] && sourceSchedule[dayIndex].code) {
-              const sourceCodeKey = getCodeKey(sourceSchedule[dayIndex].code);
-              if (sourceCodeKey && isAbsenceCode(sourceCodeKey)) {
-                // Salva sempre la chiave, non il label
-                targetDayData.code = sourceCodeKey;
-              }
-            }
-
-            // Copia anche tutti gli altri giorni che hanno codici di assenza dall'azienda originale
+            // Inizializza lo schedule target se non esiste
             if (!newSchedule[targetScheduleKey]) {
               newSchedule[targetScheduleKey] = {};
             }
 
-            // Copia tutti i giorni con codici di assenza dall'azienda originale
-            Object.keys(sourceSchedule).forEach(dayIdx => {
-              const dayData = sourceSchedule[dayIdx];
-              if (dayData && dayData.code) {
-                const dayCodeKey = getCodeKey(dayData.code);
-                if (dayCodeKey && isAbsenceCode(dayCodeKey)) {
-                  // Se non è già stato impostato per questo giorno (tranne il giorno corrente che ha il codice geografico)
-                  if (parseInt(dayIdx) !== dayIndex) {
-                    // Salva sempre la chiave, non il label
-                    newSchedule[targetScheduleKey][dayIdx] = {
-                      code: dayCodeKey,
-                      in1: '',
-                      out1: '',
-                      in2: '',
-                      out2: ''
-                    };
-                  }
-                }
-              }
-            });
-
-            // Imposta il giorno corrente con il codice geografico
+            // Imposta SOLO il giorno corrente con il codice geografico (senza copiare altri codici)
             newSchedule[targetScheduleKey][dayIndex] = targetDayData;
           }
         }
