@@ -201,11 +201,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     // Non salvare se non ci sono dati
     if (Object.keys(employeesData).length === 0) return;
 
-    console.log('🔄 employeesData cambiato, salvataggio automatico tra 500ms...');
+
 
     // Debounce: salva dopo 500ms dall'ultimo cambiamento
     const timeoutId = setTimeout(() => {
-      console.log('💾 Esecuzione salvataggio automatico...');
+
       saveData();
     }, 500);
 
@@ -215,7 +215,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   const loadData = async () => {
     try {
       setLoading(true);
-      console.log('📥 Caricamento dati dal backend...');
+
       const response = await fetch(buildApiUrl('/api/orari/data'), {
         headers: getAuthHeader()
       });
@@ -244,10 +244,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
         // Log dettagliato dipendenti ricevuti
         if (data.employees) {
           const employeeKeys = Object.keys(data.employees);
-          console.log('👥 Chiavi dipendenti ricevute dal backend:', employeeKeys);
+
           employeeKeys.forEach(key => {
             const count = Array.isArray(data.employees[key]) ? data.employees[key].length : 0;
-            console.log(`   - ${key}: ${count} dipendenti`, data.employees[key]);
+
           });
         }
 
@@ -271,13 +271,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             });
           }
 
-          console.log('✅ Dipendenti puliti e caricati:', Object.keys(cleanedEmployees));
-          console.log('📊 Dettaglio dipendenti caricati:', cleanedEmployees);
+
+
 
           // Verifica che i dipendenti siano stati caricati correttamente
           Object.keys(cleanedEmployees).forEach(key => {
             const count = Array.isArray(cleanedEmployees[key]) ? cleanedEmployees[key].length : 0;
-            console.log(`   ✅ ${key}: ${count} dipendenti caricati`, cleanedEmployees[key]);
+
           });
 
           // Unifica dipendenti: assicura che ogni dipendente con stesso ID e nome sia presente in tutte le aziende-reparti
@@ -333,7 +333,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                 // Migra solo se non esiste già una chiave nuova per questa settimana
                 if (!migratedSchedule[newKey]) {
                   migratedSchedule[newKey] = employeeSchedule;
-                  console.log(`🔄 Migrato dati da "${oldKey}" a "${newKey}"`);
+
                 }
               }
             }
@@ -373,7 +373,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           });
 
           if (data.timeCodes && Object.keys(data.timeCodes).length > 0) {
-            console.log('✅ Caricamento codici orari dal database:', data.timeCodes);
+
             setTimeCodes(data.timeCodes);
             // Carica l'ordine se presente, altrimenti usa l'ordine delle chiavi
             if (data.timeCodesOrder && Array.isArray(data.timeCodesOrder)) {
@@ -383,7 +383,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               setTimeCodesOrder(Object.keys(data.timeCodes));
             }
           } else {
-            console.log('⚠️ Nessun codice orario nel database, uso i default');
+
           }
         } else {
           // Se non ci sono dati, inizializza con le aziende di default
@@ -466,7 +466,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Dati salvati con successo:', result);
+
         return true;
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -930,7 +930,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Dati salvati con successo (codice):', result);
+
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error('❌ Errore salvataggio:', errorData);
@@ -957,7 +957,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           const cleanKey = String(key).trim();
           if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(empData[key])) {
             cleanedEmployees[cleanKey] = empData[key];
-            console.log(`   ✅ Chiave pulita: ${cleanKey} con ${empData[key].length} dipendenti`);
+
           } else {
             console.warn(`   ⚠️ Chiave scartata: ${key}`);
           }
@@ -994,7 +994,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       }
 
       const result = await response.json();
-      console.log('✅ Dipendente salvato con successo:', result);
+
       return true;
     } catch (error) {
       console.error('❌ Errore salvataggio dipendente:', error);
@@ -1121,7 +1121,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
     // Salva IMMEDIATAMENTE con i nuovi valori (non aspettare che React aggiorni lo stato)
     setTimeout(() => {
-      console.log('💾 Salvataggio dopo aggiunta codice orario con valori diretti...');
+
       saveData(newCodes, newOrder); // Passa i nuovi valori direttamente
     }, 100); // Ridotto a 100ms per salvare più velocemente
   };
@@ -1251,7 +1251,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Dati salvati con successo');
+
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error('❌ Errore salvataggio:', errorData);
@@ -1495,12 +1495,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       weekRange: weekRange
     };
     setViewLists(prev => [...prev, newList]);
-    console.log('➕ Nuova lista aggiunta:', newList);
+
   };
 
   const removeList = (listId) => {
     setViewLists(prev => prev.filter(list => list.id !== listId));
-    console.log('🗑️ Lista rimossa:', listId);
+
   };
 
   const updateListFilter = (listId, filterType, value) => {
@@ -1513,7 +1513,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           updated.department = departmentsStructure[value]?.[0] || '';
         }
 
-        console.log(`🔄 Filtro aggiornato per lista ${listId}:`, filterType, '=', value);
+
         return updated;
       }
       return list;
