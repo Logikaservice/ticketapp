@@ -1865,24 +1865,45 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     saveData();
   };
 
-  // Rimuove dipendente solo dalla visualizzazione della settimana corrente (non dal database)
+  // Rimuove TUTTI i dati del dipendente per quella settimana (definitivamente dal database)
   const removeEmployeeFromWeek = (empId, contextKey = null, weekRangeValue = null) => {
-    // NOTA: Non rimuoviamo più da employeesData, così il dipendente rimane nel DB
-
-    // Rimuovi solo gli orari per questa settimana
     const currentWeek = weekRangeValue || getWeekDates(0).formatted;
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
     const scheduleKey = `${currentWeek}-${baseKey}`;
 
     setSchedule(prev => {
       const newSchedule = { ...prev };
-      delete newSchedule[scheduleKey];
+      
+      // Rimuovi la chiave principale dello schedule per questa settimana
+      if (newSchedule[scheduleKey]) {
+        delete newSchedule[scheduleKey];
+      }
 
-      // Se c'era una vecchia chiave (compatibilità), rimuovi anche quella
-      const oldKey = `${baseKey}`; // Se baseKey era solo empId o context-empId
-      if (newSchedule[oldKey]) delete newSchedule[oldKey];
+      // Rimuovi TUTTI i dati di questo dipendente per questa settimana in TUTTE le aziende
+      // Cerca tutte le chiavi che contengono l'empId e la settimana corrente
+      Object.keys(newSchedule).forEach(key => {
+        if (key.startsWith(currentWeek) && key.includes(`-${empId}`)) {
+          // Rimuovi tutte le varianti: 
+          // - `${currentWeek}-${contextKey}-${empId}`
+          // - `${currentWeek}-${company}-${dept}-${empId}`
+          // - `${currentWeek}-${empId}` (vecchia struttura)
+          delete newSchedule[key];
+        }
+      });
 
-      // Salva le modifiche
+      // Rimuovi anche chiavi vecchie senza settimana (compatibilità con dati esistenti)
+      Object.keys(newSchedule).forEach(key => {
+        if (key.includes(`-${empId}`) && !key.includes(currentWeek)) {
+          // Rimuovi chiavi vecchie che potrebbero riferirsi a questo dipendente
+          const keyParts = key.split('-');
+          const lastPart = keyParts[keyParts.length - 1];
+          if (lastPart === empId.toString()) {
+            delete newSchedule[key];
+          }
+        }
+      });
+
+      // Salva le modifiche (rimuove definitivamente dal database)
       setTimeout(() => saveDataWithSchedule(newSchedule), 100);
 
       return newSchedule;
@@ -2697,12 +2718,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           </button>
                           <button
                             onClick={() => {
-                              if (window.confirm(`Rimuovere ${emp.name} da questa settimana? (Rimarrà disponibile per il futuro)`)) {
-                                removeEmployeeFromWeek(emp.id, emp.contextKey, listWeekRange);
-                              }
+                              openConfirm(
+                                "Rimuovi Dipendente dalla Settimana",
+                                `ATTENZIONE: Se procedi, tutti i dati presenti per ${emp.name} in questa settimana (${listWeekRange}) saranno cancellati definitivamente dal database.\n\nVuoi continuare?`,
+                                () => removeEmployeeFromWeek(emp.id, emp.contextKey, listWeekRange)
+                              );
                             }}
                             className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-red-500 hover:text-red-700 p-1 rounded transition-opacity"
-                            title="Rimuovi dalla settimana (non elimina dal database)"
+                            title="Rimuovi dalla settimana - cancella tutti i dati definitivamente"
                           >
                             <Trash2 size={14} />
                           </button>
