@@ -2350,6 +2350,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     
     if (geographicCodes.length === 0) return [];
     
+    // Calcola le date della settimana
+    const weekDates = getWeekDatesFromRange(currentWeek);
+    const dayNames = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
+    
     // Cerca nello schedule tutti i dipendenti che hanno un geographicCode che punta a questa azienda
     Object.keys(schedule).forEach(scheduleKey => {
       // Pattern: settimana-contextKey-empId
@@ -2358,36 +2362,68 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       const daySchedule = schedule[scheduleKey];
       if (!daySchedule) return;
       
-      // Verifica se ha un geographicCode che punta a questa azienda
-      const hasGeographicCode = Object.values(daySchedule).some(dayData => {
-        if (!dayData) return false;
-        return dayData.geographicCode && geographicCodes.includes(dayData.geographicCode);
-      });
+      const empId = parseInt(scheduleKey.split('-').pop());
+      const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
+      const employee = globalEmployees.find(e => e.id === empId);
       
-      if (hasGeographicCode) {
-        const empId = parseInt(scheduleKey.split('-').pop());
-        const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
-        const employee = globalEmployees.find(e => e.id === empId);
+      if (!employee) return;
+      
+      // Estrai l'azienda di origine dal fromCompany o dal contextKey
+      const fromCompany = Object.values(daySchedule).find(d => d?.fromCompany)?.fromCompany;
+      const contextKey = scheduleKey.replace(`${currentWeek}-`, '').replace(`-${empId}`, '');
+      const sourceCompany = fromCompany || (contextKey ? contextKey.split('-')[0] : '');
+      
+      if (!sourceCompany || sourceCompany === company) return;
+      
+      // Cerca tutti i giorni con geographicCode che punta a questa azienda
+      Object.keys(daySchedule).forEach(dayIndexStr => {
+        const dayIndex = parseInt(dayIndexStr);
+        const dayData = daySchedule[dayIndex];
         
-        if (employee) {
-          // Estrai l'azienda di origine dal fromCompany o dal contextKey
-          const fromCompany = Object.values(daySchedule).find(d => d?.fromCompany)?.fromCompany;
-          const contextKey = scheduleKey.replace(`${currentWeek}-`, '').replace(`-${empId}`, '');
-          const sourceCompany = fromCompany || (contextKey ? contextKey.split('-')[0] : '');
+        if (dayData && dayData.geographicCode && geographicCodes.includes(dayData.geographicCode)) {
+          const dayDate = weekDates[dayIndex];
+          const dayName = dayNames[dayIndex] || '';
+          const formattedDate = dayDate ? dayDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
           
-          if (sourceCompany && sourceCompany !== company) {
-            transfers.push({
-              employeeName: employee.name,
-              sourceCompany: sourceCompany,
-              targetCompany: company,
-              geographicCode: Object.values(daySchedule).find(d => d?.geographicCode)?.geographicCode
-            });
-          }
+          transfers.push({
+            employeeName: employee.name,
+            employeeId: empId,
+            sourceCompany: sourceCompany,
+            targetCompany: company,
+            geographicCode: dayData.geographicCode,
+            dayIndex: dayIndex,
+            dayName: dayName,
+            date: formattedDate
+          });
         }
-      }
+      });
     });
     
     return transfers;
+  };
+  
+  // Funzione helper per ottenere le date della settimana da un range
+  const getWeekDatesFromRange = (weekRange) => {
+    if (!weekRange) return [];
+    const parts = weekRange.split(' - ');
+    if (parts.length !== 2) return [];
+    
+    const startDate = new Date(parts[0].split('/').reverse().join('-'));
+    if (isNaN(startDate.getTime())) return [];
+    
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startDate);
+      date.setDate(date.getDate() + i);
+      dates.push(date);
+    }
+    return dates;
+  };
+  
+  // Funzione per verificare se un dipendente ha una trasferta in un giorno specifico nell'azienda destinataria
+  const hasTransferOnDay = (empId, dayIndex, company, weekRangeValue = null) => {
+    const transfers = checkTransfersToCompany(company, null, weekRangeValue);
+    return transfers.some(t => t.employeeId === empId && t.dayIndex === dayIndex);
   };
 
   // --- EXPORT EXCEL PERFETTO ---
@@ -2998,17 +3034,21 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       // Il giallo è solo per codici geografici o input geografici
                       const shouldBeGray = cellData.code && (isAbsenceCode(getCodeKey(cellData.code)) || hasCodeInOtherCompany);
                       const shouldBeYellow = (isGeographic || isFromOtherCompany) && !shouldBeGray;
+                      
+                      // Verifica se questo giorno ha una trasferta verso questa azienda
+                      const hasTransfer = hasTransferOnDay(emp.id, dayIdx, company, listWeekRange);
 
                       return (
                         <td
                           key={dayIdx}
-                          className={`p-1 border relative ${isRest || shouldBeGray ? 'bg-gray-200' : ''} ${shouldBeYellow || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''} ${isGeographicTargetDay ? 'bg-blue-100 ring-2 ring-blue-400' : ''}`}
+                          className={`p-1 border relative ${isRest || shouldBeGray ? 'bg-gray-200' : ''} ${shouldBeYellow || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''} ${isGeographicTargetDay ? 'bg-blue-100 ring-2 ring-blue-400' : ''} ${hasTransfer ? 'bg-yellow-200 ring-2 ring-yellow-500 ring-opacity-75' : ''}`}
                           onContextMenu={(e) => {
                             // Permetti il menu contestuale se c'è un codice (anche da altre aziende) o se ci sono orari
                             if ((cellData.code || cellData.in1 || cellData.out1 || cellData.in2 || cellData.out2) && !showGeographicInputs) {
                               handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange);
                             }
                           }}
+                          title={hasTransfer ? 'Giorno con trasferta in arrivo' : ''}
                         >
 
 
@@ -3689,17 +3729,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
         {/* AVVISO TRASFERTE - Mostra solo se ci sono trasferte verso le aziende delle liste */}
         {(() => {
-          // Raccogli tutte le trasferte da tutte le liste
+          // Raccogli tutte le trasferte da tutte le liste (includendo tutti i giorni)
           const allTransfers = [];
           viewLists.forEach(list => {
             if (list.company && list.department) {
               const transfers = checkTransfersToCompany(list.company, list.department, list.weekRange);
               transfers.forEach(transfer => {
-                // Aggiungi anche l'azienda target per identificare la lista
-                const key = `${transfer.employeeName}-${transfer.sourceCompany}-${list.company}`;
-                if (!allTransfers.find(t => `${t.employeeName}-${t.sourceCompany}-${t.targetCompany}` === key)) {
-                  allTransfers.push({ ...transfer, targetCompany: list.company, listId: list.id });
-                }
+                // Aggiungi tutte le trasferte (inclusi tutti i giorni) con l'azienda target
+                allTransfers.push({ ...transfer, targetCompany: list.company, listId: list.id });
               });
             }
           });
@@ -3716,15 +3753,27 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           }, {});
           
           return Object.entries(transfersByCompany).map(([targetCompany, transfers]) => {
-            const uniqueTransfers = transfers.reduce((acc, transfer) => {
+            // Raggruppa per dipendente, mantenendo tutti i giorni
+            const transfersByEmployee = transfers.reduce((acc, transfer) => {
               const key = `${transfer.employeeName}-${transfer.sourceCompany}`;
               if (!acc[key]) {
-                acc[key] = transfer;
+                acc[key] = {
+                  employeeName: transfer.employeeName,
+                  sourceCompany: transfer.sourceCompany,
+                  days: []
+                };
+              }
+              if (transfer.dayName && transfer.date) {
+                acc[key].days.push({
+                  dayName: transfer.dayName,
+                  date: transfer.date,
+                  dayIndex: transfer.dayIndex
+                });
               }
               return acc;
             }, {});
             
-            const transferList = Object.values(uniqueTransfers);
+            const transferList = Object.values(transfersByEmployee);
             
             return (
               <div key={targetCompany} className="px-4 pb-2">
@@ -3744,6 +3793,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           {transferList.length === 1 ? (
                             <>
                               Il dipendente <strong>{transferList[0].employeeName}</strong> ha una trasferta da <strong>{transferList[0].sourceCompany}</strong> presso questo punto vendita.
+                              {transferList[0].days.length > 0 && (
+                                <span className="block mt-1 text-yellow-800 font-semibold">
+                                  {transferList[0].days.length === 1 ? (
+                                    <>Giorno: <strong>{transferList[0].days[0].dayName} {transferList[0].days[0].date}</strong></>
+                                  ) : (
+                                    <>Giorni: {transferList[0].days.map((d, idx) => (
+                                      <span key={idx}><strong>{d.dayName} {d.date}</strong>{idx < transferList[0].days.length - 1 ? ', ' : ''}</span>
+                                    ))}</>
+                                  )}
+                                </span>
+                              )}
                             </>
                           ) : (
                             <>
@@ -3752,6 +3812,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                 {transferList.map((transfer, idx) => (
                                   <li key={idx}>
                                     <strong>{transfer.employeeName}</strong> da <strong>{transfer.sourceCompany}</strong>
+                                    {transfer.days.length > 0 && (
+                                      <span className="text-yellow-800 font-semibold">
+                                        {' '}- {transfer.days.length === 1 ? (
+                                          <>{transfer.days[0].dayName} {transfer.days[0].date}</>
+                                        ) : (
+                                          transfer.days.map((d, dIdx) => (
+                                            <span key={dIdx}>{d.dayName} {d.date}{dIdx < transfer.days.length - 1 ? ', ' : ''}</span>
+                                          ))
+                                        )}
+                                      </span>
+                                    )}
                                   </li>
                                 ))}
                               </ul>
