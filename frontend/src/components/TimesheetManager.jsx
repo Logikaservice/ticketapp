@@ -1126,6 +1126,63 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           geographicCode: undefined
         };
 
+        // CASO 2: Se si cancella dall'azienda target, verifica se lo schedule corrente è vuoto
+        if (currentDayData.fromCompany && currentDayData.fromCompany !== currentCompany) {
+          const currentSchedule = newSchedule[scheduleKey];
+          // Verifica se lo schedule è completamente vuoto dopo la pulizia
+          const hasAnyData = Object.values(currentSchedule).some(dayData => {
+            if (!dayData) return false;
+            // Verifica se c'è almeno un campo con dati
+            return (dayData.code && dayData.code.trim() !== '') ||
+                   (dayData.in1 && dayData.in1.trim() !== '') ||
+                   (dayData.out1 && dayData.out1.trim() !== '') ||
+                   (dayData.in2 && dayData.in2.trim() !== '') ||
+                   (dayData.out2 && dayData.out2.trim() !== '');
+          });
+          
+          // Se lo schedule è completamente vuoto, eliminalo completamente
+          if (!hasAnyData) {
+            delete newSchedule[scheduleKey];
+            
+            // Rimuovi anche il dipendente da employeesData
+            const currentKey = contextKey || `${currentCompany}-${currentDept}`;
+            setTimeout(() => {
+              // Verifica se ci sono altri schedule per questo dipendente in altri reparti della stessa azienda
+              const hasOtherSchedules = Object.keys(newSchedule).some(key => {
+                if (key.includes(`-${currentCompany}-`) && key.endsWith(`-${empId}`) && key !== scheduleKey) {
+                  const otherSchedule = newSchedule[key];
+                  if (otherSchedule && Object.keys(otherSchedule).length > 0) {
+                    // Verifica se ha dati
+                    return Object.values(otherSchedule).some(dayData => {
+                      if (!dayData) return false;
+                      return (dayData.code && dayData.code.trim() !== '') ||
+                             (dayData.in1 && dayData.in1.trim() !== '') ||
+                             (dayData.out1 && dayData.out1.trim() !== '') ||
+                             (dayData.in2 && dayData.in2.trim() !== '') ||
+                             (dayData.out2 && dayData.out2.trim() !== '');
+                    });
+                  }
+                }
+                return false;
+              });
+              
+              // Rimuovi il dipendente solo se non ha altri schedule in altri reparti
+              if (!hasOtherSchedules) {
+                setEmployeesData(prev => {
+                  const targetEmployees = prev[currentKey] || [];
+                  if (targetEmployees.some(e => e.id === empId)) {
+                    return {
+                      ...prev,
+                      [currentKey]: targetEmployees.filter(e => e.id !== empId)
+                    };
+                  }
+                  return prev;
+                });
+              }
+            }, 100);
+          }
+        }
+
         return newSchedule;
       });
 
@@ -1174,51 +1231,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         }, 200);
       }
       
-      // CASO 2: Cancellazione dall'azienda target (currentKey è l'azienda target)
-      // Se si cancella dall'azienda target e lo schedule è vuoto, rimuovi il dipendente
-      if (currentDayData.fromCompany && currentDayData.fromCompany !== currentCompany) {
-        const currentKey = contextKey || `${currentCompany}-${currentDept}`;
-        const currentScheduleKey = `${currentWeek}-${currentKey}-${empId}`;
-        
-        setTimeout(() => {
-          // Verifica se lo schedule corrente è completamente vuoto
-          const currentSchedule = schedule[currentScheduleKey];
-          if (!currentSchedule || Object.keys(currentSchedule).length === 0) {
-            // Verifica se ci sono altri schedule per questo dipendente in altri reparti della stessa azienda
-            const hasOtherSchedules = Object.keys(schedule).some(key => {
-              if (key.includes(`-${currentCompany}-`) && key.endsWith(`-${empId}`) && key !== currentScheduleKey) {
-                const otherSchedule = schedule[key];
-                if (otherSchedule && Object.keys(otherSchedule).length > 0) {
-                  // Verifica se ha dati
-                  return Object.values(otherSchedule).some(dayData => {
-                    if (!dayData) return false;
-                    return (dayData.code && dayData.code.trim() !== '') ||
-                           (dayData.in1 && dayData.in1.trim() !== '') ||
-                           (dayData.out1 && dayData.out1.trim() !== '') ||
-                           (dayData.in2 && dayData.in2.trim() !== '') ||
-                           (dayData.out2 && dayData.out2.trim() !== '');
-                  });
-                }
-              }
-              return false;
-            });
-            
-            // Rimuovi il dipendente solo se non ha altri schedule in altri reparti
-            if (!hasOtherSchedules) {
-              setEmployeesData(prev => {
-                const targetEmployees = prev[currentKey] || [];
-                if (targetEmployees.some(e => e.id === empId)) {
-                  return {
-                    ...prev,
-                    [currentKey]: targetEmployees.filter(e => e.id !== empId)
-                  };
-                }
-                return prev;
-              });
-            }
-          }
-        }, 200);
-      }
 
       return;
     }
