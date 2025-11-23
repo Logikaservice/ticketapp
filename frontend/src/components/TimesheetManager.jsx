@@ -3011,35 +3011,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   hasCodeInOtherCompany = true;
                                   otherCompanyCode = getCodeLabel(otherDayData.code);
                                   otherCompanyName = otherCompany;
-                                  // Se non c'è già un codice nella cella corrente, salvalo nello schedule corrente
-                                  // così può essere pulito con "Pulisci Cella"
-                                  if (!cellData.code) {
-                                    const currentScheduleKey = `${currentWeek}-${emp.contextKey}-${emp.id}`;
-                                    // Verifica se esiste già nello schedule (per evitare loop infiniti)
-                                    const existingSchedule = schedule[currentScheduleKey]?.[dayIdx];
-                                    if (!existingSchedule || !existingSchedule.code) {
-                                      // Salva il codice nello schedule corrente con riferimento all'azienda originale
-                                      setSchedule(prev => {
-                                        const newSchedule = { ...prev };
-                                        if (!newSchedule[currentScheduleKey]) newSchedule[currentScheduleKey] = {};
-                                        newSchedule[currentScheduleKey][dayIdx] = {
-                                          code: otherCodeKey,
-                                          fromCompany: otherCompany,
-                                          in1: '',
-                                          out1: '',
-                                          in2: '',
-                                          out2: ''
-                                        };
-                                        return newSchedule;
-                                      });
-                                    }
-                                    // Aggiorna cellData per il rendering
-                                    cellData = {
-                                      ...cellData,
-                                      code: otherCodeKey,
-                                      fromCompany: otherCompany
-                                    };
-                                  }
+                                  // NON copiare automaticamente i codici da altre aziende durante il rendering
+                                  // Questo permette all'utente di pulire esplicitamente la cella senza che venga ripristinato
+                                  // Il codice viene mostrato solo se è già presente nello schedule corrente
+                                  // Se l'utente vuole copiare il codice, può farlo manualmente
                                 }
                               }
                               // Se ha orari o codici in questa azienda (mostra sempre il tooltip)
