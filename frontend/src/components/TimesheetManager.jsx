@@ -1681,6 +1681,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   };
 
   // Rimuove i dati del dipendente per quella settimana e contesto specifico
+  // IMPORTANTE: Rimuove solo i dati creati direttamente in quell'azienda, NON i dati riportati da altre aziende
   const removeEmployeeFromWeek = (empId, contextKey = null, weekRangeValue = null, company = null, department = null) => {
     const currentWeek = weekRangeValue || getWeekDates(0).formatted;
     
@@ -1695,36 +1696,74 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           ? [department, ...companyDepts.filter(d => d !== department)]
           : companyDepts.length > 0 ? companyDepts : [department].filter(Boolean);
         
-        // Cerca e rimuovi lo schedule in tutti i reparti dell'azienda
+        // Cerca lo schedule in tutti i reparti dell'azienda
         for (const dept of deptsToCheck) {
           const checkKey = getContextKey(company, dept);
           const scheduleKey = `${currentWeek}-${checkKey}-${empId}`;
+          
           if (newSchedule[scheduleKey]) {
-            delete newSchedule[scheduleKey];
-            foundAndDeleted = true;
+            const daySchedule = newSchedule[scheduleKey];
+            const cleanedDays = {};
+            let hasRemainingData = false;
+
+            // Analizza ogni giorno dello schedule
+            Object.keys(daySchedule).forEach(dayIndex => {
+              const dayData = daySchedule[dayIndex];
+              
+              // Se il giorno ha dati riportati da un'altra azienda (fromCompany diverso), MANTIENILI
+              if (dayData && dayData.fromCompany && dayData.fromCompany !== company) {
+                cleanedDays[dayIndex] = dayData;
+                hasRemainingData = true;
+              }
+              // Se il giorno NON ha fromCompany o fromCompany è uguale all'azienda corrente, RIMUOVILO
+              // (sono dati creati direttamente in questa azienda)
+            });
+
+            // Se ci sono ancora dati da mantenere, aggiorna lo schedule con solo quei giorni
+            if (hasRemainingData) {
+              newSchedule[scheduleKey] = cleanedDays;
+              foundAndDeleted = true;
+            } else {
+              // Se non ci sono più dati da mantenere, rimuovi completamente lo schedule
+              delete newSchedule[scheduleKey];
+              foundAndDeleted = true;
+            }
           }
         }
       }
       
-      // Fallback: usa contextKey se fornito
+      // Fallback: usa contextKey se fornito (stessa logica)
       if (!foundAndDeleted && contextKey) {
         const baseKey = `${contextKey}-${empId}`;
         const scheduleKey = `${currentWeek}-${baseKey}`;
         
-        // 1. Rimuovi la chiave specifica esatta
         if (newSchedule[scheduleKey]) {
-          delete newSchedule[scheduleKey];
+          const daySchedule = newSchedule[scheduleKey];
+          const cleanedDays = {};
+          let hasRemainingData = false;
+
+          // Estrai l'azienda dal contextKey (formato: "Azienda-Reparto")
+          const [contextCompany] = contextKey.split('-');
+
+          // Analizza ogni giorno dello schedule
+          Object.keys(daySchedule).forEach(dayIndex => {
+            const dayData = daySchedule[dayIndex];
+            
+            // Se il giorno ha dati riportati da un'altra azienda, MANTIENILI
+            if (dayData && dayData.fromCompany && dayData.fromCompany !== contextCompany) {
+              cleanedDays[dayIndex] = dayData;
+              hasRemainingData = true;
+            }
+            // Altrimenti rimuovi (sono dati creati direttamente in questa azienda)
+          });
+
+          if (hasRemainingData) {
+            newSchedule[scheduleKey] = cleanedDays;
+          } else {
+            delete newSchedule[scheduleKey];
+          }
           foundAndDeleted = true;
         }
-
-        // 2. Pulizia profonda: rimuovi eventuali chiavi residue che matchano questo contesto
-        Object.keys(newSchedule).forEach(key => {
-          // Pattern: settimana-contextKey-empId
-          if (key.startsWith(`${currentWeek}-${contextKey}-${empId}`)) {
-            delete newSchedule[key];
-            foundAndDeleted = true;
-          }
-        });
       }
 
       // Salva le modifiche sul database
