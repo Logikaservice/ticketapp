@@ -1146,7 +1146,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   };
 
   const handleQuickCode = (empId, dayIndex, code, contextKey = null, weekRangeValue = null) => {
-    // Se il codice è vuoto, pulisci la cella
+    // Se il codice è vuoto, pulisci SOLO quella cella (giorno) specifica
     if (!code || code.trim() === '') {
       const currentWeek = weekRangeValue || weekRange;
       const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
@@ -1154,17 +1154,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       setSchedule(prev => {
         const newSchedule = { ...prev };
-        if (!newSchedule[scheduleKey]) return newSchedule;
+        if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
+        if (!newSchedule[scheduleKey][dayIndex]) newSchedule[scheduleKey][dayIndex] = {};
         
-        // Rimuovi completamente la cella invece di impostarla vuota
-        if (newSchedule[scheduleKey][dayIndex]) {
-          delete newSchedule[scheduleKey][dayIndex];
-        }
-        
-        // Se lo schedule per questa chiave è vuoto, rimuovilo completamente
-        if (Object.keys(newSchedule[scheduleKey] || {}).length === 0) {
-          delete newSchedule[scheduleKey];
-        }
+        // Pulisci SOLO i campi di quella cella specifica, mantenendo la struttura
+        newSchedule[scheduleKey][dayIndex] = {
+          code: '',
+          in1: '',
+          out1: '',
+          in2: '',
+          out2: '',
+          fromCompany: undefined,
+          geographicCode: undefined
+        };
 
         return newSchedule;
       });
@@ -2836,8 +2838,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           key={dayIdx}
                           className={`p-1 border relative ${isRest || shouldBeGray ? 'bg-gray-200' : ''} ${shouldBeYellow || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''} ${isGeographicTargetDay ? 'bg-blue-100 ring-2 ring-blue-400' : ''}`}
                           onContextMenu={(e) => {
-                            // Se c'è un codice, permetti il menu contestuale anche cliccando sulla cella
-                            if (cellData.code && !showGeographicInputs) {
+                            // Permetti il menu contestuale se c'è un codice (anche da altre aziende) o se ci sono orari
+                            if ((cellData.code || cellData.in1 || cellData.out1 || cellData.in2 || cellData.out2) && !showGeographicInputs) {
                               handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange);
                             }
                           }}
