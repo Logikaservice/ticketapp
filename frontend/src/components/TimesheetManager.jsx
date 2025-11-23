@@ -495,6 +495,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     closeConfirm();
   };
 
+  // Helper per ottenere la lista globale dei dipendenti
+  const getCurrentEmployees = () => {
+    return employeesData[GLOBAL_EMPLOYEES_KEY] || [];
+  };
+
+  // Variabile derivata per la lista corrente di dipendenti
+  const currentEmployees = getCurrentEmployees();
+
 
   // --- CALCOLI SICURI ---
   const timeToDecimal = (timeStr) => {
@@ -1274,26 +1282,21 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     const newId = Date.now();
     const newName = newEmployeeName.toUpperCase().trim();
 
-    // Aggiungi il dipendente a TUTTE le aziende e reparti
+    // Aggiungi il dipendente alla lista globale
     setEmployeesData(prev => {
-      const updated = { ...prev };
+      const globalList = prev[GLOBAL_EMPLOYEES_KEY] || [];
 
-      // Per ogni azienda
-      companies.forEach(company => {
-        const depts = departmentsStructure[company] || [];
-        // Per ogni reparto di ogni azienda
-        depts.forEach(dept => {
-          const key = getContextKey(company, dept);
-          const existingEmployees = updated[key] || [];
-          // Verifica se esiste già (stesso ID o stesso nome)
-          const exists = existingEmployees.some(e => e.id === newId || e.name === newName);
-          if (!exists) {
-            updated[key] = [...existingEmployees, { id: newId, name: newName }];
-          }
-        });
-      });
+      // Verifica se esiste già (stesso nome)
+      const exists = globalList.some(e => e.name === newName);
+      if (exists) {
+        alert(`Il dipendente "${newName}" esiste già!`);
+        return prev;
+      }
 
-      return updated;
+      return {
+        ...prev,
+        [GLOBAL_EMPLOYEES_KEY]: [...globalList, { id: newId, name: newName }]
+      };
     });
 
     setNewEmployeeName('');
@@ -1310,13 +1313,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   const deleteEmployee = (empId) => {
-    // Rimuovi il dipendente da TUTTE le aziende e reparti
+    // Rimuovi il dipendente dalla lista globale
     setEmployeesData(prev => {
-      const updated = { ...prev };
-      Object.keys(updated).forEach(key => {
-        updated[key] = updated[key].filter(e => e.id !== empId);
-      });
-      return updated;
+      const globalList = prev[GLOBAL_EMPLOYEES_KEY] || [];
+      return {
+        ...prev,
+        [GLOBAL_EMPLOYEES_KEY]: globalList.filter(e => e.id !== empId)
+      };
     });
 
     // Rimuovi anche gli orari (cerca tutte le chiavi che contengono questo empId)
@@ -1383,7 +1386,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     const { oldEmployeeId, newEmployeeName, newEmployeeId } = replaceEmployeeModal;
     if (!newEmployeeName.trim()) return;
 
-    const key = getCurrentContextKey();
     const newNameUpper = newEmployeeName.toUpperCase().trim();
     let targetEmployeeId = newEmployeeId;
 
@@ -1393,91 +1395,79 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     );
 
     if (existingEmployee) {
-      // Se il dipendente esiste già: SCAMBIA SOLO I NOMI (inverti i nomi) in TUTTE le aziende
+      // Se il dipendente esiste già: SCAMBIA SOLO I NOMI
       // Gli orari rimangono invariati (attaccati ai rispettivi ID)
       const oldEmployee = currentEmployees.find(emp => emp.id === oldEmployeeId);
       if (oldEmployee) {
         setEmployeesData(prev => {
-          const updated = { ...prev };
-          // Aggiorna in tutte le aziende
-          Object.keys(updated).forEach(empKey => {
-            updated[empKey] = updated[empKey].map(emp => {
-              if (emp.id === oldEmployeeId) {
-                // Il vecchio dipendente prende il nome del nuovo
-                return { ...emp, name: newNameUpper };
-              } else if (emp.id === existingEmployee.id) {
-                // Il nuovo dipendente prende il nome del vecchio
-                return { ...emp, name: oldEmployee.name };
-              }
-              return emp;
-            });
+          const globalList = prev[GLOBAL_EMPLOYEES_KEY] || [];
+          const updatedList = globalList.map(emp => {
+            if (emp.id === oldEmployeeId) {
+              return { ...emp, name: newNameUpper };
+            } else if (emp.id === existingEmployee.id) {
+              return { ...emp, name: oldEmployee.name };
+            }
+            return emp;
           });
-          return updated;
+          return {
+            ...prev,
+            [GLOBAL_EMPLOYEES_KEY]: updatedList
+          };
         });
       }
       // NON trasferire gli orari - rimangono dove sono
     } else if (!targetEmployeeId) {
-      // Se il dipendente NON esiste: crea nuovo in TUTTE le aziende e trasferisci gli orari
+      // Se il dipendente NON esiste: crea nuovo nella lista globale e trasferisci gli orari
       targetEmployeeId = Date.now();
       const newEmployee = { id: targetEmployeeId, name: newNameUpper };
+
       setEmployeesData(prev => {
-        const updated = { ...prev };
-        // Aggiungi il nuovo dipendente a tutte le aziende e reparti
-        companies.forEach(comp => {
-          const depts = departmentsStructure[comp] || [];
-          depts.forEach(d => {
-            const empKey = getContextKey(comp, d);
-            if (!updated[empKey]) {
-              updated[empKey] = [];
-            }
-            const exists = updated[empKey].some(e => e.id === targetEmployeeId || e.name === newNameUpper);
-            if (!exists) {
-              updated[empKey] = [...updated[empKey], newEmployee];
-            }
-          });
-        });
-        return updated;
+        const globalList = prev[GLOBAL_EMPLOYEES_KEY] || [];
+        return {
+          ...prev,
+          [GLOBAL_EMPLOYEES_KEY]: [...globalList.filter(e => e.id !== oldEmployeeId), newEmployee]
+        };
       });
 
       // Trasferisci gli orari dal vecchio al nuovo dipendente
       setSchedule(prev => {
         const newSchedule = { ...prev };
-        if (newSchedule[oldEmployeeId]) {
-          newSchedule[targetEmployeeId] = { ...newSchedule[oldEmployeeId] };
-          delete newSchedule[oldEmployeeId];
-        }
+        Object.keys(newSchedule).forEach(scheduleKey => {
+          if (scheduleKey.includes(`-${oldEmployeeId}`) || scheduleKey.endsWith(oldEmployeeId.toString())) {
+            const newKey = scheduleKey.replace(`-${oldEmployeeId}`, `-${targetEmployeeId}`).replace(oldEmployeeId.toString(), targetEmployeeId.toString());
+            newSchedule[newKey] = { ...newSchedule[scheduleKey] };
+            delete newSchedule[scheduleKey];
+          }
+        });
         return newSchedule;
       });
-
-      // Rimuovi il vecchio dipendente dalla lista
-      setEmployeesData(prev => ({
-        ...prev,
-        [key]: prev[key].filter(emp => emp.id !== oldEmployeeId)
-      }));
     } else {
-      // Dipendente selezionato dalla lista che non esiste nella lista corrente
+      // Dipendente selezionato dalla lista che esiste già
       // Trasferisci gli orari
       setSchedule(prev => {
         const newSchedule = { ...prev };
-        if (newSchedule[oldEmployeeId]) {
-          if (newSchedule[targetEmployeeId]) {
-            // Unisci gli orari se il target ha già orari
-            newSchedule[targetEmployeeId] = { ...newSchedule[oldEmployeeId], ...newSchedule[targetEmployeeId] };
-          } else {
-            newSchedule[targetEmployeeId] = { ...newSchedule[oldEmployeeId] };
+        Object.keys(newSchedule).forEach(scheduleKey => {
+          if (scheduleKey.includes(`-${oldEmployeeId}`) || scheduleKey.endsWith(oldEmployeeId.toString())) {
+            const newKey = scheduleKey.replace(`-${oldEmployeeId}`, `-${targetEmployeeId}`).replace(oldEmployeeId.toString(), targetEmployeeId.toString());
+            if (newSchedule[newKey]) {
+              // Unisci gli orari se il target ha già orari
+              newSchedule[newKey] = { ...newSchedule[scheduleKey], ...newSchedule[newKey] };
+            } else {
+              newSchedule[newKey] = { ...newSchedule[scheduleKey] };
+            }
+            delete newSchedule[scheduleKey];
           }
-          delete newSchedule[oldEmployeeId];
-        }
+        });
         return newSchedule;
       });
 
-      // Rimuovi il vecchio dipendente da TUTTE le aziende
+      // Rimuovi il vecchio dipendente dalla lista globale
       setEmployeesData(prev => {
-        const updated = { ...prev };
-        Object.keys(updated).forEach(empKey => {
-          updated[empKey] = updated[empKey].filter(emp => emp.id !== oldEmployeeId);
-        });
-        return updated;
+        const globalList = prev[GLOBAL_EMPLOYEES_KEY] || [];
+        return {
+          ...prev,
+          [GLOBAL_EMPLOYEES_KEY]: globalList.filter(emp => emp.id !== oldEmployeeId)
+        };
       });
     }
 
@@ -1518,6 +1508,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       }
       return list;
     }));
+  };
+
+  // Helper per ottenere il contesto corrente (per compatibilità)
+  const getCurrentContextKey = () => {
+    return getContextKey(selectedCompany, selectedDept);
   };
 
   // Helper per generare la chiave del contesto (Azienda-Reparto)
