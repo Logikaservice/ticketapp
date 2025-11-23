@@ -3072,7 +3072,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       return (
                         <td
                           key={dayIdx}
-                          className={`p-1 border relative ${isRest || shouldBeGray ? 'bg-gray-200' : ''} ${shouldBeYellow || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-50' : ''} ${isGeographicTargetDay ? 'bg-blue-100 ring-2 ring-blue-400' : ''} ${hasTransfer ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''}`}
+                          className={`p-1 border relative ${isRest || shouldBeGray ? 'bg-gray-200' : ''} ${shouldBeYellow || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-50' : ''} ${isGeographicTargetDay ? 'bg-blue-100 ring-2 ring-blue-400' : ''} ${hasTransfer ? 'bg-yellow-50' : ''}`}
                           onContextMenu={(e) => {
                             // Permetti il menu contestuale se c'è un codice (anche da altre aziende) o se ci sono orari
                             if ((cellData.code || cellData.in1 || cellData.out1 || cellData.in2 || cellData.out2) && !showGeographicInputs) {
