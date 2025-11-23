@@ -2267,11 +2267,30 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     
     // IMPORTANTE: Cerca SOLO nel reparto specifico della lista, non in tutti i reparti
     // Questo evita di mostrare dipendenti in reparti dove non sono stati creati
+    // IMPORTANTE: Verifica che lo schedule abbia effettivamente dei dati, non solo che esista
     const employeesWithSchedule = globalEmployees.filter(emp => {
       // Cerca lo schedule SOLO nel reparto specifico di questa lista
       const checkKey = getContextKey(company, department);
       const scheduleKey = `${currentWeek}-${checkKey}-${emp.id}`;
-      return schedule[scheduleKey] !== undefined;
+      const empSchedule = schedule[scheduleKey];
+      
+      // Se lo schedule non esiste, non mostrare il dipendente
+      if (!empSchedule || Object.keys(empSchedule).length === 0) {
+        return false;
+      }
+      
+      // Verifica che lo schedule abbia effettivamente dei dati (non vuoto)
+      const hasData = Object.values(empSchedule).some(dayData => {
+        if (!dayData) return false;
+        return (dayData.code && dayData.code.trim() !== '') ||
+               (dayData.in1 && dayData.in1.trim() !== '') ||
+               (dayData.out1 && dayData.out1.trim() !== '') ||
+               (dayData.in2 && dayData.in2.trim() !== '') ||
+               (dayData.out2 && dayData.out2.trim() !== '') ||
+               (dayData.geographicCode && dayData.geographicCode.trim() !== '');
+      });
+      
+      return hasData;
     });
 
     // Cerca anche dipendenti di altre aziende che hanno codici geografici per questa azienda
