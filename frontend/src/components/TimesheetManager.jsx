@@ -1299,14 +1299,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     // Se è un codice geografico, salva anche in geographicCode per permettere la ricerca
     const isGeoCode = isGeographicCode(codeKey);
     
-    // Estrai azienda e reparto dal contextKey corrente per salvare l'azienda di origine
-    let currentCompany = '';
-    if (contextKey) {
-      const parts = contextKey.split('-');
-      currentCompany = parts[0] || '';
-    } else {
-      currentCompany = selectedCompany || companies[0] || '';
-    }
+    // Nota: currentCompany è già stato estratto sopra (riga 1255)
 
     setSchedule(prev => {
       const newSchedule = {
