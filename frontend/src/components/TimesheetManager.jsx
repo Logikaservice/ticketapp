@@ -2086,12 +2086,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           // Crea nuove liste automatiche per ogni altra azienda con lo stesso reparto
           const autoLists = [];
           otherCompanies.forEach(otherCompany => {
-            // Verifica se esiste già una lista per questa combinazione
-            const exists = updatedLists.some(l => 
+            // Verifica se esiste già una lista (manuale o automatica) per questa combinazione
+            // Controlla sia in manualLists che in updatedLists per evitare duplicati
+            const existsInManual = manualLists.some(l => 
+              l.company === otherCompany && l.department === updatedFirstList.department
+            );
+            const existsInUpdated = updatedLists.some(l => 
               l.company === otherCompany && l.department === updatedFirstList.department
             );
             
-            if (!exists) {
+            // Non creare se esiste già (sia manuale che automatica)
+            if (!existsInManual && !existsInUpdated) {
               autoLists.push({
                 id: Date.now() + Math.random() + otherCompany.length, // ID univoco
                 company: otherCompany,
