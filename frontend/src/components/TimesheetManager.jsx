@@ -855,31 +855,36 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   const handleInputChange = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
     // Se il campo è uno dei campi orario (in1, out1, in2, out2), verifica se il valore è un codice
     if (['in1', 'out1', 'in2', 'out2'].includes(field)) {
-      const strValue = String(value).trim().toUpperCase();
-      
-      // Verifica se il valore inserito è un codice (chiave o label)
-      let detectedCode = null;
-      
-      // Controlla se è una chiave diretta (es. "R", "F", "AT")
-      if (timeCodes[strValue]) {
-        detectedCode = strValue;
+      // Se il valore è vuoto, non cercare codici - solo cancellare il campo
+      if (!value || String(value).trim() === '') {
+        // Continua con la logica normale di cancellazione (sotto)
       } else {
-        // Controlla se è un label (es. "Riposo", "Ferie", "Avellino")
-        const foundKey = Object.keys(timeCodes).find(key => 
-          timeCodes[key].toUpperCase() === strValue || 
-          timeCodes[key].toUpperCase().includes(strValue) ||
-          strValue.includes(timeCodes[key].toUpperCase())
-        );
-        if (foundKey) {
-          detectedCode = foundKey;
+        const strValue = String(value).trim().toUpperCase();
+        
+        // Verifica se il valore inserito è un codice (chiave o label)
+        let detectedCode = null;
+        
+        // Controlla se è una chiave diretta (es. "R", "F", "AT")
+        if (timeCodes[strValue]) {
+          detectedCode = strValue;
+        } else {
+          // Controlla se è un label (es. "Riposo", "Ferie", "Avellino")
+          const foundKey = Object.keys(timeCodes).find(key => 
+            timeCodes[key].toUpperCase() === strValue || 
+            timeCodes[key].toUpperCase().includes(strValue) ||
+            strValue.includes(timeCodes[key].toUpperCase())
+          );
+          if (foundKey) {
+            detectedCode = foundKey;
+          }
         }
-      }
-      
-      // Se è stato rilevato un codice, applicalo invece di salvarlo come orario
-      if (detectedCode && strValue.length <= 10) { // Limita a 10 caratteri per evitare falsi positivi
-        const codeLabel = timeCodes[detectedCode];
-        handleQuickCode(empId, dayIndex, codeLabel, contextKey, weekRangeValue);
-        return; // Esci senza salvare come orario
+        
+        // Se è stato rilevato un codice, applicalo invece di salvarlo come orario
+        if (detectedCode && strValue.length <= 10) { // Limita a 10 caratteri per evitare falsi positivi
+          const codeLabel = timeCodes[detectedCode];
+          handleQuickCode(empId, dayIndex, codeLabel, contextKey, weekRangeValue);
+          return; // Esci senza salvare come orario
+        }
       }
     }
 
