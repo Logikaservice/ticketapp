@@ -1520,11 +1520,24 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     }));
   };
 
+  // Helper per generare la chiave del contesto (Azienda-Reparto)
+  const getContextKey = (company, dept) => {
+    if (!company) return '';
+    return dept ? `${company}-${dept}` : company;
+  };
+
   const getEmployeesForList = (list) => {
     const { company, department, weekRange: listWeekRange } = list;
     const currentWeek = listWeekRange || weekRange;
     const key = getContextKey(company, department);
-    const employeesWithSchedule = employeesData[key] || [];
+
+    // FIX: Usa la lista globale e filtra per presenza nello schedule corrente
+    const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
+    const employeesWithSchedule = globalEmployees.filter(emp => {
+      const scheduleKey = `${currentWeek}-${key}-${emp.id}`;
+      // Mostra il dipendente se ha una entry nello schedule (anche vuota) per questo contesto
+      return schedule[scheduleKey] !== undefined;
+    });
 
     // Cerca anche dipendenti di altre aziende che hanno codici geografici per questa azienda
     const geographicEmployees = [];
