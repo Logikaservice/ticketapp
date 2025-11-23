@@ -2267,12 +2267,21 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     
     // IMPORTANTE: Cerca SOLO nel reparto specifico della lista, non in tutti i reparti
     // Questo evita di mostrare dipendenti in reparti dove non sono stati creati
-    // IMPORTANTE: Verifica che lo schedule abbia effettivamente dei dati, non solo che esista
+    const checkKey = getContextKey(company, department);
+    const specificEmployees = employeesData[checkKey] || [];
+    
+    // Mostra dipendenti che:
+    // 1. Hanno uno schedule con dati per questa azienda/reparto
+    // 2. O sono presenti in employeesData[checkKey] per questa azienda/reparto (anche senza schedule)
     const employeesWithSchedule = globalEmployees.filter(emp => {
-      // Cerca lo schedule SOLO nel reparto specifico di questa lista
-      const checkKey = getContextKey(company, department);
       const scheduleKey = `${currentWeek}-${checkKey}-${emp.id}`;
       const empSchedule = schedule[scheduleKey];
+      
+      // Se il dipendente è presente in employeesData per questa azienda/reparto, mostralo
+      // (anche se non ha ancora uno schedule con dati)
+      if (specificEmployees.some(e => e.id === emp.id)) {
+        return true;
+      }
       
       // Se lo schedule non esiste, non mostrare il dipendente
       if (!empSchedule || Object.keys(empSchedule).length === 0) {
