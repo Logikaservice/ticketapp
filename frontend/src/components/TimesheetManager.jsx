@@ -2622,8 +2622,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                         in2: '',
                                         out2: ''
                                       };
-                                      // Salva dopo l'aggiornamento
-                                      setTimeout(() => saveData(), 100);
                                       return newSchedule;
                                     });
                                   }
@@ -2792,7 +2790,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           )}
                         </td>
                       );
-                    })}
+                    })
+                    }
                     <td className="px-2 py-3 border text-center font-bold text-lg bg-yellow-50 text-slate-800">
                       {calculateWeeklyTotal(emp.id, emp.contextKey, listWeekRange)}
                     </td>
