@@ -1311,82 +1311,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         }
       };
 
-      // Se è un codice geografico, crea il dipendente nell'altra azienda con orari da compilare
-      if (isGeographicCode(codeKey) && currentCompany) {
-        const targetCompany = getCompanyFromGeographicCode(codeKey);
-        if (targetCompany && targetCompany !== currentCompany) {
-          // Trova il dipendente corrente
-          const empKey = contextKey || `${currentCompany}-${currentDept}`;
-          const employees = employeesData[empKey] || [];
-          const employee = employees.find(e => e.id === empId);
-
-          if (employee) {
-            // LOGICA CORRETTA: Usa lo STESSO reparto dell'azienda target (se esiste)
-            // Esempio: se Carmela è in "La Torre -> Cucina", va in "Mercurio -> Cucina" (stesso reparto)
-            const targetDepts = departmentsStructure[targetCompany] || [];
-            let targetDeptToUse = null;
-
-            // PRIMA: Verifica se il reparto corrente esiste nell'azienda target
-            if (currentDept && targetDepts.includes(currentDept)) {
-              // Il reparto esiste nell'azienda target, usalo
-              targetDeptToUse = currentDept;
-            } else if (targetDepts.length > 0) {
-              // Il reparto non esiste, verifica se il dipendente è già presente in qualche reparto
-              for (const dept of targetDepts) {
-                const checkKey = `${targetCompany}-${dept}`;
-                const deptEmployees = employeesData[checkKey] || [];
-                if (deptEmployees.some(e => e.id === empId)) {
-                  targetDeptToUse = dept;
-                  break; // Trovato! Usa questo reparto dove è già presente
-                }
-              }
-              // Se non trovato in nessun reparto, usa il primo reparto disponibile
-              if (!targetDeptToUse) {
-                targetDeptToUse = targetDepts[0];
-              }
-            } else {
-              // L'azienda target non ha reparti configurati, usa il reparto corrente
-              targetDeptToUse = currentDept;
-            }
-
-            // Crea/salva il dipendente nell'azienda target se non esiste
-            const targetKey = `${targetCompany}-${targetDeptToUse}`;
-            setEmployeesData(prev => {
-              const targetEmployees = prev[targetKey] || [];
-              const exists = targetEmployees.some(e => e.id === empId && e.name === employee.name);
-              if (!exists) {
-                return {
-                  ...prev,
-                  [targetKey]: [...targetEmployees, { id: empId, name: employee.name }]
-                };
-              }
-              return prev;
-            });
-
-            // Salva gli orari vuoti nell'azienda target (non il codice, ma gli input da compilare)
-            const targetScheduleKey = `${currentWeek}-${targetKey}-${empId}`;
-
-            // NON copiare codici di assenza dall'azienda originale - solo creare input vuoti
-            const targetDayData = {
-              in1: '',
-              out1: '',
-              in2: '',
-              out2: '',
-              fromCompany: currentCompany,
-              geographicCode: codeKey,
-              code: '' // NON copiare codici di assenza
-            };
-
-            // Inizializza lo schedule target se non esiste
-            if (!newSchedule[targetScheduleKey]) {
-              newSchedule[targetScheduleKey] = {};
-            }
-
-            // Imposta SOLO il giorno corrente con il codice geografico (senza copiare altri codici)
-            newSchedule[targetScheduleKey][dayIndex] = targetDayData;
-          }
-        }
-      }
+      // RIMOSSA: Logica che crea automaticamente il dipendente nell'azienda target quando si applica un codice geografico
+      // Ora quando si applica un codice geografico, viene salvato solo nell'azienda di origine
+      // Il dipendente non viene più aggiunto automaticamente all'azienda target
 
       return newSchedule;
     });
