@@ -2802,29 +2802,30 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               )}
             </div>
 
-            {/* SELETTORE AZIENDA PER CONFIGURAZIONE */}
-            <div className="mb-8 bg-white p-4 rounded shadow-sm border border-blue-100">
-              <label className="block text-sm font-bold text-slate-700 mb-2">
-                Azienda da Configurare
-              </label>
-              <select
-                value={selectedCompany}
-                onChange={(e) => {
-                  setSelectedCompany(e.target.value);
-                  // Reset del reparto selezionato quando cambia l'azienda per evitare incongruenze
-                  const firstDept = departmentsStructure[e.target.value]?.[0];
-                  if (firstDept) setSelectedDept(firstDept);
-                  else setSelectedDept('');
-                }}
-                className="w-full md:w-1/3 border-2 border-blue-300 rounded px-3 py-2 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {companies.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              {/* SELETTORE AZIENDA PER CONFIGURAZIONE */}
+              <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
+                <label className="block text-sm font-bold text-slate-700 mb-2">
+                  Azienda da Configurare
+                </label>
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => {
+                    setSelectedCompany(e.target.value);
+                    // Reset del reparto selezionato quando cambia l'azienda per evitare incongruenze
+                    const firstDept = departmentsStructure[e.target.value]?.[0];
+                    if (firstDept) setSelectedDept(firstDept);
+                    else setSelectedDept('');
+                  }}
+                  className="w-full border-2 border-blue-300 rounded px-3 py-2 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {companies.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* GESTIONE REPARTI */}
               <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
                 <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">Gestione Reparti per {selectedCompany}</h3>
                 <div className="flex gap-2 mb-4">
@@ -2842,7 +2843,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                     <Plus size={16} /> Aggiungi
                   </button>
                 </div>
-                <ul className="space-y-2">
+                <ul className="space-y-2 max-h-48 overflow-y-auto">
                   {departmentsStructure[selectedCompany]?.map(dept => (
                     <li
                       key={dept}
@@ -2873,47 +2874,48 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                   )}
                 </ul>
               </div>
+            </div>
 
-              <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
-                <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">
-                  Dipendenti
-                </h3>
-                <div className="flex gap-2 mb-4">
-                  <input
-                    type="text"
-                    placeholder="Nome dipendente"
-                    value={newEmployeeName}
-                    onChange={(e) => setNewEmployeeName(e.target.value)}
-                    className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
-                  />
-                  <button
-                    onClick={addEmployee}
-                    className="bg-emerald-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-emerald-700"
-                  >
-                    <UserPlus size={16} /> Aggiungi
-                  </button>
-                </div>
-                <div className="max-h-48 overflow-y-auto">
-                  {currentEmployees.length > 0 ? (
-                    <ul className="space-y-2">
-                      {currentEmployees.map(emp => (
-                        <li key={emp.id} className="flex justify-between items-center bg-slate-50 p-2 rounded border text-sm">
-                          <span>{emp.name}</span>
-                          <button
-                            onClick={() => triggerDeleteEmployee(emp.id)}
-                            className="text-red-400 hover:text-red-600"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-gray-400 text-sm">Nessun dipendente in questo reparto.</p>
-                  )}
-                </div>
+            {/* DIPENDENTI (Full Width) */}
+            <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
+              <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">
+                Dipendenti - {selectedCompany} / {selectedDept || 'Nessun reparto selezionato'}
+              </h3>
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  placeholder="Nome dipendente"
+                  value={newEmployeeName}
+                  onChange={(e) => setNewEmployeeName(e.target.value)}
+                  className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+                />
+                <button
+                  onClick={addEmployee}
+                  className="bg-emerald-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-emerald-700"
+                >
+                  <UserPlus size={16} /> Aggiungi
+                </button>
               </div>
-
+              <div className="max-h-60 overflow-y-auto">
+                {currentEmployees.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {currentEmployees.map(emp => (
+                      <div key={emp.id} className="flex justify-between items-center bg-slate-50 p-3 rounded border text-sm hover:bg-slate-100 transition-colors">
+                        <span className="font-medium text-slate-700">{emp.name}</span>
+                        <button
+                          onClick={() => triggerDeleteEmployee(emp.id)}
+                          className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50"
+                          title="Elimina dipendente"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-sm italic text-center py-4">Nessun dipendente in questo reparto.</p>
+                )}
+              </div>
             </div>
           </div>
 
