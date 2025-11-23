@@ -1398,9 +1398,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     const newId = Date.now();
     const newName = employeeName;
 
-    // 1. Crea il dipendente in employeesData - aggiungilo a TUTTE le aziende e reparti
+    // 1. Crea il dipendente in employeesData - aggiungilo a TUTTE le aziende e reparti E alla lista globale
     setEmployeesData(prev => {
       const updated = { ...prev };
+
+      // Aggiungi alla lista globale GLOBAL_EMPLOYEES_KEY
+      const globalList = updated[GLOBAL_EMPLOYEES_KEY] || [];
+      const existsInGlobal = globalList.some(e => e.id === newId || e.name === newName);
+      if (!existsInGlobal) {
+        updated[GLOBAL_EMPLOYEES_KEY] = [...globalList, { id: newId, name: newName }];
+      }
 
       // Per ogni azienda
       companies.forEach(comp => {
@@ -1453,6 +1460,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     }, 600); // Ritardo leggermente maggiore perché c'è anche il salvataggio struttura
   };
 
+  // Funzione per creare e aggiungere un nuovo dipendente (alias di handleQuickAddEmployee)
+  const handleCreateAndAddEmployee = (employeeName, targetCompany, targetDept, weekRangeValue) => {
+    // Usa handleQuickAddEmployee con il nome forzato
+    handleQuickAddEmployee(targetCompany, targetDept, weekRangeValue, employeeName);
+  };
 
   // --- GESTIONE CODICI ORARI ---
   const addTimeCode = () => {
@@ -1643,11 +1655,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     const newId = Date.now();
     const newName = newEmployeeName.toUpperCase().trim();
 
-    // Aggiungi il dipendente alla lista globale
+    // Aggiungi il dipendente alla lista globale E a tutte le liste specifiche per azienda/reparto
     setEmployeesData(prev => {
       const globalList = prev[GLOBAL_EMPLOYEES_KEY] || [];
 
-      // Verifica se esiste già (stesso nome)
+      // Verifica se esiste già (stesso nome) nella lista globale
       const exists = globalList.some(e => e.name === newName);
       if (exists) {
         if (showNotification) {
@@ -1656,10 +1668,26 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         return prev;
       }
 
-      return {
-        ...prev,
-        [GLOBAL_EMPLOYEES_KEY]: [...globalList, { id: newId, name: newName }]
-      };
+      const updated = { ...prev };
+
+      // Aggiungi alla lista globale
+      updated[GLOBAL_EMPLOYEES_KEY] = [...globalList, { id: newId, name: newName }];
+
+      // Aggiungi anche a tutte le liste specifiche per azienda/reparto
+      companies.forEach(comp => {
+        const depts = departmentsStructure[comp] || [];
+        depts.forEach(d => {
+          const key = getContextKey(comp, d);
+          const existingEmployees = updated[key] || [];
+          // Verifica se esiste già (stesso ID o stesso nome)
+          const existsInList = existingEmployees.some(e => e.id === newId || e.name === newName);
+          if (!existsInList) {
+            updated[key] = [...existingEmployees, { id: newId, name: newName }];
+          }
+        });
+      });
+
+      return updated;
     });
 
     setNewEmployeeName('');
@@ -2765,10 +2793,20 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           <div className="absolute bottom-full left-0 w-full min-w-[200px] bg-white border-2 border-blue-400 shadow-2xl rounded-lg z-[9999] max-h-60 overflow-y-auto mb-1">
                             {(() => {
                               const key = getContextKey(company, department);
-                              const existingEmployees = employeesData[key] || [];
+                              // Cerca sia nella lista specifica che nella lista globale
+                              const specificEmployees = employeesData[key] || [];
+                              const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
+                              // Unisci le liste rimuovendo duplicati (stesso ID o stesso nome)
+                              const allEmployees = [...specificEmployees];
+                              globalEmployees.forEach(globalEmp => {
+                                const exists = allEmployees.some(emp => emp.id === globalEmp.id || emp.name === globalEmp.name);
+                                if (!exists) {
+                                  allEmployees.push(globalEmp);
+                                }
+                              });
                               const searchTerm = quickAddName.toUpperCase().trim();
-                              const filtered = existingEmployees.filter(emp => emp.name.toUpperCase().includes(searchTerm));
-                              const exactMatch = existingEmployees.some(emp => emp.name.toUpperCase() === searchTerm);
+                              const filtered = allEmployees.filter(emp => emp.name.toUpperCase().includes(searchTerm));
+                              const exactMatch = allEmployees.some(emp => emp.name.toUpperCase() === searchTerm);
                               const showAddOption = searchTerm.length > 3 && !exactMatch;
 
                               return (
@@ -2837,10 +2875,20 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                         <div className="absolute bottom-full left-0 w-full bg-white border border-gray-300 shadow-xl rounded-md z-50 max-h-60 overflow-y-auto mb-1">
                           {(() => {
                             const key = getContextKey(company, department);
-                            const existingEmployees = employeesData[key] || [];
+                            // Cerca sia nella lista specifica che nella lista globale
+                            const specificEmployees = employeesData[key] || [];
+                            const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
+                            // Unisci le liste rimuovendo duplicati (stesso ID o stesso nome)
+                            const allEmployees = [...specificEmployees];
+                            globalEmployees.forEach(globalEmp => {
+                              const exists = allEmployees.some(emp => emp.id === globalEmp.id || emp.name === globalEmp.name);
+                              if (!exists) {
+                                allEmployees.push(globalEmp);
+                              }
+                            });
                             const searchTerm = quickAddName.toUpperCase().trim();
-                            const filtered = existingEmployees.filter(emp => emp.name.toUpperCase().includes(searchTerm));
-                            const exactMatch = existingEmployees.some(emp => emp.name.toUpperCase() === searchTerm);
+                            const filtered = allEmployees.filter(emp => emp.name.toUpperCase().includes(searchTerm));
+                            const exactMatch = allEmployees.some(emp => emp.name.toUpperCase() === searchTerm);
                             const showAddOption = searchTerm.length > 3 && !exactMatch;
 
                             return (
