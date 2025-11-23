@@ -1973,19 +1973,53 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
     // Cerca anche dipendenti di altre aziende che hanno codici geografici per questa azienda
     const geographicEmployees = [];
-    Object.keys(employeesData).forEach(otherKey => {
-      if (otherKey === key) return; // Salta l'azienda corrente
 
-      const [otherCompany, ...otherDeptParts] = otherKey.split('-');
-      const otherDept = otherDeptParts.join('-');
+    // Verifica se questa azienda è target di un codice geografico
+    const geographicCodes = Object.keys(timeCodes).filter(codeKey => {
+      const targetCompany = getCompanyFromGeographicCode(codeKey);
+      return targetCompany === company;
+    });
 
-      // Verifica se questa azienda è target di un codice geografico
-      const geographicCodes = Object.keys(timeCodes).filter(codeKey => {
-        const targetCompany = getCompanyFromGeographicCode(codeKey);
-        return targetCompany === company;
+    if (geographicCodes.length > 0) {
+      // 1. Cerca nello schedule dell'azienda CORRENTE per dipendenti con geographicCode
+      Object.keys(schedule).forEach(scheduleKey => {
+        // Pattern: settimana-contextKey-empId
+        if (scheduleKey.startsWith(`${currentWeek}-${key}-`)) {
+          const empId = parseInt(scheduleKey.split('-').pop());
+          const daySchedule = schedule[scheduleKey];
+
+          // Verifica se ha un geographicCode che punta a questa azienda
+          const hasGeographicCode = Object.values(daySchedule).some(dayData => {
+            if (!dayData) return false;
+            return dayData.geographicCode && geographicCodes.includes(dayData.geographicCode);
+          });
+
+          if (hasGeographicCode) {
+            // Trova il dipendente nella lista globale
+            const emp = globalEmployees.find(e => e.id === empId);
+            if (emp && !employeesWithSchedule.some(e => e.id === empId)) {
+              // Trova l'azienda di origine dal fromCompany
+              const fromCompany = Object.values(daySchedule).find(d => d?.fromCompany)?.fromCompany;
+              geographicEmployees.push({
+                ...emp,
+                company: company,
+                department: department,
+                contextKey: key,
+                isGeographic: true,
+                originalCompany: fromCompany || 'Unknown'
+              });
+            }
+          }
+        }
       });
 
-      if (geographicCodes.length > 0) {
+      // 2. Cerca anche nelle altre aziende (logica esistente)
+      Object.keys(employeesData).forEach(otherKey => {
+        if (otherKey === key || otherKey === GLOBAL_EMPLOYEES_KEY) return; // Salta l'azienda corrente e la lista globale
+
+        const [otherCompany, ...otherDeptParts] = otherKey.split('-');
+        const otherDept = otherDeptParts.join('-');
+
         const otherEmployees = employeesData[otherKey] || [];
         otherEmployees.forEach(emp => {
           const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
@@ -2007,7 +2041,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               return false;
             });
 
-            if (hasGeographicCode) {
+            if (hasGeographicCode && !geographicEmployees.some(e => e.id === emp.id)) {
               geographicEmployees.push({
                 ...emp,
                 company: company,
@@ -2020,8 +2054,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             }
           }
         });
-      }
-    });
+      });
+    }
 
     // Combina i dipendenti normali con quelli geografici (evita duplicati)
     // IMPORTANTE: Se un dipendente è già presente come normale (perché è stato aggiunto a employeesData),
