@@ -257,19 +257,25 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     }
   }, [currentUser]);
 
+  // Flag per prevenire salvataggio automatico durante il caricamento
+  const isInitialLoadRef = useRef(true);
+
   // --- SALVATAGGIO AUTOMATICO QUANDO CAMBIANO I DIPENDENTI ---
   useEffect(() => {
     // Non salvare durante il caricamento iniziale
     if (loading) return;
+    
+    // Non salvare durante il primo caricamento (per evitare di sovrascrivere dati esistenti)
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      return;
+    }
 
     // Non salvare se non ci sono dati
     if (Object.keys(employeesData).length === 0) return;
 
-
-
     // Debounce: salva dopo 500ms dall'ultimo cambiamento
     const timeoutId = setTimeout(() => {
-
       saveData();
     }, 500);
 
@@ -279,6 +285,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   const loadData = async () => {
     try {
       setLoading(true);
+      // Imposta il flag per prevenire salvataggio automatico durante il caricamento
+      isInitialLoadRef.current = true;
 
       let response;
       try {
@@ -518,14 +526,21 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           setSchedule(defaultData.schedule);
           setTimeCodes(defaultData.timeCodes);
           setSelectedDept('Cucina');
-          // Salva i dati iniziali
-          setTimeout(() => saveData(), 500);
+          // Salva i dati iniziali solo se non ci sono dati nel database
+          setTimeout(() => {
+            isInitialLoadRef.current = false; // Permetti salvataggio per dati iniziali
+            saveData();
+          }, 500);
         }
       }
     } catch (error) {
       console.error('Errore caricamento dati:', error);
     } finally {
       setLoading(false);
+      // Dopo il caricamento, permetti il salvataggio automatico
+      setTimeout(() => {
+        isInitialLoadRef.current = false;
+      }, 1000);
     }
   };
 
