@@ -70,9 +70,9 @@ export default function TicketApp() {
     localStorage.setItem('requestedDomain', 'orari');
   }
 
-  // 5. Determina il dominio finale: priorità a hostname reale, poi testDomain, poi localStorage
-  const requestedDomain = isOrariHostname ? 'orari' :
-    (testDomain || localStorage.getItem('requestedDomain') || null);
+  // 5. Determina il dominio finale: priorità a hostname reale, poi testDomain
+  // MODIFICA: Rimosso localStorage.getItem('requestedDomain') per evitare persistenza indesiderata
+  const requestedDomain = isOrariHostname ? 'orari' : (testDomain || null);
 
   const isOrariDomain = requestedDomain === 'orari' || requestedDomain === 'turni';
 
@@ -146,14 +146,12 @@ export default function TicketApp() {
   // Inizializza lo stato in base al dominio richiesto
   const [showDashboard, setShowDashboard] = useState(() => {
     // Se c'è un dominio richiesto (orari/turni), non mostrare dashboard
-    const savedDomain = localStorage.getItem('requestedDomain');
-    return !(savedDomain === 'orari' || savedDomain === 'turni' || isOrariDomain);
+    return !isOrariDomain;
   });
 
   const [showOrariTurni, setShowOrariTurni] = useState(() => {
     // Se c'è un dominio richiesto (orari/turni), mostra subito orari
-    const savedDomain = localStorage.getItem('requestedDomain');
-    return savedDomain === 'orari' || savedDomain === 'turni' || isOrariDomain;
+    return isOrariDomain;
   });
 
   // Aggiorna lo stato quando cambia il dominio richiesto
