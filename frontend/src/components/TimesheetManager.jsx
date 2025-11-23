@@ -277,44 +277,42 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
           // Verifica che i dipendenti siano stati caricati correttamente
           Object.keys(cleanedEmployees).forEach(key => {
             const count = Array.isArray(cleanedEmployees[key]) ? cleanedEmployees[key].length : 0;
-
           });
 
-          // Unifica dipendenti: assicura che ogni dipendente con stesso ID e nome sia presente in tutte le aziende-reparti
-          const unifiedEmployees = { ...cleanedEmployees };
+          // MIGRAZIONE AUTOMATICA: Sposta tutti i dipendenti dalle vecchie chiavi alla lista globale
+          let globalList = cleanedEmployees[GLOBAL_EMPLOYEES_KEY] || [];
 
-          // Raggruppa tutti i dipendenti unici per ID e nome
-          const uniqueEmployees = new Map(); // { "id-name": { id, name } }
+          // Se la lista globale è vuota, raccoglie tutti i dipendenti dalle vecchie chiavi
+          if (globalList.length === 0) {
+            const uniqueEmployees = new Map(); // { "id": { id, name } }
 
-          Object.keys(unifiedEmployees).forEach(key => {
-            const employees = unifiedEmployees[key] || [];
-            employees.forEach(emp => {
-              const empKey = `${emp.id}-${emp.name}`;
-              if (!uniqueEmployees.has(empKey)) {
-                uniqueEmployees.set(empKey, { id: emp.id, name: emp.name });
-              }
-            });
-          });
+            Object.keys(cleanedEmployees).forEach(key => {
+              // Salta la chiave globale se esiste già
+              if (key === GLOBAL_EMPLOYEES_KEY) return;
 
-          // Assicura che ogni dipendente unico sia presente in tutte le combinazioni azienda-reparto
-          uniqueEmployees.forEach((empInfo) => {
-            companies.forEach(comp => {
-              const depts = data.departments?.[comp] || [];
-              depts.forEach(dept => {
-                const key = getContextKey(comp, dept);
-                if (!unifiedEmployees[key]) {
-                  unifiedEmployees[key] = [];
-                }
-                // Verifica se il dipendente esiste già in questa chiave
-                const exists = unifiedEmployees[key].some(e => e.id === empInfo.id && e.name === empInfo.name);
-                if (!exists) {
-                  unifiedEmployees[key].push({ id: empInfo.id, name: empInfo.name });
+              const employees = cleanedEmployees[key] || [];
+              employees.forEach(emp => {
+                if (emp && emp.id && emp.name) {
+                  // Usa solo l'ID come chiave per evitare duplicati
+                  if (!uniqueEmployees.has(emp.id)) {
+                    uniqueEmployees.set(emp.id, { id: emp.id, name: emp.name });
+                  }
                 }
               });
             });
-          });
 
-          setEmployeesData(unifiedEmployees);
+            // Converti la Map in array
+            globalList = Array.from(uniqueEmployees.values());
+
+            console.log(`🔄 MIGRAZIONE: Spostati ${globalList.length} dipendenti unici nella lista globale`);
+          }
+
+          // Salva solo la lista globale, rimuovendo le vecchie chiavi
+          const migratedEmployees = {
+            [GLOBAL_EMPLOYEES_KEY]: globalList
+          };
+
+          setEmployeesData(migratedEmployees);
 
           // Migra automaticamente i dati vecchi (senza settimana) alla settimana corrente
           const currentWeek = getWeekDates(0).formatted;
@@ -341,8 +339,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
           setSchedule(migratedSchedule);
 
-          // Salva la migrazione se ci sono state modifiche
-          if (Object.keys(migratedSchedule).length > Object.keys(oldSchedule).length) {
+          // Salva la migrazione se ci sono state modifiche agli schedule O ai dipendenti
+          const needsMigrationSave = Object.keys(migratedSchedule).length > Object.keys(oldSchedule).length ||
+            (globalList.length > 0 && Object.keys(cleanedEmployees).length > 1);
+
+          if (needsMigrationSave) {
+            console.log('💾 Salvataggio automatico dopo migrazione dati...');
             setTimeout(() => {
               saveData();
             }, 1000);
