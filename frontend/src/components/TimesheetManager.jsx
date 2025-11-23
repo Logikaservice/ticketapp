@@ -2136,11 +2136,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           const otherSchedule = schedule[otherScheduleKey];
 
           if (otherSchedule) {
-            // Verifica se ha un codice geografico per questa azienda
+            // Verifica se ha un codice geografico per questa azienda (cerca anche in geographicCode)
             const hasGeographicCode = Object.values(otherSchedule).some(dayData => {
-              if (!dayData || !dayData.code) return false;
-              const dayCodeKey = getCodeKey(dayData.code);
-              return dayCodeKey && geographicCodes.includes(dayCodeKey);
+              if (!dayData) return false;
+              // Verifica se ha un codice geografico diretto
+              if (dayData.code) {
+                const dayCodeKey = getCodeKey(dayData.code);
+                if (dayCodeKey && geographicCodes.includes(dayCodeKey)) return true;
+              }
+              // Verifica se ha geographicCode che punta a questa azienda
+              if (dayData.geographicCode && geographicCodes.includes(dayData.geographicCode)) {
+                return true;
+              }
+              return false;
             });
 
             if (hasGeographicCode) {
@@ -2707,41 +2715,65 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       // Se viene da altra azienda con codice geografico, mostra gli input (non il codice)
                       const showGeographicInputs = isFromOtherCompany && hasGeographicCode;
 
-                      // Verifica se il dipendente ha orari in altre aziende per questo giorno
+                      // Verifica se il dipendente ha orari o codici in altre aziende per questo giorno
                       let hasScheduleInOtherCompany = false;
                       let otherCompanySchedule = null;
                       let otherCompanyName = null;
+                      let otherCompanyCode = null;
+                      let hasCodeInOtherCompany = false;
 
-                      if (!cellData.code && !showGeographicInputs) {
-                        // Cerca in tutte le altre aziende dove il dipendente è presente
-                        Object.keys(employeesData).forEach(otherKey => {
-                          if (otherKey === emp.contextKey) return; // Salta l'azienda corrente
+                      // Cerca in tutte le altre aziende dove il dipendente è presente
+                      Object.keys(employeesData).forEach(otherKey => {
+                        if (otherKey === emp.contextKey) return; // Salta l'azienda corrente
 
-                          const [otherCompany, ...otherDeptParts] = otherKey.split('-');
-                          const otherDept = otherDeptParts.join('-');
+                        const [otherCompany, ...otherDeptParts] = otherKey.split('-');
+                        const otherDept = otherDeptParts.join('-');
 
-                          // Verifica se il dipendente è presente in questa azienda
-                          const otherEmployees = employeesData[otherKey] || [];
-                          const existsInOther = otherEmployees.some(e => e.id === emp.id);
+                        // Verifica se il dipendente è presente in questa azienda
+                        const otherEmployees = employeesData[otherKey] || [];
+                        const existsInOther = otherEmployees.some(e => e.id === emp.id);
 
-                          if (existsInOther) {
-                            const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
-                            const otherDayData = schedule[otherScheduleKey]?.[dayIdx];
+                        if (existsInOther) {
+                          const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
+                          const otherDayData = schedule[otherScheduleKey]?.[dayIdx];
 
+                          if (otherDayData) {
+                            // Se ha un codice di assenza in questa azienda, mostralo
+                            if (otherDayData.code) {
+                              const otherCodeKey = getCodeKey(otherDayData.code);
+                              if (otherCodeKey && isAbsenceCode(otherCodeKey)) {
+                                hasCodeInOtherCompany = true;
+                                otherCompanyCode = getCodeLabel(otherDayData.code);
+                                otherCompanyName = otherCompany;
+                                // Se non c'è già un codice nella cella corrente, mostra quello dell'altra azienda
+                                if (!cellData.code) {
+                                  cellData = {
+                                    ...cellData,
+                                    code: otherCodeKey,
+                                    fromCompany: otherCompany
+                                  };
+                                }
+                              }
+                            }
                             // Se ha orari (non codice) in questa azienda
-                            if (otherDayData && !otherDayData.code && (otherDayData.in1 || otherDayData.in2 || otherDayData.out1 || otherDayData.out2)) {
+                            else if (!cellData.code && !showGeographicInputs && (otherDayData.in1 || otherDayData.in2 || otherDayData.out1 || otherDayData.out2)) {
                               hasScheduleInOtherCompany = true;
                               otherCompanySchedule = otherDayData;
-                              otherCompanyName = otherCompany;
+                              if (!otherCompanyName) otherCompanyName = otherCompany;
                             }
                           }
-                        });
-                      }
+                        }
+                      });
+
+                      // Evidenzia il giorno se ha un codice geografico che punta a questa azienda
+                      const isGeographicTargetDay = cellData.geographicCode && 
+                        getCompanyFromGeographicCode(cellData.geographicCode) === company &&
+                        cellData.fromCompany !== company;
 
                       return (
                         <td
                           key={dayIdx}
-                          className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''}`}
+                          className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs || hasCodeInOtherCompany ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''} ${isGeographicTargetDay ? 'bg-blue-100 ring-2 ring-blue-400' : ''}`}
                           onContextMenu={(e) => {
                             // Se c'è un codice, permetti il menu contestuale anche cliccando sulla cella
                             if (cellData.code && !showGeographicInputs) {
@@ -2753,9 +2785,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
                           {cellData.code && !showGeographicInputs ? (
                             <div
-                              className={`h-14 flex items-center justify-center font-bold text-lg ${isGeographic || isFromOtherCompany ? 'text-yellow-700' : 'text-slate-500'} bg-opacity-50 cursor-pointer hover:bg-gray-100 transition-colors`}
+                              className={`h-14 flex items-center justify-center font-bold text-lg ${isGeographic || isFromOtherCompany || hasCodeInOtherCompany ? 'text-yellow-700' : 'text-slate-500'} bg-opacity-50 cursor-pointer hover:bg-gray-100 transition-colors`}
                               onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                              title="Tasto destro per modificare"
+                              title={hasCodeInOtherCompany && otherCompanyName ? `${getCodeLabel(cellData.code)} (da ${otherCompanyName}) - Tasto destro per modificare` : "Tasto destro per modificare"}
                             >
                               {getCodeLabel(cellData.code)}
                             </div>

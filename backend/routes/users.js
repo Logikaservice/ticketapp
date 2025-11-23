@@ -169,14 +169,14 @@ module.exports = (pool) => {
         updateValues.push(password);
         console.log(`🔓 Password salvata in chiaro per aggiornamento utente ID: ${id}`);
       }
-      if (adminCompaniesJsonb !== null) {
+        if (adminCompaniesJsonb !== null) {
         updateFields.push(`admin_companies = $${paramIndex++}::jsonb`);
         updateValues.push(adminCompaniesJsonb);
       }
       if (enabledProjectsJsonb !== null) {
         updateFields.push(`enabled_projects = $${paramIndex++}::jsonb`);
         updateValues.push(enabledProjectsJsonb);
-      }
+        }
       if (inactivity_timeout_minutes !== undefined && inactivity_timeout_minutes !== null) {
         updateFields.push(`inactivity_timeout_minutes = $${paramIndex++}`);
         updateValues.push(inactivity_timeout_minutes);
@@ -188,12 +188,12 @@ module.exports = (pool) => {
       }
       
       updateValues.push(id);
-      query = `
-        UPDATE users 
+          query = `
+            UPDATE users 
         SET ${updateFields.join(', ')}
         WHERE id = $${paramIndex}
         RETURNING id, email, ruolo, nome, cognome, telefono, azienda, password, COALESCE(admin_companies, '[]'::jsonb) as admin_companies, COALESCE(enabled_projects, '["ticket"]'::jsonb) as enabled_projects, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes;
-      `;
+          `;
       values = updateValues;
       
       const result = await client.query(query, values);
