@@ -46,21 +46,35 @@ export default function TicketApp() {
 
   // Rileva se siamo su orari.logikaservice.it o turni.logikaservice.it
   // Supporta anche parametro URL ?domain=orari per test locali
+
+  // 1. Rileva l'hostname reale
+  const hostname = window.location.hostname;
+  const isOrariHostname = hostname === 'orari.logikaservice.it' ||
+    hostname === 'turni.logikaservice.it' ||
+    (hostname.includes('orari') && !hostname.includes('ticket')) ||
+    (hostname.includes('turni') && !hostname.includes('ticket'));
+
+  // 2. Parametro URL ?domain=orari per test
   const urlParams = new URLSearchParams(window.location.search);
   const testDomain = urlParams.get('domain');
 
-  // Salva il dominio richiesto in localStorage se presente nell'URL
-  if (testDomain === 'orari' || testDomain === 'turni') {
-    localStorage.setItem('requestedDomain', testDomain);
+  // 3. Se siamo su ticket.logikaservice.it (o hostname senza orari/turni), pulisci requestedDomain
+  if (!isOrariHostname && !testDomain) {
+    localStorage.removeItem('requestedDomain');
   }
 
-  // Leggi il dominio richiesto da localStorage o dall'URL
-  const requestedDomain = testDomain || localStorage.getItem('requestedDomain') || null;
-  const isOrariDomain = requestedDomain === 'orari' || requestedDomain === 'turni' ||
-    window.location.hostname === 'orari.logikaservice.it' ||
-    window.location.hostname === 'turni.logikaservice.it' ||
-    window.location.hostname.includes('orari') ||
-    window.location.hostname.includes('turni');
+  // 4. Salva il dominio richiesto SOLO se presente nell'URL o nell'hostname
+  if (testDomain === 'orari' || testDomain === 'turni') {
+    localStorage.setItem('requestedDomain', testDomain);
+  } else if (isOrariHostname) {
+    localStorage.setItem('requestedDomain', 'orari');
+  }
+
+  // 5. Determina il dominio finale: priorità a hostname reale, poi testDomain, poi localStorage
+  const requestedDomain = isOrariHostname ? 'orari' :
+    (testDomain || localStorage.getItem('requestedDomain') || null);
+
+  const isOrariDomain = requestedDomain === 'orari' || requestedDomain === 'turni';
 
   // Controlla se abbiamo un codice OAuth nell'URL (solo una volta)
   const [oauthCode, setOauthCode] = useState(null);

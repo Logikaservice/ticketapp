@@ -19,10 +19,10 @@ export const useAuth = (showNotification) => {
           handleLogout();
           return;
         }
-        
+
         const tokenData = JSON.parse(atob(tokenParts[1]));
         const now = Date.now() / 1000;
-        
+
         if (tokenData.exp > now) {
           // Token valido, imposta l'utente
           setCurrentUser({
@@ -79,35 +79,35 @@ export const useAuth = (showNotification) => {
       // Aggiungi il parametro domain se presente nell'URL o in localStorage
       const urlParams = new URLSearchParams(window.location.search);
       const domainParam = urlParams.get('domain') || localStorage.getItem('requestedDomain');
-      const loginUrl = domainParam 
+      const loginUrl = domainParam
         ? `${buildApiUrl('/api/login')}?domain=${domainParam}`
         : buildApiUrl('/api/login');
-      
+
       const response = await fetch(loginUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(loginData)
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Credenziali non valide');
       }
-      
+
       const loginResponse = await response.json();
-      
+
       // Verifica che la risposta contenga i token
       if (!loginResponse.token || !loginResponse.refreshToken) {
         console.error('❌ Risposta login senza token');
         throw new Error('Risposta login non valida');
       }
-      
+
       // Salva token e refresh token
       setToken(loginResponse.token);
       setRefreshToken(loginResponse.refreshToken);
       localStorage.setItem('authToken', loginResponse.token);
       localStorage.setItem('refreshToken', loginResponse.refreshToken);
-      
+
       // Salva sessionId se presente
       if (loginResponse.sessionId) {
         localStorage.setItem('sessionId', loginResponse.sessionId);
@@ -115,18 +115,18 @@ export const useAuth = (showNotification) => {
       } else {
         console.warn('⚠️ [LOGIN] sessionId non presente nella risposta');
       }
-      
+
       setCurrentUser(loginResponse.user);
       setIsLoggedIn(true);
       setLoginData({ email: '', password: '' });
       localStorage.removeItem('sessionExpiredReason');
-      
+
       // Carica il timeout di inattività dal database (se presente) o usa localStorage
       const dbTimeout = loginResponse.user.inactivity_timeout_minutes;
       if (dbTimeout !== undefined && dbTimeout !== null) {
         localStorage.setItem('inactivityTimeout', dbTimeout.toString());
       }
-      
+
       showNotification(`Benvenuto ${loginResponse.user.nome}!`, 'success');
     } catch (error) {
       showNotification(error.message, 'error');
@@ -137,19 +137,19 @@ export const useAuth = (showNotification) => {
     // Chiama l'endpoint logout per registrare la disconnessione
     const sessionId = localStorage.getItem('sessionId');
     console.log('🔍 [LOGOUT] sessionId trovato:', sessionId);
-    
+
     if (sessionId) {
       try {
         console.log('🔍 [LOGOUT] Invio richiesta logout al backend...');
         const response = await fetch(buildApiUrl('/api/logout'), {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             ...(token ? { 'Authorization': `Bearer ${token}` } : {})
           },
           body: JSON.stringify({ sessionId })
         });
-        
+
         if (response.ok) {
           const data = await response.json();
           console.log('✅ [LOGOUT] Logout registrato con successo:', data);
@@ -162,7 +162,7 @@ export const useAuth = (showNotification) => {
     } else {
       console.warn('⚠️ [LOGOUT] Nessun sessionId trovato in localStorage');
     }
-    
+
     setIsLoggedIn(false);
     setCurrentUser(null);
     setToken(null);
@@ -171,6 +171,19 @@ export const useAuth = (showNotification) => {
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('sessionId');
     localStorage.removeItem('openTicketId');
+
+    // Pulisci requestedDomain se non siamo su un dominio orari
+    const hostname = window.location.hostname;
+    const isOrariHostname = hostname === 'orari.logikaservice.it' ||
+      hostname === 'turni.logikaservice.it' ||
+      (hostname.includes('orari') && !hostname.includes('ticket')) ||
+      (hostname.includes('turni') && !hostname.includes('ticket'));
+
+    if (!isOrariHostname) {
+      localStorage.removeItem('requestedDomain');
+      console.log('🧹 Pulito requestedDomain da localStorage (logout da dominio ticket)');
+    }
+
     showNotification('Disconnessione effettuata.', 'info');
   };
 
