@@ -113,6 +113,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       department: '',
       weekRange: (() => {
         const today = new Date();
+        // Imposta di default alla settimana successiva (+7 giorni)
+        today.setDate(today.getDate() + 7);
+
         const monday = new Date(today);
         monday.setDate(today.getDate() - (today.getDay() === 0 ? 6 : today.getDay() - 1));
         const sunday = new Date(monday);
