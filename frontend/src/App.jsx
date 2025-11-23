@@ -2793,7 +2793,7 @@ export default function TicketApp() {
             // Verifica accesso al sistema orari (admin e tecnici hanno sempre accesso)
             (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico' || currentUser?.enabled_projects?.includes('orari')) ? (
               <div className="animate-slideInRight">
-                <TimesheetManager currentUser={currentUser} getAuthHeader={getAuthHeader} />
+                <TimesheetManager currentUser={currentUser} getAuthHeader={getAuthHeader} showNotification={showNotification} />
               </div>
             ) : (
               // Messaggio di accesso negato

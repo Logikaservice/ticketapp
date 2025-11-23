@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Save, Trash2, Plus, Download, Calculator, Calendar, Settings, X, UserPlus, Building2, FileSpreadsheet, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
-const TimesheetManager = ({ currentUser, getAuthHeader }) => {
+const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   // --- STATI GENERALI ---
   const GLOBAL_EMPLOYEES_KEY = 'GLOBAL_LIST'; // Chiave unica per lista dipendenti globale
   const [showSettings, setShowSettings] = useState(false);
@@ -59,6 +59,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   const [schedule, setSchedule] = useState({});
   const [newDeptName, setNewDeptName] = useState('');
   const [newEmployeeName, setNewEmployeeName] = useState('');
+  
+  // Stato per errori di validazione orari: { "scheduleKey-dayIndex-field": "messaggio errore" }
+  const [validationErrors, setValidationErrors] = useState({});
 
   // --- STATO CODICI ORARI ---
   const [timeCodes, setTimeCodes] = useState({
@@ -189,6 +192,64 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     }
   }, []);
 
+  // --- FUNZIONE HELPER PER RETRY AUTOMATICO ---
+  const fetchWithRetry = async (url, options, maxRetries = 3, operationName = 'operazione') => {
+    const delays = [1000, 2000, 4000]; // Backoff: 1s, 2s, 4s
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // Mostra notifica durante i tentativi (tranne il primo)
+        if (attempt > 0 && showNotification) {
+          showNotification(`⏳ Tentativo ${attempt + 1}/${maxRetries} per ${operationName}...`, 'info', 2000);
+        }
+        
+        // Crea un AbortController per il timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout di 10 secondi
+        
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        // Se la risposta è ok, restituiscila
+        if (response.ok) {
+          return response;
+        }
+        
+        // Se è un errore HTTP (400, 403, 500, ecc.), non fare retry (sono errori logici, non di rete)
+        if (response.status >= 400 && response.status < 600) {
+          return response;
+        }
+        
+        // Se non è ok e non è un errore HTTP standard, potrebbe essere un problema di rete
+        throw new Error(`Errore di rete: ${response.status}`);
+      } catch (error) {
+        // Se è l'ultimo tentativo, lancia l'errore
+        if (attempt === maxRetries - 1) {
+          if (showNotification) {
+            const errorMsg = error.name === 'AbortError' ? 'Timeout: la richiesta ha impiegato troppo tempo' : (error.message || 'Errore di connessione');
+            showNotification(`❌ ${operationName} fallita dopo ${maxRetries} tentativi. ${errorMsg}`, 'error', 8000);
+          }
+          throw error;
+        }
+        
+        // Se è un errore di timeout, rete o abort, aspetta prima di riprovare
+        if (error.name === 'AbortError' || error.name === 'TypeError' || error.message.includes('network') || error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+          await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+          continue;
+        }
+        
+        // Per altri errori (es. errori HTTP 400/403), non fare retry
+        throw error;
+      }
+    }
+    
+    throw new Error(`Tutti i tentativi falliti per ${operationName}`);
+  };
+
   // --- CARICAMENTO DATI DAL BACKEND ---
   useEffect(() => {
     if (currentUser) {
@@ -219,18 +280,27 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     try {
       setLoading(true);
 
-      const response = await fetch(buildApiUrl('/api/orari/data'), {
-        headers: getAuthHeader()
-      });
+      const response = await fetchWithRetry(
+        buildApiUrl('/api/orari/data'),
+        {
+          headers: getAuthHeader()
+        },
+        3,
+        'caricamento dati'
+      );
 
       // Gestione errore accesso negato
       if (response.status === 403) {
         const error = await response.json();
         if (error.code === 'ORARI_ACCESS_DENIED') {
           console.error('❌ Accesso negato al sistema orari:', error.message);
-          alert('Accesso negato: non hai i permessi per accedere al sistema orari.\n\nContatta l\'amministratore per richiedere l\'accesso.');
+          if (showNotification) {
+            showNotification('Accesso negato: non hai i permessi per accedere al sistema orari. Contatta l\'amministratore per richiedere l\'accesso.', 'error', 8000);
+          }
           // Reindirizza alla home
-          window.location.href = '/';
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
           return;
         }
       }
@@ -460,14 +530,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       // Pulisci i dati prima di salvare (rimuovi undefined, null, etc.)
       const cleanData = JSON.parse(JSON.stringify(dataToSave));
 
-      const response = await fetch(buildApiUrl('/api/orari/save'), {
-        method: 'POST',
-        headers: {
-          ...getAuthHeader(),
-          'Content-Type': 'application/json'
+      const response = await fetchWithRetry(
+        buildApiUrl('/api/orari/save'),
+        {
+          method: 'POST',
+          headers: {
+            ...getAuthHeader(),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(cleanData)
         },
-        body: JSON.stringify(cleanData)
-      });
+        3,
+        'salvataggio dati'
+      );
 
       if (response.ok) {
         const result = await response.json();
@@ -476,10 +551,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error('❌ Errore salvataggio:', errorData);
+        // Mostra notifica solo se non è un errore di rete (già gestito da fetchWithRetry)
+        if (response.status >= 400 && response.status < 500 && showNotification) {
+          showNotification(`Errore nel salvataggio: ${errorData.error || 'Errore sconosciuto'}`, 'error', 6000);
+        }
         return false;
       }
     } catch (error) {
       console.error('❌ Errore salvataggio:', error);
+      // L'errore è già stato gestito da fetchWithRetry con notifica
       return false;
     }
   };
@@ -603,6 +683,132 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     return Math.max(start1, start2) < Math.min(end1, end2);
   };
 
+  // --- FUNZIONI DI VALIDAZIONE ORARI ---
+  // Valida formato orario (HH.MM o HH:MM)
+  const validateTimeFormat = (timeStr) => {
+    if (!timeStr || !timeStr.trim()) return { valid: true, error: null };
+    const cleanStr = timeStr.replace(',', '.').replace(':', '.').trim();
+    const parts = cleanStr.split('.');
+    if (parts.length !== 2) return { valid: false, error: 'Formato non valido. Usa HH.MM (es. 08.30)' };
+    const hours = parseInt(parts[0]);
+    const minutes = parseInt(parts[1]);
+    if (isNaN(hours) || isNaN(minutes)) return { valid: false, error: 'Formato non valido. Usa HH.MM (es. 08.30)' };
+    if (hours < 0 || hours > 23) return { valid: false, error: 'Le ore devono essere tra 00 e 23' };
+    if (minutes < 0 || minutes > 59) return { valid: false, error: 'I minuti devono essere tra 00 e 59' };
+    return { valid: true, error: null };
+  };
+
+  // Valida coppia entrata/uscita
+  const validateTimePair = (inTime, outTime, isNightShift = false) => {
+    if (!inTime && !outTime) return { valid: true, error: null };
+    if (!inTime || !outTime) return { valid: true, error: null }; // Non validare se manca uno dei due
+    
+    const inMinutes = timeToMinutes(inTime);
+    const outMinutes = timeToMinutes(outTime);
+    
+    // Gestione turni notturni (es. 22.00-06.00)
+    if (isNightShift || (inMinutes > outMinutes && inMinutes >= 22 * 60)) {
+      // Turno notturno: l'uscita può essere minore dell'entrata se l'entrata è dopo le 22
+      const nextDayMinutes = outMinutes + (24 * 60);
+      if (nextDayMinutes <= inMinutes) {
+        return { valid: false, error: 'L\'uscita deve essere dopo l\'entrata (per turni notturni, usa 22.00-06.00)' };
+      }
+      return { valid: true, error: null };
+    }
+    
+    // Turno normale: l'uscita deve essere dopo l'entrata
+    if (outMinutes <= inMinutes) {
+      return { valid: false, error: 'L\'uscita deve essere dopo l\'entrata' };
+    }
+    
+    // Verifica che il turno non sia troppo lungo (più di 16 ore)
+    const duration = outMinutes - inMinutes;
+    if (duration > 16 * 60) {
+      return { valid: false, error: 'Il turno non può superare 16 ore' };
+    }
+    
+    return { valid: true, error: null };
+  };
+
+  // Valida che il secondo turno sia dopo il primo
+  const validateSecondShift = (in1, out1, in2, out2) => {
+    if (!in1 || !out1 || !in2 || !out2) return { valid: true, error: null };
+    
+    const out1Minutes = timeToMinutes(out1);
+    const in2Minutes = timeToMinutes(in2);
+    
+    // Il secondo turno deve iniziare dopo la fine del primo
+    if (in2Minutes < out1Minutes) {
+      // Gestione turni notturni: se il primo turno finisce dopo le 22, il secondo può iniziare il giorno dopo
+      if (out1Minutes < 22 * 60) {
+        return { valid: false, error: 'Il secondo turno deve iniziare dopo la fine del primo' };
+      }
+    }
+    
+    return { valid: true, error: null };
+  };
+
+  // Funzione principale di validazione per un giorno
+  const validateDaySchedule = (dayData) => {
+    const errors = {};
+    
+    // Valida formato per tutti i campi
+    if (dayData.in1) {
+      const formatCheck = validateTimeFormat(dayData.in1);
+      if (!formatCheck.valid) {
+        errors['in1'] = formatCheck.error;
+      }
+    }
+    if (dayData.out1) {
+      const formatCheck = validateTimeFormat(dayData.out1);
+      if (!formatCheck.valid) {
+        errors['out1'] = formatCheck.error;
+      }
+    }
+    if (dayData.in2) {
+      const formatCheck = validateTimeFormat(dayData.in2);
+      if (!formatCheck.valid) {
+        errors['in2'] = formatCheck.error;
+      }
+    }
+    if (dayData.out2) {
+      const formatCheck = validateTimeFormat(dayData.out2);
+      if (!formatCheck.valid) {
+        errors['out2'] = formatCheck.error;
+      }
+    }
+    
+    // Valida coppia entrata/uscita primo turno
+    if (dayData.in1 && dayData.out1) {
+      const in1Minutes = timeToMinutes(dayData.in1);
+      const isNightShift = in1Minutes >= 22 * 60;
+      const pairCheck = validateTimePair(dayData.in1, dayData.out1, isNightShift);
+      if (!pairCheck.valid) {
+        errors['out1'] = pairCheck.error; // Errore sull'uscita
+      }
+    }
+    
+    // Valida coppia entrata/uscita secondo turno
+    if (dayData.in2 && dayData.out2) {
+      const in2Minutes = timeToMinutes(dayData.in2);
+      const isNightShift = in2Minutes >= 22 * 60;
+      const pairCheck = validateTimePair(dayData.in2, dayData.out2, isNightShift);
+      if (!pairCheck.valid) {
+        errors['out2'] = pairCheck.error;
+      }
+    }
+    
+    // Valida che il secondo turno sia dopo il primo
+    if (dayData.in1 && dayData.out1 && dayData.in2 && dayData.out2) {
+      const secondShiftCheck = validateSecondShift(dayData.in1, dayData.out1, dayData.in2, dayData.out2);
+      if (!secondShiftCheck.valid) {
+        errors['in2'] = secondShiftCheck.error;
+      }
+    }
+    
+    return errors;
+  };
+
   const handleInputChange = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
     // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
     const currentWeek = weekRangeValue || weekRange;
@@ -627,7 +833,37 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   };
 
   const handleBlur = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
-    if (!value) return;
+    // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
+    const currentWeek = weekRangeValue || weekRange;
+    // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    // Chiave completa: settimana-baseKey
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+    const errorKey = `${scheduleKey}-${dayIndex}-${field}`;
+    
+    // Pulisci l'errore precedente per questo campo
+    setValidationErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[errorKey];
+      return newErrors;
+    });
+    
+    if (!value) {
+      // Se il campo è vuoto, valida comunque il giorno completo per vedere se ci sono altri errori
+      const dayData = schedule[scheduleKey]?.[dayIndex] || {};
+      const dayErrors = validateDaySchedule(dayData);
+      if (Object.keys(dayErrors).length > 0) {
+        setValidationErrors(prev => {
+          const newErrors = { ...prev };
+          Object.keys(dayErrors).forEach(f => {
+            newErrors[`${scheduleKey}-${dayIndex}-${f}`] = dayErrors[f];
+          });
+          return newErrors;
+        });
+      }
+      return;
+    }
+    
     const strValue = String(value);
     let formatted = strValue.replace(',', '.').replace(':', '.').trim();
     if (!formatted.includes('.')) formatted += '.00';
@@ -635,6 +871,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     if (parts[0].length === 1) parts[0] = '0' + parts[0];
     if (parts[1].length === 1) parts[1] = parts[1] + '0';
     formatted = parts.join('.');
+
+    // Valida il formato
+    const formatCheck = validateTimeFormat(formatted);
+    if (!formatCheck.valid) {
+      setValidationErrors(prev => ({
+        ...prev,
+        [errorKey]: formatCheck.error
+      }));
+      // Mostra notifica ma non bloccare
+      if (showNotification) {
+        showNotification(formatCheck.error, 'warning', 4000);
+      }
+    }
 
     // Conflict Detection Logic
     if (['in1', 'out1', 'in2', 'out2'].includes(field)) {
@@ -692,15 +941,71 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       });
 
       if (conflictFound) {
-        alert("⚠️ CONFLITTO ORARIO RILEVATO!\n\nIl dipendente ha già un turno in un'altra azienda che si sovrappone a questo orario.");
+        if (showNotification) {
+          showNotification("⚠️ CONFLITTO ORARIO RILEVATO! Il dipendente ha già un turno in un'altra azienda che si sovrappone a questo orario.", 'warning', 6000);
+        }
         handleInputChange(empId, dayIndex, field, '', contextKey, weekRangeValue); // Reset field
         return;
       }
     }
 
     if (formatted !== value) handleInputChange(empId, dayIndex, field, formatted, contextKey, weekRangeValue);
+    
+    // Dopo aver aggiornato il campo, valida l'intero giorno
+    setTimeout(() => {
+      const updatedDayData = schedule[scheduleKey]?.[dayIndex] || {};
+      // Aggiorna con il valore formattato per la validazione
+      const dayDataForValidation = { ...updatedDayData, [field]: formatted };
+      const dayErrors = validateDaySchedule(dayDataForValidation);
+      
+      // Aggiorna gli errori di validazione
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        // Rimuovi errori precedenti per questo giorno
+        Object.keys(newErrors).forEach(key => {
+          if (key.startsWith(`${scheduleKey}-${dayIndex}-`)) {
+            delete newErrors[key];
+          }
+        });
+        // Aggiungi nuovi errori
+        Object.keys(dayErrors).forEach(f => {
+          newErrors[`${scheduleKey}-${dayIndex}-${f}`] = dayErrors[f];
+        });
+        return newErrors;
+      });
+      
+      // Mostra notifica per il primo errore trovato (se presente)
+      if (Object.keys(dayErrors).length > 0 && showNotification) {
+        const firstError = Object.values(dayErrors)[0];
+        showNotification(firstError, 'warning', 4000);
+      }
+    }, 100);
+    
     // Salva automaticamente dopo ogni modifica
     setTimeout(() => saveData(), 500);
+  };
+
+  // Helper per ottenere la classe CSS del bordo in base agli errori di validazione
+  const getInputBorderClass = (empId, dayIndex, field, contextKey, weekRangeValue, hasScheduleInOtherCompany = false) => {
+    const currentWeek = weekRangeValue || weekRange;
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+    const errorKey = `${scheduleKey}-${dayIndex}-${field}`;
+    const hasError = validationErrors[errorKey];
+    
+    if (hasScheduleInOtherCompany) {
+      return hasError ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-gray-100 cursor-help';
+    }
+    return hasError ? 'border-red-500 bg-red-50 focus:border-red-600' : 'border-gray-300 focus:border-blue-500';
+  };
+
+  // Helper per ottenere il messaggio di errore per un campo
+  const getFieldError = (empId, dayIndex, field, contextKey, weekRangeValue) => {
+    const currentWeek = weekRangeValue || weekRange;
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+    const errorKey = `${scheduleKey}-${dayIndex}-${field}`;
+    return validationErrors[errorKey] || null;
   };
 
   // Mappatura codici geografici → aziende
@@ -1011,7 +1316,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       return true;
     } catch (error) {
       console.error('❌ Errore salvataggio dipendente:', error);
-      alert(`Errore nel salvataggio: ${error.message}`);
+      if (showNotification) {
+        showNotification(`Errore nel salvataggio: ${error.message}`, 'error', 6000);
+      }
       return false;
     }
   };
@@ -1036,7 +1343,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
 
     // Verifica che company e dept siano validi
     if (!company || !dept) {
-      alert(`Errore: Azienda o reparto non validi. Azienda: ${company || 'non selezionata'}, Reparto: ${dept || 'non selezionato'}`);
+      if (showNotification) {
+        showNotification(`Errore: Azienda o reparto non validi. Azienda: ${company || 'non selezionata'}, Reparto: ${dept || 'non selezionato'}`, 'error', 6000);
+      }
       return;
     }
 
@@ -1107,11 +1416,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
     if (!newCodeKey.trim() || !newCodeLabel.trim()) return;
     const key = newCodeKey.toUpperCase().trim();
     if (key.length > 2) {
-      alert("Il codice deve essere di massimo 2 caratteri (es. M, F, P)");
+      if (showNotification) {
+        showNotification("Il codice deve essere di massimo 2 caratteri (es. M, F, P)", 'warning', 5000);
+      }
       return;
     }
     if (timeCodes[key]) {
-      alert("Questo codice esiste già!");
+      if (showNotification) {
+        showNotification("Questo codice esiste già!", 'warning', 5000);
+      }
       return;
     }
 
@@ -1294,7 +1607,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       // Verifica se esiste già (stesso nome)
       const exists = globalList.some(e => e.name === newName);
       if (exists) {
-        alert(`Il dipendente "${newName}" esiste già!`);
+        if (showNotification) {
+          showNotification(`Il dipendente "${newName}" esiste già!`, 'warning', 5000);
+        }
         return prev;
       }
 
@@ -1899,7 +2214,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       });
 
       if (!hasExportedData) {
-        alert("Nessun dato da esportare nelle liste visualizzate.");
+        if (showNotification) {
+          showNotification("Nessun dato da esportare nelle liste visualizzate.", 'warning', 5000);
+        }
         return;
       }
 
@@ -2188,42 +2505,46 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                 <input
                                   id={`input-${emp.id}-${dayIdx}-in1-geo`}
                                   type="text"
-                                  className="w-full border border-gray-300 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  className={`w-full border bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in1', emp.contextKey, listWeekRange, false)}`}
                                   placeholder=""
                                   value={cellData.in1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
                                   onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  title={getFieldError(emp.id, dayIdx, 'in1', emp.contextKey, listWeekRange) || ''}
                                 />
                                 <input
                                   type="text"
-                                  className="w-full border border-gray-300 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  className={`w-full border bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out1', emp.contextKey, listWeekRange, false)}`}
                                   placeholder=""
                                   value={cellData.out1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
                                   onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  title={getFieldError(emp.id, dayIdx, 'out1', emp.contextKey, listWeekRange) || ''}
                                 />
                               </div>
                               {(cellData.in1 || cellData.in2 || cellData.out1) && (
                                 <div className="flex gap-1 animate-in fade-in duration-300">
                                   <input
                                     type="text"
-                                    className="w-full border border-gray-200 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none"
+                                    className={`w-full border bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange, false)}`}
                                     placeholder=""
                                     value={cellData.in2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
                                     onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                    title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || ''}
                                   />
                                   <input
                                     type="text"
-                                    className="w-full border border-gray-200 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none"
+                                    className={`w-full border bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange, false)}`}
                                     placeholder=""
                                     value={cellData.out2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
                                     onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                    title={getFieldError(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange) || ''}
                                   />
                                 </div>
                               )}
@@ -2249,40 +2570,42 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                                 <input
                                   id={`input-${emp.id}-${dayIdx}-in1`}
                                   type="text"
-                                  className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100 cursor-help' : 'border-gray-300 focus:border-blue-500'}`}
+                                  className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in1', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
                                   value={cellData.in1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
                                   onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                  title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : ''}
+                                  title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : (getFieldError(emp.id, dayIdx, 'in1', emp.contextKey, listWeekRange) || '')}
                                 />
                                 <input
                                   type="text"
-                                  className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100 cursor-help' : 'border-gray-300 focus:border-blue-500'}`}
+                                  className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out1', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
                                   value={cellData.out1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
                                   onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                  title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : ''}
+                                  title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : (getFieldError(emp.id, dayIdx, 'out1', emp.contextKey, listWeekRange) || '')}
                                 />
                               </div>
                               {(cellData.in1 || cellData.in2 || cellData.out1) && (
                                 <div className="flex gap-1 animate-in fade-in duration-300">
                                   <input
                                     type="text"
-                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100' : 'border-gray-200 bg-gray-50'}`}
+                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
                                     value={cellData.in2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
                                     onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                    title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || ''}
                                   />
                                   <input
                                     type="text"
-                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100' : 'border-gray-200 bg-gray-50'}`}
+                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
                                     value={cellData.out2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
                                     onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                    title={getFieldError(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange) || ''}
                                   />
                                 </div>
                               )}
