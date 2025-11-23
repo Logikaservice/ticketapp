@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { User } from 'lucide-react';
 import QuickRequestModal from './Modals/QuickRequestModal';
 
-const LoginScreen = ({ 
-  loginData, 
-  setLoginData, 
-  handleLogin, 
-  onQuickRequest, 
+const LoginScreen = ({
+  loginData,
+  setLoginData,
+  handleLogin,
+  onQuickRequest,
   existingClients = [],
   // Props per personalizzazione
   title = 'Sistema Ticketing',
@@ -141,38 +141,48 @@ const LoginScreen = ({
             </div>
           )}
 
-          <div className="space-y-3 sm:space-y-4">
+          <form
+            className="space-y-3 sm:space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleLogin();
+            }}
+          >
             <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Email</label>
+              <label htmlFor="email" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Email</label>
               <input
+                id="email"
+                name="email"
                 type="email"
+                autoComplete="username"
                 value={loginData.email}
                 onChange={(e) => setLoginData(prevData => ({ ...prevData, email: e.target.value }))}
-                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
                 className="w-full px-3 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="email@example.com"
               />
             </div>
 
             <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Password</label>
+              <label htmlFor="password" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Password</label>
               <input
+                id="password"
+                name="password"
                 type="password"
+                autoComplete="current-password"
                 value={loginData.password}
                 onChange={(e) => setLoginData(prevData => ({ ...prevData, password: e.target.value }))}
-                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
                 className="w-full px-3 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="••••••••"
               />
             </div>
 
             <button
-              onClick={handleLogin}
+              type="submit"
               className={`w-full py-2 sm:py-2.5 md:py-3 text-sm sm:text-base ${buttonColor} text-white font-semibold rounded-lg transition`}
             >
               Accedi
             </button>
-          </div>
+          </form>
 
           {/* Pulsante Richiesta Assistenza Veloce */}
           <div className="mt-4 sm:mt-5 md:mt-6 text-center">
