@@ -573,604 +573,705 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
       total += calculateDailyHours(empSchedule[index]);
     });
     return isNaN(total) ? "0.0" : total.toFixed(1);
-    handleQuickCode(empId, dayIndex, shortcuts[upperVal], contextKey, weekRangeValue);
-    return; // Interrompi il salvataggio normale dell'orario
-  }
-}
-
-if (!value) return;
-const strValue = String(value);
-let formatted = strValue.replace(',', '.').replace(':', '.').trim();
-if (!formatted.includes('.')) formatted += '.00';
-const parts = formatted.split('.');
-if (parts[0].length === 1) parts[0] = '0' + parts[0];
-if (parts[1].length === 1) parts[1] = parts[1] + '0';
-formatted = parts.join('.');
-if (formatted !== value) handleInputChange(empId, dayIndex, field, formatted, contextKey, weekRangeValue);
-// Salva automaticamente dopo ogni modifica
-setTimeout(() => saveData(), 500);
   };
 
-// Mappatura codici geografici → aziende
-const getCompanyFromGeographicCode = (code) => {
-  const codeMap = {
-    'AT': 'Mercurio',  // Atripalda → Mercurio
-    'AV': 'La Torre',  // Avellino → La Torre
-    'L': 'Albatros'    // Lioni → Albatros
+  // Helper per convertire orario (HH.MM o HH:MM) in minuti totali
+  const timeToMinutes = (timeStr) => {
+    if (!timeStr) return 0;
+    const cleanStr = timeStr.replace(',', '.').replace(':', '.');
+    const parts = cleanStr.split('.');
+    const hours = parseInt(parts[0]) || 0;
+    const minutes = parseInt(parts[1]) || 0;
+    return hours * 60 + minutes;
   };
-  return codeMap[code] || null;
-};
 
-// Verifica se un codice è geografico
-const isGeographicCode = (code) => {
-  return ['AT', 'AV', 'L'].includes(code);
-};
+  // Helper per verificare sovrapposizione orari
+  const checkTimeOverlap = (start1, end1, start2, end2) => {
+    return Math.max(start1, start2) < Math.min(end1, end2);
+  };
 
-const handleQuickCode = (empId, dayIndex, code, contextKey = null, weekRangeValue = null) => {
-  // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
-  const currentWeek = weekRangeValue || weekRange;
-  // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
-  const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
-  // Chiave completa: settimana-baseKey
-  const scheduleKey = `${currentWeek}-${baseKey}`;
+  const handleInputChange = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
+    // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
+    const currentWeek = weekRangeValue || weekRange;
+    // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    // Chiave completa: settimana-baseKey
+    const scheduleKey = `${currentWeek}-${baseKey}`;
 
-  // Estrai azienda e reparto dal contextKey (formato: "Azienda-Reparto")
-  let currentCompany = '';
-  let currentDept = '';
-  if (contextKey) {
-    const parts = contextKey.split('-');
-    currentCompany = parts[0] || '';
-    currentDept = parts.slice(1).join('-') || '';
-  } else {
-    // Se non c'è contextKey, prova a dedurlo dalla lista corrente
-    currentCompany = selectedCompany || companies[0] || '';
-    currentDept = selectedDept || '';
-  }
+    setSchedule(prev => {
+      const newSchedule = { ...prev };
+      if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
+      if (!newSchedule[scheduleKey][dayIndex]) newSchedule[scheduleKey][dayIndex] = {};
 
-  // Trova il codice key dal label (es. "Avellino" → "AV")
-  const codeKey = getCodeKey(code) || '';
+      // Se stiamo modificando un orario, pulisci il campo 'code'
+      if (['in1', 'out1', 'in2', 'out2'].includes(field)) {
+        newSchedule[scheduleKey][dayIndex].code = '';
+      }
 
-  // Se è un codice assenza, mostra popup per giorni
-  if (isAbsenceCode(codeKey)) {
-    setAbsenceDaysModal({
-      isOpen: true,
-      empId,
-      dayIndex,
-      code,
-      codeKey,
-      contextKey,
-      weekRangeValue,
-      days: 1
+      newSchedule[scheduleKey][dayIndex][field] = value;
+      return newSchedule;
     });
-    return; // Non applicare subito, aspetta conferma giorni
-  }
+  };
 
-  // Per codici non-assenza (geografici), salva la chiave invece del label
-  const keyToSave = codeKey || code;
+  const handleBlur = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
+    if (!value) return;
+    const strValue = String(value);
+    let formatted = strValue.replace(',', '.').replace(':', '.').trim();
+    if (!formatted.includes('.')) formatted += '.00';
+    const parts = formatted.split('.');
+    if (parts[0].length === 1) parts[0] = '0' + parts[0];
+    if (parts[1].length === 1) parts[1] = parts[1] + '0';
+    formatted = parts.join('.');
 
-  setSchedule(prev => {
-    const newSchedule = {
-      ...prev,
-      [scheduleKey]: {
-        ...prev[scheduleKey],
-        [dayIndex]: {
-          code: keyToSave || '',
-          in1: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.in1 || ''),
-          out1: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.out1 || ''),
-          in2: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.in2 || ''),
-          out2: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.out2 || '')
-        }
-      }
-    };
-
-    // Se è un codice geografico, crea il dipendente nell'altra azienda con orari da compilare
-    if (isGeographicCode(codeKey) && currentCompany) {
-      const targetCompany = getCompanyFromGeographicCode(codeKey);
-      if (targetCompany && targetCompany !== currentCompany) {
-        // Trova il dipendente corrente
-        const empKey = contextKey || `${currentCompany}-${currentDept}`;
-        const employees = employeesData[empKey] || [];
-        const employee = employees.find(e => e.id === empId);
-
-        if (employee) {
-          // Crea/salva il dipendente nell'azienda target se non esiste
-          const targetKey = `${targetCompany}-${currentDept}`;
-          setEmployeesData(prev => {
-            const targetEmployees = prev[targetKey] || [];
-            const exists = targetEmployees.some(e => e.id === empId && e.name === employee.name);
-            if (!exists) {
-              return {
-                ...prev,
-                [targetKey]: [...targetEmployees, { id: empId, name: employee.name }]
-              };
-            }
-            return prev;
-          });
-
-          // Salva gli orari vuoti nell'azienda target (non il codice, ma gli input da compilare)
-          const targetScheduleKey = `${currentWeek}-${targetKey}-${empId}`;
-          const sourceScheduleKey = `${currentWeek}-${empKey}-${empId}`;
-          const sourceSchedule = schedule[sourceScheduleKey] || {};
-
-          // Copia i codici di assenza dall'azienda originale all'azienda target
-          const targetDayData = { ...newSchedule[targetScheduleKey]?.[dayIndex] };
-          targetDayData.in1 = '';
-          targetDayData.out1 = '';
-          targetDayData.in2 = '';
-          targetDayData.out2 = '';
-          targetDayData.fromCompany = currentCompany;
-          targetDayData.geographicCode = codeKey;
-
-          // Se il giorno corrente nell'azienda originale ha un codice di assenza, copialo
-          if (sourceSchedule[dayIndex] && sourceSchedule[dayIndex].code) {
-            const sourceCodeKey = getCodeKey(sourceSchedule[dayIndex].code);
-            if (sourceCodeKey && isAbsenceCode(sourceCodeKey)) {
-              // Salva sempre la chiave, non il label
-              targetDayData.code = sourceCodeKey;
-            }
-          }
-
-          // Copia anche tutti gli altri giorni che hanno codici di assenza dall'azienda originale
-          if (!newSchedule[targetScheduleKey]) {
-            newSchedule[targetScheduleKey] = {};
-          }
-
-          // Copia tutti i giorni con codici di assenza dall'azienda originale
-          Object.keys(sourceSchedule).forEach(dayIdx => {
-            const dayData = sourceSchedule[dayIdx];
-            if (dayData && dayData.code) {
-              const dayCodeKey = getCodeKey(dayData.code);
-              if (dayCodeKey && isAbsenceCode(dayCodeKey)) {
-                // Se non è già stato impostato per questo giorno (tranne il giorno corrente che ha il codice geografico)
-                if (parseInt(dayIdx) !== dayIndex) {
-                  // Salva sempre la chiave, non il label
-                  newSchedule[targetScheduleKey][dayIdx] = {
-                    code: dayCodeKey,
-                    in1: '',
-                    out1: '',
-                    in2: '',
-                    out2: ''
-                  };
-                }
-              }
-            }
-          });
-
-          // Imposta il giorno corrente con il codice geografico
-          newSchedule[targetScheduleKey][dayIndex] = targetDayData;
-        }
-      }
-    }
-
-    // Salva con lo stato aggiornato usando una funzione che accede allo stato corrente
-    setTimeout(() => {
-      // Usa una funzione che legge lo stato più recente
-      setSchedule(currentSchedule => {
-        saveDataWithSchedule(currentSchedule);
-        return currentSchedule;
-      });
-    }, 200);
-
-    return newSchedule;
-  });
-};
-
-// Applica codice assenza a giorni consecutivi in TUTTE le aziende dove il dipendente è presente
-const applyAbsenceCode = (empId, startDayIndex, code, codeKey, days, contextKey = null, weekRangeValue = null) => {
-  const currentWeek = weekRangeValue || weekRange;
-  const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
-  const scheduleKey = `${currentWeek}-${baseKey}`;
-
-  // Usa codeKey se disponibile, altrimenti cerca la chiave dal label
-  const keyToSave = codeKey || getCodeKey(code) || code;
-
-  setSchedule(prev => {
-    const newSchedule = { ...prev };
-
-    // Trova tutte le aziende-reparti dove il dipendente è presente
-    const allCompanyKeys = [];
-    Object.keys(employeesData).forEach(empKey => {
-      const employees = employeesData[empKey] || [];
-      const exists = employees.some(e => e.id === empId);
-      if (exists) {
-        allCompanyKeys.push(empKey);
-      }
-    });
-
-    // Applica il codice ai giorni consecutivi in TUTTE le aziende dove il dipendente è presente
-    allCompanyKeys.forEach(empKey => {
-      setSchedule(prev => {
-        const newSchedule = {
-          ...prev,
-          [scheduleKey]: {
-            ...prev[scheduleKey],
-            [dayIndex]: {
-              code: '', // Rimuovi il codice
-              in1: '', // Lascia vuoto per permettere inserimento orari
-              out1: '',
-              in2: '',
-              out2: '',
-              // Rimuovi anche i flag geografici se presenti
-              fromCompany: undefined,
-              geographicCode: undefined
-            }
-          }
-        };
-
-        setTimeout(() => {
-          setSchedule(currentSchedule => {
-            saveDataWithSchedule(currentSchedule);
-            return currentSchedule;
-          });
-        }, 200);
-
-        return newSchedule;
-      });
-    };
-
-    // Funzione helper per salvare con uno schedule specifico
-    const saveDataWithSchedule = async (scheduleToSave) => {
-      try {
-        const dataToSave = {
-          companies,
-          departments: departmentsStructure,
-          employees: employeesData,
-          schedule: scheduleToSave || schedule,
-          timeCodes,
-          timeCodesOrder
-        };
-
-        const response = await fetch(buildApiUrl('/api/orari/save'), {
-          method: 'POST',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(dataToSave)
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          console.log('✅ Dati salvati con successo (codice):', result);
-        } else {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('❌ Errore salvataggio:', errorData);
-        }
-      } catch (error) {
-        console.error('❌ Errore salvataggio:', error);
-      }
-    };
-
-    // Funzione per salvare direttamente i dati dipendenti
-    const saveDataDirectly = async (empData, companiesData, deptsData, scheduleData) => {
-      try {
-        console.log('💾 saveDataDirectly chiamata con:', {
-          empDataKeys: Object.keys(empData || {}),
-          companiesCount: companiesData?.length || 0,
-          deptsKeys: Object.keys(deptsData || {}),
-          scheduleKeys: Object.keys(scheduleData || {})
-        });
-
-        // Pulisci i dati employees
-        const cleanedEmployees = {};
-        if (empData) {
-          Object.keys(empData).forEach(key => {
-            const cleanKey = String(key).trim();
-            if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(empData[key])) {
-              cleanedEmployees[cleanKey] = empData[key];
-              console.log(`   ✅ Chiave pulita: ${cleanKey} con ${empData[key].length} dipendenti`);
-            } else {
-              console.warn(`   ⚠️ Chiave scartata: ${key}`);
-            }
-          });
-        }
-
-        const dataToSave = {
-          companies: (companiesData || []).map(c => String(c).trim()),
-          departments: deptsData || {},
-          employees: cleanedEmployees,
-          schedule: scheduleData || {},
-          timeCodes: timeCodes
-        };
-
-        console.log('📤 Invio dati al backend:', {
-          companies: dataToSave.companies,
-          departmentsKeys: Object.keys(dataToSave.departments),
-          employeesKeys: Object.keys(dataToSave.employees),
-          scheduleKeys: Object.keys(dataToSave.schedule)
-        });
-
-        const response = await fetch(buildApiUrl('/api/orari/save'), {
-          method: 'POST',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(dataToSave)
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || 'Errore nel salvataggio');
-        }
-
-        const result = await response.json();
-        console.log('✅ Dipendente salvato con successo:', result);
-        return true;
-      } catch (error) {
-        console.error('❌ Errore salvataggio dipendente:', error);
-        alert(`Errore nel salvataggio: ${error.message}`);
-        return false;
-      }
-    };
-
-    // --- AZIONI STRUTTURA ---
-    const handleQuickAddEmployee = (targetCompany = null, targetDept = null, weekRangeValue = null, forceName = null) => {
-      const nameToUse = forceName || quickAddName;
-      if (!nameToUse.trim()) return;
-
-      // Se modalità multi-azienda e non specificato, usa la prima azienda selezionata
-      let company = targetCompany || selectedCompany;
-      let dept = targetDept || selectedDept;
-
-      if (multiCompanyMode && selectedCompanies.length > 0 && !targetCompany) {
-        company = selectedAddCompany || selectedCompanies[0];
-        dept = selectedAddDept || departmentsStructure[selectedCompanies[0]]?.[0] || '';
-      }
-
-      // Assicurati che company e dept siano stringhe (non oggetti)
-      company = String(company || '').trim();
-      dept = String(dept || '').trim();
-
-      // Verifica che company e dept siano validi
-      if (!company || !dept) {
-        alert(`Errore: Azienda o reparto non validi. Azienda: ${company || 'non selezionata'}, Reparto: ${dept || 'non selezionato'}`);
-        return;
-      }
-
-      const key = getContextKey(company, dept);
-      const employeeName = nameToUse.toUpperCase().trim();
-
-      const dept = targetDept || selectedDept;
-      const newId = Date.now();
-      const newName = name.toUpperCase().trim();
-
-      // 1. Crea il dipendente in employeesData - aggiungilo a TUTTE le aziende e reparti
-      setEmployeesData(prev => {
-        const updated = { ...prev };
-
-        // Per ogni azienda
-        companies.forEach(comp => {
-          const depts = departmentsStructure[comp] || [];
-          // Per ogni reparto di ogni azienda
-          depts.forEach(d => {
-            const key = getContextKey(comp, d);
-            const existingEmployees = updated[key] || [];
-            // Verifica se esiste già (stesso ID o stesso nome)
-            const exists = existingEmployees.some(e => e.id === newId || e.name === newName);
-            if (!exists) {
-              updated[key] = [...existingEmployees, { id: newId, name: newName }];
-            }
-          });
-        });
-
-        // 2. Aggiungi subito alla settimana corrente per l'azienda/reparto selezionato
-        const currentWeek = weekRangeValue || getWeekDates(0).formatted;
-        const key = getContextKey(company, dept);
-        const scheduleKey = `${currentWeek}-${key}-${newId}`;
-
-        setSchedule(prevSchedule => {
-          const newSchedule = {
-            ...prevSchedule,
-            [scheduleKey]: {}
-          };
-
-          // 3. Salva tutto
-          setTimeout(() => {
-            saveDataWithStructure(departmentsStructure, updated, newSchedule);
-          }, 500);
-
-          return newSchedule;
-        });
-
-        return updated;
-      });
-
-      setQuickAddName('');
-      setShowSuggestions(false);
-
-      // Focus automatico sul primo campo orario (Lunedì Entrata)
-      setTimeout(() => {
-        const inputId = `input-${newId}-0-in1`;
-        const element = document.getElementById(inputId);
-        if (element) {
-          element.focus();
-          element.select();
-        }
-      }, 600); // Ritardo leggermente maggiore perché c'è anche il salvataggio struttura
-    };
-
-
-    // --- GESTIONE CODICI ORARI ---
-    const addTimeCode = () => {
-      if (!newCodeKey.trim() || !newCodeLabel.trim()) return;
-      const key = newCodeKey.toUpperCase().trim();
-      if (key.length > 2) {
-        alert("Il codice deve essere di massimo 2 caratteri (es. M, F, P)");
-        return;
-      }
-      if (timeCodes[key]) {
-        alert("Questo codice esiste già!");
-        return;
-      }
-
-      const newCodes = { ...timeCodes, [key]: newCodeLabel.trim() };
-      const newOrder = [...timeCodesOrder, key];
-
-      console.log('➕ Aggiunta nuovo codice orario:', {
-        key: key,
-        label: newCodeLabel.trim(),
-        timeCodes: newCodes,
-        timeCodesOrder: newOrder,
-        count: Object.keys(newCodes).length
-      });
-
-      // Aggiorna lo stato
-      setTimeCodes(newCodes);
-      setTimeCodesOrder(newOrder); // Aggiungi alla fine dell'ordine
-      setNewCodeKey('');
-      setNewCodeLabel('');
-
-      // Salva IMMEDIATAMENTE con i nuovi valori (non aspettare che React aggiorni lo stato)
-      setTimeout(() => {
-        console.log('💾 Salvataggio dopo aggiunta codice orario con valori diretti...');
-        saveData(newCodes, newOrder); // Passa i nuovi valori direttamente
-      }, 100); // Ridotto a 100ms per salvare più velocemente
-    };
-
-    const deleteTimeCode = (key) => {
-      const newCodes = { ...timeCodes };
-      delete newCodes[key];
-      const newOrder = timeCodesOrder.filter(k => k !== key); // Rimuovi dall'ordine
-
-      console.log('🗑️ Eliminazione codice orario:', {
-        key: key,
-        timeCodes: newCodes,
-        timeCodesOrder: newOrder,
-        count: Object.keys(newCodes).length
-      });
-
-      setTimeCodes(newCodes);
-      setTimeCodesOrder(newOrder);
-      // Salva IMMEDIATAMENTE con i nuovi valori
-      setTimeout(() => saveData(newCodes, newOrder), 100);
-    };
-
-    const reorderTimeCodes = (fromIndex, toIndex) => {
-      const newOrder = [...timeCodesOrder];
-      const [movedItem] = newOrder.splice(fromIndex, 1);
-      newOrder.splice(toIndex, 0, movedItem);
-
-      console.log('🔄 Riordinamento codici orari:', {
-        fromIndex: fromIndex,
-        toIndex: toIndex,
-        newOrder: newOrder
-      });
-
-      setTimeCodesOrder(newOrder);
-      // Salva IMMEDIATAMENTE con il nuovo ordine
-      setTimeout(() => saveData(timeCodes, newOrder), 100);
-    };
-
-    // --- MENU CONTESTUALE ---
-    const handleContextMenu = (e, empId, dayIndex, contextKey = null, weekRangeValue = null) => {
-      e.preventDefault();
-
-      // Verifica se il campo ha un codice
+    // Conflict Detection Logic
+    if (['in1', 'out1', 'in2', 'out2'].includes(field)) {
       const currentWeek = weekRangeValue || weekRange;
       const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
       const scheduleKey = `${currentWeek}-${baseKey}`;
-      const cellData = schedule[scheduleKey]?.[dayIndex] || {};
-      const hasCode = cellData.code && cellData.code.trim() !== '';
+      const dayData = schedule[scheduleKey]?.[dayIndex] || {};
 
-      setContextMenu({
-        visible: true,
-        x: e.pageX,
-        y: e.pageY,
+      // Temporarily update the field to check for conflicts with the new value
+      const tempDayData = { ...dayData, [field]: formatted };
+
+      let start1 = 0, end1 = 0, start2 = 0, end2 = 0;
+      let hasShift1 = false, hasShift2 = false;
+
+      if (tempDayData.in1 && tempDayData.out1) {
+        start1 = timeToMinutes(tempDayData.in1);
+        end1 = timeToMinutes(tempDayData.out1);
+        hasShift1 = true;
+      }
+      if (tempDayData.in2 && tempDayData.out2) {
+        start2 = timeToMinutes(tempDayData.in2);
+        end2 = timeToMinutes(tempDayData.out2);
+        hasShift2 = true;
+      }
+
+      // Check against ALL other schedules for this employee in this week
+      let conflictFound = false;
+
+      Object.keys(schedule).forEach(key => {
+        if (key === scheduleKey) return; // Skip current schedule
+
+        // Check if key belongs to same employee and same week
+        if (key.startsWith(currentWeek)) {
+          const parts = key.split('-');
+          const keyEmpId = parts[parts.length - 1];
+
+          if (String(keyEmpId) === String(empId)) {
+            const otherDayData = schedule[key]?.[dayIndex];
+            if (otherDayData) {
+              if (otherDayData.in1 && otherDayData.out1) {
+                const otherStart = timeToMinutes(otherDayData.in1);
+                const otherEnd = timeToMinutes(otherDayData.out1);
+                if (hasShift1 && checkTimeOverlap(start1, end1, otherStart, otherEnd)) conflictFound = true;
+                if (hasShift2 && checkTimeOverlap(start2, end2, otherStart, otherEnd)) conflictFound = true;
+              }
+              if (otherDayData.in2 && otherDayData.out2) {
+                const otherStart = timeToMinutes(otherDayData.in2);
+                const otherEnd = timeToMinutes(otherDayData.out2);
+                if (hasShift1 && checkTimeOverlap(start1, end1, otherStart, otherEnd)) conflictFound = true;
+                if (hasShift2 && checkTimeOverlap(start2, end2, otherStart, otherEnd)) conflictFound = true;
+              }
+            }
+          }
+        }
+      });
+
+      if (conflictFound) {
+        alert("⚠️ CONFLITTO ORARIO RILEVATO!\n\nIl dipendente ha già un turno in un'altra azienda che si sovrappone a questo orario.");
+        handleInputChange(empId, dayIndex, field, '', contextKey, weekRangeValue); // Reset field
+        return;
+      }
+    }
+
+    if (formatted !== value) handleInputChange(empId, dayIndex, field, formatted, contextKey, weekRangeValue);
+    // Salva automaticamente dopo ogni modifica
+    setTimeout(() => saveData(), 500);
+  };
+
+  // Mappatura codici geografici → aziende
+  const getCompanyFromGeographicCode = (code) => {
+    const codeMap = {
+      'AT': 'Mercurio',  // Atripalda → Mercurio
+      'AV': 'La Torre',  // Avellino → La Torre
+      'L': 'Albatros'    // Lioni → Albatros
+    };
+    return codeMap[code] || null;
+  };
+
+  // Verifica se un codice è geografico
+  const isGeographicCode = (code) => {
+    return ['AT', 'AV', 'L'].includes(code);
+  };
+
+  const handleQuickCode = (empId, dayIndex, code, contextKey = null, weekRangeValue = null) => {
+    // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
+    const currentWeek = weekRangeValue || weekRange;
+    // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    // Chiave completa: settimana-baseKey
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+
+    // Estrai azienda e reparto dal contextKey (formato: "Azienda-Reparto")
+    let currentCompany = '';
+    let currentDept = '';
+    if (contextKey) {
+      const parts = contextKey.split('-');
+      currentCompany = parts[0] || '';
+      currentDept = parts.slice(1).join('-') || '';
+    } else {
+      // Se non c'è contextKey, prova a dedurlo dalla lista corrente
+      currentCompany = selectedCompany || companies[0] || '';
+      currentDept = selectedDept || '';
+    }
+
+    // Trova il codice key dal label (es. "Avellino" → "AV")
+    const codeKey = getCodeKey(code) || '';
+
+    // Se è un codice assenza, mostra popup per giorni
+    if (isAbsenceCode(codeKey)) {
+      setAbsenceDaysModal({
+        isOpen: true,
         empId,
         dayIndex,
+        code,
+        codeKey,
         contextKey,
         weekRangeValue,
-        hasCode // Flag per sapere se ha un codice
+        days: 1
       });
-    };
+      return; // Non applicare subito, aspetta conferma giorni
+    }
 
-    const closeContextMenu = () => {
-      setContextMenu(prev => ({ ...prev, visible: false }));
-    };
+    // Per codici non-assenza (geografici), salva la chiave invece del label
+    const keyToSave = codeKey || code;
 
-    // Chiudi menu al click fuori
-    useEffect(() => {
-      const handleClick = () => closeContextMenu();
-      document.addEventListener('click', handleClick);
-      return () => document.removeEventListener('click', handleClick);
-    }, []);
-
-    const addDepartment = () => {
-      if (!newDeptName.trim() || departmentsStructure[selectedCompany]?.includes(newDeptName)) return;
-
-      setDepartmentsStructure(prev => {
-        const updated = { ...prev, [selectedCompany]: [...(prev[selectedCompany] || []), newDeptName] };
-        // Salva con lo stato aggiornato
-        setTimeout(() => {
-          setEmployeesData(empData => {
-            const updatedEmpData = { ...empData, [`${selectedCompany}-${newDeptName}`]: [] };
-            // Salva tutti i dati aggiornati usando lo stato corrente
-            setSchedule(currentSchedule => {
-              saveDataWithStructure(updated, updatedEmpData, currentSchedule);
-              return currentSchedule;
-            });
-            return updatedEmpData;
-          });
-        }, 100);
-        return updated;
-      });
-      setNewDeptName('');
-    };
-
-    // Funzione helper per salvare con struttura aggiornata
-    const saveDataWithStructure = async (deptStructure, empData, currentSchedule) => {
-      try {
-        // Pulisci i dati employees
-        const cleanedEmployees = {};
-        const empDataToUse = empData || employeesData;
-        if (empDataToUse) {
-          Object.keys(empDataToUse).forEach(key => {
-            const cleanKey = String(key).trim();
-            if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(empDataToUse[key])) {
-              cleanedEmployees[cleanKey] = empDataToUse[key];
-            }
-          });
+    setSchedule(prev => {
+      const newSchedule = {
+        ...prev,
+        [scheduleKey]: {
+          ...prev[scheduleKey],
+          [dayIndex]: {
+            code: keyToSave || '',
+            in1: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.in1 || ''),
+            out1: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.out1 || ''),
+            in2: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.in2 || ''),
+            out2: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.out2 || '')
+          }
         }
+      };
 
-        const dataToSave = {
-          companies: (companies || []).map(c => String(c).trim()),
-          departments: deptStructure || departmentsStructure,
-          employees: cleanedEmployees,
-          schedule: currentSchedule || schedule
+      // Se è un codice geografico, crea il dipendente nell'altra azienda con orari da compilare
+      if (isGeographicCode(codeKey) && currentCompany) {
+        const targetCompany = getCompanyFromGeographicCode(codeKey);
+        if (targetCompany && targetCompany !== currentCompany) {
+          // Trova il dipendente corrente
+          const empKey = contextKey || `${currentCompany}-${currentDept}`;
+          const employees = employeesData[empKey] || [];
+          const employee = employees.find(e => e.id === empId);
+
+          if (employee) {
+            // Crea/salva il dipendente nell'azienda target se non esiste
+            const targetKey = `${targetCompany}-${currentDept}`;
+            setEmployeesData(prev => {
+              const targetEmployees = prev[targetKey] || [];
+              const exists = targetEmployees.some(e => e.id === empId && e.name === employee.name);
+              if (!exists) {
+                return {
+                  ...prev,
+                  [targetKey]: [...targetEmployees, { id: empId, name: employee.name }]
+                };
+              }
+              return prev;
+            });
+
+            // Salva gli orari vuoti nell'azienda target (non il codice, ma gli input da compilare)
+            const targetScheduleKey = `${currentWeek}-${targetKey}-${empId}`;
+            const sourceScheduleKey = `${currentWeek}-${empKey}-${empId}`;
+            const sourceSchedule = schedule[sourceScheduleKey] || {};
+
+            // Copia i codici di assenza dall'azienda originale all'azienda target
+            const targetDayData = { ...newSchedule[targetScheduleKey]?.[dayIndex] };
+            targetDayData.in1 = '';
+            targetDayData.out1 = '';
+            targetDayData.in2 = '';
+            targetDayData.out2 = '';
+            targetDayData.fromCompany = currentCompany;
+            targetDayData.geographicCode = codeKey;
+
+            // Se il giorno corrente nell'azienda originale ha un codice di assenza, copialo
+            if (sourceSchedule[dayIndex] && sourceSchedule[dayIndex].code) {
+              const sourceCodeKey = getCodeKey(sourceSchedule[dayIndex].code);
+              if (sourceCodeKey && isAbsenceCode(sourceCodeKey)) {
+                // Salva sempre la chiave, non il label
+                targetDayData.code = sourceCodeKey;
+              }
+            }
+
+            // Copia anche tutti gli altri giorni che hanno codici di assenza dall'azienda originale
+            if (!newSchedule[targetScheduleKey]) {
+              newSchedule[targetScheduleKey] = {};
+            }
+
+            // Copia tutti i giorni con codici di assenza dall'azienda originale
+            Object.keys(sourceSchedule).forEach(dayIdx => {
+              const dayData = sourceSchedule[dayIdx];
+              if (dayData && dayData.code) {
+                const dayCodeKey = getCodeKey(dayData.code);
+                if (dayCodeKey && isAbsenceCode(dayCodeKey)) {
+                  // Se non è già stato impostato per questo giorno (tranne il giorno corrente che ha il codice geografico)
+                  if (parseInt(dayIdx) !== dayIndex) {
+                    // Salva sempre la chiave, non il label
+                    newSchedule[targetScheduleKey][dayIdx] = {
+                      code: dayCodeKey,
+                      in1: '',
+                      out1: '',
+                      in2: '',
+                      out2: ''
+                    };
+                  }
+                }
+              }
+            });
+
+            // Imposta il giorno corrente con il codice geografico
+            newSchedule[targetScheduleKey][dayIndex] = targetDayData;
+          }
+        }
+      }
+
+      // Salva con lo stato aggiornato usando una funzione che accede allo stato corrente
+      setTimeout(() => {
+        // Usa una funzione che legge lo stato più recente
+        setSchedule(currentSchedule => {
+          saveDataWithSchedule(currentSchedule);
+          return currentSchedule;
+        });
+      }, 200);
+
+      return newSchedule;
+    });
+  };
+
+  // Applica codice assenza a giorni consecutivi in TUTTE le aziende dove il dipendente è presente
+  const applyAbsenceCode = (empId, startDayIndex, code, codeKey, days, contextKey = null, weekRangeValue = null) => {
+    const currentWeek = weekRangeValue || weekRange;
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+
+    // Usa codeKey se disponibile, altrimenti cerca la chiave dal label
+    const keyToSave = codeKey || getCodeKey(code) || code;
+
+    setSchedule(prev => {
+      const newSchedule = { ...prev };
+
+      // Trova tutte le aziende-reparti dove il dipendente è presente
+      const allCompanyKeys = [];
+      Object.keys(employeesData).forEach(empKey => {
+        const employees = employeesData[empKey] || [];
+        const exists = employees.some(e => e.id === empId);
+        if (exists) {
+          allCompanyKeys.push(empKey);
+        }
+      });
+
+      // Applica il codice ai giorni consecutivi in TUTTE le aziende dove il dipendente è presente
+      allCompanyKeys.forEach(empKey => {
+        const targetScheduleKey = `${currentWeek}-${empKey}-${empId}`;
+        if (!newSchedule[targetScheduleKey]) newSchedule[targetScheduleKey] = {};
+
+        for (let i = 0; i < days; i++) {
+          const dayIdx = startDayIndex + i;
+          if (dayIdx >= 7) continue; // Skip if out of week bounds
+
+          if (!newSchedule[targetScheduleKey][dayIdx]) newSchedule[targetScheduleKey][dayIdx] = {};
+
+          newSchedule[targetScheduleKey][dayIdx] = {
+            ...newSchedule[targetScheduleKey][dayIdx],
+            code: keyToSave,
+            in1: '',
+            out1: '',
+            in2: '',
+            out2: '',
+            fromCompany: undefined,
+            geographicCode: undefined
+          };
+        }
+      });
+
+      return newSchedule;
+    });
+
+    // Save after update
+    setTimeout(() => saveData(), 500);
+  };
+
+  // Funzione helper per salvare con uno schedule specifico
+  const saveDataWithSchedule = async (scheduleToSave) => {
+    try {
+      const dataToSave = {
+        companies,
+        departments: departmentsStructure,
+        employees: employeesData,
+        schedule: scheduleToSave || schedule,
+        timeCodes,
+        timeCodesOrder
+      };
+
+      const response = await fetch(buildApiUrl('/api/orari/save'), {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dataToSave)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Dati salvati con successo (codice):', result);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Errore salvataggio:', errorData);
+      }
+    } catch (error) {
+      console.error('❌ Errore salvataggio:', error);
+    }
+  };
+
+  // Funzione per salvare direttamente i dati dipendenti
+  const saveDataDirectly = async (empData, companiesData, deptsData, scheduleData) => {
+    try {
+      console.log('💾 saveDataDirectly chiamata con:', {
+        empDataKeys: Object.keys(empData || {}),
+        companiesCount: companiesData?.length || 0,
+        deptsKeys: Object.keys(deptsData || {}),
+        scheduleKeys: Object.keys(scheduleData || {})
+      });
+
+      // Pulisci i dati employees
+      const cleanedEmployees = {};
+      if (empData) {
+        Object.keys(empData).forEach(key => {
+          const cleanKey = String(key).trim();
+          if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(empData[key])) {
+            cleanedEmployees[cleanKey] = empData[key];
+            console.log(`   ✅ Chiave pulita: ${cleanKey} con ${empData[key].length} dipendenti`);
+          } else {
+            console.warn(`   ⚠️ Chiave scartata: ${key}`);
+          }
+        });
+      }
+
+      const dataToSave = {
+        companies: (companiesData || []).map(c => String(c).trim()),
+        departments: deptsData || {},
+        employees: cleanedEmployees,
+        schedule: scheduleData || {},
+        timeCodes: timeCodes
+      };
+
+      console.log('📤 Invio dati al backend:', {
+        companies: dataToSave.companies,
+        departmentsKeys: Object.keys(dataToSave.departments),
+        employeesKeys: Object.keys(dataToSave.employees),
+        scheduleKeys: Object.keys(dataToSave.schedule)
+      });
+
+      const response = await fetch(buildApiUrl('/api/orari/save'), {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dataToSave)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Errore nel salvataggio');
+      }
+
+      const result = await response.json();
+      console.log('✅ Dipendente salvato con successo:', result);
+      return true;
+    } catch (error) {
+      console.error('❌ Errore salvataggio dipendente:', error);
+      alert(`Errore nel salvataggio: ${error.message}`);
+      return false;
+    }
+  };
+
+  // --- AZIONI STRUTTURA ---
+  const handleQuickAddEmployee = (targetCompany = null, targetDept = null, weekRangeValue = null, forceName = null) => {
+    const nameToUse = forceName || quickAddName;
+    if (!nameToUse.trim()) return;
+
+    // Se modalità multi-azienda e non specificato, usa la prima azienda selezionata
+    let company = targetCompany || selectedCompany;
+    let dept = targetDept || selectedDept;
+
+    if (multiCompanyMode && selectedCompanies.length > 0 && !targetCompany) {
+      company = selectedAddCompany || selectedCompanies[0];
+      dept = selectedAddDept || departmentsStructure[selectedCompanies[0]]?.[0] || '';
+    }
+
+    // Assicurati che company e dept siano stringhe (non oggetti)
+    company = String(company || '').trim();
+    dept = String(dept || '').trim();
+
+    // Verifica che company e dept siano validi
+    if (!company || !dept) {
+      alert(`Errore: Azienda o reparto non validi. Azienda: ${company || 'non selezionata'}, Reparto: ${dept || 'non selezionato'}`);
+      return;
+    }
+
+    const key = getContextKey(company, dept);
+    const employeeName = nameToUse.toUpperCase().trim();
+
+    const newId = Date.now();
+    const newName = employeeName;
+
+    // 1. Crea il dipendente in employeesData - aggiungilo a TUTTE le aziende e reparti
+    setEmployeesData(prev => {
+      const updated = { ...prev };
+
+      // Per ogni azienda
+      companies.forEach(comp => {
+        const depts = departmentsStructure[comp] || [];
+        // Per ogni reparto di ogni azienda
+        depts.forEach(d => {
+          const key = getContextKey(comp, d);
+          const existingEmployees = updated[key] || [];
+          // Verifica se esiste già (stesso ID o stesso nome)
+          const exists = existingEmployees.some(e => e.id === newId || e.name === newName);
+          if (!exists) {
+            updated[key] = [...existingEmployees, { id: newId, name: newName }];
+          }
+        });
+      });
+
+      // 2. Aggiungi subito alla settimana corrente per l'azienda/reparto selezionato
+      const currentWeek = weekRangeValue || getWeekDates(0).formatted;
+      const key = getContextKey(company, dept);
+      const scheduleKey = `${currentWeek}-${key}-${newId}`;
+
+      setSchedule(prevSchedule => {
+        const newSchedule = {
+          ...prevSchedule,
+          [scheduleKey]: {}
         };
 
-        const cleanData = JSON.parse(JSON.stringify(dataToSave));
+        // 3. Salva tutto
+        setTimeout(() => {
+          saveDataWithStructure(departmentsStructure, updated, newSchedule);
+        }, 500);
 
-        const response = await fetch(buildApiUrl('/api/orari/save'), {
-          method: 'POST',
-          headers: {
-            ...getAuthHeader(),
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(cleanData)
-        });
+        return newSchedule;
+      });
 
-        if (response.ok) {
-          const result = await response.json();
-          console.log('✅ Dati salvati con successo');
-        } else {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('❌ Errore salvataggio:', errorData);
-        }
-      } catch (error) {
-        console.error('❌ Errore salvataggio:', error);
+      return updated;
+    });
+
+    setQuickAddName('');
+    setShowSuggestions(false);
+
+    // Focus automatico sul primo campo orario (Lunedì Entrata)
+    setTimeout(() => {
+      const inputId = `input-${newId}-0-in1`;
+      const element = document.getElementById(inputId);
+      if (element) {
+        element.focus();
+        element.select();
       }
-    };
+    }, 600); // Ritardo leggermente maggiore perché c'è anche il salvataggio struttura
+  };
 
-    const triggerDeleteDepartment = (deptToDelete) => {
-      openConfirm(
-        "Elimina Reparto",
-        `Sei sicuro di voler eliminare il reparto "${deptToDelete}"? Tutti i dipendenti e gli orari associati verranno eliminati.`,
-        () => deleteDepartment(deptToDelete)
-      );
-    };
 
+  // --- GESTIONE CODICI ORARI ---
+  const addTimeCode = () => {
+    if (!newCodeKey.trim() || !newCodeLabel.trim()) return;
+    const key = newCodeKey.toUpperCase().trim();
+    if (key.length > 2) {
+      alert("Il codice deve essere di massimo 2 caratteri (es. M, F, P)");
+      return;
+    }
+    if (timeCodes[key]) {
+      alert("Questo codice esiste già!");
+      return;
+    }
+
+    const newCodes = { ...timeCodes, [key]: newCodeLabel.trim() };
+    const newOrder = [...timeCodesOrder, key];
+
+    console.log('➕ Aggiunta nuovo codice orario:', {
+      key: key,
+      label: newCodeLabel.trim(),
+      timeCodes: newCodes,
+      timeCodesOrder: newOrder,
+      count: Object.keys(newCodes).length
+    });
+
+    // Aggiorna lo stato
+    setTimeCodes(newCodes);
+    setTimeCodesOrder(newOrder); // Aggiungi alla fine dell'ordine
+    setNewCodeKey('');
+    setNewCodeLabel('');
+
+    // Salva IMMEDIATAMENTE con i nuovi valori (non aspettare che React aggiorni lo stato)
+    setTimeout(() => {
+      console.log('💾 Salvataggio dopo aggiunta codice orario con valori diretti...');
+      saveData(newCodes, newOrder); // Passa i nuovi valori direttamente
+    }, 100); // Ridotto a 100ms per salvare più velocemente
+  };
+
+  const deleteTimeCode = (key) => {
+    const newCodes = { ...timeCodes };
+    delete newCodes[key];
+    const newOrder = timeCodesOrder.filter(k => k !== key); // Rimuovi dall'ordine
+
+    console.log('🗑️ Eliminazione codice orario:', {
+      key: key,
+      timeCodes: newCodes,
+      timeCodesOrder: newOrder,
+      count: Object.keys(newCodes).length
+    });
+
+    setTimeCodes(newCodes);
+    setTimeCodesOrder(newOrder);
+    // Salva IMMEDIATAMENTE con i nuovi valori
+    setTimeout(() => saveData(newCodes, newOrder), 100);
+  };
+
+  const reorderTimeCodes = (fromIndex, toIndex) => {
+    const newOrder = [...timeCodesOrder];
+    const [movedItem] = newOrder.splice(fromIndex, 1);
+    newOrder.splice(toIndex, 0, movedItem);
+
+    console.log('🔄 Riordinamento codici orari:', {
+      fromIndex: fromIndex,
+      toIndex: toIndex,
+      newOrder: newOrder
+    });
+
+    setTimeCodesOrder(newOrder);
+    // Salva IMMEDIATAMENTE con il nuovo ordine
+    setTimeout(() => saveData(timeCodes, newOrder), 100);
+  };
+
+  // --- MENU CONTESTUALE ---
+  const handleContextMenu = (e, empId, dayIndex, contextKey = null, weekRangeValue = null) => {
+    e.preventDefault();
+
+    // Verifica se il campo ha un codice
+    const currentWeek = weekRangeValue || weekRange;
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+    const cellData = schedule[scheduleKey]?.[dayIndex] || {};
+    const hasCode = cellData.code && cellData.code.trim() !== '';
+
+    setContextMenu({
+      visible: true,
+      x: e.pageX,
+      y: e.pageY,
+      empId,
+      dayIndex,
+      contextKey,
+      weekRangeValue,
+      hasCode // Flag per sapere se ha un codice
+    });
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(prev => ({ ...prev, visible: false }));
+  };
+
+  // Chiudi menu al click fuori
+  useEffect(() => {
+    const handleClick = () => closeContextMenu();
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
+  const addDepartment = () => {
+    if (!newDeptName.trim() || departmentsStructure[selectedCompany]?.includes(newDeptName)) return;
+
+    setDepartmentsStructure(prev => {
+      const updated = { ...prev, [selectedCompany]: [...(prev[selectedCompany] || []), newDeptName] };
+      // Salva con lo stato aggiornato
+      setTimeout(() => {
+        setEmployeesData(empData => {
+          const updatedEmpData = { ...empData, [`${selectedCompany}-${newDeptName}`]: [] };
+          // Salva tutti i dati aggiornati usando lo stato corrente
+          setSchedule(currentSchedule => {
+            saveDataWithStructure(updated, updatedEmpData, currentSchedule);
+            return currentSchedule;
+          });
+          return updatedEmpData;
+        });
+      }, 100);
+      return updated;
+    });
+    setNewDeptName('');
+  };
+
+  // Funzione helper per salvare con struttura aggiornata
+  const saveDataWithStructure = async (deptStructure, empData, currentSchedule) => {
+    try {
+      // Pulisci i dati employees
+      const cleanedEmployees = {};
+      const empDataToUse = empData || employeesData;
+      if (empDataToUse) {
+        Object.keys(empDataToUse).forEach(key => {
+          const cleanKey = String(key).trim();
+          if (cleanKey && !cleanKey.includes('[object Object]') && Array.isArray(empDataToUse[key])) {
+            cleanedEmployees[cleanKey] = empDataToUse[key];
+          }
+        });
+      }
+
+      const dataToSave = {
+        companies: (companies || []).map(c => String(c).trim()),
+        departments: deptStructure || departmentsStructure,
+        employees: cleanedEmployees,
+        schedule: currentSchedule || schedule
+      };
+
+      const cleanData = JSON.parse(JSON.stringify(dataToSave));
+
+      const response = await fetch(buildApiUrl('/api/orari/save'), {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(cleanData)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Dati salvati con successo');
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Errore salvataggio:', errorData);
+      }
+    } catch (error) {
+      console.error('❌ Errore salvataggio:', error);
+    }
+  };
+
+  const triggerDeleteDepartment = (deptToDelete) => {
+    openConfirm(
+      "Elimina Reparto",
+      `Sei sicuro di voler eliminare il reparto "${deptToDelete}"? Tutti i dipendenti e gli orari associati verranno eliminati.`,
+      () => deleteDepartment(deptToDelete)
+    );
+  };
+
+  const addEmployee = () => {
+    if (!newEmployeeName.trim()) return;
+    const newId = Date.now();
     const newName = newEmployeeName.toUpperCase().trim();
 
     // Aggiungi il dipendente a TUTTE le aziende e reparti
@@ -1415,843 +1516,781 @@ const applyAbsenceCode = (empId, startDayIndex, code, codeKey, days, contextKey 
         console.log(`🔄 Filtro aggiornato per lista ${listId}:`, filterType, '=', value);
         return updated;
       }
-      // Cerca anche dipendenti di altre aziende che hanno codici geografici per questa azienda
-      const geographicEmployees = [];
-      Object.keys(employeesData).forEach(otherKey => {
-        if (otherKey === key) return; // Salta l'azienda corrente
+      return list;
+    }));
+  };
 
-        const [otherCompany, ...otherDeptParts] = otherKey.split('-');
-        const otherDept = otherDeptParts.join('-');
+  const getEmployeesForList = (list) => {
+    const { company, department, weekRange: listWeekRange } = list;
+    const currentWeek = listWeekRange || weekRange;
+    const key = getContextKey(company, department);
+    const employeesWithSchedule = employeesData[key] || [];
 
-        // Verifica se questa azienda è target di un codice geografico
-        const geographicCodes = Object.keys(timeCodes).filter(codeKey => {
-          const targetCompany = getCompanyFromGeographicCode(codeKey);
-          return targetCompany === company;
-        });
+    // Cerca anche dipendenti di altre aziende che hanno codici geografici per questa azienda
+    const geographicEmployees = [];
+    Object.keys(employeesData).forEach(otherKey => {
+      if (otherKey === key) return; // Salta l'azienda corrente
 
-        if (geographicCodes.length > 0) {
-          const otherEmployees = employeesData[otherKey] || [];
-          otherEmployees.forEach(emp => {
-            const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
-            const otherSchedule = schedule[otherScheduleKey];
+      const [otherCompany, ...otherDeptParts] = otherKey.split('-');
+      const otherDept = otherDeptParts.join('-');
 
-            if (otherSchedule) {
-              // Verifica se ha un codice geografico per questa azienda
-              const hasGeographicCode = Object.values(otherSchedule).some(dayData => {
-                if (!dayData || !dayData.code) return false;
-                const dayCodeKey = getCodeKey(dayData.code);
-                return dayCodeKey && geographicCodes.includes(dayCodeKey);
-              });
-
-              if (hasGeographicCode) {
-                geographicEmployees.push({
-                  ...emp,
-                  company: company,
-                  department: department,
-                  contextKey: key,
-                  isGeographic: true,
-                  originalCompany: otherCompany,
-                  originalDept: otherDept
-                });
-              }
-            }
-          });
-        }
+      // Verifica se questa azienda è target di un codice geografico
+      const geographicCodes = Object.keys(timeCodes).filter(codeKey => {
+        const targetCompany = getCompanyFromGeographicCode(codeKey);
+        return targetCompany === company;
       });
 
-      // Combina i dipendenti normali con quelli geografici (evita duplicati)
-      // IMPORTANTE: Se un dipendente è già presente come normale (perché è stato aggiunto a employeesData),
-      // non aggiungerlo anche come geografico per evitare duplicazioni
-      const allEmployees = [...employeesWithSchedule];
-      const existingIds = new Set(employeesWithSchedule.map(e => e.id));
+      if (geographicCodes.length > 0) {
+        const otherEmployees = employeesData[otherKey] || [];
+        otherEmployees.forEach(emp => {
+          const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
+          const otherSchedule = schedule[otherScheduleKey];
 
-      geographicEmployees.forEach(geoEmp => {
-        // Aggiungi solo se NON è già presente come dipendente normale
-        // (cioè se non è stato ancora aggiunto a employeesData per questa azienda)
-        if (!existingIds.has(geoEmp.id)) {
-          allEmployees.push(geoEmp);
-        }
-      });
-
-      return allEmployees.map(emp => ({
-        ...emp,
-        company: emp.company || company,
-        department: emp.department || department,
-        contextKey: emp.contextKey || key
-      }));
-    };
-
-    // --- EXPORT EXCEL PERFETTO ---
-    const strToExcelTime = (timeStr) => {
-      if (!timeStr || typeof timeStr !== 'string') return null;
-      const cleanStr = timeStr.replace(',', '.').replace(':', '.').trim();
-
-      if (!cleanStr.includes('.')) {
-        const val = parseFloat(cleanStr);
-        return isNaN(val) ? null : val / 24;
-      }
-
-      const parts = cleanStr.split('.');
-      const hours = parseInt(parts[0]);
-      const minutes = parseInt(parts[1]);
-
-      if (isNaN(hours)) return null;
-      const safeMinutes = isNaN(minutes) ? 0 : minutes;
-
-      return (hours + safeMinutes / 60) / 24;
-    };
-
-    const exportExcel = () => {
-      try {
-        if (!window.XLSX) {
-          openConfirm("Errore Libreria", "La libreria Excel non è ancora caricata. Attendi...", null);
-          return;
-        }
-
-        const XLSX = window.XLSX;
-        const wb = XLSX.utils.book_new();
-        let hasExportedData = false;
-
-        // Bordi migliorati
-        const borderThin = {
-          top: { style: "thin", color: { rgb: "000000" } },
-          bottom: { style: "thin", color: { rgb: "000000" } },
-          left: { style: "thin", color: { rgb: "000000" } },
-          right: { style: "thin", color: { rgb: "000000" } }
-        };
-
-        const borderThick = {
-          top: { style: "thick", color: { rgb: "000000" } },
-          bottom: { style: "thick", color: { rgb: "000000" } },
-          left: { style: "thick", color: { rgb: "000000" } },
-          right: { style: "thick", color: { rgb: "000000" } }
-        };
-
-        // Stile per riga separatrice tra dipendenti (sottile e scura per facilitare il taglio)
-        const styleSeparator = {
-          fill: { fgColor: { rgb: "000000" } },
-          border: borderThick,
-          alignment: { horizontal: "center", vertical: "center" }
-        };
-
-        // Stile titolo migliorato
-        const styleTitle = {
-          font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
-          fill: { fgColor: { rgb: "4472C4" } }, // Blu scuro
-          alignment: { horizontal: "center", vertical: "center", wrapText: true },
-          border: borderThin
-        };
-
-        // Stile header migliorato
-        const styleHeader = {
-          font: { bold: true, sz: 11, color: { rgb: "FFFFFF" } },
-          fill: { fgColor: { rgb: "5B9BD5" } }, // Blu chiaro
-          border: borderThin,
-          alignment: { horizontal: "center", vertical: "center", wrapText: true }
-        };
-
-        // Stile header totale migliorato
-        const styleTotalHeader = {
-          font: { bold: true, sz: 11, color: { rgb: "000000" } },
-          fill: { fgColor: { rgb: "FFC000" } }, // Giallo
-          border: borderThin,
-          alignment: { horizontal: "center", vertical: "center", wrapText: true }
-        };
-
-        // Stile celle normali migliorato
-        const styleCell = {
-          font: { sz: 10 },
-          border: borderThin,
-          alignment: { horizontal: "center", vertical: "center" },
-          fill: { fgColor: { rgb: "FFFFFF" } }
-        };
-
-        // Stile nome dipendente migliorato
-        const styleEmpName = {
-          font: { bold: true, sz: 11, color: { rgb: "000000" } },
-          fill: { fgColor: { rgb: "E7E6E6" } }, // Grigio chiaro
-          border: borderThin,
-          alignment: { horizontal: "left", vertical: "center", indent: 1 }
-        };
-
-        // Stile cella totale migliorato
-        const styleTotalCell = {
-          font: { bold: true, sz: 11, color: { rgb: "000000" } },
-          fill: { fgColor: { rgb: "FFE699" } }, // Giallo chiaro
-          border: borderThin,
-          alignment: { horizontal: "center", vertical: "center" }
-        };
-
-        viewLists.forEach((list, listIndex) => {
-          const { company, department, weekRange: listWeekRange } = list;
-          if (!company || !department) return;
-
-          const listEmployees = getEmployeesForList(list);
-          if (listEmployees.length === 0) return;
-
-          hasExportedData = true;
-
-          const wsData = [];
-          const merges = [];
-
-          const titleRow = new Array(16).fill({ v: "", s: styleTitle });
-          titleRow[0] = { v: `REPARTO ${company.toUpperCase()} - ${department.toUpperCase()}`, s: styleTitle };
-          wsData.push(titleRow);
-          merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 15 } });
-
-          const subTitleRow = new Array(16).fill({ v: "", s: styleTitle });
-          subTitleRow[0] = { v: `Orario settimanale: ${listWeekRange}`, s: { ...styleTitle, font: { sz: 11 } } };
-          wsData.push(subTitleRow);
-          merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 15 } });
-
-          const headerRow1 = new Array(16).fill(null);
-          headerRow1[0] = { v: "DIPENDENTE", s: styleHeader };
-          headerRow1[15] = { v: "TOTALE", s: styleTotalHeader };
-
-          for (let i = 0; i < 7; i++) {
-            const col = 1 + (i * 2);
-            headerRow1[col] = { v: days[i], s: styleHeader };
-            headerRow1[col + 1] = { v: "", s: styleHeader };
-            merges.push({ s: { r: 2, c: col }, e: { r: 2, c: col + 1 } });
-          }
-          wsData.push(headerRow1);
-
-          const headerRow2 = new Array(16).fill(null);
-          headerRow2[0] = { v: "", s: styleHeader };
-          headerRow2[15] = { v: "", s: styleTotalHeader };
-
-          merges.push({ s: { r: 2, c: 0 }, e: { r: 3, c: 0 } });
-          merges.push({ s: { r: 2, c: 15 }, e: { r: 3, c: 15 } });
-
-          for (let i = 0; i < 7; i++) {
-            const col = 1 + (i * 2);
-            headerRow2[col] = { v: "Entrata", s: styleHeader };
-            headerRow2[col + 1] = { v: "Uscita", s: styleHeader };
-          }
-          wsData.push(headerRow2);
-
-          listEmployees.forEach((emp, empIndex) => {
-            // Aggiungi riga separatrice spessa PRIMA di ogni dipendente (tranne il primo)
-            if (empIndex > 0) {
-              const separatorRow = new Array(16).fill({ v: "", s: styleSeparator });
-              wsData.push(separatorRow);
-            }
-
-            const startRowIndex = wsData.length;
-            // Costruisci la chiave corretta includendo la settimana
-            const currentWeek = listWeekRange || getWeekDates(0).formatted;
-            // Usa contextKey se disponibile (modalità multi-azienda), altrimenti usa empId
-            // Nota: getEmployeesForList aggiunge sempre contextKey
-            const baseKey = emp.contextKey ? `${emp.contextKey}-${emp.id}` : emp.id;
-            const scheduleKey = `${currentWeek}-${baseKey}`;
-
-            const row1 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
-            const row2 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
-
-            const empNameDisplay = multiCompanyMode ? `${emp.name} (${emp.company} - ${emp.department})` : emp.name;
-            row1[0] = { v: empNameDisplay, s: styleEmpName };
-            row2[0] = { v: "", s: styleEmpName };
-            merges.push({ s: { r: startRowIndex, c: 0 }, e: { r: startRowIndex + 1, c: 0 } });
-
-            row1[15] = { v: "", s: styleTotalCell };
-            row2[15] = { v: "", s: styleTotalCell };
-            merges.push({ s: { r: startRowIndex, c: 15 }, e: { r: startRowIndex + 1, c: 15 } });
-
-            let formulaParts = [];
-
-            days.forEach((_, dayIdx) => {
-              const data = schedule[scheduleKey]?.[dayIdx];
-              const colIdx = 1 + (dayIdx * 2);
-
-              if (data?.code) {
-                // Mostra il label del codice invece della chiave
-                const codeLabel = getCodeLabel(data.code);
-                row1[colIdx] = { v: codeLabel, s: styleCell };
-                row1[colIdx + 1] = { v: codeLabel, s: styleCell };
-                merges.push({ s: { r: startRowIndex, c: colIdx }, e: { r: startRowIndex + 1, c: colIdx } });
-                merges.push({ s: { r: startRowIndex, c: colIdx + 1 }, e: { r: startRowIndex + 1, c: colIdx + 1 } });
-              } else {
-                const valIn1 = strToExcelTime(data?.in1);
-                const valOut1 = strToExcelTime(data?.out1);
-                if (valIn1 !== null) row1[colIdx] = { v: valIn1, t: 'n', z: 'h:mm', s: styleCell };
-                if (valOut1 !== null) row1[colIdx + 1] = { v: valOut1, t: 'n', z: 'h:mm', s: styleCell };
-
-                const valIn2 = strToExcelTime(data?.in2);
-                const valOut2 = strToExcelTime(data?.out2);
-                if (valIn2 !== null) row2[colIdx] = { v: valIn2, t: 'n', z: 'h:mm', s: styleCell };
-                if (valOut2 !== null) row2[colIdx + 1] = { v: valOut2, t: 'n', z: 'h:mm', s: styleCell };
-
-                const r1 = startRowIndex + 1;
-                const r2 = startRowIndex + 2;
-                const cIn = XLSX.utils.encode_col(colIdx);
-                const cOut = XLSX.utils.encode_col(colIdx + 1);
-
-                if (valIn1 !== null && valOut1 !== null) formulaParts.push(`(${cOut}${r1}-${cIn}${r1})`);
-                if (valIn2 !== null && valOut2 !== null) formulaParts.push(`(${cOut}${r2}-${cIn}${r2})`);
-              }
+          if (otherSchedule) {
+            // Verifica se ha un codice geografico per questa azienda
+            const hasGeographicCode = Object.values(otherSchedule).some(dayData => {
+              if (!dayData || !dayData.code) return false;
+              const dayCodeKey = getCodeKey(dayData.code);
+              return dayCodeKey && geographicCodes.includes(dayCodeKey);
             });
 
-            const formula = formulaParts.length > 0 ? `SUM(${formulaParts.join(',')})*24` : "0";
-            row1[15] = { f: formula, t: 'n', z: '0.0', s: styleTotalCell };
+            if (hasGeographicCode) {
+              geographicEmployees.push({
+                ...emp,
+                company: company,
+                department: department,
+                contextKey: key,
+                isGeographic: true,
+                originalCompany: otherCompany,
+                originalDept: otherDept
+              });
+            }
+          }
+        });
+      }
+    });
 
-            wsData.push(row1);
-            wsData.push(row2);
+    // Combina i dipendenti normali con quelli geografici (evita duplicati)
+    // IMPORTANTE: Se un dipendente è già presente come normale (perché è stato aggiunto a employeesData),
+    // non aggiungerlo anche come geografico per evitare duplicazioni
+    const allEmployees = [...employeesWithSchedule];
+    const existingIds = new Set(employeesWithSchedule.map(e => e.id));
+
+    geographicEmployees.forEach(geoEmp => {
+      // Aggiungi solo se NON è già presente come dipendente normale
+      // (cioè se non è stato ancora aggiunto a employeesData per questa azienda)
+      if (!existingIds.has(geoEmp.id)) {
+        allEmployees.push(geoEmp);
+      }
+    });
+
+    return allEmployees.map(emp => ({
+      ...emp,
+      company: emp.company || company,
+      department: emp.department || department,
+      contextKey: emp.contextKey || key
+    }));
+  };
+
+  // --- EXPORT EXCEL PERFETTO ---
+  const strToExcelTime = (timeStr) => {
+    if (!timeStr || typeof timeStr !== 'string') return null;
+    const cleanStr = timeStr.replace(',', '.').replace(':', '.').trim();
+
+    if (!cleanStr.includes('.')) {
+      const val = parseFloat(cleanStr);
+      return isNaN(val) ? null : val / 24;
+    }
+
+    const parts = cleanStr.split('.');
+    const hours = parseInt(parts[0]);
+    const minutes = parseInt(parts[1]);
+
+    if (isNaN(hours)) return null;
+    const safeMinutes = isNaN(minutes) ? 0 : minutes;
+
+    return (hours + safeMinutes / 60) / 24;
+  };
+
+  const exportExcel = () => {
+    try {
+      if (!window.XLSX) {
+        openConfirm("Errore Libreria", "La libreria Excel non è ancora caricata. Attendi...", null);
+        return;
+      }
+
+      const XLSX = window.XLSX;
+      const wb = XLSX.utils.book_new();
+      let hasExportedData = false;
+
+      // Bordi migliorati
+      const borderThin = {
+        top: { style: "thin", color: { rgb: "000000" } },
+        bottom: { style: "thin", color: { rgb: "000000" } },
+        left: { style: "thin", color: { rgb: "000000" } },
+        right: { style: "thin", color: { rgb: "000000" } }
+      };
+
+      const borderThick = {
+        top: { style: "thick", color: { rgb: "000000" } },
+        bottom: { style: "thick", color: { rgb: "000000" } },
+        left: { style: "thick", color: { rgb: "000000" } },
+        right: { style: "thick", color: { rgb: "000000" } }
+      };
+
+      // Stile per riga separatrice tra dipendenti (sottile e scura per facilitare il taglio)
+      const styleSeparator = {
+        fill: { fgColor: { rgb: "000000" } },
+        border: borderThick,
+        alignment: { horizontal: "center", vertical: "center" }
+      };
+
+      // Stile titolo migliorato
+      const styleTitle = {
+        font: { bold: true, sz: 16, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "4472C4" } }, // Blu scuro
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        border: borderThin
+      };
+
+      // Stile header migliorato
+      const styleHeader = {
+        font: { bold: true, sz: 11, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "5B9BD5" } }, // Blu chiaro
+        border: borderThin,
+        alignment: { horizontal: "center", vertical: "center", wrapText: true }
+      };
+
+      // Stile header totale migliorato
+      const styleTotalHeader = {
+        font: { bold: true, sz: 11, color: { rgb: "000000" } },
+        fill: { fgColor: { rgb: "FFC000" } }, // Giallo
+        border: borderThin,
+        alignment: { horizontal: "center", vertical: "center", wrapText: true }
+      };
+
+      // Stile celle normali migliorato
+      const styleCell = {
+        font: { sz: 10 },
+        border: borderThin,
+        alignment: { horizontal: "center", vertical: "center" },
+        fill: { fgColor: { rgb: "FFFFFF" } }
+      };
+
+      // Stile nome dipendente migliorato
+      const styleEmpName = {
+        font: { bold: true, sz: 11, color: { rgb: "000000" } },
+        fill: { fgColor: { rgb: "E7E6E6" } }, // Grigio chiaro
+        border: borderThin,
+        alignment: { horizontal: "left", vertical: "center", indent: 1 }
+      };
+
+      // Stile cella totale migliorato
+      const styleTotalCell = {
+        font: { bold: true, sz: 11, color: { rgb: "000000" } },
+        fill: { fgColor: { rgb: "FFE699" } }, // Giallo chiaro
+        border: borderThin,
+        alignment: { horizontal: "center", vertical: "center" }
+      };
+
+      viewLists.forEach((list, listIndex) => {
+        const { company, department, weekRange: listWeekRange } = list;
+        if (!company || !department) return;
+
+        const listEmployees = getEmployeesForList(list);
+        if (listEmployees.length === 0) return;
+
+        hasExportedData = true;
+
+        const wsData = [];
+        const merges = [];
+
+        const titleRow = new Array(16).fill({ v: "", s: styleTitle });
+        titleRow[0] = { v: `REPARTO ${company.toUpperCase()} - ${department.toUpperCase()}`, s: styleTitle };
+        wsData.push(titleRow);
+        merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 15 } });
+
+        const subTitleRow = new Array(16).fill({ v: "", s: styleTitle });
+        subTitleRow[0] = { v: `Orario settimanale: ${listWeekRange}`, s: { ...styleTitle, font: { sz: 11 } } };
+        wsData.push(subTitleRow);
+        merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 15 } });
+
+        const headerRow1 = new Array(16).fill(null);
+        headerRow1[0] = { v: "DIPENDENTE", s: styleHeader };
+        headerRow1[15] = { v: "TOTALE", s: styleTotalHeader };
+
+        for (let i = 0; i < 7; i++) {
+          const col = 1 + (i * 2);
+          headerRow1[col] = { v: days[i], s: styleHeader };
+          headerRow1[col + 1] = { v: "", s: styleHeader };
+          merges.push({ s: { r: 2, c: col }, e: { r: 2, c: col + 1 } });
+        }
+        wsData.push(headerRow1);
+
+        const headerRow2 = new Array(16).fill(null);
+        headerRow2[0] = { v: "", s: styleHeader };
+        headerRow2[15] = { v: "", s: styleTotalHeader };
+
+        merges.push({ s: { r: 2, c: 0 }, e: { r: 3, c: 0 } });
+        merges.push({ s: { r: 2, c: 15 }, e: { r: 3, c: 15 } });
+
+        for (let i = 0; i < 7; i++) {
+          const col = 1 + (i * 2);
+          headerRow2[col] = { v: "Entrata", s: styleHeader };
+          headerRow2[col + 1] = { v: "Uscita", s: styleHeader };
+        }
+        wsData.push(headerRow2);
+
+        listEmployees.forEach((emp, empIndex) => {
+          // Aggiungi riga separatrice spessa PRIMA di ogni dipendente (tranne il primo)
+          if (empIndex > 0) {
+            const separatorRow = new Array(16).fill({ v: "", s: styleSeparator });
+            wsData.push(separatorRow);
+          }
+
+          const startRowIndex = wsData.length;
+          // Costruisci la chiave corretta includendo la settimana
+          const currentWeek = listWeekRange || getWeekDates(0).formatted;
+          // Usa contextKey se disponibile (modalità multi-azienda), altrimenti usa empId
+          // Nota: getEmployeesForList aggiunge sempre contextKey
+          const baseKey = emp.contextKey ? `${emp.contextKey}-${emp.id}` : emp.id;
+          const scheduleKey = `${currentWeek}-${baseKey}`;
+
+          const row1 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
+          const row2 = new Array(16).fill(null).map(() => ({ v: "", s: styleCell }));
+
+          const empNameDisplay = multiCompanyMode ? `${emp.name} (${emp.company} - ${emp.department})` : emp.name;
+          row1[0] = { v: empNameDisplay, s: styleEmpName };
+          row2[0] = { v: "", s: styleEmpName };
+          merges.push({ s: { r: startRowIndex, c: 0 }, e: { r: startRowIndex + 1, c: 0 } });
+
+          row1[15] = { v: "", s: styleTotalCell };
+          row2[15] = { v: "", s: styleTotalCell };
+          merges.push({ s: { r: startRowIndex, c: 15 }, e: { r: startRowIndex + 1, c: 15 } });
+
+          let formulaParts = [];
+
+          days.forEach((_, dayIdx) => {
+            const data = schedule[scheduleKey]?.[dayIdx];
+            const colIdx = 1 + (dayIdx * 2);
+
+            if (data?.code) {
+              // Mostra il label del codice invece della chiave
+              const codeLabel = getCodeLabel(data.code);
+              row1[colIdx] = { v: codeLabel, s: styleCell };
+              row1[colIdx + 1] = { v: codeLabel, s: styleCell };
+              merges.push({ s: { r: startRowIndex, c: colIdx }, e: { r: startRowIndex + 1, c: colIdx } });
+              merges.push({ s: { r: startRowIndex, c: colIdx + 1 }, e: { r: startRowIndex + 1, c: colIdx + 1 } });
+            } else {
+              const valIn1 = strToExcelTime(data?.in1);
+              const valOut1 = strToExcelTime(data?.out1);
+              if (valIn1 !== null) row1[colIdx] = { v: valIn1, t: 'n', z: 'h:mm', s: styleCell };
+              if (valOut1 !== null) row1[colIdx + 1] = { v: valOut1, t: 'n', z: 'h:mm', s: styleCell };
+
+              const valIn2 = strToExcelTime(data?.in2);
+              const valOut2 = strToExcelTime(data?.out2);
+              if (valIn2 !== null) row2[colIdx] = { v: valIn2, t: 'n', z: 'h:mm', s: styleCell };
+              if (valOut2 !== null) row2[colIdx + 1] = { v: valOut2, t: 'n', z: 'h:mm', s: styleCell };
+
+              const r1 = startRowIndex + 1;
+              const r2 = startRowIndex + 2;
+              const cIn = XLSX.utils.encode_col(colIdx);
+              const cOut = XLSX.utils.encode_col(colIdx + 1);
+
+              if (valIn1 !== null && valOut1 !== null) formulaParts.push(`(${cOut}${r1}-${cIn}${r1})`);
+              if (valIn2 !== null && valOut2 !== null) formulaParts.push(`(${cOut}${r2}-${cIn}${r2})`);
+            }
           });
 
-          const ws = XLSX.utils.aoa_to_sheet([]);
-          const range = { s: { c: 0, r: 0 }, e: { c: 15, r: wsData.length - 1 } };
-          ws['!ref'] = XLSX.utils.encode_range(range);
+          const formula = formulaParts.length > 0 ? `SUM(${formulaParts.join(',')})*24` : "0";
+          row1[15] = { f: formula, t: 'n', z: '0.0', s: styleTotalCell };
 
-          for (let R = 0; R < wsData.length; ++R) {
-            for (let C = 0; C < wsData[R].length; ++C) {
-              const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
-              ws[cellRef] = wsData[R][C] || { v: "", s: styleCell };
-            }
-          }
-
-          ws['!merges'] = merges;
-
-          // Imposta altezze righe per migliorare la leggibilità e facilitare il taglio
-          ws['!rows'] = [];
-          // Titolo più alto
-          ws['!rows'][0] = { hpt: 30 };
-          ws['!rows'][1] = { hpt: 25 };
-          // Header più alto
-          ws['!rows'][2] = { hpt: 25 };
-          ws['!rows'][3] = { hpt: 20 };
-          // Riga separatrice tra dipendenti molto sottile (1px) per facilitare il taglio
-          for (let R = 4; R < wsData.length; R++) {
-            const cell = wsData[R]?.[0];
-            if (cell && cell.s && cell.s.fill && cell.s.fill.fgColor && cell.s.fill.fgColor.rgb === "000000") {
-              ws['!rows'][R] = { hpt: 1 }; // Riga separatrice nera molto sottile (1px)
-            } else {
-              ws['!rows'][R] = { hpt: 20 }; // Righe normali
-            }
-          }
-
-          // Ottimizza larghezze colonne per A4 orizzontale
-          // A4 landscape: ~277mm disponibili con margini standard
-          // Riduciamo le colonne per far entrare tutto
-          const wscols = [{ wch: 18 }]; // Nome dipendente ridotto
-          for (let i = 0; i < 14; i++) wscols.push({ wch: 7 }); // Colonne orari ridotte
-          wscols.push({ wch: 8 }); // Totale ridotto
-          ws['!cols'] = wscols;
-
-          // Impostazioni di stampa per A4 orizzontale
-          ws['!margins'] = {
-            left: 0.5,   // 0.5 inch = ~12.7mm
-            right: 0.5,
-            top: 0.5,
-            bottom: 0.5,
-            header: 0.3,
-            footer: 0.3
-          };
-
-          // Impostazioni pagina: A4 orizzontale
-          ws['!pageSetup'] = {
-            paperSize: 9, // A4
-            orientation: 'landscape', // Orizzontale
-            fitToPage: true,
-            fitToWidth: 1,
-            fitToHeight: 0, // 0 = adatta automaticamente
-            scale: 100
-          };
-
-          // Impostazioni print options
-          ws['!printOptions'] = {
-            gridLines: true,
-            horizontalCentered: true,
-            verticalCentered: false
-          };
-
-          let sheetName = `${company} - ${department}`;
-          const duplicateCount = viewLists.filter((l, i) => i < listIndex && l.company === company && l.department === department).length;
-          if (duplicateCount > 0) {
-            sheetName += ` (${duplicateCount + 1})`;
-          }
-          sheetName = sheetName.substring(0, 31).replace(/[^a-zA-Z0-9 -]/g, "");
-
-          XLSX.utils.book_append_sheet(wb, ws, sheetName);
+          wsData.push(row1);
+          wsData.push(row2);
         });
 
-        if (!hasExportedData) {
-          alert("Nessun dato da esportare nelle liste visualizzate.");
-          return;
+        const ws = XLSX.utils.aoa_to_sheet([]);
+        const range = { s: { c: 0, r: 0 }, e: { c: 15, r: wsData.length - 1 } };
+        ws['!ref'] = XLSX.utils.encode_range(range);
+
+        for (let R = 0; R < wsData.length; ++R) {
+          for (let C = 0; C < wsData[R].length; ++C) {
+            const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
+            ws[cellRef] = wsData[R][C] || { v: "", s: styleCell };
+          }
         }
 
-        const fileName = `Turni_Multi_${new Date().toISOString().slice(0, 10)}.xlsx`;
-        XLSX.writeFile(wb, fileName);
+        ws['!merges'] = merges;
 
-      } catch (error) {
-        console.error("Export error:", error);
-        openConfirm("Errore Esportazione", "Si è verificato un errore. Prova a ricaricare la pagina.", null);
+        // Imposta altezze righe per migliorare la leggibilità e facilitare il taglio
+        ws['!rows'] = [];
+        // Titolo più alto
+        ws['!rows'][0] = { hpt: 30 };
+        ws['!rows'][1] = { hpt: 25 };
+        // Header più alto
+        ws['!rows'][2] = { hpt: 25 };
+        ws['!rows'][3] = { hpt: 20 };
+        // Riga separatrice tra dipendenti molto sottile (1px) per facilitare il taglio
+        for (let R = 4; R < wsData.length; R++) {
+          const cell = wsData[R]?.[0];
+          if (cell && cell.s && cell.s.fill && cell.s.fill.fgColor && cell.s.fill.fgColor.rgb === "000000") {
+            ws['!rows'][R] = { hpt: 1 }; // Riga separatrice nera molto sottile (1px)
+          } else {
+            ws['!rows'][R] = { hpt: 20 }; // Righe normali
+          }
+        }
+
+        // Ottimizza larghezze colonne per A4 orizzontale
+        // A4 landscape: ~277mm disponibili con margini standard
+        // Riduciamo le colonne per far entrare tutto
+        const wscols = [{ wch: 18 }]; // Nome dipendente ridotto
+        for (let i = 0; i < 14; i++) wscols.push({ wch: 7 }); // Colonne orari ridotte
+        wscols.push({ wch: 8 }); // Totale ridotto
+        ws['!cols'] = wscols;
+
+        // Impostazioni di stampa per A4 orizzontale
+        ws['!margins'] = {
+          left: 0.5,   // 0.5 inch = ~12.7mm
+          right: 0.5,
+          top: 0.5,
+          bottom: 0.5,
+          header: 0.3,
+          footer: 0.3
+        };
+
+        // Impostazioni pagina: A4 orizzontale
+        ws['!pageSetup'] = {
+          paperSize: 9, // A4
+          orientation: 'landscape', // Orizzontale
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 0, // 0 = adatta automaticamente
+          scale: 100
+        };
+
+        // Impostazioni print options
+        ws['!printOptions'] = {
+          gridLines: true,
+          horizontalCentered: true,
+          verticalCentered: false
+        };
+
+        let sheetName = `${company} - ${department}`;
+        const duplicateCount = viewLists.filter((l, i) => i < listIndex && l.company === company && l.department === department).length;
+        if (duplicateCount > 0) {
+          sheetName += ` (${duplicateCount + 1})`;
+        }
+        sheetName = sheetName.substring(0, 31).replace(/[^a-zA-Z0-9 -]/g, "");
+
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      });
+
+      if (!hasExportedData) {
+        alert("Nessun dato da esportare nelle liste visualizzate.");
+        return;
       }
-    };
 
-    // --- RENDER LISTA ---
-    const renderEmployeeList = (listConfig, index) => {
-      const { id, company, department, weekRange: listWeekRange } = listConfig;
-      const listEmployees = getEmployeesForList(listConfig);
-      const isFirstList = index === 0;
+      const fileName = `Turni_Multi_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(wb, fileName);
 
-      return (
-        <div key={id} className="mb-8 border-b-4 border-slate-200 pb-8 last:border-0">
-          {/* FILTRI LISTA */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4 mb-4 mx-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-3 flex-1">
-                {/* Filtro Azienda */}
-                <div className="flex flex-col">
-                  <label className="text-xs font-semibold text-gray-600 mb-1">Azienda</label>
-                  <select
-                    value={company || ''}
-                    onChange={(e) => updateListFilter(id, 'company', e.target.value)}
-                    className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Seleziona Azienda</option>
-                    {companies.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
+    } catch (error) {
+      console.error("Export error:", error);
+      openConfirm("Errore Esportazione", "Si è verificato un errore. Prova a ricaricare la pagina.", null);
+    }
+  };
 
-                {/* Filtro Reparto */}
-                <div className="flex flex-col">
-                  <label className="text-xs font-semibold text-gray-600 mb-1">Reparto</label>
-                  <select
-                    value={department || ''}
-                    onChange={(e) => updateListFilter(id, 'department', e.target.value)}
-                    disabled={!company}
-                    className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <option value="">Seleziona Reparto</option>
-                    {(departmentsStructure[company] || []).map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
+  // --- RENDER LISTA ---
+  const renderEmployeeList = (listConfig, index) => {
+    const { id, company, department, weekRange: listWeekRange } = listConfig;
+    const listEmployees = getEmployeesForList(listConfig);
+    const isFirstList = index === 0;
 
-                {/* Filtro Settimana */}
-                <div className="flex flex-col">
-                  <label className="text-xs font-semibold text-gray-600 mb-1">Settimana</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={(() => {
-                        // Estrai la data di inizio dal weekRange (formato: "dd/mm/yyyy al dd/mm/yyyy")
-                        if (listWeekRange) {
-                          const startDateStr = listWeekRange.split(' al ')[0];
-                          const [day, month, year] = startDateStr.split('/');
-                          return `${year}-${month}-${day}`;
-                        }
-                        const week = getWeekDates(0);
-                        const [day, month, year] = week.formatted.split(' al ')[0].split('/');
-                        return `${year}-${month}-${day}`;
-                      })()}
-                      onChange={(e) => {
-                        const selectedDate = new Date(e.target.value);
-                        const monday = new Date(selectedDate);
-                        monday.setDate(selectedDate.getDate() - (selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1));
-                        const sunday = new Date(monday);
-                        sunday.setDate(monday.getDate() + 6);
-                        const formatDate = (d) => {
-                          const day = String(d.getDate()).padStart(2, '0');
-                          const month = String(d.getMonth() + 1).padStart(2, '0');
-                          const year = d.getFullYear();
-                          return `${day}/${month}/${year}`;
-                        };
-                        const newWeekRange = `${formatDate(monday)} al ${formatDate(sunday)}`;
-                        updateListFilter(id, 'weekRange', newWeekRange);
-                      }}
-                      className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <span className="text-xs text-gray-500">al</span>
-                    <input
-                      type="date"
-                      value={(() => {
-                        // Estrai la data di fine dal weekRange
-                        if (listWeekRange) {
-                          const endDateStr = listWeekRange.split(' al ')[1];
-                          const [day, month, year] = endDateStr.split('/');
-                          return `${year}-${month}-${day}`;
-                        }
-                        const week = getWeekDates(0);
-                        const [day, month, year] = week.formatted.split(' al ')[1].split('/');
-                        return `${year}-${month}-${day}`;
-                      })()}
-                      onChange={(e) => {
-                        const selectedDate = new Date(e.target.value);
-                        // Calcola il lunedì della settimana che contiene questa data
-                        const monday = new Date(selectedDate);
-                        monday.setDate(selectedDate.getDate() - (selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1));
-                        const sunday = new Date(monday);
-                        sunday.setDate(monday.getDate() + 6);
-                        const formatDate = (d) => {
-                          const day = String(d.getDate()).padStart(2, '0');
-                          const month = String(d.getMonth() + 1).padStart(2, '0');
-                          const year = d.getFullYear();
-                          return `${day}/${month}/${year}`;
-                        };
-                        const newWeekRange = `${formatDate(monday)} al ${formatDate(sunday)}`;
-                        updateListFilter(id, 'weekRange', newWeekRange);
-                      }}
-                      className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
+    return (
+      <div key={id} className="mb-8 border-b-4 border-slate-200 pb-8 last:border-0">
+        {/* FILTRI LISTA */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-4 mb-4 mx-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 flex-1">
+              {/* Filtro Azienda */}
+              <div className="flex flex-col">
+                <label className="text-xs font-semibold text-gray-600 mb-1">Azienda</label>
+                <select
+                  value={company || ''}
+                  onChange={(e) => updateListFilter(id, 'company', e.target.value)}
+                  className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Seleziona Azienda</option>
+                  {companies.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
 
-              {/* Pulsante Rimuovi (solo per liste aggiuntive) */}
-              {!isFirstList && (
-                <button
-                  onClick={() => removeList(id)}
-                  className="bg-red-100 text-red-600 p-2 rounded-full hover:bg-red-200 transition-colors"
-                  title="Rimuovi questa lista"
+              {/* Filtro Reparto */}
+              <div className="flex flex-col">
+                <label className="text-xs font-semibold text-gray-600 mb-1">Reparto</label>
+                <select
+                  value={department || ''}
+                  onChange={(e) => updateListFilter(id, 'department', e.target.value)}
+                  disabled={!company}
+                  className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <X size={20} />
-                </button>
-              )}
+                  <option value="">Seleziona Reparto</option>
+                  {(departmentsStructure[company] || []).map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+
+              {/* Filtro Settimana */}
+              <div className="flex flex-col">
+                <label className="text-xs font-semibold text-gray-600 mb-1">Settimana</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={(() => {
+                      // Estrai la data di inizio dal weekRange (formato: "dd/mm/yyyy al dd/mm/yyyy")
+                      if (listWeekRange) {
+                        const startDateStr = listWeekRange.split(' al ')[0];
+                        const [day, month, year] = startDateStr.split('/');
+                        return `${year}-${month}-${day}`;
+                      }
+                      const week = getWeekDates(0);
+                      const [day, month, year] = week.formatted.split(' al ')[0].split('/');
+                      return `${year}-${month}-${day}`;
+                    })()}
+                    onChange={(e) => {
+                      const selectedDate = new Date(e.target.value);
+                      const monday = new Date(selectedDate);
+                      monday.setDate(selectedDate.getDate() - (selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1));
+                      const sunday = new Date(monday);
+                      sunday.setDate(monday.getDate() + 6);
+                      const formatDate = (d) => {
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const year = d.getFullYear();
+                        return `${day}/${month}/${year}`;
+                      };
+                      const newWeekRange = `${formatDate(monday)} al ${formatDate(sunday)}`;
+                      updateListFilter(id, 'weekRange', newWeekRange);
+                    }}
+                    className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <span className="text-xs text-gray-500">al</span>
+                  <input
+                    type="date"
+                    value={(() => {
+                      // Estrai la data di fine dal weekRange
+                      if (listWeekRange) {
+                        const endDateStr = listWeekRange.split(' al ')[1];
+                        const [day, month, year] = endDateStr.split('/');
+                        return `${year}-${month}-${day}`;
+                      }
+                      const week = getWeekDates(0);
+                      const [day, month, year] = week.formatted.split(' al ')[1].split('/');
+                      return `${year}-${month}-${day}`;
+                    })()}
+                    onChange={(e) => {
+                      const selectedDate = new Date(e.target.value);
+                      // Calcola il lunedì della settimana che contiene questa data
+                      const monday = new Date(selectedDate);
+                      monday.setDate(selectedDate.getDate() - (selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1));
+                      const sunday = new Date(monday);
+                      sunday.setDate(monday.getDate() + 6);
+                      const formatDate = (d) => {
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const year = d.getFullYear();
+                        return `${day}/${month}/${year}`;
+                      };
+                      const newWeekRange = `${formatDate(monday)} al ${formatDate(sunday)}`;
+                      updateListFilter(id, 'weekRange', newWeekRange);
+                    }}
+                    className="bg-white border-2 border-blue-300 rounded px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
             </div>
+
+            {/* Pulsante Rimuovi (solo per liste aggiuntive) */}
+            {!isFirstList && (
+              <button
+                onClick={() => removeList(id)}
+                className="bg-red-100 text-red-600 p-2 rounded-full hover:bg-red-200 transition-colors"
+                title="Rimuovi questa lista"
+              >
+                <X size={20} />
+              </button>
+            )}
           </div>
+        </div>
 
-          {/* TABELLA ORARI */}
-          <div className="overflow-x-auto min-h-[200px] mx-4">
-            {listEmployees.length > 0 ? (
-              <table className="w-full text-sm text-left border-collapse shadow-md">
-                <thead className="text-xs text-gray-700 uppercase bg-gray-200 sticky top-0 z-10 shadow-sm">
-                  <tr>
-                    <th className="px-2 py-3 border bg-gray-200 w-28 min-w-[100px] z-20">DIPENDENTE</th>
-                    {days.map((day, i) => (
-                      <th key={i} className="px-1 py-2 border text-center min-w-[100px]">
-                        {day}
-                        <div className="flex justify-between text-[10px] text-gray-500 mt-1 px-1 font-normal normal-case">
-                          <span>Entrata</span>
-                          <span>Uscita</span>
-                        </div>
-                      </th>
-                    ))}
-                    <th className="px-2 py-3 border bg-yellow-100 w-16 text-center font-bold text-black">TOTALE</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {listEmployees.map((emp) => (
-                    <tr key={`${emp.contextKey}-${emp.id}`} className="bg-white border-b hover:bg-blue-50 transition-colors group">
-                      <td className="px-2 py-3 border font-bold text-gray-800 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
-                        <div className="flex items-center gap-2">
-                          <span>{emp.name}</span>
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => {
-                                // Imposta azienda e reparto prima di aprire il modal
-                                if (multiCompanyMode) {
-                                  setSelectedCompany(emp.company);
-                                  setSelectedDept(emp.department);
-                                }
-                                openReplaceEmployeeModal(emp.id);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-blue-500 hover:text-blue-700 p-1 rounded transition-opacity"
-                              title="Sostituisci dipendente"
-                            >
-                              <UserPlus size={14} />
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (window.confirm(`Rimuovere ${emp.name} da questa settimana? (Rimarrà disponibile per il futuro)`)) {
-                                  removeEmployeeFromWeek(emp.id, emp.contextKey, listWeekRange);
-                                }
-                              }}
-                              className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-red-500 hover:text-red-700 p-1 rounded transition-opacity"
-                              title="Rimuovi dalla settimana (non elimina dal database)"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                      {days.map((day, dayIdx) => {
-                        // Usa la settimana della lista corrente per la chiave schedule
-                        const currentWeek = listWeekRange || getWeekDates(0).formatted;
-                        const baseKey = `${emp.contextKey}-${emp.id}`;
-                        const scheduleKey = `${currentWeek}-${baseKey}`;
-                        // Fallback: se non trovi dati con la nuova chiave, prova con la vecchia (per compatibilità con dati esistenti)
-                        let cellData = schedule[scheduleKey]?.[dayIdx] || {};
-                        if (!cellData || Object.keys(cellData).length === 0) {
-                          // Prova con la vecchia chiave (senza settimana)
-                          const oldKey = `${baseKey}-${emp.id}`;
-                          const oldData = schedule[oldKey]?.[dayIdx];
-                          if (oldData && Object.keys(oldData).length > 0) {
-                            // Migra automaticamente i dati vecchi alla nuova struttura
-                            cellData = oldData;
-                            // Salva con la nuova chiave (migrazione automatica)
-                            setSchedule(prev => {
-                              const newSchedule = {
-                                ...prev,
-                                [scheduleKey]: {
-                                  ...prev[scheduleKey],
-                                  [dayIdx]: oldData
-                                }
-                              };
-                              // Salva la migrazione
-                              setTimeout(() => saveData(), 100);
-                              return newSchedule;
-                            });
-                          }
-                        }
-                        // Verifica se è un codice geografico o se viene da altra azienda
-                        // Usa la funzione helper per ottenere la chiave (gestisce sia chiavi che label)
-                        const codeKey = getCodeKey(cellData.code);
-                        // Verifica se è riposo: usa la chiave per il controllo
-                        const isRest = codeKey === 'R';
-                        const isGeographic = codeKey && isGeographicCode(codeKey);
-                        const isFromOtherCompany = cellData.fromCompany && cellData.fromCompany !== emp.company;
-                        const hasGeographicCode = cellData.geographicCode && !cellData.code; // Ha codice geografico ma non è un codice normale
-
-                        // Se viene da altra azienda con codice geografico, mostra gli input (non il codice)
-                        const showGeographicInputs = isFromOtherCompany && hasGeographicCode;
-
-                        // Verifica se il dipendente ha orari in altre aziende per questo giorno
-                        let hasScheduleInOtherCompany = false;
-                        let otherCompanySchedule = null;
-                        let otherCompanyName = null;
-
-                        if (!cellData.code && !showGeographicInputs) {
-                          // Cerca in tutte le altre aziende dove il dipendente è presente
-                          Object.keys(employeesData).forEach(otherKey => {
-                            if (otherKey === emp.contextKey) return; // Salta l'azienda corrente
-
-                            const [otherCompany, ...otherDeptParts] = otherKey.split('-');
-                            const otherDept = otherDeptParts.join('-');
-
-                            // Verifica se il dipendente è presente in questa azienda
-                            const otherEmployees = employeesData[otherKey] || [];
-                            const existsInOther = otherEmployees.some(e => e.id === emp.id);
-
-                            if (existsInOther) {
-                              const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
-                              const otherDayData = schedule[otherScheduleKey]?.[dayIdx];
-
-                              // Se ha orari (non codice) in questa azienda
-                              if (otherDayData && !otherDayData.code && (otherDayData.in1 || otherDayData.in2 || otherDayData.out1 || otherDayData.out2)) {
-                                hasScheduleInOtherCompany = true;
-                                otherCompanySchedule = otherDayData;
-                                otherCompanyName = otherCompany;
-                              }
-                            }
-                          });
-                        }
-
-                        return (
-                          <td
-                            key={dayIdx}
-                            className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''}`}
-                            onContextMenu={(e) => {
-                              // Se c'è un codice, permetti il menu contestuale anche cliccando sulla cella
-                              if (cellData.code && !showGeographicInputs) {
-                                handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange);
-                              }
-                            }}
-                          >
-
-
-                            {cellData.code && !showGeographicInputs ? (
-                              <div
-                                className={`h-14 flex items-center justify-center font-bold text-lg ${isGeographic || isFromOtherCompany ? 'text-yellow-700' : 'text-slate-500'} bg-opacity-50 cursor-pointer hover:bg-gray-100 transition-colors`}
-                                onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                title="Tasto destro per modificare"
-                              >
-                                {getCodeLabel(cellData.code)}
-                              </div>
-                            ) : showGeographicInputs ? (
-                              // Mostra gli input per compilare gli orari quando viene da altra azienda
-                              <div className="flex flex-col gap-1">
-                                <div className="flex gap-1">
-                                  <input
-                                    id={`input-${emp.id}-${dayIdx}-in1-geo`}
-                                    type="text"
-                                    className="w-full border border-gray-300 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
-                                    placeholder=""
-                                    value={cellData.in1 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
-                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                  />
-                                  <input
-                                    type="text"
-                                    className="w-full border border-gray-300 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
-                                    placeholder=""
-                                    value={cellData.out1 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
-                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                  />
-                                </div>
-                                {(cellData.in1 || cellData.in2 || cellData.out1) && (
-                                  <div className="flex gap-1 animate-in fade-in duration-300">
-                                    <input
-                                      type="text"
-                                      className="w-full border border-gray-200 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none"
-                                      placeholder=""
-                                      value={cellData.in2 || ''}
-                                      onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
-                                      onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
-                                      onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                    />
-                                    <input
-                                      type="text"
-                                      className="w-full border border-gray-200 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none"
-                                      placeholder=""
-                                      value={cellData.out2 || ''}
-                                      onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
-                                      onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
-                                      onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="flex flex-col gap-1 relative group">
-                                {/* Tooltip per orari in altra azienda */}
-                                {hasScheduleInOtherCompany && otherCompanySchedule && (
-                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-pre-line text-center min-w-[120px]">
-                                    <div className="font-bold mb-1">{otherCompanyName}</div>
-                                    {otherCompanySchedule.in1 && otherCompanySchedule.out1 && (
-                                      <div>{otherCompanySchedule.in1} - {otherCompanySchedule.out1}</div>
-                                    )}
-                                    {otherCompanySchedule.in2 && otherCompanySchedule.out2 && (
-                                      <div>{otherCompanySchedule.in2} - {otherCompanySchedule.out2}</div>
-                                    )}
-                                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
-                                      <div className="border-4 border-transparent border-t-gray-900"></div>
-                                    </div>
-                                  </div>
-                                )}
-                                <div className="flex gap-1">
-                                  <input
-                                    id={`input-${emp.id}-${dayIdx}-in1`}
-                                    type="text"
-                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100 cursor-help' : 'border-gray-300 focus:border-blue-500'}`}
-                                    value={cellData.in1 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
-                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                    title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : ''}
-                                  />
-                                  <input
-                                    type="text"
-                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100 cursor-help' : 'border-gray-300 focus:border-blue-500'}`}
-                                    value={cellData.out1 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
-                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                    title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : ''}
-                                  />
-                                </div>
-                                {(cellData.in1 || cellData.in2 || cellData.out1) && (
-                                  <div className="flex gap-1 animate-in fade-in duration-300">
-                                    <input
-                                      type="text"
-                                      className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100' : 'border-gray-200 bg-gray-50'}`}
-                                      value={cellData.in2 || ''}
-                                      onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
-                                      onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
-                                      onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                    />
-                                    <input
-                                      type="text"
-                                      className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100' : 'border-gray-200 bg-gray-50'}`}
-                                      value={cellData.out2 || ''}
-                                      onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
-                                      onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
-                                      onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })}
-                      <td className="px-2 py-3 border text-center font-bold text-lg bg-yellow-50 text-slate-800">
-                        {calculateWeeklyTotal(emp.id, emp.contextKey, listWeekRange)}
-                      </td>
-                    </tr>
+        {/* TABELLA ORARI */}
+        <div className="overflow-x-auto min-h-[200px] mx-4">
+          {listEmployees.length > 0 ? (
+            <table className="w-full text-sm text-left border-collapse shadow-md">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-200 sticky top-0 z-10 shadow-sm">
+                <tr>
+                  <th className="px-2 py-3 border bg-gray-200 w-28 min-w-[100px] z-20">DIPENDENTE</th>
+                  {days.map((day, i) => (
+                    <th key={i} className="px-1 py-2 border text-center min-w-[100px]">
+                      {day}
+                      <div className="flex justify-between text-[10px] text-gray-500 mt-1 px-1 font-normal normal-case">
+                        <span>Entrata</span>
+                        <span>Uscita</span>
+                      </div>
+                    </th>
                   ))}
-                  {/* RIGA AGGIUNTA RAPIDA */}
-                  <tr className="bg-gray-50 border-b border-dashed border-gray-300 hover:bg-blue-50 transition-colors group">
-                    <td className="px-2 py-3 border font-bold text-gray-500 sticky left-0 bg-gray-50 z-10 group-hover:bg-blue-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                  <th className="px-2 py-3 border bg-yellow-100 w-16 text-center font-bold text-black">TOTALE</th>
+                </tr>
+              </thead>
+              <tbody>
+                {listEmployees.map((emp) => (
+                  <tr key={`${emp.contextKey}-${emp.id}`} className="bg-white border-b hover:bg-blue-50 transition-colors group">
+                    <td className="px-2 py-3 border font-bold text-gray-800 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                       <div className="flex items-center gap-2">
-                        <div className="relative w-full">
-                          <input
-                            type="text"
-                            placeholder="Cerca dipendente..."
-                            value={quickAddName}
-                            onChange={(e) => {
-                              setQuickAddName(e.target.value);
-                              setShowSuggestions(true);
+                        <span>{emp.name}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              // Imposta azienda e reparto prima di aprire il modal
+                              if (multiCompanyMode) {
+                                setSelectedCompany(emp.company);
+                                setSelectedDept(emp.department);
+                              }
+                              openReplaceEmployeeModal(emp.id);
                             }}
-                            onFocus={() => setShowSuggestions(true)}
-                            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department, listWeekRange)}
-                            className="w-full bg-transparent border-b border-gray-400 focus:border-blue-500 outline-none text-sm uppercase placeholder-gray-400"
-                          />
-                          {showSuggestions && quickAddName && (
-                            <div className="absolute bottom-full left-0 w-full min-w-[200px] bg-white border-2 border-blue-400 shadow-2xl rounded-lg z-[9999] max-h-60 overflow-y-auto mb-1">
-                              {(() => {
-                                const key = getContextKey(company, department);
-                                const existingEmployees = employeesData[key] || [];
-                                const searchTerm = quickAddName.toUpperCase().trim();
-                                const filtered = existingEmployees.filter(emp => emp.name.toUpperCase().includes(searchTerm));
-                                const exactMatch = existingEmployees.some(emp => emp.name.toUpperCase() === searchTerm);
-                                const showAddOption = searchTerm.length > 3 && !exactMatch;
-
-                                return (
-                                  <>
-                                    {filtered.map(emp => (
-                                      <div
-                                        key={emp.id}
-                                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-100 last:border-0 text-gray-700"
-                                        onClick={() => handleQuickAddEmployee(company, department, listWeekRange, emp.name)}
-                                      >
-                                        {emp.name}
-                                      </div>
-                                    ))}
-                                    {showAddOption && (
-                                      <div
-                                        className="px-3 py-2 hover:bg-green-50 cursor-pointer text-sm text-green-700 font-semibold border-t border-gray-200 flex items-center gap-2"
-                                        onClick={() => handleCreateAndAddEmployee(quickAddName, company, department, listWeekRange)}
-                                      >
-                                        <Plus size={14} /> Aggiungi "{searchTerm}"
-                                      </div>
-                                    )}
-                                    {filtered.length === 0 && !showAddOption && (
-                                      <div className="px-3 py-2 text-xs text-gray-400 italic">
-                                        Nessun risultato
-                                      </div>
-                                    )}
-                                  </>
-                                );
-                              })()}
-                            </div>
-                          )}
+                            className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-blue-500 hover:text-blue-700 p-1 rounded transition-opacity"
+                            title="Sostituisci dipendente"
+                          >
+                            <UserPlus size={14} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Rimuovere ${emp.name} da questa settimana? (Rimarrà disponibile per il futuro)`)) {
+                                removeEmployeeFromWeek(emp.id, emp.contextKey, listWeekRange);
+                              }
+                            }}
+                            className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-red-500 hover:text-red-700 p-1 rounded transition-opacity"
+                            title="Rimuovi dalla settimana (non elimina dal database)"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                       </div>
                     </td>
-                    {days.map((_, i) => (
-                      <td key={i} className="p-1 border bg-gray-50 group-hover:bg-blue-50"></td>
-                    ))}
-                    <td className="p-1 border bg-gray-50 group-hover:bg-blue-50"></td>
+                    {days.map((day, dayIdx) => {
+                      // Usa la settimana della lista corrente per la chiave schedule
+                      const currentWeek = listWeekRange || getWeekDates(0).formatted;
+                      const baseKey = `${emp.contextKey}-${emp.id}`;
+                      const scheduleKey = `${currentWeek}-${baseKey}`;
+                      // Fallback: se non trovi dati con la nuova chiave, prova con la vecchia (per compatibilità con dati esistenti)
+                      let cellData = schedule[scheduleKey]?.[dayIdx] || {};
+                      if (!cellData || Object.keys(cellData).length === 0) {
+                        // Prova con la vecchia chiave (senza settimana)
+                        const oldKey = `${baseKey}-${emp.id}`;
+                        const oldData = schedule[oldKey]?.[dayIdx];
+                        if (oldData && Object.keys(oldData).length > 0) {
+                          // Migra automaticamente i dati vecchi alla nuova struttura
+                          cellData = oldData;
+                          // Salva con la nuova chiave (migrazione automatica)
+                          setSchedule(prev => {
+                            const newSchedule = {
+                              ...prev,
+                              [scheduleKey]: {
+                                ...prev[scheduleKey],
+                                [dayIdx]: oldData
+                              }
+                            };
+                            // Salva la migrazione
+                            setTimeout(() => saveData(), 100);
+                            return newSchedule;
+                          });
+                        }
+                      }
+                      // Verifica se è un codice geografico o se viene da altra azienda
+                      // Usa la funzione helper per ottenere la chiave (gestisce sia chiavi che label)
+                      const codeKey = getCodeKey(cellData.code);
+                      // Verifica se è riposo: usa la chiave per il controllo
+                      const isRest = codeKey === 'R';
+                      const isGeographic = codeKey && isGeographicCode(codeKey);
+                      const isFromOtherCompany = cellData.fromCompany && cellData.fromCompany !== emp.company;
+                      const hasGeographicCode = cellData.geographicCode && !cellData.code; // Ha codice geografico ma non è un codice normale
+
+                      // Se viene da altra azienda con codice geografico, mostra gli input (non il codice)
+                      const showGeographicInputs = isFromOtherCompany && hasGeographicCode;
+
+                      // Verifica se il dipendente ha orari in altre aziende per questo giorno
+                      let hasScheduleInOtherCompany = false;
+                      let otherCompanySchedule = null;
+                      let otherCompanyName = null;
+
+                      if (!cellData.code && !showGeographicInputs) {
+                        // Cerca in tutte le altre aziende dove il dipendente è presente
+                        Object.keys(employeesData).forEach(otherKey => {
+                          if (otherKey === emp.contextKey) return; // Salta l'azienda corrente
+
+                          const [otherCompany, ...otherDeptParts] = otherKey.split('-');
+                          const otherDept = otherDeptParts.join('-');
+
+                          // Verifica se il dipendente è presente in questa azienda
+                          const otherEmployees = employeesData[otherKey] || [];
+                          const existsInOther = otherEmployees.some(e => e.id === emp.id);
+
+                          if (existsInOther) {
+                            const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
+                            const otherDayData = schedule[otherScheduleKey]?.[dayIdx];
+
+                            // Se ha orari (non codice) in questa azienda
+                            if (otherDayData && !otherDayData.code && (otherDayData.in1 || otherDayData.in2 || otherDayData.out1 || otherDayData.out2)) {
+                              hasScheduleInOtherCompany = true;
+                              otherCompanySchedule = otherDayData;
+                              otherCompanyName = otherCompany;
+                            }
+                          }
+                        });
+                      }
+
+                      return (
+                        <td
+                          key={dayIdx}
+                          className={`p-1 border relative ${isRest ? 'bg-gray-200' : ''} ${isFromOtherCompany || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''}`}
+                          onContextMenu={(e) => {
+                            // Se c'è un codice, permetti il menu contestuale anche cliccando sulla cella
+                            if (cellData.code && !showGeographicInputs) {
+                              handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange);
+                            }
+                          }}
+                        >
+
+
+                          {cellData.code && !showGeographicInputs ? (
+                            <div
+                              className={`h-14 flex items-center justify-center font-bold text-lg ${isGeographic || isFromOtherCompany ? 'text-yellow-700' : 'text-slate-500'} bg-opacity-50 cursor-pointer hover:bg-gray-100 transition-colors`}
+                              onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                              title="Tasto destro per modificare"
+                            >
+                              {getCodeLabel(cellData.code)}
+                            </div>
+                          ) : showGeographicInputs ? (
+                            // Mostra gli input per compilare gli orari quando viene da altra azienda
+                            <div className="flex flex-col gap-1">
+                              <div className="flex gap-1">
+                                <input
+                                  id={`input-${emp.id}-${dayIdx}-in1-geo`}
+                                  type="text"
+                                  className="w-full border border-gray-300 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  placeholder=""
+                                  value={cellData.in1 || ''}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                />
+                                <input
+                                  type="text"
+                                  className="w-full border border-gray-300 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 focus:ring-1 focus:bg-white outline-none transition-all"
+                                  placeholder=""
+                                  value={cellData.out1 || ''}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                />
+                              </div>
+                              {(cellData.in1 || cellData.in2 || cellData.out1) && (
+                                <div className="flex gap-1 animate-in fade-in duration-300">
+                                  <input
+                                    type="text"
+                                    className="w-full border border-gray-200 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none"
+                                    placeholder=""
+                                    value={cellData.in2 || ''}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  />
+                                  <input
+                                    type="text"
+                                    className="w-full border border-gray-200 bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none"
+                                    placeholder=""
+                                    value={cellData.out2 || ''}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1 relative group">
+                              {/* Tooltip per orari in altra azienda */}
+                              {hasScheduleInOtherCompany && otherCompanySchedule && (
+                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-pre-line text-center min-w-[120px]">
+                                  <div className="font-bold mb-1">{otherCompanyName}</div>
+                                  {otherCompanySchedule.in1 && otherCompanySchedule.out1 && (
+                                    <div>{otherCompanySchedule.in1} - {otherCompanySchedule.out1}</div>
+                                  )}
+                                  {otherCompanySchedule.in2 && otherCompanySchedule.out2 && (
+                                    <div>{otherCompanySchedule.in2} - {otherCompanySchedule.out2}</div>
+                                  )}
+                                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
+                                    <div className="border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
+                                </div>
+                              )}
+                              <div className="flex gap-1">
+                                <input
+                                  id={`input-${emp.id}-${dayIdx}-in1`}
+                                  type="text"
+                                  className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100 cursor-help' : 'border-gray-300 focus:border-blue-500'}`}
+                                  value={cellData.in1 || ''}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : ''}
+                                />
+                                <input
+                                  type="text"
+                                  className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100 cursor-help' : 'border-gray-300 focus:border-blue-500'}`}
+                                  value={cellData.out1 || ''}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : ''}
+                                />
+                              </div>
+                              {(cellData.in1 || cellData.in2 || cellData.out1) && (
+                                <div className="flex gap-1 animate-in fade-in duration-300">
+                                  <input
+                                    type="text"
+                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100' : 'border-gray-200 bg-gray-50'}`}
+                                    value={cellData.in2 || ''}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  />
+                                  <input
+                                    type="text"
+                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none ${hasScheduleInOtherCompany ? 'border-gray-300 bg-gray-100' : 'border-gray-200 bg-gray-50'}`}
+                                    value={cellData.out2 || ''}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="px-2 py-3 border text-center font-bold text-lg bg-yellow-50 text-slate-800">
+                      {calculateWeeklyTotal(emp.id, emp.contextKey, listWeekRange)}
+                    </td>
                   </tr>
-                </tbody>
-              </table>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-48 text-slate-400 bg-white border-2 border-dashed border-gray-200 rounded-lg p-6">
-                {company && department ? (
-                  <>
-                    <UserPlus size={32} className="mb-4 opacity-20" />
-                    <p className="text-sm text-center px-4 mb-4">
-                      Nessun dipendente con orari per questa settimana.
-                    </p>
-                    <div className="flex items-center gap-2 w-full max-w-md">
-                      <div className="relative flex-1">
+                ))}
+                {/* RIGA AGGIUNTA RAPIDA */}
+                <tr className="bg-gray-50 border-b border-dashed border-gray-300 hover:bg-blue-50 transition-colors group">
+                  <td className="px-2 py-3 border font-bold text-gray-500 sticky left-0 bg-gray-50 z-10 group-hover:bg-blue-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                    <div className="flex items-center gap-2">
+                      <div className="relative w-full">
                         <input
                           type="text"
-                          placeholder="Inserisci il primo dipendente..."
+                          placeholder="Cerca dipendente..."
                           value={quickAddName}
                           onChange={(e) => {
                             setQuickAddName(e.target.value);
@@ -2260,10 +2299,10 @@ const applyAbsenceCode = (empId, startDayIndex, code, codeKey, days, contextKey 
                           onFocus={() => setShowSuggestions(true)}
                           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                           onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department, listWeekRange)}
-                          className="w-full border-2 border-blue-300 rounded px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none uppercase placeholder-gray-400"
+                          className="w-full bg-transparent border-b border-gray-400 focus:border-blue-500 outline-none text-sm uppercase placeholder-gray-400"
                         />
                         {showSuggestions && quickAddName && (
-                          <div className="absolute bottom-full left-0 w-full bg-white border border-gray-300 shadow-xl rounded-md z-50 max-h-60 overflow-y-auto mb-1">
+                          <div className="absolute bottom-full left-0 w-full min-w-[200px] bg-white border-2 border-blue-400 shadow-2xl rounded-lg z-[9999] max-h-60 overflow-y-auto mb-1">
                             {(() => {
                               const key = getContextKey(company, department);
                               const existingEmployees = employeesData[key] || [];
@@ -2303,525 +2342,598 @@ const applyAbsenceCode = (empId, startDayIndex, code, codeKey, days, contextKey 
                         )}
                       </div>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2 text-center">
-                      Cerca tra i dipendenti già creati dall'<Settings size={12} className="text-blue-600 inline" /> per questa azienda e reparto
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-sm text-center px-4 text-gray-400">
-                    Seleziona un'azienda e un reparto per iniziare
+                  </td>
+                  {days.map((_, i) => (
+                    <td key={i} className="p-1 border bg-gray-50 group-hover:bg-blue-50"></td>
+                  ))}
+                  <td className="p-1 border bg-gray-50 group-hover:bg-blue-50"></td>
+                </tr>
+              </tbody>
+            </table>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-48 text-slate-400 bg-white border-2 border-dashed border-gray-200 rounded-lg p-6">
+              {company && department ? (
+                <>
+                  <UserPlus size={32} className="mb-4 opacity-20" />
+                  <p className="text-sm text-center px-4 mb-4">
+                    Nessun dipendente con orari per questa settimana.
                   </p>
-                )}
-              </div>
-            )}
-          </div>
-        </div >
-      );
-    };
+                  <div className="flex items-center gap-2 w-full max-w-md">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder="Inserisci il primo dipendente..."
+                        value={quickAddName}
+                        onChange={(e) => {
+                          setQuickAddName(e.target.value);
+                          setShowSuggestions(true);
+                        }}
+                        onFocus={() => setShowSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department, listWeekRange)}
+                        className="w-full border-2 border-blue-300 rounded px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none uppercase placeholder-gray-400"
+                      />
+                      {showSuggestions && quickAddName && (
+                        <div className="absolute bottom-full left-0 w-full bg-white border border-gray-300 shadow-xl rounded-md z-50 max-h-60 overflow-y-auto mb-1">
+                          {(() => {
+                            const key = getContextKey(company, department);
+                            const existingEmployees = employeesData[key] || [];
+                            const searchTerm = quickAddName.toUpperCase().trim();
+                            const filtered = existingEmployees.filter(emp => emp.name.toUpperCase().includes(searchTerm));
+                            const exactMatch = existingEmployees.some(emp => emp.name.toUpperCase() === searchTerm);
+                            const showAddOption = searchTerm.length > 3 && !exactMatch;
 
-    return (
-      <div className="p-4 bg-gray-50 min-h-screen font-sans relative">
-
-        {/* MODALE SOSTITUZIONE DIPENDENTE */}
-        {replaceEmployeeModal.isOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden">
-              <div className="bg-blue-600 p-4 text-white">
-                <h3 className="text-lg font-bold flex items-center gap-2">
-                  <UserPlus size={20} />
-                  Sostituisci Dipendente
-                </h3>
-              </div>
-              <div className="p-6">
-                <p className="text-gray-700 mb-4">
-                  Stai sostituendo <strong>{replaceEmployeeModal.oldEmployeeName}</strong> con un nuovo dipendente.
-                  <br />
-                  <span className="text-sm text-gray-500">Gli orari verranno mantenuti.</span>
-                </p>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nuovo dipendente (o seleziona esistente)
-                  </label>
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={replaceEmployeeModal.newEmployeeName}
-                      onChange={(e) => setReplaceEmployeeModal(prev => ({ ...prev, newEmployeeName: e.target.value, newEmployeeId: null }))}
-                      placeholder="Nome nuovo dipendente"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      onKeyDown={(e) => e.key === 'Enter' && handleReplaceEmployee()}
-                    />
-                    {currentEmployees.length > 0 && (
-                      <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg">
-                        {currentEmployees
-                          .filter(e => e.id !== replaceEmployeeModal.oldEmployeeId)
-                          .map(emp => (
-                            <button
-                              key={emp.id}
-                              onClick={() => setReplaceEmployeeModal(prev => ({
-                                ...prev,
-                                newEmployeeName: emp.name,
-                                newEmployeeId: emp.id
-                              }))}
-                              className={`w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 ${replaceEmployeeModal.newEmployeeId === emp.id ? 'bg-blue-100' : ''
-                                }`}
-                            >
-                              {emp.name}
-                            </button>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={closeReplaceEmployeeModal}
-                    className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium transition-colors"
-                  >
-                    Annulla
-                  </button>
-                  <button
-                    onClick={handleReplaceEmployee}
-                    disabled={!replaceEmployeeModal.newEmployeeName.trim()}
-                    className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Sostituisci
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* MODALE DI CONFERMA CUSTOM */}
-        {confirmModal.isOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden transform scale-100 transition-all">
-              <div className="bg-slate-800 p-4 text-white flex items-center gap-3">
-                <AlertTriangle className="w-6 h-6 text-yellow-400" />
-                <h3 className="text-lg font-bold">{confirmModal.title}</h3>
-              </div>
-              <div className="p-6">
-                <p className="text-gray-700 mb-6">{confirmModal.message}</p>
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={closeConfirm}
-                    className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium transition-colors"
-                  >
-                    Annulla
-                  </button>
-                  {onConfirmAction.current && (
-                    <button
-                      onClick={handleConfirm}
-                      className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white font-medium transition-colors shadow-lg"
-                    >
-                      Conferma
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="max-w-full mx-auto bg-white shadow-xl rounded-lg overflow-hidden min-h-[600px]">
-
-          {/* HEADER PRINCIPALE */}
-          <div className="bg-slate-800 text-white p-4">
-            <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
-              <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                  <Calendar className="w-6 h-6" />
-                  Gestione Turni
-                </h1>
-                {multiCompanyMode && selectedCompanies.length > 0 ? (
-                  <p className="text-slate-400 text-xs">
-                    {selectedCompanies.length} {selectedCompanies.length === 1 ? 'azienda' : 'aziende'} selezionate
-                  </p>
-                ) : selectedCompany && selectedDept ? (
-                  <p className="text-slate-400 text-xs">{selectedCompany} &gt; {selectedDept}</p>
-                ) : null}
-              </div>
-
-              <div className="flex gap-3 items-center">
-                <button
-                  onClick={exportExcel}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors shadow-md"
-                >
-                  <FileSpreadsheet size={16} /> Scarica Excel (.xlsx)
-                </button>
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className={`p-2 rounded transition-colors ${showSettings ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
-                  title="Impostazioni Reparti"
-                >
-                  <Settings size={20} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* PANNELLO IMPOSTAZIONI */}
-          {showSettings && (
-            <div className="bg-blue-50 border-b-4 border-blue-200 p-6 animate-in slide-in-from-top-5">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                  <Settings className="w-5 h-5 text-blue-600" />
-                  Impostazioni e Configurazione - {selectedCompany}
-                </h2>
-                <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-600">
-                  <X size={24} />
-                </button>
-              </div>
-
-              {/* GESTIONE CODICI ORARI (Spostato sopra e reso collassabile) */}
-              <div className="mb-6 bg-white p-4 rounded shadow-sm border border-purple-200 transition-all">
-                <div
-                  className="flex justify-between items-center cursor-pointer"
-                  onClick={() => setShowTimeCodesSettings(!showTimeCodesSettings)}
-                >
-                  <h3 className="font-bold text-slate-600 flex items-center gap-2 select-none">
-                    <span className="bg-purple-100 text-purple-600 p-1 rounded"><Settings size={16} /></span>
-                    Gestione Codici Orari (Shortcut)
-                  </h3>
-                  <button className="text-slate-400 hover:text-purple-600 transition-colors">
-                    {showTimeCodesSettings ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                  </button>
-                </div>
-
-                {showTimeCodesSettings && (
-                  <div className="mt-4 animate-in slide-in-from-top-2 fade-in duration-200">
-                    <p className="text-xs text-gray-500 mb-4">
-                      Definisci i codici rapidi da usare negli orari. Esempio: scrivi "M" nel campo orario per inserire "Malattia".
-                    </p>
-
-                    <div className="flex gap-2 mb-4 items-end">
-                      <div className="w-24">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Codice</label>
-                        <input
-                          type="text"
-                          placeholder="Es. M"
-                          maxLength={2}
-                          value={newCodeKey}
-                          onChange={(e) => setNewCodeKey(e.target.value.toUpperCase())}
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm uppercase text-center font-bold"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Descrizione Estesa</label>
-                        <input
-                          type="text"
-                          placeholder="Es. Malattia"
-                          value={newCodeLabel}
-                          onChange={(e) => setNewCodeLabel(e.target.value)}
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                        />
-                      </div>
-                      <button
-                        onClick={addTimeCode}
-                        className="bg-purple-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-purple-700 h-[38px]"
-                      >
-                        <Plus size={16} /> Aggiungi
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {timeCodesOrder.map((key, index) => {
-                        const label = timeCodes[key];
-                        if (!label) return null; // Skip se il codice non esiste più
-
-                        return (
-                          <div
-                            key={key}
-                            draggable
-                            onDragStart={() => setDraggedCodeIndex(index)}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={() => {
-                              if (draggedCodeIndex !== null && draggedCodeIndex !== index) {
-                                reorderTimeCodes(draggedCodeIndex, index);
-                              }
-                              setDraggedCodeIndex(null);
-                            }}
-                            onDragEnd={() => setDraggedCodeIndex(null)}
-                            className={`flex justify-between items-center bg-purple-50 p-2 rounded border border-purple-100 cursor-move hover:bg-purple-100 transition-all ${draggedCodeIndex === index ? 'opacity-50 scale-95' : ''
-                              }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="text-gray-400 cursor-grab active:cursor-grabbing" title="Trascina per riordinare">⋮⋮</span>
-                              <span className="bg-purple-200 text-purple-800 font-bold px-2 py-0.5 rounded text-xs w-8 text-center">
-                                {key}
-                              </span>
-                              <span className="text-sm font-medium text-gray-700">{label}</span>
-                            </div>
-                            <button
-                              onClick={() => deleteTimeCode(key)}
-                              className="text-red-400 hover:text-red-600 p-1"
-                              title="Elimina codice"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                {/* SELETTORE AZIENDA PER CONFIGURAZIONE */}
-                <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
-                  <label className="block text-sm font-bold text-slate-700 mb-2">
-                    Azienda da Configurare
-                  </label>
-                  <select
-                    value={selectedCompany}
-                    onChange={(e) => {
-                      setSelectedCompany(e.target.value);
-                      // Reset del reparto selezionato quando cambia l'azienda per evitare incongruenze
-                      const firstDept = departmentsStructure[e.target.value]?.[0];
-                      if (firstDept) setSelectedDept(firstDept);
-                      else setSelectedDept('');
-                    }}
-                    className="w-full border-2 border-blue-300 rounded px-3 py-2 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    {companies.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* GESTIONE REPARTI */}
-                <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
-                  <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">Gestione Reparti per {selectedCompany}</h3>
-                  <div className="flex gap-2 mb-4">
-                    <input
-                      type="text"
-                      placeholder="Nuovo reparto (es. Pizzeria)"
-                      value={newDeptName}
-                      onChange={(e) => setNewDeptName(e.target.value)}
-                      className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
-                    />
-                    <button
-                      onClick={addDepartment}
-                      className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700"
-                    >
-                      <Plus size={16} /> Aggiungi
-                    </button>
-                  </div>
-                  <ul className="space-y-2 max-h-48 overflow-y-auto">
-                    {departmentsStructure[selectedCompany]?.map(dept => (
-                      <li
-                        key={dept}
-                        className={`flex justify-between items-center p-2 rounded border cursor-pointer transition-colors ${selectedDept === dept
-                          ? 'bg-blue-100 border-blue-400 shadow-md'
-                          : 'bg-slate-50 hover:bg-blue-50'
-                          }`}
-                        onClick={() => setSelectedDept(dept)}
-                      >
-                        <span className={`font-medium ${selectedDept === dept ? 'text-blue-800 font-bold' : 'text-slate-700'}`}>
-                          {dept}
-                          {selectedDept === dept && <span className="ml-2 text-xs">✓ Selezionato</span>}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation(); // Evita che il click selezioni il reparto
-                            triggerDeleteDepartment(dept);
-                          }}
-                          className="text-red-500 hover:bg-red-50 p-1 rounded"
-                          title="Elimina reparto"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </li>
-                    ))}
-                    {(!departmentsStructure[selectedCompany] || departmentsStructure[selectedCompany].length === 0) && (
-                      <li className="text-gray-400 text-sm italic">Nessun reparto presente. Aggiungine uno.</li>
-                    )}
-                  </ul>
-                </div>
-              </div>
-
-              {/* DIPENDENTI (Full Width) */}
-              <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
-                <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">
-                  Dipendenti
-                </h3>
-                <div className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    placeholder="Nome dipendente"
-                    value={newEmployeeName}
-                    onChange={(e) => setNewEmployeeName(e.target.value)}
-                    className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
-                  />
-                  <button
-                    onClick={addEmployee}
-                    className="bg-emerald-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-emerald-700"
-                  >
-                    <UserPlus size={16} /> Aggiungi
-                  </button>
-                </div>
-                <p className="text-xs text-gray-500 italic mb-4">
-                  💡 Per una corretta identificazione è consigliato creare i dipendenti con <strong>nome.cognome</strong> per evitare omonimie.
-                </p>
-                <div className="max-h-40 overflow-y-auto">
-                  {currentEmployees.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {currentEmployees.map(emp => (
-                        <div key={emp.id} className="flex justify-between items-center bg-slate-50 p-3 rounded border text-sm hover:bg-slate-100 transition-colors">
-                          <span className="font-medium text-slate-700">{emp.name}</span>
-                          <button
-                            onClick={() => triggerDeleteEmployee(emp.id)}
-                            className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50"
-                            title="Elimina dipendente"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                            return (
+                              <>
+                                {filtered.map(emp => (
+                                  <div
+                                    key={emp.id}
+                                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-100 last:border-0 text-gray-700"
+                                    onClick={() => handleQuickAddEmployee(company, department, listWeekRange, emp.name)}
+                                  >
+                                    {emp.name}
+                                  </div>
+                                ))}
+                                {showAddOption && (
+                                  <div
+                                    className="px-3 py-2 hover:bg-green-50 cursor-pointer text-sm text-green-700 font-semibold border-t border-gray-200 flex items-center gap-2"
+                                    onClick={() => handleCreateAndAddEmployee(quickAddName, company, department, listWeekRange)}
+                                  >
+                                    <Plus size={14} /> Aggiungi "{searchTerm}"
+                                  </div>
+                                )}
+                                {filtered.length === 0 && !showAddOption && (
+                                  <div className="px-3 py-2 text-xs text-gray-400 italic">
+                                    Nessun risultato
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-gray-400 text-sm italic text-center py-4">Nessun dipendente in questo reparto.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-          )}
-
-          {/* LISTE ORARI */}
-          <div className="p-4">
-            {viewLists.map((list, index) => renderEmployeeList(list, index))}
-          </div>
-
-          {/* PULSANTE AGGIUNGI LISTA */}
-          <div className="p-4 border-t bg-gray-50 flex justify-center">
-            <button
-              onClick={addNewList}
-              className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-blue-700 transition-all transform hover:scale-105"
-            >
-              <Plus size={20} />
-              Aggiungi un'altra lista di confronto
-            </button>
-          </div>
-        </div>
-
-
-        {/* MENU CONTESTUALE */}
-        {
-          contextMenu.visible && (
-            <div
-              className="fixed bg-white shadow-xl rounded border border-gray-200 z-[100] py-1 min-w-[150px] animate-in fade-in zoom-in-95 duration-100"
-              style={{ top: contextMenu.y, left: contextMenu.x }}
-            >
-              <div className="px-3 py-2 border-b border-gray-100 bg-gray-50 text-xs font-bold text-gray-500">
-                {contextMenu.hasCode ? 'Modifica Campo' : 'Inserisci Codice'}
-              </div>
-
-              {/* Se ha un codice, mostra opzione per convertire in orario */}
-              {contextMenu.hasCode && (
-                <div className="border-b border-gray-100">
-                  <button
-                    className="w-full text-left px-3 py-2 hover:bg-green-50 text-sm text-green-700 flex items-center gap-2 font-medium"
-                    onClick={() => {
-                      convertCodeToTime(contextMenu.empId, contextMenu.dayIndex, contextMenu.contextKey, contextMenu.weekRangeValue);
-                      closeContextMenu();
-                    }}
-                  >
-                    <Calendar size={14} /> Converti in Orario
-                  </button>
-                </div>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2 text-center">
+                    Cerca tra i dipendenti già creati dall'<Settings size={12} className="text-blue-600 inline" /> per questa azienda e reparto
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-center px-4 text-gray-400">
+                  Seleziona un'azienda e un reparto per iniziare
+                </p>
               )}
-
-              {timeCodesOrder.map((code) => {
-                const label = timeCodes[code];
-                if (!label) return null; // Skip se il codice non esiste più
-
-                return (
-                  <button
-                    key={code}
-                    className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm flex items-center justify-between group"
-                    onClick={() => {
-                      handleQuickCode(contextMenu.empId, contextMenu.dayIndex, label, contextMenu.contextKey, contextMenu.weekRangeValue);
-                      closeContextMenu();
-                    }}
-                  >
-                    <span className="font-medium text-gray-700">{label}</span>
-                    <span className="text-xs bg-gray-100 text-gray-500 px-1.5 rounded group-hover:bg-blue-100 group-hover:text-blue-600">{code}</span>
-                  </button>
-                );
-              })}
-              <div className="border-t border-gray-100 mt-1 pt-1">
-                <button
-                  className="w-full text-left px-3 py-2 hover:bg-red-50 text-sm text-red-600 flex items-center gap-2"
-                  onClick={() => {
-                    handleQuickCode(contextMenu.empId, contextMenu.dayIndex, '', contextMenu.contextKey, contextMenu.weekRangeValue);
-                    closeContextMenu();
-                  }}
-                >
-                  <Trash2 size={14} /> Pulisci Cella
-                </button>
-              </div>
             </div>
           )}
-
-        {/* MODAL GIORNI ASSENZA */}
-        {absenceDaysModal.isOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200]">
-            <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">
-                Inserisci {absenceDaysModal.code}
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Quanti giorni consecutivi vuoi applicare questo codice a partire da oggi?
-              </p>
-              <div className="flex items-center gap-4 mb-6">
-                <label className="text-sm font-medium text-gray-700">Giorni:</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="7"
-                  value={absenceDaysModal.days}
-                  onChange={(e) => setAbsenceDaysModal(prev => ({ ...prev, days: parseInt(e.target.value) || 1 }))}
-                  className="border-2 border-blue-300 rounded px-4 py-2 text-lg font-bold text-center w-20 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  autoFocus
-                />
-              </div>
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => setAbsenceDaysModal(prev => ({ ...prev, isOpen: false }))}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-medium"
-                >
-                  Annulla
-                </button>
-                <button
-                  onClick={() => {
-                    applyAbsenceCode(
-                      absenceDaysModal.empId,
-                      absenceDaysModal.dayIndex,
-                      absenceDaysModal.code,
-                      absenceDaysModal.codeKey,
-                      absenceDaysModal.days,
-                      absenceDaysModal.contextKey,
-                      absenceDaysModal.weekRangeValue
-                    );
-                    setAbsenceDaysModal(prev => ({ ...prev, isOpen: false }));
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-                >
-                  Applica
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
+        </div>
       </div >
     );
   };
 
-  export default TimesheetManager;
+  return (
+    <div className="p-4 bg-gray-50 min-h-screen font-sans relative">
+
+      {/* MODALE SOSTITUZIONE DIPENDENTE */}
+      {replaceEmployeeModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="bg-blue-600 p-4 text-white">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <UserPlus size={20} />
+                Sostituisci Dipendente
+              </h3>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                Stai sostituendo <strong>{replaceEmployeeModal.oldEmployeeName}</strong> con un nuovo dipendente.
+                <br />
+                <span className="text-sm text-gray-500">Gli orari verranno mantenuti.</span>
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nuovo dipendente (o seleziona esistente)
+                </label>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={replaceEmployeeModal.newEmployeeName}
+                    onChange={(e) => setReplaceEmployeeModal(prev => ({ ...prev, newEmployeeName: e.target.value, newEmployeeId: null }))}
+                    placeholder="Nome nuovo dipendente"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onKeyDown={(e) => e.key === 'Enter' && handleReplaceEmployee()}
+                  />
+                  {currentEmployees.length > 0 && (
+                    <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg">
+                      {currentEmployees
+                        .filter(e => e.id !== replaceEmployeeModal.oldEmployeeId)
+                        .map(emp => (
+                          <button
+                            key={emp.id}
+                            onClick={() => setReplaceEmployeeModal(prev => ({
+                              ...prev,
+                              newEmployeeName: emp.name,
+                              newEmployeeId: emp.id
+                            }))}
+                            className={`w-full text-left px-3 py-2 hover:bg-blue-50 border-b border-gray-100 ${replaceEmployeeModal.newEmployeeId === emp.id ? 'bg-blue-100' : ''
+                              }`}
+                          >
+                            {emp.name}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={closeReplaceEmployeeModal}
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium transition-colors"
+                >
+                  Annulla
+                </button>
+                <button
+                  onClick={handleReplaceEmployee}
+                  disabled={!replaceEmployeeModal.newEmployeeName.trim()}
+                  className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Sostituisci
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE DI CONFERMA CUSTOM */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden transform scale-100 transition-all">
+            <div className="bg-slate-800 p-4 text-white flex items-center gap-3">
+              <AlertTriangle className="w-6 h-6 text-yellow-400" />
+              <h3 className="text-lg font-bold">{confirmModal.title}</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700 mb-6">{confirmModal.message}</p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={closeConfirm}
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium transition-colors"
+                >
+                  Annulla
+                </button>
+                {onConfirmAction.current && (
+                  <button
+                    onClick={handleConfirm}
+                    className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white font-medium transition-colors shadow-lg"
+                  >
+                    Conferma
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-full mx-auto bg-white shadow-xl rounded-lg overflow-hidden min-h-[600px]">
+
+        {/* HEADER PRINCIPALE */}
+        <div className="bg-slate-800 text-white p-4">
+          <div className="flex flex-wrap justify-between items-center gap-4 mb-4">
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2">
+                <Calendar className="w-6 h-6" />
+                Gestione Turni
+              </h1>
+              {multiCompanyMode && selectedCompanies.length > 0 ? (
+                <p className="text-slate-400 text-xs">
+                  {selectedCompanies.length} {selectedCompanies.length === 1 ? 'azienda' : 'aziende'} selezionate
+                </p>
+              ) : selectedCompany && selectedDept ? (
+                <p className="text-slate-400 text-xs">{selectedCompany} &gt; {selectedDept}</p>
+              ) : null}
+            </div>
+
+            <div className="flex gap-3 items-center">
+              <button
+                onClick={exportExcel}
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors shadow-md"
+              >
+                <FileSpreadsheet size={16} /> Scarica Excel (.xlsx)
+              </button>
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className={`p-2 rounded transition-colors ${showSettings ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                title="Impostazioni Reparti"
+              >
+                <Settings size={20} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* PANNELLO IMPOSTAZIONI */}
+        {showSettings && (
+          <div className="bg-blue-50 border-b-4 border-blue-200 p-6 animate-in slide-in-from-top-5">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                <Settings className="w-5 h-5 text-blue-600" />
+                Impostazioni e Configurazione - {selectedCompany}
+              </h2>
+              <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* GESTIONE CODICI ORARI (Spostato sopra e reso collassabile) */}
+            <div className="mb-6 bg-white p-4 rounded shadow-sm border border-purple-200 transition-all">
+              <div
+                className="flex justify-between items-center cursor-pointer"
+                onClick={() => setShowTimeCodesSettings(!showTimeCodesSettings)}
+              >
+                <h3 className="font-bold text-slate-600 flex items-center gap-2 select-none">
+                  <span className="bg-purple-100 text-purple-600 p-1 rounded"><Settings size={16} /></span>
+                  Gestione Codici Orari (Shortcut)
+                </h3>
+                <button className="text-slate-400 hover:text-purple-600 transition-colors">
+                  {showTimeCodesSettings ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </button>
+              </div>
+
+              {showTimeCodesSettings && (
+                <div className="mt-4 animate-in slide-in-from-top-2 fade-in duration-200">
+                  <p className="text-xs text-gray-500 mb-4">
+                    Definisci i codici rapidi da usare negli orari. Esempio: scrivi "M" nel campo orario per inserire "Malattia".
+                  </p>
+
+                  <div className="flex gap-2 mb-4 items-end">
+                    <div className="w-24">
+                      <label className="block text-xs font-bold text-gray-500 mb-1">Codice</label>
+                      <input
+                        type="text"
+                        placeholder="Es. M"
+                        maxLength={2}
+                        value={newCodeKey}
+                        onChange={(e) => setNewCodeKey(e.target.value.toUpperCase())}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm uppercase text-center font-bold"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-gray-500 mb-1">Descrizione Estesa</label>
+                      <input
+                        type="text"
+                        placeholder="Es. Malattia"
+                        value={newCodeLabel}
+                        onChange={(e) => setNewCodeLabel(e.target.value)}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={addTimeCode}
+                      className="bg-purple-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-purple-700 h-[38px]"
+                    >
+                      <Plus size={16} /> Aggiungi
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {timeCodesOrder.map((key, index) => {
+                      const label = timeCodes[key];
+                      if (!label) return null; // Skip se il codice non esiste più
+
+                      return (
+                        <div
+                          key={key}
+                          draggable
+                          onDragStart={() => setDraggedCodeIndex(index)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => {
+                            if (draggedCodeIndex !== null && draggedCodeIndex !== index) {
+                              reorderTimeCodes(draggedCodeIndex, index);
+                            }
+                            setDraggedCodeIndex(null);
+                          }}
+                          onDragEnd={() => setDraggedCodeIndex(null)}
+                          className={`flex justify-between items-center bg-purple-50 p-2 rounded border border-purple-100 cursor-move hover:bg-purple-100 transition-all ${draggedCodeIndex === index ? 'opacity-50 scale-95' : ''
+                            }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-400 cursor-grab active:cursor-grabbing" title="Trascina per riordinare">⋮⋮</span>
+                            <span className="bg-purple-200 text-purple-800 font-bold px-2 py-0.5 rounded text-xs w-8 text-center">
+                              {key}
+                            </span>
+                            <span className="text-sm font-medium text-gray-700">{label}</span>
+                          </div>
+                          <button
+                            onClick={() => deleteTimeCode(key)}
+                            className="text-red-400 hover:text-red-600 p-1"
+                            title="Elimina codice"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+              {/* SELETTORE AZIENDA PER CONFIGURAZIONE */}
+              <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
+                <label className="block text-sm font-bold text-slate-700 mb-2">
+                  Azienda da Configurare
+                </label>
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => {
+                    setSelectedCompany(e.target.value);
+                    // Reset del reparto selezionato quando cambia l'azienda per evitare incongruenze
+                    const firstDept = departmentsStructure[e.target.value]?.[0];
+                    if (firstDept) setSelectedDept(firstDept);
+                    else setSelectedDept('');
+                  }}
+                  className="w-full border-2 border-blue-300 rounded px-3 py-2 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {companies.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* GESTIONE REPARTI */}
+              <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
+                <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">Gestione Reparti per {selectedCompany}</h3>
+                <div className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Nuovo reparto (es. Pizzeria)"
+                    value={newDeptName}
+                    onChange={(e) => setNewDeptName(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+                  />
+                  <button
+                    onClick={addDepartment}
+                    className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700"
+                  >
+                    <Plus size={16} /> Aggiungi
+                  </button>
+                </div>
+                <ul className="space-y-2 max-h-48 overflow-y-auto">
+                  {departmentsStructure[selectedCompany]?.map(dept => (
+                    <li
+                      key={dept}
+                      className={`flex justify-between items-center p-2 rounded border cursor-pointer transition-colors ${selectedDept === dept
+                        ? 'bg-blue-100 border-blue-400 shadow-md'
+                        : 'bg-slate-50 hover:bg-blue-50'
+                        }`}
+                      onClick={() => setSelectedDept(dept)}
+                    >
+                      <span className={`font-medium ${selectedDept === dept ? 'text-blue-800 font-bold' : 'text-slate-700'}`}>
+                        {dept}
+                        {selectedDept === dept && <span className="ml-2 text-xs">✓ Selezionato</span>}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation(); // Evita che il click selezioni il reparto
+                          triggerDeleteDepartment(dept);
+                        }}
+                        className="text-red-500 hover:bg-red-50 p-1 rounded"
+                        title="Elimina reparto"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </li>
+                  ))}
+                  {(!departmentsStructure[selectedCompany] || departmentsStructure[selectedCompany].length === 0) && (
+                    <li className="text-gray-400 text-sm italic">Nessun reparto presente. Aggiungine uno.</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+
+            {/* DIPENDENTI (Full Width) */}
+            <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
+              <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">
+                Dipendenti
+              </h3>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  placeholder="Nome dipendente"
+                  value={newEmployeeName}
+                  onChange={(e) => setNewEmployeeName(e.target.value)}
+                  className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
+                />
+                <button
+                  onClick={addEmployee}
+                  className="bg-emerald-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-emerald-700"
+                >
+                  <UserPlus size={16} /> Aggiungi
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 italic mb-4">
+                💡 Per una corretta identificazione è consigliato creare i dipendenti con <strong>nome.cognome</strong> per evitare omonimie.
+              </p>
+              <div className="max-h-40 overflow-y-auto">
+                {currentEmployees.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {currentEmployees.map(emp => (
+                      <div key={emp.id} className="flex justify-between items-center bg-slate-50 p-3 rounded border text-sm hover:bg-slate-100 transition-colors">
+                        <span className="font-medium text-slate-700">{emp.name}</span>
+                        <button
+                          onClick={() => triggerDeleteEmployee(emp.id)}
+                          className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50"
+                          title="Elimina dipendente"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-sm italic text-center py-4">Nessun dipendente in questo reparto.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+        )}
+
+        {/* LISTE ORARI */}
+        <div className="p-4">
+          {viewLists.map((list, index) => renderEmployeeList(list, index))}
+        </div>
+
+        {/* PULSANTE AGGIUNGI LISTA */}
+        <div className="p-4 border-t bg-gray-50 flex justify-center">
+          <button
+            onClick={addNewList}
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-blue-700 transition-all transform hover:scale-105"
+          >
+            <Plus size={20} />
+            Aggiungi un'altra lista di confronto
+          </button>
+        </div>
+      </div>
+
+
+      {/* MENU CONTESTUALE */}
+      {
+        contextMenu.visible && (
+          <div
+            className="fixed bg-white shadow-xl rounded border border-gray-200 z-[100] py-1 min-w-[150px] animate-in fade-in zoom-in-95 duration-100"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+          >
+            <div className="px-3 py-2 border-b border-gray-100 bg-gray-50 text-xs font-bold text-gray-500">
+              {contextMenu.hasCode ? 'Modifica Campo' : 'Inserisci Codice'}
+            </div>
+
+            {/* Se ha un codice, mostra opzione per convertire in orario */}
+            {contextMenu.hasCode && (
+              <div className="border-b border-gray-100">
+                <button
+                  className="w-full text-left px-3 py-2 hover:bg-green-50 text-sm text-green-700 flex items-center gap-2 font-medium"
+                  onClick={() => {
+                    convertCodeToTime(contextMenu.empId, contextMenu.dayIndex, contextMenu.contextKey, contextMenu.weekRangeValue);
+                    closeContextMenu();
+                  }}
+                >
+                  <Calendar size={14} /> Converti in Orario
+                </button>
+              </div>
+            )}
+
+            {timeCodesOrder.map((code) => {
+              const label = timeCodes[code];
+              if (!label) return null; // Skip se il codice non esiste più
+
+              return (
+                <button
+                  key={code}
+                  className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm flex items-center justify-between group"
+                  onClick={() => {
+                    handleQuickCode(contextMenu.empId, contextMenu.dayIndex, label, contextMenu.contextKey, contextMenu.weekRangeValue);
+                    closeContextMenu();
+                  }}
+                >
+                  <span className="font-medium text-gray-700">{label}</span>
+                  <span className="text-xs bg-gray-100 text-gray-500 px-1.5 rounded group-hover:bg-blue-100 group-hover:text-blue-600">{code}</span>
+                </button>
+              );
+            })}
+            <div className="border-t border-gray-100 mt-1 pt-1">
+              <button
+                className="w-full text-left px-3 py-2 hover:bg-red-50 text-sm text-red-600 flex items-center gap-2"
+                onClick={() => {
+                  handleQuickCode(contextMenu.empId, contextMenu.dayIndex, '', contextMenu.contextKey, contextMenu.weekRangeValue);
+                  closeContextMenu();
+                }}
+              >
+                <Trash2 size={14} /> Pulisci Cella
+              </button>
+            </div>
+          </div>
+        )}
+
+      {/* MODAL GIORNI ASSENZA */}
+      {absenceDaysModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[200]">
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">
+              Inserisci {absenceDaysModal.code}
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Quanti giorni consecutivi vuoi applicare questo codice a partire da oggi?
+            </p>
+            <div className="flex items-center gap-4 mb-6">
+              <label className="text-sm font-medium text-gray-700">Giorni:</label>
+              <input
+                type="number"
+                min="1"
+                max="7"
+                value={absenceDaysModal.days}
+                onChange={(e) => setAbsenceDaysModal(prev => ({ ...prev, days: parseInt(e.target.value) || 1 }))}
+                className="border-2 border-blue-300 rounded px-4 py-2 text-lg font-bold text-center w-20 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setAbsenceDaysModal(prev => ({ ...prev, isOpen: false }))}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 font-medium"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => {
+                  applyAbsenceCode(
+                    absenceDaysModal.empId,
+                    absenceDaysModal.dayIndex,
+                    absenceDaysModal.code,
+                    absenceDaysModal.codeKey,
+                    absenceDaysModal.days,
+                    absenceDaysModal.contextKey,
+                    absenceDaysModal.weekRangeValue
+                  );
+                  setAbsenceDaysModal(prev => ({ ...prev, isOpen: false }));
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+              >
+                Applica
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div >
+  );
+};
+
+
+export default TimesheetManager;
 
