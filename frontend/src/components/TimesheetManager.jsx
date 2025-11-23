@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Trash2, Plus, Download, Calculator, Calendar, Settings, X, UserPlus, Building2, FileSpreadsheet, AlertTriangle } from 'lucide-react';
+import { Save, Trash2, Plus, Download, Calculator, Calendar, Settings, X, UserPlus, Building2, FileSpreadsheet, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const TimesheetManager = ({ currentUser, getAuthHeader }) => {
   // --- STATI GENERALI ---
   const [showSettings, setShowSettings] = useState(false);
+  const [showTimeCodesSettings, setShowTimeCodesSettings] = useState(false); // Default chiuso come richiesto
   // weekRange non è più usato direttamente, ma mantenuto per compatibilità
   const [weekRange, setWeekRange] = useState(() => {
     const today = new Date();
@@ -2707,8 +2708,102 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
               </button>
             </div>
 
+            {/* GESTIONE CODICI ORARI (Spostato sopra e reso collassabile) */}
+            <div className="mb-6 bg-white p-4 rounded shadow-sm border border-purple-200 transition-all">
+              <div
+                className="flex justify-between items-center cursor-pointer"
+                onClick={() => setShowTimeCodesSettings(!showTimeCodesSettings)}
+              >
+                <h3 className="font-bold text-slate-600 flex items-center gap-2 select-none">
+                  <span className="bg-purple-100 text-purple-600 p-1 rounded"><Settings size={16} /></span>
+                  Gestione Codici Orari (Shortcut)
+                </h3>
+                <button className="text-slate-400 hover:text-purple-600 transition-colors">
+                  {showTimeCodesSettings ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                </button>
+              </div>
+
+              {showTimeCodesSettings && (
+                <div className="mt-4 animate-in slide-in-from-top-2 fade-in duration-200">
+                  <p className="text-xs text-gray-500 mb-4">
+                    Definisci i codici rapidi da usare negli orari. Esempio: scrivi "M" nel campo orario per inserire "Malattia".
+                  </p>
+
+                  <div className="flex gap-2 mb-4 items-end">
+                    <div className="w-24">
+                      <label className="block text-xs font-bold text-gray-500 mb-1">Codice</label>
+                      <input
+                        type="text"
+                        placeholder="Es. M"
+                        maxLength={2}
+                        value={newCodeKey}
+                        onChange={(e) => setNewCodeKey(e.target.value.toUpperCase())}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm uppercase text-center font-bold"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-gray-500 mb-1">Descrizione Estesa</label>
+                      <input
+                        type="text"
+                        placeholder="Es. Malattia"
+                        value={newCodeLabel}
+                        onChange={(e) => setNewCodeLabel(e.target.value)}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={addTimeCode}
+                      className="bg-purple-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-purple-700 h-[38px]"
+                    >
+                      <Plus size={16} /> Aggiungi
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {timeCodesOrder.map((key, index) => {
+                      const label = timeCodes[key];
+                      if (!label) return null; // Skip se il codice non esiste più
+
+                      return (
+                        <div
+                          key={key}
+                          draggable
+                          onDragStart={() => setDraggedCodeIndex(index)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => {
+                            if (draggedCodeIndex !== null && draggedCodeIndex !== index) {
+                              reorderTimeCodes(draggedCodeIndex, index);
+                            }
+                            setDraggedCodeIndex(null);
+                          }}
+                          onDragEnd={() => setDraggedCodeIndex(null)}
+                          className={`flex justify-between items-center bg-purple-50 p-2 rounded border border-purple-100 cursor-move hover:bg-purple-100 transition-all ${draggedCodeIndex === index ? 'opacity-50 scale-95' : ''
+                            }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-400 cursor-grab active:cursor-grabbing" title="Trascina per riordinare">⋮⋮</span>
+                            <span className="bg-purple-200 text-purple-800 font-bold px-2 py-0.5 rounded text-xs w-8 text-center">
+                              {key}
+                            </span>
+                            <span className="text-sm font-medium text-gray-700">{label}</span>
+                          </div>
+                          <button
+                            onClick={() => deleteTimeCode(key)}
+                            className="text-red-400 hover:text-red-600 p-1"
+                            title="Elimina codice"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* SELETTORE AZIENDA PER CONFIGURAZIONE */}
-            <div className="mb-6 bg-white p-4 rounded shadow-sm border border-blue-100">
+            <div className="mb-8 bg-white p-4 rounded shadow-sm border border-blue-100">
               <label className="block text-sm font-bold text-slate-700 mb-2">
                 Azienda da Configurare
               </label>
@@ -2727,87 +2822,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-            </div>
-
-            {/* GESTIONE CODICI ORARI */}
-            <div className="mb-8 bg-white p-4 rounded shadow-sm border border-purple-200">
-              <h3 className="font-bold text-slate-600 mb-3 border-b pb-2 flex items-center gap-2">
-                <span className="bg-purple-100 text-purple-600 p-1 rounded"><Settings size={16} /></span>
-                Gestione Codici Orari (Shortcut)
-              </h3>
-              <p className="text-xs text-gray-500 mb-4">
-                Definisci i codici rapidi da usare negli orari. Esempio: scrivi "M" nel campo orario per inserire "Malattia".
-              </p>
-
-              <div className="flex gap-2 mb-4 items-end">
-                <div className="w-24">
-                  <label className="block text-xs font-bold text-gray-500 mb-1">Codice</label>
-                  <input
-                    type="text"
-                    placeholder="Es. M"
-                    maxLength={2}
-                    value={newCodeKey}
-                    onChange={(e) => setNewCodeKey(e.target.value.toUpperCase())}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm uppercase text-center font-bold"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-xs font-bold text-gray-500 mb-1">Descrizione Estesa</label>
-                  <input
-                    type="text"
-                    placeholder="Es. Malattia"
-                    value={newCodeLabel}
-                    onChange={(e) => setNewCodeLabel(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                  />
-                </div>
-                <button
-                  onClick={addTimeCode}
-                  className="bg-purple-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-purple-700 h-[38px]"
-                >
-                  <Plus size={16} /> Aggiungi
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {timeCodesOrder.map((key, index) => {
-                  const label = timeCodes[key];
-                  if (!label) return null; // Skip se il codice non esiste più
-
-                  return (
-                    <div
-                      key={key}
-                      draggable
-                      onDragStart={() => setDraggedCodeIndex(index)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => {
-                        if (draggedCodeIndex !== null && draggedCodeIndex !== index) {
-                          reorderTimeCodes(draggedCodeIndex, index);
-                        }
-                        setDraggedCodeIndex(null);
-                      }}
-                      onDragEnd={() => setDraggedCodeIndex(null)}
-                      className={`flex justify-between items-center bg-purple-50 p-2 rounded border border-purple-100 cursor-move hover:bg-purple-100 transition-all ${draggedCodeIndex === index ? 'opacity-50 scale-95' : ''
-                        }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-400 cursor-grab active:cursor-grabbing" title="Trascina per riordinare">⋮⋮</span>
-                        <span className="bg-purple-200 text-purple-800 font-bold px-2 py-0.5 rounded text-xs w-8 text-center">
-                          {key}
-                        </span>
-                        <span className="text-sm font-medium text-gray-700">{label}</span>
-                      </div>
-                      <button
-                        onClick={() => deleteTimeCode(key)}
-                        className="text-red-400 hover:text-red-600 p-1"
-                        title="Elimina codice"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
