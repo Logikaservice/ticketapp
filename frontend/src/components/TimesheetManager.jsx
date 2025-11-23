@@ -2879,9 +2879,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
             {/* DIPENDENTI (Full Width) */}
             <div className="bg-white p-4 rounded shadow-sm border border-blue-100">
               <h3 className="font-bold text-slate-600 mb-3 border-b pb-2">
-                Dipendenti - {selectedCompany} / {selectedDept || 'Nessun reparto selezionato'}
+                Dipendenti
               </h3>
-              <div className="flex gap-2 mb-4">
+              <div className="flex gap-2 mb-2">
                 <input
                   type="text"
                   placeholder="Nome dipendente"
@@ -2896,6 +2896,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader }) => {
                   <UserPlus size={16} /> Aggiungi
                 </button>
               </div>
+              <p className="text-xs text-gray-500 italic mb-4">
+                💡 Per una corretta identificazione è consigliato creare i dipendenti con <strong>nome.cognome</strong> per evitare omonimie.
+              </p>
               <div className="max-h-60 overflow-y-auto">
                 {currentEmployees.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
