@@ -3827,18 +3827,20 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                         <p className="mb-1">
                           {transferList.length === 1 ? (
                             <>
-                              Il dipendente <strong>{transferList[0].employeeName}</strong> ha una trasferta da <strong>{transferList[0].sourceCompany}</strong> presso questo punto vendita.
+                              Il dipendente <strong>{transferList[0].employeeName}</strong> ha una trasferta da <strong>{transferList[0].sourceCompany}</strong>
                               {transferList[0].days.length > 0 && (
-                                <span className="block mt-1 text-yellow-800 font-semibold">
+                                <>
+                                  {' '}il giorno{' '}
                                   {transferList[0].days.length === 1 ? (
-                                    <>Giorno: <strong>{transferList[0].days[0].dayName} {transferList[0].days[0].date}</strong></>
+                                    <strong>{transferList[0].days[0].dayName} {transferList[0].days[0].date}</strong>
                                   ) : (
-                                    <>Giorni: {transferList[0].days.map((d, idx) => (
+                                    transferList[0].days.map((d, idx) => (
                                       <span key={idx}><strong>{d.dayName} {d.date}</strong>{idx < transferList[0].days.length - 1 ? ', ' : ''}</span>
-                                    ))}</>
+                                    ))
                                   )}
-                                </span>
+                                </>
                               )}
+                              {' '}presso questo punto vendita.
                             </>
                           ) : (
                             <>
