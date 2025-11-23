@@ -2383,7 +2383,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         if (dayData && dayData.geographicCode && geographicCodes.includes(dayData.geographicCode)) {
           const dayDate = weekDates[dayIndex];
           const dayName = dayNames[dayIndex] || '';
-          const formattedDate = dayDate ? dayDate.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+          
+          // Formatta la data in formato DD/MM/YYYY
+          let formattedDate = '';
+          if (dayDate && !isNaN(dayDate.getTime())) {
+            const day = String(dayDate.getDate()).padStart(2, '0');
+            const month = String(dayDate.getMonth() + 1).padStart(2, '0');
+            const year = dayDate.getFullYear();
+            formattedDate = `${day}/${month}/${year}`;
+          }
           
           transfers.push({
             employeeName: employee.name,
@@ -2405,10 +2413,24 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   // Funzione helper per ottenere le date della settimana da un range
   const getWeekDatesFromRange = (weekRange) => {
     if (!weekRange) return [];
-    const parts = weekRange.split(' - ');
+    
+    // Gestisci entrambi i formati: "DD/MM/YYYY - DD/MM/YYYY" o "DD/MM/YYYY al DD/MM/YYYY"
+    let parts = weekRange.split(' - ');
+    if (parts.length !== 2) {
+      parts = weekRange.split(' al ');
+    }
     if (parts.length !== 2) return [];
     
-    const startDate = new Date(parts[0].split('/').reverse().join('-'));
+    // Parsing della data: DD/MM/YYYY -> YYYY-MM-DD
+    const dateStr = parts[0].trim();
+    const dateParts = dateStr.split('/');
+    if (dateParts.length !== 3) return [];
+    
+    const day = parseInt(dateParts[0], 10);
+    const month = parseInt(dateParts[1], 10) - 1; // I mesi in JavaScript sono 0-based
+    const year = parseInt(dateParts[2], 10);
+    
+    const startDate = new Date(year, month, day);
     if (isNaN(startDate.getTime())) return [];
     
     const dates = [];
@@ -3041,7 +3063,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       return (
                         <td
                           key={dayIdx}
-                          className={`p-1 border relative ${isRest || shouldBeGray ? 'bg-gray-200' : ''} ${shouldBeYellow || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''} ${isGeographicTargetDay ? 'bg-blue-100 ring-2 ring-blue-400' : ''} ${hasTransfer ? 'bg-yellow-200 ring-2 ring-yellow-500 ring-opacity-75' : ''}`}
+                          className={`p-1 border relative ${isRest || shouldBeGray ? 'bg-gray-200' : ''} ${shouldBeYellow || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''} ${isGeographicTargetDay ? 'bg-blue-100 ring-2 ring-blue-400' : ''} ${hasTransfer ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''}`}
                           onContextMenu={(e) => {
                             // Permetti il menu contestuale se c'è un codice (anche da altre aziende) o se ci sono orari
                             if ((cellData.code || cellData.in1 || cellData.out1 || cellData.in2 || cellData.out2) && !showGeographicInputs) {
