@@ -44,7 +44,7 @@ const ensureAccessLogsTable = async () => {
         user_agent TEXT
       )
     `);
-    
+
     // Crea gli indici base
     try {
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_access_logs_user_id ON access_logs(user_id)`);
@@ -53,7 +53,7 @@ const ensureAccessLogsTable = async () => {
     } catch (idxErr) {
       console.log("⚠️ Errore creazione indici (potrebbero già esistere):", idxErr.message);
     }
-    
+
     // Aggiungi colonna last_activity_at se non esiste (IMPORTANTE: deve essere fatto sempre)
     try {
       // Verifica prima se la colonna esiste
@@ -63,7 +63,7 @@ const ensureAccessLogsTable = async () => {
         WHERE table_name = 'access_logs' 
           AND column_name = 'last_activity_at'
       `);
-      
+
       if (checkColumn.rows.length === 0) {
         // La colonna non esiste, aggiungila
         await pool.query(`
@@ -71,7 +71,7 @@ const ensureAccessLogsTable = async () => {
           ADD COLUMN last_activity_at TIMESTAMPTZ DEFAULT NOW()
         `);
         console.log("✅ Colonna last_activity_at aggiunta a access_logs");
-        
+
         // Crea l'indice per last_activity_at
         try {
           await pool.query(`CREATE INDEX IF NOT EXISTS idx_access_logs_last_activity ON access_logs(last_activity_at)`);
@@ -86,7 +86,7 @@ const ensureAccessLogsTable = async () => {
       console.error("❌ Stack:", alterErr.stack);
       // Non bloccare l'avvio, ma logga l'errore
     }
-    
+
     console.log('✅ Tabella access_logs pronta');
   } catch (err) {
     console.error('❌ Errore creazione tabella access_logs:', err);
@@ -145,10 +145,24 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
 
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
+
+    // Allow any subdomain of logikaservice.it
+    if (origin.endsWith('.logikaservice.it') || origin === 'https://logikaservice.it') {
+      return callback(null, true);
+    }
+
+    // Allow localhost for development
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+
     if (allowedOrigins.length === 0) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'));
+
+    console.error(`❌ CORS blocked origin: ${origin}`);
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
   }
 }));
 app.use(express.json());
@@ -169,28 +183,28 @@ const { JWT_SECRET } = require('./utils/jwtUtils');
 io.use(async (socket, next) => {
   try {
     // Prova a ottenere il token da più fonti
-    const token = socket.handshake.auth?.token || 
-                  socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
-                  socket.handshake.headers?.Authorization?.replace('Bearer ', '');
-    
+    const token = socket.handshake.auth?.token ||
+      socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
+      socket.handshake.headers?.Authorization?.replace('Bearer ', '');
+
     console.log('🔍 WebSocket auth - Token presente:', !!token);
     console.log('🔍 WebSocket auth - handshake.auth:', socket.handshake.auth);
     console.log('🔍 WebSocket auth - handshake.headers:', Object.keys(socket.handshake.headers || {}));
-    
+
     if (!token) {
       console.error('❌ WebSocket: Token mancante nell\'handshake');
       return next(new Error('Token mancante'));
     }
-    
+
     // Verifica JWT token usando lo stesso JWT_SECRET di jwtUtils
     const jwt = require('jsonwebtoken');
-    
+
     console.log('🔍 WebSocket auth - Verifica token con JWT_SECRET (lunghezza:', JWT_SECRET ? JWT_SECRET.length : 'N/A', ')');
-    
+
     const decoded = jwt.verify(token, JWT_SECRET);
-    
+
     console.log('✅ WebSocket auth - Token valido per utente:', decoded.id || decoded.userId, 'ruolo:', decoded.ruolo);
-    
+
     socket.userId = decoded.id || decoded.userId;
     socket.userRole = decoded.ruolo;
     next();
@@ -209,15 +223,15 @@ io.use(async (socket, next) => {
 // Gestione connessioni WebSocket
 io.on('connection', (socket) => {
   console.log(`✅ WebSocket connesso: ${socket.userId} (${socket.userRole})`);
-  
+
   // Unisciti alle room per ricevere notifiche
   socket.join(`user:${socket.userId}`);
   socket.join(`role:${socket.userRole}`);
-  
+
   socket.on('disconnect', () => {
     console.log(`❌ WebSocket disconnesso: ${socket.userId}`);
   });
-  
+
   // Ping/Pong per mantenere la connessione attiva
   socket.on('ping', () => {
     socket.emit('pong');
@@ -263,7 +277,7 @@ const storageTicketPhotos = multer.diskStorage({
     try {
       const uploadPath = path.join(__dirname, 'uploads', 'tickets', 'photos');
       console.log('🔍 DEBUG MULTER: Tentativo creazione directory:', uploadPath);
-      
+
       if (!fs.existsSync(uploadPath)) {
         console.log('🔍 DEBUG MULTER: Directory non esiste, creazione...');
         fs.mkdirSync(uploadPath, { recursive: true });
@@ -271,7 +285,7 @@ const storageTicketPhotos = multer.diskStorage({
       } else {
         console.log('✅ DEBUG MULTER: Directory già esistente');
       }
-      
+
       // Verifica che la directory sia scrivibile
       try {
         fs.accessSync(uploadPath, fs.constants.W_OK);
@@ -280,7 +294,7 @@ const storageTicketPhotos = multer.diskStorage({
         console.error('❌ DEBUG MULTER: Directory non scrivibile:', accessErr.message);
         return cb(new Error('Directory upload non scrivibile: ' + accessErr.message));
       }
-      
+
       cb(null, uploadPath);
     } catch (err) {
       console.error('❌ DEBUG MULTER: Errore creazione directory:', err.message);
@@ -344,9 +358,9 @@ app.get('/api/keepalive', async (req, res) => {
     const client = await pool.connect();
     await client.query('SELECT 1');
     client.release();
-    res.json({ 
-      status: 'Database attivo', 
-      timestamp: new Date().toISOString() 
+    res.json({
+      status: 'Database attivo',
+      timestamp: new Date().toISOString()
     });
   } catch (err) {
     console.error('Errore keepalive:', err);
@@ -365,30 +379,30 @@ app.post('/api/login', async (req, res) => {
   // Supporta anche parametro ?domain=orari per test locali
   const host = req.get('host') || '';
   const testDomain = req.query.domain;
-  const isOrariDomain = testDomain === 'orari' || testDomain === 'turni' || 
-                        host.includes('orari') || host.includes('turni');
+  const isOrariDomain = testDomain === 'orari' || testDomain === 'turni' ||
+    host.includes('orari') || host.includes('turni');
   const requestedProject = isOrariDomain ? 'orari' : 'ticket';
-  
+
   console.log('🔍 LOGIN DEBUG - Senza JWT');
   console.log('Email:', email);
   console.log('Password length:', password ? password.length : 0);
   console.log('Host:', host, '| Progetto richiesto:', requestedProject);
-  
+
   try {
     const client = await pool.connect();
-    
+
     // Prima cerca l'utente per email, includendo admin_companies, inactivity_timeout_minutes e enabled_projects
     const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes, COALESCE(enabled_projects, \'["ticket"]\'::jsonb) as enabled_projects FROM users WHERE email = $1', [email]);
     console.log('Utenti trovati:', result.rows.length);
-    
+
     if (result.rows.length === 0) {
       client.release();
       console.log('❌ Utente non trovato');
       return res.status(401).json({ error: 'Credenziali non valide' });
     }
-    
+
     const user = result.rows[0];
-    
+
     // Verifica permessi progetto
     let enabledProjects = [];
     try {
@@ -410,24 +424,24 @@ app.post('/api/login', async (req, res) => {
       console.error('Errore parsing enabled_projects:', e);
       enabledProjects = ['ticket'];
     }
-    
+
     // Se l'utente non ha accesso al progetto richiesto, nega l'accesso
     if (!enabledProjects.includes(requestedProject)) {
       client.release();
       console.log(`❌ Utente ${email} non ha accesso al progetto ${requestedProject}`);
-      return res.status(403).json({ 
-        error: `Accesso negato. Non hai i permessi per accedere a ${requestedProject === 'orari' ? 'Orari e Turni' : 'Ticket'}. Contatta l'amministratore.` 
+      return res.status(403).json({
+        error: `Accesso negato. Non hai i permessi per accedere a ${requestedProject === 'orari' ? 'Orari e Turni' : 'Ticket'}. Contatta l'amministratore.`
       });
     }
-    
+
     console.log(`✅ Utente ${email} ha accesso ai progetti:`, enabledProjects);
     const storedPassword = user.password;
     console.log('Password stored length:', storedPassword ? storedPassword.length : 0);
     console.log('Password is hashed:', storedPassword && storedPassword.startsWith('$2b$'));
-    
+
     // Verifica se la password è già hashata
     let isValidPassword = false;
-    
+
     if (storedPassword && storedPassword.startsWith('$2b$')) {
       // Password già hashata - verifica con bcrypt
       console.log('🔐 Verifica password hashata');
@@ -436,20 +450,20 @@ app.post('/api/login', async (req, res) => {
       // Password in chiaro (sistema attuale)
       console.log('🔓 Verifica password in chiaro');
       isValidPassword = password === storedPassword;
-      
+
       // Non migrare più le password - mantenere sempre in chiaro
       console.log('🔓 Password mantenuta in chiaro per visualizzazione');
     }
-    
+
     client.release();
-    
+
     if (isValidPassword) {
       // Non eliminare la password per permettere la visualizzazione nelle impostazioni
       console.log(`✅ Login riuscito per: ${email}`);
-      
+
       // Registra access log
       const sessionId = await recordAccessLog(user, req);
-      
+
       // Ripristina JWT token e refresh token
       try {
         console.log('🔐 Generazione JWT per utente:', user.email);
@@ -457,7 +471,7 @@ app.post('/api/login', async (req, res) => {
         console.log('✅ JWT generato con successo');
         console.log('Token length:', loginResponse.token ? loginResponse.token.length : 'N/A');
         console.log('Refresh token length:', loginResponse.refreshToken ? loginResponse.refreshToken.length : 'N/A');
-        
+
         // Aggiungi sessionId alla risposta
         loginResponse.sessionId = sessionId;
         res.json(loginResponse);
@@ -483,7 +497,7 @@ app.post('/api/login', async (req, res) => {
         } catch (e) {
           adminCompanies = [];
         }
-        
+
         res.json({
           success: true,
           user: {
@@ -509,7 +523,7 @@ app.post('/api/login', async (req, res) => {
   } catch (err) {
     console.error('❌ Errore durante il login:', err);
     console.error('❌ Stack trace:', err.stack);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Errore interno del server',
       details: err.message,
       stack: err.stack
@@ -520,15 +534,15 @@ app.post('/api/login', async (req, res) => {
 // ENDPOINT: Refresh token
 app.post('/api/refresh-token', async (req, res) => {
   const { refreshToken } = req.body;
-  
+
   if (!refreshToken) {
     return res.status(400).json({ error: 'Refresh token richiesto' });
   }
-  
+
   try {
     // Verifica il refresh token
     const decoded = verifyRefreshToken(refreshToken);
-    
+
     // Genera un nuovo access token
     const newToken = generateToken({
       id: decoded.id,
@@ -537,16 +551,16 @@ app.post('/api/refresh-token', async (req, res) => {
       nome: decoded.nome,
       cognome: decoded.cognome
     });
-    
+
     console.log(`🔄 Token rinnovato per: ${decoded.email}`);
     res.json({
       success: true,
       token: newToken
     });
-    
+
   } catch (error) {
     console.log(`❌ Errore refresh token: ${error.message}`);
-    res.status(401).json({ 
+    res.status(401).json({
       error: error.message,
       code: 'INVALID_REFRESH_TOKEN'
     });
@@ -556,11 +570,11 @@ app.post('/api/refresh-token', async (req, res) => {
 // ENDPOINT: Logout
 app.post('/api/logout', async (req, res) => {
   const { sessionId } = req.body;
-  
+
   if (!sessionId) {
     return res.json({ success: true });
   }
-  
+
   try {
     const logoutIp = extractClientIp(req);
     await pool.query(
@@ -573,7 +587,7 @@ app.post('/api/logout', async (req, res) => {
   } catch (err) {
     console.error('❌ Errore registrazione logout:', err);
   }
-  
+
   res.json({ success: true });
 });
 
@@ -621,15 +635,15 @@ app.get('/api/health', async (req, res) => {
     const client = await pool.connect();
     await client.query('SELECT 1');
     client.release();
-    res.json({ 
-      status: 'OK', 
+    res.json({
+      status: 'OK',
       timestamp: new Date().toISOString(),
       database: 'connected'
     });
   } catch (err) {
     console.error('Health check failed:', err);
-    res.status(500).json({ 
-      status: 'ERROR', 
+    res.status(500).json({
+      status: 'ERROR',
       timestamp: new Date().toISOString(),
       database: 'disconnected',
       error: err.message
@@ -645,10 +659,10 @@ app.get('/api/availability/public', async (req, res) => {
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Database timeout')), 8000);
     });
-    
+
     const dbPromise = (async () => {
       client = await pool.connect();
-      
+
       // Crea la tabella se non esiste
       await client.query(`
         CREATE TABLE IF NOT EXISTS unavailable_days (
@@ -659,22 +673,22 @@ app.get('/api/availability/public', async (req, res) => {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      
+
       const result = await client.query(`
         SELECT date, reason, created_at, updated_at 
         FROM unavailable_days 
         ORDER BY date ASC
       `);
-      
+
       return result.rows;
     })();
-    
+
     const result = await Promise.race([dbPromise, timeoutPromise]);
-    
+
     if (client) {
       client.release();
     }
-    
+
     res.json(result);
   } catch (err) {
     if (client) {
@@ -714,22 +728,22 @@ app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), a
   const telefono = req.body.telefono;
   const azienda = req.body.azienda;
   const photos = req.files || [];
-  
+
   if (!titolo || !descrizione || !email || !nomerichiedente) {
     return res.status(400).json({ error: 'Titolo, descrizione, email e nome sono obbligatori' });
   }
-  
+
   try {
     const client = await pool.connect();
-    
+
     let clienteid = null;
-    
+
     // Controlla se esiste già un cliente con questa email esatta
     const existingByEmail = await client.query(
       'SELECT id FROM users WHERE email = $1 AND ruolo = \'cliente\' LIMIT 1',
       [email]
     );
-    
+
     if (existingByEmail.rows.length > 0) {
       // Email esistente: usa il cliente esistente
       clienteid = existingByEmail.rows[0].id;
@@ -741,23 +755,23 @@ app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), a
         RETURNING id;
       `;
       const newClientValues = [
-        email, 
+        email,
         'quick_request_' + Date.now(),
-        telefono || null, 
-        azienda || null, 
-        'cliente', 
+        telefono || null,
+        azienda || null,
+        'cliente',
         nomerichiedente.split(' ')[0] || nomerichiedente,
         nomerichiedente.split(' ').slice(1).join(' ') || ''
       ];
       const newClientResult = await client.query(newClientQuery, newClientValues);
       clienteid = newClientResult.rows[0].id;
     }
-    
+
     // Genera numero ticket
     const countResult = await client.query('SELECT COUNT(*) FROM tickets');
     const count = parseInt(countResult.rows[0].count) + 1;
     const numero = `TKT-2025-${count.toString().padStart(3, '0')}`;
-    
+
     // Salva le foto se presenti
     // Nota: per quick-request non c'è req.user, quindi uploadedById sarà null
     let photosArray = [];
@@ -772,34 +786,34 @@ app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), a
         uploadedById: null // Quick request non ha autenticazione
       }));
     }
-    
+
     // Crea il ticket
     const query = `
       INSERT INTO tickets (numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria, dataapertura, last_read_by_client, last_read_by_tecnico, photos) 
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW() AT TIME ZONE 'Europe/Rome', NOW(), NOW(), $9) 
       RETURNING *;
     `;
-    
+
     const values = [numero, clienteid, titolo, descrizione, 'aperto', priorita, nomerichiedente, 'assistenza', photosArray.length > 0 ? JSON.stringify(photosArray) : null];
     const result = await client.query(query, values);
     client.release();
-    
+
     if (result.rows[0]) {
       const createdTicket = result.rows[0];
-      
+
       // Invia email direttamente senza passare attraverso HTTP
       // 1) Email al cliente che ha inviato la richiesta
       try {
         const nodemailer = require('nodemailer');
         const emailUser = process.env.EMAIL_USER;
         const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
-        
+
         if (emailUser && emailPass) {
           const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: { user: emailUser, pass: emailPass }
           });
-          
+
           const mailOptions = {
             from: emailUser,
             to: email,
@@ -834,7 +848,7 @@ app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), a
               </div>
             `
           };
-          
+
           await transporter.sendMail(mailOptions);
         }
       } catch (clientEmailErr) {
@@ -854,29 +868,29 @@ app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), a
              AND admin_companies ?| $1::text[]`,
             [[azienda]]
           );
-          
+
           if (adminsResult.rows.length > 0) {
             const nodemailer = require('nodemailer');
             const emailUser = process.env.EMAIL_USER;
             const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
-            
+
             if (emailUser && emailPass) {
               const transporter = nodemailer.createTransport({
                 service: 'gmail',
                 auth: { user: emailUser, pass: emailPass }
               });
-              
+
               for (const admin of adminsResult.rows) {
                 // Evita doppio invio se l'amministratore è lo stesso cliente che ha creato il ticket
                 if (admin.email === email) {
                   continue;
                 }
-                
+
                 // Verifica che l'amministratore abbia email valida
                 if (!admin.email || !admin.email.includes('@')) {
                   continue;
                 }
-                
+
                 try {
                   const mailOptions = {
                     from: emailUser,
@@ -913,7 +927,7 @@ app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), a
                       </div>
                     `
                   };
-                  
+
                   await transporter.sendMail(mailOptions);
                 } catch (adminEmailErr) {
                   console.error(`Errore invio email amministratore ${admin.email}:`, adminEmailErr);
@@ -932,13 +946,13 @@ app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), a
         const nodemailer = require('nodemailer');
         const emailUser = process.env.EMAIL_USER;
         const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
-        
+
         if (emailUser && emailPass) {
           const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: { user: emailUser, pass: emailPass }
           });
-          
+
           for (const technician of techniciansData.rows) {
             try {
               const mailOptions = {
@@ -975,7 +989,7 @@ app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), a
                   </div>
                 `
               };
-              
+
               await transporter.sendMail(mailOptions);
             } catch (techEmailErr) {
               console.error('Errore invio email tecnico:', techEmailErr);
@@ -1040,30 +1054,30 @@ app.use('/api/orari', authenticateToken, (req, res, next) => {
   if (req.user && (req.user.ruolo === 'tecnico' || req.user.ruolo === 'admin')) {
     return next();
   }
-  
+
   // Per clienti, verifica che abbiano il progetto "orari" abilitato nel token
   if (req.user && req.user.ruolo === 'cliente') {
     // Il token JWT dovrebbe contenere enabled_projects, ma se non c'è, verifica dal database
     let enabledProjects = req.user.enabled_projects || [];
-    
+
     // Se non è nel token, prova a leggerlo dal database (fallback)
     if (!enabledProjects || enabledProjects.length === 0) {
       // Non possiamo fare query async qui, quindi se non c'è nel token, nega l'accesso
       // L'utente dovrà rifare login per aggiornare il token
       console.log(`⚠️ enabled_projects non presente nel token per ${req.user.email}`);
     }
-    
-    if (Array.isArray(enabledProjects) && 
-        (enabledProjects.includes('orari') || enabledProjects.includes('turni'))) {
+
+    if (Array.isArray(enabledProjects) &&
+      (enabledProjects.includes('orari') || enabledProjects.includes('turni'))) {
       console.log(`✅ Cliente ${req.user.email} ha accesso a orari/turni`);
       return next();
     }
   }
-  
+
   // Accesso negato
   console.log(`❌ Accesso negato a /api/orari per ${req.user?.email} (${req.user?.ruolo})`);
-  return res.status(403).json({ 
-    error: 'Accesso negato. Non hai i permessi per accedere a Orari e Turni.' 
+  return res.status(403).json({
+    error: 'Accesso negato. Non hai i permessi per accedere a Orari e Turni.'
   });
 }, orariRoutes);
 // Endpoint debug pubblico (solo per diagnostica - rimuovere in produzione)
@@ -1091,7 +1105,7 @@ app.get('/api/orari/debug-public', async (req, res) => {
 const closeExpiredTickets = async () => {
   try {
     const client = await pool.connect();
-    
+
     // Trova tutti i ticket risolti da più di 5 giorni (usando data_risoluzione come riferimento)
     const query = `
       UPDATE tickets 
@@ -1101,25 +1115,25 @@ const closeExpiredTickets = async () => {
       AND data_risoluzione < NOW() - INTERVAL '5 days'
       RETURNING id, numero, titolo, data_risoluzione, clienteid;
     `;
-    
+
     const result = await client.query(query);
     client.release();
-    
+
     if (result.rows.length > 0) {
       console.log(`🔄 Chiusi automaticamente ${result.rows.length} ticket scaduti`);
-      
+
       // Log dei ticket chiusi e invia email di notifica
       for (const ticket of result.rows) {
         console.log(`✅ Ticket ${ticket.numero} chiuso automaticamente (risolto il: ${ticket.data_risoluzione})`);
-        
+
         // Invia email di notifica per ogni ticket chiuso
         try {
           // Recupera i dati del cliente
           const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [ticket.clienteid]);
-          
+
           if (clientData.rows.length > 0 && clientData.rows[0].email) {
             const client = clientData.rows[0];
-            
+
             // Invia notifica email
             const emailResponse = await fetch(`${process.env.API_URL || `http://localhost:${process.env.PORT || 5000}`}/api/email/notify-automatic-closure`, {
               method: 'POST',
@@ -1132,7 +1146,7 @@ const closeExpiredTickets = async () => {
                 clientName: `${client.nome} ${client.cognome}`
               })
             });
-            
+
             if (emailResponse.ok) {
               console.log(`✅ Email chiusura automatica inviata per ticket ${ticket.numero}`);
             } else {
@@ -1213,7 +1227,7 @@ app.post('/api/init-db', async (req, res) => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     // Aggiungi colonne mancanti se la tabella esiste già
     try {
       await pool.query(`ALTER TABLE alerts ADD COLUMN IF NOT EXISTS clients JSONB DEFAULT '[]'`);
@@ -1224,7 +1238,7 @@ app.post('/api/init-db', async (req, res) => {
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonne (potrebbero già esistere):", alterErr.message);
     }
-    
+
     // Aggiorna il constraint CHECK per includere 'features' se la tabella esiste già
     try {
       // Rimuovi il constraint esistente (se presente)
@@ -1235,7 +1249,7 @@ app.post('/api/init-db', async (req, res) => {
     } catch (constraintErr) {
       console.log("⚠️ Errore aggiornamento constraint (potrebbe non essere necessario):", constraintErr.message);
     }
-    
+
     // Aggiungi colonna googlecalendareventid alla tabella tickets se non esiste
     try {
       await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS googlecalendareventid TEXT`);
@@ -1243,7 +1257,7 @@ app.post('/api/init-db', async (req, res) => {
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna googlecalendareventid (potrebbe già esistere):", alterErr.message);
     }
-    
+
     // Aggiungi colonna photos alla tabella tickets se non esiste (JSONB per array di foto)
     try {
       await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'::jsonb`);
@@ -1251,7 +1265,7 @@ app.post('/api/init-db', async (req, res) => {
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna photos (potrebbe già esistere):", alterErr.message);
     }
-    
+
     // Aggiungi colonna data_risoluzione alla tabella tickets se non esiste
     try {
       await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS data_risoluzione TIMESTAMP`);
@@ -1259,7 +1273,7 @@ app.post('/api/init-db', async (req, res) => {
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna data_risoluzione (potrebbe già esistere):", alterErr.message);
     }
-    
+
     // Aggiungi colonna admin_companies alla tabella users se non esiste
     try {
       await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_companies JSONB DEFAULT '[]'::jsonb`);
@@ -1267,7 +1281,7 @@ app.post('/api/init-db', async (req, res) => {
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna admin_companies (potrebbe già esistere):", alterErr.message);
     }
-    
+
     // Aggiungi colonna inactivity_timeout_minutes alla tabella users se non esiste
     try {
       await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inactivity_timeout_minutes INTEGER DEFAULT 3`);
@@ -1275,7 +1289,7 @@ app.post('/api/init-db', async (req, res) => {
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna inactivity_timeout_minutes (potrebbe già esistere):", alterErr.message);
     }
-    
+
     // Aggiungi colonna enabled_projects alla tabella users se non esiste (JSONB array di progetti abilitati)
     try {
       await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS enabled_projects JSONB DEFAULT '["ticket"]'::jsonb`);
@@ -1283,7 +1297,7 @@ app.post('/api/init-db', async (req, res) => {
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna enabled_projects (potrebbe già esistere):", alterErr.message);
     }
-    
+
     // Crea tabella unavailable_days se non esiste
     try {
       await pool.query(`
@@ -1299,7 +1313,7 @@ app.post('/api/init-db', async (req, res) => {
     } catch (unavailableErr) {
       console.log("⚠️ Errore creazione tabella unavailable_days:", unavailableErr.message);
     }
-    
+
     // Crea tabella keepass_groups se non esiste
     try {
       await pool.query(`
@@ -1314,7 +1328,7 @@ app.post('/api/init-db', async (req, res) => {
         )
       `);
       console.log("✅ Tabella keepass_groups creata/verificata");
-      
+
       // Aggiungi colonna client_id se non esiste (per tabelle create prima dell'aggiornamento)
       try {
         await pool.query(`
@@ -1325,7 +1339,7 @@ app.post('/api/init-db', async (req, res) => {
       } catch (alterErr) {
         console.log("⚠️ Errore aggiunta colonna client_id (potrebbe già esistere):", alterErr.message);
       }
-      
+
       // Aggiungi colonna uuid se non esiste (per tabelle create prima dell'aggiornamento)
       try {
         await pool.query(`
@@ -1336,7 +1350,7 @@ app.post('/api/init-db', async (req, res) => {
       } catch (alterErr) {
         console.log("⚠️ Errore aggiunta colonna uuid (potrebbe già esistere):", alterErr.message);
       }
-      
+
       // Aggiungi colonna notes se non esiste (per tabelle create prima dell'aggiornamento)
       try {
         await pool.query(`
@@ -1350,7 +1364,7 @@ app.post('/api/init-db', async (req, res) => {
     } catch (keepassGroupsErr) {
       console.log("⚠️ Errore creazione tabella keepass_groups:", keepassGroupsErr.message);
     }
-    
+
     // Crea tabella keepass_entries se non esiste
     try {
       await pool.query(`
@@ -1377,7 +1391,7 @@ app.post('/api/init-db', async (req, res) => {
     } catch (keepassEntriesErr) {
       console.log("⚠️ Errore creazione tabella keepass_entries:", keepassEntriesErr.message);
     }
-    
+
     console.log("✅ Tabella alerts creata/verificata");
     res.json({ message: 'Database inizializzato con successo' });
   } catch (err) {
@@ -1390,25 +1404,25 @@ app.post('/api/init-db', async (req, res) => {
 app.get('/api/check-schema', async (req, res) => {
   try {
     const client = await pool.connect();
-    
+
     // Verifica se la colonna googlecalendareventid esiste
     const result = await client.query(`
       SELECT column_name, data_type 
       FROM information_schema.columns 
       WHERE table_name = 'tickets' AND column_name = 'googlecalendareventid'
     `);
-    
+
     client.release();
-    
+
     if (result.rows.length > 0) {
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: 'Colonna googlecalendareventid esiste',
         column: result.rows[0]
       });
     } else {
-      res.json({ 
-        success: false, 
+      res.json({
+        success: false,
         message: 'Colonna googlecalendareventid NON esiste',
         suggestion: 'Chiama /api/init-db per aggiungere la colonna'
       });
@@ -1424,7 +1438,7 @@ const startServer = async () => {
   try {
     await pool.connect();
     console.log("✅ Connessione al database riuscita!");
-    
+
     // Inizializza automaticamente il database
     try {
       await pool.query(`
@@ -1443,7 +1457,7 @@ const startServer = async () => {
         )
       `);
       console.log("✅ Tabella alerts inizializzata automaticamente");
-      
+
       // Aggiorna il constraint CHECK per includere 'features' se la tabella esiste già
       try {
         // Rimuovi il constraint esistente (se presente)
@@ -1457,7 +1471,7 @@ const startServer = async () => {
     } catch (initErr) {
       console.log("⚠️ Tabella alerts già esistente o errore:", initErr.message);
     }
-    
+
     // Aggiungi colonna googlecalendareventid alla tabella tickets se non esiste
     try {
       await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS googlecalendareventid TEXT`);
@@ -1465,7 +1479,7 @@ const startServer = async () => {
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna googlecalendareventid (auto-init):", alterErr.message);
     }
-    
+
     // Aggiungi colonna photos alla tabella tickets se non esiste (JSONB per array di foto)
     try {
       await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS photos JSONB DEFAULT '[]'::jsonb`);
@@ -1473,7 +1487,7 @@ const startServer = async () => {
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna photos (auto-init):", alterErr.message);
     }
-    
+
     // Aggiungi colonna data_risoluzione alla tabella tickets se non esiste
     try {
       await pool.query(`ALTER TABLE tickets ADD COLUMN IF NOT EXISTS data_risoluzione TIMESTAMP`);
@@ -1481,7 +1495,7 @@ const startServer = async () => {
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna data_risoluzione (auto-init):", alterErr.message);
     }
-    
+
     // Aggiungi colonna admin_companies alla tabella users se non esiste (auto-init)
     try {
       await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_companies JSONB DEFAULT '[]'::jsonb`);
@@ -1489,7 +1503,7 @@ const startServer = async () => {
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna admin_companies (auto-init):", alterErr.message);
     }
-    
+
     // Aggiungi colonna inactivity_timeout_minutes alla tabella users se non esiste (auto-init)
     try {
       await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS inactivity_timeout_minutes INTEGER DEFAULT 3`);
@@ -1497,7 +1511,7 @@ const startServer = async () => {
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna inactivity_timeout_minutes (auto-init):", alterErr.message);
     }
-    
+
     // Aggiungi colonna enabled_projects alla tabella users se non esiste (auto-init)
     try {
       await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS enabled_projects JSONB DEFAULT '["ticket"]'::jsonb`);
@@ -1505,7 +1519,7 @@ const startServer = async () => {
     } catch (alterErr) {
       console.log("⚠️ Errore aggiunta colonna enabled_projects (auto-init):", alterErr.message);
     }
-    
+
     // Crea tabella unavailable_days se non esiste (auto-init)
     try {
       await pool.query(`
@@ -1521,7 +1535,7 @@ const startServer = async () => {
     } catch (unavailableErr) {
       console.log("⚠️ Errore creazione tabella unavailable_days (auto-init):", unavailableErr.message);
     }
-    
+
     // Crea tabella keepass_groups se non esiste (auto-init)
     try {
       await pool.query(`
@@ -1536,7 +1550,7 @@ const startServer = async () => {
         )
       `);
       console.log("✅ Tabella keepass_groups creata/verificata (auto-init)");
-      
+
       // Aggiungi colonna client_id se non esiste (per tabelle create prima dell'aggiornamento)
       try {
         await pool.query(`
@@ -1547,7 +1561,7 @@ const startServer = async () => {
       } catch (alterErr) {
         console.log("⚠️ Errore aggiunta colonna client_id (potrebbe già esistere):", alterErr.message);
       }
-      
+
       // Aggiungi colonna uuid se non esiste (per tabelle create prima dell'aggiornamento)
       try {
         await pool.query(`
@@ -1558,7 +1572,7 @@ const startServer = async () => {
       } catch (alterErr) {
         console.log("⚠️ Errore aggiunta colonna uuid (potrebbe già esistere):", alterErr.message);
       }
-      
+
       // Aggiungi colonna notes se non esiste (per tabelle create prima dell'aggiornamento)
       try {
         await pool.query(`
@@ -1572,7 +1586,7 @@ const startServer = async () => {
     } catch (keepassGroupsErr) {
       console.log("⚠️ Errore creazione tabella keepass_groups (auto-init):", keepassGroupsErr.message);
     }
-    
+
     // Crea tabella keepass_entries se non esiste (auto-init)
     try {
       await pool.query(`
@@ -1599,7 +1613,7 @@ const startServer = async () => {
     } catch (keepassEntriesErr) {
       console.log("⚠️ Errore creazione tabella keepass_entries (auto-init):", keepassEntriesErr.message);
     }
-    
+
     server.listen(PORT, () => {
       console.log(`🚀 Server backend OTTIMIZZATO in ascolto sulla porta ${PORT}`);
       console.log(`📁 Routes organizzate in moduli separati`);
