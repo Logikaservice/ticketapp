@@ -3056,6 +3056,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       });
 
                       // Evidenzia il giorno se ha un codice geografico che punta a questa azienda
+                      // Verifica struttura parentesi graffe completata
                       const isGeographicTargetDay = cellData.geographicCode &&
                         getCompanyFromGeographicCode(cellData.geographicCode) === company &&
                         cellData.fromCompany !== company;
