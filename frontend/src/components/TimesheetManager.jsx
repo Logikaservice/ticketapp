@@ -2984,21 +2984,26 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       let hasCodeInOtherCompany = false;
 
                       // Cerca in tutte le altre aziende dove il dipendente è presente
-                      Object.keys(employeesData).forEach(otherKey => {
-                        if (otherKey === emp.contextKey) return; // Salta l'azienda corrente
+                      // Cerca sia in employeesData che nello schedule per trovare tutti i giorni occupati
+                      companies.forEach(otherCompany => {
+                        if (otherCompany === company) return; // Salta l'azienda corrente
+                        
+                        const otherDepts = departmentsStructure[otherCompany] || [];
+                        otherDepts.forEach(otherDept => {
+                          const otherKey = getContextKey(otherCompany, otherDept);
+                          if (otherKey === emp.contextKey) return; // Salta il reparto corrente
 
-                        const [otherCompany, ...otherDeptParts] = otherKey.split('-');
-                        const otherDept = otherDeptParts.join('-');
-
-                        // Verifica se il dipendente è presente in questa azienda
-                        const otherEmployees = employeesData[otherKey] || [];
-                        const existsInOther = otherEmployees.some(e => e.id === emp.id);
-
-                        if (existsInOther) {
+                          // Verifica se il dipendente ha uno schedule in questa azienda/reparto
                           const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
                           const otherDayData = schedule[otherScheduleKey]?.[dayIdx];
 
-                          if (otherDayData) {
+                          // Verifica anche se il dipendente è in employeesData (per compatibilità)
+                          const otherEmployees = employeesData[otherKey] || [];
+                          const existsInOther = otherEmployees.some(e => e.id === emp.id);
+
+                          // Se ha uno schedule o è in employeesData, controlla i dati del giorno
+                          if (otherDayData || existsInOther) {
+                            if (otherDayData) {
                             // Se ha un codice di assenza in questa azienda, mostralo
                             if (otherDayData.code) {
                               const otherCodeKey = getCodeKey(otherDayData.code);
@@ -3037,14 +3042,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                 }
                               }
                             }
-                            // Se ha orari (non codice) in questa azienda
-                            else if (!cellData.code && !showGeographicInputs && (otherDayData.in1 || otherDayData.in2 || otherDayData.out1 || otherDayData.out2)) {
+                            // Se ha orari o codici in questa azienda (mostra sempre il tooltip)
+                            if (!showGeographicInputs && (otherDayData.in1 || otherDayData.in2 || otherDayData.out1 || otherDayData.out2 || otherDayData.code)) {
                               hasScheduleInOtherCompany = true;
-                              otherCompanySchedule = otherDayData;
+                              if (!otherCompanySchedule) {
+                                otherCompanySchedule = otherDayData;
+                              }
                               if (!otherCompanyName) otherCompanyName = otherCompany;
                             }
                           }
-                        }
+                        });
                       });
 
                       // Evidenzia il giorno se ha un codice geografico che punta a questa azienda
@@ -3063,7 +3070,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       return (
                         <td
                           key={dayIdx}
-                          className={`p-1 border relative ${isRest || shouldBeGray ? 'bg-gray-200' : ''} ${shouldBeYellow || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-100' : ''} ${isGeographicTargetDay ? 'bg-blue-100 ring-2 ring-blue-400' : ''} ${hasTransfer ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''}`}
+                          className={`p-1 border relative ${isRest || shouldBeGray ? 'bg-gray-200' : ''} ${shouldBeYellow || showGeographicInputs ? 'bg-yellow-100' : ''} ${hasScheduleInOtherCompany ? 'bg-gray-50' : ''} ${isGeographicTargetDay ? 'bg-blue-100 ring-2 ring-blue-400' : ''} ${hasTransfer ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''}`}
                           onContextMenu={(e) => {
                             // Permetti il menu contestuale se c'è un codice (anche da altre aziende) o se ci sono orari
                             if ((cellData.code || cellData.in1 || cellData.out1 || cellData.in2 || cellData.out2) && !showGeographicInputs) {
@@ -3139,11 +3146,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                               {hasScheduleInOtherCompany && otherCompanySchedule && (
                                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-50 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl whitespace-pre-line text-center min-w-[120px]">
                                   <div className="font-bold mb-1">{otherCompanyName}</div>
-                                  {otherCompanySchedule.in1 && otherCompanySchedule.out1 && (
-                                    <div>{otherCompanySchedule.in1} - {otherCompanySchedule.out1}</div>
-                                  )}
-                                  {otherCompanySchedule.in2 && otherCompanySchedule.out2 && (
-                                    <div>{otherCompanySchedule.in2} - {otherCompanySchedule.out2}</div>
+                                  {otherCompanySchedule.code ? (
+                                    <div>{getCodeLabel(otherCompanySchedule.code)}</div>
+                                  ) : (
+                                    <>
+                                      {otherCompanySchedule.in1 && otherCompanySchedule.out1 && (
+                                        <div>{otherCompanySchedule.in1} - {otherCompanySchedule.out1}</div>
+                                      )}
+                                      {otherCompanySchedule.in2 && otherCompanySchedule.out2 && (
+                                        <div>{otherCompanySchedule.in2} - {otherCompanySchedule.out2}</div>
+                                      )}
+                                    </>
                                   )}
                                   <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full">
                                     <div className="border-4 border-transparent border-t-gray-900"></div>
