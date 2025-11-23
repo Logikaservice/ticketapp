@@ -31,6 +31,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
   // --- GESTIONE MODALE SICURA ---
   const onConfirmAction = useRef(null);
+  const saveTimeoutRef = useRef(null); // Ref per debounce salvataggio
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
@@ -59,7 +60,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   const [schedule, setSchedule] = useState({});
   const [newDeptName, setNewDeptName] = useState('');
   const [newEmployeeName, setNewEmployeeName] = useState('');
-  
+
   // Stato per errori di validazione orari: { "scheduleKey-dayIndex-field": "messaggio errore" }
   const [validationErrors, setValidationErrors] = useState({});
 
@@ -195,35 +196,35 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   // --- FUNZIONE HELPER PER RETRY AUTOMATICO ---
   const fetchWithRetry = async (url, options, maxRetries = 3, operationName = 'operazione') => {
     const delays = [1000, 2000, 4000]; // Backoff: 1s, 2s, 4s
-    
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         // Mostra notifica durante i tentativi (tranne il primo)
         if (attempt > 0 && showNotification) {
           showNotification(`⏳ Tentativo ${attempt + 1}/${maxRetries} per ${operationName}...`, 'info', 2000);
         }
-        
+
         // Crea un AbortController per il timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout di 10 secondi
-        
+
         const response = await fetch(url, {
           ...options,
           signal: controller.signal
         });
-        
+
         clearTimeout(timeoutId);
-        
+
         // Se la risposta è ok, restituiscila
         if (response.ok) {
           return response;
         }
-        
+
         // Se è un errore HTTP (400, 403, 500, ecc.), non fare retry (sono errori logici, non di rete)
         if (response.status >= 400 && response.status < 600) {
           return response;
         }
-        
+
         // Se non è ok e non è un errore HTTP standard, potrebbe essere un problema di rete
         throw new Error(`Errore di rete: ${response.status}`);
       } catch (error) {
@@ -235,18 +236,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           }
           throw error;
         }
-        
+
         // Se è un errore di timeout, rete o abort, aspetta prima di riprovare
         if (error.name === 'AbortError' || error.name === 'TypeError' || error.message.includes('network') || error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
           await new Promise(resolve => setTimeout(resolve, delays[attempt]));
           continue;
         }
-        
+
         // Per altri errori (es. errori HTTP 400/403), non fare retry
         throw error;
       }
     }
-    
+
     throw new Error(`Tutti i tentativi falliti per ${operationName}`);
   };
 
@@ -264,7 +265,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   useEffect(() => {
     // Non salvare durante il caricamento iniziale
     if (loading) return;
-    
+
     // Non salvare durante il primo caricamento (per evitare di sovrascrivere dati esistenti)
     if (isInitialLoadRef.current) {
       isInitialLoadRef.current = false;
@@ -544,6 +545,29 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     }
   };
 
+  // Funzione di salvataggio debounced per input frequenti
+  const debouncedSave = (overrideTimeCodes = null, overrideTimeCodesOrder = null) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      saveData(overrideTimeCodes, overrideTimeCodesOrder);
+    }, 1000);
+  };
+
+  // --- AUTO-SAVE EFFECT ---
+  useEffect(() => {
+    // Skip initial load
+    if (isInitialLoadRef.current) return;
+
+    // Debounce save
+    const timer = setTimeout(() => {
+      saveData();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [schedule, employeesData, companies, departmentsStructure, timeCodes, timeCodesOrder]);
+
   // --- SALVATAGGIO DATI ---
   const saveData = async (overrideTimeCodes = null, overrideTimeCodesOrder = null) => {
     try {
@@ -633,35 +657,61 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
 
   // --- CALCOLI SICURI ---
-  const timeToDecimal = (timeStr) => {
-    if (!timeStr || typeof timeStr !== 'string') return 0;
-    const cleanStr = timeStr.trim().replace(',', '.').replace(':', '.');
-    if (!cleanStr.includes('.')) {
-      const val = parseFloat(cleanStr);
-      return isNaN(val) ? 0 : val;
+  // --- HELPER FUNCTIONS: TIME MANIPULATION & VALIDATION ---
+
+  // Oggetto helper per manipolazione orari (funzioni pure)
+  const timeHelpers = {
+    // Converte stringa orario (HH.MM o HH:MM) in minuti totali
+    toMinutes: (timeStr) => {
+      if (!timeStr || typeof timeStr !== 'string') return 0;
+      const cleanStr = timeStr.trim().replace(',', '.').replace(':', '.');
+      const parts = cleanStr.split('.');
+      const hours = parseInt(parts[0]) || 0;
+      const minutes = parseInt(parts[1]) || 0;
+      return hours * 60 + minutes;
+    },
+
+    // Converte minuti totali in stringa orario HH.MM
+    toTimeStr: (totalMinutes) => {
+      const h = Math.floor(totalMinutes / 60);
+      const m = totalMinutes % 60;
+      return `${String(h).padStart(2, '0')}.${String(m).padStart(2, '0')}`;
+    },
+
+    // Converte stringa orario in decimale (per calcoli ore)
+    toDecimal: (timeStr) => {
+      if (!timeStr) return 0;
+      const minutes = timeHelpers.toMinutes(timeStr);
+      return minutes / 60;
+    },
+
+    // Formatta una stringa orario in HH.MM
+    format: (timeStr) => {
+      if (!timeStr) return '';
+      let cleanStr = String(timeStr).replace(',', '.').replace(':', '.').trim();
+      if (!cleanStr.includes('.')) cleanStr += '.00';
+      const parts = cleanStr.split('.');
+      const hours = String(parseInt(parts[0]) || 0).padStart(2, '0');
+      const minutes = String(parseInt(parts[1]) || 0).padStart(2, '0');
+      return `${hours}.${minutes}`;
+    },
+
+    // Verifica sovrapposizione tra due intervalli [start, end]
+    checkOverlap: (start1, end1, start2, end2) => {
+      return Math.max(start1, start2) < Math.min(end1, end2);
     }
-    const parts = cleanStr.split('.');
-    const hours = parseInt(parts[0]) || 0;
-    const minutes = parseInt(parts[1]) || 0;
-    const result = hours + (minutes / 60);
-    return isNaN(result) ? 0 : result;
   };
 
   // Helper: converte label in chiave o viceversa
-  // Queste funzioni devono essere definite prima di calculateDailyHours
   const getCodeKey = (code) => {
     if (!code) return null;
-    // Se è già una chiave valida, restituiscila
     if (timeCodes[code]) return code;
-    // Altrimenti cerca la chiave partendo dal label
     return Object.keys(timeCodes).find(key => timeCodes[key] === code) || null;
   };
 
   const getCodeLabel = (code) => {
     if (!code) return '';
-    // Se è una chiave, restituisci il label
     if (timeCodes[code]) return timeCodes[code];
-    // Se è già un label, restituiscilo
     return code;
   };
 
@@ -670,7 +720,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     return ['R', 'F', 'M', 'P', 'I'].includes(code);
   };
 
-  // Verifica se un codice è di assenza (non conta ore) - usa getCodeKey per gestire sia chiavi che label
   const isAbsenceCodeForHours = (code) => {
     if (!code) return false;
     const codeKey = getCodeKey(code);
@@ -678,199 +727,118 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     return isAbsenceCode(codeKey);
   };
 
+  // Calcola ore giornaliere
   const calculateDailyHours = (dayData) => {
     if (!dayData) return 0;
-    // Usa la funzione helper per verificare se è un codice di assenza
     if (dayData.code && isAbsenceCodeForHours(dayData.code)) return 0;
+
     let total = 0;
     if (dayData.in1 && dayData.out1) {
-      const start = timeToDecimal(dayData.in1);
-      const end = timeToDecimal(dayData.out1);
+      const start = timeHelpers.toDecimal(dayData.in1);
+      const end = timeHelpers.toDecimal(dayData.out1);
       if (end > start) total += (end - start);
     }
     if (dayData.in2 && dayData.out2) {
-      const start = timeToDecimal(dayData.in2);
-      const end = timeToDecimal(dayData.out2);
+      const start = timeHelpers.toDecimal(dayData.in2);
+      const end = timeHelpers.toDecimal(dayData.out2);
       if (end > start) total += (end - start);
     }
     return total;
   };
 
+  // Calcola totale settimanale
   const calculateWeeklyTotal = (empId, contextKey = null, weekRangeValue = null) => {
     let total = 0;
-    // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
     const currentWeek = weekRangeValue || weekRange;
-    // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
-    // Chiave completa: settimana-baseKey
     const scheduleKey = `${currentWeek}-${baseKey}`;
     const empSchedule = schedule[scheduleKey] || {};
+
     days.forEach((_, index) => {
       total += calculateDailyHours(empSchedule[index]);
     });
     return isNaN(total) ? "0.0" : total.toFixed(1);
   };
 
-  // Helper per convertire orario (HH.MM o HH:MM) in minuti totali
-  const timeToMinutes = (timeStr) => {
-    if (!timeStr) return 0;
-    const cleanStr = timeStr.replace(',', '.').replace(':', '.');
-    const parts = cleanStr.split('.');
-    const hours = parseInt(parts[0]) || 0;
-    const minutes = parseInt(parts[1]) || 0;
-    return hours * 60 + minutes;
-  };
+  // --- FUNZIONI DI VALIDAZIONE ---
 
-  // Helper per verificare sovrapposizione orari
-  const checkTimeOverlap = (start1, end1, start2, end2) => {
-    return Math.max(start1, start2) < Math.min(end1, end2);
-  };
-
-  // --- FUNZIONI DI VALIDAZIONE ORARI ---
-  // Valida formato orario (HH.MM o HH:MM)
   const validateTimeFormat = (timeStr) => {
     if (!timeStr || !timeStr.trim()) return { valid: true, error: null };
     const cleanStr = timeStr.replace(',', '.').replace(':', '.').trim();
     const parts = cleanStr.split('.');
-    if (parts.length !== 2) return { valid: false, error: 'Formato non valido. Usa HH.MM (es. 08.30)' };
+
+    if (parts.length !== 2) return { valid: false, error: 'Formato non valido. Usa HH.MM' };
+
     const hours = parseInt(parts[0]);
     const minutes = parseInt(parts[1]);
-    if (isNaN(hours) || isNaN(minutes)) return { valid: false, error: 'Formato non valido. Usa HH.MM (es. 08.30)' };
-    if (hours < 0 || hours > 23) return { valid: false, error: 'Le ore devono essere tra 00 e 23' };
-    if (minutes < 0 || minutes > 59) return { valid: false, error: 'I minuti devono essere tra 00 e 59' };
+
+    if (isNaN(hours) || isNaN(minutes)) return { valid: false, error: 'Formato non valido' };
+    if (hours < 0 || hours > 23) return { valid: false, error: 'Ore 00-23' };
+    if (minutes < 0 || minutes > 59) return { valid: false, error: 'Minuti 00-59' };
+
     return { valid: true, error: null };
   };
 
-  // Valida coppia entrata/uscita
-  const validateTimePair = (inTime, outTime, isNightShift = false) => {
-    if (!inTime && !outTime) return { valid: true, error: null };
-    if (!inTime || !outTime) return { valid: true, error: null }; // Non validare se manca uno dei due
-    
-    // Rimossi tutti i controlli di validazione - permettere qualsiasi combinazione di orari
-    
-    return { valid: true, error: null };
-  };
-
-  // Valida che il secondo turno sia dopo il primo
-  const validateSecondShift = (in1, out1, in2, out2) => {
-    if (!in1 || !out1 || !in2 || !out2) return { valid: true, error: null };
-    
-    const out1Minutes = timeToMinutes(out1);
-    const in2Minutes = timeToMinutes(in2);
-    
-    // Il secondo turno deve iniziare dopo la fine del primo
-    if (in2Minutes < out1Minutes) {
-      // Gestione turni notturni: se il primo turno finisce dopo le 22, il secondo può iniziare il giorno dopo
-      if (out1Minutes < 22 * 60) {
-        return { valid: false, error: 'Il secondo turno deve iniziare dopo la fine del primo' };
-      }
-    }
-    
-    return { valid: true, error: null };
-  };
-
-  // Funzione principale di validazione per un giorno
   const validateDaySchedule = (dayData) => {
     const errors = {};
-    
-    // Valida formato per tutti i campi
-    if (dayData.in1) {
-      const formatCheck = validateTimeFormat(dayData.in1);
-      if (!formatCheck.valid) {
-        errors['in1'] = formatCheck.error;
+
+    // 1. Validazione formato base
+    ['in1', 'out1', 'in2', 'out2'].forEach(field => {
+      if (dayData[field]) {
+        const check = validateTimeFormat(dayData[field]);
+        if (!check.valid) errors[field] = check.error;
+      }
+    });
+
+    // Se ci sono errori di formato, fermati qui
+    if (Object.keys(errors).length > 0) return errors;
+
+    // 2. Validazione logica turni
+    const t = timeHelpers; // alias breve
+
+    // Relazione Turno 1 - Turno 2
+    if (dayData.in1 && dayData.out1 && dayData.in2) {
+      const out1Mins = t.toMinutes(dayData.out1);
+      const in2Mins = t.toMinutes(dayData.in2);
+      const in1Mins = t.toMinutes(dayData.in1);
+
+      // Se il turno 1 non è notturno (finisce stesso giorno), il turno 2 deve iniziare dopo
+      const isShift1Overnight = out1Mins < in1Mins;
+
+      if (!isShift1Overnight && in2Mins < out1Mins) {
+        errors['in2'] = 'Sovrapposizione turni';
       }
     }
-    if (dayData.out1) {
-      const formatCheck = validateTimeFormat(dayData.out1);
-      if (!formatCheck.valid) {
-        errors['out1'] = formatCheck.error;
-      }
-    }
-    if (dayData.in2) {
-      const formatCheck = validateTimeFormat(dayData.in2);
-      if (!formatCheck.valid) {
-        errors['in2'] = formatCheck.error;
-      }
-    }
-    if (dayData.out2) {
-      const formatCheck = validateTimeFormat(dayData.out2);
-      if (!formatCheck.valid) {
-        errors['out2'] = formatCheck.error;
-      }
-    }
-    
-    // Valida coppia entrata/uscita primo turno
-    if (dayData.in1 && dayData.out1) {
-      const in1Minutes = timeToMinutes(dayData.in1);
-      const isNightShift = in1Minutes >= 22 * 60;
-      const pairCheck = validateTimePair(dayData.in1, dayData.out1, isNightShift);
-      if (!pairCheck.valid) {
-        errors['out1'] = pairCheck.error; // Errore sull'uscita
-      }
-    }
-    
-    // Valida coppia entrata/uscita secondo turno
-    if (dayData.in2 && dayData.out2) {
-      const in2Minutes = timeToMinutes(dayData.in2);
-      const isNightShift = in2Minutes >= 22 * 60;
-      const pairCheck = validateTimePair(dayData.in2, dayData.out2, isNightShift);
-      if (!pairCheck.valid) {
-        errors['out2'] = pairCheck.error;
-      }
-    }
-    
-    // Valida che il secondo turno sia dopo il primo
-    if (dayData.in1 && dayData.out1 && dayData.in2 && dayData.out2) {
-      const secondShiftCheck = validateSecondShift(dayData.in1, dayData.out1, dayData.in2, dayData.out2);
-      if (!secondShiftCheck.valid) {
-        errors['in2'] = secondShiftCheck.error;
-      }
-    }
-    
+
     return errors;
   };
 
   const handleInputChange = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
-    // Se il campo è uno dei campi orario (in1, out1, in2, out2), verifica se il valore è un codice
-    if (['in1', 'out1', 'in2', 'out2'].includes(field)) {
-      // Se il valore è vuoto, non cercare codici - solo cancellare il campo
-      if (!value || String(value).trim() === '') {
-        // Continua con la logica normale di cancellazione (sotto)
+    // 1. Gestione Codici Rapidi
+    if (['in1', 'out1', 'in2', 'out2'].includes(field) && value && String(value).trim() !== '') {
+      const strValue = String(value).trim().toUpperCase();
+      let detectedCode = null;
+
+      if (timeCodes[strValue]) {
+        detectedCode = strValue;
       } else {
-        const strValue = String(value).trim().toUpperCase();
-        
-        // Verifica se il valore inserito è un codice (chiave o label)
-        let detectedCode = null;
-        
-        // Controlla se è una chiave diretta (es. "R", "F", "AT")
-        if (timeCodes[strValue]) {
-          detectedCode = strValue;
-        } else {
-          // Controlla se è un label (es. "Riposo", "Ferie", "Avellino")
-          const foundKey = Object.keys(timeCodes).find(key => 
-            timeCodes[key].toUpperCase() === strValue || 
-            timeCodes[key].toUpperCase().includes(strValue) ||
-            strValue.includes(timeCodes[key].toUpperCase())
-          );
-          if (foundKey) {
-            detectedCode = foundKey;
-          }
-        }
-        
-        // Se è stato rilevato un codice, applicalo invece di salvarlo come orario
-        if (detectedCode && strValue.length <= 10) { // Limita a 10 caratteri per evitare falsi positivi
-          const codeLabel = timeCodes[detectedCode];
-          handleQuickCode(empId, dayIndex, codeLabel, contextKey, weekRangeValue);
-          return; // Esci senza salvare come orario
-        }
+        const foundKey = Object.keys(timeCodes).find(key =>
+          timeCodes[key].toUpperCase() === strValue ||
+          timeCodes[key].toUpperCase().includes(strValue) ||
+          strValue.includes(timeCodes[key].toUpperCase())
+        );
+        if (foundKey) detectedCode = foundKey;
+      }
+
+      if (detectedCode && strValue.length <= 10) {
+        handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+        return;
       }
     }
 
-    // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
+    // 2. Aggiornamento Stato
     const currentWeek = weekRangeValue || weekRange;
-    // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
-    // Chiave completa: settimana-baseKey
     const scheduleKey = `${currentWeek}-${baseKey}`;
 
     setSchedule(prev => {
@@ -878,7 +846,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
       if (!newSchedule[scheduleKey][dayIndex]) newSchedule[scheduleKey][dayIndex] = {};
 
-      // Se stiamo modificando un orario, pulisci il campo 'code'
       if (['in1', 'out1', 'in2', 'out2'].includes(field)) {
         newSchedule[scheduleKey][dayIndex].code = '';
       }
@@ -889,222 +856,106 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   };
 
   const handleBlur = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
-    // Se il campo è uno dei campi orario, verifica se il valore è un codice prima di formattare come orario
+    // 1. Gestione Codici Rapidi (anche su blur)
     if (['in1', 'out1', 'in2', 'out2'].includes(field) && value) {
       const strValue = String(value).trim().toUpperCase();
-      
-      // Verifica se il valore inserito è un codice (chiave o label)
       let detectedCode = null;
-      
-      // Controlla se è una chiave diretta (es. "R", "F", "AT")
+
       if (timeCodes[strValue]) {
         detectedCode = strValue;
       } else {
-        // Controlla se è un label completo o parziale (es. "Riposo", "Ferie", "Avellino")
         const foundKey = Object.keys(timeCodes).find(key => {
           const label = timeCodes[key].toUpperCase();
-          return label === strValue || 
-                 label.startsWith(strValue) || 
-                 strValue.startsWith(label) ||
-                 (strValue.length >= 2 && label.includes(strValue));
+          return label === strValue || label.startsWith(strValue) || strValue.startsWith(label);
         });
-        if (foundKey) {
-          detectedCode = foundKey;
-        }
+        if (foundKey) detectedCode = foundKey;
       }
-      
-      // Se è stato rilevato un codice, applicalo invece di formattare come orario
-      if (detectedCode && strValue.length <= 15) { // Limita a 15 caratteri per evitare falsi positivi
-        const codeLabel = timeCodes[detectedCode];
-        handleQuickCode(empId, dayIndex, codeLabel, contextKey, weekRangeValue);
-        return; // Esci senza formattare come orario
+
+      if (detectedCode && strValue.length <= 15) {
+        handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+        return;
       }
     }
 
-    // Usa la settimana selezionata nella lista corrente, altrimenti usa weekRange globale
     const currentWeek = weekRangeValue || weekRange;
-    // Usa contextKey se fornito (modalità multi-azienda), altrimenti usa empId
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
-    // Chiave completa: settimana-baseKey
     const scheduleKey = `${currentWeek}-${baseKey}`;
     const errorKey = `${scheduleKey}-${dayIndex}-${field}`;
-    
-    // Pulisci l'errore precedente per questo campo
+
+    // Pulisci errore precedente
     setValidationErrors(prev => {
       const newErrors = { ...prev };
       delete newErrors[errorKey];
       return newErrors;
     });
-    
+
     if (!value) {
-      // Se il campo è vuoto, valida comunque il giorno completo per vedere se ci sono altri errori
       const dayData = schedule[scheduleKey]?.[dayIndex] || {};
       const dayErrors = validateDaySchedule(dayData);
       if (Object.keys(dayErrors).length > 0) {
-        setValidationErrors(prev => {
-          const newErrors = { ...prev };
-          Object.keys(dayErrors).forEach(f => {
-            newErrors[`${scheduleKey}-${dayIndex}-${f}`] = dayErrors[f];
-          });
-          return newErrors;
-        });
+        setValidationErrors(prev => ({ ...prev, ...Object.keys(dayErrors).reduce((acc, k) => ({ ...acc, [`${scheduleKey}-${dayIndex}-${k}`]: dayErrors[k] }), {}) }));
       }
       return;
     }
-    
+
     const strValue = String(value);
-    
-    // Verifica se il valore contiene lettere o caratteri non validi per un orario (es. "0R.00", "OR.00")
+
+    // 2. Validazione Caratteri
     const hasInvalidChars = /[A-Za-z]/.test(strValue);
-    if (hasInvalidChars && !strValue.match(/^[A-Z]{1,2}$/)) {
-      // Se contiene lettere ma non è un codice valido (1-2 lettere), segnala errore
-      setValidationErrors(prev => ({
-        ...prev,
-        [errorKey]: 'Valore non valido. Inserisci un orario (es. 08.00) o un codice (es. R, AT)'
-      }));
-      if (showNotification) {
-        showNotification('Valore non valido. Inserisci un orario (es. 08.00) o un codice (es. R, AT)', 'warning', 4000);
-      }
-      // Pulisci il campo non valido
+    if (hasInvalidChars) {
+      setValidationErrors(prev => ({ ...prev, [errorKey]: 'Valore non valido' }));
+      if (showNotification) showNotification('Inserisci un orario valido', 'warning', 4000);
       handleInputChange(empId, dayIndex, field, '', contextKey, weekRangeValue);
       return;
     }
-    
-    let formatted = strValue.replace(',', '.').replace(':', '.').trim();
-    if (!formatted.includes('.')) formatted += '.00';
-    const parts = formatted.split('.');
-    if (parts[0].length === 1) parts[0] = '0' + parts[0];
-    if (parts[1].length === 1) parts[1] = parts[1] + '0';
-    formatted = parts.join('.');
 
-    // Valida il formato
+    // 3. Formattazione
+    const formatted = timeHelpers.format(strValue);
+
+    // 4. Validazione Formato
     const formatCheck = validateTimeFormat(formatted);
     if (!formatCheck.valid) {
-      setValidationErrors(prev => ({
-        ...prev,
-        [errorKey]: formatCheck.error
-      }));
-      // Mostra notifica ma non bloccare
-      if (showNotification) {
-        showNotification(formatCheck.error, 'warning', 4000);
-      }
+      setValidationErrors(prev => ({ ...prev, [errorKey]: formatCheck.error }));
+      if (showNotification) showNotification(formatCheck.error, 'warning', 4000);
     }
 
-    // Conflict Detection Logic
-    if (['in1', 'out1', 'in2', 'out2'].includes(field)) {
-      const currentWeek = weekRangeValue || weekRange;
-      const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
-      const scheduleKey = `${currentWeek}-${baseKey}`;
-      const dayData = schedule[scheduleKey]?.[dayIndex] || {};
-
-      // Temporarily update the field to check for conflicts with the new value
-      const tempDayData = { ...dayData, [field]: formatted };
-
-      let start1 = 0, end1 = 0, start2 = 0, end2 = 0;
-      let hasShift1 = false, hasShift2 = false;
-
-      if (tempDayData.in1 && tempDayData.out1) {
-        start1 = timeToMinutes(tempDayData.in1);
-        end1 = timeToMinutes(tempDayData.out1);
-        hasShift1 = true;
-      }
-      if (tempDayData.in2 && tempDayData.out2) {
-        start2 = timeToMinutes(tempDayData.in2);
-        end2 = timeToMinutes(tempDayData.out2);
-        hasShift2 = true;
-      }
-
-      // Check against ALL other schedules for this employee in this week
-      let conflictFound = false;
-
-      Object.keys(schedule).forEach(key => {
-        if (key === scheduleKey) return; // Skip current schedule
-
-        // Check if key belongs to same employee and same week
-        if (key.startsWith(currentWeek)) {
-          const parts = key.split('-');
-          const keyEmpId = parts[parts.length - 1];
-
-          if (String(keyEmpId) === String(empId)) {
-            const otherDayData = schedule[key]?.[dayIndex];
-            if (otherDayData) {
-              if (otherDayData.in1 && otherDayData.out1) {
-                const otherStart = timeToMinutes(otherDayData.in1);
-                const otherEnd = timeToMinutes(otherDayData.out1);
-                if (hasShift1 && checkTimeOverlap(start1, end1, otherStart, otherEnd)) conflictFound = true;
-                if (hasShift2 && checkTimeOverlap(start2, end2, otherStart, otherEnd)) conflictFound = true;
-              }
-              if (otherDayData.in2 && otherDayData.out2) {
-                const otherStart = timeToMinutes(otherDayData.in2);
-                const otherEnd = timeToMinutes(otherDayData.out2);
-                if (hasShift1 && checkTimeOverlap(start1, end1, otherStart, otherEnd)) conflictFound = true;
-                if (hasShift2 && checkTimeOverlap(start2, end2, otherStart, otherEnd)) conflictFound = true;
-              }
-            }
-          }
-        }
-      });
-
-      if (conflictFound) {
-        if (showNotification) {
-          showNotification("⚠️ CONFLITTO ORARIO RILEVATO! Il dipendente ha già un turno in un'altra azienda che si sovrappone a questo orario.", 'warning', 6000);
-        }
-        handleInputChange(empId, dayIndex, field, '', contextKey, weekRangeValue); // Reset field
-        return;
-      }
+    // 5. Aggiorna con valore formattato
+    if (formatted !== value) {
+      handleInputChange(empId, dayIndex, field, formatted, contextKey, weekRangeValue);
     }
 
-    if (formatted !== value) handleInputChange(empId, dayIndex, field, formatted, contextKey, weekRangeValue);
-    
-    // Dopo aver aggiornato il campo, valida l'intero giorno
+    // 6. Validazione Finale Giorno
     setTimeout(() => {
       const updatedDayData = schedule[scheduleKey]?.[dayIndex] || {};
-      // Aggiorna con il valore formattato per la validazione
       const dayDataForValidation = { ...updatedDayData, [field]: formatted };
       const dayErrors = validateDaySchedule(dayDataForValidation);
-      
-      // Aggiorna gli errori di validazione
+
       setValidationErrors(prev => {
         const newErrors = { ...prev };
-        // Rimuovi errori precedenti per questo giorno
         Object.keys(newErrors).forEach(key => {
-          if (key.startsWith(`${scheduleKey}-${dayIndex}-`)) {
-            delete newErrors[key];
-          }
+          if (key.startsWith(`${scheduleKey}-${dayIndex}-`)) delete newErrors[key];
         });
-        // Aggiungi nuovi errori
         Object.keys(dayErrors).forEach(f => {
           newErrors[`${scheduleKey}-${dayIndex}-${f}`] = dayErrors[f];
         });
         return newErrors;
       });
-      
-      // Mostra notifica per il primo errore trovato (se presente)
-      if (Object.keys(dayErrors).length > 0 && showNotification) {
-        const firstError = Object.values(dayErrors)[0];
-        showNotification(firstError, 'warning', 4000);
-      }
-    }, 100);
-    
-    // Salva automaticamente dopo ogni modifica
-    setTimeout(() => saveData(), 500);
+    }, 200);
   };
 
-  // Helper per ottenere la classe CSS del bordo in base agli errori di validazione
   const getInputBorderClass = (empId, dayIndex, field, contextKey, weekRangeValue, hasScheduleInOtherCompany = false) => {
     const currentWeek = weekRangeValue || weekRange;
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
     const scheduleKey = `${currentWeek}-${baseKey}`;
     const errorKey = `${scheduleKey}-${dayIndex}-${field}`;
     const hasError = validationErrors[errorKey];
-    
+
     if (hasScheduleInOtherCompany) {
       return hasError ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-gray-100 cursor-help';
     }
     return hasError ? 'border-red-500 bg-red-50 focus:border-red-600' : 'border-gray-300 focus:border-blue-500';
   };
 
-  // Helper per ottenere il messaggio di errore per un campo
   const getFieldError = (empId, dayIndex, field, contextKey, weekRangeValue) => {
     const currentWeek = weekRangeValue || weekRange;
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
@@ -1139,7 +990,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         const newSchedule = { ...prev };
         if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
         if (!newSchedule[scheduleKey][dayIndex]) newSchedule[scheduleKey][dayIndex] = {};
-        
+
         // Pulisci SOLO i campi di quella cella specifica, mantenendo la struttura
         newSchedule[scheduleKey][dayIndex] = {
           code: '',
@@ -1153,9 +1004,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
         return newSchedule;
       });
-
-      // Salva dopo la pulizia
-      setTimeout(() => saveData(), 500);
       return;
     }
 
@@ -1186,7 +1034,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     if (isAbsenceCode(codeKey)) {
       // Applica direttamente il codice al giorno selezionato (solo 1 giorno, manuale)
       const keyToSave = codeKey;
-      
+
       setSchedule(prev => {
         const newSchedule = { ...prev };
         if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
@@ -1205,9 +1053,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
         return newSchedule;
       });
-
-      // Salva dopo l'aggiornamento
-      setTimeout(() => saveData(), 500);
       return;
     }
 
@@ -1255,7 +1100,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
             // Salva gli orari vuoti nell'azienda target (non il codice, ma gli input da compilare)
             const targetScheduleKey = `${currentWeek}-${targetKey}-${empId}`;
-            
+
             // NON copiare codici di assenza dall'azienda originale - solo creare input vuoti
             const targetDayData = {
               in1: '',
@@ -1278,15 +1123,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         }
       }
 
-      // Salva con lo stato aggiornato usando una funzione che accede allo stato corrente
-      setTimeout(() => {
-        // Usa una funzione che legge lo stato più recente
-        setSchedule(currentSchedule => {
-          saveDataWithSchedule(currentSchedule);
-          return currentSchedule;
-        });
-      }, 200);
-
       return newSchedule;
     });
   };
@@ -1302,9 +1138,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
     setSchedule(prev => {
       const newSchedule = { ...prev };
-
-      // Applica il codice SOLO all'azienda/reparto corrente (non a tutte le aziende)
-      if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
 
       for (let i = 0; i < days; i++) {
         const dayIdx = startDayIndex + i;
@@ -1326,9 +1159,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       return newSchedule;
     });
-
-    // Save after update
-    setTimeout(() => saveData(), 500);
   };
 
   // Funzione helper per salvare con uno schedule specifico
@@ -1461,8 +1291,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     // Cerca se esiste già un dipendente con questo nome (nella lista globale o nella lista specifica)
     const globalList = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
     const specificList = employeesData[key] || [];
-    const existingEmployee = globalList.find(e => e.name === employeeName) || 
-                             specificList.find(e => e.name === employeeName);
+    const existingEmployee = globalList.find(e => e.name === employeeName) ||
+      specificList.find(e => e.name === employeeName);
 
     // Usa l'ID esistente se trovato, altrimenti crea un nuovo ID
     const employeeId = existingEmployee ? existingEmployee.id : Date.now();
@@ -1513,11 +1343,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         ...prevSchedule,
         [scheduleKey]: {}
       };
-
-      // 3. Salva tutto
-      setTimeout(() => {
-        saveData();
-      }, 500);
 
       return newSchedule;
     });
@@ -1665,9 +1490,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       return newSchedule;
     });
-
-    // Salva dopo l'aggiornamento
-    setTimeout(() => saveData(), 500);
   };
 
   const closeContextMenu = () => {
@@ -1761,43 +1583,37 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     const newId = Date.now();
     const newName = newEmployeeName.toUpperCase().trim();
 
-    // Aggiungi il dipendente alla lista globale E a tutte le liste specifiche per azienda/reparto
+    // 1. Aggiungi alla lista globale
     setEmployeesData(prev => {
       const globalList = prev[GLOBAL_EMPLOYEES_KEY] || [];
-
-      // Verifica se esiste già (stesso nome) nella lista globale
-      const exists = globalList.some(e => e.name === newName);
-      if (exists) {
-        if (showNotification) {
-          showNotification(`Il dipendente "${newName}" esiste già!`, 'warning', 5000);
-        }
+      if (globalList.some(e => e.name === newName)) {
+        if (showNotification) showNotification(`Il dipendente "${newName}" esiste già!`, 'warning', 5000);
         return prev;
       }
-
-      const updated = { ...prev };
-
-      // Aggiungi alla lista globale
-      updated[GLOBAL_EMPLOYEES_KEY] = [...globalList, { id: newId, name: newName }];
-
-      // Aggiungi anche a tutte le liste specifiche per azienda/reparto
-      companies.forEach(comp => {
-        const depts = departmentsStructure[comp] || [];
-        depts.forEach(d => {
-          const key = getContextKey(comp, d);
-          const existingEmployees = updated[key] || [];
-          // Verifica se esiste già (stesso ID o stesso nome)
-          const existsInList = existingEmployees.some(e => e.id === newId || e.name === newName);
-          if (!existsInList) {
-            updated[key] = [...existingEmployees, { id: newId, name: newName }];
-          }
-        });
-      });
-
-      return updated;
+      return {
+        ...prev,
+        [GLOBAL_EMPLOYEES_KEY]: [...globalList, { id: newId, name: newName }]
+      };
     });
 
+    // 2. Inizializza lo schedule per il contesto corrente (se definito) per farlo apparire subito
+    // Se siamo in visualizzazione multi-lista, aggiungilo alla prima lista o a quella selezionata
+    // Per semplicità, lo aggiungiamo al contesto corrente selezionato (selectedCompany/selectedDept)
+    if (selectedCompany && selectedDept) {
+      const currentWeek = weekRange;
+      const contextKey = getContextKey(selectedCompany, selectedDept);
+      const scheduleKey = `${currentWeek}-${contextKey}-${newId}`;
+
+      setSchedule(prev => ({
+        ...prev,
+        [scheduleKey]: {
+          0: { in1: '', out1: '', in2: '', out2: '', code: '' } // Inizializza lunedì vuoto
+        }
+      }));
+    }
+
     setNewEmployeeName('');
-    saveData();
+    // Il salvataggio avverrà tramite useEffect
   };
 
   const triggerDeleteEmployee = (empId) => {
@@ -1829,73 +1645,37 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       });
       return newSchedule;
     });
-    saveData();
   };
 
-  // Rimuove SOLO i dati del dipendente per quella settimana e quella specifica combinazione azienda/reparto
+  // Rimuove i dati del dipendente per quella settimana e contesto specifico
   const removeEmployeeFromWeek = (empId, contextKey = null, weekRangeValue = null) => {
     const currentWeek = weekRangeValue || getWeekDates(0).formatted;
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
     const scheduleKey = `${currentWeek}-${baseKey}`;
 
-    // Rimuovi il dipendente SOLO dalla lista specifica (quella combinazione azienda/reparto)
-    if (contextKey) {
-      setEmployeesData(prev => {
-        const updated = { ...prev };
-        const listEmployees = updated[contextKey] || [];
-        // Rimuovi solo da questa lista specifica
-        updated[contextKey] = listEmployees.filter(e => e.id !== empId);
-        return updated;
-      });
-    }
-
     setSchedule(prev => {
       const newSchedule = { ...prev };
-      
-      // Rimuovi SOLO la chiave specifica per questa combinazione azienda/reparto/settimana
+
+      // 1. Rimuovi la chiave specifica esatta
       if (newSchedule[scheduleKey]) {
         delete newSchedule[scheduleKey];
       }
 
-      // Se contextKey è specificato, rimuovi SOLO i dati relativi a quel contextKey
-      // NON rimuovere dati di altre aziende/reparti per lo stesso dipendente
+      // 2. Pulizia profonda: rimuovi eventuali chiavi residue che matchano questo contesto
       if (contextKey) {
-        // Rimuovi solo le chiavi che corrispondono a questo contextKey specifico per tutte le settimane
         Object.keys(newSchedule).forEach(key => {
-          // Verifica che la chiave corrisponda a: settimana-contextKey-empId
-          // Il contextKey può contenere trattini (es. "La Torre-Cucina"), quindi devo fare un match più preciso
-          const keyParts = key.split('-');
-          if (keyParts.length >= 3) {
-            // Estrai l'empId (ultima parte)
-            const keyEmpId = keyParts[keyParts.length - 1];
-            // Estrai il contextKey (tutto tranne la prima parte - settimana - e l'ultima - empId)
-            const keyContextKey = keyParts.slice(1, -1).join('-');
-            
-            // Verifica che corrisponda esattamente a questo contextKey e empId
-            if (keyContextKey === contextKey && keyEmpId === empId.toString()) {
-              delete newSchedule[key];
-            }
-          }
-        });
-      } else {
-        // Se non c'è contextKey, rimuovi solo le chiavi vecchie senza contextKey per questa settimana
-        Object.keys(newSchedule).forEach(key => {
-          if (key.startsWith(currentWeek) && key.endsWith(`-${empId}`)) {
-            // Verifica che non ci siano altri trattini oltre alla settimana e empId
-            const parts = key.split('-');
-            if (parts.length === 2) {
-              // Chiave vecchia: settimana-empId (senza contextKey)
-              delete newSchedule[key];
-            }
+          // Pattern: settimana-contextKey-empId
+          if (key.startsWith(`${currentWeek}-${contextKey}-${empId}`)) {
+            delete newSchedule[key];
           }
         });
       }
 
-      // Salva le modifiche (rimuove definitivamente dal database)
-      setTimeout(() => saveDataWithSchedule(newSchedule), 100);
-
+      // Salva le modifiche
       return newSchedule;
     });
+
+    // Non tocchiamo employeesData perché la visibilità è determinata dallo schedule
   };
 
   // --- SOSTITUZIONE DIPENDENTE ---
@@ -2010,7 +1790,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       });
     }
 
-    saveData();
     closeReplaceEmployeeModal();
   };
 
@@ -2036,7 +1815,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     setViewLists(prev => {
       const firstList = prev[0];
       const isFirstList = firstList?.id === listId;
-      
+
       // Aggiorna la lista modificata
       let updatedLists = prev.map(list => {
         if (list.id === listId) {
@@ -2049,13 +1828,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
           // Controlla se questa combinazione (azienda/reparto/settimana) esiste già in un'altra lista
           if (updated.company && updated.department && updated.weekRange) {
-            const isDuplicate = prev.some(otherList => 
-              otherList.id !== listId && 
-              otherList.company === updated.company && 
-              otherList.department === updated.department && 
+            const isDuplicate = prev.some(otherList =>
+              otherList.id !== listId &&
+              otherList.company === updated.company &&
+              otherList.department === updated.department &&
               otherList.weekRange === updated.weekRange
             );
-            
+
             if (isDuplicate) {
               // Se è un duplicato, mostra avviso e non applicare la modifica
               if (showNotification) {
@@ -2076,9 +1855,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         const updatedFirstList = updatedLists[0];
         updatedLists = updatedLists.map(list => {
           // Se è una lista automatica (stesso reparto ma azienda diversa dalla prima)
-          if (list.id !== listId && 
-              list.company !== updatedFirstList.company && 
-              list.department === updatedFirstList.department) {
+          if (list.id !== listId &&
+            list.company !== updatedFirstList.company &&
+            list.department === updatedFirstList.department) {
             return { ...list, weekRange: value };
           }
           return list;
@@ -2088,12 +1867,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       // Se è la prima lista e sia azienda che reparto sono selezionati, gestisci le liste automatiche
       if (isFirstList) {
         const updatedFirstList = updatedLists[0];
-        
+
         // Verifica se sia azienda che reparto sono selezionati
         if (updatedFirstList.company && updatedFirstList.department) {
           // Trova tutte le altre aziende che hanno lo stesso reparto
-          const otherCompanies = companies.filter(c => 
-            c !== updatedFirstList.company && 
+          const otherCompanies = companies.filter(c =>
+            c !== updatedFirstList.company &&
             departmentsStructure[c]?.includes(updatedFirstList.department)
           );
 
@@ -2103,27 +1882,27 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           const manualLists = updatedLists.filter(list => {
             // Sempre mantieni la prima lista
             if (list.id === updatedFirstList.id) return true;
-            
+
             // Una lista è automatica se: stesso reparto E azienda diversa dalla prima
-            const isAutoList = list.department === updatedFirstList.department && 
-                              list.company !== updatedFirstList.company;
-            
+            const isAutoList = list.department === updatedFirstList.department &&
+              list.company !== updatedFirstList.company;
+
             // Mantieni tutte le liste che NON sono automatiche
             return !isAutoList;
           });
-          
+
           // Crea nuove liste automatiche per ogni altra azienda con lo stesso reparto
           const autoLists = [];
           otherCompanies.forEach(otherCompany => {
             // Verifica se esiste già una lista (manuale o automatica) per questa combinazione
             // Controlla sia in manualLists che in updatedLists per evitare duplicati
-            const existsInManual = manualLists.some(l => 
+            const existsInManual = manualLists.some(l =>
               l.company === otherCompany && l.department === updatedFirstList.department
             );
-            const existsInUpdated = updatedLists.some(l => 
+            const existsInUpdated = updatedLists.some(l =>
               l.company === otherCompany && l.department === updatedFirstList.department
             );
-            
+
             // Non creare se esiste già (sia manuale che automatica)
             if (!existsInManual && !existsInUpdated) {
               autoLists.push({
@@ -2141,10 +1920,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           // Una lista è automatica se: stesso reparto MA azienda diversa dalla prima
           return updatedLists.filter(list => {
             if (list.id === updatedFirstList.id) return true; // Sempre mantieni la prima
-            
+
             // Rimuovi solo le liste automatiche (stesso reparto, azienda diversa)
-            const isAutoList = list.department === updatedFirstList.department && 
-                              list.company !== updatedFirstList.company;
+            const isAutoList = list.department === updatedFirstList.department &&
+              list.company !== updatedFirstList.company;
             return !isAutoList;
           });
         }
@@ -2854,7 +2633,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       });
 
                       // Evidenzia il giorno se ha un codice geografico che punta a questa azienda
-                      const isGeographicTargetDay = cellData.geographicCode && 
+                      const isGeographicTargetDay = cellData.geographicCode &&
                         getCompanyFromGeographicCode(cellData.geographicCode) === company &&
                         cellData.fromCompany !== company;
 
