@@ -2035,22 +2035,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     // FIX: Usa la lista globale e filtra per presenza nello schedule corrente
     const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
     
-    // Cerca i reparti dell'azienda (incluso il reparto selezionato)
-    const companyDepts = departmentsStructure[company] || [];
-    const deptsToCheck = department && companyDepts.includes(department) 
-      ? [department, ...companyDepts.filter(d => d !== department)]
-      : companyDepts.length > 0 ? companyDepts : [department].filter(Boolean);
-    
+    // IMPORTANTE: Cerca SOLO nel reparto specifico della lista, non in tutti i reparti
+    // Questo evita di mostrare dipendenti in reparti dove non sono stati creati
     const employeesWithSchedule = globalEmployees.filter(emp => {
-      // Cerca lo schedule in tutti i reparti dell'azienda
-      for (const dept of deptsToCheck) {
-        const checkKey = getContextKey(company, dept);
-        const scheduleKey = `${currentWeek}-${checkKey}-${emp.id}`;
-        if (schedule[scheduleKey] !== undefined) {
-          return true; // Trovato! Il dipendente ha uno schedule in questa azienda
-        }
-      }
-      return false;
+      // Cerca lo schedule SOLO nel reparto specifico di questa lista
+      const checkKey = getContextKey(company, department);
+      const scheduleKey = `${currentWeek}-${checkKey}-${emp.id}`;
+      return schedule[scheduleKey] !== undefined;
     });
 
     // Cerca anche dipendenti di altre aziende che hanno codici geografici per questa azienda
@@ -2095,47 +2086,49 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         }
       });
 
-      // 2. Cerca anche nelle altre aziende (logica esistente)
-      Object.keys(employeesData).forEach(otherKey => {
-        if (otherKey === key || otherKey === GLOBAL_EMPLOYEES_KEY) return; // Salta l'azienda corrente e la lista globale
+      // 2. Cerca anche nelle altre aziende, ma SOLO se il dipendente ha uno schedule nel reparto specifico di questa lista
+      // IMPORTANTE: Verifica che lo schedule esista nel reparto corretto, non solo che abbia un codice geografico
+      const targetScheduleKey = `${currentWeek}-${key}-`;
+      Object.keys(schedule).forEach(scheduleKey => {
+        // Verifica che lo schedule sia per questa azienda/reparto specifico
+        if (!scheduleKey.startsWith(targetScheduleKey)) return;
+        
+        const empId = parseInt(scheduleKey.split('-').pop());
+        const daySchedule = schedule[scheduleKey];
+        
+        if (!daySchedule) return;
 
-        const [otherCompany, ...otherDeptParts] = otherKey.split('-');
-        const otherDept = otherDeptParts.join('-');
-
-        const otherEmployees = employeesData[otherKey] || [];
-        otherEmployees.forEach(emp => {
-          const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
-          const otherSchedule = schedule[otherScheduleKey];
-
-          if (otherSchedule) {
-            // Verifica se ha un codice geografico per questa azienda (cerca anche in geographicCode)
-            const hasGeographicCode = Object.values(otherSchedule).some(dayData => {
-              if (!dayData) return false;
-              // Verifica se ha un codice geografico diretto
-              if (dayData.code) {
-                const dayCodeKey = getCodeKey(dayData.code);
-                if (dayCodeKey && geographicCodes.includes(dayCodeKey)) return true;
-              }
-              // Verifica se ha geographicCode che punta a questa azienda
-              if (dayData.geographicCode && geographicCodes.includes(dayData.geographicCode)) {
-                return true;
-              }
-              return false;
-            });
-
-            if (hasGeographicCode && !geographicEmployees.some(e => e.id === emp.id)) {
-              geographicEmployees.push({
-                ...emp,
-                company: company,
-                department: department,
-                contextKey: key,
-                isGeographic: true,
-                originalCompany: otherCompany,
-                originalDept: otherDept
-              });
-            }
+        // Verifica se ha un codice geografico per questa azienda
+        const hasGeographicCode = Object.values(daySchedule).some(dayData => {
+          if (!dayData) return false;
+          // Verifica se ha un codice geografico diretto
+          if (dayData.code) {
+            const dayCodeKey = getCodeKey(dayData.code);
+            if (dayCodeKey && geographicCodes.includes(dayCodeKey)) return true;
           }
+          // Verifica se ha geographicCode che punta a questa azienda
+          if (dayData.geographicCode && geographicCodes.includes(dayData.geographicCode)) {
+            return true;
+          }
+          return false;
         });
+
+        if (hasGeographicCode) {
+          // Trova il dipendente nella lista globale
+          const emp = globalEmployees.find(e => e.id === empId);
+          if (emp && !employeesWithSchedule.some(e => e.id === empId) && !geographicEmployees.some(e => e.id === empId)) {
+            // Trova l'azienda di origine dal fromCompany
+            const fromCompany = Object.values(daySchedule).find(d => d?.fromCompany)?.fromCompany;
+            geographicEmployees.push({
+              ...emp,
+              company: company,
+              department: department,
+              contextKey: key,
+              isGeographic: true,
+              originalCompany: fromCompany || 'Unknown'
+            });
+          }
+        }
       });
     }
 
