@@ -1154,18 +1154,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       setSchedule(prev => {
         const newSchedule = { ...prev };
-        if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
+        if (!newSchedule[scheduleKey]) return newSchedule;
         
-        // Pulisci completamente la cella
-        newSchedule[scheduleKey][dayIndex] = {
-          code: '',
-          in1: '',
-          out1: '',
-          in2: '',
-          out2: '',
-          fromCompany: undefined,
-          geographicCode: undefined
-        };
+        // Rimuovi completamente la cella invece di impostarla vuota
+        if (newSchedule[scheduleKey][dayIndex]) {
+          delete newSchedule[scheduleKey][dayIndex];
+        }
+        
+        // Se lo schedule per questa chiave è vuoto, rimuovilo completamente
+        if (Object.keys(newSchedule[scheduleKey] || {}).length === 0) {
+          delete newSchedule[scheduleKey];
+        }
 
         return newSchedule;
       });
@@ -2779,8 +2778,31 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                 hasCodeInOtherCompany = true;
                                 otherCompanyCode = getCodeLabel(otherDayData.code);
                                 otherCompanyName = otherCompany;
-                                // Se non c'è già un codice nella cella corrente, mostra quello dell'altra azienda
+                                // Se non c'è già un codice nella cella corrente, salvalo nello schedule corrente
+                                // così può essere pulito con "Pulisci Cella"
                                 if (!cellData.code) {
+                                  const currentScheduleKey = `${currentWeek}-${emp.contextKey}-${emp.id}`;
+                                  // Verifica se esiste già nello schedule (per evitare loop infiniti)
+                                  const existingSchedule = schedule[currentScheduleKey]?.[dayIdx];
+                                  if (!existingSchedule || !existingSchedule.code) {
+                                    // Salva il codice nello schedule corrente con riferimento all'azienda originale
+                                    setSchedule(prev => {
+                                      const newSchedule = { ...prev };
+                                      if (!newSchedule[currentScheduleKey]) newSchedule[currentScheduleKey] = {};
+                                      newSchedule[currentScheduleKey][dayIdx] = {
+                                        code: otherCodeKey,
+                                        fromCompany: otherCompany,
+                                        in1: '',
+                                        out1: '',
+                                        in2: '',
+                                        out2: ''
+                                      };
+                                      // Salva dopo l'aggiornamento
+                                      setTimeout(() => saveData(), 100);
+                                      return newSchedule;
+                                    });
+                                  }
+                                  // Aggiorna cellData per il rendering
                                   cellData = {
                                     ...cellData,
                                     code: otherCodeKey,
