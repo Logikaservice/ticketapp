@@ -1194,11 +1194,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   // Funzione helper per salvare con uno schedule specifico
   const saveDataWithSchedule = async (scheduleToSave) => {
     try {
+      // Usa scheduleToSave se fornito, altrimenti usa lo stato corrente
+      const scheduleData = scheduleToSave !== undefined ? scheduleToSave : schedule;
+      
       const dataToSave = {
         companies,
         departments: departmentsStructure,
         employees: employeesData,
-        schedule: scheduleToSave || schedule,
+        schedule: scheduleData,
         timeCodes,
         timeCodesOrder
       };
@@ -1678,30 +1681,57 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   };
 
   // Rimuove i dati del dipendente per quella settimana e contesto specifico
-  const removeEmployeeFromWeek = (empId, contextKey = null, weekRangeValue = null) => {
+  const removeEmployeeFromWeek = (empId, contextKey = null, weekRangeValue = null, company = null, department = null) => {
     const currentWeek = weekRangeValue || getWeekDates(0).formatted;
-    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
-    const scheduleKey = `${currentWeek}-${baseKey}`;
-
+    
     setSchedule(prev => {
       const newSchedule = { ...prev };
+      let foundAndDeleted = false;
 
-      // 1. Rimuovi la chiave specifica esatta
-      if (newSchedule[scheduleKey]) {
-        delete newSchedule[scheduleKey];
+      // Se abbiamo company e department, cerca lo schedule in tutti i reparti di quella azienda
+      if (company) {
+        const companyDepts = departmentsStructure[company] || [];
+        const deptsToCheck = department && companyDepts.includes(department) 
+          ? [department, ...companyDepts.filter(d => d !== department)]
+          : companyDepts.length > 0 ? companyDepts : [department].filter(Boolean);
+        
+        // Cerca e rimuovi lo schedule in tutti i reparti dell'azienda
+        for (const dept of deptsToCheck) {
+          const checkKey = getContextKey(company, dept);
+          const scheduleKey = `${currentWeek}-${checkKey}-${empId}`;
+          if (newSchedule[scheduleKey]) {
+            delete newSchedule[scheduleKey];
+            foundAndDeleted = true;
+          }
+        }
       }
+      
+      // Fallback: usa contextKey se fornito
+      if (!foundAndDeleted && contextKey) {
+        const baseKey = `${contextKey}-${empId}`;
+        const scheduleKey = `${currentWeek}-${baseKey}`;
+        
+        // 1. Rimuovi la chiave specifica esatta
+        if (newSchedule[scheduleKey]) {
+          delete newSchedule[scheduleKey];
+          foundAndDeleted = true;
+        }
 
-      // 2. Pulizia profonda: rimuovi eventuali chiavi residue che matchano questo contesto
-      if (contextKey) {
+        // 2. Pulizia profonda: rimuovi eventuali chiavi residue che matchano questo contesto
         Object.keys(newSchedule).forEach(key => {
           // Pattern: settimana-contextKey-empId
           if (key.startsWith(`${currentWeek}-${contextKey}-${empId}`)) {
             delete newSchedule[key];
+            foundAndDeleted = true;
           }
         });
       }
 
-      // Salva le modifiche
+      // Salva le modifiche sul database
+      if (foundAndDeleted) {
+        setTimeout(() => saveDataWithSchedule(newSchedule), 100);
+      }
+
       return newSchedule;
     });
 
@@ -2607,7 +2637,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                               openConfirm(
                                 "Rimuovi Dipendente dalla Settimana",
                                 `ATTENZIONE: Se procedi, tutti i dati presenti per ${emp.name} in questa settimana (${listWeekRange}) saranno cancellati definitivamente dal database.\n\nVuoi continuare?`,
-                                () => removeEmployeeFromWeek(emp.id, emp.contextKey, listWeekRange)
+                                () => removeEmployeeFromWeek(emp.id, emp.contextKey, listWeekRange, list.company, list.department)
                               );
                             }}
                             className="opacity-0 group-hover:opacity-100 hover:opacity-100 text-red-500 hover:text-red-700 p-1 rounded transition-opacity"
