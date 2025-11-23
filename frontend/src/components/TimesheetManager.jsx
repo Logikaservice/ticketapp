@@ -993,66 +993,82 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
       const scheduleKey = `${currentWeek}-${baseKey}`;
 
+      // PRIMA: Leggi i dati correnti per verificare se c'è un codice geografico
+      const currentDayData = schedule[scheduleKey]?.[dayIndex] || {};
+      let targetKeyToRemove = null;
+      let targetScheduleKeyToRemove = null;
+
+      if (currentDayData.geographicCode) {
+        const targetCompany = getCompanyFromGeographicCode(currentDayData.geographicCode);
+        
+        if (targetCompany) {
+          // Estrai azienda e reparto dal contextKey
+          let currentCompany = '';
+          let currentDept = '';
+          if (contextKey) {
+            const parts = contextKey.split('-');
+            currentCompany = parts[0] || '';
+            currentDept = parts.slice(1).join('-') || '';
+          } else {
+            currentCompany = selectedCompany || companies[0] || '';
+            currentDept = selectedDept || '';
+          }
+
+          // Usa lo stesso reparto nell'azienda target
+          const targetDepts = departmentsStructure[targetCompany] || [];
+          let targetDept = currentDept;
+          
+          // Verifica se il reparto corrente esiste nell'azienda target
+          if (!targetDepts.includes(currentDept) && targetDepts.length > 0) {
+            // Se il reparto non esiste, verifica se il dipendente è già presente in qualche reparto
+            for (const dept of targetDepts) {
+              const checkKey = `${targetCompany}-${dept}`;
+              const deptEmployees = employeesData[checkKey] || [];
+              if (deptEmployees.some(e => e.id === empId)) {
+                targetDept = dept;
+                break;
+              }
+            }
+            // Se non trovato, usa il primo reparto disponibile
+            if (!targetDepts.includes(targetDept)) {
+              targetDept = targetDepts[0];
+            }
+          }
+
+          targetKeyToRemove = `${targetCompany}-${targetDept}`;
+          targetScheduleKeyToRemove = `${currentWeek}-${targetKeyToRemove}-${empId}`;
+        }
+      }
+
       setSchedule(prev => {
         const newSchedule = { ...prev };
         if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
-        const currentDayData = newSchedule[scheduleKey][dayIndex] || {};
 
-        // PRIMA: Se questa cella aveva un codice geografico, elimina anche lo schedule nell'azienda di destinazione
-        if (currentDayData.geographicCode) {
-          const targetCompany = getCompanyFromGeographicCode(currentDayData.geographicCode);
+        // Elimina lo schedule nell'azienda target se esiste
+        if (targetScheduleKeyToRemove && newSchedule[targetScheduleKeyToRemove]) {
+          const targetDaySchedule = newSchedule[targetScheduleKeyToRemove];
           
-          if (targetCompany) {
-            // Estrai azienda e reparto dal contextKey
-            let currentCompany = '';
-            let currentDept = '';
-            if (contextKey) {
-              const parts = contextKey.split('-');
-              currentCompany = parts[0] || '';
-              currentDept = parts.slice(1).join('-') || '';
-            } else {
-              currentCompany = selectedCompany || companies[0] || '';
-              currentDept = selectedDept || '';
-            }
-
-            // Usa lo stesso reparto nell'azienda target
-            const targetDepts = departmentsStructure[targetCompany] || [];
-            let targetDept = currentDept;
-            
-            // Verifica se il reparto corrente esiste nell'azienda target
-            if (!targetDepts.includes(currentDept) && targetDepts.length > 0) {
-              // Se il reparto non esiste, verifica se il dipendente è già presente in qualche reparto
-              for (const dept of targetDepts) {
-                const checkKey = `${targetCompany}-${dept}`;
-                const deptEmployees = employeesData[checkKey] || [];
-                if (deptEmployees.some(e => e.id === empId)) {
-                  targetDept = dept;
-                  break;
-                }
-              }
-              // Se non trovato, usa il primo reparto disponibile
-              if (!targetDepts.includes(targetDept)) {
-                targetDept = targetDepts[0];
-              }
-            }
-
-            // Elimina lo schedule nell'azienda target per questo giorno
-            const targetKey = `${targetCompany}-${targetDept}`;
-            const targetScheduleKey = `${currentWeek}-${targetKey}-${empId}`;
-            
-            if (newSchedule[targetScheduleKey]) {
-              const targetDaySchedule = newSchedule[targetScheduleKey];
-              
-              // Se c'è solo questo giorno nello schedule, elimina completamente lo schedule
-              if (Object.keys(targetDaySchedule).length === 1 && targetDaySchedule[dayIndex]) {
-                delete newSchedule[targetScheduleKey];
-              } else {
-                // Altrimenti elimina solo questo giorno
-                const updatedTargetSchedule = { ...targetDaySchedule };
-                delete updatedTargetSchedule[dayIndex];
-                newSchedule[targetScheduleKey] = updatedTargetSchedule;
-              }
-            }
+          // Elimina il giorno specifico
+          const updatedTargetSchedule = { ...targetDaySchedule };
+          delete updatedTargetSchedule[dayIndex];
+          
+          // Verifica se lo schedule è completamente vuoto (nessun giorno con dati)
+          const hasAnyData = Object.values(updatedTargetSchedule).some(dayData => {
+            if (!dayData) return false;
+            // Verifica se c'è almeno un campo con dati
+            return (dayData.code && dayData.code.trim() !== '') ||
+                   (dayData.in1 && dayData.in1.trim() !== '') ||
+                   (dayData.out1 && dayData.out1.trim() !== '') ||
+                   (dayData.in2 && dayData.in2.trim() !== '') ||
+                   (dayData.out2 && dayData.out2.trim() !== '');
+          });
+          
+          if (hasAnyData) {
+            // Se ci sono ancora dati, mantieni lo schedule aggiornato
+            newSchedule[targetScheduleKeyToRemove] = updatedTargetSchedule;
+          } else {
+            // Se lo schedule è completamente vuoto, eliminalo completamente
+            delete newSchedule[targetScheduleKeyToRemove];
           }
         }
 
@@ -1069,6 +1085,51 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
         return newSchedule;
       });
+
+      // Dopo aver aggiornato lo schedule, verifica se bisogna rimuovere il dipendente da employeesData
+      if (targetKeyToRemove && targetScheduleKeyToRemove) {
+        // Usa setTimeout per verificare lo stato aggiornato dopo che React ha applicato le modifiche
+        setTimeout(() => {
+          // Verifica se lo schedule è stato completamente eliminato
+          const targetSchedule = schedule[targetScheduleKeyToRemove];
+          if (!targetSchedule || Object.keys(targetSchedule).length === 0) {
+            // Verifica se ci sono altri schedule per questo dipendente in altri reparti della stessa azienda
+            const [targetCompany] = targetKeyToRemove.split('-');
+            const hasOtherSchedules = Object.keys(schedule).some(key => {
+              if (key.includes(`-${targetCompany}-`) && key.endsWith(`-${empId}`) && key !== targetScheduleKeyToRemove) {
+                const otherSchedule = schedule[key];
+                if (otherSchedule && Object.keys(otherSchedule).length > 0) {
+                  // Verifica se ha dati
+                  return Object.values(otherSchedule).some(dayData => {
+                    if (!dayData) return false;
+                    return (dayData.code && dayData.code.trim() !== '') ||
+                           (dayData.in1 && dayData.in1.trim() !== '') ||
+                           (dayData.out1 && dayData.out1.trim() !== '') ||
+                           (dayData.in2 && dayData.in2.trim() !== '') ||
+                           (dayData.out2 && dayData.out2.trim() !== '');
+                  });
+                }
+              }
+              return false;
+            });
+            
+            // Rimuovi il dipendente solo se non ha altri schedule in altri reparti
+            if (!hasOtherSchedules) {
+              setEmployeesData(prev => {
+                const targetEmployees = prev[targetKeyToRemove] || [];
+                if (targetEmployees.some(e => e.id === empId)) {
+                  return {
+                    ...prev,
+                    [targetKeyToRemove]: targetEmployees.filter(e => e.id !== empId)
+                  };
+                }
+                return prev;
+              });
+            }
+          }
+        }, 200);
+      }
+
       return;
     }
 
