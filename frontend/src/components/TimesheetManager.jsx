@@ -813,7 +813,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     return errors;
   };
 
-  const handleInputChange = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
+  const handleInputChange = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null, currentCompany = null) => {
     // 1. Gestione Codici Rapidi
     // IMPORTANTE: Non applicare codici durante la digitazione se la stringa è troppo corta
     // Questo evita che "A" venga interpretato come "Malattia" quando l'utente vuole digitare "AT" o "AV"
@@ -849,8 +849,42 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       const shouldApply = (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch) && strValue.length <= 10;
 
       if (detectedCode && shouldApply) {
-        handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
-        return;
+        // Verifica se è un codice geografico che punta all'azienda corrente
+        // Se sì, non applicarlo ma segnalalo come errore
+        if (isGeographicCode(detectedCode)) {
+          // Estrai l'azienda corrente: usa il parametro se disponibile, altrimenti dal contextKey
+          let companyToCheck = currentCompany;
+          if (!companyToCheck && contextKey) {
+            const parts = contextKey.split('-');
+            companyToCheck = parts[0] || '';
+          }
+          if (!companyToCheck) {
+            // Se non c'è contextKey, usa selectedCompany o la prima azienda
+            companyToCheck = selectedCompany || companies[0] || '';
+          }
+          
+          const targetCompany = getCompanyFromGeographicCode(detectedCode);
+          if (targetCompany && targetCompany === companyToCheck) {
+            // Il codice geografico punta all'azienda corrente, segnala errore
+            const currentWeek = weekRangeValue || weekRange;
+            const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+            const scheduleKeyForError = `${currentWeek}-${baseKey}`;
+            const errorKey = `${scheduleKeyForError}-${dayIndex}-${field}`;
+            setValidationErrors(prev => ({
+              ...prev,
+              [errorKey]: `Codice geografico non valido: non puoi applicare "${timeCodes[detectedCode]}" nella stessa azienda`
+            }));
+            // Non applicare il codice, continua con l'aggiornamento normale
+          } else {
+            // Il codice geografico punta a un'altra azienda, applicalo normalmente
+            handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+            return;
+          }
+        } else {
+          // Non è un codice geografico, applicalo normalmente
+          handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+          return;
+        }
       }
     }
 
@@ -873,7 +907,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     });
   };
 
-  const handleBlur = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null) => {
+  const handleBlur = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null, currentCompany = null) => {
     // 1. Gestione Codici Rapidi (anche su blur)
     // Su blur possiamo essere più permissivi, ma evitiamo ancora che "A" venga interpretato come "Malattia"
     if (['in1', 'out1', 'in2', 'out2'].includes(field) && value) {
@@ -907,8 +941,42 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       const shouldApply = (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch) && strValue.length <= 15;
 
       if (detectedCode && shouldApply) {
-        handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
-        return;
+        // Verifica se è un codice geografico che punta all'azienda corrente
+        // Se sì, non applicarlo ma segnalalo come errore
+        if (isGeographicCode(detectedCode)) {
+          // Estrai l'azienda corrente: usa il parametro se disponibile, altrimenti dal contextKey
+          let companyToCheck = currentCompany;
+          if (!companyToCheck && contextKey) {
+            const parts = contextKey.split('-');
+            companyToCheck = parts[0] || '';
+          }
+          if (!companyToCheck) {
+            // Se non c'è contextKey, usa selectedCompany o la prima azienda
+            companyToCheck = selectedCompany || companies[0] || '';
+          }
+          
+          const targetCompany = getCompanyFromGeographicCode(detectedCode);
+          if (targetCompany && targetCompany === companyToCheck) {
+            // Il codice geografico punta all'azienda corrente, segnala errore
+            const currentWeek = weekRangeValue || weekRange;
+            const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+            const scheduleKeyForError = `${currentWeek}-${baseKey}`;
+            const errorKey = `${scheduleKeyForError}-${dayIndex}-${field}`;
+            setValidationErrors(prev => ({
+              ...prev,
+              [errorKey]: `Codice geografico non valido: non puoi applicare "${timeCodes[detectedCode]}" nella stessa azienda`
+            }));
+            // Non applicare il codice, continua con la validazione normale
+          } else {
+            // Il codice geografico punta a un'altra azienda, applicalo normalmente
+            handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+            return;
+          }
+        } else {
+          // Non è un codice geografico, applicalo normalmente
+          handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+          return;
+        }
       }
     }
 
@@ -3111,8 +3179,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   className={`w-full border bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in1', emp.contextKey, listWeekRange, false)}`}
                                   placeholder=""
                                   value={cellData.in1 || ''}
-                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
-                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange, company)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange, company)}
                                   onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                                   title={getFieldError(emp.id, dayIdx, 'in1', emp.contextKey, listWeekRange) || ''}
                                 />
@@ -3121,8 +3189,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   className={`w-full border bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out1', emp.contextKey, listWeekRange, false)}`}
                                   placeholder=""
                                   value={cellData.out1 || ''}
-                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
-                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange, company)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange, company)}
                                   onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                                   title={getFieldError(emp.id, dayIdx, 'out1', emp.contextKey, listWeekRange) || ''}
                                 />
@@ -3134,8 +3202,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                     className={`w-full border bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange, false)}`}
                                     placeholder=""
                                     value={cellData.in2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
                                     onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                                     title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || ''}
                                   />
@@ -3144,8 +3212,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                     className={`w-full border bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange, false)}`}
                                     placeholder=""
                                     value={cellData.out2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
                                     onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                                     title={getFieldError(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange) || ''}
                                   />
@@ -3181,8 +3249,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   type="text"
                                   className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in1', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
                                   value={cellData.in1 || ''}
-                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
-                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange, company)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange, company)}
                                   onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                                   title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : (getFieldError(emp.id, dayIdx, 'in1', emp.contextKey, listWeekRange) || '')}
                                 />
@@ -3190,8 +3258,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   type="text"
                                   className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:ring-1 focus:bg-white outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out1', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
                                   value={cellData.out1 || ''}
-                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
-                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange)}
+                                  onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange, company)}
+                                  onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange, company)}
                                   onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                                   title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : (getFieldError(emp.id, dayIdx, 'out1', emp.contextKey, listWeekRange) || '')}
                                 />
@@ -3202,8 +3270,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                     type="text"
                                     className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
                                     value={cellData.in2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
                                     onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                                     title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || ''}
                                   />
@@ -3211,8 +3279,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                     type="text"
                                     className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
                                     value={cellData.out2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange)}
+                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
                                     onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                                     title={getFieldError(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange) || ''}
                                   />
