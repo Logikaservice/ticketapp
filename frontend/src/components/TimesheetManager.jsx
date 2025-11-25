@@ -1645,8 +1645,93 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     }, 600); // Ritardo leggermente maggiore perché c'è anche il salvataggio struttura
   };
 
-  // Funzione per creare e aggiungere un nuovo dipendente (alias di handleQuickAddEmployee)
+  // Funzione per validare il nome del dipendente
+  const validateEmployeeName = (employeeName) => {
+    const nameUpper = employeeName.toUpperCase().trim();
+    
+    // 1. Verifica formato nome.cognome
+    if (!nameUpper.includes('.')) {
+      return {
+        valid: false,
+        error: 'Il nome deve essere nel formato "nome.cognome" (es. mario.rossi)'
+      };
+    }
+    
+    const parts = nameUpper.split('.');
+    if (parts.length !== 2) {
+      return {
+        valid: false,
+        error: 'Il nome deve essere nel formato "nome.cognome" con un solo punto'
+      };
+    }
+    
+    const [nome, cognome] = parts.map(p => p.trim());
+    if (!nome || !cognome) {
+      return {
+        valid: false,
+        error: 'Il nome e il cognome non possono essere vuoti'
+      };
+    }
+    
+    // 2. Verifica se esiste già
+    const globalList = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
+    const exactMatch = globalList.find(e => e.name === nameUpper);
+    if (exactMatch) {
+      return {
+        valid: false,
+        error: `Il dipendente "${nameUpper}" esiste già!`
+      };
+    }
+    
+    // 3. Verifica omonimi (cognome.nome e nomi simili)
+    const reversedName = `${cognome}.${nome}`;
+    const reversedMatch = globalList.find(e => e.name === reversedName);
+    if (reversedMatch) {
+      return {
+        valid: false,
+        error: `Attenzione: esiste già un dipendente "${reversedName}". Verifica se si tratta dello stesso dipendente.`
+      };
+    }
+    
+    // Verifica nomi simili (stesso nome o stesso cognome)
+    const similarEmployees = globalList.filter(e => {
+      const empParts = e.name.split('.');
+      if (empParts.length !== 2) return false;
+      const [empNome, empCognome] = empParts.map(p => p.trim());
+      // Stesso nome o stesso cognome
+      return empNome === nome || empCognome === cognome;
+    });
+    
+    if (similarEmployees.length > 0) {
+      const similarNames = similarEmployees.map(e => e.name).join(', ');
+      return {
+        valid: true,
+        warning: `Attenzione: esistono dipendenti con nomi simili: ${similarNames}. Verifica che non si tratti dello stesso dipendente.`
+      };
+    }
+    
+    return { valid: true };
+  };
+
+  // Funzione per creare e aggiungere un nuovo dipendente con validazione
   const handleCreateAndAddEmployee = (employeeName, targetCompany, targetDept, weekRangeValue) => {
+    const validation = validateEmployeeName(employeeName);
+    
+    if (!validation.valid) {
+      if (showNotification) {
+        showNotification(validation.error, 'error', 6000);
+      }
+      return;
+    }
+    
+    // Mostra warning se ci sono omonimi simili
+    if (validation.warning) {
+      if (showNotification) {
+        showNotification(validation.warning, 'warning', 8000);
+      }
+      // Continua comunque, ma avvisa l'utente
+    }
+    
     // Usa handleQuickAddEmployee con il nome forzato
     handleQuickAddEmployee(targetCompany, targetDept, weekRangeValue, employeeName);
   };
@@ -1864,6 +1949,25 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
   const addEmployee = () => {
     if (!newEmployeeName.trim()) return;
+    
+    // Valida il nome del dipendente
+    const validation = validateEmployeeName(newEmployeeName);
+    
+    if (!validation.valid) {
+      if (showNotification) {
+        showNotification(validation.error, 'error', 6000);
+      }
+      return;
+    }
+    
+    // Mostra warning se ci sono omonimi simili
+    if (validation.warning) {
+      if (showNotification) {
+        showNotification(validation.warning, 'warning', 8000);
+      }
+      // Continua comunque, ma avvisa l'utente
+    }
+    
     const newId = Date.now();
     const newName = newEmployeeName.toUpperCase().trim();
 
@@ -1871,10 +1975,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     // Il dipendente verrà aggiunto alle liste solo quando selezionato dalla ricerca
     setEmployeesData(prev => {
       const globalList = prev[GLOBAL_EMPLOYEES_KEY] || [];
-      if (globalList.some(e => e.name === newName)) {
-        if (showNotification) showNotification(`Il dipendente "${newName}" esiste già!`, 'warning', 5000);
-        return prev;
-      }
       return {
         ...prev,
         [GLOBAL_EMPLOYEES_KEY]: [...globalList, { id: newId, name: newName }]
@@ -3210,7 +3310,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           }}
                           onFocus={() => setShowSuggestions(true)}
                           onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department, listWeekRange)}
+                          // Rimosso onKeyDown per evitare creazione accidentale con Enter
                           className="w-full bg-transparent border-b border-gray-400 focus:border-blue-500 outline-none text-sm uppercase placeholder-gray-400"
                         />
                         {showSuggestions && quickAddName && (
@@ -3289,7 +3389,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                         }}
                         onFocus={() => setShowSuggestions(true)}
                         onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleQuickAddEmployee(company, department, listWeekRange)}
+                        // Rimosso onKeyDown per evitare creazione accidentale con Enter
                         className="w-full border-2 border-blue-300 rounded px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none uppercase placeholder-gray-400"
                       />
                       {showSuggestions && quickAddName && (
