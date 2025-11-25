@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Trash2, Plus, Download, Calculator, Calendar, Settings, X, UserPlus, Building2, FileSpreadsheet, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Trash2, Plus, Download, Calculator, Calendar, Settings, X, UserPlus, Building2, FileSpreadsheet, FileText, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
@@ -38,6 +38,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     isOpen: false,
     title: '',
     message: ''
+  });
+  
+  // --- GESTIONE MODALE ANTEPRIMA PDF ---
+  const [pdfPreviewModal, setPdfPreviewModal] = useState({
+    isOpen: false,
+    pdfData: null
   });
 
   // --- STATI STRUTTURA AZIENDALE ---
@@ -192,6 +198,37 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           document.body.removeChild(script);
         }
       } catch (e) { }
+    }
+  }, []);
+
+  // --- CARICAMENTO LIBRERIE PDF (jsPDF e jsPDF-AutoTable) ---
+  useEffect(() => {
+    const scripts = [];
+    
+    // Carica jsPDF
+    const jspdfScript = document.createElement('script');
+    jspdfScript.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    jspdfScript.async = true;
+    document.body.appendChild(jspdfScript);
+    scripts.push(jspdfScript);
+    
+    // Carica jsPDF-AutoTable dopo jsPDF
+    jspdfScript.onload = () => {
+      const autotableScript = document.createElement('script');
+      autotableScript.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js";
+      autotableScript.async = true;
+      document.body.appendChild(autotableScript);
+      scripts.push(autotableScript);
+    };
+    
+    return () => {
+      scripts.forEach(script => {
+        try {
+          if (document.body.contains(script)) {
+            document.body.removeChild(script);
+          }
+        } catch (e) { }
+      });
     }
   }, []);
 
@@ -3151,6 +3188,291 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     }
   };
 
+  // --- EXPORT PDF CON ANTEPRIMA ---
+  const generatePDFPreview = () => {
+    const previewData = [];
+    let hasData = false;
+
+    viewLists.forEach((list, listIndex) => {
+      const { company, department, weekRange: listWeekRange } = list;
+      if (!company || !department) return;
+
+      const listEmployees = getEmployeesForList(list);
+      if (listEmployees.length === 0) return;
+
+      hasData = true;
+      const employeesData = [];
+
+      listEmployees.forEach((emp) => {
+        const currentWeek = listWeekRange || getWeekDates(0).formatted;
+        const baseKey = emp.contextKey ? `${emp.contextKey}-${emp.id}` : emp.id;
+        const scheduleKey = `${currentWeek}-${baseKey}`;
+        
+        const empNameDisplay = multiCompanyMode ? `${emp.name} (${emp.company} - ${emp.department})` : emp.name;
+        const daysData = [];
+
+        days.forEach((dayName, dayIdx) => {
+          const data = schedule[scheduleKey]?.[dayIdx];
+          if (data) {
+            if (data.code) {
+              const codeLabel = getCodeLabel(data.code);
+              daysData.push({
+                day: dayName,
+                in1: codeLabel,
+                out1: codeLabel,
+                in2: '',
+                out2: ''
+              });
+            } else {
+              daysData.push({
+                day: dayName,
+                in1: data.in1 || '',
+                out1: data.out1 || '',
+                in2: data.in2 || '',
+                out2: data.out2 || ''
+              });
+            }
+          } else {
+            daysData.push({
+              day: dayName,
+              in1: '',
+              out1: '',
+              in2: '',
+              out2: ''
+            });
+          }
+        });
+
+        employeesData.push({
+          name: empNameDisplay,
+          days: daysData
+        });
+      });
+
+      previewData.push({
+        company,
+        department,
+        weekRange: listWeekRange,
+        employees: employeesData
+      });
+    });
+
+    return { previewData, hasData };
+  };
+
+  const showPDFPreview = () => {
+    const { previewData, hasData } = generatePDFPreview();
+    
+    if (!hasData) {
+      if (showNotification) {
+        showNotification("Nessun dato da esportare nelle liste visualizzate.", 'warning', 5000);
+      }
+      return;
+    }
+
+    setPdfPreviewModal({
+      isOpen: true,
+      pdfData: previewData
+    });
+  };
+
+  // Funzione helper per calcolare ore da stringa tempo
+  const calculateHours = (timeStr) => {
+    if (!timeStr || typeof timeStr !== 'string') return 0;
+    const cleanStr = timeStr.replace(',', '.').replace(':', '.').trim();
+    if (!cleanStr.includes('.')) {
+      const val = parseFloat(cleanStr);
+      return isNaN(val) ? 0 : val;
+    }
+    const parts = cleanStr.split('.');
+    const hours = parseInt(parts[0]);
+    const minutes = parseInt(parts[1]);
+    if (isNaN(hours)) return 0;
+    const safeMinutes = isNaN(minutes) ? 0 : minutes;
+    return hours + safeMinutes / 60;
+  };
+
+  const exportPDF = () => {
+    try {
+      if (!window.jspdf) {
+        openConfirm("Errore Libreria", "La libreria PDF non è ancora caricata. Attendi...", null);
+        return;
+      }
+
+      const { previewData, hasData } = generatePDFPreview();
+      
+      if (!hasData) {
+        if (showNotification) {
+          showNotification("Nessun dato da esportare nelle liste visualizzate.", 'warning', 5000);
+        }
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      previewData.forEach((listData, listIndex) => {
+        if (listIndex > 0) {
+          doc.addPage();
+        }
+
+        const { company, department, weekRange: listWeekRange, employees } = listData;
+
+        // Titolo
+        doc.setFontSize(16);
+        doc.setTextColor(68, 114, 196); // Blu scuro #4472C4
+        doc.setFont(undefined, 'bold');
+        doc.text(`REPARTO ${company.toUpperCase()} - ${department.toUpperCase()}`, 148.5, 15, { align: 'center' });
+
+        // Sottotitolo
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Orario settimanale: ${listWeekRange}`, 148.5, 22, { align: 'center' });
+
+        // Prepara header tabella
+        const headers = ['DIPENDENTE'];
+        days.forEach(day => {
+          headers.push(`${day}\nEntrata`, `${day}\nUscita`);
+        });
+        headers.push('TOTALE');
+
+        // Prepara dati tabella
+        const tableBody = [];
+
+        employees.forEach((emp, empIndex) => {
+          // Calcola totale ore per questo dipendente
+          let totalHours = 0;
+          emp.days.forEach(dayData => {
+            // Se c'è un codice, non calcolare ore
+            if (dayData.in1 && dayData.in1 === dayData.out1 && dayData.in1.trim() !== '') {
+              // È un codice, non calcolare
+              return;
+            }
+            const in1 = calculateHours(dayData.in1);
+            const out1 = calculateHours(dayData.out1);
+            const in2 = calculateHours(dayData.in2);
+            const out2 = calculateHours(dayData.out2);
+            if (in1 > 0 && out1 > 0) totalHours += (out1 - in1);
+            if (in2 > 0 && out2 > 0) totalHours += (out2 - in2);
+          });
+
+          // Riga separatrice nera prima di ogni dipendente (eccetto il primo)
+          if (empIndex > 0) {
+            const separatorRow = new Array(headers.length).fill('');
+            tableBody.push(separatorRow);
+          }
+
+          // Riga 1 del dipendente
+          const row1 = [emp.name];
+          emp.days.forEach(dayData => {
+            row1.push(dayData.in1 || '', dayData.out1 || '');
+          });
+          row1.push(empIndex === 0 ? totalHours.toFixed(1) : ''); // Totale solo nella prima riga
+          tableBody.push(row1);
+
+          // Riga 2 del dipendente
+          const row2 = [''];
+          emp.days.forEach(dayData => {
+            row2.push(dayData.in2 || '', dayData.out2 || '');
+          });
+          row2.push(''); // Totale vuoto nella seconda riga
+          tableBody.push(row2);
+        });
+
+        // Aggiungi tabella
+        doc.autoTable({
+          head: [headers],
+          body: tableBody,
+          startY: 28,
+          margin: { top: 28, right: 10, bottom: 10, left: 10 },
+          styles: {
+            fontSize: 8,
+            cellPadding: 1.5,
+            textColor: [0, 0, 0],
+            overflow: 'linebreak',
+            cellWidth: 'wrap',
+            lineColor: [0, 0, 0],
+            lineWidth: 0.1
+          },
+          headStyles: {
+            fillColor: [91, 155, 213], // Blu chiaro #5B9BD5
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            fontSize: 11,
+            halign: 'center',
+            valign: 'middle'
+          },
+          columnStyles: {
+            0: { 
+              cellWidth: 45, 
+              fontStyle: 'bold', 
+              fontSize: 8, 
+              fillColor: [231, 230, 230], // Grigio chiaro per nome dipendente
+              halign: 'left'
+            },
+            [headers.length - 1]: { 
+              fillColor: [255, 224, 153], // Giallo chiaro per totale
+              fontStyle: 'bold', 
+              fontSize: 11,
+              halign: 'center'
+            }
+          },
+          didParseCell: function (data) {
+            const rowIndex = data.row.index;
+            const colIndex = data.column.index;
+            const cellValue = data.cell.text[0] || '';
+            
+            // Riga separatrice nera (tutte le celle vuote)
+            if (cellValue === '' && data.row.raw.every(cell => cell === '')) {
+              data.cell.styles.fillColor = [0, 0, 0];
+              data.cell.styles.minCellHeight = 1;
+              data.cell.styles.cellPadding = 0;
+            }
+            
+            // Nome dipendente (prima colonna, prima riga del dipendente)
+            if (colIndex === 0 && cellValue !== '' && data.row.raw[0] !== '') {
+              data.cell.styles.fillColor = [231, 230, 230];
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.fontSize = 8;
+              // Merge con la riga successiva
+              if (rowIndex + 1 < tableBody.length && tableBody[rowIndex + 1][0] === '') {
+                data.cell.rowSpan = 2;
+              }
+            }
+            
+            // Totale (ultima colonna, prima riga del dipendente)
+            if (colIndex === headers.length - 1 && cellValue !== '' && data.row.raw[0] !== '') {
+              data.cell.styles.fillColor = [255, 224, 153];
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.fontSize = 11;
+              // Merge con la riga successiva
+              if (rowIndex + 1 < tableBody.length && tableBody[rowIndex + 1][0] === '') {
+                data.cell.rowSpan = 2;
+              }
+            }
+          }
+        });
+      });
+
+      const fileName = `Turni_Multi_${new Date().toISOString().slice(0, 10)}.pdf`;
+      doc.save(fileName);
+      
+      setPdfPreviewModal({ isOpen: false, pdfData: null });
+      
+      if (showNotification) {
+        showNotification("PDF esportato con successo!", 'success', 3000);
+      }
+
+    } catch (error) {
+      console.error("Export PDF error:", error);
+      openConfirm("Errore Esportazione PDF", "Si è verificato un errore. Prova a ricaricare la pagina.", null);
+    }
+  };
+
   // --- RENDER LISTA ---
   const renderEmployeeList = (listConfig, index) => {
     const { id, company, department, weekRange: listWeekRange } = listConfig;
@@ -3852,6 +4174,117 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         </div>
       )}
 
+      {pdfPreviewModal.isOpen && pdfPreviewModal.pdfData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-red-600 p-4 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="w-6 h-6" />
+                <h3 className="text-lg font-bold">Anteprima PDF</h3>
+              </div>
+              <button
+                onClick={() => setPdfPreviewModal({ isOpen: false, pdfData: null })}
+                className="text-white hover:text-gray-200 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+              {pdfPreviewModal.pdfData.map((listData, listIndex) => (
+                <div key={listIndex} className="mb-8 bg-white rounded-lg shadow-md p-6">
+                  <div className="text-center mb-4 pb-3 border-b-2 border-blue-600">
+                    <h2 className="text-xl font-bold text-blue-600 mb-2">
+                      REPARTO {listData.company.toUpperCase()} - {listData.department.toUpperCase()}
+                    </h2>
+                    <p className="text-sm text-gray-600">Orario settimanale: {listData.weekRange}</p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-xs" style={{ fontSize: '8px' }}>
+                      <thead>
+                        <tr className="bg-blue-500 text-white">
+                          <th className="border border-gray-300 p-2 text-left font-bold" style={{ fontSize: '11px', width: '150px' }}>DIPENDENTE</th>
+                          {days.map((day, dayIdx) => (
+                            <React.Fragment key={dayIdx}>
+                              <th className="border border-gray-300 p-1 text-center font-bold" style={{ fontSize: '11px' }}>{day}<br />Entrata</th>
+                              <th className="border border-gray-300 p-1 text-center font-bold" style={{ fontSize: '11px' }}>{day}<br />Uscita</th>
+                            </React.Fragment>
+                          ))}
+                          <th className="border border-gray-300 p-2 text-center font-bold bg-yellow-400 text-black" style={{ fontSize: '11px' }}>TOTALE</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {listData.employees.map((emp, empIndex) => {
+                          // Calcola totale ore per questo dipendente
+                          let totalHours = 0;
+                          emp.days.forEach(dayData => {
+                            // Se c'è un codice, non calcolare ore
+                            if (dayData.in1 && dayData.in1 === dayData.out1 && dayData.in1.trim() !== '') {
+                              return;
+                            }
+                            const in1 = calculateHours(dayData.in1);
+                            const out1 = calculateHours(dayData.out1);
+                            const in2 = calculateHours(dayData.in2);
+                            const out2 = calculateHours(dayData.out2);
+                            if (in1 > 0 && out1 > 0) totalHours += (out1 - in1);
+                            if (in2 > 0 && out2 > 0) totalHours += (out2 - in2);
+                          });
+
+                          return (
+                            <React.Fragment key={empIndex}>
+                              {empIndex > 0 && (
+                                <tr>
+                                  <td colSpan={16} className="h-1 bg-black p-0 border-0"></td>
+                                </tr>
+                              )}
+                              <tr>
+                                <td className="border border-gray-300 p-2 bg-gray-200 font-bold" rowSpan={2} style={{ fontSize: '8px' }}>
+                                  {emp.name}
+                                </td>
+                                {emp.days.map((dayData, dayIdx) => (
+                                  <React.Fragment key={dayIdx}>
+                                    <td className="border border-gray-300 p-1 text-center">{dayData.in1 || ''}</td>
+                                    <td className="border border-gray-300 p-1 text-center">{dayData.out1 || ''}</td>
+                                  </React.Fragment>
+                                ))}
+                                <td className="border border-gray-300 p-2 text-center bg-yellow-100 font-bold" rowSpan={2} style={{ fontSize: '11px' }}>
+                                  {totalHours > 0 ? totalHours.toFixed(1) : ''}
+                                </td>
+                              </tr>
+                              <tr>
+                                {emp.days.map((dayData, dayIdx) => (
+                                  <React.Fragment key={dayIdx}>
+                                    <td className="border border-gray-300 p-1 text-center">{dayData.in2 || ''}</td>
+                                    <td className="border border-gray-300 p-1 text-center">{dayData.out2 || ''}</td>
+                                  </React.Fragment>
+                                ))}
+                              </tr>
+                            </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="bg-gray-100 p-4 border-t flex justify-end gap-3">
+              <button
+                onClick={() => setPdfPreviewModal({ isOpen: false, pdfData: null })}
+                className="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium transition-colors"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={exportPDF}
+                className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white font-medium transition-colors shadow-lg flex items-center gap-2"
+              >
+                <FileText size={16} /> Esporta PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-full mx-auto bg-white shadow-xl rounded-lg overflow-hidden min-h-[600px]">
 
         {/* HEADER PRINCIPALE */}
@@ -3877,6 +4310,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors shadow-md"
               >
                 <FileSpreadsheet size={16} /> Scarica Excel (.xlsx)
+              </button>
+              <button
+                onClick={showPDFPreview}
+                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded text-sm font-bold transition-colors shadow-md"
+              >
+                <FileText size={16} /> Esporta PDF
               </button>
               <button
                 onClick={() => setShowSettings(!showSettings)}
