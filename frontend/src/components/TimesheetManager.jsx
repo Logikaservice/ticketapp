@@ -2414,6 +2414,32 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     return dept ? `${company}-${dept}` : company;
   };
 
+  // Funzione per aprire una lista quando si clicca su un risultato di ricerca
+  const openListFromSearch = (result) => {
+    // Verifica se la lista esiste già
+    const existingList = viewLists.find(list => 
+      list.company === result.company && 
+      list.department === result.department && 
+      list.weekRange === result.week
+    );
+
+    if (!existingList) {
+      // Aggiungi una nuova lista
+      const newId = Date.now();
+      const newList = {
+        id: newId,
+        company: result.company,
+        department: result.department,
+        weekRange: result.week
+      };
+      setViewLists(prev => [...prev, newList]);
+    }
+
+    // Chiudi la ricerca
+    setGlobalSearchName('');
+    setSearchResults([]);
+  };
+
   // Funzione per cercare dove è impegnato un dipendente
   const searchEmployeeEngagements = (employeeName) => {
     if (!employeeName || !employeeName.trim()) {
@@ -2479,13 +2505,36 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                        (dayData.out2 && dayData.out2.trim() !== '');
               }).length;
 
+              // Prepara l'anteprima degli orari (solo i primi 3 giorni con dati)
+              const schedulePreview = [];
+              const dayNames = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
+              for (let dayIdx = 0; dayIdx < 7 && schedulePreview.length < 3; dayIdx++) {
+                const dayData = empSchedule[dayIdx];
+                if (dayData) {
+                  const hasDayData = (dayData.code && dayData.code.trim() !== '') ||
+                                     (dayData.in1 && dayData.in1.trim() !== '') ||
+                                     (dayData.out1 && dayData.out1.trim() !== '') ||
+                                     (dayData.in2 && dayData.in2.trim() !== '') ||
+                                     (dayData.out2 && dayData.out2.trim() !== '');
+                  if (hasDayData) {
+                    schedulePreview.push({
+                      dayName: dayNames[dayIdx],
+                      dayIndex: dayIdx,
+                      data: dayData
+                    });
+                  }
+                }
+              }
+
               results.push({
                 employeeName: emp.name,
                 employeeId: emp.id,
                 company,
                 department,
                 week: weekPart,
-                daysWithData
+                daysWithData,
+                schedule: empSchedule,
+                schedulePreview
               });
             }
           }
@@ -3871,18 +3920,52 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                   {searchResults.map((result, index) => (
                     <div
                       key={`${result.employeeId}-${result.company}-${result.department}-${result.week}-${index}`}
-                      className="bg-gray-50 p-3 rounded border border-gray-200 hover:bg-blue-50 transition-colors"
+                      onClick={() => openListFromSearch(result)}
+                      className="bg-gray-50 p-3 rounded border border-gray-200 hover:bg-blue-50 hover:border-blue-400 cursor-pointer transition-all shadow-sm hover:shadow-md"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <div className="font-bold text-gray-800 text-sm">{result.employeeName}</div>
-                          <div className="text-xs text-gray-600 mt-1">
+                          <div className="font-bold text-gray-800 text-sm mb-1">{result.employeeName}</div>
+                          <div className="text-xs text-gray-600 mb-1">
                             <span className="font-semibold">{result.company}</span>
                             {result.department && <span> &gt; <span className="font-semibold">{result.department}</span></span>}
                           </div>
-                          <div className="text-xs text-gray-500 mt-1">
+                          <div className="text-xs text-gray-500 mb-2">
                             Settimana: {result.week} | {result.daysWithData} {result.daysWithData === 1 ? 'giorno' : 'giorni'} con orari
                           </div>
+                          
+                          {/* ANTEPRIMA ORARI */}
+                          {result.schedulePreview && result.schedulePreview.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-gray-300">
+                              <div className="text-xs font-semibold text-gray-700 mb-1">Anteprima orari:</div>
+                              <div className="space-y-1">
+                                {result.schedulePreview.map((preview, pIdx) => {
+                                  const { dayName, data } = preview;
+                                  const timeDisplay = data.code 
+                                    ? getCodeLabel(data.code)
+                                    : [
+                                        data.in1 && data.out1 ? `${data.in1}-${data.out1}` : '',
+                                        data.in2 && data.out2 ? `${data.in2}-${data.out2}` : ''
+                                      ].filter(Boolean).join(' / ') || 'Nessun orario';
+                                  
+                                  return (
+                                    <div key={pIdx} className="text-xs text-gray-600 flex items-center gap-2">
+                                      <span className="font-medium text-gray-500 w-16">{dayName}:</span>
+                                      <span className="text-gray-700">{timeDisplay}</span>
+                                    </div>
+                                  );
+                                })}
+                                {result.daysWithData > result.schedulePreview.length && (
+                                  <div className="text-xs text-gray-400 italic">
+                                    ... e altri {result.daysWithData - result.schedulePreview.length} {result.daysWithData - result.schedulePreview.length === 1 ? 'giorno' : 'giorni'}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-blue-600 text-xs font-semibold mt-1">
+                          Clicca per aprire →
                         </div>
                       </div>
                     </div>
