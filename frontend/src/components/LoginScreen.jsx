@@ -27,12 +27,6 @@ const LoginScreen = ({
     if (expiredReason === 'inactivity') {
       setSessionExpiredMsg('Disconnesso per inattività');
     }
-
-    // Carica l'email salvata se presente
-    const savedEmail = localStorage.getItem('savedEmail');
-    if (savedEmail && !loginData.email) {
-      setLoginData(prevData => ({ ...prevData, email: savedEmail }));
-    }
   }, []);
 
 
@@ -150,22 +144,18 @@ const LoginScreen = ({
           <form
             className="space-y-3 sm:space-y-4"
             method="post"
-            action="#"
             onSubmit={(e) => {
               e.preventDefault();
               handleLogin();
             }}
           >
-            {/* Campo username nascosto per migliorare il riconoscimento del browser */}
-            <input type="text" name="username" autoComplete="username" style={{ display: 'none' }} tabIndex={-1} />
-            
             <div>
               <label htmlFor="email" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Email</label>
               <input
                 id="email"
                 name="email"
                 type="email"
-                autoComplete="username email"
+                autoComplete="username"
                 value={loginData.email}
                 onChange={(e) => setLoginData(prevData => ({ ...prevData, email: e.target.value }))}
                 className="w-full px-3 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

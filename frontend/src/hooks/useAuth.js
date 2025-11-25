@@ -118,12 +118,6 @@ export const useAuth = (showNotification) => {
 
       setCurrentUser(loginResponse.user);
       setIsLoggedIn(true);
-      
-      // Salva l'email in localStorage (anche se l'utente rifiuta di salvare la password)
-      if (loginData.email) {
-        localStorage.setItem('savedEmail', loginData.email);
-      }
-      
       setLoginData({ email: '', password: '' });
       localStorage.removeItem('sessionExpiredReason');
 
