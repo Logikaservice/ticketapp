@@ -3260,22 +3260,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     return { previewData, hasData };
   };
 
-  const showPDFPreview = () => {
-    const { previewData, hasData } = generatePDFPreview();
-    
-    if (!hasData) {
-      if (showNotification) {
-        showNotification("Nessun dato da esportare nelle liste visualizzate.", 'warning', 5000);
-      }
-      return;
-    }
-
-    setPdfPreviewModal({
-      isOpen: true,
-      pdfData: previewData
-    });
-  };
-
   // Funzione helper per calcolare ore da stringa tempo
   const calculateHours = (timeStr) => {
     if (!timeStr || typeof timeStr !== 'string') return 0;
@@ -3290,6 +3274,22 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     if (isNaN(hours)) return 0;
     const safeMinutes = isNaN(minutes) ? 0 : minutes;
     return hours + safeMinutes / 60;
+  };
+
+  const showPDFPreview = () => {
+    const { previewData, hasData } = generatePDFPreview();
+    
+    if (!hasData) {
+      if (showNotification) {
+        showNotification("Nessun dato da esportare nelle liste visualizzate.", 'warning', 5000);
+      }
+      return;
+    }
+
+    setPdfPreviewModal({
+      isOpen: true,
+      pdfData: previewData
+    });
   };
 
   const exportPDF = () => {
