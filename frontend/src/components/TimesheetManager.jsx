@@ -1620,9 +1620,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         return prevSchedule;
       }
 
+      // Inizializza con almeno un giorno vuoto (lunedì) per far apparire il dipendente nella lista
       const newSchedule = {
         ...prevSchedule,
-        [scheduleKey]: {}
+        [scheduleKey]: {
+          0: { in1: '', out1: '', in2: '', out2: '', code: '' } // Inizializza lunedì vuoto
+        }
       };
 
       return newSchedule;
@@ -2204,28 +2207,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
     const checkKey = getContextKey(company, department);
     
-    // Mostra dipendenti che hanno uno schedule con dati per questa azienda/reparto
+    // Mostra dipendenti che hanno uno schedule per questa azienda/reparto
+    // (anche se vuoto, basta che lo schedule esista)
     const employeesWithSchedule = globalEmployees.filter(emp => {
       const scheduleKey = `${currentWeek}-${checkKey}-${emp.id}`;
       const empSchedule = schedule[scheduleKey];
       
-      // Se lo schedule non esiste, non mostrare il dipendente
-      if (!empSchedule || Object.keys(empSchedule).length === 0) {
-        return false;
-      }
-      
-      // Verifica che lo schedule abbia effettivamente dei dati (non vuoto)
-      const hasData = Object.values(empSchedule).some(dayData => {
-        if (!dayData) return false;
-        return (dayData.code && dayData.code.trim() !== '') ||
-               (dayData.in1 && dayData.in1.trim() !== '') ||
-               (dayData.out1 && dayData.out1.trim() !== '') ||
-               (dayData.in2 && dayData.in2.trim() !== '') ||
-               (dayData.out2 && dayData.out2.trim() !== '') ||
-               (dayData.geographicCode && dayData.geographicCode.trim() !== '');
-      });
-      
-      return hasData;
+      // Se lo schedule esiste (anche se vuoto), mostra il dipendente
+      // Questo permette di vedere i dipendenti appena aggiunti anche se non hanno ancora orari inseriti
+      return empSchedule !== undefined && Object.keys(empSchedule).length > 0;
     });
 
     // Cerca anche dipendenti di altre aziende che hanno codici geografici per questa azienda
