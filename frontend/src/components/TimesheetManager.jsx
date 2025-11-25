@@ -1634,15 +1634,27 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         return updated;
       });
     } else {
-      // 2. Se il dipendente esiste già, assicurati che sia presente in employeesData[key] per questa azienda/reparto
-      // Questo è necessario perché getEmployeesForList mostra dipendenti in employeesData[key] anche senza schedule
+      // 2. Se il dipendente esiste già, assicurati che sia presente:
+      // - Nella lista globale (se non c'è già)
+      // - In employeesData[key] per questa azienda/reparto
       setEmployeesData(prev => {
         const updated = { ...prev };
+        
+        // Aggiungi alla lista globale se non c'è già
+        const globalList = updated[GLOBAL_EMPLOYEES_KEY] || [];
+        const existsInGlobal = globalList.some(e => e.id === employeeId || e.name === newName);
+        if (!existsInGlobal) {
+          updated[GLOBAL_EMPLOYEES_KEY] = [...globalList, { id: employeeId, name: newName }];
+        }
+        
+        // Assicurati che sia presente in employeesData[key] per questa azienda/reparto
+        // Questo è necessario perché getEmployeesForList mostra dipendenti in employeesData[key] anche senza schedule
         const specificEmployees = updated[key] || [];
         const existsInSpecific = specificEmployees.some(e => e.id === employeeId || e.name === newName);
         if (!existsInSpecific) {
           updated[key] = [...specificEmployees, { id: employeeId, name: newName }];
         }
+        
         return updated;
       });
     }
