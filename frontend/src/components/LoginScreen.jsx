@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User } from 'lucide-react';
 import QuickRequestModal from './Modals/QuickRequestModal';
 
@@ -20,6 +20,8 @@ const LoginScreen = ({
   const [showQuickRequest, setShowQuickRequest] = useState(false);
   const [clients, setClients] = useState(existingClients);
   const [sessionExpiredMsg, setSessionExpiredMsg] = useState(null);
+  const emailInputRef = useRef(null);
+  const passwordInputRef = useRef(null);
 
   useEffect(() => {
     // Controlla se la sessione è scaduta per inattività
@@ -145,36 +147,28 @@ const LoginScreen = ({
             className="space-y-3 sm:space-y-4"
             method="post"
             action="/api/login"
-            onSubmit={async (e) => {
+            onSubmit={(e) => {
               e.preventDefault();
-              
-              // Assicurati che i valori siano nel form nativo per il browser
-              const form = e.target;
-              const emailInput = form.querySelector('input[name="email"]');
-              const passwordInput = form.querySelector('input[name="password"]');
-              
-              if (emailInput && passwordInput && loginData.email && loginData.password) {
-                // Imposta i valori nei campi nativi del form
-                emailInput.value = loginData.email;
-                passwordInput.value = loginData.password;
-                
-                // Triggera un evento input per notificare il browser
-                emailInput.dispatchEvent(new Event('input', { bubbles: true }));
-                passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
-              }
-              
-              await handleLogin();
+              // Leggi i valori direttamente dai campi nativi (non controllati)
+              const email = emailInputRef.current?.value || '';
+              const password = passwordInputRef.current?.value || '';
+              // Aggiorna lo state per il login
+              setLoginData({ email, password });
+              // Chiama handleLogin con i valori aggiornati
+              setTimeout(() => {
+                handleLogin();
+              }, 0);
             }}
           >
             <div>
               <label htmlFor="email" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Email</label>
               <input
+                ref={emailInputRef}
                 id="email"
                 name="email"
                 type="email"
                 autoComplete="username"
-                value={loginData.email}
-                onChange={(e) => setLoginData(prevData => ({ ...prevData, email: e.target.value }))}
+                defaultValue={loginData.email}
                 className="w-full px-3 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="email@example.com"
                 required
@@ -184,12 +178,12 @@ const LoginScreen = ({
             <div>
               <label htmlFor="password" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">Password</label>
               <input
+                ref={passwordInputRef}
                 id="password"
                 name="password"
                 type="password"
                 autoComplete="current-password"
-                value={loginData.password}
-                onChange={(e) => setLoginData(prevData => ({ ...prevData, password: e.target.value }))}
+                defaultValue={loginData.password}
                 className="w-full px-3 py-2 sm:px-4 sm:py-2.5 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="••••••••"
                 required
