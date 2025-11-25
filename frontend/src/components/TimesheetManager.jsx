@@ -3341,7 +3341,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                     <div
                                       key={emp.id}
                                       className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-100 last:border-0 text-gray-700"
-                                      onClick={() => handleQuickAddEmployee(company, department, listWeekRange, emp.name)}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        handleQuickAddEmployee(company, department, listWeekRange, emp.name);
+                                      }}
                                     >
                                       {emp.name}
                                     </div>
@@ -3349,7 +3352,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   {showAddOption && (
                                     <div
                                       className="px-3 py-2 hover:bg-green-50 cursor-pointer text-sm text-green-700 font-semibold border-t border-gray-200 flex items-center gap-2"
-                                      onClick={() => handleCreateAndAddEmployee(quickAddName, company, department, listWeekRange)}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        handleCreateAndAddEmployee(quickAddName, company, department, listWeekRange);
+                                      }}
                                     >
                                       <Plus size={14} /> Aggiungi "{searchTerm}"
                                     </div>
@@ -3423,7 +3429,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   <div
                                     key={emp.id}
                                     className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm border-b border-gray-100 last:border-0 text-gray-700"
-                                    onClick={() => handleQuickAddEmployee(company, department, listWeekRange, emp.name)}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      handleQuickAddEmployee(company, department, listWeekRange, emp.name);
+                                    }}
                                   >
                                     {emp.name}
                                   </div>
@@ -3431,7 +3440,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                 {showAddOption && (
                                   <div
                                     className="px-3 py-2 hover:bg-green-50 cursor-pointer text-sm text-green-700 font-semibold border-t border-gray-200 flex items-center gap-2"
-                                    onClick={() => handleCreateAndAddEmployee(quickAddName, company, department, listWeekRange)}
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      handleCreateAndAddEmployee(quickAddName, company, department, listWeekRange);
+                                    }}
                                   >
                                     <Plus size={14} /> Aggiungi "{searchTerm}"
                                   </div>
