@@ -28,6 +28,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   const [quickAddName, setQuickAddName] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [globalSearchName, setGlobalSearchName] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
 
   // --- GESTIONE MODALE SICURA ---
   const onConfirmAction = useRef(null);
@@ -2412,6 +2414,89 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     return dept ? `${company}-${dept}` : company;
   };
 
+  // Funzione per cercare dove è impegnato un dipendente
+  const searchEmployeeEngagements = (employeeName) => {
+    if (!employeeName || !employeeName.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const nameUpper = employeeName.toUpperCase().trim();
+    const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
+    const matchingEmployees = globalEmployees.filter(e => e.name.toUpperCase().includes(nameUpper));
+
+    if (matchingEmployees.length === 0) {
+      setSearchResults([]);
+      return;
+    }
+
+    const results = [];
+
+    // Per ogni dipendente trovato, cerca tutti i suoi schedule
+    matchingEmployees.forEach(emp => {
+      Object.keys(schedule).forEach(scheduleKey => {
+        // Pattern: "dd/mm/yyyy al dd/mm/yyyy-Company-Department-empId"
+        if (scheduleKey.endsWith(`-${emp.id}`)) {
+          // Estrai la settimana (prima parte fino a "al")
+          const weekMatch = scheduleKey.match(/^(.+? al .+?)-/);
+          if (!weekMatch) return;
+          
+          const weekPart = weekMatch[1];
+          const restOfKey = scheduleKey.replace(`${weekPart}-`, '');
+          
+          // Estrai contextKey e empId
+          const lastDashIndex = restOfKey.lastIndexOf('-');
+          if (lastDashIndex === -1) return;
+          
+          const contextKey = restOfKey.substring(0, lastDashIndex);
+          const empId = restOfKey.substring(lastDashIndex + 1);
+
+          // Estrai azienda e reparto dal contextKey
+          const contextParts = contextKey.split('-');
+          const company = contextParts[0];
+          const department = contextParts.slice(1).join('-');
+
+            const empSchedule = schedule[scheduleKey];
+            if (empSchedule && Object.keys(empSchedule).length > 0) {
+              // Verifica se ci sono dati effettivi
+              const hasData = Object.values(empSchedule).some(dayData => {
+                if (!dayData) return false;
+                return (dayData.code && dayData.code.trim() !== '') ||
+                       (dayData.in1 && dayData.in1.trim() !== '') ||
+                       (dayData.out1 && dayData.out1.trim() !== '') ||
+                       (dayData.in2 && dayData.in2.trim() !== '') ||
+                       (dayData.out2 && dayData.out2.trim() !== '');
+              });
+
+              if (hasData) {
+                // Conta i giorni con dati
+                const daysWithData = Object.values(empSchedule).filter(dayData => {
+                  if (!dayData) return false;
+                  return (dayData.code && dayData.code.trim() !== '') ||
+                         (dayData.in1 && dayData.in1.trim() !== '') ||
+                         (dayData.out1 && dayData.out1.trim() !== '') ||
+                         (dayData.in2 && dayData.in2.trim() !== '') ||
+                         (dayData.out2 && dayData.out2.trim() !== '');
+                }).length;
+
+                results.push({
+                  employeeName: emp.name,
+                  employeeId: emp.id,
+                  company,
+                  department,
+                  week: weekPart,
+                  daysWithData
+                });
+              }
+            }
+          }
+        }
+      });
+    });
+
+    setSearchResults(results);
+  };
+
   // Helper per trovare lo schedule di un dipendente in un'azienda (cerca in tutti i reparti)
   const getEmployeeSchedule = (empId, company, department, weekRangeValue = null) => {
     const currentWeek = weekRangeValue || weekRange;
@@ -3749,6 +3834,68 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 <Settings size={20} />
               </button>
             </div>
+          </div>
+
+          {/* CAMPO RICERCA GLOBALE DIPENDENTE */}
+          <div className="mt-4">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Cerca dipendente per vedere dove è impegnato..."
+                value={globalSearchName}
+                onChange={(e) => {
+                  setGlobalSearchName(e.target.value);
+                  searchEmployeeEngagements(e.target.value);
+                }}
+                className="w-full bg-white text-gray-800 px-4 py-2 rounded-lg border-2 border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-300 outline-none"
+              />
+              {globalSearchName && (
+                <button
+                  onClick={() => {
+                    setGlobalSearchName('');
+                    setSearchResults([]);
+                  }}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={20} />
+                </button>
+              )}
+            </div>
+
+            {/* RISULTATI RICERCA */}
+            {searchResults.length > 0 && (
+              <div className="mt-3 bg-white rounded-lg shadow-lg border-2 border-blue-400 max-h-96 overflow-y-auto">
+                <div className="p-3 bg-blue-600 text-white font-bold text-sm sticky top-0">
+                  Risultati ricerca: {searchResults.length} {searchResults.length === 1 ? 'impegno trovato' : 'impegni trovati'}
+                </div>
+                <div className="p-3 space-y-2">
+                  {searchResults.map((result, index) => (
+                    <div
+                      key={`${result.employeeId}-${result.company}-${result.department}-${result.week}-${index}`}
+                      className="bg-gray-50 p-3 rounded border border-gray-200 hover:bg-blue-50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="font-bold text-gray-800 text-sm">{result.employeeName}</div>
+                          <div className="text-xs text-gray-600 mt-1">
+                            <span className="font-semibold">{result.company}</span>
+                            {result.department && <span> &gt; <span className="font-semibold">{result.department}</span></span>}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            Settimana: {result.week} | {result.daysWithData} {result.daysWithData === 1 ? 'giorno' : 'giorni'} con orari
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {globalSearchName && searchResults.length === 0 && (
+              <div className="mt-3 bg-yellow-50 border border-yellow-300 rounded-lg p-3 text-sm text-yellow-800">
+                Nessun impegno trovato per "{globalSearchName}"
+              </div>
+            )}
           </div>
         </div>
 
