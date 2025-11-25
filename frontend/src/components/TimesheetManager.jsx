@@ -3829,12 +3829,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
         )}
 
-        {/* LISTE ORARI */}
-        <div className="p-4">
-          {viewLists.map((list, index) => renderEmployeeList(list, index))}
-        </div>
+        {/* LISTE ORARI - Nascondi quando il pannello impostazioni è aperto */}
+        {!showSettings && (
+          <>
+            <div className="p-4">
+              {viewLists.map((list, index) => renderEmployeeList(list, index))}
+            </div>
 
-        {/* AVVISO TRASFERTE - Mostra solo se ci sono trasferte verso le aziende delle liste */}
+            {/* AVVISO TRASFERTE - Mostra solo se ci sono trasferte verso le aziende delle liste */}
         {(() => {
           // Raccogli tutte le trasferte da tutte le liste (includendo tutti i giorni)
           const allTransfers = [];
@@ -3950,16 +3952,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           });
         })()}
 
-        {/* PULSANTE AGGIUNGI LISTA */}
-        <div className="p-4 border-t bg-gray-50 flex justify-center">
-          <button
-            onClick={addNewList}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-blue-700 transition-all transform hover:scale-105"
-          >
-            <Plus size={20} />
-            Aggiungi un'altra lista di confronto
-          </button>
-        </div>
+            {/* PULSANTE AGGIUNGI LISTA */}
+            <div className="p-4 border-t bg-gray-50 flex justify-center">
+              <button
+                onClick={addNewList}
+                className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-blue-700 transition-all transform hover:scale-105"
+              >
+                <Plus size={20} />
+                Aggiungi un'altra lista di confronto
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
 
