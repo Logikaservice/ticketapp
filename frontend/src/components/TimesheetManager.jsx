@@ -2494,7 +2494,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                      (dayData.out2 && dayData.out2.trim() !== '');
             });
 
-            if (hasData) {
+            // Mostra anche se non ci sono dati (dipendente appena aggiunto)
+            if (hasData || true) {
               // Conta i giorni con dati
               const daysWithData = Object.values(empSchedule).filter(dayData => {
                 if (!dayData) return false;
