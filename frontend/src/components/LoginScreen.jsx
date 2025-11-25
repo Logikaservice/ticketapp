@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User } from 'lucide-react';
 import QuickRequestModal from './Modals/QuickRequestModal';
+import { buildApiUrl } from '../utils/apiConfig';
 
 const LoginScreen = ({
   loginData,
@@ -146,7 +147,12 @@ const LoginScreen = ({
           <form
             className="space-y-3 sm:space-y-4"
             method="post"
-            action="/api/login"
+            action={(() => {
+              const urlParams = new URLSearchParams(window.location.search);
+              const domainParam = urlParams.get('domain') || localStorage.getItem('requestedDomain');
+              const baseUrl = buildApiUrl('/api/login');
+              return domainParam ? `${baseUrl}?domain=${domainParam}` : baseUrl;
+            })()}
             onSubmit={(e) => {
               e.preventDefault();
               // Leggi i valori direttamente dai campi nativi (non controllati)
