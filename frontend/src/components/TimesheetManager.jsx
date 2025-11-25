@@ -2494,8 +2494,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                      (dayData.out2 && dayData.out2.trim() !== '');
             });
 
-            // Mostra anche se non ci sono dati (dipendente appena aggiunto)
-            if (hasData || true) {
+            if (hasData) {
               // Conta i giorni con dati
               const daysWithData = Object.values(empSchedule).filter(dayData => {
                 if (!dayData) return false;
@@ -2926,7 +2925,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       // Stile nome dipendente migliorato
       const styleEmpName = {
-        font: { bold: true, sz: 11, color: { rgb: "000000" } },
+        font: { bold: true, sz: 8, color: { rgb: "000000" } },
         fill: { fgColor: { rgb: "E7E6E6" } }, // Grigio chiaro
         border: borderThin,
         alignment: { horizontal: "left", vertical: "center", indent: 1 }
@@ -2989,11 +2988,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         wsData.push(headerRow2);
 
         listEmployees.forEach((emp, empIndex) => {
-          // Aggiungi riga separatrice spessa PRIMA di ogni dipendente (tranne il primo)
-          if (empIndex > 0) {
-            const separatorRow = new Array(16).fill({ v: "", s: styleSeparator });
-            wsData.push(separatorRow);
-          }
+          // Aggiungi riga separatrice nera PRIMA di ogni dipendente
+          const separatorRow = new Array(16).fill({ v: "", s: styleSeparator });
+          wsData.push(separatorRow);
 
           const startRowIndex = wsData.length;
           // Costruisci la chiave corretta includendo la settimana
