@@ -2424,7 +2424,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     );
 
     if (!existingList) {
-      // Aggiungi una nuova lista
+      // Rimuovi la maschera vuota (quella con company e department vuoti) se presente
+      // e aggiungi la nuova lista
       const newId = Date.now();
       const newList = {
         id: newId,
@@ -2432,7 +2433,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         department: result.department,
         weekRange: result.week
       };
-      setViewLists(prev => [...prev, newList]);
+      setViewLists(prev => {
+        // Filtra via le maschere vuote (company e department vuoti)
+        const withoutEmpty = prev.filter(list => list.company !== '' || list.department !== '');
+        // Aggiungi la nuova lista
+        return [...withoutEmpty, newList];
+      });
     }
 
     // Chiudi la ricerca
