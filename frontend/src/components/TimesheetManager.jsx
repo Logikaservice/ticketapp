@@ -778,6 +778,122 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     return { valid: true, error: null };
   };
 
+  // Funzione per verificare sovrapposizioni di orari per lo stesso dipendente in altre aziende/reparti
+  const checkOverlappingSchedules = (empId, empName, dayIndex, dayData, currentContextKey, currentWeek, scheduleData) => {
+    const overlaps = [];
+    const t = timeHelpers;
+
+    // Trova tutti i dipendenti con lo stesso nome (stesso dipendente) in altre aziende/reparti
+    const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
+    const sameNameEmployees = globalEmployees.filter(e => e.name === empName && e.id !== empId);
+
+    // Per ogni dipendente con lo stesso nome, controlla gli orari in altre aziende/reparti
+    sameNameEmployees.forEach(otherEmp => {
+      // Cerca lo schedule di questo dipendente in tutte le aziende/reparti
+      Object.keys(scheduleData).forEach(scheduleKey => {
+        // Pattern: settimana-contextKey-empId
+        if (scheduleKey.startsWith(`${currentWeek}-`) && scheduleKey.endsWith(`-${otherEmp.id}`)) {
+          const otherContextKey = scheduleKey.replace(`${currentWeek}-`, '').replace(`-${otherEmp.id}`, '');
+          
+          // Salta se è lo stesso contesto
+          if (otherContextKey === currentContextKey) return;
+
+          const otherDayData = scheduleData[scheduleKey]?.[dayIndex];
+          if (!otherDayData) return;
+
+          // Estrai azienda e reparto dal contextKey
+          const parts = otherContextKey.split('-');
+          const otherCompany = parts[0];
+          const otherDept = parts.slice(1).join('-');
+
+          // Verifica sovrapposizioni tra i turni
+          // Turno 1 corrente vs Turno 1 altro
+          if (dayData.in1 && dayData.out1 && otherDayData.in1 && otherDayData.out1) {
+            const start1 = t.toMinutes(dayData.in1);
+            const end1 = t.toMinutes(dayData.out1);
+            const start2 = t.toMinutes(otherDayData.in1);
+            const end2 = t.toMinutes(otherDayData.out1);
+            
+            // Gestisci turni notturni
+            const end1Adj = end1 < start1 ? end1 + 1440 : end1;
+            const end2Adj = end2 < start2 ? end2 + 1440 : end2;
+            
+            if (Math.max(start1, start2) < Math.min(end1Adj, end2Adj)) {
+              overlaps.push({
+                company: otherCompany,
+                department: otherDept,
+                shift: 'Turno 1',
+                time: `${otherDayData.in1} - ${otherDayData.out1}`
+              });
+            }
+          }
+
+          // Turno 1 corrente vs Turno 2 altro
+          if (dayData.in1 && dayData.out1 && otherDayData.in2 && otherDayData.out2) {
+            const start1 = t.toMinutes(dayData.in1);
+            const end1 = t.toMinutes(dayData.out1);
+            const start2 = t.toMinutes(otherDayData.in2);
+            const end2 = t.toMinutes(otherDayData.out2);
+            
+            const end1Adj = end1 < start1 ? end1 + 1440 : end1;
+            const end2Adj = end2 < start2 ? end2 + 1440 : end2;
+            
+            if (Math.max(start1, start2) < Math.min(end1Adj, end2Adj)) {
+              overlaps.push({
+                company: otherCompany,
+                department: otherDept,
+                shift: 'Turno 2',
+                time: `${otherDayData.in2} - ${otherDayData.out2}`
+              });
+            }
+          }
+
+          // Turno 2 corrente vs Turno 1 altro
+          if (dayData.in2 && dayData.out2 && otherDayData.in1 && otherDayData.out1) {
+            const start1 = t.toMinutes(dayData.in2);
+            const end1 = t.toMinutes(dayData.out2);
+            const start2 = t.toMinutes(otherDayData.in1);
+            const end2 = t.toMinutes(otherDayData.out1);
+            
+            const end1Adj = end1 < start1 ? end1 + 1440 : end1;
+            const end2Adj = end2 < start2 ? end2 + 1440 : end2;
+            
+            if (Math.max(start1, start2) < Math.min(end1Adj, end2Adj)) {
+              overlaps.push({
+                company: otherCompany,
+                department: otherDept,
+                shift: 'Turno 1',
+                time: `${otherDayData.in1} - ${otherDayData.out1}`
+              });
+            }
+          }
+
+          // Turno 2 corrente vs Turno 2 altro
+          if (dayData.in2 && dayData.out2 && otherDayData.in2 && otherDayData.out2) {
+            const start1 = t.toMinutes(dayData.in2);
+            const end1 = t.toMinutes(dayData.out2);
+            const start2 = t.toMinutes(otherDayData.in2);
+            const end2 = t.toMinutes(otherDayData.out2);
+            
+            const end1Adj = end1 < start1 ? end1 + 1440 : end1;
+            const end2Adj = end2 < start2 ? end2 + 1440 : end2;
+            
+            if (Math.max(start1, start2) < Math.min(end1Adj, end2Adj)) {
+              overlaps.push({
+                company: otherCompany,
+                department: otherDept,
+                shift: 'Turno 2',
+                time: `${otherDayData.in2} - ${otherDayData.out2}`
+              });
+            }
+          }
+        }
+      });
+    });
+
+    return overlaps;
+  };
+
   const validateDaySchedule = (dayData) => {
     const errors = {};
 
@@ -1042,6 +1158,42 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         });
         return newErrors;
       });
+
+      // 7. Controllo sovrapposizioni con altre aziende/reparti (solo se il giorno ha orari completi)
+      if ((dayDataForValidation.in1 && dayDataForValidation.out1) || (dayDataForValidation.in2 && dayDataForValidation.out2)) {
+        // Trova il nome del dipendente
+        const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
+        const employee = globalEmployees.find(e => e.id === empId);
+        if (employee) {
+          // Usa lo stato aggiornato dello schedule
+          setSchedule(currentSchedule => {
+            const overlaps = checkOverlappingSchedules(
+              empId,
+              employee.name,
+              dayIndex,
+              dayDataForValidation,
+              contextKey || baseKey,
+              currentWeek,
+              currentSchedule
+            );
+
+            if (overlaps.length > 0) {
+              const overlapMessages = overlaps.map(ov => 
+                `${ov.company} > ${ov.department} (${ov.shift}: ${ov.time})`
+              ).join(', ');
+              
+              if (showNotification) {
+                showNotification(
+                  `⚠️ Attenzione: Orari sovrapposti con ${overlapMessages}`,
+                  'warning',
+                  8000
+                );
+              }
+            }
+            return currentSchedule; // Non modificare lo schedule, solo controllare
+          });
+        }
+      }
     }, 200);
   };
 
