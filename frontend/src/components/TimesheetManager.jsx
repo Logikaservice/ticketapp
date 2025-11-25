@@ -390,43 +390,44 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             const count = Array.isArray(cleanedEmployees[key]) ? cleanedEmployees[key].length : 0;
           });
 
-          // PRESERVA TUTTI I DATI ESISTENTI - Non fare migrazione automatica che potrebbe cancellare dati
-          // Mantieni sia la lista globale che le vecchie chiavi per compatibilità
+          // MIGRAZIONE: Raccogli tutti i dipendenti dalle liste specifiche e mettili nella lista globale
+          // Poi rimuovi tutte le liste specifiche
           let globalList = cleanedEmployees[GLOBAL_EMPLOYEES_KEY] || [];
+          const uniqueEmployees = new Map(); // { "id": { id, name } }
 
-          // Se la lista globale è vuota, raccoglie tutti i dipendenti dalle vecchie chiavi
-          // MA mantiene anche le vecchie chiavi per non perdere dati
-          if (globalList.length === 0) {
-            const uniqueEmployees = new Map(); // { "id": { id, name } }
-
-            Object.keys(cleanedEmployees).forEach(key => {
-              // Salta la chiave globale se esiste già
-              if (key === GLOBAL_EMPLOYEES_KEY) return;
-
-              const employees = cleanedEmployees[key] || [];
-              employees.forEach(emp => {
-                if (emp && emp.id && emp.name) {
-                  // Usa solo l'ID come chiave per evitare duplicati
-                  if (!uniqueEmployees.has(emp.id)) {
-                    uniqueEmployees.set(emp.id, { id: emp.id, name: emp.name });
-                  }
-                }
-              });
-            });
-
-            // Converti la Map in array
-            globalList = Array.from(uniqueEmployees.values());
-
-            if (globalList.length > 0) {
-              console.log(`🔄 MIGRAZIONE: Trovati ${globalList.length} dipendenti unici da migrare`);
+          // Aggiungi i dipendenti già presenti nella lista globale
+          globalList.forEach(emp => {
+            if (emp && emp.id && emp.name) {
+              uniqueEmployees.set(emp.id, { id: emp.id, name: emp.name });
             }
+          });
+
+          // Raccogli tutti i dipendenti dalle liste specifiche
+          Object.keys(cleanedEmployees).forEach(key => {
+            // Salta la chiave globale
+            if (key === GLOBAL_EMPLOYEES_KEY) return;
+
+            const employees = cleanedEmployees[key] || [];
+            employees.forEach(emp => {
+              if (emp && emp.id && emp.name) {
+                // Usa solo l'ID come chiave per evitare duplicati
+                if (!uniqueEmployees.has(emp.id)) {
+                  uniqueEmployees.set(emp.id, { id: emp.id, name: emp.name });
+                }
+              }
+            });
+          });
+
+          // Converti la Map in array
+          globalList = Array.from(uniqueEmployees.values());
+
+          if (globalList.length > 0) {
+            console.log(`🔄 MIGRAZIONE: ${globalList.length} dipendenti unici migrati alla lista globale, rimozione liste specifiche`);
           }
 
-          // IMPORTANTE: Mantieni TUTTI i dati esistenti, non solo la lista globale
-          // Questo preserva i dati vecchi e i nuovi
+          // IMPORTANTE: Mantieni SOLO la lista globale, rimuovi tutte le liste specifiche
           const preservedEmployees = {
-            ...cleanedEmployees, // Mantieni tutte le vecchie chiavi
-            [GLOBAL_EMPLOYEES_KEY]: globalList // Aggiungi/aggiorna la lista globale
+            [GLOBAL_EMPLOYEES_KEY]: globalList // Solo la lista globale
           };
 
           setEmployeesData(preservedEmployees);
@@ -507,9 +508,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               'Albatros': ['Cucina']
             },
             employees: {
-              'La Torre-Cucina': [],
-              'Mercurio-Cucina': [],
-              'Albatros-Cucina': []
+              [GLOBAL_EMPLOYEES_KEY]: []
             },
             schedule: {},
             timeCodes: {
@@ -1126,16 +1125,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           
           // Verifica se il reparto corrente esiste nell'azienda target
           if (!targetDepts.includes(currentDept) && targetDepts.length > 0) {
-            // Se il reparto non esiste, verifica se il dipendente è già presente in qualche reparto
-            for (const dept of targetDepts) {
-              const checkKey = `${targetCompany}-${dept}`;
-              const deptEmployees = employeesData[checkKey] || [];
-              if (deptEmployees.some(e => e.id === empId)) {
-                targetDept = dept;
-                break;
-              }
-            }
-            // Se non trovato, usa il primo reparto disponibile
+            // Se il reparto non esiste, usa il primo reparto disponibile
             if (!targetDepts.includes(targetDept)) {
               targetDept = targetDepts[0];
             }
@@ -1470,10 +1460,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       // Usa scheduleToSave se fornito, altrimenti usa lo stato corrente
       const scheduleData = scheduleToSave !== undefined ? scheduleToSave : schedule;
       
+      // Salva SOLO la lista globale, rimuovi tutte le liste specifiche
+      const employeesToSave = {
+        [GLOBAL_EMPLOYEES_KEY]: employeesData[GLOBAL_EMPLOYEES_KEY] || []
+      };
+      
       const dataToSave = {
         companies,
         departments: departmentsStructure,
-        employees: employeesData,
+        employees: employeesToSave,
         schedule: scheduleData,
         timeCodes,
         timeCodesOrder
@@ -1594,67 +1589,23 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     const key = getContextKey(company, dept);
     const employeeName = nameToUse.toUpperCase().trim();
 
-    // Cerca se esiste già un dipendente con questo nome (nella lista globale o nella lista specifica)
+    // Cerca se esiste già un dipendente con questo nome nella lista globale
     const globalList = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
-    const specificList = employeesData[key] || [];
-    const existingEmployee = globalList.find(e => e.name === employeeName) ||
-      specificList.find(e => e.name === employeeName);
+    const existingEmployee = globalList.find(e => e.name === employeeName);
 
     // Usa l'ID esistente se trovato, altrimenti crea un nuovo ID
     const employeeId = existingEmployee ? existingEmployee.id : Date.now();
     const newName = employeeName;
 
-    // 1. Se il dipendente non esiste, aggiungilo a TUTTE le aziende e reparti E alla lista globale
+    // Aggiungi alla lista globale se non esiste già
     if (!existingEmployee) {
       setEmployeesData(prev => {
         const updated = { ...prev };
-
-        // Aggiungi alla lista globale GLOBAL_EMPLOYEES_KEY
         const globalList = updated[GLOBAL_EMPLOYEES_KEY] || [];
         const existsInGlobal = globalList.some(e => e.id === employeeId || e.name === newName);
         if (!existsInGlobal) {
           updated[GLOBAL_EMPLOYEES_KEY] = [...globalList, { id: employeeId, name: newName }];
         }
-
-        // Per ogni azienda
-        companies.forEach(comp => {
-          const depts = departmentsStructure[comp] || [];
-          // Per ogni reparto di ogni azienda
-          depts.forEach(d => {
-            const key = getContextKey(comp, d);
-            const existingEmployees = updated[key] || [];
-            // Verifica se esiste già (stesso ID o stesso nome)
-            const exists = existingEmployees.some(e => e.id === employeeId || e.name === newName);
-            if (!exists) {
-              updated[key] = [...existingEmployees, { id: employeeId, name: newName }];
-            }
-          });
-        });
-
-        return updated;
-      });
-    } else {
-      // 2. Se il dipendente esiste già, assicurati che sia presente:
-      // - Nella lista globale (se non c'è già)
-      // - In employeesData[key] per questa azienda/reparto
-      setEmployeesData(prev => {
-        const updated = { ...prev };
-        
-        // Aggiungi alla lista globale se non c'è già
-        const globalList = updated[GLOBAL_EMPLOYEES_KEY] || [];
-        const existsInGlobal = globalList.some(e => e.id === employeeId || e.name === newName);
-        if (!existsInGlobal) {
-          updated[GLOBAL_EMPLOYEES_KEY] = [...globalList, { id: employeeId, name: newName }];
-        }
-        
-        // Assicurati che sia presente in employeesData[key] per questa azienda/reparto
-        // Questo è necessario perché getEmployeesForList mostra dipendenti in employeesData[key] anche senza schedule
-        const specificEmployees = updated[key] || [];
-        const existsInSpecific = specificEmployees.some(e => e.id === employeeId || e.name === newName);
-        if (!existsInSpecific) {
-          updated[key] = [...specificEmployees, { id: employeeId, name: newName }];
-        }
-        
         return updated;
       });
     }
@@ -2027,32 +1978,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       return newSchedule;
     });
 
-    // IMPORTANTE: Rimuovi anche il dipendente da employeesData per quella specifica azienda/reparto
-    // Questo è necessario perché getEmployeesForList mostra anche dipendenti in employeesData senza schedule
-    if (company && department) {
-      const checkKey = getContextKey(company, department);
-      setEmployeesData(prev => {
-        const specificEmployees = prev[checkKey] || [];
-        if (specificEmployees.some(e => e.id === empId)) {
-          return {
-            ...prev,
-            [checkKey]: specificEmployees.filter(e => e.id !== empId)
-          };
-        }
-        return prev;
-      });
-    } else if (contextKey) {
-      setEmployeesData(prev => {
-        const specificEmployees = prev[contextKey] || [];
-        if (specificEmployees.some(e => e.id === empId)) {
-          return {
-            ...prev,
-            [contextKey]: specificEmployees.filter(e => e.id !== empId)
-          };
-        }
-        return prev;
-      });
-    }
+    // NOTA: Non rimuoviamo il dipendente dalla lista globale qui
+    // perché potrebbe essere usato in altri reparti/aziende
   };
 
   // --- SOSTITUZIONE DIPENDENTE ---
@@ -2273,26 +2200,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     const currentWeek = listWeekRange || weekRange;
     const key = getContextKey(company, department);
 
-    // FIX: Usa la lista globale e filtra per presenza nello schedule corrente
+    // Usa SOLO la lista globale e filtra per presenza nello schedule corrente
     const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
-    
-    // IMPORTANTE: Cerca SOLO nel reparto specifico della lista, non in tutti i reparti
-    // Questo evita di mostrare dipendenti in reparti dove non sono stati creati
     const checkKey = getContextKey(company, department);
-    const specificEmployees = employeesData[checkKey] || [];
     
-    // Mostra dipendenti che:
-    // 1. Hanno uno schedule con dati per questa azienda/reparto
-    // 2. O sono presenti in employeesData[checkKey] per questa azienda/reparto (anche senza schedule)
+    // Mostra dipendenti che hanno uno schedule con dati per questa azienda/reparto
     const employeesWithSchedule = globalEmployees.filter(emp => {
       const scheduleKey = `${currentWeek}-${checkKey}-${emp.id}`;
       const empSchedule = schedule[scheduleKey];
-      
-      // Se il dipendente è presente in employeesData per questa azienda/reparto, mostralo
-      // (anche se non ha ancora uno schedule con dati)
-      if (specificEmployees.some(e => e.id === emp.id)) {
-        return true;
-      }
       
       // Se lo schedule non esiste, non mostrare il dipendente
       if (!empSchedule || Object.keys(empSchedule).length === 0) {
@@ -3112,12 +3027,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           const otherScheduleKey = `${currentWeek}-${otherKey}-${emp.id}`;
                           const otherDayData = schedule[otherScheduleKey]?.[dayIdx];
 
-                          // Verifica anche se il dipendente è in employeesData (per compatibilità)
-                          const otherEmployees = employeesData[otherKey] || [];
-                          const existsInOther = otherEmployees.some(e => e.id === emp.id);
-
-                          // Se ha uno schedule o è in employeesData, controlla i dati del giorno
-                          if (otherDayData || existsInOther) {
+                          // Se ha uno schedule, controlla i dati del giorno
+                          if (otherDayData) {
                             if (otherDayData) {
                               // Se ha un codice di assenza in questa azienda, mostralo
                               if (otherDayData.code) {
@@ -3330,18 +3241,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                         {showSuggestions && quickAddName && (
                           <div className="absolute bottom-full left-0 w-full min-w-[200px] bg-white border-2 border-blue-400 shadow-2xl rounded-lg z-[9999] max-h-60 overflow-y-auto mb-1">
                             {(() => {
-                              const key = getContextKey(company, department);
-                              // Cerca sia nella lista specifica che nella lista globale
-                              const specificEmployees = employeesData[key] || [];
-                              const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
-                              // Unisci le liste rimuovendo duplicati (stesso ID o stesso nome)
-                              const allEmployees = [...specificEmployees];
-                              globalEmployees.forEach(globalEmp => {
-                                const exists = allEmployees.some(emp => emp.id === globalEmp.id || emp.name === globalEmp.name);
-                                if (!exists) {
-                                  allEmployees.push(globalEmp);
-                                }
-                              });
+                              // Usa SOLO la lista globale
+                              const allEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
                               const searchTerm = quickAddName.toUpperCase().trim();
                               const filtered = allEmployees.filter(emp => emp.name.toUpperCase().includes(searchTerm));
                               const exactMatch = allEmployees.some(emp => emp.name.toUpperCase() === searchTerm);
@@ -3419,18 +3320,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       {showSuggestions && quickAddName && (
                         <div className="absolute bottom-full left-0 w-full bg-white border border-gray-300 shadow-xl rounded-md z-50 max-h-60 overflow-y-auto mb-1">
                           {(() => {
-                            const key = getContextKey(company, department);
-                            // Cerca sia nella lista specifica che nella lista globale
-                            const specificEmployees = employeesData[key] || [];
-                            const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
-                            // Unisci le liste rimuovendo duplicati (stesso ID o stesso nome)
-                            const allEmployees = [...specificEmployees];
-                            globalEmployees.forEach(globalEmp => {
-                              const exists = allEmployees.some(emp => emp.id === globalEmp.id || emp.name === globalEmp.name);
-                              if (!exists) {
-                                allEmployees.push(globalEmp);
-                              }
-                            });
+                            // Usa SOLO la lista globale
+                            const allEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
                             const searchTerm = quickAddName.toUpperCase().trim();
                             const filtered = allEmployees.filter(emp => emp.name.toUpperCase().includes(searchTerm));
                             const exactMatch = allEmployees.some(emp => emp.name.toUpperCase() === searchTerm);
