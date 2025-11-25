@@ -3333,7 +3333,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                               const searchTerm = quickAddName.toUpperCase().trim();
                               const filtered = allEmployees.filter(emp => emp.name.toUpperCase().includes(searchTerm));
                               const exactMatch = allEmployees.some(emp => emp.name.toUpperCase() === searchTerm);
-                              const showAddOption = searchTerm.length > 3 && !exactMatch;
+                              // Mostra opzione "Aggiungi" se: non c'è match esatto E (lunghezza > 2 O non ci sono risultati filtrati)
+                              const showAddOption = !exactMatch && (searchTerm.length > 2 || filtered.length === 0);
 
                               return (
                                 <>
@@ -3421,7 +3422,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                             const searchTerm = quickAddName.toUpperCase().trim();
                             const filtered = allEmployees.filter(emp => emp.name.toUpperCase().includes(searchTerm));
                             const exactMatch = allEmployees.some(emp => emp.name.toUpperCase() === searchTerm);
-                            const showAddOption = searchTerm.length > 3 && !exactMatch;
+                            // Mostra opzione "Aggiungi" se: non c'è match esatto E (lunghezza > 2 O non ci sono risultati filtrati)
+                            const showAddOption = !exactMatch && (searchTerm.length > 2 || filtered.length === 0);
 
                             return (
                               <>
