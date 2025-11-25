@@ -3063,11 +3063,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
             if (data?.code) {
               // Mostra il label del codice invece della chiave
+              // Unifica le celle Entrata e Uscita in un'unica cella
               const codeLabel = getCodeLabel(data.code);
               row1[colIdx] = { v: codeLabel, s: styleCell };
-              row1[colIdx + 1] = { v: codeLabel, s: styleCell };
-              merges.push({ s: { r: startRowIndex, c: colIdx }, e: { r: startRowIndex + 1, c: colIdx } });
-              merges.push({ s: { r: startRowIndex, c: colIdx + 1 }, e: { r: startRowIndex + 1, c: colIdx + 1 } });
+              row1[colIdx + 1] = { v: "", s: styleCell }; // Cella vuota per il merge
+              // Merge orizzontale (Entrata + Uscita) e verticale (riga 1 + riga 2)
+              merges.push({ s: { r: startRowIndex, c: colIdx }, e: { r: startRowIndex + 1, c: colIdx + 1 } });
             } else {
               const valIn1 = strToExcelTime(data?.in1);
               const valOut1 = strToExcelTime(data?.out1);
@@ -3219,9 +3220,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               daysData.push({
                 day: dayName,
                 in1: codeLabel,
-                out1: codeLabel,
+                out1: '', // Vuoto perché verrà unificato
                 in2: '',
-                out2: ''
+                out2: '',
+                isCode: true // Flag per indicare che è un codice da unificare
               });
             } else {
               daysData.push({
@@ -3229,7 +3231,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 in1: data.in1 || '',
                 out1: data.out1 || '',
                 in2: data.in2 || '',
-                out2: data.out2 || ''
+                out2: data.out2 || '',
+                isCode: false
               });
             }
           } else {
@@ -3238,7 +3241,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               in1: '',
               out1: '',
               in2: '',
-              out2: ''
+              out2: '',
+              isCode: false
             });
           }
         });
@@ -3342,14 +3346,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
         // Prepara dati tabella
         const tableBody = [];
+        const codeCells = []; // Array per tracciare le celle codice da unificare: {row, colEntrata}
 
         employees.forEach((emp, empIndex) => {
           // Calcola totale ore per questo dipendente
           let totalHours = 0;
           emp.days.forEach(dayData => {
             // Se c'è un codice, non calcolare ore
-            if (dayData.in1 && dayData.in1 === dayData.out1 && dayData.in1.trim() !== '') {
-              // È un codice, non calcolare
+            if (dayData.isCode) {
               return;
             }
             const in1 = calculateHours(dayData.in1);
@@ -3366,18 +3370,29 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             tableBody.push(separatorRow);
           }
 
+          const row1Index = tableBody.length;
           // Riga 1 del dipendente
           const row1 = [emp.name];
-          emp.days.forEach(dayData => {
-            row1.push(dayData.in1 || '', dayData.out1 || '');
+          emp.days.forEach((dayData, dayIdx) => {
+            if (dayData.isCode) {
+              row1.push(dayData.in1 || '', ''); // Codice solo in Entrata, Uscita vuota
+              // Traccia la cella da unificare (colonna Entrata, escludendo nome dipendente)
+              codeCells.push({ row: row1Index, colEntrata: 1 + (dayIdx * 2) });
+            } else {
+              row1.push(dayData.in1 || '', dayData.out1 || '');
+            }
           });
           row1.push(empIndex === 0 ? totalHours.toFixed(1) : ''); // Totale solo nella prima riga
           tableBody.push(row1);
 
           // Riga 2 del dipendente
           const row2 = [''];
-          emp.days.forEach(dayData => {
-            row2.push(dayData.in2 || '', dayData.out2 || '');
+          emp.days.forEach((dayData) => {
+            if (dayData.isCode) {
+              row2.push('', ''); // Entrambe vuote perché già gestito nella riga 1
+            } else {
+              row2.push(dayData.in2 || '', dayData.out2 || '');
+            }
           });
           row2.push(''); // Totale vuoto nella seconda riga
           tableBody.push(row2);
@@ -3439,7 +3454,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               data.cell.styles.fontStyle = 'bold';
               data.cell.styles.fontSize = 8;
               // Merge con la riga successiva
-              if (rowIndex + 1 < tableBody.length && tableBody[rowIndex + 1][0] === '') {
+              if (rowIndex + 1 < tableBody.length && Array.isArray(tableBody[rowIndex + 1]) && tableBody[rowIndex + 1][0] === '') {
                 data.cell.rowSpan = 2;
               }
             }
@@ -3450,9 +3465,72 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               data.cell.styles.fontStyle = 'bold';
               data.cell.styles.fontSize = 11;
               // Merge con la riga successiva
-              if (rowIndex + 1 < tableBody.length && tableBody[rowIndex + 1][0] === '') {
+              if (rowIndex + 1 < tableBody.length && Array.isArray(tableBody[rowIndex + 1]) && tableBody[rowIndex + 1][0] === '') {
                 data.cell.rowSpan = 2;
               }
+            }
+            
+            // Celle codice: nascondi la cella Uscita quando c'è un codice
+            const codeCell = codeCells.find(cc => 
+              cc.row === rowIndex && cc.colEntrata === colIndex
+            );
+            if (codeCell) {
+              // Questa è la cella Entrata con codice, nascondi il bordo destro
+              data.cell.styles.lineColor = [0, 0, 0];
+            }
+            
+            // Nascondi la cella Uscita quando la cella precedente è un codice
+            const prevCodeCell = codeCells.find(cc => 
+              cc.row === rowIndex && cc.colEntrata === colIndex - 1
+            );
+            if (prevCodeCell && colIndex > 0) {
+              // Nascondi questa cella (Uscita) perché è unificata con Entrata
+              data.cell.styles.fillColor = [255, 255, 255];
+              data.cell.text = [''];
+            }
+          },
+          didDrawCell: function (data) {
+            // Unifica le celle codice (Entrata + Uscita) disegnando manualmente
+            const codeCell = codeCells.find(cc => 
+              cc.row === data.row.index && cc.colEntrata === data.column.index
+            );
+            
+            if (codeCell) {
+              // Questa è la cella Entrata con codice
+              // Disegna una cella unificata che copre Entrata + Uscita e riga 1 + riga 2
+              const cell = data.cell;
+              const nextCell = data.table.getCell(data.row.index, data.column.index + 1);
+              const nextRowCell = data.table.getCell(data.row.index + 1, data.column.index);
+              
+              if (nextCell && nextRowCell) {
+                const x = cell.x;
+                const y = cell.y;
+                const width = cell.width + nextCell.width; // Larghezza doppia (Entrata + Uscita)
+                const height = cell.height + nextRowCell.height; // Altezza doppia (riga 1 + riga 2)
+                
+                // Salva il contesto
+                doc.saveGraphicsState();
+                
+                // Disegna il bordo della cella unificata
+                doc.setDrawColor(0, 0, 0);
+                doc.setLineWidth(0.1);
+                doc.rect(x, y, width, height);
+                
+                // Ripristina il contesto
+                doc.restoreGraphicsState();
+              }
+            }
+            
+            // Nascondi la cella Uscita quando la cella precedente è un codice
+            const prevCodeCell = codeCells.find(cc => 
+              cc.row === data.row.index && cc.colEntrata === data.column.index - 1
+            );
+            if (prevCodeCell && data.column.index > 0) {
+              // Nascondi questa cella (Uscita) perché è unificata con Entrata
+              doc.saveGraphicsState();
+              doc.setFillColor(255, 255, 255);
+              doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+              doc.restoreGraphicsState();
             }
           }
         });
@@ -4218,7 +4296,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           let totalHours = 0;
                           emp.days.forEach(dayData => {
                             // Se c'è un codice, non calcolare ore
-                            if (dayData.in1 && dayData.in1 === dayData.out1 && dayData.in1.trim() !== '') {
+                            if (dayData.isCode) {
                               return;
                             }
                             const in1 = calculateHours(dayData.in1);
@@ -4240,23 +4318,46 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                 <td className="border border-gray-300 p-2 bg-gray-200 font-bold" rowSpan={2} style={{ fontSize: '8px' }}>
                                   {emp.name}
                                 </td>
-                                {emp.days.map((dayData, dayIdx) => (
-                                  <React.Fragment key={dayIdx}>
-                                    <td className="border border-gray-300 p-1 text-center">{dayData.in1 || ''}</td>
-                                    <td className="border border-gray-300 p-1 text-center">{dayData.out1 || ''}</td>
-                                  </React.Fragment>
-                                ))}
+                                {emp.days.map((dayData, dayIdx) => {
+                                  if (dayData.isCode) {
+                                    // Cella unificata per codice (Entrata + Uscita, riga 1 + riga 2)
+                                    return (
+                                      <td 
+                                        key={dayIdx} 
+                                        className="border border-gray-300 p-1 text-center" 
+                                        colSpan={2} 
+                                        rowSpan={2}
+                                      >
+                                        {dayData.in1 || ''}
+                                      </td>
+                                    );
+                                  } else {
+                                    return (
+                                      <React.Fragment key={dayIdx}>
+                                        <td className="border border-gray-300 p-1 text-center">{dayData.in1 || ''}</td>
+                                        <td className="border border-gray-300 p-1 text-center">{dayData.out1 || ''}</td>
+                                      </React.Fragment>
+                                    );
+                                  }
+                                })}
                                 <td className="border border-gray-300 p-2 text-center bg-yellow-100 font-bold" rowSpan={2} style={{ fontSize: '11px' }}>
                                   {totalHours > 0 ? totalHours.toFixed(1) : ''}
                                 </td>
                               </tr>
                               <tr>
-                                {emp.days.map((dayData, dayIdx) => (
-                                  <React.Fragment key={dayIdx}>
-                                    <td className="border border-gray-300 p-1 text-center">{dayData.in2 || ''}</td>
-                                    <td className="border border-gray-300 p-1 text-center">{dayData.out2 || ''}</td>
-                                  </React.Fragment>
-                                ))}
+                                {emp.days.map((dayData, dayIdx) => {
+                                  // Se è un codice, non renderizzare nulla (già gestito nella riga 1 con rowSpan)
+                                  if (dayData.isCode) {
+                                    return null;
+                                  } else {
+                                    return (
+                                      <React.Fragment key={dayIdx}>
+                                        <td className="border border-gray-300 p-1 text-center">{dayData.in2 || ''}</td>
+                                        <td className="border border-gray-300 p-1 text-center">{dayData.out2 || ''}</td>
+                                      </React.Fragment>
+                                    );
+                                  }
+                                })}
                               </tr>
                             </React.Fragment>
                           );
