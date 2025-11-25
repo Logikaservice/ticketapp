@@ -73,8 +73,12 @@ export const useAuth = (showNotification) => {
     }
   };
 
-  const handleLogin = async () => {
-    if (!loginData.email || !loginData.password) return showNotification('Inserisci email e password.', 'error');
+  const handleLogin = async (overrideEmail = null, overridePassword = null) => {
+    // Usa i valori passati come parametri se disponibili, altrimenti usa lo state
+    const email = overrideEmail !== null ? overrideEmail : loginData.email;
+    const password = overridePassword !== null ? overridePassword : loginData.password;
+    
+    if (!email || !password) return showNotification('Inserisci email e password.', 'error');
     try {
       // Aggiungi il parametro domain se presente nell'URL o in localStorage
       const urlParams = new URLSearchParams(window.location.search);
@@ -86,7 +90,7 @@ export const useAuth = (showNotification) => {
       const response = await fetch(loginUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginData)
+        body: JSON.stringify({ email, password })
       });
 
       if (!response.ok) {

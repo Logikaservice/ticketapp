@@ -152,12 +152,10 @@ const LoginScreen = ({
               // Leggi i valori direttamente dai campi nativi (non controllati)
               const email = emailInputRef.current?.value || '';
               const password = passwordInputRef.current?.value || '';
-              // Aggiorna lo state per il login
+              // Aggiorna lo state per mantenere sincronizzazione
               setLoginData({ email, password });
-              // Chiama handleLogin con i valori aggiornati
-              setTimeout(() => {
-                handleLogin();
-              }, 0);
+              // Chiama handleLogin passando direttamente i valori letti
+              handleLogin(email, password);
             }}
           >
             <div>
