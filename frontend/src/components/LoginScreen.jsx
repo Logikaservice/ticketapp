@@ -144,6 +144,7 @@ const LoginScreen = ({
           <form
             className="space-y-3 sm:space-y-4"
             method="post"
+            action="/api/login"
             onSubmit={(e) => {
               e.preventDefault();
               handleLogin();

@@ -118,7 +118,13 @@ export const useAuth = (showNotification) => {
 
       setCurrentUser(loginResponse.user);
       setIsLoggedIn(true);
-      setLoginData({ email: '', password: '' });
+      
+      // Ritarda lo svuotamento dei campi per permettere al browser di salvare le credenziali
+      // Chrome richiede che i campi mantengano i valori per almeno 1-2 secondi dopo il submit
+      setTimeout(() => {
+        setLoginData({ email: '', password: '' });
+      }, 2000);
+      
       localStorage.removeItem('sessionExpiredReason');
 
       // Carica il timeout di inattività dal database (se presente) o usa localStorage
