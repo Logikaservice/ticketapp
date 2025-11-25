@@ -1867,7 +1867,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     const newId = Date.now();
     const newName = newEmployeeName.toUpperCase().trim();
 
-    // 1. Aggiungi alla lista globale
+    // Aggiungi SOLO alla lista globale - non creare automaticamente lo schedule
+    // Il dipendente verrà aggiunto alle liste solo quando selezionato dalla ricerca
     setEmployeesData(prev => {
       const globalList = prev[GLOBAL_EMPLOYEES_KEY] || [];
       if (globalList.some(e => e.name === newName)) {
@@ -1879,22 +1880,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         [GLOBAL_EMPLOYEES_KEY]: [...globalList, { id: newId, name: newName }]
       };
     });
-
-    // 2. Inizializza lo schedule per il contesto corrente (se definito) per farlo apparire subito
-    // Se siamo in visualizzazione multi-lista, aggiungilo alla prima lista o a quella selezionata
-    // Per semplicità, lo aggiungiamo al contesto corrente selezionato (selectedCompany/selectedDept)
-    if (selectedCompany && selectedDept) {
-      const currentWeek = weekRange;
-      const contextKey = getContextKey(selectedCompany, selectedDept);
-      const scheduleKey = `${currentWeek}-${contextKey}-${newId}`;
-
-      setSchedule(prev => ({
-        ...prev,
-        [scheduleKey]: {
-          0: { in1: '', out1: '', in2: '', out2: '', code: '' } // Inizializza lunedì vuoto
-        }
-      }));
-    }
 
     setNewEmployeeName('');
     // Il salvataggio avverrà tramite useEffect
