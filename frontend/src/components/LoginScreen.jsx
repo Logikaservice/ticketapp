@@ -145,9 +145,25 @@ const LoginScreen = ({
             className="space-y-3 sm:space-y-4"
             method="post"
             action="/api/login"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              handleLogin();
+              
+              // Assicurati che i valori siano nel form nativo per il browser
+              const form = e.target;
+              const emailInput = form.querySelector('input[name="email"]');
+              const passwordInput = form.querySelector('input[name="password"]');
+              
+              if (emailInput && passwordInput && loginData.email && loginData.password) {
+                // Imposta i valori nei campi nativi del form
+                emailInput.value = loginData.email;
+                passwordInput.value = loginData.password;
+                
+                // Triggera un evento input per notificare il browser
+                emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+              }
+              
+              await handleLogin();
             }}
           >
             <div>
