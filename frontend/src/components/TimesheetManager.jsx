@@ -2456,38 +2456,37 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           const company = contextParts[0];
           const department = contextParts.slice(1).join('-');
 
-            const empSchedule = schedule[scheduleKey];
-            if (empSchedule && Object.keys(empSchedule).length > 0) {
-              // Verifica se ci sono dati effettivi
-              const hasData = Object.values(empSchedule).some(dayData => {
+          const empSchedule = schedule[scheduleKey];
+          if (empSchedule && Object.keys(empSchedule).length > 0) {
+            // Verifica se ci sono dati effettivi
+            const hasData = Object.values(empSchedule).some(dayData => {
+              if (!dayData) return false;
+              return (dayData.code && dayData.code.trim() !== '') ||
+                     (dayData.in1 && dayData.in1.trim() !== '') ||
+                     (dayData.out1 && dayData.out1.trim() !== '') ||
+                     (dayData.in2 && dayData.in2.trim() !== '') ||
+                     (dayData.out2 && dayData.out2.trim() !== '');
+            });
+
+            if (hasData) {
+              // Conta i giorni con dati
+              const daysWithData = Object.values(empSchedule).filter(dayData => {
                 if (!dayData) return false;
                 return (dayData.code && dayData.code.trim() !== '') ||
                        (dayData.in1 && dayData.in1.trim() !== '') ||
                        (dayData.out1 && dayData.out1.trim() !== '') ||
                        (dayData.in2 && dayData.in2.trim() !== '') ||
                        (dayData.out2 && dayData.out2.trim() !== '');
+              }).length;
+
+              results.push({
+                employeeName: emp.name,
+                employeeId: emp.id,
+                company,
+                department,
+                week: weekPart,
+                daysWithData
               });
-
-              if (hasData) {
-                // Conta i giorni con dati
-                const daysWithData = Object.values(empSchedule).filter(dayData => {
-                  if (!dayData) return false;
-                  return (dayData.code && dayData.code.trim() !== '') ||
-                         (dayData.in1 && dayData.in1.trim() !== '') ||
-                         (dayData.out1 && dayData.out1.trim() !== '') ||
-                         (dayData.in2 && dayData.in2.trim() !== '') ||
-                         (dayData.out2 && dayData.out2.trim() !== '');
-                }).length;
-
-                results.push({
-                  employeeName: emp.name,
-                  employeeId: emp.id,
-                  company,
-                  department,
-                  week: weekPart,
-                  daysWithData
-                });
-              }
             }
           }
         }
