@@ -1026,7 +1026,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           // Per in1 o altri campi, usa la logica normale
           // Verifica se è un codice geografico che punta all'azienda corrente
           // Se sì, non applicarlo ma segnalalo come errore
-          if (isGeographicCode(detectedCode) || ['AT', 'AV', 'L'].includes(detectedCode)) {
+          if (isGeographicCode(detectedCode)) {
             // Estrai l'azienda corrente: usa il parametro se disponibile, altrimenti dal contextKey
             let companyToCheck = currentCompany;
             if (!companyToCheck && contextKey) {
@@ -1039,7 +1039,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             }
 
             const targetCompany = getCompanyFromGeographicCode(detectedCode);
-            if (targetCompany && targetCompany === companyToCheck) {
+            // MODIFICA: Permetti l'uso di codici geografici anche nell'azienda corrente se sono hardcoded (AT, AV, L)
+            // Questo permette di usarli come semplici etichette
+            const isHardcoded = ['AT', 'AV', 'L'].includes(detectedCode);
+
+            if (targetCompany && targetCompany === companyToCheck && !isHardcoded) {
               // Il codice geografico punta all'azienda corrente, segnala errore
               const currentWeek = weekRangeValue || weekRange;
               const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
@@ -1051,7 +1055,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               }));
               // Non applicare il codice, continua con l'aggiornamento normale
             } else {
-              // Il codice geografico punta a un'altra azienda, applicalo normalmente
+              // Il codice geografico punta a un'altra azienda (o è hardcoded e permesso), applicalo normalmente
               handleQuickCode(empId, dayIndex, timeCodes[detectedCode] || detectedCode, contextKey, weekRangeValue);
               return;
             }
@@ -1215,7 +1219,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       if (detectedCode && shouldApply) {
         // Verifica se è un codice geografico che punta all'azienda corrente
         // Se sì, non applicarlo ma segnalalo come errore
-        if (isGeographicCode(detectedCode) || ['AT', 'AV', 'L'].includes(detectedCode)) {
+        if (isGeographicCode(detectedCode)) {
           // Estrai l'azienda corrente: usa il parametro se disponibile, altrimenti dal contextKey
           let companyToCheck = currentCompany;
           if (!companyToCheck && contextKey) {
@@ -1228,7 +1232,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           }
 
           const targetCompany = getCompanyFromGeographicCode(detectedCode);
-          if (targetCompany && targetCompany === companyToCheck) {
+          // MODIFICA: Permetti l'uso di codici geografici anche nell'azienda corrente se sono hardcoded (AT, AV, L)
+          const isHardcoded = ['AT', 'AV', 'L'].includes(detectedCode);
+
+          if (targetCompany && targetCompany === companyToCheck && !isHardcoded) {
             // Il codice geografico punta all'azienda corrente, segnala errore
             const currentWeek = weekRangeValue || weekRange;
             const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
@@ -1240,7 +1247,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             }));
             // Non applicare il codice, continua con la validazione normale
           } else {
-            // Il codice geografico punta a un'altra azienda
+            // Il codice geografico punta a un'altra azienda (o è hardcoded e permesso)
             // Se è in2, salva SOLO in in2 senza propagazione (solo visualizzazione)
             if (field === 'in2') {
               // Salva solo il codice in in2, senza creare schedule in altre aziende
