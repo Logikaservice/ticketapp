@@ -1508,6 +1508,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             });
           }
         }
+
+        // Salva i dati dopo la validazione e formattazione
+        saveData();
       }, 200);
     } catch (error) {
       console.error('❌ Errore critico in handleBlur:', error);
