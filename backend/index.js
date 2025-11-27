@@ -26,8 +26,16 @@ const pool = new Pool({
 });
 
 // --- CONFIGURAZIONE DATABASE VIVALDI (separato) ---
+const vivaldiDbUrl = process.env.DATABASE_URL_VIVALDI || 
+                     process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/vivaldi_db');
+
+console.log('🔍 DATABASE_URL_VIVALDI configurato:', vivaldiDbUrl ? 'Sì' : 'No');
+if (vivaldiDbUrl) {
+  console.log('🔍 Database Vivaldi:', vivaldiDbUrl.split('@')[1] || 'N/A');
+}
+
 const poolVivaldi = new Pool({
-  connectionString: process.env.DATABASE_URL_VIVALDI || process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/vivaldi_db'),
+  connectionString: vivaldiDbUrl,
   ssl: {
     rejectUnauthorized: false
   }
@@ -1478,10 +1486,25 @@ const startServer = async () => {
 
     // Connessione database Vivaldi
     try {
-      await poolVivaldi.connect();
-      console.log("✅ Connessione al database Vivaldi riuscita!");
+      if (vivaldiDbUrl) {
+        await poolVivaldi.connect();
+        console.log("✅ Connessione al database Vivaldi riuscita!");
+        
+        // Verifica che le tabelle esistano
+        try {
+          const testQuery = await poolVivaldi.query('SELECT COUNT(*) FROM annunci_queue');
+          console.log("✅ Tabelle Vivaldi verificate");
+        } catch (tableErr) {
+          console.warn("⚠️ Avviso: Tabelle Vivaldi non trovate. Esegui: node scripts/init-vivaldi-db.js");
+          console.warn("   Errore:", tableErr.message);
+        }
+      } else {
+        console.warn("⚠️ DATABASE_URL_VIVALDI non configurato. Vivaldi non sarà disponibile.");
+      }
     } catch (vivaldiErr) {
-      console.warn("⚠️ Avviso: Database Vivaldi non disponibile. Assicurati che DATABASE_URL_VIVALDI sia configurato.");
+      console.warn("⚠️ Avviso: Database Vivaldi non disponibile.");
+      console.warn("   Errore:", vivaldiErr.message);
+      console.warn("   Assicurati che DATABASE_URL_VIVALDI sia configurato nel file .env");
       console.warn("   Il sistema continuerà a funzionare, ma Vivaldi non sarà disponibile.");
     }
 
