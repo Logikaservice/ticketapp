@@ -1253,44 +1253,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               
               setTimeout(() => saveData(), 100);
               return; // IMPORTANTE: esci subito per non continuare con la validazione orari
-            }
-          } else {
-            // Non è un codice geografico, ma è un codice valido
-            // Se è in2, salva SOLO in in2
-            if (field === 'in2') {
-              const currentWeek = weekRangeValue || weekRange;
-              const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
-              const scheduleKey = `${currentWeek}-${baseKey}`;
-              
-              setSchedule(prev => {
-                const newSchedule = { ...prev };
-                if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
-                if (!newSchedule[scheduleKey][dayIndex]) {
-                  newSchedule[scheduleKey][dayIndex] = {
-                    code: '',
-                    in1: prev[scheduleKey]?.[dayIndex]?.in1 || '',
-                    out1: prev[scheduleKey]?.[dayIndex]?.out1 || '',
-                    in2: '',
-                    out2: ''
-                  };
-                }
-                
-                const codeLabel = timeCodes[detectedCode] || detectedCode;
-                newSchedule[scheduleKey][dayIndex].in2 = codeLabel;
-                if (newSchedule[scheduleKey][dayIndex].out2 && /^\d/.test(newSchedule[scheduleKey][dayIndex].out2)) {
-                  newSchedule[scheduleKey][dayIndex].out2 = '';
-                }
-                
-                return newSchedule;
-              });
-              
-              setTimeout(() => saveData(), 100);
-              return;
             } else {
               // Per in1 o altri campi, usa la logica normale con propagazione
               handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+              return;
             }
-            return;
           }
         } else {
           // Non è un codice geografico, applicalo normalmente
