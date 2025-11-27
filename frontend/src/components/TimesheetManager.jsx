@@ -2119,17 +2119,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   const addTimeCode = () => {
     if (!newCodeKey.trim() || !newCodeLabel.trim()) return;
     const key = newCodeKey.toUpperCase().trim();
-    if (key.length > 2) {
+    if (key.length > 1) {
       if (showNotification) {
-        showNotification("Il codice deve essere di massimo 2 caratteri (es. M, F, P)", 'warning', 5000);
+        showNotification("Il codice deve essere di 1 solo carattere (es. M, F, P)", 'warning', 5000);
       }
       return;
     }
+    // RIMOSSO: Blocco che impediva la sovrascrittura.
+    // Ora permettiamo di sovrascrivere il codice esistente.
     if (timeCodes[key]) {
       if (showNotification) {
-        showNotification("Questo codice esiste già!", 'warning', 5000);
+        showNotification(`Codice "${key}" aggiornato con successo`, 'success', 3000);
       }
-      return;
+      // Non ritornare, procedi con l'aggiornamento
     }
 
     const newCodes = { ...timeCodes, [key]: newCodeLabel.trim() };
@@ -4805,7 +4807,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       <input
                         type="text"
                         placeholder="Es. M"
-                        maxLength={2}
+                        maxLength={1}
                         value={newCodeKey}
                         onChange={(e) => setNewCodeKey(e.target.value.toUpperCase())}
                         className="w-full border border-gray-300 rounded px-3 py-2 text-sm uppercase text-center font-bold"
@@ -4823,7 +4825,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                     </div>
                     <button
                       onClick={addTimeCode}
-                      className="bg-purple-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-purple-700 h-[38px]"
+                      className="bg-purple-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-purple-700 h-[38px] flex items-center gap-2 whitespace-nowrap"
                     >
                       <Plus size={16} /> Aggiungi
                     </button>
@@ -4908,7 +4910,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                   />
                   <button
                     onClick={addDepartment}
-                    className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700"
+                    className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700 flex items-center gap-2 whitespace-nowrap"
                   >
                     <Plus size={16} /> Aggiungi
                   </button>
