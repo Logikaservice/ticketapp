@@ -31,11 +31,17 @@ class SpeechGenClient {
       throw new Error('API Key SpeechGen non configurata');
     }
 
+    // Costruisci query string con credenziali per endpoint che le richiedono
+    const queryParams = new URLSearchParams();
+    if (this.email) queryParams.append('email', this.email);
+    if (this.apiKey) queryParams.append('token', this.apiKey); // SpeechGen usa 'token' o 'key' spesso
+    const queryString = queryParams.toString();
+
     const endpoints = [
-      { url: `https://speechgen.io/index.php?r=api/voices`, name: 'speechgen.io/index.php?r=api/voices' },
+      { url: `https://speechgen.io/index.php?r=api/voices&${queryString}`, name: 'speechgen.io/index.php?r=api/voices (with auth)' },
+      { url: `https://speechgen.io/index.php?r=api/voices`, name: 'speechgen.io/index.php?r=api/voices (no auth)' },
       { url: `${this.baseUrl}/api/voices`, name: '/api/voices' },
-      { url: `${this.baseUrl}/api/v1/speakers`, name: '/api/v1/speakers' },
-      { url: `https://speechgen.io/api/voices`, name: 'speechgen.io/api/voices' }
+      { url: `${this.baseUrl}/api/v1/speakers`, name: '/api/v1/speakers' }
     ];
 
     let lastError = null;
