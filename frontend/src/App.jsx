@@ -155,8 +155,6 @@ export default function TicketApp() {
     // Se c'è un dominio richiesto (orari/turni/vivaldi), non mostrare dashboard
     return !isOrariDomain && !isVivaldiDomain;
   });
-  
-  const [showVivaldi, setShowVivaldi] = useState(isVivaldiDomain);
 
   const [showOrariTurni, setShowOrariTurni] = useState(() => {
     // Se c'è un dominio richiesto (orari/turni), mostra subito orari
