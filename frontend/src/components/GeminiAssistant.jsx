@@ -39,6 +39,50 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  const recognitionRef = useRef(null);
+
+  useEffect(() => {
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'it-IT';
+
+      recognitionRef.current.onresult = (event) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join('');
+        setInputMessage(transcript);
+      };
+
+      recognitionRef.current.onerror = (event) => {
+        console.error('Errore riconoscimento vocale:', event.error);
+        setIsRecording(false);
+      };
+    }
+  }, []);
+
+  const startRecording = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+        setIsRecording(true);
+      } catch (e) {
+        console.error("Errore start recording:", e);
+      }
+    } else {
+      alert("Il tuo browser non supporta il riconoscimento vocale.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
   // Gestione touch events per microfono
   useEffect(() => {
     const micButton = micButtonRef.current;
@@ -46,20 +90,18 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
 
     const handleTouchStart = (e) => {
       e.preventDefault();
-      setIsRecording(true);
+      startRecording();
     };
 
     const handleTouchEnd = (e) => {
       e.preventDefault();
-      if (isRecording && inputMessage.trim()) {
-        handleSendMessage();
-      }
-      setIsRecording(false);
+      stopRecording();
+      // Non inviamo automaticamente per dare tempo di verificare il testo
     };
 
     const handleTouchCancel = (e) => {
       e.preventDefault();
-      setIsRecording(false);
+      stopRecording();
     };
 
     micButton.addEventListener('touchstart', handleTouchStart, { passive: false });
@@ -71,7 +113,7 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
       micButton.removeEventListener('touchend', handleTouchEnd);
       micButton.removeEventListener('touchcancel', handleTouchCancel);
     };
-  }, [isRecording, inputMessage]);
+  }, []);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isProcessing) return;
@@ -229,8 +271,8 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
             >
               <div
                 className={`max-w-[85%] ${isMobile ? 'max-w-[90%]' : ''} rounded-2xl p-4 shadow-sm ${msg.type === 'user'
-                    ? 'bg-blue-600 text-white rounded-tr-none'
-                    : 'bg-white border border-slate-100 text-slate-800 rounded-tl-none'
+                  ? 'bg-blue-600 text-white rounded-tr-none'
+                  : 'bg-white border border-slate-100 text-slate-800 rounded-tl-none'
                   }`}
               >
                 <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
@@ -259,8 +301,8 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
                             {formatRipetizione(msg.parsedData.ripetizione_ogni)}
                           </span>
                           <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${msg.parsedData.priorita === 'Urgente' ? 'bg-red-50 text-red-700 border-red-100' :
-                              msg.parsedData.priorita === 'Alta' ? 'bg-orange-50 text-orange-700 border-orange-100' :
-                                'bg-yellow-50 text-yellow-700 border-yellow-100'
+                            msg.parsedData.priorita === 'Alta' ? 'bg-orange-50 text-orange-700 border-orange-100' :
+                              'bg-yellow-50 text-yellow-700 border-yellow-100'
                             }`}>
                             {msg.parsedData.priorita}
                           </span>
@@ -356,17 +398,12 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
               {/* Microfono grande centrale per mobile */}
               <button
                 ref={micButtonRef}
-                onMouseDown={() => setIsRecording(true)}
-                onMouseUp={() => {
-                  if (isRecording && inputMessage.trim()) {
-                    handleSendMessage();
-                  }
-                  setIsRecording(false);
-                }}
-                onMouseLeave={() => setIsRecording(false)}
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onMouseLeave={stopRecording}
                 className={`w-20 h-20 rounded-full flex items-center justify-center shadow-xl transition-all ${isRecording
-                    ? 'bg-red-500 text-white scale-110 animate-pulse ring-4 ring-red-500/30'
-                    : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white hover:shadow-indigo-500/40 active:scale-95'
+                  ? 'bg-red-500 text-white scale-110 animate-pulse ring-4 ring-red-500/30'
+                  : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white hover:shadow-indigo-500/40 active:scale-95'
                   }`}
                 title="Tieni premuto per parlare"
               >
@@ -381,17 +418,12 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
             <div className="flex items-center gap-3">
               <button
                 ref={micButtonRef}
-                onMouseDown={() => setIsRecording(true)}
-                onMouseUp={() => {
-                  if (isRecording && inputMessage.trim()) {
-                    handleSendMessage();
-                  }
-                  setIsRecording(false);
-                }}
-                onMouseLeave={() => setIsRecording(false)}
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onMouseLeave={stopRecording}
                 className={`p-3 rounded-xl transition-all ${isRecording
-                    ? 'bg-red-500 text-white scale-110 ring-4 ring-red-500/30'
-                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
+                  ? 'bg-red-500 text-white scale-110 ring-4 ring-red-500/30'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
                   }`}
                 title="Tieni premuto per parlare"
               >
