@@ -1,6 +1,14 @@
 // utils/speechgen.js - Integrazione SpeechGen.io API
 
-const fetch = require('node-fetch');
+// Usa fetch globale (Node.js 18+) o import dinamico di node-fetch
+let fetch;
+if (typeof globalThis.fetch === 'function') {
+  // Node.js 18+ ha fetch globale
+  fetch = globalThis.fetch;
+} else {
+  // Fallback per versioni precedenti
+  fetch = require('node-fetch');
+}
 
 class SpeechGenClient {
   constructor(apiKey, email) {
