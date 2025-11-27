@@ -103,12 +103,22 @@ class SpeechGenClient {
       speakers = data.data;
     } else if (typeof data === 'object' && data !== null) {
       // Caso: Risposta raggruppata per lingua {"English": [...], "Italian": [...]}
-      // Iteriamo su tutte le chiavi e uniamo gli array
-      Object.values(data).forEach(group => {
-        if (Array.isArray(group)) {
-          speakers = speakers.concat(group);
+      // Filtriamo solo le chiavi che contengono "Italian"
+      Object.keys(data).forEach(lang => {
+        if (lang.toLowerCase().includes('italian')) {
+          const group = data[lang];
+          if (Array.isArray(group)) {
+            speakers = speakers.concat(group);
+          }
         }
       });
+
+      // Se non abbiamo trovato nulla con "Italian", proviamo a restituire tutto (fallback)
+      // o lasciamo vuoto se vogliamo essere stretti.
+      // Per ora, se vuoto, logghiamo un warning.
+      if (speakers.length === 0) {
+        console.warn('⚠️ Nessuno speaker italiano trovato nella risposta API.');
+      }
     } else {
       console.warn('⚠️ Struttura risposta SpeechGen non riconosciuta:', data);
       speakers = [];
