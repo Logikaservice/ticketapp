@@ -386,8 +386,8 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 font-medium ${activeTab === tab.id
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-900'
+                ? 'text-blue-600 border-b-2 border-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
                 }`}
             >
               {tab.label}
@@ -530,7 +530,9 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 >
                   {speakers.length > 0 ? (
                     speakers.map(s => (
-                      <option key={s.id || s.name} value={s.name || s}>{s.name || s}</option>
+                      <option key={s.id || s.name} value={s.name || s}>
+                        {s.name || s} {s.isPlus ? '⭐' : ''}
+                      </option>
                     ))
                   ) : (
                     <option value="Giulia">Giulia</option>

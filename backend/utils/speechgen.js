@@ -124,20 +124,32 @@ class SpeechGenClient {
       speakers = [];
     }
 
-    // Normalizza gli speaker per avere sempre name/id
+    // Normalizza gli speaker per avere sempre name/id e flag isPlus
     speakers = speakers.map((speaker, index) => {
+      let id, name, isPlus = false;
+
       if (typeof speaker === 'string') {
-        return { id: speaker, name: speaker };
-      } else if (speaker.name) {
-        return { id: speaker.id || speaker.name, name: speaker.name };
-      } else if (speaker.id) {
-        return { id: speaker.id, name: speaker.id };
+        id = speaker;
+        name = speaker;
       } else if (speaker.voice) {
-        // Formato visto nel debug: {"voice":"Amelia", ...}
-        return { id: speaker.voice, name: speaker.voice };
+        // Formato visto nel debug: {"voice":"Amelia", "pro":"1", ...}
+        id = speaker.voice;
+        name = speaker.voice;
+        isPlus = speaker.pro === '1' || speaker.pro === 1;
+      } else if (speaker.name) {
+        id = speaker.id || speaker.name;
+        name = speaker.name;
+        isPlus = speaker.pro === '1' || speaker.pro === 1;
+      } else if (speaker.id) {
+        id = speaker.id;
+        name = speaker.id;
+        isPlus = speaker.pro === '1' || speaker.pro === 1;
       } else {
-        return { id: `speaker_${index}`, name: JSON.stringify(speaker) };
+        id = `speaker_${index}`;
+        name = JSON.stringify(speaker);
       }
+
+      return { id, name, isPlus };
     });
 
     return speakers;
