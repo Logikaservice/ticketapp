@@ -31,15 +31,27 @@ const vivaldiDbUrl = process.env.DATABASE_URL_VIVALDI ||
 
 console.log('🔍 DATABASE_URL_VIVALDI configurato:', vivaldiDbUrl ? 'Sì' : 'No');
 if (vivaldiDbUrl) {
-  console.log('🔍 Database Vivaldi:', vivaldiDbUrl.split('@')[1] || 'N/A');
+  const dbInfo = vivaldiDbUrl.match(/@([^:]+):(\d+)\/(.+)$/);
+  if (dbInfo) {
+    console.log('🔍 Database Vivaldi:', `${dbInfo[1]}:${dbInfo[2]}/${dbInfo[3]}`);
+  }
+} else {
+  console.warn('⚠️ DATABASE_URL_VIVALDI non configurato! Vivaldi non sarà disponibile.');
 }
 
-const poolVivaldi = new Pool({
-  connectionString: vivaldiDbUrl,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+// Crea poolVivaldi solo se abbiamo una URL valida
+let poolVivaldi = null;
+if (vivaldiDbUrl) {
+  poolVivaldi = new Pool({
+    connectionString: vivaldiDbUrl,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
+} else {
+  // Crea un pool dummy per evitare errori, ma non sarà usato
+  poolVivaldi = null;
+}
 
 // Crea tabella access_logs se non esiste
 const ensureAccessLogsTable = async () => {
@@ -626,8 +638,8 @@ const accessLogsRoutes = require('./routes/accessLogs')(pool);
 // Route per Orari e Turni (usa stesso pool ma tabella separata orari_data)
 const orariRoutes = require('./routes/orari')(pool);
 
-// Route per Vivaldi (database separato)
-const vivaldiRoutes = require('./routes/vivaldi')(poolVivaldi);
+// Route per Vivaldi (database separato) - solo se pool disponibile
+const vivaldiRoutes = poolVivaldi ? require('./routes/vivaldi')(poolVivaldi) : null;
 
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
@@ -1103,6 +1115,11 @@ app.use('/api/orari', authenticateToken, (req, res, next) => {
 
 // Route Vivaldi (per tecnico/admin e clienti con permesso progetto vivaldi)
 app.use('/api/vivaldi', authenticateToken, (req, res, next) => {
+  if (!vivaldiRoutes) {
+    return res.status(503).json({ 
+      error: 'Vivaldi non disponibile: DATABASE_URL_VIVALDI non configurato' 
+    });
+  }
   // Tecnici e admin hanno sempre accesso
   if (req.user?.ruolo === 'tecnico' || req.user?.ruolo === 'admin') {
     console.log(`✅ Accesso Vivaldi autorizzato per STAFF ${req.user.email}`);
@@ -1486,9 +1503,19 @@ const startServer = async () => {
 
     // Connessione database Vivaldi
     try {
-      if (vivaldiDbUrl) {
-        await poolVivaldi.connect();
-        console.log("✅ Connessione al database Vivaldi riuscita!");
+      if (poolVivaldi && vivaldiDbUrl) {
+        const client = await poolVivaldi.connect();
+        
+        // Verifica che siamo nel database corretto
+        const dbCheck = await client.query('SELECT current_database()');
+        const currentDb = dbCheck.rows[0].current_database;
+        console.log(`✅ Connessione al database Vivaldi riuscita! (Database: ${currentDb})`);
+        
+        if (currentDb !== 'vivaldi_db') {
+          console.error(`❌ ERRORE: Pool Vivaldi connesso al database sbagliato: ${currentDb}`);
+          console.error(`   Atteso: vivaldi_db`);
+          console.error(`   Verifica DATABASE_URL_VIVALDI nel file .env`);
+        }
         
         // Verifica che le tabelle esistano
         try {
@@ -1498,6 +1525,8 @@ const startServer = async () => {
           console.warn("⚠️ Avviso: Tabelle Vivaldi non trovate. Esegui: node scripts/init-vivaldi-db.js");
           console.warn("   Errore:", tableErr.message);
         }
+        
+        client.release();
       } else {
         console.warn("⚠️ DATABASE_URL_VIVALDI non configurato. Vivaldi non sarà disponibile.");
       }
@@ -1685,10 +1714,14 @@ const startServer = async () => {
 
     // Avvia Vivaldi Scheduler se il database è disponibile
     try {
-      const VivaldiScheduler = require('./cron/vivaldiScheduler');
-      const vivaldiScheduler = new VivaldiScheduler(poolVivaldi);
-      vivaldiScheduler.start();
-      console.log("✅ Vivaldi Scheduler avviato");
+      if (poolVivaldi) {
+        const VivaldiScheduler = require('./cron/vivaldiScheduler');
+        const vivaldiScheduler = new VivaldiScheduler(poolVivaldi);
+        vivaldiScheduler.start();
+        console.log("✅ Vivaldi Scheduler avviato");
+      } else {
+        console.warn("⚠️ Vivaldi Scheduler non avviato: poolVivaldi non disponibile");
+      }
     } catch (schedulerErr) {
       console.warn("⚠️ Avviso: Vivaldi Scheduler non avviato:", schedulerErr.message);
     }
