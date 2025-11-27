@@ -52,6 +52,18 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
   // Player audio
   const audioPlayerRef = useRef(null);
   const [playingAudio, setPlayingAudio] = useState(null);
+  
+  // Rileva se siamo su mobile
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Carica configurazione
   useEffect(() => {
@@ -672,6 +684,17 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
         onEnded={() => setPlayingAudio(null)}
         className="hidden"
       />
+
+      {/* Floating Action Button per Mobile - Accesso Diretto Assistente AI */}
+      {isMobile && !showGeminiAssistant && (
+        <button
+          onClick={() => setShowGeminiAssistant(true)}
+          className="fixed bottom-6 right-6 w-16 h-16 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 flex items-center justify-center z-40 transition-all hover:scale-110 active:scale-95"
+          title="Assistente AI"
+        >
+          <Mic size={28} />
+        </button>
+      )}
     </div>
   );
 };

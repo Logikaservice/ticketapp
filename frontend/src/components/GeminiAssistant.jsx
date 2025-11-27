@@ -198,17 +198,17 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
     <div className={`fixed inset-0 ${isMobile ? 'bg-white' : 'bg-black bg-opacity-50'} flex items-center justify-center z-50`}>
       <div className={`bg-white ${isMobile ? 'w-full h-full rounded-none' : 'rounded-lg w-full max-w-2xl h-[80vh]'} flex flex-col`}>
         {/* Header */}
-        <div className={`p-4 border-b flex items-center justify-between ${isMobile ? 'bg-gradient-to-r from-purple-50 to-pink-50' : ''}`}>
+        <div className={`p-4 border-b flex items-center justify-between ${isMobile ? 'bg-gray-50' : ''}`}>
           <div>
-            <h2 className="text-xl font-bold text-purple-900">Assistente Conad</h2>
-            <p className="text-sm text-purple-700 flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+            <h2 className="text-xl font-bold text-gray-900">Assistente Conad</h2>
+            <p className="text-sm text-gray-600 flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
               Online • Vivaldi Connected
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-purple-100 rounded-lg text-purple-700"
+            className="p-2 hover:bg-gray-100 rounded-lg text-gray-700"
           >
             <X size={20} />
           </button>
@@ -250,7 +250,7 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
                       <div>
                         <p className="text-xs font-semibold text-gray-600 mb-1">Schedulazione:</p>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
                             {formatRipetizione(msg.parsedData.ripetizione_ogni)} & {msg.parsedData.priorita}
                           </span>
                           <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs">
@@ -282,7 +282,7 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
                   <div className="space-y-2 text-sm mb-3">
                     <p><strong>Messaggio Pulito:</strong> "{parsedAnnuncio.contenuto_pulito}"</p>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
                         {formatRipetizione(parsedAnnuncio.ripetizione_ogni)} & {parsedAnnuncio.priorita}
                       </span>
                       <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs">
@@ -293,7 +293,7 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
                   <button
                     onClick={handleConfirmAnnuncio}
                     disabled={isProcessing}
-                    className="w-full px-4 py-3 bg-gray-800 text-white rounded-lg hover:bg-gray-900 disabled:opacity-50 font-semibold shadow-md"
+                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-semibold shadow-md"
                   >
                     Conferma
                   </button>
@@ -306,17 +306,11 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
         </div>
 
         {/* Input */}
-        <div className={`p-4 border-t ${isMobile ? 'bg-gradient-to-r from-purple-50 to-pink-50' : ''}`}>
+        <div className={`p-4 border-t ${isMobile ? 'bg-gray-50' : ''}`}>
           {isMobile ? (
             /* Mobile Layout: Microfono grande centrale */
             <div className="flex flex-col items-center gap-4">
               <div className="flex items-center gap-2 w-full">
-                <button className="p-2 text-gray-600 hover:bg-gray-200 rounded-lg">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </button>
                 <input
                   ref={inputRef}
                   type="text"
@@ -324,13 +318,13 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Scrivi o tieni premuto il microfono..."
-                  className="flex-1 px-4 py-3 border-2 border-purple-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="flex-1 px-4 py-3 border-2 border-blue-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={isProcessing}
                 />
                 <button
                   onClick={handleSendMessage}
                   disabled={!inputMessage.trim() || isProcessing}
-                  className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send size={20} />
                 </button>
@@ -356,7 +350,7 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
               >
                 <Mic size={32} />
               </button>
-              <p className="text-xs text-purple-600 text-center font-medium">
+              <p className="text-xs text-gray-600 text-center font-medium">
                 Tieni premuto per parlare
               </p>
             </div>
@@ -389,13 +383,13 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Tieni premuto per parlare"
-                className="flex-1 px-4 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="flex-1 px-4 py-2 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 disabled={isProcessing}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!inputMessage.trim() || isProcessing}
-                className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send size={20} />
               </button>
