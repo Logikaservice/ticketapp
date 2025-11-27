@@ -629,6 +629,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       const orderToSave = overrideTimeCodesOrder !== null ? overrideTimeCodesOrder : timeCodesOrder;
       const scheduleToSave = overrideSchedule !== null ? overrideSchedule : schedule;
 
+      console.log('💾 saveData called with:', {
+        hasOverrideSchedule: overrideSchedule !== null,
+        scheduleKeys: Object.keys(scheduleToSave).length,
+        sampleKey: Object.keys(scheduleToSave)[0],
+        sampleValue: Object.values(scheduleToSave)[0]
+      });
+
       // Usa lo stato corrente per assicurarsi di salvare i dati più recenti
       const dataToSave = {
         companies,
@@ -1605,6 +1612,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             delete scheduleToSave[scheduleKey][dayIndex].geographicCode;
             delete scheduleToSave[scheduleKey][dayIndex].fromCompany;
           }
+
+          console.log('🔍 handleBlur calling saveData with:', {
+            field,
+            formatted,
+            dayData: scheduleToSave[scheduleKey][dayIndex]
+          });
 
           saveData(null, null, scheduleToSave);
         } catch (error) {
