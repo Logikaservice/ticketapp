@@ -198,9 +198,41 @@ module.exports = (poolVivaldi) => {
       res.json({ speakers: speakers || [] });
     } catch (error) {
       console.error('❌ Errore recupero speaker:', error);
-      // Restituisci array vuoto invece di errore per permettere fallback
-      // Non passare l'errore al middleware globale per evitare 500
+      // Non bloccare il frontend, ritorna lista vuota
       res.json({ speakers: [], error: error.message });
+    }
+  });
+
+  // GET /api/vivaldi/balance - Ottieni saldo SpeechGen
+  router.get('/balance', authenticateToken, requireVivaldiAccess, async (req, res) => {
+    try {
+      // Recupera API key da config
+      const configResult = await pool.query(
+        'SELECT chiave, valore FROM vivaldi_config WHERE chiave IN ($1, $2)',
+        ['speechgen_api_key', 'speechgen_email']
+      );
+
+      const config = { apiKey: '', email: '' };
+      configResult.rows.forEach(row => {
+        if (row.chiave === 'speechgen_api_key') config.apiKey = row.valore || '';
+        if (row.chiave === 'speechgen_email') config.email = row.valore || '';
+      });
+
+      if (!config.apiKey) {
+        return res.status(400).json({ error: 'API Key SpeechGen non configurata' });
+      }
+
+      const speechGen = new SpeechGenClient(config.apiKey, config.email);
+      const balanceInfo = await speechGen.getAccountInfo();
+
+      if (!balanceInfo) {
+        return res.status(500).json({ error: 'Impossibile recuperare il saldo' });
+      }
+
+      res.json(balanceInfo);
+    } catch (error) {
+      console.error('❌ Errore recupero saldo:', error);
+      res.status(500).json({ error: 'Errore interno recupero saldo' });
     }
   });
 

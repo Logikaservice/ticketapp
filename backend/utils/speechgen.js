@@ -219,6 +219,38 @@ class SpeechGenClient {
       throw error;
     }
   }
+  /**
+   * Ottiene il saldo dell'account (Limiti)
+   * Nota: Usa un endpoint di generazione con testo vuoto per ottenere il saldo senza consumare crediti.
+   */
+  async getAccountInfo() {
+    try {
+      // Costruisci query string
+      const queryParams = new URLSearchParams();
+      if (this.email) queryParams.append('email', this.email);
+      if (this.apiKey) queryParams.append('token', this.apiKey);
+      queryParams.append('text', ''); // Testo vuoto per non consumare
+      queryParams.append('voice', 'Giulia'); // Voce a caso
+
+      const url = `https://speechgen.io/index.php?r=api/text&${queryParams.toString()}`;
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      // Anche se status è -1 (errore), il campo balans dovrebbe esserci
+      const limits = parseInt(data.balans || data.balance || 0);
+
+      return {
+        limits: limits,
+        pro_chars: limits,
+        standard_chars: limits * 2
+      };
+    } catch (error) {
+      console.error('❌ Errore recupero saldo SpeechGen:', error);
+      // Ritorna null per indicare errore, non 0 (che è un saldo valido)
+      return null;
+    }
+  }
 }
 
 module.exports = SpeechGenClient;

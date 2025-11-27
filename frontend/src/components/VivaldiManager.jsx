@@ -870,6 +870,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
         onTestConnection={handleTestConnection}
         testingConnection={testingConnection}
         testResults={testResults}
+        getAuthHeader={getAuthHeader}
       />
 
       {/* Gemini Assistant Modal - Premium Style */}
