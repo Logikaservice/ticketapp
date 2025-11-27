@@ -32,10 +32,10 @@ class SpeechGenClient {
     }
 
     const endpoints = [
+      { url: `https://speechgen.io/index.php?r=api/voices`, name: 'speechgen.io/index.php?r=api/voices' },
       { url: `${this.baseUrl}/api/voices`, name: '/api/voices' },
       { url: `${this.baseUrl}/api/v1/speakers`, name: '/api/v1/speakers' },
-      { url: `https://speechgen.io/api/voices`, name: 'speechgen.io/api/voices' },
-      { url: `https://speechgen.io/index.php?r=api/voices`, name: 'speechgen.io/index.php?r=api/voices' }
+      { url: `https://speechgen.io/api/voices`, name: 'speechgen.io/api/voices' }
     ];
 
     let lastError = null;
@@ -54,7 +54,14 @@ class SpeechGenClient {
 
         if (response.ok) {
           const data = await response.json();
-          return this._processSpeakersResponse(data);
+          const speakers = this._processSpeakersResponse(data);
+
+          if (speakers && speakers.length > 0) {
+            return speakers;
+          }
+
+          console.warn(`⚠️ Endpoint ${endpoint.name} ha risposto OK ma 0 speaker. Provo il prossimo...`);
+          lastError = new Error(`Endpoint ${endpoint.name} returned 0 speakers. Data: ${JSON.stringify(data).substring(0, 100)}...`);
         } else {
           lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -66,7 +73,7 @@ class SpeechGenClient {
     }
 
     // Se tutti gli endpoint falliscono, lancia l'ultimo errore
-    throw new Error(`Tutti gli endpoint SpeechGen falliti. Ultimo errore: ${lastError?.message || 'Unknown error'}`);
+    throw new Error(`Impossibile recuperare speaker. Ultimo errore: ${lastError?.message || 'Unknown error'}`);
   }
 
   /**
@@ -75,7 +82,7 @@ class SpeechGenClient {
   _processSpeakersResponse(data) {
     // Gestisci diverse strutture di risposta
     let speakers = [];
-    
+
     if (Array.isArray(data)) {
       // Se la risposta è direttamente un array
       speakers = data;
