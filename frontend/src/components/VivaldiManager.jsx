@@ -568,8 +568,8 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       onClick={() => setSelectedAnnuncio(annuncio)}
                     >
                       <div className={`absolute left-0 top-0 bottom-0 w-1 ${annuncio.priorita === 'Urgente' ? 'bg-red-500' :
-                          annuncio.priorita === 'Alta' ? 'bg-orange-500' :
-                            annuncio.priorita === 'Media' ? 'bg-yellow-500' : 'bg-blue-500'
+                        annuncio.priorita === 'Alta' ? 'bg-orange-500' :
+                          annuncio.priorita === 'Media' ? 'bg-yellow-500' : 'bg-blue-500'
                         }`}></div>
 
                       <div className="pl-3">
@@ -667,8 +667,8 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           </p>
                           <div className="flex items-center gap-3 mt-1.5">
                             <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${item.priorita === 'Urgente' ? 'bg-red-100 text-red-700' :
-                                item.priorita === 'Alta' ? 'bg-orange-100 text-orange-700' :
-                                  item.priorita === 'Media' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'
+                              item.priorita === 'Alta' ? 'bg-orange-100 text-orange-700' :
+                                item.priorita === 'Media' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'
                               }`}>
                               {item.priorita}
                             </span>
@@ -921,19 +921,17 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       {/* Gemini Assistant Modal - Premium Style */}
       {showGeminiAssistant && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-fade-in">
-          <GeminiAssistant
-            onClose={() => setShowGeminiAssistant(false)}
-            onAnnuncioCreated={(annuncio) => {
-              setAnnuncioForm(annuncio);
-              setActiveTab('editor');
-              setShowGeminiAssistant(false);
-              loadAnnunci();
-            }}
-            getAuthHeader={getAuthHeader}
-            showNotification={showNotification}
-          />
-        </div>
+        <GeminiAssistant
+          onClose={() => setShowGeminiAssistant(false)}
+          onAnnuncioCreated={(annuncio) => {
+            setAnnuncioForm(annuncio);
+            setActiveTab('editor');
+            setShowGeminiAssistant(false);
+            loadAnnunci();
+          }}
+          getAuthHeader={getAuthHeader}
+          showNotification={showNotification}
+        />
       )}
 
       {/* Hidden Audio Player */}

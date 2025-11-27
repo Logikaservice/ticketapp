@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Mic, Send, X, Volume2, CheckCircle, AlertCircle } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
@@ -194,67 +195,74 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
     return `ogni ${ore}h ${min}min`;
   };
 
-  return (
-    <div className={`fixed inset-0 ${isMobile ? 'bg-white' : 'bg-black bg-opacity-50'} flex items-center justify-center z-50`}>
-      <div className={`bg-white ${isMobile ? 'w-full h-full rounded-none' : 'rounded-lg w-full max-w-2xl h-[80vh]'} flex flex-col`}>
+  return createPortal(
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[9999] p-4 animate-fade-in">
+      <div className={`bg-white ${isMobile ? 'w-full h-full rounded-none' : 'rounded-2xl w-full max-w-2xl h-[80vh]'} flex flex-col shadow-2xl overflow-hidden`}>
         {/* Header */}
-        <div className={`p-4 border-b flex items-center justify-between ${isMobile ? 'bg-gray-50' : ''}`}>
+        <div className={`p-4 border-b border-slate-100 flex items-center justify-between ${isMobile ? 'bg-slate-50' : 'bg-white'}`}>
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Assistente Conad</h2>
-            <p className="text-sm text-gray-600 flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <Mic size={18} />
+              </span>
+              Assistente Conad
+            </h2>
+            <p className="text-sm text-slate-500 flex items-center gap-2 ml-1 mt-1">
+              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
               Online • Vivaldi Connected
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg text-gray-700"
+            className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
           >
-            <X size={20} />
+            <X size={24} />
           </button>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
           {messages.map((msg, idx) => (
             <div
               key={idx}
               className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[85%] ${isMobile ? 'max-w-[90%]' : ''} rounded-lg p-3 ${
-                  msg.type === 'user'
-                    ? 'bg-red-100 border-2 border-red-300 text-red-900'
-                    : 'bg-gray-100 border border-gray-300 text-gray-900'
-                }`}
+                className={`max-w-[85%] ${isMobile ? 'max-w-[90%]' : ''} rounded-2xl p-4 shadow-sm ${msg.type === 'user'
+                    ? 'bg-blue-600 text-white rounded-tr-none'
+                    : 'bg-white border border-slate-100 text-slate-800 rounded-tl-none'
+                  }`}
               >
-                <p className="whitespace-pre-wrap">{msg.content}</p>
+                <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
 
                 {/* Parsed Data Display */}
                 {msg.parsedData && (
-                  <div className="mt-3 pt-3 border-t border-gray-300">
-                    <div className="space-y-2">
+                  <div className="mt-4 pt-3 border-t border-slate-100">
+                    <div className="space-y-3">
                       <div>
-                        <p className="text-xs font-semibold text-gray-600 mb-1 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
                           ANALISI INTENTO
                         </p>
-                        <p className="text-sm font-medium">{msg.parsedData.intento || 'Annuncio generico'}</p>
+                        <p className="text-sm font-semibold text-slate-700">{msg.parsedData.intento || 'Annuncio generico'}</p>
                       </div>
 
                       <div>
-                        <p className="text-xs font-semibold text-gray-600 mb-1">Messaggio Pulito:</p>
-                        <p className="text-sm italic">"{msg.parsedData.contenuto_pulito || msg.parsedData.contenuto}"</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Messaggio Pulito</p>
+                        <p className="text-sm italic text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">"{msg.parsedData.contenuto_pulito || msg.parsedData.contenuto}"</p>
                       </div>
 
                       <div>
-                        <p className="text-xs font-semibold text-gray-600 mb-1">Schedulazione:</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Schedulazione</p>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                            {formatRipetizione(msg.parsedData.ripetizione_ogni)} & {msg.parsedData.priorita}
+                          <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-md text-xs font-bold">
+                            {formatRipetizione(msg.parsedData.ripetizione_ogni)}
                           </span>
-                          <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs">
-                            standard_female
+                          <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${msg.parsedData.priorita === 'Urgente' ? 'bg-red-50 text-red-700 border-red-100' :
+                              msg.parsedData.priorita === 'Alta' ? 'bg-orange-50 text-orange-700 border-orange-100' :
+                                'bg-yellow-50 text-yellow-700 border-yellow-100'
+                            }`}>
+                            {msg.parsedData.priorita}
                           </span>
                         </div>
                       </div>
@@ -267,35 +275,50 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
 
           {isProcessing && (
             <div className="flex justify-start">
-              <div className="bg-gray-100 rounded-lg p-3">
-                <p className="text-gray-600">Elaborazione in corso...</p>
+              <div className="bg-white border border-slate-100 rounded-2xl p-4 rounded-tl-none shadow-sm flex items-center gap-3">
+                <div className="flex gap-1">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                </div>
+                <p className="text-slate-500 text-sm font-medium">Elaborazione...</p>
               </div>
             </div>
           )}
 
           {parsedAnnuncio && (
-            <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="text-green-600 mt-0.5" size={20} />
+            <div className="bg-white border border-blue-100 rounded-2xl p-5 shadow-lg shadow-blue-500/5 ring-1 ring-blue-500/10">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                  <CheckCircle size={20} />
+                </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-gray-900 mb-2">Ricevuto. Ecco cosa ho programmato:</p>
-                  <div className="space-y-2 text-sm mb-3">
-                    <p><strong>Messaggio Pulito:</strong> "{parsedAnnuncio.contenuto_pulito}"</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                        {formatRipetizione(parsedAnnuncio.ripetizione_ogni)} & {parsedAnnuncio.priorita}
-                      </span>
-                      <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs">
-                        standard_female
-                      </span>
+                  <p className="font-bold text-slate-900 mb-1">Conferma Programmazione</p>
+                  <p className="text-sm text-slate-500 mb-4">Verifica i dettagli prima di confermare.</p>
+
+                  <div className="space-y-3 text-sm mb-5 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <div>
+                      <span className="text-xs font-bold text-slate-400 uppercase">Messaggio</span>
+                      <p className="font-medium text-slate-800">"{parsedAnnuncio.contenuto_pulito}"</p>
+                    </div>
+                    <div className="flex gap-4">
+                      <div>
+                        <span className="text-xs font-bold text-slate-400 uppercase">Ripetizione</span>
+                        <p className="font-medium text-slate-800">{formatRipetizione(parsedAnnuncio.ripetizione_ogni)}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-400 uppercase">Priorità</span>
+                        <p className="font-medium text-slate-800">{parsedAnnuncio.priorita}</p>
+                      </div>
                     </div>
                   </div>
+
                   <button
                     onClick={handleConfirmAnnuncio}
                     disabled={isProcessing}
-                    className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-semibold shadow-md"
+                    className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 font-bold shadow-md transition-all active:scale-[0.98]"
                   >
-                    Conferma
+                    Conferma e Schedula
                   </button>
                 </div>
               </div>
@@ -306,7 +329,7 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
         </div>
 
         {/* Input */}
-        <div className={`p-4 border-t ${isMobile ? 'bg-gray-50' : ''}`}>
+        <div className={`p-4 border-t border-slate-100 ${isMobile ? 'bg-slate-50' : 'bg-white'}`}>
           {isMobile ? (
             /* Mobile Layout: Microfono grande centrale */
             <div className="flex flex-col items-center gap-4">
@@ -317,19 +340,19 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Scrivi o tieni premuto il microfono..."
-                  className="flex-1 px-4 py-3 border-2 border-blue-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Scrivi o tieni premuto..."
+                  className="flex-1 px-4 py-3 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   disabled={isProcessing}
                 />
                 <button
                   onClick={handleSendMessage}
                   disabled={!inputMessage.trim() || isProcessing}
-                  className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-500/20"
                 >
                   <Send size={20} />
                 </button>
               </div>
-              
+
               {/* Microfono grande centrale per mobile */}
               <button
                 ref={micButtonRef}
@@ -341,22 +364,21 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
                   setIsRecording(false);
                 }}
                 onMouseLeave={() => setIsRecording(false)}
-                className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-all ${
-                  isRecording 
-                    ? 'bg-red-500 text-white scale-110 animate-pulse' 
-                    : 'bg-red-500 text-white hover:bg-red-600 active:scale-95'
-                }`}
+                className={`w-20 h-20 rounded-full flex items-center justify-center shadow-xl transition-all ${isRecording
+                    ? 'bg-red-500 text-white scale-110 animate-pulse ring-4 ring-red-500/30'
+                    : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white hover:shadow-indigo-500/40 active:scale-95'
+                  }`}
                 title="Tieni premuto per parlare"
               >
                 <Mic size={32} />
               </button>
-              <p className="text-xs text-gray-600 text-center font-medium">
+              <p className="text-xs text-slate-500 text-center font-medium">
                 Tieni premuto per parlare
               </p>
             </div>
           ) : (
             /* Desktop Layout: Input tradizionale */
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 ref={micButtonRef}
                 onMouseDown={() => setIsRecording(true)}
@@ -367,11 +389,10 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
                   setIsRecording(false);
                 }}
                 onMouseLeave={() => setIsRecording(false)}
-                className={`p-3 rounded-lg transition-all ${
-                  isRecording 
-                    ? 'bg-red-500 text-white scale-110' 
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
+                className={`p-3 rounded-xl transition-all ${isRecording
+                    ? 'bg-red-500 text-white scale-110 ring-4 ring-red-500/30'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700'
+                  }`}
                 title="Tieni premuto per parlare"
               >
                 <Mic size={20} />
@@ -382,27 +403,27 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Tieni premuto per parlare"
-                className="flex-1 px-4 py-2 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Scrivi un comando o tieni premuto per parlare..."
+                className="flex-1 px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 disabled={isProcessing}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!inputMessage.trim() || isProcessing}
-                className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-blue-500/20 transition-all hover:-translate-y-0.5"
               >
                 <Send size={20} />
               </button>
             </div>
           )}
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            Gemini potrebbe mostrare informazioni imprecise, anche riguardo a persone, quindi verifica le sue risposte.
+          <p className="text-xs text-slate-400 mt-3 text-center">
+            Gemini potrebbe mostrare informazioni imprecise. Verifica sempre i dettagli.
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
 export default GeminiAssistant;
-
