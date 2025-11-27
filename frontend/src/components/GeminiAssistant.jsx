@@ -240,7 +240,6 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
       } else {
         throw new Error('Errore nella creazione: ' + (createData.error || 'Errore sconosciuto'));
       }
-      }
     } catch (error) {
       console.error('Errore creazione annuncio:', error);
       const errorMessage = error.message || 'Errore sconosciuto durante la creazione dell\'annuncio';
