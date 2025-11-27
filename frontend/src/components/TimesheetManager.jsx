@@ -772,14 +772,24 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
     let total = 0;
     if (dayData.in1 && dayData.out1) {
-      const start = timeHelpers.toDecimal(dayData.in1);
-      const end = timeHelpers.toDecimal(dayData.out1);
-      if (end > start) total += (end - start);
+      // Verifica che in1 e out1 siano orari validi (non codici)
+      const in1IsTime = /^\d{1,2}[.:]\d{2}$/.test(dayData.in1);
+      const out1IsTime = /^\d{1,2}[.:]\d{2}$/.test(dayData.out1);
+      if (in1IsTime && out1IsTime) {
+        const start = timeHelpers.toDecimal(dayData.in1);
+        const end = timeHelpers.toDecimal(dayData.out1);
+        if (end > start) total += (end - start);
+      }
     }
     if (dayData.in2 && dayData.out2) {
-      const start = timeHelpers.toDecimal(dayData.in2);
-      const end = timeHelpers.toDecimal(dayData.out2);
-      if (end > start) total += (end - start);
+      // Verifica che in2 e out2 siano orari validi (non codici come "Atripalda", "Malattia", ecc.)
+      const in2IsTime = /^\d{1,2}[.:]\d{2}$/.test(dayData.in2);
+      const out2IsTime = /^\d{1,2}[.:]\d{2}$/.test(dayData.out2);
+      if (in2IsTime && out2IsTime) {
+        const start = timeHelpers.toDecimal(dayData.in2);
+        const end = timeHelpers.toDecimal(dayData.out2);
+        if (end > start) total += (end - start);
+      }
     }
     return total;
   };
