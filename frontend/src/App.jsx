@@ -25,6 +25,7 @@ import { useGoogleCalendar } from './hooks/useGoogleCalendar';
 import { useWebSocket } from './hooks/useWebSocket';
 import GoogleCallback from './components/GoogleCallback';
 import TimesheetManager from './components/TimesheetManager';
+import VivaldiManager from './components/VivaldiManager';
 import { buildApiUrl } from './utils/apiConfig';
 
 const INITIAL_NEW_CLIENT_DATA = {
@@ -44,8 +45,8 @@ export default function TicketApp() {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
 
-  // Rileva se siamo su orari.logikaservice.it o turni.logikaservice.it
-  // Supporta anche parametro URL ?domain=orari per test locali
+  // Rileva se siamo su orari.logikaservice.it, turni.logikaservice.it o vivaldi.logikaservice.it
+  // Supporta anche parametro URL ?domain=orari/vivaldi per test locali
 
   // 1. Rileva l'hostname reale
   const hostname = window.location.hostname;
@@ -53,28 +54,34 @@ export default function TicketApp() {
     hostname === 'turni.logikaservice.it' ||
     (hostname.includes('orari') && !hostname.includes('ticket')) ||
     (hostname.includes('turni') && !hostname.includes('ticket'));
+  
+  const isVivaldiHostname = hostname === 'vivaldi.logikaservice.it' ||
+    (hostname.includes('vivaldi') && !hostname.includes('ticket'));
 
-  // 2. Parametro URL ?domain=orari per test
+  // 2. Parametro URL ?domain=orari/vivaldi per test
   const urlParams = new URLSearchParams(window.location.search);
   const testDomain = urlParams.get('domain');
 
-  // 3. Se siamo su ticket.logikaservice.it (o hostname senza orari/turni), pulisci requestedDomain
-  if (!isOrariHostname && !testDomain) {
+  // 3. Se siamo su ticket.logikaservice.it (o hostname senza orari/turni/vivaldi), pulisci requestedDomain
+  if (!isOrariHostname && !isVivaldiHostname && !testDomain) {
     localStorage.removeItem('requestedDomain');
   }
 
   // 4. Salva il dominio richiesto SOLO se presente nell'URL o nell'hostname
-  if (testDomain === 'orari' || testDomain === 'turni') {
+  if (testDomain === 'orari' || testDomain === 'turni' || testDomain === 'vivaldi') {
     localStorage.setItem('requestedDomain', testDomain);
   } else if (isOrariHostname) {
     localStorage.setItem('requestedDomain', 'orari');
+  } else if (isVivaldiHostname) {
+    localStorage.setItem('requestedDomain', 'vivaldi');
   }
 
   // 5. Determina il dominio finale: priorità a hostname reale, poi testDomain
   // MODIFICA: Rimosso localStorage.getItem('requestedDomain') per evitare persistenza indesiderata
-  const requestedDomain = isOrariHostname ? 'orari' : (testDomain || null);
+  const requestedDomain = isOrariHostname ? 'orari' : (isVivaldiHostname ? 'vivaldi' : (testDomain || null));
 
   const isOrariDomain = requestedDomain === 'orari' || requestedDomain === 'turni';
+  const isVivaldiDomain = requestedDomain === 'vivaldi';
 
   // Controlla se abbiamo un codice OAuth nell'URL (solo una volta)
   const [oauthCode, setOauthCode] = useState(null);
@@ -145,13 +152,20 @@ export default function TicketApp() {
   const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
   // Inizializza lo stato in base al dominio richiesto
   const [showDashboard, setShowDashboard] = useState(() => {
-    // Se c'è un dominio richiesto (orari/turni), non mostrare dashboard
-    return !isOrariDomain;
+    // Se c'è un dominio richiesto (orari/turni/vivaldi), non mostrare dashboard
+    return !isOrariDomain && !isVivaldiDomain;
   });
+  
+  const [showVivaldi, setShowVivaldi] = useState(isVivaldiDomain);
 
   const [showOrariTurni, setShowOrariTurni] = useState(() => {
     // Se c'è un dominio richiesto (orari/turni), mostra subito orari
     return isOrariDomain;
+  });
+
+  const [showVivaldi, setShowVivaldi] = useState(() => {
+    // Se c'è un dominio richiesto (vivaldi), mostra subito vivaldi
+    return isVivaldiDomain;
   });
 
   // Aggiorna lo stato quando cambia il dominio richiesto
@@ -160,8 +174,13 @@ export default function TicketApp() {
     if (savedDomain === 'orari' || savedDomain === 'turni' || isOrariDomain) {
       setShowDashboard(false);
       setShowOrariTurni(true);
+      setShowVivaldi(false);
+    } else if (savedDomain === 'vivaldi' || isVivaldiDomain) {
+      setShowDashboard(false);
+      setShowOrariTurni(false);
+      setShowVivaldi(true);
     }
-  }, [isOrariDomain]);
+  }, [isOrariDomain, isVivaldiDomain]);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
@@ -2774,7 +2793,7 @@ export default function TicketApp() {
             openAnalytics,
             openAccessLogs,
             openInactivityTimer,
-            openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); },
+            openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); setShowVivaldi(false); },
             isOrariDomain: isOrariDomain
           }}
         />
@@ -2789,7 +2808,50 @@ export default function TicketApp() {
         )}
 
         <main className="max-w-7xl mx-auto px-4 py-6">
-          {showOrariTurni ? (
+          {showVivaldi ? (
+            // Verifica accesso al sistema Vivaldi (admin e tecnici hanno sempre accesso)
+            (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico' || currentUser?.enabled_projects?.includes('vivaldi')) ? (
+              <div className="animate-slideInRight">
+                <VivaldiManager currentUser={currentUser} getAuthHeader={getAuthHeader} showNotification={showNotification} />
+              </div>
+            ) : (
+              // Messaggio di accesso negato
+              <div className="min-h-[60vh] flex items-center justify-center">
+                <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full border-2 border-red-200">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <h2 className="text-2xl font-bold text-red-600 mb-3">Accesso Negato</h2>
+                    <p className="text-gray-700 mb-3 text-base">
+                      Non hai i permessi per accedere al sistema Vivaldi.
+                    </p>
+                    <p className="text-gray-600 text-sm mb-6">
+                      Contatta l'amministratore per richiedere l'accesso a questo modulo.
+                    </p>
+                    <div className="space-y-2">
+                      <button
+                        onClick={handleLogout}
+                        className="w-full bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 transition font-semibold"
+                      >
+                        Torna al Login
+                      </button>
+                      {!isVivaldiDomain && (
+                        <button
+                          onClick={() => { setShowDashboard(true); setShowVivaldi(false); }}
+                          className="w-full bg-gray-200 text-gray-700 py-2.5 rounded-lg hover:bg-gray-300 transition font-semibold"
+                        >
+                          Torna alla Dashboard
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          ) : showOrariTurni ? (
             // Verifica accesso al sistema orari (admin e tecnici hanno sempre accesso)
             (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico' || currentUser?.enabled_projects?.includes('orari')) ? (
               <div className="animate-slideInRight">

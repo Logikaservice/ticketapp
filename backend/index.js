@@ -25,6 +25,14 @@ const pool = new Pool({
   }
 });
 
+// --- CONFIGURAZIONE DATABASE VIVALDI (separato) ---
+const poolVivaldi = new Pool({
+  connectionString: process.env.DATABASE_URL_VIVALDI || process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/vivaldi_db'),
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+
 // Crea tabella access_logs se non esiste
 const ensureAccessLogsTable = async () => {
   try {
@@ -610,6 +618,9 @@ const accessLogsRoutes = require('./routes/accessLogs')(pool);
 // Route per Orari e Turni (usa stesso pool ma tabella separata orari_data)
 const orariRoutes = require('./routes/orari')(pool);
 
+// Route per Vivaldi (database separato)
+const vivaldiRoutes = require('./routes/vivaldi')(poolVivaldi);
+
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
 
@@ -1081,6 +1092,31 @@ app.use('/api/orari', authenticateToken, (req, res, next) => {
     error: 'Accesso negato. Non hai i permessi per accedere a Orari e Turni.'
   });
 }, orariRoutes);
+
+// Route Vivaldi (per tecnico/admin e clienti con permesso progetto vivaldi)
+app.use('/api/vivaldi', authenticateToken, (req, res, next) => {
+  // Tecnici e admin hanno sempre accesso
+  if (req.user?.ruolo === 'tecnico' || req.user?.ruolo === 'admin') {
+    console.log(`✅ Accesso Vivaldi autorizzato per STAFF ${req.user.email}`);
+    return next();
+  }
+
+  // Per clienti, verifica che abbiano il progetto "vivaldi" abilitato nel token
+  if (req.user?.ruolo === 'cliente') {
+    const enabledProjects = req.user?.enabled_projects || ['ticket'];
+
+    if (Array.isArray(enabledProjects) && enabledProjects.includes('vivaldi')) {
+      console.log(`✅ Cliente ${req.user.email} ha accesso a Vivaldi`);
+      return next();
+    }
+  }
+
+  // Accesso negato
+  console.log(`❌ Accesso negato a /api/vivaldi per ${req.user?.email} (${req.user?.ruolo})`);
+  return res.status(403).json({
+    error: 'Accesso negato. Non hai i permessi per accedere a Vivaldi.'
+  });
+}, vivaldiRoutes);
 // Endpoint debug pubblico (solo per diagnostica - rimuovere in produzione)
 app.get('/api/orari/debug-public', async (req, res) => {
   try {
@@ -1440,6 +1476,15 @@ const startServer = async () => {
     await pool.connect();
     console.log("✅ Connessione al database riuscita!");
 
+    // Connessione database Vivaldi
+    try {
+      await poolVivaldi.connect();
+      console.log("✅ Connessione al database Vivaldi riuscita!");
+    } catch (vivaldiErr) {
+      console.warn("⚠️ Avviso: Database Vivaldi non disponibile. Assicurati che DATABASE_URL_VIVALDI sia configurato.");
+      console.warn("   Il sistema continuerà a funzionare, ma Vivaldi non sarà disponibile.");
+    }
+
     // Inizializza automaticamente il database
     try {
       await pool.query(`
@@ -1613,6 +1658,16 @@ const startServer = async () => {
       console.log("✅ Tabella keepass_entries creata/verificata (auto-init)");
     } catch (keepassEntriesErr) {
       console.log("⚠️ Errore creazione tabella keepass_entries (auto-init):", keepassEntriesErr.message);
+    }
+
+    // Avvia Vivaldi Scheduler se il database è disponibile
+    try {
+      const VivaldiScheduler = require('./cron/vivaldiScheduler');
+      const vivaldiScheduler = new VivaldiScheduler(poolVivaldi);
+      vivaldiScheduler.start();
+      console.log("✅ Vivaldi Scheduler avviato");
+    } catch (schedulerErr) {
+      console.warn("⚠️ Avviso: Vivaldi Scheduler non avviato:", schedulerErr.message);
     }
 
     server.listen(PORT, () => {
