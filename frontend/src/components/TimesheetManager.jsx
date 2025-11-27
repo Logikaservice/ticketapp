@@ -1138,13 +1138,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 if (!newSchedule[scheduleKey][dayIndex]) newSchedule[scheduleKey][dayIndex] = {};
                 
                 // Salva solo il label del codice in in2, senza flag geographicCode o fromCompany
-                newSchedule[scheduleKey][dayIndex].in2 = timeCodes[detectedCode] || detectedCode;
+                const codeLabel = timeCodes[detectedCode] || detectedCode;
+                newSchedule[scheduleKey][dayIndex].in2 = codeLabel;
+                // Pulisci out2 se c'era un orario
+                if (newSchedule[scheduleKey][dayIndex].out2 && /^\d/.test(newSchedule[scheduleKey][dayIndex].out2)) {
+                  newSchedule[scheduleKey][dayIndex].out2 = '';
+                }
                 // NON impostare geographicCode o fromCompany per in2
                 
                 return newSchedule;
               });
               
               setTimeout(() => saveData(), 100);
+              return; // IMPORTANTE: esci subito per non continuare con la validazione orari
             } else {
               // Per in1 o altri campi, usa la logica normale con propagazione
               handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
