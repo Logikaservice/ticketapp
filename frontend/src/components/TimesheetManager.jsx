@@ -1013,6 +1013,43 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       const shouldApply = (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch) && strValue.length <= 10;
 
       if (detectedCode && shouldApply) {
+        // Se è in2, salva SOLO in in2 senza propagazione (non chiamare handleQuickCode)
+        if (field === 'in2') {
+          // Salva solo il codice in in2, senza propagazione
+          const currentWeek = weekRangeValue || weekRange;
+          const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+          const scheduleKey = `${currentWeek}-${baseKey}`;
+          
+          setSchedule(prev => {
+            const newSchedule = { ...prev };
+            if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
+            if (!newSchedule[scheduleKey][dayIndex]) {
+              newSchedule[scheduleKey][dayIndex] = {
+                code: prev[scheduleKey]?.[dayIndex]?.code || '',
+                in1: prev[scheduleKey]?.[dayIndex]?.in1 || '',
+                out1: prev[scheduleKey]?.[dayIndex]?.out1 || '',
+                in2: '',
+                out2: ''
+              };
+            }
+            
+            // Salva solo il label del codice in in2 (non il codice key)
+            const codeLabel = timeCodes[detectedCode] || detectedCode;
+            newSchedule[scheduleKey][dayIndex].in2 = codeLabel;
+            // Pulisci out2 se c'era un orario
+            if (newSchedule[scheduleKey][dayIndex].out2 && /^\d/.test(newSchedule[scheduleKey][dayIndex].out2)) {
+              newSchedule[scheduleKey][dayIndex].out2 = '';
+            }
+            // IMPORTANTE: NON toccare il campo code - deve rimanere invariato
+            
+            return newSchedule;
+          });
+          
+          setTimeout(() => saveData(), 100);
+          return; // IMPORTANTE: esci subito per non continuare con l'aggiornamento normale
+        }
+        
+        // Per in1 o altri campi, usa la logica normale
         // Verifica se è un codice geografico che punta all'azienda corrente
         // Se sì, non applicarlo ma segnalalo come errore
         if (isGeographicCode(detectedCode)) {
@@ -1087,6 +1124,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       // Per in2, verifica PRIMA se è un nome di città (Atripalda, Avellino, Lioni)
       // o un codice geografico diretto (AT, AV, L)
+      // IMPORTANTE: Questo deve essere fatto PRIMA di cercare nei timeCodes
       if (field === 'in2') {
         // Mappa nomi città a codici geografici
         const cityToCode = {
