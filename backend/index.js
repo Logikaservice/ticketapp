@@ -1143,8 +1143,21 @@ app.use('/api/vivaldi', authenticateToken, (req, res, next) => {
   });
 }, vivaldiRoutes);
 
-// Middleware di gestione errori globale (DEVE essere l'ultimo middleware)
+// Gestione route non trovate (404) - PRIMA del middleware errori
+app.use((req, res) => {
+  // Solo se non è già stata inviata una risposta
+  if (!res.headersSent) {
+    res.status(404).json({ error: 'Route non trovata' });
+  }
+});
+
+// Middleware di gestione errori globale (DEVE essere l'ultimo middleware con 4 parametri)
 app.use((err, req, res, next) => {
+  // Se la risposta è già stata inviata, passa al prossimo
+  if (res.headersSent) {
+    return next(err);
+  }
+  
   console.error('❌ Errore non gestito:', err);
   console.error('❌ Stack:', err.stack);
   console.error('❌ Route:', req.method, req.path);
@@ -1158,20 +1171,21 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Gestione route non trovate (404)
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route non trovata' });
-});
-
-// Gestione errori non catturati
+// Gestione errori non catturati - IMPORTANTE: non fare exit per evitare crash
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-  // Non fare exit, solo logga l'errore
+  console.error('❌ Unhandled Rejection at:', promise);
+  console.error('❌ Reason:', reason);
+  if (reason instanceof Error) {
+    console.error('❌ Stack:', reason.stack);
+  }
+  // NON fare exit - il backend deve continuare a funzionare
 });
 
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
-  // Non fare exit, solo logga l'errore
+  console.error('❌ Stack:', error.stack);
+  // NON fare exit - il backend deve continuare a funzionare
+  // In produzione, potresti voler fare exit(1) qui, ma per ora manteniamo il server attivo
 });
 
 // Endpoint debug pubblico (solo per diagnostica - rimuovere in produzione)

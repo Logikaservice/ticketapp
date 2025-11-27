@@ -38,7 +38,7 @@ module.exports = function createAlertsRouter(pool) {
   });
 
   // GET /api/alerts - lista avvisi
-  router.get('/', async (req, res) => {
+  router.get('/', async (req, res, next) => {
     try {
       const { rows } = await pool.query(
         'SELECT id, title, body, level, ticket_id as "ticketId", created_at as "createdAt", created_by as "createdBy", clients, is_permanent as "isPermanent", days_to_expire as "daysToExpire", attachments FROM alerts ORDER BY created_at DESC'
