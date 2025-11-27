@@ -295,27 +295,27 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-indigo-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg shadow-md p-4 mb-6">
+      <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-purple-900">Vivaldi - Sistema Annunci Vocali</h1>
-            <p className="text-sm text-purple-700 mt-1">
+            <h1 className="text-2xl font-bold text-gray-900">Vivaldi - Sistema Annunci Vocali</h1>
+            <p className="text-sm text-gray-600 mt-1">
               Gestione annunci vocali per punti vendita
             </p>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowGeminiAssistant(!showGeminiAssistant)}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 shadow-md"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
             >
               <Mic size={18} />
               Assistente AI
             </button>
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="p-2 text-purple-700 hover:bg-purple-100 rounded-lg transition-colors"
+              className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <Settings size={20} />
             </button>
@@ -323,7 +323,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mt-4 border-b border-purple-200">
+        <div className="flex gap-2 mt-4 border-b">
           {[
             { id: 'editor', label: 'Editor Annunci' },
             { id: 'queue', label: 'Coda' },
@@ -333,10 +333,10 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 font-medium transition-colors ${
+              className={`px-4 py-2 font-medium ${
                 activeTab === tab.id
-                  ? 'text-purple-600 border-b-2 border-purple-600'
-                  : 'text-purple-600 hover:text-purple-800'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900'
               }`}
             >
               {tab.label}
@@ -363,44 +363,44 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
       {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg shadow-xl p-6 w-full max-w-md">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-purple-900">Configurazione</h2>
-              <button onClick={() => setShowSettings(false)} className="text-purple-700 hover:text-purple-900">
+              <h2 className="text-xl font-bold text-gray-900">Configurazione</h2>
+              <button onClick={() => setShowSettings(false)} className="text-gray-700 hover:text-gray-900">
                 <X size={20} />
               </button>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1 text-purple-800">SpeechGen API Key</label>
+                <label className="block text-sm font-medium mb-1 text-gray-700">SpeechGen API Key</label>
                 <input
                   type="text"
                   value={config.speechgen_api_key}
                   onChange={(e) => setConfig({ ...config, speechgen_api_key: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="f1d5e882-e8ab-49c0-ac47-2df3a6a30090"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-purple-800">SpeechGen Email</label>
+                <label className="block text-sm font-medium mb-1 text-gray-700">SpeechGen Email</label>
                 <input
                   type="email"
                   value={config.speechgen_email}
                   onChange={(e) => setConfig({ ...config, speechgen_email: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="logikaserivce@gmail.com"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-purple-800">Gemini API Key</label>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Gemini API Key</label>
                 <input
                   type="text"
                   value={config.gemini_api_key}
                   onChange={(e) => setConfig({ ...config, gemini_api_key: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Inserisci API Key Gemini"
                 />
               </div>
@@ -408,13 +408,13 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
               <div className="flex gap-2">
                 <button
                   onClick={handleSaveConfig}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 shadow-md"
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   Salva
                 </button>
                 <button
                   onClick={() => setShowSettings(false)}
-                  className="px-4 py-2 bg-purple-200 text-purple-700 rounded-lg hover:bg-purple-300"
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                 >
                   Annulla
                 </button>
@@ -426,27 +426,27 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       {/* Editor Tab */}
       {activeTab === 'editor' && (
-        <div className="bg-gradient-to-br from-white to-purple-50 border-2 border-purple-200 rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold mb-4 text-purple-900">Crea Nuovo Annuncio</h2>
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-900">Crea Nuovo Annuncio</h2>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1 text-purple-800">Contenuto Annuncio</label>
+              <label className="block text-sm font-medium mb-1 text-gray-700">Contenuto Annuncio</label>
               <textarea
                 value={annuncioForm.contenuto}
                 onChange={(e) => setAnnuncioForm({ ...annuncioForm, contenuto: e.target.value })}
-                className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg h-32 bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg h-32 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Inserisci il testo dell'annuncio..."
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1 text-purple-800">Speaker</label>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Speaker</label>
                 <select
                   value={annuncioForm.speaker}
                   onChange={(e) => setAnnuncioForm({ ...annuncioForm, speaker: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   {speakers.length > 0 ? (
                     speakers.map(s => (
@@ -459,11 +459,11 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-purple-800">Priorità</label>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Priorità</label>
                 <select
                   value={annuncioForm.priorita}
                   onChange={(e) => setAnnuncioForm({ ...annuncioForm, priorita: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="Bassa">Bassa (30 min)</option>
                   <option value="Media">Media (15 min)</option>
@@ -509,7 +509,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
               <button
                 onClick={handleCreateAnnuncio}
                 disabled={loading}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 shadow-md"
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
               >
                 <Plus size={18} />
                 Crea Annuncio
@@ -518,7 +518,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 <button
                   onClick={() => handleScheduleAnnuncio(selectedAnnuncio.id)}
                   disabled={loading}
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 shadow-md"
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
                 >
                   <Clock size={18} />
                   Schedula
@@ -529,12 +529,12 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
           {/* Lista Annunci Recenti */}
           <div className="mt-8">
-            <h3 className="text-lg font-bold mb-4 text-purple-900">Annunci Recenti</h3>
+            <h3 className="text-lg font-bold mb-4 text-gray-900">Annunci Recenti</h3>
             <div className="space-y-2">
               {annunci.slice(0, 10).map(annuncio => (
                 <div
                   key={annuncio.id}
-                  className="p-4 border-2 border-purple-200 rounded-lg hover:bg-purple-50 transition-colors flex items-center justify-between bg-white"
+                  className="p-4 border rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-between bg-white"
                 >
                   <div className="flex-1">
                     <p className="font-medium">{annuncio.contenuto_pulito || annuncio.contenuto}</p>
@@ -549,7 +549,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                     {annuncio.audio_url && (
                       <button
                         onClick={() => handlePlayAudio(annuncio.audio_url)}
-                        className="p-2 text-purple-600 hover:bg-purple-100 rounded transition-colors"
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                       >
                         <Volume2 size={18} />
                       </button>
@@ -557,7 +557,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                     {!annuncio.audio_url && (
                       <button
                         onClick={() => handleGenerateAudio(annuncio.id)}
-                        className="p-2 text-purple-600 hover:bg-purple-100 rounded transition-colors"
+                        className="p-2 text-gray-600 hover:bg-gray-100 rounded transition-colors"
                         title="Genera audio"
                       >
                         <Volume2 size={18} />
@@ -565,7 +565,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                     )}
                     <button
                       onClick={() => handleCopyAnnuncio(annuncio)}
-                      className="p-2 text-purple-600 hover:bg-purple-100 rounded transition-colors"
+                      className="p-2 text-gray-600 hover:bg-gray-100 rounded transition-colors"
                     >
                       <Copy size={18} />
                     </button>
@@ -579,16 +579,16 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       {/* Queue Tab */}
       {activeTab === 'queue' && (
-        <div className="bg-gradient-to-br from-white to-purple-50 border-2 border-purple-200 rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold mb-4 text-purple-900">Coda Annunci</h2>
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h2 className="text-xl font-bold mb-4 text-gray-900">Coda Annunci</h2>
           <div className="space-y-2">
             {queue.length === 0 ? (
-              <p className="text-purple-600 text-center py-8">Nessun annuncio in coda</p>
+              <p className="text-gray-500 text-center py-8">Nessun annuncio in coda</p>
             ) : (
               queue.map(item => (
                 <div
                   key={item.id}
-                  className="p-4 border-2 border-purple-200 rounded-lg hover:bg-purple-50 transition-colors flex items-center justify-between bg-white"
+                  className="p-4 border rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-between bg-white"
                 >
                   <div className="flex-1">
                     <p className="font-medium">{item.contenuto_pulito || item.contenuto}</p>
@@ -622,12 +622,12 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       {/* History Tab */}
       {activeTab === 'history' && (
-        <div className="bg-gradient-to-br from-white to-purple-50 border-2 border-purple-200 rounded-lg shadow-md p-6">
+        <div className="bg-white rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-purple-900">Storico Esecuzioni</h2>
+            <h2 className="text-xl font-bold text-gray-900">Storico Esecuzioni</h2>
             <button
               onClick={loadHistory}
-              className="px-4 py-2 bg-purple-200 text-purple-700 rounded-lg hover:bg-purple-300 transition-colors"
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
             >
               Aggiorna
             </button>
@@ -635,12 +635,12 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
           <div className="space-y-2">
             {history.length === 0 ? (
-              <p className="text-purple-600 text-center py-8">Nessun record nello storico</p>
+              <p className="text-gray-500 text-center py-8">Nessun record nello storico</p>
             ) : (
               history.map(item => (
                 <div
                   key={item.id}
-                  className="p-4 border-2 border-purple-200 rounded-lg hover:bg-purple-50 transition-colors flex items-center justify-between bg-white"
+                  className="p-4 border rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-between bg-white"
                 >
                   <div className="flex-1">
                     <p className="font-medium">{item.contenuto_pulito || item.contenuto}</p>
