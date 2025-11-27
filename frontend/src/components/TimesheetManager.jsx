@@ -1276,7 +1276,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                     };
                   }
 
-                  // Salva solo il label del codice in in2, senza flag geographicCode o fromCompany
+                  // Salva solo il label del codice in in2
+                  // MA imposta anche geographicCode per permettere la notifica di trasferimento
                   let codeLabel = timeCodes[detectedCode];
 
                   // Fallback per codici geografici hardcoded se non presenti in timeCodes
@@ -1290,12 +1291,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                   }
 
                   newSchedule[scheduleKey][dayIndex].in2 = codeLabel;
+
+                  // Imposta geographicCode se è un codice geografico o azienda
+                  // Questo è fondamentale per checkTransfersToCompany
+                  const isGeo = ['AT', 'AV', 'L', 'M', 'A'].includes(detectedCode) || getCompanyFromGeographicCode(detectedCode);
+                  if (isGeo) {
+                    newSchedule[scheduleKey][dayIndex].geographicCode = detectedCode;
+                  }
+
                   // Pulisci out2 se c'era un orario
                   if (newSchedule[scheduleKey][dayIndex].out2 && /^\d/.test(newSchedule[scheduleKey][dayIndex].out2)) {
                     newSchedule[scheduleKey][dayIndex].out2 = '';
                   }
                   // IMPORTANTE: NON toccare il campo code - deve rimanere vuoto o invariato
-                  // NON impostare geographicCode o fromCompany per in2
 
                   // --- LOGICA TRASFERIMENTO PARZIALE (POMERIGGIO) ---
                   // Se il codice corrisponde a un'azienda, crea/aggiorna lo schedule nell'azienda target
