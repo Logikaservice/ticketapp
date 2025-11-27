@@ -71,6 +71,7 @@ class SpeechGenClient {
 
     // Se tutti gli endpoint falliscono, lancia l'ultimo errore
     throw new Error(`Tutti gli endpoint SpeechGen falliti. Ultimo errore: ${lastError?.message || 'Unknown error'}`);
+  }
 
   /**
    * Processa la risposta dell'API per estrarre gli speaker
