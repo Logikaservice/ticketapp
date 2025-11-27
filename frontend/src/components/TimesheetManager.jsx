@@ -4006,7 +4006,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   value={cellData.in1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange, company)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange, company)}
-                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'in1')}
                                   title={getFieldError(emp.id, dayIdx, 'in1', emp.contextKey, listWeekRange) || ''}
                                 />
                                 <input
@@ -4016,7 +4016,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   value={cellData.out1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange, company)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange, company)}
-                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'out1')}
                                   title={getFieldError(emp.id, dayIdx, 'out1', emp.contextKey, listWeekRange) || ''}
                                 />
                               </div>
@@ -4096,7 +4096,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   value={cellData.in1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange, company)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'in1', e.target.value, emp.contextKey, listWeekRange, company)}
-                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'in1')}
                                   title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : (getFieldError(emp.id, dayIdx, 'in1', emp.contextKey, listWeekRange) || '')}
                                 />
                                 <input
@@ -4105,7 +4105,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   value={cellData.out1 || ''}
                                   onChange={(e) => handleInputChange(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange, company)}
                                   onBlur={(e) => handleBlur(emp.id, dayIdx, 'out1', e.target.value, emp.contextKey, listWeekRange, company)}
-                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                  onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'out1')}
                                   title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : (getFieldError(emp.id, dayIdx, 'out1', emp.contextKey, listWeekRange) || '')}
                                 />
                               </div>
