@@ -1090,9 +1090,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       // 1. La stringa ha almeno 2 caratteri (per evitare che "A" venga interpretato come "Malattia")
       // 2. OPPURE è una corrispondenza esatta con una chiave di codice (es. "R", "M", "F")
       // 3. OPPURE la stringa corrisponde esattamente a un label (es. "MALATTIA", "RIPOSO")
+      // 4. OPPURE è un codice geografico (AT, AV, L) o nome città (per in2)
       const isExactKeyMatch = timeCodes[strValue] !== undefined;
       const isExactLabelMatch = Object.values(timeCodes).some(label => label.toUpperCase() === strValue);
-      const shouldApply = (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch) && strValue.length <= 15;
+      const isGeographic = isGeographicCode(detectedCode) || ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(strValue);
+      const shouldApply = (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch || isGeographic) && strValue.length <= 15;
 
       if (detectedCode && shouldApply) {
         // Verifica se è un codice geografico che punta all'azienda corrente
@@ -1118,12 +1120,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             const errorKey = `${scheduleKeyForError}-${dayIndex}-${field}`;
             setValidationErrors(prev => ({
               ...prev,
-              [errorKey]: `Codice geografico non valido: non puoi applicare "${timeCodes[detectedCode]}" nella stessa azienda`
+              [errorKey]: `Codice geografico non valido: non puoi applicare "${timeCodes[detectedCode] || detectedCode}" nella stessa azienda`
             }));
             // Non applicare il codice, continua con la validazione normale
           } else {
-            // Il codice geografico punta a un'altra azienda, applicalo normalmente
-            handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+            // Il codice geografico punta a un'altra azienda
+            // Se è in2, salva il codice geografico in in2 invece che nel campo code
+            if (field === 'in2') {
+              handleGeographicCodeInField(empId, dayIndex, detectedCode, contextKey, weekRangeValue, currentCompany);
+            } else {
+              handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+            }
             return;
           }
         } else {
@@ -1158,12 +1165,28 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     const strValue = String(value);
 
     // 2. Validazione Caratteri
+    // Permetti lettere solo se è un codice geografico o un codice di assenza
+    // Per in2, permetti anche codici geografici (AT, AV, L o nomi di città)
     const hasInvalidChars = /[A-Za-z]/.test(strValue);
     if (hasInvalidChars) {
-      setValidationErrors(prev => ({ ...prev, [errorKey]: 'Valore non valido' }));
-      if (showNotification) showNotification('Inserisci un orario valido', 'warning', 4000);
-      handleInputChange(empId, dayIndex, field, '', contextKey, weekRangeValue);
-      return;
+      // Verifica se è un codice valido (geografico o assenza)
+      const upperValue = strValue.trim().toUpperCase();
+      const isKnownCode = timeCodes[upperValue] !== undefined || 
+                         ['AT', 'AV', 'L'].includes(upperValue) ||
+                         Object.values(timeCodes).some(label => label.toUpperCase() === upperValue) ||
+                         // Permetti anche nomi di città comuni (Atripalda, Avellino, Lioni)
+                         ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(upperValue);
+      
+      if (!isKnownCode && field !== 'in2') {
+        // Per in2, permette anche testo libero (potrebbe essere un nome di città)
+        // Per altri campi, blocca se non è un codice valido
+        setValidationErrors(prev => ({ ...prev, [errorKey]: 'Valore non valido' }));
+        if (showNotification) showNotification('Inserisci un orario valido', 'warning', 4000);
+        handleInputChange(empId, dayIndex, field, '', contextKey, weekRangeValue);
+        return;
+      }
+      // Se è in2 e contiene lettere, potrebbe essere un codice geografico o nome città
+      // Non bloccare, lascia che handleBlur lo gestisca
     }
 
     // 3. Formattazione
@@ -1277,6 +1300,91 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   // Verifica se un codice è geografico
   const isGeographicCode = (code) => {
     return ['AT', 'AV', 'L'].includes(code);
+  };
+
+  // Gestisce codici geografici inseriti direttamente in in2
+  const handleGeographicCodeInField = (empId, dayIndex, codeKey, contextKey = null, weekRangeValue = null, currentCompany = null) => {
+    const currentWeek = weekRangeValue || weekRange;
+    const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+    const scheduleKey = `${currentWeek}-${baseKey}`;
+
+    // Estrai azienda e reparto
+    let sourceCompany = currentCompany;
+    let sourceDept = '';
+    if (contextKey) {
+      const parts = contextKey.split('-');
+      sourceCompany = parts[0] || '';
+      sourceDept = parts.slice(1).join('-') || '';
+    } else {
+      sourceCompany = selectedCompany || companies[0] || '';
+      sourceDept = selectedDept || '';
+    }
+
+    const targetCompany = getCompanyFromGeographicCode(codeKey);
+    if (!targetCompany || targetCompany === sourceCompany) {
+      return; // Non applicare se non valido o punta alla stessa azienda
+    }
+
+    // Salva il codice geografico in in2
+    setSchedule(prev => {
+      const newSchedule = { ...prev };
+      if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
+      if (!newSchedule[scheduleKey][dayIndex]) newSchedule[scheduleKey][dayIndex] = {};
+
+      // Salva il codice geografico in in2 e imposta il flag
+      newSchedule[scheduleKey][dayIndex].in2 = timeCodes[codeKey] || codeKey;
+      newSchedule[scheduleKey][dayIndex].geographicCode = codeKey;
+      newSchedule[scheduleKey][dayIndex].fromCompany = sourceCompany;
+
+      // Aggiungi il dipendente all'azienda target se non presente
+      const targetDepts = departmentsStructure[targetCompany] || [];
+      let targetDept = sourceDept;
+      if (!targetDepts.includes(sourceDept) && targetDepts.length > 0) {
+        targetDept = targetDepts[0];
+      }
+
+      const targetKey = `${targetCompany}-${targetDept}`;
+      const targetScheduleKey = `${currentWeek}-${targetKey}-${empId}`;
+
+      // Crea/aggiorna lo schedule nell'azienda target
+      if (!newSchedule[targetScheduleKey]) newSchedule[targetScheduleKey] = {};
+      if (!newSchedule[targetScheduleKey][dayIndex]) {
+        newSchedule[targetScheduleKey][dayIndex] = {
+          code: '',
+          in1: '',
+          out1: '',
+          in2: '',
+          out2: '',
+          fromCompany: sourceCompany,
+          geographicCode: codeKey
+        };
+      } else {
+        newSchedule[targetScheduleKey][dayIndex].fromCompany = sourceCompany;
+        newSchedule[targetScheduleKey][dayIndex].geographicCode = codeKey;
+      }
+
+      // Assicura che il dipendente sia presente nell'azienda target
+      setEmployeesData(prev => {
+        const targetEmployees = prev[targetKey] || [];
+        if (!targetEmployees.some(e => e.id === empId)) {
+          // Trova il dipendente nell'azienda di origine
+          const sourceKey = contextKey || `${sourceCompany}-${sourceDept}`;
+          const sourceEmployees = prev[sourceKey] || [];
+          const employee = sourceEmployees.find(e => e.id === empId);
+          if (employee) {
+            return {
+              ...prev,
+              [targetKey]: [...targetEmployees, { ...employee, company: targetCompany }]
+            };
+          }
+        }
+        return prev;
+      });
+
+      return newSchedule;
+    });
+
+    setTimeout(() => saveData(), 100);
   };
 
   const handleQuickCode = (empId, dayIndex, code, contextKey = null, weekRangeValue = null) => {
@@ -3766,6 +3874,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       const isGeographic = codeKey && isGeographicCode(codeKey);
                       const isFromOtherCompany = cellData.fromCompany && cellData.fromCompany !== emp.company;
                       const hasGeographicCode = cellData.geographicCode && !cellData.code; // Ha codice geografico ma non è un codice normale
+                      
+                      // Verifica se in2 contiene un codice geografico
+                      const in2GeographicCode = cellData.in2 && (() => {
+                        const in2Upper = String(cellData.in2).trim().toUpperCase();
+                        return isGeographicCode(getCodeKey(in2Upper)) || 
+                               ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(in2Upper) ||
+                               (cellData.geographicCode && cellData.in2 === timeCodes[cellData.geographicCode]);
+                      })();
+                      const hasGeographicIn2 = in2GeographicCode || (cellData.geographicCode && cellData.in2);
 
                       // Se viene da altra azienda con codice geografico, mostra gli input (non il codice)
                       const showGeographicInputs = isFromOtherCompany && hasGeographicCode;
@@ -3829,7 +3946,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       // I codici di assenza (Riposo, Malattia, ecc.) devono essere grigi, non gialli
                       // Il giallo è solo per codici geografici o input geografici
                       const shouldBeGray = cellData.code && (isAbsenceCode(getCodeKey(cellData.code)) || hasCodeInOtherCompany);
-                      const shouldBeYellow = (isGeographic || isFromOtherCompany) && !shouldBeGray;
+                      const shouldBeYellow = (isGeographic || isFromOtherCompany || hasGeographicIn2) && !shouldBeGray;
                       
                       // Verifica se questo giorno ha una trasferta verso questa azienda
                       const hasTransfer = hasTransferOnDay(emp.id, dayIdx, company, listWeekRange);
@@ -3882,17 +3999,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   title={getFieldError(emp.id, dayIdx, 'out1', emp.contextKey, listWeekRange) || ''}
                                 />
                               </div>
-                              {(cellData.in1 || cellData.in2 || cellData.out1) && (
+                              {/* Mostra sempre la seconda riga se in1 è compilato, oppure se in2 è già compilato */}
+                              {(cellData.in1 || cellData.in2) && (
                                 <div className="flex gap-1 animate-in fade-in duration-300">
                                   <input
                                     type="text"
                                     className={`w-full border bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange, false)}`}
-                                    placeholder=""
+                                    placeholder={cellData.in1 ? "Orario o città" : ""}
                                     value={cellData.in2 || ''}
                                     onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
                                     onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
                                     onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                    title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || ''}
+                                    title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || 'Inserisci orario o codice geografico (es. Atripalda, AV, AT)'}
                                   />
                                   <input
                                     type="text"
