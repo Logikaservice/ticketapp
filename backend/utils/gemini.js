@@ -54,15 +54,65 @@ Regole:
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      const text = response.text();
+      let text = response.text();
 
-      // Estrai JSON dalla risposta (potrebbe contenere markdown)
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      // Rimuovi markdown code blocks se presenti
+      text = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+
+      // Estrai JSON dalla risposta (potrebbe contenere testo prima/dopo)
+      let jsonMatch = text.match(/\{[\s\S]*\}/);
+      
+      // Se non trova JSON, prova a cercare in modo più flessibile
       if (!jsonMatch) {
+        // Prova a trovare JSON anche se c'è testo prima
+        const lines = text.split('\n');
+        let jsonStart = -1;
+        let jsonEnd = -1;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].trim().startsWith('{')) {
+            jsonStart = i;
+            break;
+          }
+        }
+        if (jsonStart >= 0) {
+          // Cerca la fine del JSON
+          let braceCount = 0;
+          let foundStart = false;
+          for (let i = jsonStart; i < lines.length; i++) {
+            const line = lines[i];
+            for (const char of line) {
+              if (char === '{') {
+                braceCount++;
+                foundStart = true;
+              } else if (char === '}') {
+                braceCount--;
+                if (foundStart && braceCount === 0) {
+                  jsonEnd = i;
+                  break;
+                }
+              }
+            }
+            if (jsonEnd >= 0) break;
+          }
+          if (jsonEnd >= 0) {
+            jsonMatch = [lines.slice(jsonStart, jsonEnd + 1).join('\n')];
+          }
+        }
+      }
+
+      if (!jsonMatch || !jsonMatch[0]) {
+        console.error('❌ Risposta Gemini non contiene JSON valido:', text.substring(0, 200));
         throw new Error('Risposta Gemini non contiene JSON valido');
       }
 
-      const parsed = JSON.parse(jsonMatch[0]);
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch (parseError) {
+        console.error('❌ Errore parsing JSON da Gemini:', parseError);
+        console.error('❌ Testo ricevuto:', jsonMatch[0].substring(0, 500));
+        throw new Error('Errore parsing JSON: ' + parseError.message);
+      }
 
       // Valida e normalizza i dati
       const priorita = ['Bassa', 'Media', 'Alta', 'Urgente'].includes(parsed.priorita)

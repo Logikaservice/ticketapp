@@ -140,12 +140,22 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
         body: JSON.stringify({ message: userMessage })
       });
 
+      if (!parseResponse.ok) {
+        const errorData = await parseResponse.json().catch(() => ({ error: 'Errore sconosciuto' }));
+        throw new Error(errorData.error || 'Errore parsing comando');
+      }
+
       const parsed = await parseResponse.json();
 
-      // Mostra risposta con analisi
+      // Verifica che i dati parsati siano validi
+      if (!parsed || !parsed.contenuto) {
+        throw new Error('Dati parsati non validi');
+      }
+
+      // Mostra risposta con analisi (NON mostrare il testo grezzo)
       setMessages(prev => [...prev, {
         type: 'assistant',
-        content: 'Ricevuto. Ecco cosa ho programmato:',
+        content: `✅ Annuncio analizzato: "${parsed.contenuto_pulito || parsed.contenuto}"`,
         timestamp: new Date(),
         parsedData: parsed
       }]);
@@ -153,9 +163,10 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
       setParsedAnnuncio(parsed);
     } catch (error) {
       console.error('Errore parsing comando:', error);
+      const errorMessage = error.message || 'Errore sconosciuto durante l\'analisi del comando';
       setMessages(prev => [...prev, {
         type: 'assistant',
-        content: 'Errore nell\'analisi del comando. Riprova.',
+        content: `❌ Errore: ${errorMessage}\n\nAssicurati di includere:\n- Il messaggio dell'annuncio\n- La frequenza di ripetizione (es. "ogni 15 minuti")\n- Eventualmente la priorità`,
         timestamp: new Date()
       }]);
     } finally {
@@ -205,17 +216,42 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
         const scheduleData = await scheduleResponse.json();
         if (scheduleData.success) {
           showNotification('Annuncio creato e schedulato con successo!', 'success');
-          onAnnuncioCreated({
-            ...parsedAnnuncio,
-            speaker: 'Giulia',
-            velocita: 1.0,
-            tono: 1.0
-          });
+          
+          // Aggiungi messaggio di conferma nella chat
+          setMessages(prev => [...prev, {
+            type: 'assistant',
+            content: `✅ Annuncio creato e schedulato!\n\n📋 Messaggio: "${parsedAnnuncio.contenuto_pulito}"\n⏰ Ripetizione: ogni ${parsedAnnuncio.ripetizione_ogni} minuti\n🎯 Priorità: ${parsedAnnuncio.priorita}`,
+            timestamp: new Date()
+          }]);
+          
+          // Reset parsedAnnuncio dopo un breve delay per permettere all'utente di vedere il messaggio
+          setTimeout(() => {
+            setParsedAnnuncio(null);
+            onAnnuncioCreated({
+              ...parsedAnnuncio,
+              speaker: 'Giulia',
+              velocita: 1.0,
+              tono: 1.0
+            });
+          }, 2000);
+        } else {
+          throw new Error('Errore nella schedulazione: ' + (scheduleData.error || 'Errore sconosciuto'));
         }
+      } else {
+        throw new Error('Errore nella creazione: ' + (createData.error || 'Errore sconosciuto'));
+      }
       }
     } catch (error) {
       console.error('Errore creazione annuncio:', error);
-      showNotification('Errore creazione annuncio', 'error');
+      const errorMessage = error.message || 'Errore sconosciuto durante la creazione dell\'annuncio';
+      showNotification(errorMessage, 'error');
+      
+      // Aggiungi messaggio di errore nella chat
+      setMessages(prev => [...prev, {
+        type: 'assistant',
+        content: `❌ Errore: ${errorMessage}\n\nRiprova o modifica il comando.`,
+        timestamp: new Date()
+      }]);
     } finally {
       setIsProcessing(false);
     }
@@ -275,7 +311,15 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
                   : 'bg-white border border-slate-100 text-slate-800 rounded-tl-none'
                   }`}
               >
-                <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                {msg.type === 'assistant' && msg.parsedData ? (
+                  // Se abbiamo dati parsati, mostra solo quelli (non il testo grezzo)
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium text-slate-700">{msg.content}</p>
+                  </div>
+                ) : (
+                  // Altrimenti mostra il contenuto normale
+                  <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                )}
 
                 {/* Parsed Data Display */}
                 {msg.parsedData && (
@@ -340,17 +384,28 @@ const GeminiAssistant = ({ onClose, onAnnuncioCreated, getAuthHeader, showNotifi
 
                   <div className="space-y-3 text-sm mb-5 bg-slate-50 p-3 rounded-xl border border-slate-100">
                     <div>
-                      <span className="text-xs font-bold text-slate-400 uppercase">Messaggio</span>
-                      <p className="font-medium text-slate-800">"{parsedAnnuncio.contenuto_pulito}"</p>
+                      <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Messaggio</span>
+                      <p className="font-medium text-slate-800 bg-white p-2 rounded border border-slate-200">
+                        "{parsedAnnuncio.contenuto_pulito || parsedAnnuncio.contenuto || 'Nessun messaggio'}"
+                      </p>
                     </div>
                     <div className="flex gap-4">
-                      <div>
-                        <span className="text-xs font-bold text-slate-400 uppercase">Ripetizione</span>
-                        <p className="font-medium text-slate-800">{formatRipetizione(parsedAnnuncio.ripetizione_ogni)}</p>
+                      <div className="flex-1">
+                        <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Ripetizione</span>
+                        <p className="font-medium text-slate-800 bg-white p-2 rounded border border-slate-200">
+                          {formatRipetizione(parsedAnnuncio.ripetizione_ogni)}
+                        </p>
                       </div>
-                      <div>
-                        <span className="text-xs font-bold text-slate-400 uppercase">Priorità</span>
-                        <p className="font-medium text-slate-800">{parsedAnnuncio.priorita}</p>
+                      <div className="flex-1">
+                        <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Priorità</span>
+                        <p className={`font-medium p-2 rounded border ${
+                          parsedAnnuncio.priorita === 'Urgente' ? 'bg-red-50 text-red-700 border-red-200' :
+                          parsedAnnuncio.priorita === 'Alta' ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                          parsedAnnuncio.priorita === 'Media' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                          'bg-blue-50 text-blue-700 border-blue-200'
+                        }`}>
+                          {parsedAnnuncio.priorita || 'Media'}
+                        </p>
                       </div>
                     </div>
                   </div>
