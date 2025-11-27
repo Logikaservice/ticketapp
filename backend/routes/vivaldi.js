@@ -174,7 +174,7 @@ module.exports = (poolVivaldi) => {
   });
 
   // GET /api/vivaldi/speakers - Ottieni lista speaker da SpeechGen
-  router.get('/speakers', authenticateToken, requireVivaldiAccess, async (req, res) => {
+  router.get('/speakers', authenticateToken, requireVivaldiAccess, async (req, res, next) => {
     try {
       // Recupera API key da config
       const configResult = await pool.query(
@@ -190,7 +190,7 @@ module.exports = (poolVivaldi) => {
 
       if (!config.apiKey) {
         console.warn('⚠️ API Key SpeechGen non configurata');
-        return res.status(400).json({ error: 'API Key SpeechGen non configurata', speakers: [] });
+        return res.json({ speakers: [], warning: 'API Key SpeechGen non configurata' });
       }
 
       console.log('🔍 Recupero speaker da SpeechGen con API Key:', config.apiKey.substring(0, 10) + '...');
@@ -202,6 +202,7 @@ module.exports = (poolVivaldi) => {
     } catch (error) {
       console.error('❌ Errore recupero speaker:', error);
       // Restituisci array vuoto invece di errore per permettere fallback
+      // Non passare l'errore al middleware globale per evitare 500
       res.json({ speakers: [], error: error.message });
     }
   });

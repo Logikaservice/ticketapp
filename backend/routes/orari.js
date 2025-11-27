@@ -89,7 +89,7 @@ module.exports = (poolOrari) => {
   initOrariTable();
 
   // ENDPOINT: Ottieni tutti i dati
-  router.get('/data', authenticateToken, requireOrariAccess, async (req, res) => {
+  router.get('/data', authenticateToken, requireOrariAccess, async (req, res, next) => {
     try {
       console.log('📥 Richiesta lettura dati orari');
       const result = await pool.query('SELECT id, data, updated_at FROM orari_data ORDER BY id DESC LIMIT 1');
@@ -260,7 +260,7 @@ module.exports = (poolOrari) => {
   });
 
   // ENDPOINT: Salva dati
-  router.post('/save', authenticateToken, requireOrariAccess, async (req, res) => {
+  router.post('/save', authenticateToken, requireOrariAccess, async (req, res, next) => {
     try {
       console.log('📥 Richiesta salvataggio orari ricevuta');
       const { companies, departments, employees, schedule, timeCodes, timeCodesOrder } = req.body;

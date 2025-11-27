@@ -1142,6 +1142,38 @@ app.use('/api/vivaldi', authenticateToken, (req, res, next) => {
     error: 'Accesso negato. Non hai i permessi per accedere a Vivaldi.'
   });
 }, vivaldiRoutes);
+
+// Middleware di gestione errori globale (DEVE essere l'ultimo middleware)
+app.use((err, req, res, next) => {
+  console.error('❌ Errore non gestito:', err);
+  console.error('❌ Stack:', err.stack);
+  console.error('❌ Route:', req.method, req.path);
+  
+  // Non esporre dettagli dell'errore in produzione
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  res.status(err.status || 500).json({
+    error: err.message || 'Errore interno del server',
+    ...(isDevelopment && { stack: err.stack, details: err })
+  });
+});
+
+// Gestione route non trovate (404)
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route non trovata' });
+});
+
+// Gestione errori non catturati
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Non fare exit, solo logga l'errore
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  // Non fare exit, solo logga l'errore
+});
+
 // Endpoint debug pubblico (solo per diagnostica - rimuovere in produzione)
 app.get('/api/orari/debug-public', async (req, res) => {
   try {
