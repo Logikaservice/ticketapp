@@ -16,6 +16,8 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
     speechgen_email: '',
     gemini_api_key: ''
   });
+  const [testResults, setTestResults] = useState(null);
+  const [testingConnection, setTestingConnection] = useState(false);
   const [speakers, setSpeakers] = useState([]);
 
   // Editor annunci
@@ -52,10 +54,10 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
   // Player audio
   const audioPlayerRef = useRef(null);
   const [playingAudio, setPlayingAudio] = useState(null);
-  
+
   // Rileva se siamo su mobile
   const [isMobile, setIsMobile] = useState(false);
-  
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
@@ -72,7 +74,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
     loadAnnunci();
     loadQueue();
     loadHistory();
-    
+
     // Aggiorna coda ogni 5 secondi
     const queueInterval = setInterval(loadQueue, 5000);
     return () => clearInterval(queueInterval);
@@ -172,9 +174,33 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
       }
       showNotification('Configurazione salvata', 'success');
       setShowSettings(false);
+      // Ricarica speaker dopo salvataggio
+      loadSpeakers();
     } catch (error) {
       console.error('Errore salvataggio config:', error);
       showNotification('Errore salvataggio configurazione', 'error');
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    setTestResults(null);
+    try {
+      const response = await fetch(buildApiUrl('/api/vivaldi/test-connection'), {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(config)
+      });
+      const data = await response.json();
+      setTestResults(data);
+    } catch (error) {
+      console.error('Errore test connessione:', error);
+      showNotification('Errore durante il test', 'error');
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -359,11 +385,10 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 font-medium ${
-                activeTab === tab.id
+              className={`px-4 py-2 font-medium ${activeTab === tab.id
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-gray-600 hover:text-gray-900'
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -388,61 +413,90 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       {/* Settings Modal */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Configurazione</h2>
-              <button onClick={() => setShowSettings(false)} className="text-gray-700 hover:text-gray-900">
-                <X size={20} />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg border border-gray-100">
+            <div className="flex items-center justify-between mb-6 border-b pb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Settings className="text-blue-600" /> Configurazione Vivaldi
+              </h2>
+              <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-gray-900 transition-colors p-1 hover:bg-gray-100 rounded-full">
+                <X size={24} />
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">SpeechGen API Key</label>
-                <input
-                  type="text"
-                  value={config.speechgen_api_key}
-                  onChange={(e) => setConfig({ ...config, speechgen_api_key: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="f1d5e882-e8ab-49c0-ac47-2df3a6a30090"
-                />
+            <div className="space-y-5">
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                <h3 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+                  <Volume2 size={18} /> SpeechGen.io
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-gray-700">API Key</label>
+                    <input
+                      type="text"
+                      value={config.speechgen_api_key}
+                      onChange={(e) => setConfig({ ...config, speechgen_api_key: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
+                      placeholder="f1d5e882-..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1.5 text-gray-700">Email Account</label>
+                    <input
+                      type="email"
+                      value={config.speechgen_email}
+                      onChange={(e) => setConfig({ ...config, speechgen_email: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
+                      placeholder="email@example.com"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">SpeechGen Email</label>
-                <input
-                  type="email"
-                  value={config.speechgen_email}
-                  onChange={(e) => setConfig({ ...config, speechgen_email: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="logikaserivce@gmail.com"
-                />
+              <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                <h3 className="font-semibold text-purple-900 mb-3 flex items-center gap-2">
+                  <Mic size={18} /> Google Gemini AI
+                </h3>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5 text-gray-700">API Key (Opzionale)</label>
+                  <input
+                    type="text"
+                    value={config.gemini_api_key}
+                    onChange={(e) => setConfig({ ...config, gemini_api_key: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all shadow-sm"
+                    placeholder="AIzaSy..."
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Gemini API Key</label>
-                <input
-                  type="text"
-                  value={config.gemini_api_key}
-                  onChange={(e) => setConfig({ ...config, gemini_api_key: e.target.value })}
-                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Inserisci API Key Gemini"
-                />
-              </div>
+              {/* Test Results Area */}
+              {testResults && (
+                <div className={`p-4 rounded-lg text-sm border ${testResults.speechgen.success ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                  <p className="font-bold mb-1">Risultato Test SpeechGen:</p>
+                  <p>{testResults.speechgen.message}</p>
+                </div>
+              )}
 
-              <div className="flex gap-2">
+              <div className="flex gap-3 pt-2">
                 <button
-                  onClick={handleSaveConfig}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  onClick={handleTestConnection}
+                  disabled={testingConnection}
+                  className="px-4 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50"
                 >
-                  Salva
+                  {testingConnection ? 'Test in corso...' : 'Test Connessione'}
                 </button>
+                <div className="flex-1"></div>
                 <button
                   onClick={() => setShowSettings(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  className="px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
                 >
                   Annulla
+                </button>
+                <button
+                  onClick={handleSaveConfig}
+                  className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md hover:shadow-lg"
+                >
+                  Salva Configurazione
                 </button>
               </div>
             </div>
@@ -605,36 +659,43 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       {/* Queue Tab */}
       {activeTab === 'queue' && (
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-bold mb-4 text-gray-900">Coda Annunci</h2>
-          <div className="space-y-2">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-xl font-bold mb-6 text-gray-900 flex items-center gap-2">
+            <Clock className="text-blue-600" /> Coda di Riproduzione
+          </h2>
+          <div className="space-y-3">
             {queue.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">Nessun annuncio in coda</p>
+              <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <Clock className="mx-auto h-12 w-12 text-gray-300 mb-3" />
+                <p className="text-gray-500 font-medium">Nessun annuncio in coda al momento</p>
+                <p className="text-sm text-gray-400 mt-1">Gli annunci schedulati appariranno qui</p>
+              </div>
             ) : (
               queue.map(item => (
                 <div
                   key={item.id}
-                  className="p-4 border rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-between bg-white"
+                  className="p-4 border border-gray-200 rounded-xl hover:shadow-md transition-all duration-200 flex items-center justify-between bg-white group"
                 >
                   <div className="flex-1">
-                    <p className="font-medium">{item.contenuto_pulito || item.contenuto}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`px-2 py-1 rounded text-xs ${getPrioritaColor(item.priorita)}`}>
+                    <p className="font-semibold text-gray-800">{item.contenuto_pulito || item.contenuto}</p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPrioritaColor(item.priorita)}`}>
                         {item.priorita}
                       </span>
-                      <span className="text-xs text-gray-500">
-                        {new Date(item.scheduled_for).toLocaleString('it-IT')}
+                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                        <Clock size={12} />
+                        {new Date(item.scheduled_for).toLocaleString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                       </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {item.stato === 'playing' && (
-                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded text-sm">
-                        In riproduzione
+                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-bold animate-pulse">
+                        IN RIPRODUZIONE
                       </span>
                     )}
                     {item.stato === 'pending' && (
-                      <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm">
+                      <span className="px-3 py-1 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-full text-xs font-medium">
                         In attesa
                       </span>
                     )}
@@ -642,6 +703,62 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Timeline Tab */}
+      {activeTab === 'timeline' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-xl font-bold mb-6 text-gray-900 flex items-center gap-2">
+            <History className="text-purple-600" /> Timeline Annunci
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Oggi */}
+            <div>
+              <h3 className="font-semibold text-gray-700 mb-4 flex items-center gap-2 border-b pb-2">
+                <span className="w-2 h-2 rounded-full bg-green-500"></span> Oggi
+              </h3>
+              <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
+                {/* Mock data per ora, andrebbe popolato con dati reali */}
+                <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-300 group-[.is-active]:bg-emerald-500 text-slate-500 group-[.is-active]:text-emerald-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                    <Clock size={16} />
+                  </div>
+                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between space-x-2 mb-1">
+                      <div className="font-bold text-slate-900">Annuncio Apertura</div>
+                      <time className="font-caveat font-medium text-indigo-500">09:00</time>
+                    </div>
+                    <div className="text-slate-500 text-sm">Benvenuti nel nostro punto vendita.</div>
+                  </div>
+                </div>
+                <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-300 group-[.is-active]:bg-emerald-500 text-slate-500 group-[.is-active]:text-emerald-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2">
+                    <Clock size={16} />
+                  </div>
+                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between space-x-2 mb-1">
+                      <div className="font-bold text-slate-900">Offerta Speciale</div>
+                      <time className="font-caveat font-medium text-indigo-500">10:30</time>
+                    </div>
+                    <div className="text-slate-500 text-sm">Sconto del 20% su tutti i prodotti freschi.</div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-center text-gray-400 text-sm mt-4 italic">Visualizzazione timeline in sviluppo...</p>
+            </div>
+
+            {/* Domani */}
+            <div>
+              <h3 className="font-semibold text-gray-700 mb-4 flex items-center gap-2 border-b pb-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span> Domani
+              </h3>
+              <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <p className="text-gray-500">Nessun annuncio programmato per domani</p>
+              </div>
+            </div>
           </div>
         </div>
       )}

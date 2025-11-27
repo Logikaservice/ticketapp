@@ -10,7 +10,7 @@ const router = express.Router();
 module.exports = (poolVivaldi) => {
   const pool = poolVivaldi;
   const geminiClient = new GeminiClient();
-  
+
   // Inizializza tabelle database Vivaldi
   const initVivaldiTables = async () => {
     try {
@@ -181,7 +181,7 @@ module.exports = (poolVivaldi) => {
         'SELECT chiave, valore FROM vivaldi_config WHERE chiave IN ($1, $2)',
         ['speechgen_api_key', 'speechgen_email']
       );
-      
+
       const config = { apiKey: '', email: '' };
       configResult.rows.forEach(row => {
         if (row.chiave === 'speechgen_api_key') config.apiKey = row.valore || '';
@@ -201,6 +201,46 @@ module.exports = (poolVivaldi) => {
       // Restituisci array vuoto invece di errore per permettere fallback
       // Non passare l'errore al middleware globale per evitare 500
       res.json({ speakers: [], error: error.message });
+    }
+  });
+
+  // POST /api/vivaldi/test-connection - Verifica connessione API
+  router.post('/test-connection', authenticateToken, requireVivaldiAccess, async (req, res) => {
+    try {
+      const { speechgen_api_key, speechgen_email, gemini_api_key } = req.body;
+
+      const results = {
+        speechgen: { success: false, message: '' },
+        gemini: { success: false, message: '' }
+      };
+
+      // Test SpeechGen
+      if (speechgen_api_key && speechgen_email) {
+        try {
+          const speechGen = new SpeechGenClient(speechgen_api_key, speechgen_email);
+          const speakers = await speechGen.getSpeakers();
+          if (speakers && speakers.length > 0) {
+            results.speechgen = { success: true, message: `Connesso! Trovati ${speakers.length} speaker.` };
+          } else {
+            results.speechgen = { success: false, message: 'Connessione riuscita ma nessun speaker trovato.' };
+          }
+        } catch (error) {
+          results.speechgen = { success: false, message: `Errore: ${error.message}` };
+        }
+      } else {
+        results.speechgen = { success: false, message: 'Dati mancanti (API Key o Email)' };
+      }
+
+      // Test Gemini (opzionale)
+      if (gemini_api_key) {
+        // Qui potremmo aggiungere un test reale per Gemini se necessario
+        results.gemini = { success: true, message: 'API Key presente (test non eseguito)' };
+      }
+
+      res.json(results);
+    } catch (error) {
+      console.error('❌ Errore test connessione:', error);
+      res.status(500).json({ error: 'Errore durante il test di connessione' });
     }
   });
 
@@ -262,7 +302,7 @@ module.exports = (poolVivaldi) => {
 
       let query = 'SELECT * FROM annunci WHERE 1=1';
       const params = [];
-      
+
       if (aziendaId) {
         params.push(aziendaId);
         query += ` AND azienda_id = $${params.length}`;
@@ -292,10 +332,10 @@ module.exports = (poolVivaldi) => {
 
       const annuncio = annuncioResult.rows[0];
       const prioritaFinale = priorita || annuncio.priorita;
-      
+
       // Calcola ripetizione_ogni dalla priorità se non specificato
       const ripetizioneOggi = ripetizione_ogni || geminiClient.getDefaultRepetition(prioritaFinale);
-      
+
       // Calcola ripetizione_fino_a
       let ripetizioneFinoA = ripetizione_fino_a;
       if (!ripetizioneFinoA) {
@@ -426,7 +466,7 @@ module.exports = (poolVivaldi) => {
 
       const speechGen = new SpeechGenClient(config.apiKey, config.email);
       const testo = annuncio.contenuto_pulito || annuncio.contenuto;
-      
+
       const audioResult = await speechGen.generateAudio(
         testo,
         annuncio.speaker,
