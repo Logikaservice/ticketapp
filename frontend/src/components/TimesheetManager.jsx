@@ -39,7 +39,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     title: '',
     message: ''
   });
-  
+
   // --- GESTIONE MODALE ANTEPRIMA PDF ---
   const [pdfPreviewModal, setPdfPreviewModal] = useState({
     isOpen: false,
@@ -204,14 +204,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   // --- CARICAMENTO LIBRERIE PDF (jsPDF e jsPDF-AutoTable) ---
   useEffect(() => {
     const scripts = [];
-    
+
     // Carica jsPDF
     const jspdfScript = document.createElement('script');
     jspdfScript.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
     jspdfScript.async = true;
     document.body.appendChild(jspdfScript);
     scripts.push(jspdfScript);
-    
+
     // Carica jsPDF-AutoTable dopo jsPDF
     jspdfScript.onload = () => {
       const autotableScript = document.createElement('script');
@@ -220,7 +220,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       document.body.appendChild(autotableScript);
       scripts.push(autotableScript);
     };
-    
+
     return () => {
       scripts.forEach(script => {
         try {
@@ -843,7 +843,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         // Pattern: settimana-contextKey-empId
         if (scheduleKey.startsWith(`${currentWeek}-`) && scheduleKey.endsWith(`-${otherEmp.id}`)) {
           const otherContextKey = scheduleKey.replace(`${currentWeek}-`, '').replace(`-${otherEmp.id}`, '');
-          
+
           // Salta se è lo stesso contesto
           if (otherContextKey === currentContextKey) return;
 
@@ -862,11 +862,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             const end1 = t.toMinutes(dayData.out1);
             const start2 = t.toMinutes(otherDayData.in1);
             const end2 = t.toMinutes(otherDayData.out1);
-            
+
             // Gestisci turni notturni
             const end1Adj = end1 < start1 ? end1 + 1440 : end1;
             const end2Adj = end2 < start2 ? end2 + 1440 : end2;
-            
+
             if (Math.max(start1, start2) < Math.min(end1Adj, end2Adj)) {
               overlaps.push({
                 company: otherCompany,
@@ -883,10 +883,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             const end1 = t.toMinutes(dayData.out1);
             const start2 = t.toMinutes(otherDayData.in2);
             const end2 = t.toMinutes(otherDayData.out2);
-            
+
             const end1Adj = end1 < start1 ? end1 + 1440 : end1;
             const end2Adj = end2 < start2 ? end2 + 1440 : end2;
-            
+
             if (Math.max(start1, start2) < Math.min(end1Adj, end2Adj)) {
               overlaps.push({
                 company: otherCompany,
@@ -903,10 +903,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             const end1 = t.toMinutes(dayData.out2);
             const start2 = t.toMinutes(otherDayData.in1);
             const end2 = t.toMinutes(otherDayData.out1);
-            
+
             const end1Adj = end1 < start1 ? end1 + 1440 : end1;
             const end2Adj = end2 < start2 ? end2 + 1440 : end2;
-            
+
             if (Math.max(start1, start2) < Math.min(end1Adj, end2Adj)) {
               overlaps.push({
                 company: otherCompany,
@@ -923,10 +923,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             const end1 = t.toMinutes(dayData.out2);
             const start2 = t.toMinutes(otherDayData.in2);
             const end2 = t.toMinutes(otherDayData.out2);
-            
+
             const end1Adj = end1 < start1 ? end1 + 1440 : end1;
             const end2Adj = end2 < start2 ? end2 + 1440 : end2;
-            
+
             if (Math.max(start1, start2) < Math.min(end1Adj, end2Adj)) {
               overlaps.push({
                 company: otherCompany,
@@ -988,6 +988,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       // Se la stringa è esattamente una chiave di codice, usala
       if (timeCodes[strValue]) {
         detectedCode = strValue;
+      } else if (['AT', 'AV', 'L'].includes(strValue)) {
+        // Riconosci codici geografici hardcoded
+        detectedCode = strValue;
       } else {
         // Cerca corrispondenza esatta o che il label inizi con la stringa digitata
         // NON usare includes() perché "A" verrebbe trovato in "MALATTIA"
@@ -1023,7 +1026,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           // Per in1 o altri campi, usa la logica normale
           // Verifica se è un codice geografico che punta all'azienda corrente
           // Se sì, non applicarlo ma segnalalo come errore
-          if (isGeographicCode(detectedCode)) {
+          if (isGeographicCode(detectedCode) || ['AT', 'AV', 'L'].includes(detectedCode)) {
             // Estrai l'azienda corrente: usa il parametro se disponibile, altrimenti dal contextKey
             let companyToCheck = currentCompany;
             if (!companyToCheck && contextKey) {
@@ -1034,7 +1037,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               // Se non c'è contextKey, usa selectedCompany o la prima azienda
               companyToCheck = selectedCompany || companies[0] || '';
             }
-            
+
             const targetCompany = getCompanyFromGeographicCode(detectedCode);
             if (targetCompany && targetCompany === companyToCheck) {
               // Il codice geografico punta all'azienda corrente, segnala errore
@@ -1049,12 +1052,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               // Non applicare il codice, continua con l'aggiornamento normale
             } else {
               // Il codice geografico punta a un'altra azienda, applicalo normalmente
-              handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+              handleQuickCode(empId, dayIndex, timeCodes[detectedCode] || detectedCode, contextKey, weekRangeValue);
               return;
             }
           } else {
             // Non è un codice geografico, applicalo normalmente
-            handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+            handleQuickCode(empId, dayIndex, timeCodes[detectedCode] || detectedCode, contextKey, weekRangeValue);
             return;
           }
         }
@@ -1066,13 +1069,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     if (field === 'in2' && value && value.trim() !== '') {
       const strValue = String(value).trim().toUpperCase();
       const isTimeValue = /^[\d.:]+$/.test(strValue);
-      
+
       // Verifica se è un codice valido (almeno 2 caratteri o codice geografico corto)
-      const isValidCode = strValue.length >= 2 || ['AT', 'AV', 'L'].includes(strValue) || 
-                         ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(strValue) ||
-                         timeCodes[strValue] !== undefined ||
-                         Object.values(timeCodes).some(label => label.toUpperCase() === strValue);
-      
+      const isValidCode = strValue.length >= 2 || ['AT', 'AV', 'L'].includes(strValue) ||
+        ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(strValue) ||
+        timeCodes[strValue] !== undefined ||
+        Object.values(timeCodes).some(label => label.toUpperCase() === strValue);
+
       // Se non è né un orario né un codice valido, NON salvare
       if (!isTimeValue && !isValidCode) {
         return; // Esci senza salvare
@@ -1144,6 +1147,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         // Per in1, out1, out2, usa la logica normale
         if (timeCodes[strValue]) {
           detectedCode = strValue;
+        } else if (['AT', 'AV', 'L'].includes(strValue)) {
+          // Riconosci codici geografici hardcoded anche qui
+          detectedCode = strValue;
         } else {
           // Cerca corrispondenza esatta o che il label inizi con la stringa digitata
           // NON usare includes() perché "A" verrebbe trovato in "MALATTIA"
@@ -1171,7 +1177,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       const isGeographic = isGeographicCode(detectedCode) || ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(strValue);
       const isGeographicCodeShort = ['AT', 'AV', 'L'].includes(strValue);
       // Per in2, richiediamo almeno 2 caratteri O una corrispondenza esatta (codice geografico corto o nome città completo)
-      const shouldApply = field === 'in2' 
+      const shouldApply = field === 'in2'
         ? (strValue.length >= 2 && (isGeographic || isGeographicCodeShort || isExactLabelMatch)) || isExactKeyMatch
         : (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch || isGeographic) && strValue.length <= 15;
 
@@ -1180,7 +1186,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         const currentWeek = weekRangeValue || weekRange;
         const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
         const scheduleKey = `${currentWeek}-${baseKey}`;
-        
+
         setSchedule(prev => {
           const newSchedule = { ...prev };
           if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
@@ -1201,7 +1207,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           }
           return newSchedule;
         });
-        
+
         setTimeout(() => saveData(), 100);
         return; // Esci senza applicare codice
       }
@@ -1209,7 +1215,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       if (detectedCode && shouldApply) {
         // Verifica se è un codice geografico che punta all'azienda corrente
         // Se sì, non applicarlo ma segnalalo come errore
-        if (isGeographicCode(detectedCode)) {
+        if (isGeographicCode(detectedCode) || ['AT', 'AV', 'L'].includes(detectedCode)) {
           // Estrai l'azienda corrente: usa il parametro se disponibile, altrimenti dal contextKey
           let companyToCheck = currentCompany;
           if (!companyToCheck && contextKey) {
@@ -1220,7 +1226,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             // Se non c'è contextKey, usa selectedCompany o la prima azienda
             companyToCheck = selectedCompany || companies[0] || '';
           }
-          
+
           const targetCompany = getCompanyFromGeographicCode(detectedCode);
           if (targetCompany && targetCompany === companyToCheck) {
             // Il codice geografico punta all'azienda corrente, segnala errore
@@ -1241,7 +1247,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               const currentWeek = weekRangeValue || weekRange;
               const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
               const scheduleKey = `${currentWeek}-${baseKey}`;
-              
+
               setSchedule(prev => {
                 const newSchedule = { ...prev };
                 if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
@@ -1254,7 +1260,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                     out2: ''
                   };
                 }
-                
+
                 // Salva solo il label del codice in in2, senza flag geographicCode o fromCompany
                 const codeLabel = timeCodes[detectedCode] || detectedCode;
                 newSchedule[scheduleKey][dayIndex].in2 = codeLabel;
@@ -1264,21 +1270,21 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 }
                 // IMPORTANTE: NON toccare il campo code - deve rimanere vuoto o invariato
                 // NON impostare geographicCode o fromCompany per in2
-                
+
                 return newSchedule;
               });
-              
+
               setTimeout(() => saveData(), 100);
               return; // IMPORTANTE: esci subito per non continuare con la validazione orari
             } else {
               // Per in1 o altri campi, usa la logica normale con propagazione
-              handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+              handleQuickCode(empId, dayIndex, timeCodes[detectedCode] || detectedCode, contextKey, weekRangeValue);
               return;
             }
           }
         } else {
           // Non è un codice geografico, applicalo normalmente
-          handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+          handleQuickCode(empId, dayIndex, timeCodes[detectedCode] || detectedCode, contextKey, weekRangeValue);
           return;
         }
       }
@@ -1314,12 +1320,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     if (hasInvalidChars) {
       // Verifica se è un codice valido (geografico o assenza)
       const upperValue = strValue.trim().toUpperCase();
-      const isKnownCode = timeCodes[upperValue] !== undefined || 
-                         ['AT', 'AV', 'L'].includes(upperValue) ||
-                         Object.values(timeCodes).some(label => label.toUpperCase() === upperValue) ||
-                         // Permetti anche nomi di città comuni (Atripalda, Avellino, Lioni)
-                         ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(upperValue);
-      
+      const isKnownCode = timeCodes[upperValue] !== undefined ||
+        ['AT', 'AV', 'L'].includes(upperValue) ||
+        Object.values(timeCodes).some(label => label.toUpperCase() === upperValue) ||
+        // Permetti anche nomi di città comuni (Atripalda, Avellino, Lioni)
+        ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(upperValue);
+
       if (!isKnownCode && field !== 'in2') {
         // Per in2, permette anche testo libero (potrebbe essere un nome di città o codice)
         // Per altri campi, blocca se non è un codice valido
@@ -1383,10 +1389,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             );
 
             if (overlaps.length > 0) {
-              const overlapMessages = overlaps.map(ov => 
+              const overlapMessages = overlaps.map(ov =>
                 `${ov.company} > ${ov.department} (${ov.shift}: ${ov.time})`
               ).join(', ');
-              
+
               if (showNotification) {
                 showNotification(
                   `⚠️ Attenzione: Orari sovrapposti con ${overlapMessages}`,
@@ -1430,7 +1436,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     if (codeName && companies.includes(codeName)) {
       return codeName; // Usa direttamente il nome del codice se esiste come azienda
     }
-    
+
     // ALTRIMENTI: Usa il mapping di fallback
     const codeMap = {
       'AT': 'Mercurio',  // Atripalda → Mercurio (se Atripalda non esiste come azienda)
@@ -1474,12 +1480,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       // CASO 1: Se si cancella dall'azienda di origine e c'è un codice geografico
       if (currentDayData.geographicCode) {
         const targetCompany = getCompanyFromGeographicCode(currentDayData.geographicCode);
-        
+
         if (targetCompany) {
           // Usa lo stesso reparto nell'azienda target
           const targetDepts = departmentsStructure[targetCompany] || [];
           let targetDept = currentDept;
-          
+
           // Verifica se il reparto corrente esiste nell'azienda target
           if (!targetDepts.includes(currentDept) && targetDepts.length > 0) {
             // Se il reparto non esiste, usa il primo reparto disponibile
@@ -1492,12 +1498,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           targetScheduleKeyToRemove = `${currentWeek}-${targetKeyToRemove}-${empId}`;
         }
       }
-      
+
       // CASO 2: Se si cancella dall'azienda target (ha fromCompany), elimina anche il codice geografico dall'azienda di origine
       if (currentDayData.fromCompany && currentDayData.fromCompany !== currentCompany) {
         const sourceCompany = currentDayData.fromCompany;
         const sourceDept = currentDept; // Usa lo stesso reparto dell'azienda di origine
-        
+
         sourceKeyToRemove = `${sourceCompany}-${sourceDept}`;
         sourceScheduleKeyToRemove = `${currentWeek}-${sourceKeyToRemove}-${empId}`;
       }
@@ -1509,22 +1515,22 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         // Elimina lo schedule nell'azienda target se esiste (CASO 1: cancellazione dall'azienda di origine)
         if (targetScheduleKeyToRemove && newSchedule[targetScheduleKeyToRemove]) {
           const targetDaySchedule = newSchedule[targetScheduleKeyToRemove];
-          
+
           // Elimina il giorno specifico
           const updatedTargetSchedule = { ...targetDaySchedule };
           delete updatedTargetSchedule[dayIndex];
-          
+
           // Verifica se lo schedule è completamente vuoto (nessun giorno con dati)
           const hasAnyData = Object.values(updatedTargetSchedule).some(dayData => {
             if (!dayData) return false;
             // Verifica se c'è almeno un campo con dati
             return (dayData.code && dayData.code.trim() !== '') ||
-                   (dayData.in1 && dayData.in1.trim() !== '') ||
-                   (dayData.out1 && dayData.out1.trim() !== '') ||
-                   (dayData.in2 && dayData.in2.trim() !== '') ||
-                   (dayData.out2 && dayData.out2.trim() !== '');
+              (dayData.in1 && dayData.in1.trim() !== '') ||
+              (dayData.out1 && dayData.out1.trim() !== '') ||
+              (dayData.in2 && dayData.in2.trim() !== '') ||
+              (dayData.out2 && dayData.out2.trim() !== '');
           });
-          
+
           if (hasAnyData) {
             // Se ci sono ancora dati, mantieni lo schedule aggiornato
             newSchedule[targetScheduleKeyToRemove] = updatedTargetSchedule;
@@ -1537,7 +1543,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         // Elimina il codice geografico dall'azienda di origine se si cancella dall'azienda target (CASO 2)
         if (sourceScheduleKeyToRemove && newSchedule[sourceScheduleKeyToRemove]) {
           const sourceDaySchedule = newSchedule[sourceScheduleKeyToRemove];
-          
+
           if (sourceDaySchedule[dayIndex]) {
             // Trova il codice geografico che punta all'azienda corrente
             const sourceDayData = sourceDaySchedule[dayIndex];
@@ -1550,11 +1556,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 updatedSourceDayData.fromCompany = undefined;
                 // Se non ci sono altri dati, elimina completamente il giorno
                 const hasOtherData = (updatedSourceDayData.code && updatedSourceDayData.code.trim() !== '') ||
-                                    (updatedSourceDayData.in1 && updatedSourceDayData.in1.trim() !== '') ||
-                                    (updatedSourceDayData.out1 && updatedSourceDayData.out1.trim() !== '') ||
-                                    (updatedSourceDayData.in2 && updatedSourceDayData.in2.trim() !== '') ||
-                                    (updatedSourceDayData.out2 && updatedSourceDayData.out2.trim() !== '');
-                
+                  (updatedSourceDayData.in1 && updatedSourceDayData.in1.trim() !== '') ||
+                  (updatedSourceDayData.out1 && updatedSourceDayData.out1.trim() !== '') ||
+                  (updatedSourceDayData.in2 && updatedSourceDayData.in2.trim() !== '') ||
+                  (updatedSourceDayData.out2 && updatedSourceDayData.out2.trim() !== '');
+
                 if (hasOtherData) {
                   newSchedule[sourceScheduleKeyToRemove][dayIndex] = updatedSourceDayData;
                 } else {
@@ -1584,16 +1590,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             if (!dayData) return false;
             // Verifica se c'è almeno un campo con dati
             return (dayData.code && dayData.code.trim() !== '') ||
-                   (dayData.in1 && dayData.in1.trim() !== '') ||
-                   (dayData.out1 && dayData.out1.trim() !== '') ||
-                   (dayData.in2 && dayData.in2.trim() !== '') ||
-                   (dayData.out2 && dayData.out2.trim() !== '');
+              (dayData.in1 && dayData.in1.trim() !== '') ||
+              (dayData.out1 && dayData.out1.trim() !== '') ||
+              (dayData.in2 && dayData.in2.trim() !== '') ||
+              (dayData.out2 && dayData.out2.trim() !== '');
           });
-          
+
           // Se lo schedule è completamente vuoto, eliminalo completamente
           if (!hasAnyData) {
             delete newSchedule[scheduleKey];
-            
+
             // Rimuovi anche il dipendente da employeesData
             const currentKey = contextKey || `${currentCompany}-${currentDept}`;
             // Salva la chiave per usarla nel setTimeout
@@ -1601,7 +1607,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             const empIdToRemove = empId;
             const companyToCheck = currentCompany;
             const scheduleKeyToCheck = scheduleKey;
-            
+
             // Rimuovi immediatamente il dipendente da employeesData (lo schedule è già stato eliminato)
             // Verifica se ci sono altri schedule per questo dipendente in altri reparti della stessa azienda
             const hasOtherSchedules = Object.keys(newSchedule).some(key => {
@@ -1612,16 +1618,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                   return Object.values(otherSchedule).some(dayData => {
                     if (!dayData) return false;
                     return (dayData.code && dayData.code.trim() !== '') ||
-                           (dayData.in1 && dayData.in1.trim() !== '') ||
-                           (dayData.out1 && dayData.out1.trim() !== '') ||
-                           (dayData.in2 && dayData.in2.trim() !== '') ||
-                           (dayData.out2 && dayData.out2.trim() !== '');
+                      (dayData.in1 && dayData.in1.trim() !== '') ||
+                      (dayData.out1 && dayData.out1.trim() !== '') ||
+                      (dayData.in2 && dayData.in2.trim() !== '') ||
+                      (dayData.out2 && dayData.out2.trim() !== '');
                   });
                 }
               }
               return false;
             });
-            
+
             // Rimuovi il dipendente solo se non ha altri schedule in altri reparti
             if (!hasOtherSchedules) {
               // Usa setTimeout per assicurarsi che lo schedule sia stato aggiornato
@@ -1663,16 +1669,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                   return Object.values(otherSchedule).some(dayData => {
                     if (!dayData) return false;
                     return (dayData.code && dayData.code.trim() !== '') ||
-                           (dayData.in1 && dayData.in1.trim() !== '') ||
-                           (dayData.out1 && dayData.out1.trim() !== '') ||
-                           (dayData.in2 && dayData.in2.trim() !== '') ||
-                           (dayData.out2 && dayData.out2.trim() !== '');
+                      (dayData.in1 && dayData.in1.trim() !== '') ||
+                      (dayData.out1 && dayData.out1.trim() !== '') ||
+                      (dayData.in2 && dayData.in2.trim() !== '') ||
+                      (dayData.out2 && dayData.out2.trim() !== '');
                   });
                 }
               }
               return false;
             });
-            
+
             // Rimuovi il dipendente solo se non ha altri schedule in altri reparti
             if (!hasOtherSchedules) {
               setEmployeesData(prev => {
@@ -1689,7 +1695,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           }
         }, 200);
       }
-      
+
 
       return;
     }
@@ -1745,16 +1751,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
     // Per codici non-assenza (geografici), salva la chiave invece del label
     const keyToSave = codeKey || code;
-    
+
     // Se è un codice geografico, salva anche in geographicCode per permettere la ricerca
     const isGeoCode = isGeographicCode(codeKey);
-    
+
     // Nota: currentCompany è già stato estratto sopra (riga 1255)
 
     setSchedule(prev => {
       const currentDayData = prev[scheduleKey]?.[dayIndex] || {};
       const hasExistingTimes = (currentDayData.in1 && currentDayData.out1) || (currentDayData.in2 && currentDayData.out2);
-      
+
       // Se targetField è in2, applica il codice solo a in2 senza toccare code o altri campi
       if (targetField === 'in2') {
         const codeLabel = timeCodes[keyToSave] || code;
@@ -1771,7 +1777,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           }
         };
       }
-      
+
       const newSchedule = {
         ...prev,
         [scheduleKey]: {
@@ -1838,12 +1844,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     try {
       // Usa scheduleToSave se fornito, altrimenti usa lo stato corrente
       const scheduleData = scheduleToSave !== undefined ? scheduleToSave : schedule;
-      
+
       // Salva SOLO la lista globale, rimuovi tutte le liste specifiche
       const employeesToSave = {
         [GLOBAL_EMPLOYEES_KEY]: employeesData[GLOBAL_EMPLOYEES_KEY] || []
       };
-      
+
       const dataToSave = {
         companies,
         departments: departmentsStructure,
@@ -2027,7 +2033,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   // Funzione per validare il nome del dipendente
   const validateEmployeeName = (employeeName) => {
     const nameUpper = employeeName.toUpperCase().trim();
-    
+
     // 1. Verifica formato nome.cognome
     if (!nameUpper.includes('.')) {
       return {
@@ -2035,7 +2041,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         error: 'Il nome deve essere nel formato "nome.cognome" (es. mario.rossi)'
       };
     }
-    
+
     const parts = nameUpper.split('.');
     if (parts.length !== 2) {
       return {
@@ -2043,7 +2049,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         error: 'Il nome deve essere nel formato "nome.cognome" con un solo punto'
       };
     }
-    
+
     const [nome, cognome] = parts.map(p => p.trim());
     if (!nome || !cognome) {
       return {
@@ -2051,7 +2057,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         error: 'Il nome e il cognome non possono essere vuoti'
       };
     }
-    
+
     // 2. Verifica se esiste già
     const globalList = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
     const exactMatch = globalList.find(e => e.name === nameUpper);
@@ -2061,7 +2067,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         error: `Il dipendente "${nameUpper}" esiste già!`
       };
     }
-    
+
     // 3. Verifica omonimi (cognome.nome e nomi simili)
     const reversedName = `${cognome}.${nome}`;
     const reversedMatch = globalList.find(e => e.name === reversedName);
@@ -2071,7 +2077,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         error: `Attenzione: esiste già un dipendente "${reversedName}". Verifica se si tratta dello stesso dipendente.`
       };
     }
-    
+
     // Verifica nomi simili (stesso nome o stesso cognome)
     const similarEmployees = globalList.filter(e => {
       const empParts = e.name.split('.');
@@ -2080,7 +2086,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       // Stesso nome o stesso cognome
       return empNome === nome || empCognome === cognome;
     });
-    
+
     if (similarEmployees.length > 0) {
       const similarNames = similarEmployees.map(e => e.name).join(', ');
       return {
@@ -2088,21 +2094,21 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         warning: `Attenzione: esistono dipendenti con nomi simili: ${similarNames}. Verifica che non si tratti dello stesso dipendente.`
       };
     }
-    
+
     return { valid: true };
   };
 
   // Funzione per creare e aggiungere un nuovo dipendente con validazione
   const handleCreateAndAddEmployee = (employeeName, targetCompany, targetDept, weekRangeValue) => {
     const validation = validateEmployeeName(employeeName);
-    
+
     if (!validation.valid) {
       if (showNotification) {
         showNotification(validation.error, 'error', 6000);
       }
       return;
     }
-    
+
     // Mostra warning se ci sono omonimi simili
     if (validation.warning) {
       if (showNotification) {
@@ -2110,7 +2116,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       }
       // Continua comunque, ma avvisa l'utente
     }
-    
+
     // Usa handleQuickAddEmployee con il nome forzato
     handleQuickAddEmployee(targetCompany, targetDept, weekRangeValue, employeeName);
   };
@@ -2329,17 +2335,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
   const addEmployee = () => {
     if (!newEmployeeName.trim()) return;
-    
+
     // Valida il nome del dipendente
     const validation = validateEmployeeName(newEmployeeName);
-    
+
     if (!validation.valid) {
       if (showNotification) {
         showNotification(validation.error, 'error', 6000);
       }
       return;
     }
-    
+
     // Mostra warning se ci sono omonimi simili
     if (validation.warning) {
       if (showNotification) {
@@ -2347,7 +2353,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       }
       // Continua comunque, ma avvisa l'utente
     }
-    
+
     const newId = Date.now();
     const newName = newEmployeeName.toUpperCase().trim();
 
@@ -2401,7 +2407,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   // Questo fa scomparire il dipendente dalla lista, anche se aveva dati riportati da altre aziende
   const removeEmployeeFromWeek = (empId, contextKey = null, weekRangeValue = null, company = null, department = null) => {
     const currentWeek = weekRangeValue || getWeekDates(0).formatted;
-    
+
     setSchedule(prev => {
       const newSchedule = { ...prev };
       let foundAndDeleted = false;
@@ -2409,15 +2415,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       // Se abbiamo company e department, cerca lo schedule in tutti i reparti di quella azienda
       if (company) {
         const companyDepts = departmentsStructure[company] || [];
-        const deptsToCheck = department && companyDepts.includes(department) 
+        const deptsToCheck = department && companyDepts.includes(department)
           ? [department, ...companyDepts.filter(d => d !== department)]
           : companyDepts.length > 0 ? companyDepts : [department].filter(Boolean);
-        
+
         // Rimuovi COMPLETAMENTE lo schedule in tutti i reparti dell'azienda
         for (const dept of deptsToCheck) {
           const checkKey = getContextKey(company, dept);
           const scheduleKey = `${currentWeek}-${checkKey}-${empId}`;
-          
+
           if (newSchedule[scheduleKey]) {
             // Rimuovi completamente lo schedule per questa azienda/reparto
             delete newSchedule[scheduleKey];
@@ -2425,12 +2431,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           }
         }
       }
-      
+
       // Fallback: usa contextKey se fornito
       if (!foundAndDeleted && contextKey) {
         const baseKey = `${contextKey}-${empId}`;
         const scheduleKey = `${currentWeek}-${baseKey}`;
-        
+
         if (newSchedule[scheduleKey]) {
           // Rimuovi completamente lo schedule
           delete newSchedule[scheduleKey];
@@ -2643,9 +2649,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   // Funzione per aprire una lista quando si clicca su un risultato di ricerca
   const openListFromSearch = (result) => {
     // Verifica se la lista esiste già
-    const existingList = viewLists.find(list => 
-      list.company === result.company && 
-      list.department === result.department && 
+    const existingList = viewLists.find(list =>
+      list.company === result.company &&
+      list.department === result.department &&
       list.weekRange === result.week
     );
 
@@ -2698,14 +2704,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           // Estrai la settimana (prima parte fino a "al")
           const weekMatch = scheduleKey.match(/^(.+? al .+?)-/);
           if (!weekMatch) return;
-          
+
           const weekPart = weekMatch[1];
           const restOfKey = scheduleKey.replace(`${weekPart}-`, '');
-          
+
           // Estrai contextKey e empId
           const lastDashIndex = restOfKey.lastIndexOf('-');
           if (lastDashIndex === -1) return;
-          
+
           const contextKey = restOfKey.substring(0, lastDashIndex);
           const empId = restOfKey.substring(lastDashIndex + 1);
 
@@ -2720,10 +2726,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             const hasData = Object.values(empSchedule).some(dayData => {
               if (!dayData) return false;
               return (dayData.code && dayData.code.trim() !== '') ||
-                     (dayData.in1 && dayData.in1.trim() !== '') ||
-                     (dayData.out1 && dayData.out1.trim() !== '') ||
-                     (dayData.in2 && dayData.in2.trim() !== '') ||
-                     (dayData.out2 && dayData.out2.trim() !== '');
+                (dayData.in1 && dayData.in1.trim() !== '') ||
+                (dayData.out1 && dayData.out1.trim() !== '') ||
+                (dayData.in2 && dayData.in2.trim() !== '') ||
+                (dayData.out2 && dayData.out2.trim() !== '');
             });
 
             if (hasData) {
@@ -2731,10 +2737,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               const daysWithData = Object.values(empSchedule).filter(dayData => {
                 if (!dayData) return false;
                 return (dayData.code && dayData.code.trim() !== '') ||
-                       (dayData.in1 && dayData.in1.trim() !== '') ||
-                       (dayData.out1 && dayData.out1.trim() !== '') ||
-                       (dayData.in2 && dayData.in2.trim() !== '') ||
-                       (dayData.out2 && dayData.out2.trim() !== '');
+                  (dayData.in1 && dayData.in1.trim() !== '') ||
+                  (dayData.out1 && dayData.out1.trim() !== '') ||
+                  (dayData.in2 && dayData.in2.trim() !== '') ||
+                  (dayData.out2 && dayData.out2.trim() !== '');
               }).length;
 
               // Prepara l'anteprima degli orari (solo i primi 3 giorni con dati)
@@ -2744,10 +2750,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 const dayData = empSchedule[dayIdx];
                 if (dayData) {
                   const hasDayData = (dayData.code && dayData.code.trim() !== '') ||
-                                     (dayData.in1 && dayData.in1.trim() !== '') ||
-                                     (dayData.out1 && dayData.out1.trim() !== '') ||
-                                     (dayData.in2 && dayData.in2.trim() !== '') ||
-                                     (dayData.out2 && dayData.out2.trim() !== '');
+                    (dayData.in1 && dayData.in1.trim() !== '') ||
+                    (dayData.out1 && dayData.out1.trim() !== '') ||
+                    (dayData.in2 && dayData.in2.trim() !== '') ||
+                    (dayData.out2 && dayData.out2.trim() !== '');
                   if (hasDayData) {
                     schedulePreview.push({
                       dayName: dayNames[dayIdx],
@@ -2781,10 +2787,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   const getEmployeeSchedule = (empId, company, department, weekRangeValue = null) => {
     const currentWeek = weekRangeValue || weekRange;
     const companyDepts = departmentsStructure[company] || [];
-    const deptsToCheck = department && companyDepts.includes(department) 
+    const deptsToCheck = department && companyDepts.includes(department)
       ? [department, ...companyDepts.filter(d => d !== department)]
       : companyDepts.length > 0 ? companyDepts : [department].filter(Boolean);
-    
+
     // Cerca lo schedule in tutti i reparti dell'azienda
     for (const dept of deptsToCheck) {
       const checkKey = getContextKey(company, dept);
@@ -2793,7 +2799,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         return { scheduleKey, schedule: schedule[scheduleKey], department: dept };
       }
     }
-    
+
     // Fallback: usa il reparto selezionato anche se non ha schedule
     const fallbackKey = getContextKey(company, department);
     const fallbackScheduleKey = `${currentWeek}-${fallbackKey}-${empId}`;
@@ -2808,13 +2814,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     // Usa SOLO la lista globale e filtra per presenza nello schedule corrente
     const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
     const checkKey = getContextKey(company, department);
-    
+
     // Mostra dipendenti che hanno uno schedule per questa azienda/reparto
     // (anche se vuoto, basta che lo schedule esista)
     const employeesWithSchedule = globalEmployees.filter(emp => {
       const scheduleKey = `${currentWeek}-${checkKey}-${emp.id}`;
       const empSchedule = schedule[scheduleKey];
-      
+
       // Se lo schedule esiste (anche se vuoto), mostra il dipendente
       // Questo permette di vedere i dipendenti appena aggiunti anche se non hanno ancora orari inseriti
       return empSchedule !== undefined && Object.keys(empSchedule).length > 0;
@@ -2842,11 +2848,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           const hasData = Object.values(daySchedule).some(dayData => {
             if (!dayData) return false;
             return (dayData.code && dayData.code.trim() !== '') ||
-                   (dayData.in1 && dayData.in1.trim() !== '') ||
-                   (dayData.out1 && dayData.out1.trim() !== '') ||
-                   (dayData.in2 && dayData.in2.trim() !== '') ||
-                   (dayData.out2 && dayData.out2.trim() !== '') ||
-                   (dayData.geographicCode && dayData.geographicCode.trim() !== '');
+              (dayData.in1 && dayData.in1.trim() !== '') ||
+              (dayData.out1 && dayData.out1.trim() !== '') ||
+              (dayData.in2 && dayData.in2.trim() !== '') ||
+              (dayData.out2 && dayData.out2.trim() !== '') ||
+              (dayData.geographicCode && dayData.geographicCode.trim() !== '');
           });
 
           if (!hasData) return; // Salta se lo schedule è vuoto
@@ -2882,21 +2888,21 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       Object.keys(schedule).forEach(scheduleKey => {
         // Verifica che lo schedule sia per questa azienda/reparto specifico
         if (!scheduleKey.startsWith(targetScheduleKey)) return;
-        
+
         const empId = parseInt(scheduleKey.split('-').pop());
         const daySchedule = schedule[scheduleKey];
-        
+
         if (!daySchedule) return;
 
         // IMPORTANTE: Verifica che lo schedule abbia effettivamente dei dati (non vuoto)
         const hasData = Object.values(daySchedule).some(dayData => {
           if (!dayData) return false;
           return (dayData.code && dayData.code.trim() !== '') ||
-                 (dayData.in1 && dayData.in1.trim() !== '') ||
-                 (dayData.out1 && dayData.out1.trim() !== '') ||
-                 (dayData.in2 && dayData.in2.trim() !== '') ||
-                 (dayData.out2 && dayData.out2.trim() !== '') ||
-                 (dayData.geographicCode && dayData.geographicCode.trim() !== '');
+            (dayData.in1 && dayData.in1.trim() !== '') ||
+            (dayData.out1 && dayData.out1.trim() !== '') ||
+            (dayData.in2 && dayData.in2.trim() !== '') ||
+            (dayData.out2 && dayData.out2.trim() !== '') ||
+            (dayData.geographicCode && dayData.geographicCode.trim() !== '');
         });
 
         if (!hasData) return; // Salta se lo schedule è vuoto
@@ -2960,52 +2966,52 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   // Funzione per verificare se ci sono dipendenti con trasferte verso l'azienda selezionata
   const checkTransfersToCompany = (company, department, weekRangeValue = null) => {
     if (!company) return [];
-    
+
     const currentWeek = weekRangeValue || weekRange;
     const transfers = [];
-    
+
     // Verifica quali codici geografici puntano a questa azienda
     const geographicCodes = Object.keys(timeCodes).filter(codeKey => {
       const targetCompany = getCompanyFromGeographicCode(codeKey);
       return targetCompany === company;
     });
-    
+
     if (geographicCodes.length === 0) return [];
-    
+
     // Calcola le date della settimana
     const weekDates = getWeekDatesFromRange(currentWeek);
     const dayNames = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
-    
+
     // Cerca nello schedule tutti i dipendenti che hanno un geographicCode che punta a questa azienda
     Object.keys(schedule).forEach(scheduleKey => {
       // Pattern: settimana-contextKey-empId
       if (!scheduleKey.startsWith(`${currentWeek}-`)) return;
-      
+
       const daySchedule = schedule[scheduleKey];
       if (!daySchedule) return;
-      
+
       const empId = parseInt(scheduleKey.split('-').pop());
       const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
       const employee = globalEmployees.find(e => e.id === empId);
-      
+
       if (!employee) return;
-      
+
       // Estrai l'azienda di origine dal fromCompany o dal contextKey
       const fromCompany = Object.values(daySchedule).find(d => d?.fromCompany)?.fromCompany;
       const contextKey = scheduleKey.replace(`${currentWeek}-`, '').replace(`-${empId}`, '');
       const sourceCompany = fromCompany || (contextKey ? contextKey.split('-')[0] : '');
-      
+
       if (!sourceCompany || sourceCompany === company) return;
-      
+
       // Cerca tutti i giorni con geographicCode che punta a questa azienda
       Object.keys(daySchedule).forEach(dayIndexStr => {
         const dayIndex = parseInt(dayIndexStr);
         const dayData = daySchedule[dayIndex];
-        
+
         if (dayData && dayData.geographicCode && geographicCodes.includes(dayData.geographicCode)) {
           const dayDate = weekDates[dayIndex];
           const dayName = dayNames[dayIndex] || '';
-          
+
           // Formatta la data in formato DD/MM/YYYY
           let formattedDate = '';
           if (dayDate && !isNaN(dayDate.getTime())) {
@@ -3014,7 +3020,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             const year = dayDate.getFullYear();
             formattedDate = `${day}/${month}/${year}`;
           }
-          
+
           transfers.push({
             employeeName: employee.name,
             employeeId: empId,
@@ -3028,33 +3034,33 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         }
       });
     });
-    
+
     return transfers;
   };
-  
+
   // Funzione helper per ottenere le date della settimana da un range
   const getWeekDatesFromRange = (weekRange) => {
     if (!weekRange) return [];
-    
+
     // Gestisci entrambi i formati: "DD/MM/YYYY - DD/MM/YYYY" o "DD/MM/YYYY al DD/MM/YYYY"
     let parts = weekRange.split(' - ');
     if (parts.length !== 2) {
       parts = weekRange.split(' al ');
     }
     if (parts.length !== 2) return [];
-    
+
     // Parsing della data: DD/MM/YYYY -> YYYY-MM-DD
     const dateStr = parts[0].trim();
     const dateParts = dateStr.split('/');
     if (dateParts.length !== 3) return [];
-    
+
     const day = parseInt(dateParts[0], 10);
     const month = parseInt(dateParts[1], 10) - 1; // I mesi in JavaScript sono 0-based
     const year = parseInt(dateParts[2], 10);
-    
+
     const startDate = new Date(year, month, day);
     if (isNaN(startDate.getTime())) return [];
-    
+
     const dates = [];
     for (let i = 0; i < 7; i++) {
       const date = new Date(startDate);
@@ -3063,7 +3069,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     }
     return dates;
   };
-  
+
   // Funzione per verificare se un dipendente ha una trasferta in un giorno specifico nell'azienda destinataria
   const hasTransferOnDay = (empId, dayIndex, company, weekRangeValue = null) => {
     const transfers = checkTransfersToCompany(company, null, weekRangeValue);
@@ -3397,7 +3403,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         const currentWeek = listWeekRange || getWeekDates(0).formatted;
         const baseKey = emp.contextKey ? `${emp.contextKey}-${emp.id}` : emp.id;
         const scheduleKey = `${currentWeek}-${baseKey}`;
-        
+
         const empNameDisplay = multiCompanyMode ? `${emp.name} (${emp.company} - ${emp.department})` : emp.name;
         const daysData = [];
 
@@ -3471,7 +3477,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
   const showPDFPreview = () => {
     const { previewData, hasData } = generatePDFPreview();
-    
+
     if (!hasData) {
       if (showNotification) {
         showNotification("Nessun dato da esportare nelle liste visualizzate.", 'warning', 5000);
@@ -3493,7 +3499,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       }
 
       const { previewData, hasData } = generatePDFPreview();
-      
+
       if (!hasData) {
         if (showNotification) {
           showNotification("Nessun dato da esportare nelle liste visualizzate.", 'warning', 5000);
@@ -3611,16 +3617,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             valign: 'middle'
           },
           columnStyles: {
-            0: { 
-              cellWidth: 45, 
-              fontStyle: 'bold', 
-              fontSize: 8, 
+            0: {
+              cellWidth: 45,
+              fontStyle: 'bold',
+              fontSize: 8,
               fillColor: [231, 230, 230], // Grigio chiaro per nome dipendente
               halign: 'left'
             },
-            [headers.length - 1]: { 
+            [headers.length - 1]: {
               fillColor: [255, 224, 153], // Giallo chiaro per totale
-              fontStyle: 'bold', 
+              fontStyle: 'bold',
               fontSize: 11,
               halign: 'center'
             }
@@ -3629,14 +3635,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             const rowIndex = data.row.index;
             const colIndex = data.column.index;
             const cellValue = data.cell.text[0] || '';
-            
+
             // Riga separatrice nera (tutte le celle vuote)
             if (cellValue === '' && data.row.raw.every(cell => cell === '')) {
               data.cell.styles.fillColor = [0, 0, 0];
               data.cell.styles.minCellHeight = 1;
               data.cell.styles.cellPadding = 0;
             }
-            
+
             // Nome dipendente (prima colonna, prima riga del dipendente)
             if (colIndex === 0 && cellValue !== '' && data.row.raw[0] !== '') {
               data.cell.styles.fillColor = [231, 230, 230];
@@ -3647,7 +3653,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 data.cell.rowSpan = 2;
               }
             }
-            
+
             // Totale (ultima colonna, prima riga del dipendente)
             if (colIndex === headers.length - 1 && cellValue !== '' && data.row.raw[0] !== '') {
               data.cell.styles.fillColor = [255, 224, 153];
@@ -3658,18 +3664,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 data.cell.rowSpan = 2;
               }
             }
-            
+
             // Celle codice: nascondi la cella Uscita quando c'è un codice
-            const codeCell = codeCells.find(cc => 
+            const codeCell = codeCells.find(cc =>
               cc.row === rowIndex && cc.colEntrata === colIndex
             );
             if (codeCell) {
               // Questa è la cella Entrata con codice, nascondi il bordo destro
               data.cell.styles.lineColor = [0, 0, 0];
             }
-            
+
             // Nascondi la cella Uscita quando la cella precedente è un codice
-            const prevCodeCell = codeCells.find(cc => 
+            const prevCodeCell = codeCells.find(cc =>
               cc.row === rowIndex && cc.colEntrata === colIndex - 1
             );
             if (prevCodeCell && colIndex > 0) {
@@ -3680,38 +3686,38 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           },
           didDrawCell: function (data) {
             // Unifica le celle codice (Entrata + Uscita) disegnando manualmente
-            const codeCell = codeCells.find(cc => 
+            const codeCell = codeCells.find(cc =>
               cc.row === data.row.index && cc.colEntrata === data.column.index
             );
-            
+
             if (codeCell) {
               // Questa è la cella Entrata con codice
               // Disegna una cella unificata che copre Entrata + Uscita e riga 1 + riga 2
               const cell = data.cell;
               const nextCell = data.table.getCell(data.row.index, data.column.index + 1);
               const nextRowCell = data.table.getCell(data.row.index + 1, data.column.index);
-              
+
               if (nextCell && nextRowCell) {
                 const x = cell.x;
                 const y = cell.y;
                 const width = cell.width + nextCell.width; // Larghezza doppia (Entrata + Uscita)
                 const height = cell.height + nextRowCell.height; // Altezza doppia (riga 1 + riga 2)
-                
+
                 // Salva il contesto
                 doc.saveGraphicsState();
-                
+
                 // Disegna il bordo della cella unificata
                 doc.setDrawColor(0, 0, 0);
                 doc.setLineWidth(0.1);
                 doc.rect(x, y, width, height);
-                
+
                 // Ripristina il contesto
                 doc.restoreGraphicsState();
               }
             }
-            
+
             // Nascondi la cella Uscita quando la cella precedente è un codice
-            const prevCodeCell = codeCells.find(cc => 
+            const prevCodeCell = codeCells.find(cc =>
               cc.row === data.row.index && cc.colEntrata === data.column.index - 1
             );
             if (prevCodeCell && data.column.index > 0) {
@@ -3727,9 +3733,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       const fileName = `Turni_Multi_${new Date().toISOString().slice(0, 10)}.pdf`;
       doc.save(fileName);
-      
+
       setPdfPreviewModal({ isOpen: false, pdfData: null });
-      
+
       if (showNotification) {
         showNotification("PDF esportato con successo!", 'success', 3000);
       }
@@ -3955,13 +3961,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       const isGeographic = codeKey && isGeographicCode(codeKey);
                       const isFromOtherCompany = cellData.fromCompany && cellData.fromCompany !== emp.company;
                       const hasGeographicCode = cellData.geographicCode && !cellData.code; // Ha codice geografico ma non è un codice normale
-                      
+
                       // Verifica se in2 contiene un codice geografico
                       const in2GeographicCode = cellData.in2 && (() => {
                         const in2Upper = String(cellData.in2).trim().toUpperCase();
-                        return isGeographicCode(getCodeKey(in2Upper)) || 
-                               ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(in2Upper) ||
-                               (cellData.geographicCode && cellData.in2 === timeCodes[cellData.geographicCode]);
+                        return isGeographicCode(getCodeKey(in2Upper)) ||
+                          ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(in2Upper) ||
+                          (cellData.geographicCode && cellData.in2 === timeCodes[cellData.geographicCode]);
                       })();
                       const hasGeographicIn2 = in2GeographicCode || (cellData.geographicCode && cellData.in2);
 
@@ -3979,7 +3985,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       // Cerca sia in employeesData che nello schedule per trovare tutti i giorni occupati
                       companies.forEach(otherCompany => {
                         if (otherCompany === company) return; // Salta l'azienda corrente
-                        
+
                         const otherDepts = departmentsStructure[otherCompany] || [];
                         otherDepts.forEach(otherDept => {
                           const otherKey = getContextKey(otherCompany, otherDept);
@@ -4028,7 +4034,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       // Il giallo è solo per codici geografici o input geografici
                       const shouldBeGray = cellData.code && (isAbsenceCode(getCodeKey(cellData.code)) || hasCodeInOtherCompany);
                       const shouldBeYellow = (isGeographic || isFromOtherCompany || hasGeographicIn2) && !shouldBeGray;
-                      
+
                       // Verifica se questo giorno ha una trasferta verso questa azienda
                       const hasTransfer = hasTransferOnDay(emp.id, dayIdx, company, listWeekRange);
 
@@ -4084,11 +4090,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                               {(cellData.in1 || cellData.in2) && (() => {
                                 // Verifica se in2 contiene un codice (non un orario)
                                 const in2IsCode = cellData.in2 && !/^\d{1,2}[.:]\d{2}$/.test(cellData.in2);
-                                
+
                                 if (in2IsCode) {
                                   // Mostra cella unificata con sfondo giallo e testo centrato
                                   return (
-                                    <div 
+                                    <div
                                       className="h-7 bg-yellow-100 rounded flex items-center justify-center font-medium text-xs text-yellow-800 cursor-pointer hover:bg-yellow-200 transition-colors"
                                       onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
                                       title="Tasto destro per modificare"
@@ -4173,11 +4179,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                               {(cellData.in1 || cellData.in2) && (() => {
                                 // Verifica se in2 contiene un codice (non un orario)
                                 const in2IsCode = cellData.in2 && !/^\d{1,2}[.:]\d{2}$/.test(cellData.in2);
-                                
+
                                 if (in2IsCode) {
                                   // Mostra cella unificata con sfondo giallo e testo centrato
                                   return (
-                                    <div 
+                                    <div
                                       className="h-7 bg-yellow-100 rounded flex items-center justify-center font-medium text-xs text-yellow-800 cursor-pointer hover:bg-yellow-200 transition-colors"
                                       onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'in2')}
                                       title="Tasto destro per modificare"
@@ -4562,10 +4568,10 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   if (dayData.isCode) {
                                     // Cella unificata per codice (Entrata + Uscita, riga 1 + riga 2)
                                     return (
-                                      <td 
-                                        key={dayIdx} 
-                                        className="border border-gray-300 p-1 text-center" 
-                                        colSpan={2} 
+                                      <td
+                                        key={dayIdx}
+                                        className="border border-gray-300 p-1 text-center"
+                                        colSpan={2}
                                         rowSpan={2}
                                       >
                                         {dayData.in1 || ''}
@@ -4717,7 +4723,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           <div className="text-xs text-gray-500 mb-2">
                             Settimana: {result.week} | {result.daysWithData} {result.daysWithData === 1 ? 'giorno' : 'giorni'} con orari
                           </div>
-                          
+
                           {/* ANTEPRIMA ORARI */}
                           {result.schedulePreview && result.schedulePreview.length > 0 && (
                             <div className="mt-2 pt-2 border-t border-gray-300">
@@ -4725,13 +4731,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                               <div className="space-y-1">
                                 {result.schedulePreview.map((preview, pIdx) => {
                                   const { dayName, data } = preview;
-                                  const timeDisplay = data.code 
+                                  const timeDisplay = data.code
                                     ? getCodeLabel(data.code)
                                     : [
-                                        data.in1 && data.out1 ? `${data.in1}-${data.out1}` : '',
-                                        data.in2 && data.out2 ? `${data.in2}-${data.out2}` : ''
-                                      ].filter(Boolean).join(' / ') || 'Nessun orario';
-                                  
+                                      data.in1 && data.out1 ? `${data.in1}-${data.out1}` : '',
+                                      data.in2 && data.out2 ? `${data.in2}-${data.out2}` : ''
+                                    ].filter(Boolean).join(' / ') || 'Nessun orario';
+
                                   return (
                                     <div key={pIdx} className="text-xs text-gray-600 flex items-center gap-2">
                                       <span className="font-medium text-gray-500 w-16">{dayName}:</span>
@@ -5002,120 +5008,120 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             </div>
 
             {/* AVVISO TRASFERTE - Mostra solo se ci sono trasferte verso le aziende delle liste */}
-        {(() => {
-          // Raccogli tutte le trasferte da tutte le liste (includendo tutti i giorni)
-          const allTransfers = [];
-          viewLists.forEach(list => {
-            if (list.company && list.department) {
-              const transfers = checkTransfersToCompany(list.company, list.department, list.weekRange);
-              transfers.forEach(transfer => {
-                // Aggiungi tutte le trasferte (inclusi tutti i giorni) con l'azienda target
-                allTransfers.push({ ...transfer, targetCompany: list.company, listId: list.id });
+            {(() => {
+              // Raccogli tutte le trasferte da tutte le liste (includendo tutti i giorni)
+              const allTransfers = [];
+              viewLists.forEach(list => {
+                if (list.company && list.department) {
+                  const transfers = checkTransfersToCompany(list.company, list.department, list.weekRange);
+                  transfers.forEach(transfer => {
+                    // Aggiungi tutte le trasferte (inclusi tutti i giorni) con l'azienda target
+                    allTransfers.push({ ...transfer, targetCompany: list.company, listId: list.id });
+                  });
+                }
               });
-            }
-          });
-          
-          if (allTransfers.length === 0) return null;
-          
-          // Raggruppa per azienda target
-          const transfersByCompany = allTransfers.reduce((acc, transfer) => {
-            if (!acc[transfer.targetCompany]) {
-              acc[transfer.targetCompany] = [];
-            }
-            acc[transfer.targetCompany].push(transfer);
-            return acc;
-          }, {});
-          
-          return Object.entries(transfersByCompany).map(([targetCompany, transfers]) => {
-            // Raggruppa per dipendente, mantenendo tutti i giorni
-            const transfersByEmployee = transfers.reduce((acc, transfer) => {
-              const key = `${transfer.employeeName}-${transfer.sourceCompany}`;
-              if (!acc[key]) {
-                acc[key] = {
-                  employeeName: transfer.employeeName,
-                  sourceCompany: transfer.sourceCompany,
-                  days: []
-                };
-              }
-              if (transfer.dayName && transfer.date) {
-                acc[key].days.push({
-                  dayName: transfer.dayName,
-                  date: transfer.date,
-                  dayIndex: transfer.dayIndex
-                });
-              }
-              return acc;
-            }, {});
-            
-            const transferList = Object.values(transfersByEmployee);
-            
-            return (
-              <div key={targetCompany} className="px-4 pb-2">
-                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm">
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="ml-3 flex-1">
-                      <h3 className="text-sm font-medium text-yellow-800">
-                        Trasferte in arrivo presso {targetCompany}
-                      </h3>
-                      <div className="mt-2 text-sm text-yellow-700">
-                        <p className="mb-1">
-                          {transferList.length === 1 ? (
-                            <>
-                              Il dipendente <strong>{transferList[0].employeeName}</strong> ha una trasferta da <strong>{transferList[0].sourceCompany}</strong>
-                              {transferList[0].days.length > 0 && (
+
+              if (allTransfers.length === 0) return null;
+
+              // Raggruppa per azienda target
+              const transfersByCompany = allTransfers.reduce((acc, transfer) => {
+                if (!acc[transfer.targetCompany]) {
+                  acc[transfer.targetCompany] = [];
+                }
+                acc[transfer.targetCompany].push(transfer);
+                return acc;
+              }, {});
+
+              return Object.entries(transfersByCompany).map(([targetCompany, transfers]) => {
+                // Raggruppa per dipendente, mantenendo tutti i giorni
+                const transfersByEmployee = transfers.reduce((acc, transfer) => {
+                  const key = `${transfer.employeeName}-${transfer.sourceCompany}`;
+                  if (!acc[key]) {
+                    acc[key] = {
+                      employeeName: transfer.employeeName,
+                      sourceCompany: transfer.sourceCompany,
+                      days: []
+                    };
+                  }
+                  if (transfer.dayName && transfer.date) {
+                    acc[key].days.push({
+                      dayName: transfer.dayName,
+                      date: transfer.date,
+                      dayIndex: transfer.dayIndex
+                    });
+                  }
+                  return acc;
+                }, {});
+
+                const transferList = Object.values(transfersByEmployee);
+
+                return (
+                  <div key={targetCompany} className="px-4 pb-2">
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3 flex-1">
+                          <h3 className="text-sm font-medium text-yellow-800">
+                            Trasferte in arrivo presso {targetCompany}
+                          </h3>
+                          <div className="mt-2 text-sm text-yellow-700">
+                            <p className="mb-1">
+                              {transferList.length === 1 ? (
                                 <>
-                                  {' '}il giorno{' '}
-                                  {transferList[0].days.length === 1 ? (
-                                    <strong>{transferList[0].days[0].dayName} {transferList[0].days[0].date}</strong>
-                                  ) : (
-                                    transferList[0].days.map((d, idx) => (
-                                      <span key={idx}><strong>{d.dayName} {d.date}</strong>{idx < transferList[0].days.length - 1 ? ', ' : ''}</span>
-                                    ))
+                                  Il dipendente <strong>{transferList[0].employeeName}</strong> ha una trasferta da <strong>{transferList[0].sourceCompany}</strong>
+                                  {transferList[0].days.length > 0 && (
+                                    <>
+                                      {' '}il giorno{' '}
+                                      {transferList[0].days.length === 1 ? (
+                                        <strong>{transferList[0].days[0].dayName} {transferList[0].days[0].date}</strong>
+                                      ) : (
+                                        transferList[0].days.map((d, idx) => (
+                                          <span key={idx}><strong>{d.dayName} {d.date}</strong>{idx < transferList[0].days.length - 1 ? ', ' : ''}</span>
+                                        ))
+                                      )}
+                                    </>
                                   )}
+                                  {' '}presso questo punto vendita.
+                                </>
+                              ) : (
+                                <>
+                                  {transferList.length} dipendenti hanno trasferte presso questo punto vendita:
+                                  <ul className="list-disc list-inside mt-1 space-y-1">
+                                    {transferList.map((transfer, idx) => (
+                                      <li key={idx}>
+                                        <strong>{transfer.employeeName}</strong> da <strong>{transfer.sourceCompany}</strong>
+                                        {transfer.days.length > 0 && (
+                                          <span className="text-yellow-800 font-semibold">
+                                            {' '}- {transfer.days.length === 1 ? (
+                                              <>{transfer.days[0].dayName} {transfer.days[0].date}</>
+                                            ) : (
+                                              transfer.days.map((d, dIdx) => (
+                                                <span key={dIdx}>{d.dayName} {d.date}{dIdx < transfer.days.length - 1 ? ', ' : ''}</span>
+                                              ))
+                                            )}
+                                          </span>
+                                        )}
+                                      </li>
+                                    ))}
+                                  </ul>
                                 </>
                               )}
-                              {' '}presso questo punto vendita.
-                            </>
-                          ) : (
-                            <>
-                              {transferList.length} dipendenti hanno trasferte presso questo punto vendita:
-                              <ul className="list-disc list-inside mt-1 space-y-1">
-                                {transferList.map((transfer, idx) => (
-                                  <li key={idx}>
-                                    <strong>{transfer.employeeName}</strong> da <strong>{transfer.sourceCompany}</strong>
-                                    {transfer.days.length > 0 && (
-                                      <span className="text-yellow-800 font-semibold">
-                                        {' '}- {transfer.days.length === 1 ? (
-                                          <>{transfer.days[0].dayName} {transfer.days[0].date}</>
-                                        ) : (
-                                          transfer.days.map((d, dIdx) => (
-                                            <span key={dIdx}>{d.dayName} {d.date}{dIdx < transfer.days.length - 1 ? ', ' : ''}</span>
-                                          ))
-                                        )}
-                                      </span>
-                                    )}
-                                  </li>
-                                ))}
-                              </ul>
-                            </>
-                          )}
-                        </p>
-                        <p className="mt-2 font-medium">
-                          Gestisci l'orario di occupazione per questi dipendenti.
-                        </p>
+                            </p>
+                            <p className="mt-2 font-medium">
+                              Gestisci l'orario di occupazione per questi dipendenti.
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            );
-          });
-        })()}
+                );
+              });
+            })()}
 
             {/* PULSANTE AGGIUNGI LISTA */}
             <div className="p-4 border-t bg-gray-50 flex justify-center">

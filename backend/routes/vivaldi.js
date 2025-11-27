@@ -250,9 +250,19 @@ module.exports = (poolVivaldi) => {
       if (speechgen_api_key && speechgen_email) {
         try {
           const speechGen = new SpeechGenClient(speechgen_api_key, speechgen_email);
+
+          // 1. Check Speakers
           const speakers = await speechGen.getSpeakers();
+
+          // 2. Check Balance (strictly to verify credentials)
+          const balance = await speechGen.getAccountInfo();
+
           if (speakers && speakers.length > 0) {
-            results.speechgen = { success: true, message: `Connesso! Trovati ${speakers.length} speaker.` };
+            if (balance !== null) {
+              results.speechgen = { success: true, message: `Connesso! Trovati ${speakers.length} speaker. Saldo verificato.` };
+            } else {
+              results.speechgen = { success: false, message: `Errore credenziali: Trovati speaker (pubblici) ma impossibile verificare il saldo. Controlla API Key e Email.` };
+            }
           } else {
             results.speechgen = { success: false, message: 'Connessione riuscita ma nessun speaker trovato.' };
           }

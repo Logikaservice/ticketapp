@@ -105,7 +105,7 @@ const VivaldiSettingsModal = ({
                             </div>
 
                             {/* Balance Display */}
-                            {balance && (
+                            {balance ? (
                                 <div className="mt-4 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
                                     <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
                                         <Coins size={16} className="text-amber-500" />
@@ -128,6 +128,13 @@ const VivaldiSettingsModal = ({
                                     <div className="mt-2 pt-2 border-t border-slate-50 text-right">
                                         <p className="text-xs text-slate-400">Limits totali: {balance.limits?.toLocaleString()}</p>
                                     </div>
+                                </div>
+                            ) : (
+                                <div className="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
+                                    <p className="text-sm text-slate-500 italic">
+                                        Impossibile recuperare il saldo. <br />
+                                        Verifica API Key e Email.
+                                    </p>
                                 </div>
                             )}
                         </div>
