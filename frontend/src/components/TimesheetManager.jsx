@@ -1013,41 +1013,13 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       const shouldApply = (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch) && strValue.length <= 10;
 
       if (detectedCode && shouldApply) {
-        // Se è in2, salva SOLO in in2 senza propagazione (non chiamare handleQuickCode)
+        // Se è in2, NON applicare il codice durante la digitazione (onChange)
+        // Applica solo su blur per permettere all'utente di completare la digitazione
         if (field === 'in2') {
-          // Salva solo il codice in in2, senza propagazione
-          const currentWeek = weekRangeValue || weekRange;
-          const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
-          const scheduleKey = `${currentWeek}-${baseKey}`;
-          
-          setSchedule(prev => {
-            const newSchedule = { ...prev };
-            if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
-            if (!newSchedule[scheduleKey][dayIndex]) {
-              newSchedule[scheduleKey][dayIndex] = {
-                code: prev[scheduleKey]?.[dayIndex]?.code || '',
-                in1: prev[scheduleKey]?.[dayIndex]?.in1 || '',
-                out1: prev[scheduleKey]?.[dayIndex]?.out1 || '',
-                in2: '',
-                out2: ''
-              };
-            }
-            
-            // Salva solo il label del codice in in2 (non il codice key)
-            const codeLabel = timeCodes[detectedCode] || detectedCode;
-            newSchedule[scheduleKey][dayIndex].in2 = codeLabel;
-            // Pulisci out2 se c'era un orario
-            if (newSchedule[scheduleKey][dayIndex].out2 && /^\d/.test(newSchedule[scheduleKey][dayIndex].out2)) {
-              newSchedule[scheduleKey][dayIndex].out2 = '';
-            }
-            // IMPORTANTE: NON toccare il campo code - deve rimanere invariato
-            
-            return newSchedule;
-          });
-          
-          setTimeout(() => saveData(), 100);
-          return; // IMPORTANTE: esci subito per non continuare con l'aggiornamento normale
-        }
+          // NON applicare qui, lascia che l'utente continui a digitare
+          // Il codice verrà applicato su onBlur
+          // Continua con l'aggiornamento normale dello stato (non return)
+        } else {
         
         // Per in1 o altri campi, usa la logica normale
         // Verifica se è un codice geografico che punta all'azienda corrente
@@ -1716,16 +1688,21 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     // Nota: currentCompany è già stato estratto sopra (riga 1255)
 
     setSchedule(prev => {
+      const currentDayData = prev[scheduleKey]?.[dayIndex] || {};
+      const hasExistingTimes = (currentDayData.in1 && currentDayData.out1) || (currentDayData.in2 && currentDayData.out2);
+      
       const newSchedule = {
         ...prev,
         [scheduleKey]: {
           ...prev[scheduleKey],
           [dayIndex]: {
+            // Se è un codice geografico E ci sono orari esistenti, preserva gli orari
+            // Altrimenti, applica il codice normalmente
             code: keyToSave || '',
-            in1: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.in1 || ''),
-            out1: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.out1 || ''),
-            in2: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.in2 || ''),
-            out2: keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.out2 || ''),
+            in1: (isGeoCode && hasExistingTimes) ? (currentDayData.in1 || '') : (keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.in1 || '')),
+            out1: (isGeoCode && hasExistingTimes) ? (currentDayData.out1 || '') : (keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.out1 || '')),
+            in2: (isGeoCode && hasExistingTimes) ? (currentDayData.in2 || '') : (keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.in2 || '')),
+            out2: (isGeoCode && hasExistingTimes) ? (currentDayData.out2 || '') : (keyToSave ? '' : (prev[scheduleKey]?.[dayIndex]?.out2 || '')),
             // Se è un codice geografico, salva anche in geographicCode e fromCompany
             geographicCode: isGeoCode ? codeKey : (prev[scheduleKey]?.[dayIndex]?.geographicCode || undefined),
             fromCompany: isGeoCode ? currentCompany : (prev[scheduleKey]?.[dayIndex]?.fromCompany || undefined)
