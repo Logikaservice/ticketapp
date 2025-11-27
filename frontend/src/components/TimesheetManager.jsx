@@ -1571,9 +1571,6 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         // E intercettare il nuovo valore. Ma setSchedule non ritorna il valore.
 
         // SOLUZIONE MIGLIORE: Ricostruiamo la modifica locale per passarla a saveData
-        const currentWeek = weekRangeValue || weekRange;
-        const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
-        const scheduleKey = `${currentWeek}-${baseKey}`;
 
         const scheduleToSave = { ...schedule }; // Copia dello schedule al momento dell'esecuzione (potrebbe essere vecchio)
         // MA aspetta! Se handleBlur è stale, 'schedule' è vecchio.
