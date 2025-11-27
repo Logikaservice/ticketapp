@@ -1003,7 +1003,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       // Se la stringa è esattamente una chiave di codice, usala
       if (timeCodes[strValue]) {
         detectedCode = strValue;
-      } else if (['AT', 'AV', 'L'].includes(strValue)) {
+      } else if (['L', 'M', 'A'].includes(strValue)) {
         // Riconosci codici geografici hardcoded
         detectedCode = strValue;
       } else {
@@ -1054,9 +1054,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             }
 
             const targetCompany = getCompanyFromGeographicCode(detectedCode);
-            // MODIFICA: Permetti l'uso di codici geografici anche nell'azienda corrente se sono hardcoded (AT, AV, L)
+            // MODIFICA: Permetti l'uso di codici geografici anche nell'azienda corrente se sono hardcoded (L, M, A)
             // Questo permette di usarli come semplici etichette
-            const isHardcoded = ['AT', 'AV', 'L'].includes(detectedCode);
+            const isHardcoded = ['L', 'M', 'A'].includes(detectedCode);
 
             if (targetCompany && targetCompany === companyToCheck && !isHardcoded) {
               // Il codice geografico punta all'azienda corrente, segnala errore
@@ -1282,9 +1282,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
                   // Fallback per codici geografici hardcoded se non presenti in timeCodes
                   if (!codeLabel) {
-                    if (detectedCode === 'AV') codeLabel = 'Avellino';
-                    else if (detectedCode === 'AT') codeLabel = 'Atripalda';
-                    else if (detectedCode === 'L') codeLabel = 'Lioni';
+                    if (detectedCode === 'L') codeLabel = 'Lioni';
                     else if (detectedCode === 'M') codeLabel = 'Mercurio';
                     else if (detectedCode === 'A') codeLabel = 'Albatros';
                     else codeLabel = detectedCode;
@@ -1294,7 +1292,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
                   // Imposta geographicCode se è un codice geografico o azienda
                   // Questo è fondamentale per checkTransfersToCompany
-                  const isGeo = ['AT', 'AV', 'L', 'M', 'A'].includes(detectedCode) || getCompanyFromGeographicCode(detectedCode);
+                  const isGeo = ['L', 'M', 'A'].includes(detectedCode) || getCompanyFromGeographicCode(detectedCode);
                   if (isGeo) {
                     newSchedule[scheduleKey][dayIndex].geographicCode = detectedCode;
                   }
@@ -1554,16 +1552,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
     // ALTRIMENTI: Usa il mapping di fallback
     const codeMap = {
-      'AT': 'Mercurio',  // Atripalda → Mercurio (se Atripalda non esiste come azienda)
-      'AV': 'La Torre',  // Avellino → La Torre (se Avellino non esiste come azienda)
-      'L': 'Albatros'    // Lioni → Albatros (se Lioni non esiste come azienda)
+      'L': 'Albatros',    // Lioni → Albatros
+      'M': 'Mercurio',
+      'A': 'Albatros'     // A -> Albatros (ridondante ma sicuro)
     };
     return codeMap[code] || null;
   };
 
   // Verifica se un codice è geografico
   const isGeographicCode = (code) => {
-    return ['AT', 'AV', 'L'].includes(code);
+    return ['L', 'M', 'A'].includes(code);
   };
 
   const handleQuickCode = (empId, dayIndex, code, contextKey = null, weekRangeValue = null, targetField = null) => {
@@ -4343,12 +4341,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                               {/* Mostra sempre la seconda riga se in1 è compilato, oppure se in2 è già compilato */}
                               {(cellData.in1 || cellData.in2) && (() => {
                                 // Verifica se in2 contiene un codice (non un orario)
-                                // Deve essere un codice COMPLETO (es. "Malattia", "Avellino") o un codice geografico (AT, AV, L)
+                                // Deve essere un codice COMPLETO (es. "Malattia", "Avellino") o un codice geografico (L, M, A)
                                 // Altrimenti rimaniamo in modalità input per permettere onBlur
                                 const isTime = /^\d{1,2}[.:]\d{2}$/.test(cellData.in2);
-                                const isGeoCode = ['AT', 'AV', 'L'].includes(cellData.in2);
+                                const isGeoCode = ['L', 'M', 'A'].includes(cellData.in2);
                                 const isFullLabel = Object.values(timeCodes).includes(cellData.in2) ||
-                                  ['ATRIPALDA', 'AVELLINO', 'LIONI', 'MERCURIO', 'LA TORRE', 'ALBATROS'].includes(cellData.in2);
+                                  ['LIONI', 'MERCURIO', 'LA TORRE', 'ALBATROS'].includes(cellData.in2);
 
                                 const in2IsCode = cellData.in2 && !isTime && (isGeoCode || isFullLabel);
 
