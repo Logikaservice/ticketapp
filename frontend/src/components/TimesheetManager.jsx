@@ -1166,11 +1166,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       // 2. OPPURE è una corrispondenza esatta con una chiave di codice (es. "R", "M", "F", "AT", "AV", "L")
       // 3. OPPURE la stringa corrisponde esattamente a un label (es. "MALATTIA", "RIPOSO", "AVELLINO", "ATRIPALDA", "LIONI")
       // IMPORTANTE: Per in2, richiediamo almeno 2 caratteri per evitare che "a" venga salvato
-      const isExactKeyMatch = timeCodes[strValue] !== undefined;
+      // MODIFICA: isExactKeyMatch deve essere case-insensitive per supportare "m" -> "M"
+      const isExactKeyMatch = timeCodes[strValue.toUpperCase()] !== undefined;
       const isExactLabelMatch = Object.values(timeCodes).some(label => label.toUpperCase() === strValue);
       const isGeographic = isGeographicCode(detectedCode) || ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(strValue);
-      const isGeographicCodeShort = ['AT', 'AV', 'L'].includes(strValue);
-      // Per in2, richiediamo almeno 2 caratteri O una corrispondenza esatta (codice geografico corto o nome città completo)
+      const isGeographicCodeShort = ['AT', 'AV', 'L'].includes(strValue.toUpperCase());
+      // Per in2, richiediamo almeno 2 caratteri O una corrispondenza esatta (codice geografico corto o nome città completo o chiave codice)
       const shouldApply = field === 'in2'
         ? (strValue.length >= 2 && (isGeographic || isGeographicCodeShort || isExactLabelMatch)) || isExactKeyMatch
         : (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch || isGeographic) && strValue.length <= 15;
