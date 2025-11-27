@@ -42,7 +42,6 @@ class SpeechGenClient {
 
     for (const endpoint of endpoints) {
       try {
-        console.log(`🔍 Tentativo endpoint: ${endpoint.name}`);
         const response = await fetch(endpoint.url, {
           method: 'GET',
           headers: {
@@ -54,15 +53,12 @@ class SpeechGenClient {
         });
 
         if (response.ok) {
-          console.log(`✅ Endpoint funzionante: ${endpoint.name}`);
           const data = await response.json();
           return this._processSpeakersResponse(data);
         } else {
-          console.log(`⚠️ Endpoint ${endpoint.name} risposta non OK: ${response.status}`);
           lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
       } catch (error) {
-        console.log(`❌ Errore endpoint ${endpoint.name}:`, error.message);
         lastError = error;
         // Continua con il prossimo endpoint
         continue;
@@ -77,8 +73,6 @@ class SpeechGenClient {
    * Processa la risposta dell'API per estrarre gli speaker
    */
   _processSpeakersResponse(data) {
-    console.log('📢 Risposta SpeechGen API:', JSON.stringify(data, null, 2));
-
     // Gestisci diverse strutture di risposta
     let speakers = [];
     
@@ -112,7 +106,6 @@ class SpeechGenClient {
       }
     });
 
-    console.log(`✅ Trovati ${speakers.length} speaker:`, speakers.map(s => s.name).join(', '));
     return speakers;
   }
 

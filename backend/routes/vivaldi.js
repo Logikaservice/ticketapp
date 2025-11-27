@@ -193,11 +193,8 @@ module.exports = (poolVivaldi) => {
         return res.json({ speakers: [], warning: 'API Key SpeechGen non configurata' });
       }
 
-      console.log('🔍 Recupero speaker da SpeechGen con API Key:', config.apiKey.substring(0, 10) + '...');
       const speechGen = new SpeechGenClient(config.apiKey, config.email);
       const speakers = await speechGen.getSpeakers();
-      
-      console.log(`✅ Restituiti ${speakers.length} speaker al frontend`);
       res.json({ speakers: speakers || [] });
     } catch (error) {
       console.error('❌ Errore recupero speaker:', error);

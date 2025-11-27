@@ -29,13 +29,7 @@ const pool = new Pool({
 const vivaldiDbUrl = process.env.DATABASE_URL_VIVALDI || 
                      process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/vivaldi_db');
 
-console.log('🔍 DATABASE_URL_VIVALDI configurato:', vivaldiDbUrl ? 'Sì' : 'No');
-if (vivaldiDbUrl) {
-  const dbInfo = vivaldiDbUrl.match(/@([^:]+):(\d+)\/(.+)$/);
-  if (dbInfo) {
-    console.log('🔍 Database Vivaldi:', `${dbInfo[1]}:${dbInfo[2]}/${dbInfo[3]}`);
-  }
-} else {
+if (!vivaldiDbUrl) {
   console.warn('⚠️ DATABASE_URL_VIVALDI non configurato! Vivaldi non sarà disponibile.');
 }
 
@@ -215,10 +209,6 @@ io.use(async (socket, next) => {
       socket.handshake.headers?.authorization?.replace('Bearer ', '') ||
       socket.handshake.headers?.Authorization?.replace('Bearer ', '');
 
-    console.log('🔍 WebSocket auth - Token presente:', !!token);
-    console.log('🔍 WebSocket auth - handshake.auth:', socket.handshake.auth);
-    console.log('🔍 WebSocket auth - handshake.headers:', Object.keys(socket.handshake.headers || {}));
-
     if (!token) {
       console.error('❌ WebSocket: Token mancante nell\'handshake');
       return next(new Error('Token mancante'));
@@ -226,12 +216,7 @@ io.use(async (socket, next) => {
 
     // Verifica JWT token usando lo stesso JWT_SECRET di jwtUtils
     const jwt = require('jsonwebtoken');
-
-    console.log('🔍 WebSocket auth - Verifica token con JWT_SECRET (lunghezza:', JWT_SECRET ? JWT_SECRET.length : 'N/A', ')');
-
     const decoded = jwt.verify(token, JWT_SECRET);
-
-    console.log('✅ WebSocket auth - Token valido per utente:', decoded.id || decoded.userId, 'ruolo:', decoded.ruolo);
 
     socket.userId = decoded.id || decoded.userId;
     socket.userRole = decoded.ruolo;
@@ -304,29 +289,22 @@ const storageTicketPhotos = multer.diskStorage({
   destination: (req, file, cb) => {
     try {
       const uploadPath = path.join(__dirname, 'uploads', 'tickets', 'photos');
-      console.log('🔍 DEBUG MULTER: Tentativo creazione directory:', uploadPath);
 
       if (!fs.existsSync(uploadPath)) {
-        console.log('🔍 DEBUG MULTER: Directory non esiste, creazione...');
         fs.mkdirSync(uploadPath, { recursive: true });
-        console.log('✅ DEBUG MULTER: Directory creata con successo');
-      } else {
-        console.log('✅ DEBUG MULTER: Directory già esistente');
       }
 
       // Verifica che la directory sia scrivibile
       try {
         fs.accessSync(uploadPath, fs.constants.W_OK);
-        console.log('✅ DEBUG MULTER: Directory scrivibile');
       } catch (accessErr) {
-        console.error('❌ DEBUG MULTER: Directory non scrivibile:', accessErr.message);
+        console.error('❌ Directory upload non scrivibile:', accessErr.message);
         return cb(new Error('Directory upload non scrivibile: ' + accessErr.message));
       }
 
       cb(null, uploadPath);
     } catch (err) {
-      console.error('❌ DEBUG MULTER: Errore creazione directory:', err.message);
-      console.error('❌ DEBUG MULTER: Stack:', err.stack);
+      console.error('❌ Errore creazione directory upload:', err.message);
       cb(new Error('Errore creazione directory upload: ' + err.message));
     }
   },
@@ -335,10 +313,9 @@ const storageTicketPhotos = multer.diskStorage({
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
       const ext = path.extname(file.originalname || '');
       const filename = `ticket-photo-${uniqueSuffix}${ext}`;
-      console.log('🔍 DEBUG MULTER: Nome file generato:', filename);
       cb(null, filename);
     } catch (err) {
-      console.error('❌ DEBUG MULTER: Errore generazione nome file:', err.message);
+      console.error('❌ Errore generazione nome file:', err.message);
       cb(new Error('Errore generazione nome file: ' + err.message));
     }
   }
@@ -411,21 +388,14 @@ app.post('/api/login', async (req, res) => {
     host.includes('orari') || host.includes('turni');
   const requestedProject = isOrariDomain ? 'orari' : 'ticket';
 
-  console.log('🔍 LOGIN DEBUG - Senza JWT');
-  console.log('Email:', email);
-  console.log('Password length:', password ? password.length : 0);
-  console.log('Host:', host, '| Progetto richiesto:', requestedProject);
-
   try {
     const client = await pool.connect();
 
     // Prima cerca l'utente per email, includendo admin_companies, inactivity_timeout_minutes e enabled_projects
     const result = await client.query('SELECT id, email, password, ruolo, nome, cognome, telefono, azienda, COALESCE(admin_companies, \'[]\'::jsonb) as admin_companies, COALESCE(inactivity_timeout_minutes, 3) as inactivity_timeout_minutes, COALESCE(enabled_projects, \'["ticket"]\'::jsonb) as enabled_projects FROM users WHERE email = $1', [email]);
-    console.log('Utenti trovati:', result.rows.length);
 
     if (result.rows.length === 0) {
       client.release();
-      console.log('❌ Utente non trovato');
       return res.status(401).json({ error: 'Credenziali non valide' });
     }
 
@@ -457,16 +427,12 @@ app.post('/api/login', async (req, res) => {
     // ECCEZIONE: Gli admin e i tecnici hanno sempre accesso a tutto
     if (user.ruolo !== 'admin' && user.ruolo !== 'tecnico' && !enabledProjects.includes(requestedProject)) {
       client.release();
-      console.log(`❌ Utente ${email} non ha accesso al progetto ${requestedProject}`);
       return res.status(403).json({
         error: `Accesso negato. Non hai i permessi per accedere a ${requestedProject === 'orari' ? 'Orari e Turni' : 'Ticket'}. Contatta l'amministratore.`
       });
     }
 
-    console.log(`✅ Utente ${email} ha accesso ai progetti:`, enabledProjects);
     const storedPassword = user.password;
-    console.log('Password stored length:', storedPassword ? storedPassword.length : 0);
-    console.log('Password is hashed:', storedPassword && storedPassword.startsWith('$2b$'));
 
     // Verifica se la password è già hashata
     let isValidPassword = false;
@@ -477,18 +443,15 @@ app.post('/api/login', async (req, res) => {
       isValidPassword = await verifyPassword(password, storedPassword);
     } else {
       // Password in chiaro (sistema attuale)
-      console.log('🔓 Verifica password in chiaro');
       isValidPassword = password === storedPassword;
 
       // Non migrare più le password - mantenere sempre in chiaro
-      console.log('🔓 Password mantenuta in chiaro per visualizzazione');
     }
 
     client.release();
 
     if (isValidPassword) {
       // Non eliminare la password per permettere la visualizzazione nelle impostazioni
-      console.log(`✅ Login riuscito per: ${email}`);
 
       // Registra access log
       const sessionId = await recordAccessLog(user, req);
@@ -1196,26 +1159,6 @@ process.on('uncaughtException', (error) => {
   // In produzione, potresti voler fare exit(1) qui, ma per ora manteniamo il server attivo
 });
 
-// Endpoint debug pubblico (solo per diagnostica - rimuovere in produzione)
-app.get('/api/orari/debug-public', async (req, res) => {
-  try {
-    const orariRoutes = require('./routes/orari')(pool);
-    // Crea una richiesta mock per accedere all'endpoint debug
-    const mockReq = { ...req };
-    const mockRes = {
-      json: (data) => res.json(data),
-      status: (code) => ({ json: (data) => res.status(code).json(data) })
-    };
-    // Chiama direttamente l'endpoint debug
-    const debugRoute = orariRoutes.stack.find(layer => layer.route?.path === '/debug');
-    if (debugRoute) {
-      return debugRoute.route.stack[0].handle(mockReq, mockRes);
-    }
-    res.status(404).json({ error: 'Debug endpoint not found' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // Funzione per chiusura automatica ticket risolti da più di 5 giorni
 const closeExpiredTickets = async () => {
