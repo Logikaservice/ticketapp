@@ -1133,14 +1133,18 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       }
 
       // Su blur, applica solo se:
-      // 1. La stringa ha almeno 2 caratteri (per evitare che "A" venga interpretato come "Malattia")
-      // 2. OPPURE è una corrispondenza esatta con una chiave di codice (es. "R", "M", "F")
-      // 3. OPPURE la stringa corrisponde esattamente a un label (es. "MALATTIA", "RIPOSO")
-      // 4. OPPURE è un codice geografico (AT, AV, L) o nome città (per in2)
+      // 1. La stringa ha almeno 2 caratteri (per evitare che "A" venga interpretato come "Malattia" o "Avellino")
+      // 2. OPPURE è una corrispondenza esatta con una chiave di codice (es. "R", "M", "F", "AT", "AV", "L")
+      // 3. OPPURE la stringa corrisponde esattamente a un label (es. "MALATTIA", "RIPOSO", "AVELLINO", "ATRIPALDA", "LIONI")
+      // IMPORTANTE: Per in2, richiediamo almeno 2 caratteri per evitare che "a" venga salvato
       const isExactKeyMatch = timeCodes[strValue] !== undefined;
       const isExactLabelMatch = Object.values(timeCodes).some(label => label.toUpperCase() === strValue);
       const isGeographic = isGeographicCode(detectedCode) || ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(strValue);
-      const shouldApply = (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch || isGeographic) && strValue.length <= 15;
+      const isGeographicCodeShort = ['AT', 'AV', 'L'].includes(strValue);
+      // Per in2, richiediamo almeno 2 caratteri O una corrispondenza esatta (codice geografico corto o nome città completo)
+      const shouldApply = field === 'in2' 
+        ? (strValue.length >= 2 && (isGeographic || isGeographicCodeShort || isExactLabelMatch)) || isExactKeyMatch
+        : (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch || isGeographic) && strValue.length <= 15;
 
       if (detectedCode && shouldApply) {
         // Verifica se è un codice geografico che punta all'azienda corrente
@@ -1381,7 +1385,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     return ['AT', 'AV', 'L'].includes(code);
   };
 
-  const handleQuickCode = (empId, dayIndex, code, contextKey = null, weekRangeValue = null) => {
+  const handleQuickCode = (empId, dayIndex, code, contextKey = null, weekRangeValue = null, targetField = null) => {
     // Se il codice è vuoto, pulisci SOLO quella cella (giorno) specifica
     if (!code || code.trim() === '') {
       const currentWeek = weekRangeValue || weekRange;
@@ -1690,6 +1694,23 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     setSchedule(prev => {
       const currentDayData = prev[scheduleKey]?.[dayIndex] || {};
       const hasExistingTimes = (currentDayData.in1 && currentDayData.out1) || (currentDayData.in2 && currentDayData.out2);
+      
+      // Se targetField è in2, applica il codice solo a in2 senza toccare code o altri campi
+      if (targetField === 'in2') {
+        const codeLabel = timeCodes[keyToSave] || code;
+        return {
+          ...prev,
+          [scheduleKey]: {
+            ...prev[scheduleKey],
+            [dayIndex]: {
+              ...currentDayData,
+              in2: codeLabel, // Salva solo il label in in2
+              out2: '' // Pulisci out2 se c'era un orario
+              // NON toccare code, in1, out1 - devono rimanere invariati
+            }
+          }
+        };
+      }
       
       const newSchedule = {
         ...prev,
@@ -2110,7 +2131,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   };
 
   // --- MENU CONTESTUALE ---
-  const handleContextMenu = (e, empId, dayIndex, contextKey = null, weekRangeValue = null) => {
+  const handleContextMenu = (e, empId, dayIndex, contextKey = null, weekRangeValue = null, field = null) => {
     e.preventDefault();
 
     // Verifica se il campo ha un codice
@@ -2128,7 +2149,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       dayIndex,
       contextKey,
       weekRangeValue,
-      hasCode // Flag per sapere se ha un codice
+      hasCode, // Flag per sapere se ha un codice
+      field // Campo su cui è stato fatto click destro (in1, out1, in2, out2, o null per il campo code)
     });
   };
 
@@ -4025,7 +4047,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                         value={cellData.in2 || ''}
                                         onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
                                         onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'in2')}
                                         title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || 'Inserisci orario o codice geografico (es. Atripalda, AV, AT)'}
                                       />
                                       <input
@@ -4035,7 +4057,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                         value={cellData.out2 || ''}
                                         onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
                                         onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'out2')}
                                         title={getFieldError(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange) || ''}
                                       />
                                     </div>
@@ -4114,7 +4136,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                         value={cellData.in2 || ''}
                                         onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
                                         onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'in2')}
                                         title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || 'Inserisci orario o codice geografico (es. Atripalda, AV, AT)'}
                                       />
                                       <input
@@ -4124,7 +4146,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                         value={cellData.out2 || ''}
                                         onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
                                         onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'out2')}
                                         title={getFieldError(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange) || ''}
                                       />
                                     </div>
@@ -5098,7 +5120,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                   key={code}
                   className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm flex items-center justify-between group"
                   onClick={() => {
-                    handleQuickCode(contextMenu.empId, contextMenu.dayIndex, label, contextMenu.contextKey, contextMenu.weekRangeValue);
+                    handleQuickCode(contextMenu.empId, contextMenu.dayIndex, label, contextMenu.contextKey, contextMenu.weekRangeValue, contextMenu.field);
                     closeContextMenu();
                   }}
                 >
