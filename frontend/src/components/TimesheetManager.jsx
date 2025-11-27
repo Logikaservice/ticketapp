@@ -4245,7 +4245,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                               {/* Mostra sempre la seconda riga se in1 è compilato, oppure se in2 è già compilato */}
                               {(cellData.in1 || cellData.in2) && (() => {
                                 // Verifica se in2 contiene un codice (non un orario)
-                                const in2IsCode = cellData.in2 && !/^\d{1,2}[.:]\d{2}$/.test(cellData.in2);
+                                // Verifica se in2 contiene un codice (non un orario)
+                                // FIX: Non considerare "m" come codice valido per la visualizzazione immediata
+                                // Deve essere un codice COMPLETO (es. "Malattia", "Avellino") o un codice geografico (AT, AV, L)
+                                // Altrimenti rimaniamo in modalità input per permettere onBlur
+                                const isTime = /^\d{1,2}[.:]\d{2}$/.test(cellData.in2);
+                                const isGeoCode = ['AT', 'AV', 'L'].includes(cellData.in2);
+                                const isFullLabel = Object.values(timeCodes).includes(cellData.in2) ||
+                                  ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(cellData.in2);
+
+                                const in2IsCode = cellData.in2 && !isTime && (isGeoCode || isFullLabel);
 
                                 if (in2IsCode) {
                                   // Mostra cella unificata con sfondo giallo e testo centrato
