@@ -1139,22 +1139,24 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         }
       } else {
         // Per in1, out1, out2, usa la logica normale
-        if (timeCodes[strValue]) {
-          detectedCode = strValue;
-        } else if (['AT', 'AV', 'L'].includes(strValue)) {
+        // MODIFICA: Cerca case-insensitive
+        const upperStr = strValue.toUpperCase();
+        if (timeCodes[upperStr]) {
+          detectedCode = upperStr;
+        } else if (['AT', 'AV', 'L'].includes(upperStr)) {
           // Riconosci codici geografici hardcoded anche qui
-          detectedCode = strValue;
+          detectedCode = upperStr;
         } else {
           // Cerca corrispondenza esatta o che il label inizi con la stringa digitata
           // NON usare includes() perché "A" verrebbe trovato in "MALATTIA"
           const foundKey = Object.keys(timeCodes).find(key => {
             const label = timeCodes[key].toUpperCase();
             // Corrispondenza esatta
-            if (label === strValue) return true;
+            if (label === upperStr) return true;
             // Il label inizia con la stringa digitata (per codici come "AT", "AV", "MALATTIA")
-            if (label.startsWith(strValue)) return true;
+            if (label.startsWith(upperStr)) return true;
             // La stringa digitata inizia con il label (per codici corti come "R", "M", "F")
-            if (strValue.startsWith(label)) return true;
+            if (upperStr.startsWith(label)) return true;
             return false;
           });
           if (foundKey) detectedCode = foundKey;
