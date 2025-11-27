@@ -3,11 +3,13 @@ import { Settings, Play, Plus, Clock, History, Volume2, Mic, Send, Copy, Trash2,
 import { buildApiUrl } from '../utils/apiConfig';
 import GeminiAssistant from './GeminiAssistant';
 import VivaldiSettingsModal from './VivaldiSettingsModal';
+import VivaldiQuickCreateModal from './VivaldiQuickCreateModal';
 
 const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
   // Stati principali
   const [showSettings, setShowSettings] = useState(false);
   const [showGeminiAssistant, setShowGeminiAssistant] = useState(false);
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('editor'); // 'editor', 'queue', 'timeline', 'history'
 
@@ -241,6 +243,35 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
       }
     } catch (error) {
       console.error('Errore creazione annuncio:', error);
+      showNotification('Errore creazione annuncio', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleQuickCreate = async (quickAnnuncio) => {
+    setLoading(true);
+    try {
+      const response = await fetch(buildApiUrl('/api/vivaldi/annunci'), {
+        method: 'POST',
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...quickAnnuncio,
+          azienda_id: currentUser?.azienda_id || 1
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showNotification('Annuncio rapido creato', 'success');
+        loadAnnunci();
+        setShowQuickCreate(false);
+      }
+    } catch (error) {
+      console.error('Errore creazione annuncio rapido:', error);
       showNotification('Errore creazione annuncio', 'error');
     } finally {
       setLoading(false);
@@ -858,6 +889,23 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       {/* Hidden Audio Player */}
       <audio ref={audioPlayerRef} className="hidden" onEnded={() => setPlayingAudio(null)} />
+
+      {/* Mobile Quick Create FAB */}
+      <button
+        onClick={() => setShowQuickCreate(true)}
+        className="md:hidden fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-full shadow-lg shadow-blue-500/40 flex items-center justify-center z-40 hover:scale-110 active:scale-95 transition-all"
+      >
+        <Plus size={28} />
+      </button>
+
+      {/* Mobile Quick Create Modal */}
+      <VivaldiQuickCreateModal
+        show={showQuickCreate}
+        onClose={() => setShowQuickCreate(false)}
+        onCreate={handleQuickCreate}
+        speakers={speakers}
+        loading={loading}
+      />
     </div>
   );
 };
