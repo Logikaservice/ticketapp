@@ -4119,7 +4119,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   return (
                                     <div 
                                       className="h-7 bg-yellow-100 rounded flex items-center justify-center font-medium text-xs text-yellow-800 cursor-pointer hover:bg-yellow-200 transition-colors"
-                                      onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                      onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'in2')}
                                       title="Tasto destro per modificare"
                                     >
                                       {cellData.in2}
