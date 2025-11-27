@@ -1202,7 +1202,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           : (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch || isGeographic) && strValue.length <= 15;
 
         // Se è in2 e non è un codice valido, pulisci il campo
-        if (field === 'in2' && (!detectedCode || !shouldApply)) {
+        // MA ATTENZIONE: Se è un orario valido (numeri), NON pulire!
+        const isTimeValue = /^[\d.:]+$/.test(strValue);
+        if (field === 'in2' && (!detectedCode || !shouldApply) && !isTimeValue) {
           const currentWeek = weekRangeValue || weekRange;
           const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
           const scheduleKey = `${currentWeek}-${baseKey}`;
