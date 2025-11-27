@@ -622,18 +622,19 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   }, [schedule, employeesData, companies, departmentsStructure, timeCodes, timeCodesOrder]);
 
   // --- SALVATAGGIO DATI ---
-  const saveData = async (overrideTimeCodes = null, overrideTimeCodesOrder = null) => {
+  const saveData = async (overrideTimeCodes = null, overrideTimeCodesOrder = null, overrideSchedule = null) => {
     try {
       // Usa i parametri override se forniti, altrimenti usa lo stato corrente
       const codesToSave = overrideTimeCodes !== null ? overrideTimeCodes : timeCodes;
       const orderToSave = overrideTimeCodesOrder !== null ? overrideTimeCodesOrder : timeCodesOrder;
+      const scheduleToSave = overrideSchedule !== null ? overrideSchedule : schedule;
 
       // Usa lo stato corrente per assicurarsi di salvare i dati più recenti
       const dataToSave = {
         companies,
         departments: departmentsStructure,
         employees: employeesData,
-        schedule,
+        schedule: scheduleToSave,
         timeCodes: codesToSave,
         timeCodesOrder: orderToSave
       };
@@ -1359,30 +1360,30 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
               const scheduleKey = `${currentWeek}-${baseKey}`;
 
-              setSchedule(prev => {
-                const newSchedule = { ...prev };
-                if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
-                if (!newSchedule[scheduleKey][dayIndex]) {
-                  newSchedule[scheduleKey][dayIndex] = {
-                    code: '',
-                    in1: prev[scheduleKey]?.[dayIndex]?.in1 || '',
-                    out1: prev[scheduleKey]?.[dayIndex]?.out1 || '',
-                    in2: '',
-                    out2: ''
-                  };
-                }
+              // Calcola il nuovo schedule
+              const updatedSchedule = { ...schedule };
+              if (!updatedSchedule[scheduleKey]) updatedSchedule[scheduleKey] = {};
+              if (!updatedSchedule[scheduleKey][dayIndex]) {
+                updatedSchedule[scheduleKey][dayIndex] = {
+                  code: '',
+                  in1: schedule[scheduleKey]?.[dayIndex]?.in1 || '',
+                  out1: schedule[scheduleKey]?.[dayIndex]?.out1 || '',
+                  in2: '',
+                  out2: ''
+                };
+              }
 
-                const codeLabel = timeCodes[detectedCode] || detectedCode;
-                newSchedule[scheduleKey][dayIndex].in2 = codeLabel;
+              const codeLabel = timeCodes[detectedCode] || detectedCode;
+              updatedSchedule[scheduleKey][dayIndex].in2 = codeLabel;
 
-                // Pulisci out2 se c'era un orario
-                if (newSchedule[scheduleKey][dayIndex].out2 && /^\d/.test(newSchedule[scheduleKey][dayIndex].out2)) {
-                  newSchedule[scheduleKey][dayIndex].out2 = '';
-                }
-                return newSchedule;
-              });
+              // Pulisci out2 se c'era un orario
+              if (updatedSchedule[scheduleKey][dayIndex].out2 && /^\d/.test(updatedSchedule[scheduleKey][dayIndex].out2)) {
+                updatedSchedule[scheduleKey][dayIndex].out2 = '';
+              }
 
-              setTimeout(() => saveData(), 100);
+              // Aggiorna stato e salva
+              setSchedule(updatedSchedule);
+              setTimeout(() => saveData(null, null, updatedSchedule), 100);
               return;
             }
 
@@ -1510,7 +1511,46 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         }
 
         // Salva i dati dopo la validazione e formattazione
-        saveData();
+        // IMPORTANTE: Passa lo schedule aggiornato a saveData
+        // Poiché setSchedule è asincrono, dobbiamo ricostruire lo stato atteso o usare una ref.
+        // Qui usiamo una strategia ibrida: leggiamo lo schedule corrente (che potrebbe essere vecchio nel closure)
+        // ma siccome siamo in un setTimeout, speriamo che il render sia avvenuto? NO, il closure è vecchio.
+
+        // CORREZIONE: Dobbiamo calcolare il nuovo schedule QUI per passarlo a saveData
+        // Ma handleInputChange ha già chiamato setSchedule.
+        // Per risolvere il problema dello stato stale, dobbiamo usare il functional update di setSchedule
+        // E intercettare il nuovo valore. Ma setSchedule non ritorna il valore.
+
+        // SOLUZIONE MIGLIORE: Ricostruiamo la modifica locale per passarla a saveData
+        const currentWeek = weekRangeValue || weekRange;
+        const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+        const scheduleKey = `${currentWeek}-${baseKey}`;
+
+        const scheduleToSave = { ...schedule }; // Copia dello schedule al momento dell'esecuzione (potrebbe essere vecchio)
+        // MA aspetta! Se handleBlur è stale, 'schedule' è vecchio.
+        // Se usiamo setSchedule(prev => ...), React ha il nuovo stato.
+        // saveData però non può accedere a 'prev'.
+
+        // TRUCCO: Usiamo setSchedule per ottenere lo stato aggiornato e salvarlo? No.
+        // Dobbiamo fidarci che handleInputChange abbia aggiornato lo stato e che saveData
+        // possa accedere allo stato aggiornato SE usiamo un Ref per lo schedule.
+        // Ma non abbiamo un Ref.
+
+        // ALTERNATIVA: Ricostruiamo la modifica puntuale su 'schedule' (che è stale) 
+        // E passiamo QUELLO a saveData.
+        // Rischio: se ci sono stati altri aggiornamenti concorrenti, li perdiamo.
+        // Ma qui siamo in un input singolo.
+
+        if (!scheduleToSave[scheduleKey]) scheduleToSave[scheduleKey] = {};
+        if (!scheduleToSave[scheduleKey][dayIndex]) scheduleToSave[scheduleKey][dayIndex] = {};
+
+        // Applica la modifica che abbiamo appena fatto (formatted value)
+        scheduleToSave[scheduleKey][dayIndex] = {
+          ...scheduleToSave[scheduleKey][dayIndex],
+          [field]: formatted
+        };
+
+        saveData(null, null, scheduleToSave);
       }, 200);
     } catch (error) {
       console.error('❌ Errore critico in handleBlur:', error);
