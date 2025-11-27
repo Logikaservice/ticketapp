@@ -35,6 +35,7 @@ async function initVivaldiDatabase() {
     }
 
     await adminPool.end();
+    console.log('✅ Disconnesso dal database admin');
     console.log('🔄 Procedo con la creazione delle tabelle...');
 
     // Ora connettiti al database vivaldi_db per creare le tabelle
