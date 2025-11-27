@@ -1068,22 +1068,41 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       const strValue = String(value).trim().toUpperCase();
       let detectedCode = null;
 
-      if (timeCodes[strValue]) {
-        detectedCode = strValue;
-      } else {
-        // Cerca corrispondenza esatta o che il label inizi con la stringa digitata
-        // NON usare includes() perché "A" verrebbe trovato in "MALATTIA"
-        const foundKey = Object.keys(timeCodes).find(key => {
-          const label = timeCodes[key].toUpperCase();
-          // Corrispondenza esatta
-          if (label === strValue) return true;
-          // Il label inizia con la stringa digitata (per codici come "AT", "AV", "MALATTIA")
-          if (label.startsWith(strValue)) return true;
-          // La stringa digitata inizia con il label (per codici corti come "R", "M", "F")
-          if (strValue.startsWith(label)) return true;
-          return false;
-        });
-        if (foundKey) detectedCode = foundKey;
+      // Per in2, verifica PRIMA se è un nome di città (Atripalda, Avellino, Lioni)
+      // o un codice geografico diretto (AT, AV, L)
+      if (field === 'in2') {
+        // Mappa nomi città a codici geografici
+        const cityToCode = {
+          'ATRIPALDA': 'AT',
+          'AVELLINO': 'AV',
+          'LIONI': 'L'
+        };
+        if (cityToCode[strValue]) {
+          detectedCode = cityToCode[strValue];
+        } else if (['AT', 'AV', 'L'].includes(strValue)) {
+          detectedCode = strValue;
+        }
+      }
+
+      // Se non è stato trovato un codice geografico per in2, cerca nei timeCodes
+      if (!detectedCode) {
+        if (timeCodes[strValue]) {
+          detectedCode = strValue;
+        } else {
+          // Cerca corrispondenza esatta o che il label inizi con la stringa digitata
+          // NON usare includes() perché "A" verrebbe trovato in "MALATTIA"
+          const foundKey = Object.keys(timeCodes).find(key => {
+            const label = timeCodes[key].toUpperCase();
+            // Corrispondenza esatta
+            if (label === strValue) return true;
+            // Il label inizia con la stringa digitata (per codici come "AT", "AV", "MALATTIA")
+            if (label.startsWith(strValue)) return true;
+            // La stringa digitata inizia con il label (per codici corti come "R", "M", "F")
+            if (strValue.startsWith(label)) return true;
+            return false;
+          });
+          if (foundKey) detectedCode = foundKey;
+        }
       }
 
       // Su blur, applica solo se:
