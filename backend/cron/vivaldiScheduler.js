@@ -12,6 +12,11 @@ class VivaldiScheduler {
    * Processa le schedulazioni attive e aggiunge annunci alla coda
    */
   async processSchedules() {
+    if (!this.pool) {
+      console.log('⚠️ VivaldiScheduler: pool non disponibile, skip processSchedules');
+      return;
+    }
+
     if (this.isRunning) {
       console.log('⏳ Scheduler Vivaldi già in esecuzione, skip...');
       return;
@@ -110,7 +115,20 @@ class VivaldiScheduler {
    * Esegue gli annunci in coda che sono pronti
    */
   async executeQueue() {
+    if (!this.pool) {
+      console.log('⚠️ VivaldiScheduler: pool non disponibile, skip executeQueue');
+      return;
+    }
+
     try {
+      // Verifica che siamo nel database corretto
+      const dbCheck = await this.pool.query('SELECT current_database()');
+      const currentDb = dbCheck.rows[0].current_database;
+      if (currentDb !== 'vivaldi_db') {
+        console.error(`❌ VivaldiScheduler: connesso al database sbagliato: ${currentDb}`);
+        return;
+      }
+
       const now = new Date();
 
       // Recupera annunci pronti per l'esecuzione (stato pending, scheduled_for <= now)
