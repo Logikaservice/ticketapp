@@ -1158,6 +1158,37 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         ? (strValue.length >= 2 && (isGeographic || isGeographicCodeShort || isExactLabelMatch)) || isExactKeyMatch
         : (strValue.length >= 2 || isExactKeyMatch || isExactLabelMatch || isGeographic) && strValue.length <= 15;
 
+      // Se è in2 e non è un codice valido, pulisci il campo
+      if (field === 'in2' && (!detectedCode || !shouldApply)) {
+        const currentWeek = weekRangeValue || weekRange;
+        const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+        const scheduleKey = `${currentWeek}-${baseKey}`;
+        
+        setSchedule(prev => {
+          const newSchedule = { ...prev };
+          if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
+          if (!newSchedule[scheduleKey][dayIndex]) {
+            newSchedule[scheduleKey][dayIndex] = {
+              code: prev[scheduleKey]?.[dayIndex]?.code || '',
+              in1: prev[scheduleKey]?.[dayIndex]?.in1 || '',
+              out1: prev[scheduleKey]?.[dayIndex]?.out1 || '',
+              in2: '',
+              out2: prev[scheduleKey]?.[dayIndex]?.out2 || ''
+            };
+          } else {
+            // Pulisci solo in2, mantieni tutto il resto
+            newSchedule[scheduleKey][dayIndex] = {
+              ...newSchedule[scheduleKey][dayIndex],
+              in2: ''
+            };
+          }
+          return newSchedule;
+        });
+        
+        setTimeout(() => saveData(), 100);
+        return; // Esci senza applicare codice
+      }
+
       if (detectedCode && shouldApply) {
         // Verifica se è un codice geografico che punta all'azienda corrente
         // Se sì, non applicarlo ma segnalalo come errore
