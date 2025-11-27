@@ -1508,101 +1508,108 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
       // 6. Validazione Finale Giorno
       setTimeout(() => {
-        const updatedDayData = schedule[scheduleKey]?.[dayIndex] || {};
-        const dayDataForValidation = { ...updatedDayData, [field]: formatted };
-        const dayErrors = validateDaySchedule(dayDataForValidation);
+        try {
+          // DEBUG: Verifica accesso a scheduleKey
+          // console.log('DEBUG handleBlur setTimeout:', { scheduleKey, field, formatted });
 
-        setValidationErrors(prev => {
-          const newErrors = { ...prev };
-          Object.keys(newErrors).forEach(key => {
-            if (key.startsWith(`${scheduleKey}-${dayIndex}-`)) delete newErrors[key];
-          });
-          Object.keys(dayErrors).forEach(f => {
-            newErrors[`${scheduleKey}-${dayIndex}-${f}`] = dayErrors[f];
-          });
-          return newErrors;
-        });
+          const updatedDayData = schedule[scheduleKey]?.[dayIndex] || {};
+          const dayDataForValidation = { ...updatedDayData, [field]: formatted };
+          const dayErrors = validateDaySchedule(dayDataForValidation);
 
-        // 7. Controllo sovrapposizioni con altre aziende/reparti (solo se il giorno ha orari completi)
-        if ((dayDataForValidation.in1 && dayDataForValidation.out1) || (dayDataForValidation.in2 && dayDataForValidation.out2)) {
-          // Trova il nome del dipendente
-          const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
-          const employee = globalEmployees.find(e => e.id === empId);
-          if (employee) {
-            // Usa lo stato aggiornato dello schedule
-            setSchedule(currentSchedule => {
-              const overlaps = checkOverlappingSchedules(
-                empId,
-                employee.name,
-                dayIndex,
-                dayDataForValidation,
-                contextKey || baseKey,
-                currentWeek,
-                currentSchedule
-              );
-
-              if (overlaps.length > 0) {
-                const overlapMessages = overlaps.map(ov =>
-                  `${ov.company} > ${ov.department} (${ov.shift}: ${ov.time})`
-                ).join(', ');
-
-                if (showNotification) {
-                  showNotification(
-                    `⚠️ Attenzione: Orari sovrapposti con ${overlapMessages}`,
-                    'warning',
-                    8000
-                  );
-                }
-              }
-              return currentSchedule; // Non modificare lo schedule, solo controllare
+          setValidationErrors(prev => {
+            const newErrors = { ...prev };
+            Object.keys(newErrors).forEach(key => {
+              if (key.startsWith(`${scheduleKey}-${dayIndex}-`)) delete newErrors[key];
             });
+            Object.keys(dayErrors).forEach(f => {
+              newErrors[`${scheduleKey}-${dayIndex}-${f}`] = dayErrors[f];
+            });
+            return newErrors;
+          });
+
+          // 7. Controllo sovrapposizioni con altre aziende/reparti (solo se il giorno ha orari completi)
+          if ((dayDataForValidation.in1 && dayDataForValidation.out1) || (dayDataForValidation.in2 && dayDataForValidation.out2)) {
+            // Trova il nome del dipendente
+            const globalEmployees = employeesData[GLOBAL_EMPLOYEES_KEY] || [];
+            const employee = globalEmployees.find(e => e.id === empId);
+            if (employee) {
+              // Usa lo stato aggiornato dello schedule
+              setSchedule(currentSchedule => {
+                const overlaps = checkOverlappingSchedules(
+                  empId,
+                  employee.name,
+                  dayIndex,
+                  dayDataForValidation,
+                  contextKey || baseKey,
+                  currentWeek,
+                  currentSchedule
+                );
+
+                if (overlaps.length > 0) {
+                  const overlapMessages = overlaps.map(ov =>
+                    `${ov.company} > ${ov.department} (${ov.shift}: ${ov.time})`
+                  ).join(', ');
+
+                  if (showNotification) {
+                    showNotification(
+                      `⚠️ Attenzione: Orari sovrapposti con ${overlapMessages}`,
+                      'warning',
+                      8000
+                    );
+                  }
+                }
+                return currentSchedule; // Non modificare lo schedule, solo controllare
+              });
+            }
           }
+
+          // Salva i dati dopo la validazione e formattazione
+          // IMPORTANTE: Passa lo schedule aggiornato a saveData
+          // Poiché setSchedule è asincrono, dobbiamo ricostruire lo stato atteso o usare una ref.
+          // Qui usiamo una strategia ibrida: leggiamo lo schedule corrente (che potrebbe essere vecchio nel closure)
+          // ma siccome siamo in un setTimeout, speriamo che il render sia avvenuto? NO, il closure è vecchio.
+
+          // CORREZIONE: Dobbiamo calcolare il nuovo schedule QUI per passarlo a saveData
+          // Ma handleInputChange ha già chiamato setSchedule.
+          // Per risolvere il problema dello stato stale, dobbiamo usare il functional update di setSchedule
+          // E intercettare il nuovo valore. Ma setSchedule non ritorna il valore.
+
+          // SOLUZIONE MIGLIORE: Ricostruiamo la modifica locale per passarla a saveData
+
+          const scheduleToSave = { ...schedule }; // Copia dello schedule al momento dell'esecuzione (potrebbe essere vecchio)
+          // MA aspetta! Se handleBlur è stale, 'schedule' è vecchio.
+          // Se usiamo setSchedule(prev => ...), React ha il nuovo stato.
+          // saveData però non può accedere a 'prev'.
+
+          // TRUCCO: Usiamo setSchedule per ottenere lo stato aggiornato e salvarlo? No.
+          // Dobbiamo fidarci che handleInputChange abbia aggiornato lo stato e che saveData
+          // possa accedere allo stato aggiornato SE usiamo un Ref per lo schedule.
+          // Ma non abbiamo un Ref.
+
+          // ALTERNATIVA: Ricostruiamo la modifica puntuale su 'schedule' (che è stale) 
+          // E passiamo QUELLO a saveData.
+          // Rischio: se ci sono stati altri aggiornamenti concorrenti, li perdiamo.
+          // Ma qui siamo in un input singolo.
+
+          if (!scheduleToSave[scheduleKey]) scheduleToSave[scheduleKey] = {};
+          if (!scheduleToSave[scheduleKey][dayIndex]) scheduleToSave[scheduleKey][dayIndex] = {};
+
+          // Applica la modifica che abbiamo appena fatto (formatted value)
+          scheduleToSave[scheduleKey][dayIndex] = {
+            ...scheduleToSave[scheduleKey][dayIndex],
+            [field]: formatted
+          };
+
+          // SE stiamo salvando un orario in in2, assicuriamoci di rimuovere eventuali codici geografici residui
+          if (field === 'in2') {
+            delete scheduleToSave[scheduleKey][dayIndex].geographicCode;
+            delete scheduleToSave[scheduleKey][dayIndex].fromCompany;
+          }
+
+          saveData(null, null, scheduleToSave);
+        } catch (error) {
+          console.error('❌ Errore in handleBlur setTimeout:', error);
         }
-
-        // Salva i dati dopo la validazione e formattazione
-        // IMPORTANTE: Passa lo schedule aggiornato a saveData
-        // Poiché setSchedule è asincrono, dobbiamo ricostruire lo stato atteso o usare una ref.
-        // Qui usiamo una strategia ibrida: leggiamo lo schedule corrente (che potrebbe essere vecchio nel closure)
-        // ma siccome siamo in un setTimeout, speriamo che il render sia avvenuto? NO, il closure è vecchio.
-
-        // CORREZIONE: Dobbiamo calcolare il nuovo schedule QUI per passarlo a saveData
-        // Ma handleInputChange ha già chiamato setSchedule.
-        // Per risolvere il problema dello stato stale, dobbiamo usare il functional update di setSchedule
-        // E intercettare il nuovo valore. Ma setSchedule non ritorna il valore.
-
-        // SOLUZIONE MIGLIORE: Ricostruiamo la modifica locale per passarla a saveData
-
-        const scheduleToSave = { ...schedule }; // Copia dello schedule al momento dell'esecuzione (potrebbe essere vecchio)
-        // MA aspetta! Se handleBlur è stale, 'schedule' è vecchio.
-        // Se usiamo setSchedule(prev => ...), React ha il nuovo stato.
-        // saveData però non può accedere a 'prev'.
-
-        // TRUCCO: Usiamo setSchedule per ottenere lo stato aggiornato e salvarlo? No.
-        // Dobbiamo fidarci che handleInputChange abbia aggiornato lo stato e che saveData
-        // possa accedere allo stato aggiornato SE usiamo un Ref per lo schedule.
-        // Ma non abbiamo un Ref.
-
-        // ALTERNATIVA: Ricostruiamo la modifica puntuale su 'schedule' (che è stale) 
-        // E passiamo QUELLO a saveData.
-        // Rischio: se ci sono stati altri aggiornamenti concorrenti, li perdiamo.
-        // Ma qui siamo in un input singolo.
-
-        if (!scheduleToSave[scheduleKey]) scheduleToSave[scheduleKey] = {};
-        if (!scheduleToSave[scheduleKey][dayIndex]) scheduleToSave[scheduleKey][dayIndex] = {};
-
-        // Applica la modifica che abbiamo appena fatto (formatted value)
-        scheduleToSave[scheduleKey][dayIndex] = {
-          ...scheduleToSave[scheduleKey][dayIndex],
-          [field]: formatted
-        };
-
-        // SE stiamo salvando un orario in in2, assicuriamoci di rimuovere eventuali codici geografici residui
-        if (field === 'in2') {
-          delete scheduleToSave[scheduleKey][dayIndex].geographicCode;
-          delete scheduleToSave[scheduleKey][dayIndex].fromCompany;
-        }
-
-        saveData(null, null, scheduleToSave);
       }, 200);
     } catch (error) {
       console.error('❌ Errore critico in handleBlur:', error);
