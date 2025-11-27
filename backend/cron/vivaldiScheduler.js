@@ -121,15 +121,30 @@ class VivaldiScheduler {
     }
 
     try {
-      // Verifica che siamo nel database corretto
+      // Verifica che siamo nel database corretto e che la tabella esista
       try {
-        const dbCheck = await this.pool.query('SELECT current_database()');
+        const dbCheck = await this.pool.query('SELECT current_database(), current_schema()');
         const currentDb = dbCheck.rows[0].current_database;
-        console.log(`🔍 VivaldiScheduler executeQueue: Database corrente: ${currentDb}`);
+        const currentSchema = dbCheck.rows[0].current_schema;
+        console.log(`🔍 VivaldiScheduler executeQueue: Database: ${currentDb}, Schema: ${currentSchema}`);
+        
         if (currentDb !== 'vivaldi_db') {
           console.error(`❌ VivaldiScheduler: connesso al database sbagliato: ${currentDb}`);
           return;
         }
+
+        // Verifica che la tabella esista
+        const tableCheck = await this.pool.query(`
+          SELECT table_name 
+          FROM information_schema.tables 
+          WHERE table_schema = $1 AND table_name = 'annunci_queue'
+        `, [currentSchema]);
+        
+        if (tableCheck.rows.length === 0) {
+          console.error(`❌ VivaldiScheduler: tabella annunci_queue non trovata nello schema ${currentSchema}`);
+          return;
+        }
+        console.log(`✅ VivaldiScheduler: tabella annunci_queue verificata`);
       } catch (dbErr) {
         console.error(`❌ VivaldiScheduler: errore verifica database:`, dbErr.message);
         return;
