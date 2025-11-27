@@ -534,6 +534,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               // Retrocompatibilità: genera l'ordine dalle chiavi esistenti
               setTimeCodesOrder(Object.keys(data.timeCodes));
             }
+
+            // PULIZIA DUPLICATI: Assicurati che timeCodesOrder non abbia duplicati
+            setTimeCodesOrder(prev => [...new Set(prev)]);
           } else {
 
           }
@@ -2126,16 +2129,17 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       return;
     }
     // RIMOSSO: Blocco che impediva la sovrascrittura.
-    // Ora permettiamo di sovrascrivere il codice esistente.
+    // ORA: Impedisci sovrascrittura come richiesto dall'utente.
     if (timeCodes[key]) {
       if (showNotification) {
-        showNotification(`Codice "${key}" aggiornato con successo`, 'success', 3000);
+        showNotification(`Il codice "${key}" esiste già. Eliminalo prima di ricrearlo.`, 'warning', 5000);
       }
-      // Non ritornare, procedi con l'aggiornamento
+      return;
     }
 
     const newCodes = { ...timeCodes, [key]: newCodeLabel.trim() };
-    const newOrder = [...timeCodesOrder, key];
+    // Assicurati che la chiave non sia già nell'ordine (anche se il check sopra dovrebbe prevenirlo)
+    const newOrder = [...new Set([...timeCodesOrder, key])];
 
     console.log('➕ Aggiunta nuovo codice orario:', {
       key: key,

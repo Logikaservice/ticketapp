@@ -163,37 +163,8 @@ module.exports = (poolOrari) => {
         );
         console.log('✅ Codici orari di default ripristinati e salvati nel database');
       } else {
-        // Assicurati che tutti i codici di default siano presenti (merge)
-        let needsUpdate = false;
-        Object.keys(defaultTimeCodes).forEach(key => {
-          if (!data.timeCodes[key]) {
-            data.timeCodes[key] = defaultTimeCodes[key];
-            needsUpdate = true;
-          }
-        });
-
-        // Aggiorna l'ordine se mancano codici
-        if (!data.timeCodesOrder || data.timeCodesOrder.length === 0) {
-          data.timeCodesOrder = defaultTimeCodesOrder;
-          needsUpdate = true;
-        } else {
-          // Aggiungi codici mancanti all'ordine
-          defaultTimeCodesOrder.forEach(key => {
-            if (!data.timeCodesOrder.includes(key)) {
-              data.timeCodesOrder.push(key);
-              needsUpdate = true;
-            }
-          });
-        }
-
-        if (needsUpdate) {
-          console.log('⚠️ Aggiunti codici orari mancanti, aggiorno database');
-          await pool.query(
-            'UPDATE orari_data SET data = $1::jsonb, updated_at = NOW() WHERE id = $2',
-            [JSON.stringify(data), result.rows[0].id]
-          );
-          console.log('✅ Codici orari aggiornati nel database');
-        }
+        // RIMOSSO: Non forzare il merge dei codici di default.
+        // Se l'utente li ha cancellati, devono rimanere cancellati.
       }
 
       // Log dei dati restituiti
