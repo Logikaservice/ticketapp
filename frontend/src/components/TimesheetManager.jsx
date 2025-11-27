@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Trash2, Plus, Download, Calculator, Calendar, Settings, X, UserPlus, Building2, FileSpreadsheet, FileText, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Trash2, Plus, Download, Calculator, Calendar, Settings, X, UserPlus, Building2, FileSpreadsheet, FileText, AlertTriangle, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
@@ -1284,6 +1284,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                     if (detectedCode === 'AV') codeLabel = 'Avellino';
                     else if (detectedCode === 'AT') codeLabel = 'Atripalda';
                     else if (detectedCode === 'L') codeLabel = 'Lioni';
+                    else if (detectedCode === 'M') codeLabel = 'Mercurio';
+                    else if (detectedCode === 'A') codeLabel = 'Albatros';
                     else codeLabel = detectedCode;
                   }
 
@@ -1294,6 +1296,42 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                   }
                   // IMPORTANTE: NON toccare il campo code - deve rimanere vuoto o invariato
                   // NON impostare geographicCode o fromCompany per in2
+
+                  // --- LOGICA TRASFERIMENTO PARZIALE (POMERIGGIO) ---
+                  // Se il codice corrisponde a un'azienda, crea/aggiorna lo schedule nell'azienda target
+                  const targetCompany = getCompanyFromGeographicCode(detectedCode) ||
+                    (companies.includes(codeLabel) ? codeLabel : null);
+
+                  if (targetCompany && targetCompany !== currentCompany) {
+                    // Trova il dipendente nell'azienda target (o aggiungilo se necessario - logica semplificata: assumiamo esista o venga gestito altrove)
+                    // Per ora, cerchiamo se esiste uno schedule per questo dipendente nell'azienda target
+                    // Se non esiste, dovremmo idealmente crearlo, ma richiede di conoscere il reparto target.
+                    // Cerchiamo il primo reparto disponibile dell'azienda target
+                    const targetDepts = departmentsStructure[targetCompany] || [];
+                    if (targetDepts.length > 0) {
+                      const targetDept = targetDepts[0]; // Usa il primo reparto come default
+                      const targetContextKey = `${targetCompany}-${targetDept}`;
+                      const targetScheduleKey = `${currentWeek}-${targetContextKey}-${empId}`;
+
+                      if (!newSchedule[targetScheduleKey]) newSchedule[targetScheduleKey] = {};
+                      if (!newSchedule[targetScheduleKey][dayIndex]) {
+                        newSchedule[targetScheduleKey][dayIndex] = {
+                          code: '', in1: '', out1: '', in2: '', out2: ''
+                        };
+                      }
+
+                      // Imposta il turno pomeridiano nell'azienda target
+                      // Esempio: se in2 è "Mercurio", in Mercurio mettiamo un placeholder o lo stesso orario?
+                      // L'utente non ha specificato l'orario, solo il codice.
+                      // Mettiamo "14.00" - "18.00" come default? O lasciamo vuoto ma presente?
+                      // Mettiamo "Turno Pomeriggio" come codice?
+                      // Per ora, segniamo la presenza con un codice fittizio o lasciamo vuoto ma inizializzato
+                      // L'utente ha detto "valutato come codice Azienda e quindi per il trasferimento"
+                      // Probabilmente vuole che il dipendente appaia nella lista dell'altra azienda.
+                      // Inizializzando lo schedule, il dipendente apparirà.
+                      newSchedule[targetScheduleKey][dayIndex].fromCompany = currentCompany;
+                    }
+                  }
 
                   return newSchedule;
                 });
@@ -2200,6 +2238,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       }
       return;
     }
+
+    // BLOCCO CODICI RISERVATI
+    if (['M', 'L', 'A'].includes(key)) {
+      if (showNotification) {
+        showNotification(`Il codice "${key}" è riservato e non può essere modificato.`, 'error', 5000);
+      }
+      return;
+    }
+
     // RIMOSSO: Blocco che impediva la sovrascrittura.
     // ORA: Impedisci sovrascrittura come richiesto dall'utente.
     if (timeCodes[key]) {
@@ -2235,6 +2282,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   };
 
   const deleteTimeCode = (key) => {
+    // BLOCCO CODICI RISERVATI
+    if (['M', 'L', 'A'].includes(key)) {
+      if (showNotification) {
+        showNotification(`Il codice "${key}" è riservato e non può essere eliminato.`, 'error', 5000);
+      }
+      return;
+    }
+
     // VERIFICA UTILIZZO: Controlla se il codice è usato nello schedule
     const label = timeCodes[key];
     const isUsed = Object.values(schedule).some(weekData => {
@@ -4278,30 +4333,56 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                 />
                               </div>
                               {/* Mostra sempre la seconda riga se in1 è compilato, oppure se in2 è già compilato */}
-                              {(cellData.in1 || cellData.in2) && (
-                                <div className="flex gap-1 animate-in fade-in duration-300">
-                                  <input
-                                    type="text"
-                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
-                                    placeholder={cellData.in1 ? "Orario o città" : ""}
-                                    value={cellData.in2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'in2')}
-                                    title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || 'Inserisci orario o codice geografico (es. Atripalda, AV, AT)'}
-                                  />
-                                  <input
-                                    type="text"
-                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
-                                    placeholder=""
-                                    value={cellData.out2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'out2')}
-                                    title={getFieldError(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange) || ''}
-                                  />
-                                </div>
-                              )}
+                              {(cellData.in1 || cellData.in2) && (() => {
+                                // Verifica se in2 contiene un codice (non un orario)
+                                // Deve essere un codice COMPLETO (es. "Malattia", "Avellino") o un codice geografico (AT, AV, L)
+                                // Altrimenti rimaniamo in modalità input per permettere onBlur
+                                const isTime = /^\d{1,2}[.:]\d{2}$/.test(cellData.in2);
+                                const isGeoCode = ['AT', 'AV', 'L'].includes(cellData.in2);
+                                const isFullLabel = Object.values(timeCodes).includes(cellData.in2) ||
+                                  ['ATRIPALDA', 'AVELLINO', 'LIONI', 'MERCURIO', 'LA TORRE', 'ALBATROS'].includes(cellData.in2);
+
+                                const in2IsCode = cellData.in2 && !isTime && (isGeoCode || isFullLabel);
+
+                                if (in2IsCode) {
+                                  // Mostra cella unificata con sfondo giallo e testo centrato
+                                  return (
+                                    <div
+                                      className="h-7 bg-yellow-100 rounded flex items-center justify-center font-medium text-xs text-yellow-800 cursor-pointer hover:bg-yellow-200 transition-colors"
+                                      onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'in2')}
+                                      title="Tasto destro per modificare"
+                                    >
+                                      {cellData.in2}
+                                    </div>
+                                  );
+                                } else {
+                                  // Mostra due campi separati per orari
+                                  return (
+                                    <div className="flex gap-1 animate-in fade-in duration-300">
+                                      <input
+                                        type="text"
+                                        className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
+                                        placeholder={cellData.in1 ? "Orario o città" : ""}
+                                        value={cellData.in2 || ''}
+                                        onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                        onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'in2')}
+                                        title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || 'Inserisci orario o codice geografico (es. Atripalda, AV, AT)'}
+                                      />
+                                      <input
+                                        type="text"
+                                        className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
+                                        placeholder=""
+                                        value={cellData.out2 || ''}
+                                        onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                        onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange, 'out2')}
+                                        title={getFieldError(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange) || ''}
+                                      />
+                                    </div>
+                                  );
+                                }
+                              })()}
                             </div>
                           )}
                         </td>
@@ -4923,36 +5004,46 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       const label = timeCodes[key];
                       if (!label) return null; // Skip se il codice non esiste più
 
+                      const isLocked = ['M', 'L', 'A'].includes(key);
+
                       return (
                         <div
                           key={key}
-                          draggable
-                          onDragStart={() => setDraggedCodeIndex(index)}
+                          draggable={!isLocked}
+                          onDragStart={() => !isLocked && setDraggedCodeIndex(index)}
                           onDragOver={(e) => e.preventDefault()}
                           onDrop={() => {
-                            if (draggedCodeIndex !== null && draggedCodeIndex !== index) {
+                            if (!isLocked && draggedCodeIndex !== null && draggedCodeIndex !== index) {
                               reorderTimeCodes(draggedCodeIndex, index);
                             }
                             setDraggedCodeIndex(null);
                           }}
                           onDragEnd={() => setDraggedCodeIndex(null)}
-                          className={`flex justify-between items-center bg-purple-50 p-2 rounded border border-purple-100 cursor-move hover:bg-purple-100 transition-all ${draggedCodeIndex === index ? 'opacity-50 scale-95' : ''
+                          className={`flex justify-between items-center p-2 rounded border transition-all ${isLocked
+                            ? 'bg-blue-50 border-blue-200'
+                            : `bg-purple-50 border-purple-100 cursor-move hover:bg-purple-100 ${draggedCodeIndex === index ? 'opacity-50 scale-95' : ''}`
                             }`}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-400 cursor-grab active:cursor-grabbing" title="Trascina per riordinare">⋮⋮</span>
-                            <span className="bg-purple-200 text-purple-800 font-bold px-2 py-0.5 rounded text-xs w-8 text-center">
+                            {!isLocked && <span className="text-gray-400 cursor-grab active:cursor-grabbing" title="Trascina per riordinare">⋮⋮</span>}
+                            <span className={`${isLocked ? 'bg-blue-200 text-blue-800' : 'bg-purple-200 text-purple-800'} font-bold px-2 py-0.5 rounded text-xs w-8 text-center`}>
                               {key}
                             </span>
                             <span className="text-sm font-medium text-gray-700">{label}</span>
                           </div>
-                          <button
-                            onClick={() => deleteTimeCode(key)}
-                            className="text-red-400 hover:text-red-600 p-1"
-                            title="Elimina codice"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          {isLocked ? (
+                            <div className="text-blue-400 p-1" title="Codice bloccato">
+                              <Lock size={14} />
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => deleteTimeCode(key)}
+                              className="text-red-400 hover:text-red-600 p-1"
+                              title="Elimina codice"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       );
                     })}
