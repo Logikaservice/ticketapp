@@ -1062,8 +1062,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
       if (!newSchedule[scheduleKey][dayIndex]) newSchedule[scheduleKey][dayIndex] = {};
 
+      // Pulisci il campo code solo se si sta inserendo un orario (non un codice)
+      // Se field è in2 e value contiene lettere, potrebbe essere un codice, quindi non pulire code
       if (['in1', 'out1', 'in2', 'out2'].includes(field)) {
-        newSchedule[scheduleKey][dayIndex].code = '';
+        // Verifica se il valore è un orario (solo numeri e punti/due punti) o un codice (contiene lettere)
+        const isTimeValue = /^[\d.:]+$/.test(String(value).trim());
+        // Pulisci code solo se è un orario, non se è un codice
+        if (isTimeValue || !value) {
+          newSchedule[scheduleKey][dayIndex].code = '';
+        }
       }
 
       newSchedule[scheduleKey][dayIndex][field] = value;
@@ -1164,7 +1171,15 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               setSchedule(prev => {
                 const newSchedule = { ...prev };
                 if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
-                if (!newSchedule[scheduleKey][dayIndex]) newSchedule[scheduleKey][dayIndex] = {};
+                if (!newSchedule[scheduleKey][dayIndex]) {
+                  newSchedule[scheduleKey][dayIndex] = {
+                    code: '',
+                    in1: prev[scheduleKey]?.[dayIndex]?.in1 || '',
+                    out1: prev[scheduleKey]?.[dayIndex]?.out1 || '',
+                    in2: '',
+                    out2: ''
+                  };
+                }
                 
                 // Salva solo il label del codice in in2, senza flag geographicCode o fromCompany
                 const codeLabel = timeCodes[detectedCode] || detectedCode;
@@ -1173,6 +1188,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 if (newSchedule[scheduleKey][dayIndex].out2 && /^\d/.test(newSchedule[scheduleKey][dayIndex].out2)) {
                   newSchedule[scheduleKey][dayIndex].out2 = '';
                 }
+                // IMPORTANTE: NON toccare il campo code - deve rimanere vuoto o invariato
                 // NON impostare geographicCode o fromCompany per in2
                 
                 return newSchedule;
