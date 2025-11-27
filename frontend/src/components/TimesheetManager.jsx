@@ -4022,30 +4022,49 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                 />
                               </div>
                               {/* Mostra sempre la seconda riga se in1 è compilato, oppure se in2 è già compilato */}
-                              {(cellData.in1 || cellData.in2) && (
-                                <div className="flex gap-1 animate-in fade-in duration-300">
-                                  <input
-                                    type="text"
-                                    className={`w-full border bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange, false)}`}
-                                    placeholder={cellData.in1 ? "Orario o città" : ""}
-                                    value={cellData.in2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                    title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || 'Inserisci orario o codice geografico (es. Atripalda, AV, AT)'}
-                                  />
-                                  <input
-                                    type="text"
-                                    className={`w-full border bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange, false)}`}
-                                    placeholder=""
-                                    value={cellData.out2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                    title={getFieldError(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange) || ''}
-                                  />
-                                </div>
-                              )}
+                              {(cellData.in1 || cellData.in2) && (() => {
+                                // Verifica se in2 contiene un codice (non un orario)
+                                const in2IsCode = cellData.in2 && !/^\d{1,2}[.:]\d{2}$/.test(cellData.in2);
+                                
+                                if (in2IsCode) {
+                                  // Mostra cella unificata con sfondo giallo e testo centrato
+                                  return (
+                                    <div 
+                                      className="h-7 bg-yellow-100 rounded flex items-center justify-center font-medium text-xs text-yellow-800 cursor-pointer hover:bg-yellow-200 transition-colors"
+                                      onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                      title="Tasto destro per modificare"
+                                    >
+                                      {cellData.in2}
+                                    </div>
+                                  );
+                                } else {
+                                  // Mostra due campi separati per orari
+                                  return (
+                                    <div className="flex gap-1 animate-in fade-in duration-300">
+                                      <input
+                                        type="text"
+                                        className={`w-full border bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange, false)}`}
+                                        placeholder={cellData.in1 ? "Orario o città" : ""}
+                                        value={cellData.in2 || ''}
+                                        onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                        onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                        title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || 'Inserisci orario o codice geografico (es. Atripalda, AV, AT)'}
+                                      />
+                                      <input
+                                        type="text"
+                                        className={`w-full border bg-transparent rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange, false)}`}
+                                        placeholder=""
+                                        value={cellData.out2 || ''}
+                                        onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                        onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                        title={getFieldError(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange) || ''}
+                                      />
+                                    </div>
+                                  );
+                                }
+                              })()}
                             </div>
                           ) : (
                             <div className="flex flex-col gap-1 relative group">
@@ -4091,28 +4110,50 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                                   title={hasScheduleInOtherCompany ? `${otherCompanyName}\n${otherCompanySchedule.in1 || ''} - ${otherCompanySchedule.out1 || ''}${otherCompanySchedule.in2 ? `\n${otherCompanySchedule.in2} - ${otherCompanySchedule.out2}` : ''}` : (getFieldError(emp.id, dayIdx, 'out1', emp.contextKey, listWeekRange) || '')}
                                 />
                               </div>
-                              {(cellData.in1 || cellData.in2 || cellData.out1) && (
-                                <div className="flex gap-1 animate-in fade-in duration-300">
-                                  <input
-                                    type="text"
-                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
-                                    value={cellData.in2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                    title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || ''}
-                                  />
-                                  <input
-                                    type="text"
-                                    className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
-                                    value={cellData.out2 || ''}
-                                    onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                    onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
-                                    onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
-                                    title={getFieldError(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange) || ''}
-                                  />
-                                </div>
-                              )}
+                              {/* Mostra sempre la seconda riga se in1 è compilato, oppure se in2 è già compilato */}
+                              {(cellData.in1 || cellData.in2) && (() => {
+                                // Verifica se in2 contiene un codice (non un orario)
+                                const in2IsCode = cellData.in2 && !/^\d{1,2}[.:]\d{2}$/.test(cellData.in2);
+                                
+                                if (in2IsCode) {
+                                  // Mostra cella unificata con sfondo giallo e testo centrato
+                                  return (
+                                    <div 
+                                      className="h-7 bg-yellow-100 rounded flex items-center justify-center font-medium text-xs text-yellow-800 cursor-pointer hover:bg-yellow-200 transition-colors"
+                                      onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                      title="Tasto destro per modificare"
+                                    >
+                                      {cellData.in2}
+                                    </div>
+                                  );
+                                } else {
+                                  // Mostra due campi separati per orari
+                                  return (
+                                    <div className="flex gap-1 animate-in fade-in duration-300">
+                                      <input
+                                        type="text"
+                                        className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
+                                        placeholder={cellData.in1 ? "Orario o città" : ""}
+                                        value={cellData.in2 || ''}
+                                        onChange={(e) => handleInputChange(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                        onBlur={(e) => handleBlur(emp.id, dayIdx, 'in2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                        title={getFieldError(emp.id, dayIdx, 'in2', emp.contextKey, listWeekRange) || 'Inserisci orario o codice geografico (es. Atripalda, AV, AT)'}
+                                      />
+                                      <input
+                                        type="text"
+                                        className={`w-full border rounded px-0.5 py-0.5 text-center text-xs focus:border-blue-500 outline-none transition-all ${getInputBorderClass(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange, hasScheduleInOtherCompany)}`}
+                                        placeholder=""
+                                        value={cellData.out2 || ''}
+                                        onChange={(e) => handleInputChange(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                        onBlur={(e) => handleBlur(emp.id, dayIdx, 'out2', e.target.value, emp.contextKey, listWeekRange, company)}
+                                        onContextMenu={(e) => handleContextMenu(e, emp.id, dayIdx, emp.contextKey, listWeekRange)}
+                                        title={getFieldError(emp.id, dayIdx, 'out2', emp.contextKey, listWeekRange) || ''}
+                                      />
+                                    </div>
+                                  );
+                                }
+                              })()}
                             </div>
                           )}
                         </td>
