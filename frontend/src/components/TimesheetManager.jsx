@@ -2180,12 +2180,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         if (!dayData) return false;
         // Controlla se il codice è usato come 'code' (etichetta intera) o in 'in2' (etichetta intera)
         // Nota: lo schedule salva l'etichetta (es. 'Malattia'), non la chiave (es. 'M')
-        // Ma per sicurezza controlliamo entrambi
-        const codeToCheck = dayData.code || '';
-        const in2ToCheck = dayData.in2 || '';
+        // Ma per sicurezza controlliamo entrambi, e in modo case-insensitive
+        const codeToCheck = (dayData.code || '').toUpperCase();
+        const in2ToCheck = (dayData.in2 || '').toUpperCase();
+        const keyUpper = key.toUpperCase();
+        const labelUpper = label.toUpperCase();
 
-        return codeToCheck === label || codeToCheck === key ||
-          in2ToCheck === label || in2ToCheck === key;
+        return codeToCheck === labelUpper || codeToCheck === keyUpper ||
+          in2ToCheck === labelUpper || in2ToCheck === keyUpper;
       });
     });
 
