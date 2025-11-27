@@ -122,10 +122,16 @@ class VivaldiScheduler {
 
     try {
       // Verifica che siamo nel database corretto
-      const dbCheck = await this.pool.query('SELECT current_database()');
-      const currentDb = dbCheck.rows[0].current_database;
-      if (currentDb !== 'vivaldi_db') {
-        console.error(`❌ VivaldiScheduler: connesso al database sbagliato: ${currentDb}`);
+      try {
+        const dbCheck = await this.pool.query('SELECT current_database()');
+        const currentDb = dbCheck.rows[0].current_database;
+        console.log(`🔍 VivaldiScheduler executeQueue: Database corrente: ${currentDb}`);
+        if (currentDb !== 'vivaldi_db') {
+          console.error(`❌ VivaldiScheduler: connesso al database sbagliato: ${currentDb}`);
+          return;
+        }
+      } catch (dbErr) {
+        console.error(`❌ VivaldiScheduler: errore verifica database:`, dbErr.message);
         return;
       }
 

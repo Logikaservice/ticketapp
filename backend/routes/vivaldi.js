@@ -323,6 +323,14 @@ module.exports = (poolVivaldi) => {
   // GET /api/vivaldi/queue - Ottieni coda annunci
   router.get('/queue', authenticateToken, requireVivaldiAccess, async (req, res) => {
     try {
+      // Verifica database corretto
+      const dbCheck = await pool.query('SELECT current_database()');
+      const currentDb = dbCheck.rows[0].current_database;
+      if (currentDb !== 'vivaldi_db') {
+        console.error(`❌ Route /api/vivaldi/queue: database sbagliato: ${currentDb}`);
+        return res.status(500).json({ error: `Database errato: ${currentDb}` });
+      }
+
       const { azienda_id } = req.query;
       const aziendaId = azienda_id || req.user.azienda_id;
 
