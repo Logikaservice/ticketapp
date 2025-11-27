@@ -2163,6 +2163,34 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
   };
 
   const deleteTimeCode = (key) => {
+    // VERIFICA UTILIZZO: Controlla se il codice è usato nello schedule
+    const label = timeCodes[key];
+    const isUsed = Object.values(schedule).some(weekData => {
+      if (!weekData) return false;
+      return Object.values(weekData).some(dayData => {
+        if (!dayData) return false;
+        // Controlla se il codice è usato come 'code' (etichetta intera) o in 'in2' (etichetta intera)
+        // Nota: lo schedule salva l'etichetta (es. 'Malattia'), non la chiave (es. 'M')
+        // Ma per sicurezza controlliamo entrambi
+        const codeToCheck = dayData.code || '';
+        const in2ToCheck = dayData.in2 || '';
+
+        return codeToCheck === label || codeToCheck === key ||
+          in2ToCheck === label || in2ToCheck === key;
+      });
+    });
+
+    if (isUsed) {
+      if (showNotification) {
+        showNotification(
+          `Impossibile eliminare il codice "${key}" (${label}): è utilizzato nei turni esistenti. Rimuovilo dai turni prima di eliminarlo per non perdere la relazione.`,
+          'error',
+          8000
+        );
+      }
+      return;
+    }
+
     const newCodes = { ...timeCodes };
     delete newCodes[key];
     const newOrder = timeCodesOrder.filter(k => k !== key); // Rimuovi dall'ordine
