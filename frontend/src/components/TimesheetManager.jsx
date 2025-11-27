@@ -1062,6 +1062,23 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
     }
 
     // 2. Aggiornamento Stato
+    // IMPORTANTE: Per in2, salva SOLO se è un orario valido O se è un codice valido (almeno 2 caratteri)
+    if (field === 'in2' && value && value.trim() !== '') {
+      const strValue = String(value).trim().toUpperCase();
+      const isTimeValue = /^[\d.:]+$/.test(strValue);
+      
+      // Verifica se è un codice valido (almeno 2 caratteri o codice geografico corto)
+      const isValidCode = strValue.length >= 2 || ['AT', 'AV', 'L'].includes(strValue) || 
+                         ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(strValue) ||
+                         timeCodes[strValue] !== undefined ||
+                         Object.values(timeCodes).some(label => label.toUpperCase() === strValue);
+      
+      // Se non è né un orario né un codice valido, NON salvare
+      if (!isTimeValue && !isValidCode) {
+        return; // Esci senza salvare
+      }
+    }
+
     const currentWeek = weekRangeValue || weekRange;
     const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
     const scheduleKey = `${currentWeek}-${baseKey}`;
