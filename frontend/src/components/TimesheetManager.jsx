@@ -1343,7 +1343,56 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                   return newSchedule;
                 });
 
-                setTimeout(() => saveData(), 100);
+                // Dobbiamo passare lo schedule aggiornato a saveData per evitare lo stale state.
+                // Poiché setSchedule usa una callback, non abbiamo accesso diretto a newSchedule qui fuori.
+                // MA, possiamo ricostruire la logica o usare una ref.
+                // Per semplicità e sicurezza, ricalcoliamo la modifica puntuale per saveData,
+                // simile a come fatto per l'input orario.
+
+                const scheduleToSave = { ...schedule };
+                if (!scheduleToSave[scheduleKey]) scheduleToSave[scheduleKey] = {};
+                if (!scheduleToSave[scheduleKey][dayIndex]) {
+                  scheduleToSave[scheduleKey][dayIndex] = {
+                    code: '', in1: '', out1: '', in2: '', out2: ''
+                  };
+                }
+
+                // Riapplica le modifiche fatte nel setSchedule
+                let codeLabel = timeCodes[detectedCode];
+                if (!codeLabel) {
+                  if (detectedCode === 'L') codeLabel = 'Lioni';
+                  else if (detectedCode === 'M') codeLabel = 'Mercurio';
+                  else if (detectedCode === 'A') codeLabel = 'Albatros';
+                  else codeLabel = detectedCode;
+                }
+                scheduleToSave[scheduleKey][dayIndex].in2 = codeLabel;
+
+                const isGeo = ['L', 'M', 'A'].includes(detectedCode) || getCompanyFromGeographicCode(detectedCode);
+                if (isGeo) {
+                  scheduleToSave[scheduleKey][dayIndex].geographicCode = detectedCode;
+                }
+
+                if (scheduleToSave[scheduleKey][dayIndex].out2 && /^\d/.test(scheduleToSave[scheduleKey][dayIndex].out2)) {
+                  scheduleToSave[scheduleKey][dayIndex].out2 = '';
+                }
+
+                // Gestione target company per saveData (opzionale, ma meglio averla coerente)
+                const targetCompany = getCompanyFromGeographicCode(detectedCode) || (companies.includes(codeLabel) ? codeLabel : null);
+                if (targetCompany && targetCompany !== currentCompany) {
+                  const targetDepts = departmentsStructure[targetCompany] || [];
+                  if (targetDepts.length > 0) {
+                    const targetDept = targetDepts[0];
+                    const targetContextKey = `${targetCompany}-${targetDept}`;
+                    const targetScheduleKey = `${currentWeek}-${targetContextKey}-${empId}`;
+                    if (!scheduleToSave[targetScheduleKey]) scheduleToSave[targetScheduleKey] = {};
+                    if (!scheduleToSave[targetScheduleKey][dayIndex]) {
+                      scheduleToSave[targetScheduleKey][dayIndex] = { code: '', in1: '', out1: '', in2: '', out2: '' };
+                    }
+                    scheduleToSave[targetScheduleKey][dayIndex].fromCompany = currentCompany;
+                  }
+                }
+
+                setTimeout(() => saveData(null, null, scheduleToSave), 100);
                 return; // IMPORTANTE: esci subito per non continuare con la validazione orari
               } else {
                 // Per in1 o altri campi, usa la logica normale con propagazione
@@ -1549,6 +1598,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           ...scheduleToSave[scheduleKey][dayIndex],
           [field]: formatted
         };
+
+        // SE stiamo salvando un orario in in2, assicuriamoci di rimuovere eventuali codici geografici residui
+        if (field === 'in2') {
+          delete scheduleToSave[scheduleKey][dayIndex].geographicCode;
+          delete scheduleToSave[scheduleKey][dayIndex].fromCompany;
+        }
 
         saveData(null, null, scheduleToSave);
       }, 200);
