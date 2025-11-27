@@ -1307,7 +1307,42 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
               }
             }
           } else {
-            // Non è un codice geografico, applicalo normalmente
+            // Non è un codice geografico (es. FERIE, MALATTIA, o codice azienda non riconosciuto come geo)
+
+            // SE siamo in in2, applica SOLO a in2, NON usare handleQuickCode che sovrascrive tutto il giorno
+            if (field === 'in2') {
+              const currentWeek = weekRangeValue || weekRange;
+              const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+              const scheduleKey = `${currentWeek}-${baseKey}`;
+
+              setSchedule(prev => {
+                const newSchedule = { ...prev };
+                if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
+                if (!newSchedule[scheduleKey][dayIndex]) {
+                  newSchedule[scheduleKey][dayIndex] = {
+                    code: '',
+                    in1: prev[scheduleKey]?.[dayIndex]?.in1 || '',
+                    out1: prev[scheduleKey]?.[dayIndex]?.out1 || '',
+                    in2: '',
+                    out2: ''
+                  };
+                }
+
+                const codeLabel = timeCodes[detectedCode] || detectedCode;
+                newSchedule[scheduleKey][dayIndex].in2 = codeLabel;
+
+                // Pulisci out2 se c'era un orario
+                if (newSchedule[scheduleKey][dayIndex].out2 && /^\d/.test(newSchedule[scheduleKey][dayIndex].out2)) {
+                  newSchedule[scheduleKey][dayIndex].out2 = '';
+                }
+                return newSchedule;
+              });
+
+              setTimeout(() => saveData(), 100);
+              return;
+            }
+
+            // Altrimenti (in1, etc) applicalo normalmente come codice giornaliero
             handleQuickCode(empId, dayIndex, timeCodes[detectedCode] || detectedCode, contextKey, weekRangeValue);
             return;
           }
