@@ -1115,6 +1115,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
   const handleBlur = (empId, dayIndex, field, value, contextKey = null, weekRangeValue = null, currentCompany = null) => {
     try {
+      console.log('🔍 handleBlur triggered:', { field, value, timeCodesKeys: Object.keys(timeCodes) });
+
       // 1. Gestione Codici Rapidi (anche su blur)
       // Su blur possiamo essere più permissivi, ma evitiamo ancora che "A" venga interpretato come "Malattia"
       if (['in1', 'out1', 'in2', 'out2'].includes(field) && value) {
@@ -1430,6 +1432,8 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
       }, 200);
     } catch (error) {
       console.error('❌ Errore critico in handleBlur:', error);
+      if (showNotification) showNotification(`Errore nel processare il codice: ${error.message}`, 'error');
+
       // In caso di errore, pulisci il campo per evitare stati inconsistenti
       // Ma solo se non è un orario valido
       if (field === 'in2' && !/^\d/.test(value)) {
