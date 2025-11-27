@@ -1259,7 +1259,16 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                 }
 
                 // Salva solo il label del codice in in2, senza flag geographicCode o fromCompany
-                const codeLabel = timeCodes[detectedCode] || detectedCode;
+                let codeLabel = timeCodes[detectedCode];
+
+                // Fallback per codici geografici hardcoded se non presenti in timeCodes
+                if (!codeLabel) {
+                  if (detectedCode === 'AV') codeLabel = 'Avellino';
+                  else if (detectedCode === 'AT') codeLabel = 'Atripalda';
+                  else if (detectedCode === 'L') codeLabel = 'Lioni';
+                  else codeLabel = detectedCode;
+                }
+
                 newSchedule[scheduleKey][dayIndex].in2 = codeLabel;
                 // Pulisci out2 se c'era un orario
                 if (newSchedule[scheduleKey][dayIndex].out2 && /^\d/.test(newSchedule[scheduleKey][dayIndex].out2)) {

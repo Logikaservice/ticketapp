@@ -54,7 +54,7 @@ export default function TicketApp() {
     hostname === 'turni.logikaservice.it' ||
     (hostname.includes('orari') && !hostname.includes('ticket')) ||
     (hostname.includes('turni') && !hostname.includes('ticket'));
-  
+
   const isVivaldiHostname = hostname === 'vivaldi.logikaservice.it' ||
     (hostname.includes('vivaldi') && !hostname.includes('ticket'));
 
@@ -2796,7 +2796,7 @@ export default function TicketApp() {
           }}
         />
 
-        {(!showDashboard || showOrariTurni) && !isOrariDomain && (
+        {showOrariTurni && !isOrariHostname && (
           <div
             className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
             onClick={() => { setShowDashboard(true); setShowOrariTurni(false); setShowVivaldi(false); }}
@@ -2805,7 +2805,7 @@ export default function TicketApp() {
           </div>
         )}
 
-        {(!showDashboard || showVivaldi) && !isVivaldiHostname && (
+        {showVivaldi && !isVivaldiHostname && (
           <div
             className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
             onClick={() => { setShowDashboard(true); setShowVivaldi(false); setShowOrariTurni(false); }}
