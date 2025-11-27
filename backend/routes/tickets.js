@@ -158,20 +158,6 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       next();
     });
   }, async (req, res) => {
-    console.log('🔍 DEBUG BACKEND: POST /api/tickets - Richiesta ricevuta!');
-    console.log('🔍 DEBUG BACKEND: Headers:', JSON.stringify(req.headers, null, 2));
-    console.log('🔍 DEBUG BACKEND: Content-Type:', req.headers['content-type']);
-    console.log('🔍 DEBUG BACKEND: User ID:', req.user?.id || 'N/A');
-    console.log('🔍 DEBUG BACKEND: User Role:', req.user?.ruolo || 'N/A');
-    console.log('🔍 DEBUG BACKEND: File caricati:', req.files ? req.files.length : 0);
-    if (req.files && req.files.length > 0) {
-      console.log('🔍 DEBUG BACKEND: Dettagli file:', req.files.map(f => ({
-        filename: f.filename,
-        originalname: f.originalname,
-        size: f.size,
-        mimetype: f.mimetype
-      })));
-    }
 
     // Gestisce sia JSON che multipart/form-data
     let clienteid = req.body.clienteid;
@@ -202,14 +188,10 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       sendEmail = true;
     }
 
-    console.log('🔍 DEBUG BACKEND: sendEmail =', sendEmail, 'tipo:', typeof sendEmail, 'originale:', req.body.sendEmail);
-    console.log('🔍 DEBUG BACKEND: dataapertura =', dataapertura, 'tipo:', typeof dataapertura);
-    console.log('🔍 DEBUG BACKEND: Body completo =', JSON.stringify(req.body, null, 2));
 
     let client;
     try {
       client = await pool.connect();
-      console.log('🔍 DEBUG BACKEND: Connessione database ottenuta');
 
       // Genera ID semplice e pulito
       let numero;
@@ -248,25 +230,21 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         // Valida formato YYYY-MM-DD
         if (/^\d{4}-\d{2}-\d{2}$/.test(dataapertura)) {
           dataAperturaValue = dataapertura + 'T00:00:00+02:00'; // Aggiungi orario e timezone
-          console.log('🔍 DEBUG BACKEND: Usando dataapertura personalizzata:', dataAperturaValue);
+          dataAperturaValue = dataapertura + 'T00:00:00+02:00'; // Aggiungi orario e timezone
         } else {
           dataAperturaValue = new Date().toISOString();
-          console.log('🔍 DEBUG BACKEND: dataapertura non valida, usando data corrente:', dataAperturaValue);
         }
       } else {
         dataAperturaValue = new Date().toISOString();
-        console.log('🔍 DEBUG BACKEND: Nessuna dataapertura fornita, usando data corrente:', dataAperturaValue);
       }
 
       // Salva le foto se presenti
       let photosArray = [];
       if (uploadedFiles && uploadedFiles.length > 0) {
-        console.log('🔍 DEBUG BACKEND: Elaborazione', uploadedFiles.length, 'foto...');
         try {
           const uploadedById = req.user?.id || null;
           photosArray = uploadedFiles.map(file => {
             if (!file || !file.filename) {
-              console.error('❌ DEBUG BACKEND: File non valido:', file);
               throw new Error('File non valido: manca filename');
             }
             return {
@@ -279,13 +257,10 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
               uploadedById: uploadedById
             };
           });
-          console.log('🔍 DEBUG BACKEND: Foto elaborate:', photosArray.length);
         } catch (photoErr) {
-          console.error('❌ DEBUG BACKEND: Errore elaborazione foto:', photoErr);
+          console.error('❌ Errore elaborazione foto:', photoErr);
           throw new Error('Errore elaborazione foto: ' + photoErr.message);
         }
-      } else {
-        console.log('🔍 DEBUG BACKEND: Nessuna foto da salvare');
       }
 
       const query = `
@@ -296,22 +271,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       const photosJson = photosArray.length > 0 ? JSON.stringify(photosArray) : null;
       const values = [numero, clienteid, titolo, descrizione, stato, priorita, nomerichiedente, categoria || 'assistenza', dataAperturaValue, photosJson];
 
-      console.log('🔍 DEBUG BACKEND: Esecuzione query INSERT...');
-      console.log('🔍 DEBUG BACKEND: Valori query:', {
-        numero,
-        clienteid,
-        titolo: titolo?.substring(0, 50),
-        descrizione: descrizione?.substring(0, 50),
-        stato,
-        priorita,
-        nomerichiedente,
-        categoria: categoria || 'assistenza',
-        dataapertura: dataAperturaValue,
-        photos: photosJson ? `${photosArray.length} foto` : 'null'
-      });
-
       const result = await client.query(query, values);
-      console.log('✅ DEBUG BACKEND: Query INSERT completata con successo');
       if (client) client.release();
 
       // Emetti evento WebSocket per nuovo ticket (PRIMA della risposta HTTP)
@@ -326,9 +286,6 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       }
 
       // Invia risposta HTTP IMMEDIATAMENTE (non attendere le email)
-      console.log('✅ DEBUG BACKEND: Ticket creato con successo, invio risposta 201');
-      console.log('✅ DEBUG BACKEND: Ticket ID:', result.rows[0]?.id);
-      console.log('✅ DEBUG BACKEND: Ticket numero:', result.rows[0]?.numero);
 
       // Parse dei campi JSON (photos, timelogs, messaggi) prima di inviare la risposta
       const newTicket = result.rows[0];
@@ -353,63 +310,31 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
 
       // Invia email in background (NON bloccare la risposta HTTP)
       // Usa setImmediate per eseguire dopo che la risposta è stata inviata
-      console.log('📧 DEBUG: Preparazione setImmediate per invio email in background...');
-      console.log('📧 DEBUG: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
-      console.log('📧 DEBUG: result.rows[0] presente:', !!result.rows[0]);
-
       setImmediate(async () => {
-        console.log('📧 === SETIMMEDIATE ESECUTATO - INIZIO ===');
         try {
-          console.log('📧 === SETIMMEDIATE AVVIATO - INIZIO INVIO EMAIL ===');
-          console.log('📧 Ticket ID:', result.rows[0]?.id);
-          console.log('📧 SendEmail:', sendEmail, 'tipo:', typeof sendEmail);
-          console.log('📧 Verifica configurazione email:');
-          console.log('  - EMAIL_USER:', process.env.EMAIL_USER ? 'Configurato' : 'MANCANTE');
-          console.log('  - EMAIL_PASSWORD:', (process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS) ? 'Configurato' : 'MANCANTE');
-
           // Invia notifica email al cliente (solo se sendEmail è true)
-          console.log('🔍 DEBUG BACKEND: Controllo invio email - sendEmail =', sendEmail, 'tipo:', typeof sendEmail, 'result.rows[0] =', !!result.rows[0]);
 
           if (result.rows[0] && sendEmail === true) {
             try {
-              console.log('📧 === INVIO NOTIFICA EMAIL CLIENTE ===');
-              console.log('📧 Ticket creato:', result.rows[0].id, result.rows[0].titolo);
-              console.log('📧 Cliente ID:', clienteid);
-              console.log('📧 SendEmail:', sendEmail);
-
               // Ottieni i dati del cliente
               const clientData = await pool.query('SELECT email, nome, cognome FROM users WHERE id = $1', [clienteid]);
-              console.log('📧 Dati cliente trovati:', clientData.rows.length > 0);
 
               if (clientData.rows.length > 0 && clientData.rows[0].email) {
                 const client = clientData.rows[0];
-                console.log('📧 Email cliente:', client.email);
-                console.log('📧 Nome cliente:', client.nome, client.cognome);
 
                 // Determina il tipo di notifica
                 const isSelfCreated = req.body.createdBy === 'cliente' || req.body.selfCreated;
                 const emailType = isSelfCreated ? 'notify-ticket-created' : 'notify-ticket-assigned';
-                console.log('📧 Tipo notifica:', emailType, '(isSelfCreated:', isSelfCreated, ')');
 
                 // Invia email di notifica - usa endpoint pubblico che non richiede autenticazione
                 const backendPort = process.env.PORT || 3001;
                 const emailUrl = `http://localhost:${backendPort}/api/public-email/${emailType}`;
-                console.log('📧 URL email (pubblico, no auth):', emailUrl);
-                console.log('📧 Porta backend:', backendPort);
 
                 // Aggiungi timeout di 10 secondi per evitare attese infinite
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 10000);
 
                 try {
-                  console.log('📧 Chiamata fetch a:', emailUrl);
-                  console.log('📧 Body:', JSON.stringify({
-                    ticket: { id: result.rows[0].id, numero: result.rows[0].numero },
-                    clientEmail: client.email,
-                    clientName: `${client.nome} ${client.cognome}`,
-                    isSelfCreated: isSelfCreated
-                  }));
-
                   const emailResponse = await fetch(emailUrl, {
                     method: 'POST',
                     headers: {
@@ -426,64 +351,40 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
                   });
 
                   clearTimeout(timeoutId);
-                  console.log('📧 Risposta fetch ricevuta, status:', emailResponse.status);
 
                   if (emailResponse.ok) {
-                    const responseData = await emailResponse.json();
                     console.log(`✅ Email notifica inviata al cliente: ${client.email} (${emailType})`);
-                    console.log('📧 Risposta email:', responseData);
                   } else {
                     const errorText = await emailResponse.text();
-                    console.log(`❌ Errore invio email al cliente: ${client.email}`);
-                    console.log('📧 Status:', emailResponse.status);
-                    console.log('📧 Errore:', errorText);
+                    console.error(`❌ Errore invio email al cliente: ${client.email} - ${errorText}`);
                   }
                 } catch (fetchErr) {
                   clearTimeout(timeoutId);
                   if (fetchErr.name === 'AbortError') {
-                    console.log(`⏱️ Timeout invio email al cliente: ${client.email} (10 secondi)`);
+                    console.warn(`⏱️ Timeout invio email al cliente: ${client.email} (10 secondi)`);
                   } else {
-                    console.log(`⚠️ Errore fetch email cliente ${client.email}:`, fetchErr.message);
+                    console.error(`⚠️ Errore fetch email cliente ${client.email}:`, fetchErr.message);
                   }
                 }
               }
             } catch (emailErr) {
-              console.log('⚠️ Errore invio email notifica:', emailErr.message);
+              console.error('⚠️ Errore invio email notifica:', emailErr.message);
             }
-          } else if (result.rows[0] && sendEmail === false) {
-            console.log('🔍 DEBUG BACKEND: Email notifica NON inviata al cliente (sendEmail = false)');
-          } else {
-            console.log('🔍 DEBUG BACKEND: Email non inviata per altri motivi - sendEmail =', sendEmail, 'tipo:', typeof sendEmail, 'result.rows[0] =', !!result.rows[0]);
-            console.log('🔍 DEBUG BACKEND: Condizione finale - sendEmail === true =', sendEmail === true, 'sendEmail === undefined =', sendEmail === undefined);
           }
 
           // Invia notifica email ai tecnici (solo se sendEmail è true o undefined)
           if (sendEmail === true || sendEmail === undefined) {
             try {
-              console.log('📧 === INVIO NOTIFICA EMAIL TECNICI ===');
-              console.log('📧 Query tecnici: SELECT email, nome, cognome FROM users WHERE ruolo = \'tecnico\' AND email IS NOT NULL');
               const techniciansData = await pool.query('SELECT email, nome, cognome FROM users WHERE ruolo = \'tecnico\' AND email IS NOT NULL');
-              console.log('📧 Tecnici trovati:', techniciansData.rows.length);
-              console.log('📧 Lista tecnici:', techniciansData.rows.map(t => ({ email: t.email, nome: t.nome, cognome: t.cognome })));
 
               if (techniciansData.rows.length === 0) {
-                console.log('⚠️ Nessun tecnico trovato nel database!');
+                console.warn('⚠️ Nessun tecnico trovato nel database!');
               }
 
               for (const technician of techniciansData.rows) {
                 try {
-                  console.log('📧 === INVIO EMAIL A TECNICO ===');
-                  console.log('📧 Tecnico:', {
-                    email: technician.email,
-                    nome: technician.nome,
-                    cognome: technician.cognome,
-                    nomeCompleto: `${technician.nome} ${technician.cognome}`
-                  });
-
                   const backendPort = process.env.PORT || 3001;
                   const techEmailUrl = `http://localhost:${backendPort}/api/public-email/notify-technician-new-ticket`;
-                  console.log('📧 URL tecnico (pubblico, no auth):', techEmailUrl);
-                  console.log('📧 Porta backend:', backendPort);
 
                   const ticketData = result.rows[0];
                   const requestBody = {
@@ -492,20 +393,11 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
                     technicianName: `${technician.nome || ''} ${technician.cognome || ''}`.trim() || 'Tecnico'
                   };
 
-                  console.log('📧 Dati da inviare:', {
-                    ticketId: ticketData?.id,
-                    ticketNumero: ticketData?.numero,
-                    ticketTitolo: ticketData?.titolo,
-                    technicianEmail: requestBody.technicianEmail,
-                    technicianName: requestBody.technicianName
-                  });
-
                   // Aggiungi timeout di 10 secondi per evitare attese infinite
                   const controller = new AbortController();
                   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
                   try {
-                    console.log('📧 Chiamata fetch tecnico a:', techEmailUrl);
                     const technicianEmailResponse = await fetch(techEmailUrl, {
                       method: 'POST',
                       headers: {
@@ -516,8 +408,6 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
                     });
 
                     clearTimeout(timeoutId);
-
-                    console.log('📧 Risposta ricevuta, status:', technicianEmailResponse.status, 'ok:', technicianEmailResponse.ok);
 
                     if (technicianEmailResponse.ok) {
                       const responseData = await technicianEmailResponse.json();
@@ -609,7 +499,6 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
 
       if (result.rows.length > 0) {
         console.log(`✅ Ticket aggiornato: ID ${id}`);
-        console.log('🔍 DEBUG BACKEND UPDATE: dataapertura salvata nel DB =', result.rows[0].dataapertura);
 
         const ticket = result.rows[0];
 
@@ -632,8 +521,6 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         };
 
         // Invia notifica email per aggiornamento ticket (solo se sendEmail è true o undefined)
-        console.log('🔍 DEBUG BACKEND UPDATE: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
-        console.log('🔍 DEBUG BACKEND UPDATE: sendEmail === true =', sendEmail === true, 'sendEmail === undefined =', sendEmail === undefined);
 
         if (sendEmail === true || sendEmail === undefined) {
           try {
@@ -667,8 +554,6 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
           } catch (emailErr) {
             console.log('⚠️ Errore invio email aggiornamento:', emailErr.message);
           }
-        } else {
-          console.log('🔍 DEBUG BACKEND UPDATE: Email aggiornamento NON inviata al cliente (sendEmail =', sendEmail, 'tipo:', typeof sendEmail, ')');
         }
 
         res.json(parsedTicket);
@@ -693,9 +578,6 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       sendEmail = true;
     }
 
-    console.log('🔍 DEBUG BACKEND STATUS: sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
-    console.log('🔍 DEBUG BACKEND STATUS: req.body completo =', JSON.stringify(req.body));
-    console.log('🔍 DEBUG BACKEND STATUS: sendEmail === false =', sendEmail === false);
     try {
       const client = await pool.connect();
 
@@ -734,8 +616,6 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         const updatedTicket = result.rows[0];
 
         // Invia notifica email per le azioni specifiche (solo se sendEmail è true o undefined)
-        console.log('🔍 DEBUG BACKEND STATUS: Controllo invio email - sendEmail =', sendEmail, 'tipo:', typeof sendEmail);
-        console.log('🔍 DEBUG BACKEND STATUS: Condizione sendEmail === true =', sendEmail === true, 'sendEmail === undefined =', sendEmail === undefined);
 
         if (oldStatus !== status && (sendEmail === true || sendEmail === undefined)) {
           try {
@@ -876,10 +756,6 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
           } catch (emailErr) {
             console.log('⚠️ Errore invio notifica email:', emailErr.message);
           }
-        } else if (oldStatus !== status && sendEmail === false) {
-          console.log('🔍 DEBUG BACKEND STATUS: Email notifica NON inviata per cambio stato (sendEmail = false)');
-        } else {
-          console.log('🔍 DEBUG BACKEND STATUS: Email non inviata per altri motivi - oldStatus =', oldStatus, 'status =', status, 'sendEmail =', sendEmail);
         }
 
         // Emetti eventi WebSocket per cambio stato
@@ -1368,14 +1244,8 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
     const { id } = req.params;
     const { materiale, quantita, nota } = req.body;
 
-    console.log('🔍 DEBUG BACKEND FORNITURE: Ricevuta richiesta POST');
-    console.log('🔍 DEBUG BACKEND FORNITURE: Ticket ID:', id);
-    console.log('🔍 DEBUG BACKEND FORNITURE: Materiale:', materiale);
-    console.log('🔍 DEBUG BACKEND FORNITURE: Quantità:', quantita);
-    console.log('🔍 DEBUG BACKEND FORNITURE: Body completo:', req.body);
 
     if (!materiale || !quantita) {
-      console.log('🔍 DEBUG BACKEND FORNITURE: Errore - Materiale o quantità mancanti');
       return res.status(400).json({ error: 'Materiale e quantità sono obbligatori' });
     }
 
@@ -1389,8 +1259,6 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       const result = await client.query(query, [id, materiale, parseInt(quantita), nota || '']);
       client.release();
 
-      console.log('🔍 DEBUG BACKEND FORNITURE: Query eseguita con successo');
-      console.log('🔍 DEBUG BACKEND FORNITURE: Risultato:', result.rows[0]);
       console.log(`✅ Fornitura aggiunta al ticket ${id}`);
       res.status(201).json(result.rows[0]);
     } catch (err) {
