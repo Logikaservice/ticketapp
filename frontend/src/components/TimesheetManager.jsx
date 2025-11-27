@@ -1552,9 +1552,9 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
     // ALTRIMENTI: Usa il mapping di fallback
     const codeMap = {
-      'L': 'Albatros',    // Lioni → Albatros
-      'M': 'Mercurio',
-      'A': 'Albatros'     // A -> Albatros (ridondante ma sicuro)
+      'L': 'La Torre',    // L -> La Torre
+      'M': 'Mercurio',    // M -> Mercurio
+      'A': 'Albatros'     // A -> Albatros
     };
     return codeMap[code] || null;
   };
