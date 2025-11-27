@@ -1742,6 +1742,12 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         const newSchedule = { ...prev };
         if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
 
+        console.log('🔍 handleQuickCode start:', {
+          scheduleKey,
+          exists: !!newSchedule[scheduleKey],
+          dayIndex
+        });
+
         // Elimina lo schedule nell'azienda target se esiste (CASO 1: cancellazione dall'azienda di origine)
         if (targetScheduleKeyToRemove && newSchedule[targetScheduleKeyToRemove]) {
           const targetDaySchedule = newSchedule[targetScheduleKeyToRemove];
@@ -1802,6 +1808,11 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
         }
 
         // Pulisci SOLO i campi di quella cella specifica, mantenendo la struttura
+        if (!newSchedule[scheduleKey]) {
+          console.error('❌ CRITICAL: newSchedule[scheduleKey] is undefined before assignment!', { scheduleKey });
+          newSchedule[scheduleKey] = {};
+        }
+
         newSchedule[scheduleKey][dayIndex] = {
           code: '',
           in1: '',
