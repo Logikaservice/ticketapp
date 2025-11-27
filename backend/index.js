@@ -1148,12 +1148,15 @@ app.use('/api/vivaldi', authenticateToken, (req, res, next) => {
   });
 }, vivaldiRoutes);
 
-// Gestione route non trovate (404) - PRIMA del middleware errori
-app.use((req, res) => {
-  // Solo se non è già stata inviata una risposta
-  if (!res.headersSent) {
-    res.status(404).json({ error: 'Route non trovata' });
+// Gestione route non trovate (404) - DEVE essere DOPO tutte le route ma PRIMA del middleware errori
+app.use((req, res, next) => {
+  // Solo per route API non trovate
+  if (req.path.startsWith('/api/') && !res.headersSent) {
+    console.log(`⚠️ Route API non trovata: ${req.method} ${req.path}`);
+    return res.status(404).json({ error: 'Route non trovata', path: req.path });
   }
+  // Per altre route (static files, etc.), passa al prossimo middleware
+  next();
 });
 
 // Middleware di gestione errori globale (DEVE essere l'ultimo middleware con 4 parametri)
