@@ -1020,43 +1020,43 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
           // Il codice verrà applicato su onBlur
           // Continua con l'aggiornamento normale dello stato (non return)
         } else {
-        
-        // Per in1 o altri campi, usa la logica normale
-        // Verifica se è un codice geografico che punta all'azienda corrente
-        // Se sì, non applicarlo ma segnalalo come errore
-        if (isGeographicCode(detectedCode)) {
-          // Estrai l'azienda corrente: usa il parametro se disponibile, altrimenti dal contextKey
-          let companyToCheck = currentCompany;
-          if (!companyToCheck && contextKey) {
-            const parts = contextKey.split('-');
-            companyToCheck = parts[0] || '';
-          }
-          if (!companyToCheck) {
-            // Se non c'è contextKey, usa selectedCompany o la prima azienda
-            companyToCheck = selectedCompany || companies[0] || '';
-          }
-          
-          const targetCompany = getCompanyFromGeographicCode(detectedCode);
-          if (targetCompany && targetCompany === companyToCheck) {
-            // Il codice geografico punta all'azienda corrente, segnala errore
-            const currentWeek = weekRangeValue || weekRange;
-            const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
-            const scheduleKeyForError = `${currentWeek}-${baseKey}`;
-            const errorKey = `${scheduleKeyForError}-${dayIndex}-${field}`;
-            setValidationErrors(prev => ({
-              ...prev,
-              [errorKey]: `Codice geografico non valido: non puoi applicare "${timeCodes[detectedCode]}" nella stessa azienda`
-            }));
-            // Non applicare il codice, continua con l'aggiornamento normale
+          // Per in1 o altri campi, usa la logica normale
+          // Verifica se è un codice geografico che punta all'azienda corrente
+          // Se sì, non applicarlo ma segnalalo come errore
+          if (isGeographicCode(detectedCode)) {
+            // Estrai l'azienda corrente: usa il parametro se disponibile, altrimenti dal contextKey
+            let companyToCheck = currentCompany;
+            if (!companyToCheck && contextKey) {
+              const parts = contextKey.split('-');
+              companyToCheck = parts[0] || '';
+            }
+            if (!companyToCheck) {
+              // Se non c'è contextKey, usa selectedCompany o la prima azienda
+              companyToCheck = selectedCompany || companies[0] || '';
+            }
+            
+            const targetCompany = getCompanyFromGeographicCode(detectedCode);
+            if (targetCompany && targetCompany === companyToCheck) {
+              // Il codice geografico punta all'azienda corrente, segnala errore
+              const currentWeek = weekRangeValue || weekRange;
+              const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+              const scheduleKeyForError = `${currentWeek}-${baseKey}`;
+              const errorKey = `${scheduleKeyForError}-${dayIndex}-${field}`;
+              setValidationErrors(prev => ({
+                ...prev,
+                [errorKey]: `Codice geografico non valido: non puoi applicare "${timeCodes[detectedCode]}" nella stessa azienda`
+              }));
+              // Non applicare il codice, continua con l'aggiornamento normale
+            } else {
+              // Il codice geografico punta a un'altra azienda, applicalo normalmente
+              handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
+              return;
+            }
           } else {
-            // Il codice geografico punta a un'altra azienda, applicalo normalmente
+            // Non è un codice geografico, applicalo normalmente
             handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
             return;
           }
-        } else {
-          // Non è un codice geografico, applicalo normalmente
-          handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
-          return;
         }
       }
     }
