@@ -26,8 +26,112 @@ class SpeechGenClient {
   /**
    * Ottiene la lista dei speaker disponibili
    */
-}
+  async getSpeakers() {
+    if (!this.apiKey) {
+      throw new Error('API Key SpeechGen non configurata');
+    }
 
+    // Costruisci query string con credenziali per endpoint che le richiedono
+    const queryParams = new URLSearchParams();
+    if (this.email) queryParams.append('email', this.email);
+    if (this.apiKey) queryParams.append('token', this.apiKey);
+    const queryString = queryParams.toString();
+
+    const endpoints = [
+      { url: `https://speechgen.io/index.php?r=api/voices&${queryString}`, name: 'speechgen.io/index.php?r=api/voices (with auth)' },
+      { url: `https://speechgen.io/index.php?r=api/voices`, name: 'speechgen.io/index.php?r=api/voices (no auth)' },
+      { url: `${this.baseUrl}/api/voices`, name: '/api/voices' },
+      { url: `${this.baseUrl}/api/v1/speakers`, name: '/api/v1/speakers' }
+    ];
+
+    let lastError = null;
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(endpoint.url, {
+          method: 'GET',
+          headers: {
+            'X-API-Key': this.apiKey,
+            'Content-Type': 'application/json'
+          },
+          // Timeout di 10 secondi
+          signal: AbortSignal.timeout(10000)
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const speakers = this._processSpeakersResponse(data);
+
+          if (speakers && speakers.length > 0) {
+            return speakers;
+          }
+
+          console.warn(`⚠️ Endpoint ${endpoint.name} ha risposto OK ma 0 speaker. Provo il prossimo...`);
+          lastError = new Error(`Endpoint ${endpoint.name} returned 0 speakers. Data: ${JSON.stringify(data).substring(0, 100)}...`);
+        } else {
+          lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+      } catch (error) {
+        lastError = error;
+        // Continua con il prossimo endpoint
+        continue;
+      }
+    }
+
+    // Se tutti gli endpoint falliscono, lancia l'ultimo errore
+    throw new Error(`Impossibile recuperare speaker. Ultimo errore: ${lastError?.message || 'Unknown error'}`);
+  }
+
+  /**
+   * Processa la risposta dell'API per estrarre gli speaker
+   */
+  _processSpeakersResponse(data) {
+    // Gestisci diverse strutture di risposta
+    let speakers = [];
+
+    if (Array.isArray(data)) {
+      // Se la risposta è direttamente un array
+      speakers = data;
+    } else if (data.speakers && Array.isArray(data.speakers)) {
+      // Se la risposta ha un campo speakers
+      speakers = data.speakers;
+    } else if (data.voices && Array.isArray(data.voices)) {
+      // Se la risposta ha un campo voices
+      speakers = data.voices;
+    } else if (data.data && Array.isArray(data.data)) {
+      // Se la risposta ha un campo data
+      speakers = data.data;
+    } else if (typeof data === 'object' && data !== null) {
+      // Caso: Risposta raggruppata per lingua {"English": [...], "Italian": [...]}
+      // Iteriamo su tutte le chiavi e uniamo gli array
+      Object.values(data).forEach(group => {
+        if (Array.isArray(group)) {
+          speakers = speakers.concat(group);
+        }
+      });
+    } else {
+      console.warn('⚠️ Struttura risposta SpeechGen non riconosciuta:', data);
+      speakers = [];
+    }
+
+    // Normalizza gli speaker per avere sempre name/id
+    speakers = speakers.map((speaker, index) => {
+      if (typeof speaker === 'string') {
+        return { id: speaker, name: speaker };
+      } else if (speaker.name) {
+        return { id: speaker.id || speaker.name, name: speaker.name };
+      } else if (speaker.id) {
+        return { id: speaker.id, name: speaker.id };
+      } else if (speaker.voice) {
+        // Formato visto nel debug: {"voice":"Amelia", ...}
+        return { id: speaker.voice, name: speaker.voice };
+      } else {
+        return { id: `speaker_${index}`, name: JSON.stringify(speaker) };
+      }
+    });
+
+    return speakers;
+  }
   /**
    * Genera audio da testo
    * @param {string} text - Testo da convertire in audio
@@ -37,62 +141,62 @@ class SpeechGenClient {
    * @returns {Promise<{audioUrl: string, duration: number}>}
    */
   async generateAudio(text, speaker = 'Giulia', speed = 1.0, pitch = 0) {
-  try {
-    const response = await fetch(`${this.baseUrl}/api/v1/generate`, {
-      method: 'POST',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        text: text,
-        speaker: speaker,
-        speed: speed,
-        pitch: pitch,
-        format: 'mp3' // o 'wav'
-      })
-    });
+    try {
+      const response = await fetch(`${this.baseUrl}/api/v1/generate`, {
+        method: 'POST',
+        headers: {
+          'X-API-Key': this.apiKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: text,
+          speaker: speaker,
+          speed: speed,
+          pitch: pitch,
+          format: 'mp3' // o 'wav'
+        })
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`SpeechGen API error: ${response.status} - ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`SpeechGen API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      return {
+        audioUrl: data.url || data.audio_url,
+        duration: data.duration || 0,
+        format: data.format || 'mp3'
+      };
+    } catch (error) {
+      console.error('❌ Errore generazione audio da SpeechGen:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    return {
-      audioUrl: data.url || data.audio_url,
-      duration: data.duration || 0,
-      format: data.format || 'mp3'
-    };
-  } catch (error) {
-    console.error('❌ Errore generazione audio da SpeechGen:', error);
-    throw error;
   }
-}
 
   /**
    * Verifica lo stato di una richiesta di generazione
    */
   async checkStatus(taskId) {
-  try {
-    const response = await fetch(`${this.baseUrl}/api/v1/status/${taskId}`, {
-      method: 'GET',
-      headers: {
-        'X-API-Key': this.apiKey,
-        'Content-Type': 'application/json'
+    try {
+      const response = await fetch(`${this.baseUrl}/api/v1/status/${taskId}`, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': this.apiKey,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`SpeechGen API error: ${response.status}`);
       }
-    });
 
-    if (!response.ok) {
-      throw new Error(`SpeechGen API error: ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      console.error('❌ Errore verifica stato SpeechGen:', error);
+      throw error;
     }
-
-    return await response.json();
-  } catch (error) {
-    console.error('❌ Errore verifica stato SpeechGen:', error);
-    throw error;
   }
-}
 }
 
 module.exports = SpeechGenClient;
