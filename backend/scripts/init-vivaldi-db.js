@@ -37,10 +37,19 @@ async function initVivaldiDatabase() {
     console.log('🔄 Procedo con la creazione delle tabelle...');
 
     // Ora connettiti al database vivaldi_db per creare le tabelle
+    // Carica .env se presente
+    const path = require('path');
+    require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+    
     const vivaldiUrl = process.env.DATABASE_URL_VIVALDI || 
                        process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/vivaldi_db');
     
+    console.log('🔍 DATABASE_URL_VIVALDI:', vivaldiUrl ? 'Configurato' : 'NON CONFIGURATO');
+    
     if (!vivaldiUrl) {
+      console.error('❌ DATABASE_URL_VIVALDI non configurato!');
+      console.error('   Configura DATABASE_URL_VIVALDI nel file .env oppure');
+      console.error('   usa DATABASE_URL come base (verrà sostituito il nome database)');
       throw new Error('DATABASE_URL_VIVALDI non configurato. Impostalo nel file .env');
     }
 
@@ -52,8 +61,14 @@ async function initVivaldiDatabase() {
     });
 
     console.log('🔄 Connessione al database vivaldi_db...');
-    await vivaldiPool.connect();
-    console.log('✅ Connesso al database vivaldi_db');
+    try {
+      await vivaldiPool.connect();
+      console.log('✅ Connesso al database vivaldi_db');
+    } catch (connErr) {
+      console.error('❌ Errore connessione al database vivaldi_db:', connErr.message);
+      console.error('   Verifica che DATABASE_URL_VIVALDI sia corretto nel file .env');
+      throw connErr;
+    }
 
     // Crea tabelle
     console.log('🔄 Creazione tabelle...');
