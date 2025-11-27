@@ -14,7 +14,8 @@ class SpeechGenClient {
    */
   async getSpeakers() {
     try {
-      const response = await fetch(`${this.baseUrl}/api/v1/speakers`, {
+      // Prova prima con l'endpoint /api/voices (endpoint standard SpeechGen)
+      let response = await fetch(`${this.baseUrl}/api/voices`, {
         method: 'GET',
         headers: {
           'X-API-Key': this.apiKey,
@@ -22,12 +23,62 @@ class SpeechGenClient {
         }
       });
 
+      // Se fallisce, prova con /api/v1/speakers
       if (!response.ok) {
+        console.log('⚠️ Tentativo endpoint /api/voices fallito, provo /api/v1/speakers');
+        response = await fetch(`${this.baseUrl}/api/v1/speakers`, {
+          method: 'GET',
+          headers: {
+            'X-API-Key': this.apiKey,
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ SpeechGen API error: ${response.status} ${response.statusText}`, errorText);
         throw new Error(`SpeechGen API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
-      return data.speakers || [];
+      console.log('📢 Risposta SpeechGen API:', JSON.stringify(data, null, 2));
+
+      // Gestisci diverse strutture di risposta
+      let speakers = [];
+      
+      if (Array.isArray(data)) {
+        // Se la risposta è direttamente un array
+        speakers = data;
+      } else if (data.speakers && Array.isArray(data.speakers)) {
+        // Se la risposta ha un campo speakers
+        speakers = data.speakers;
+      } else if (data.voices && Array.isArray(data.voices)) {
+        // Se la risposta ha un campo voices
+        speakers = data.voices;
+      } else if (data.data && Array.isArray(data.data)) {
+        // Se la risposta ha un campo data
+        speakers = data.data;
+      } else {
+        console.warn('⚠️ Struttura risposta SpeechGen non riconosciuta:', data);
+        speakers = [];
+      }
+
+      // Normalizza gli speaker per avere sempre name/id
+      speakers = speakers.map((speaker, index) => {
+        if (typeof speaker === 'string') {
+          return { id: speaker, name: speaker };
+        } else if (speaker.name) {
+          return { id: speaker.id || speaker.name, name: speaker.name };
+        } else if (speaker.id) {
+          return { id: speaker.id, name: speaker.id };
+        } else {
+          return { id: `speaker_${index}`, name: JSON.stringify(speaker) };
+        }
+      });
+
+      console.log(`✅ Trovati ${speakers.length} speaker:`, speakers.map(s => s.name).join(', '));
+      return speakers;
     } catch (error) {
       console.error('❌ Errore recupero speaker da SpeechGen:', error);
       throw error;

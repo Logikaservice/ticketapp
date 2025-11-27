@@ -189,15 +189,20 @@ module.exports = (poolVivaldi) => {
       });
 
       if (!config.apiKey) {
-        return res.status(400).json({ error: 'API Key SpeechGen non configurata' });
+        console.warn('⚠️ API Key SpeechGen non configurata');
+        return res.status(400).json({ error: 'API Key SpeechGen non configurata', speakers: [] });
       }
 
+      console.log('🔍 Recupero speaker da SpeechGen con API Key:', config.apiKey.substring(0, 10) + '...');
       const speechGen = new SpeechGenClient(config.apiKey, config.email);
       const speakers = await speechGen.getSpeakers();
-      res.json({ speakers });
+      
+      console.log(`✅ Restituiti ${speakers.length} speaker al frontend`);
+      res.json({ speakers: speakers || [] });
     } catch (error) {
       console.error('❌ Errore recupero speaker:', error);
-      res.status(500).json({ error: 'Errore recupero speaker' });
+      // Restituisci array vuoto invece di errore per permettere fallback
+      res.json({ speakers: [], error: error.message });
     }
   });
 

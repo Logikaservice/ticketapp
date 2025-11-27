@@ -97,10 +97,24 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
       });
       if (response.ok) {
         const data = await response.json();
-        setSpeakers(data.speakers || []);
+        console.log('📢 Speaker ricevuti dal backend:', data);
+        const speakersList = data.speakers || [];
+        console.log(`✅ Caricati ${speakersList.length} speaker:`, speakersList.map(s => s.name || s).join(', '));
+        setSpeakers(speakersList);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Errore caricamento speaker:', errorData);
+        // Fallback: mantieni almeno un speaker di default
+        if (speakers.length === 0) {
+          setSpeakers([{ id: 'Giulia', name: 'Giulia' }]);
+        }
       }
     } catch (error) {
-      console.error('Errore caricamento speaker:', error);
+      console.error('❌ Errore caricamento speaker:', error);
+      // Fallback: mantieni almeno un speaker di default
+      if (speakers.length === 0) {
+        setSpeakers([{ id: 'Giulia', name: 'Giulia' }]);
+      }
     }
   };
 
