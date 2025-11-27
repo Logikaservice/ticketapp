@@ -1125,10 +1125,28 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
             // Non applicare il codice, continua con la validazione normale
           } else {
             // Il codice geografico punta a un'altra azienda
-            // Se è in2, salva il codice geografico in in2 invece che nel campo code
+            // Se è in2, salva SOLO in in2 senza propagazione (solo visualizzazione)
             if (field === 'in2') {
-              handleGeographicCodeInField(empId, dayIndex, detectedCode, contextKey, weekRangeValue, currentCompany);
+              // Salva solo il codice in in2, senza creare schedule in altre aziende
+              const currentWeek = weekRangeValue || weekRange;
+              const baseKey = contextKey ? `${contextKey}-${empId}` : empId;
+              const scheduleKey = `${currentWeek}-${baseKey}`;
+              
+              setSchedule(prev => {
+                const newSchedule = { ...prev };
+                if (!newSchedule[scheduleKey]) newSchedule[scheduleKey] = {};
+                if (!newSchedule[scheduleKey][dayIndex]) newSchedule[scheduleKey][dayIndex] = {};
+                
+                // Salva solo il label del codice in in2, senza flag geographicCode o fromCompany
+                newSchedule[scheduleKey][dayIndex].in2 = timeCodes[detectedCode] || detectedCode;
+                // NON impostare geographicCode o fromCompany per in2
+                
+                return newSchedule;
+              });
+              
+              setTimeout(() => saveData(), 100);
             } else {
+              // Per in1 o altri campi, usa la logica normale con propagazione
               handleQuickCode(empId, dayIndex, timeCodes[detectedCode], contextKey, weekRangeValue);
             }
             return;
@@ -1166,7 +1184,7 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
     // 2. Validazione Caratteri
     // Permetti lettere solo se è un codice geografico o un codice di assenza
-    // Per in2, permetti anche codici geografici (AT, AV, L o nomi di città)
+    // Per in2, permetti anche codici geografici (AT, AV, L o nomi di città) o codici di assenza
     const hasInvalidChars = /[A-Za-z]/.test(strValue);
     if (hasInvalidChars) {
       // Verifica se è un codice valido (geografico o assenza)
@@ -1178,14 +1196,14 @@ const TimesheetManager = ({ currentUser, getAuthHeader, showNotification }) => {
                          ['ATRIPALDA', 'AVELLINO', 'LIONI'].includes(upperValue);
       
       if (!isKnownCode && field !== 'in2') {
-        // Per in2, permette anche testo libero (potrebbe essere un nome di città)
+        // Per in2, permette anche testo libero (potrebbe essere un nome di città o codice)
         // Per altri campi, blocca se non è un codice valido
         setValidationErrors(prev => ({ ...prev, [errorKey]: 'Valore non valido' }));
         if (showNotification) showNotification('Inserisci un orario valido', 'warning', 4000);
         handleInputChange(empId, dayIndex, field, '', contextKey, weekRangeValue);
         return;
       }
-      // Se è in2 e contiene lettere, potrebbe essere un codice geografico o nome città
+      // Se è in2 e contiene lettere, potrebbe essere un codice geografico, nome città o codice assenza
       // Non bloccare, lascia che handleBlur lo gestisca
     }
 
