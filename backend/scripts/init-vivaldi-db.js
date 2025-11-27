@@ -6,16 +6,17 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 async function initVivaldiDatabase() {
-  // Prima connettiti al database postgres per creare il database vivaldi_db
-  const adminPool = new Pool({
-    connectionString: process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/postgres') || 
-                      process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/template1'),
-    ssl: {
-      rejectUnauthorized: false
-    }
-  });
-
   try {
+    // Prima connettiti al database postgres per creare il database vivaldi_db
+    const adminPool = new Pool({
+      connectionString: process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/postgres') || 
+                        process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/template1'),
+      ssl: {
+        rejectUnauthorized: false
+      }
+    });
+
+    try {
     console.log('🔄 Connessione al database admin...');
     await adminPool.connect();
     console.log('✅ Connesso al database admin');
@@ -37,9 +38,7 @@ async function initVivaldiDatabase() {
     console.log('🔄 Procedo con la creazione delle tabelle...');
 
     // Ora connettiti al database vivaldi_db per creare le tabelle
-    // Carica .env se presente
-    const path = require('path');
-    require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+    // .env già caricato all'inizio dello script
     
     const vivaldiUrl = process.env.DATABASE_URL_VIVALDI || 
                        process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/vivaldi_db');
@@ -180,12 +179,16 @@ async function initVivaldiDatabase() {
     console.log('✅ Database Vivaldi inizializzato con successo!');
     console.log('');
     console.log('📝 Prossimi passi:');
-    console.log('1. Configura DATABASE_URL_VIVALDI nel file .env del backend');
+    console.log('1. ✅ DATABASE_URL_VIVALDI già configurato nel file .env');
     console.log('2. Configura le API keys in Vivaldi (SpeechGen.io e Gemini)');
     console.log('3. Riavvia il backend per attivare il sistema Vivaldi');
-
+    } catch (poolErr) {
+      console.error('❌ Errore durante creazione tabelle:', poolErr.message);
+      throw poolErr;
+    }
   } catch (error) {
-    console.error('❌ Errore inizializzazione database Vivaldi:', error);
+    console.error('❌ Errore inizializzazione database Vivaldi:', error.message);
+    console.error('❌ Stack:', error.stack);
     process.exit(1);
   }
 }
