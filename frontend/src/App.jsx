@@ -2713,6 +2713,14 @@ export default function TicketApp() {
               iconColor: 'text-purple-600',
               buttonColor: 'bg-purple-600 hover:bg-purple-700',
               linkColor: 'text-purple-600 hover:text-purple-800'
+            } : isVivaldiDomain ? {
+              title: 'Sistema Vivaldi',
+              subtitle: 'Accedi per gestire annunci e comunicazioni',
+              bgGradient: 'from-emerald-600 to-teal-600',
+              iconBgColor: 'bg-emerald-100',
+              iconColor: 'text-emerald-600',
+              buttonColor: 'bg-emerald-600 hover:bg-emerald-700',
+              linkColor: 'text-emerald-600 hover:text-emerald-800'
             } : {
               title: 'Sistema Ticketing',
               subtitle: 'Accedi per gestire i tuoi ticket',

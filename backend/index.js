@@ -381,12 +381,13 @@ const { generateLoginResponse, verifyRefreshToken, generateToken } = require('./
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   // Rileva il dominio/progetto richiesto dall'header Host
-  // Supporta anche parametro ?domain=orari per test locali
+  // Supporta anche parametro ?domain=orari/vivaldi per test locali
   const host = req.get('host') || '';
   const testDomain = req.query.domain;
   const isOrariDomain = testDomain === 'orari' || testDomain === 'turni' ||
     host.includes('orari') || host.includes('turni');
-  const requestedProject = isOrariDomain ? 'orari' : 'ticket';
+  const isVivaldiDomain = testDomain === 'vivaldi' || host.includes('vivaldi');
+  const requestedProject = isOrariDomain ? 'orari' : (isVivaldiDomain ? 'vivaldi' : 'ticket');
 
   try {
     const client = await pool.connect();
