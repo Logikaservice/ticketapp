@@ -23,7 +23,31 @@ nslookup vivaldi.logikaservice.it
 
 ---
 
-## 🚀 Passo 1: Installazione di Certbot
+## 🚀 Passo 1: Verifica e Installazione di Certbot
+
+### 1.1 Verifica se Certbot è già installato
+
+Prima di installare, verifica se Certbot è già presente sul server:
+
+```bash
+# Esegui lo script di verifica (se hai accesso al repository)
+bash deploy/scripts/verifica-certbot.sh
+
+# Oppure verifica manualmente
+certbot --version
+
+# Verifica certificati esistenti
+sudo ls -la /etc/letsencrypt/live/
+```
+
+**Se Certbot è già installato**, vedrai:
+- ✅ Versione di Certbot installata
+- ✅ Lista dei certificati esistenti (ticket, orari, ecc.)
+- ✅ Stato del timer di auto-rinnovo
+
+**Se Certbot NON è installato**, procedi con l'installazione.
+
+### 1.2 Installazione di Certbot
 
 Certbot è lo strumento ufficiale di Let's Encrypt per ottenere e gestire certificati SSL.
 
