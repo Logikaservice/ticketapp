@@ -463,7 +463,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
                   <div className="space-y-6">
                     <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1">Contenuto Messaggio</label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2 ml-1">Contenuto Messaggio</label>
                       <textarea
                         value={annuncioForm.contenuto}
                         onChange={(e) => setAnnuncioForm({ ...annuncioForm, contenuto: e.target.value })}
@@ -474,7 +474,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <label className="block text-sm font-semibold text-slate-700 ml-1">Voce Speaker</label>
+                        <label className="block text-sm font-semibold text-gray-700 ml-1">Voce Speaker</label>
                         <div className="relative">
                           <select
                             value={annuncioForm.speaker}
@@ -491,14 +491,14 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                               <option value="Giulia">Giulia</option>
                             )}
                           </select>
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                             <Volume2 size={16} />
                           </div>
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <label className="block text-sm font-semibold text-slate-700 ml-1">Priorità</label>
+                        <label className="block text-sm font-semibold text-gray-700 ml-1">Priorità</label>
                         <div className="relative">
                           <select
                             value={annuncioForm.priorita}
@@ -510,7 +510,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                             <option value="Alta">Alta (10 min)</option>
                             <option value="Urgente">Urgente (7 min)</option>
                           </select>
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                             <AlertCircle size={16} />
                           </div>
                         </div>
@@ -521,8 +521,8 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
                       <div className="space-y-3">
                         <div className="flex justify-between items-center">
-                          <label className="text-sm font-semibold text-slate-700">Velocità</label>
-                          <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">{annuncioForm.velocita.toFixed(1)}x</span>
+                          <label className="text-sm font-semibold text-gray-700">Velocità</label>
+                          <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-600">{annuncioForm.velocita.toFixed(1)}x</span>
                         </div>
                         <input
                           type="range"
@@ -536,8 +536,8 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       </div>
                       <div className="space-y-3">
                         <div className="flex justify-between items-center">
-                          <label className="text-sm font-semibold text-slate-700">Tono</label>
-                          <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600">{annuncioForm.tono.toFixed(1)}</span>
+                          <label className="text-sm font-semibold text-gray-700">Tono</label>
+                          <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-600">{annuncioForm.tono.toFixed(1)}</span>
                         </div>
                         <input
                           type="range"
@@ -602,13 +602,13 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                         }`}></div>
 
                       <div className="pl-3">
-                        <p className="font-medium text-slate-800 line-clamp-2 text-sm leading-relaxed mb-2">
+                        <p className="font-medium text-gray-800 line-clamp-2 text-sm leading-relaxed mb-2">
                           {annuncio.contenuto_pulito || annuncio.contenuto}
                         </p>
 
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex items-center gap-1">
                               <Volume2 size={10} /> {annuncio.speaker}
                             </span>
                           </div>
@@ -744,7 +744,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                 {/* Oggi */}
                 <div>
-                  <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2 text-lg">
+                  <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2 text-lg">
                     <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50"></span>
                     Oggi
                   </h3>
