@@ -379,37 +379,34 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 p-4 md:p-8 font-sans text-slate-800">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="p-4 bg-gray-50 min-h-screen font-sans relative">
+      <div className="max-w-7xl mx-auto space-y-6">
 
-        {/* Header Premium */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl border border-white/50 p-6 md:p-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
-            <div className="flex items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 text-white">
-                <Volume2 size={32} />
+        {/* Header Classico */}
+        <div className="bg-slate-800 text-white p-4 rounded-lg shadow-lg">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-lg bg-emerald-600 flex items-center justify-center shadow-md">
+                <Volume2 size={24} />
               </div>
               <div>
-                <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Vivaldi</h1>
-                <p className="text-slate-500 font-medium mt-1">Sistema Annunci Vocali Intelligente</p>
+                <h1 className="text-2xl font-bold">Sistema Vivaldi</h1>
+                <p className="text-slate-300 text-sm">Gestione Annunci Vocali</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowGeminiAssistant(!showGeminiAssistant)}
-                className="group relative px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-medium shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2 overflow-hidden"
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-bold transition-colors shadow-md"
               >
-                <div className="absolute inset-0 bg-white/20 group-hover:translate-x-full transition-transform duration-500 ease-out -skew-x-12 -ml-4 w-full"></div>
-                <Mic size={18} className="relative z-10" />
-                <span className="relative z-10">Assistente AI</span>
+                <Mic size={18} />
+                Assistente AI
               </button>
 
               <button
                 onClick={() => setShowSettings(!showSettings)}
-                className="p-3 bg-white text-slate-600 rounded-xl border border-slate-200 shadow-sm hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all duration-200"
+                className={`p-2 rounded transition-colors ${showSettings ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
                 title="Impostazioni"
               >
                 <Settings size={20} />
@@ -418,7 +415,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex gap-2 mt-8 p-1.5 bg-slate-100/50 rounded-2xl w-full md:w-fit backdrop-blur-sm border border-slate-200/50">
+          <div className="flex gap-2 mt-4">
             {[
               { id: 'editor', label: 'Editor', icon: Plus },
               { id: 'queue', label: 'Coda', icon: Clock },
@@ -432,13 +429,13 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`
-                    relative px-6 py-2.5 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center gap-2
+                    px-4 py-2 rounded font-semibold text-sm transition-all flex items-center gap-2
                     ${isActive
-                      ? 'bg-white text-blue-600 shadow-md shadow-slate-200/50 ring-1 ring-black/5'
-                      : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}
                   `}
                 >
-                  <Icon size={16} className={isActive ? 'text-blue-500' : 'text-slate-400'} />
+                  <Icon size={16} />
                   {tab.label}
                 </button>
               );
@@ -454,10 +451,10 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Left Column: Editor */}
               <div className="lg:col-span-2 space-y-6">
-                <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-6 md:p-8 relative overflow-hidden">
+                <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
                   <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                      <span className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
                         <Plus size={18} />
                       </span>
                       Nuovo Annuncio
@@ -470,7 +467,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       <textarea
                         value={annuncioForm.contenuto}
                         onChange={(e) => setAnnuncioForm({ ...annuncioForm, contenuto: e.target.value })}
-                        className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none h-40 text-slate-700 placeholder-slate-400 shadow-inner"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all resize-none h-40 text-gray-700 placeholder-gray-400"
                         placeholder="Scrivi qui il testo dell'annuncio..."
                       />
                     </div>
@@ -482,7 +479,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           <select
                             value={annuncioForm.speaker}
                             onChange={(e) => setAnnuncioForm({ ...annuncioForm, speaker: e.target.value })}
-                            className="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 appearance-none shadow-sm transition-all cursor-pointer"
+                            className="w-full pl-4 pr-10 py-3 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none transition-all cursor-pointer"
                           >
                             {speakers.length > 0 ? (
                               speakers.map(s => (
@@ -506,7 +503,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           <select
                             value={annuncioForm.priorita}
                             onChange={(e) => setAnnuncioForm({ ...annuncioForm, priorita: e.target.value })}
-                            className="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-200 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 appearance-none shadow-sm transition-all cursor-pointer"
+                            className="w-full pl-4 pr-10 py-3 rounded-lg border border-gray-300 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 appearance-none transition-all cursor-pointer"
                           >
                             <option value="Bassa">Bassa (30 min)</option>
                             <option value="Media">Media (15 min)</option>
@@ -534,7 +531,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           step="0.1"
                           value={annuncioForm.velocita}
                           onChange={(e) => setAnnuncioForm({ ...annuncioForm, velocita: parseFloat(e.target.value) })}
-                          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-emerald-600"
                         />
                       </div>
                       <div className="space-y-3">
@@ -549,7 +546,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                           step="0.1"
                           value={annuncioForm.tono}
                           onChange={(e) => setAnnuncioForm({ ...annuncioForm, tono: parseFloat(e.target.value) })}
-                          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
                         />
                       </div>
                     </div>
@@ -558,7 +555,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                       <button
                         onClick={handleCreateAnnuncio}
                         disabled={loading}
-                        className="flex-1 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                        className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-md transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                       >
                         {loading ? (
                           <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
@@ -574,7 +571,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                         <button
                           onClick={() => handleScheduleAnnuncio(selectedAnnuncio.id)}
                           disabled={loading}
-                          className="px-6 py-3.5 bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5 transition-all duration-200 flex items-center gap-2"
+                          className="px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold shadow-md transition-colors flex items-center gap-2"
                         >
                           <Clock size={20} />
                           Schedula
@@ -588,15 +585,15 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
               {/* Right Column: Recent List */}
               <div className="space-y-6">
                 <div className="flex items-center justify-between px-1">
-                  <h3 className="font-bold text-slate-800 text-lg">Recenti</h3>
-                  <button onClick={loadAnnunci} className="text-sm text-blue-600 hover:text-blue-700 font-medium">Aggiorna</button>
+                  <h3 className="font-bold text-gray-800 text-lg">Recenti</h3>
+                  <button onClick={loadAnnunci} className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">Aggiorna</button>
                 </div>
 
                 <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                   {annunci.slice(0, 10).map(annuncio => (
                     <div
                       key={annuncio.id}
-                      className="group bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all duration-200 cursor-pointer relative overflow-hidden"
+                      className="group bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all duration-200 cursor-pointer relative overflow-hidden"
                       onClick={() => setSelectedAnnuncio(annuncio)}
                     >
                       <div className={`absolute left-0 top-0 bottom-0 w-1 ${annuncio.priorita === 'Urgente' ? 'bg-red-500' :
@@ -620,7 +617,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                             {annuncio.audio_url ? (
                               <button
                                 onClick={(e) => { e.stopPropagation(); handlePlayAudio(annuncio.audio_url); }}
-                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                                 title="Ascolta"
                               >
                                 <Volume2 size={16} />
@@ -628,7 +625,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                             ) : (
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleGenerateAudio(annuncio.id); }}
-                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                                 title="Genera Audio"
                               >
                                 <Volume2 size={16} />
@@ -636,7 +633,7 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                             )}
                             <button
                               onClick={(e) => { e.stopPropagation(); handleCopyAnnuncio(annuncio); }}
-                              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
                               title="Copia"
                             >
                               <Copy size={16} />
@@ -653,58 +650,58 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
           {/* Queue Tab */}
           {activeTab === 'queue' && (
-            <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-6 md:p-8">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
                     <Clock size={18} />
                   </span>
                   Coda di Riproduzione
                 </h2>
-                <div className="text-sm text-slate-500">
+                <div className="text-sm text-gray-500">
                   Aggiornamento automatico
                 </div>
               </div>
 
               <div className="space-y-4">
                 {queue.length === 0 ? (
-                  <div className="text-center py-16 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200">
-                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                  <div className="text-center py-16 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                    <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
                       <Clock size={32} />
                     </div>
-                    <p className="text-slate-600 font-medium text-lg">La coda è vuota</p>
-                    <p className="text-slate-400 text-sm mt-1">Gli annunci schedulati appariranno qui automaticamente</p>
+                    <p className="text-gray-600 font-medium text-lg">La coda è vuota</p>
+                    <p className="text-gray-400 text-sm mt-1">Gli annunci schedulati appariranno qui automaticamente</p>
                   </div>
                 ) : (
                   queue.map((item, idx) => (
                     <div
                       key={item.id}
                       className={`
-                        relative p-5 rounded-2xl border transition-all duration-300 flex items-center justify-between group
+                        relative p-5 rounded-lg border transition-all duration-300 flex items-center justify-between group
                         ${item.stato === 'playing'
-                          ? 'bg-blue-50/50 border-blue-200 shadow-lg shadow-blue-100 scale-[1.02] z-10'
-                          : 'bg-white border-slate-100 hover:border-blue-100 hover:shadow-md'}
+                          ? 'bg-emerald-50 border-emerald-300 shadow-lg scale-[1.02] z-10'
+                          : 'bg-white border-gray-200 hover:border-emerald-200 hover:shadow-md'}
                       `}
                     >
                       <div className="flex items-center gap-4">
                         <div className={`
-                          w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg
-                          ${item.stato === 'playing' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-100 text-slate-500'}
+                          w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg
+                          ${item.stato === 'playing' ? 'bg-emerald-600 text-white shadow-md' : 'bg-gray-200 text-gray-600'}
                         `}>
                           {idx + 1}
                         </div>
                         <div>
-                          <p className={`font-semibold text-lg ${item.stato === 'playing' ? 'text-blue-900' : 'text-slate-800'}`}>
+                          <p className={`font-semibold text-lg ${item.stato === 'playing' ? 'text-emerald-900' : 'text-gray-800'}`}>
                             {item.contenuto_pulito || item.contenuto}
                           </p>
                           <div className="flex items-center gap-3 mt-1.5">
                             <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${item.priorita === 'Urgente' ? 'bg-red-100 text-red-700' :
                               item.priorita === 'Alta' ? 'bg-orange-100 text-orange-700' :
-                                item.priorita === 'Media' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'
+                                item.priorita === 'Media' ? 'bg-yellow-100 text-yellow-700' : 'bg-emerald-100 text-emerald-700'
                               }`}>
                               {item.priorita}
                             </span>
-                            <span className="text-xs text-slate-500 flex items-center gap-1 font-medium">
+                            <span className="text-xs text-gray-500 flex items-center gap-1 font-medium">
                               <Clock size={12} />
                               {new Date(item.scheduled_for).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                             </span>
@@ -714,13 +711,13 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
                       <div>
                         {item.stato === 'playing' && (
-                          <div className="flex items-center gap-2 px-4 py-2 bg-blue-100/50 text-blue-700 rounded-xl font-bold text-sm animate-pulse">
-                            <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
+                          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg font-bold text-sm animate-pulse">
+                            <span className="w-2 h-2 bg-emerald-600 rounded-full"></span>
                             IN ONDA
                           </div>
                         )}
                         {item.stato === 'pending' && (
-                          <div className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-medium text-sm">
+                          <div className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-medium text-sm">
                             In attesa
                           </div>
                         )}
@@ -734,10 +731,10 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
           {/* Timeline Tab */}
           {activeTab === 'timeline' && (
-            <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-6 md:p-8">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
+            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
                     <History size={18} />
                   </span>
                   Timeline Giornaliera
@@ -751,53 +748,53 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
                     <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50"></span>
                     Oggi
                   </h3>
-                  <div className="space-y-8 relative pl-8 border-l-2 border-slate-100">
+                  <div className="space-y-8 relative pl-8 border-l-2 border-gray-200">
                     {/* Mock Item 1 */}
                     <div className="relative">
                       <div className="absolute -left-[41px] top-0 w-6 h-6 rounded-full bg-emerald-100 border-4 border-white shadow-sm flex items-center justify-center">
                         <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
                       </div>
-                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 hover:shadow-md transition-all">
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-md transition-all">
                         <div className="flex justify-between items-start mb-2">
-                          <span className="font-bold text-slate-800">Apertura Negozio</span>
+                          <span className="font-bold text-gray-800">Apertura Negozio</span>
                           <span className="text-sm font-mono text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">09:00</span>
                         </div>
-                        <p className="text-sm text-slate-600">Benvenuti nel nostro punto vendita. Vi auguriamo buono shopping.</p>
+                        <p className="text-sm text-gray-600">Benvenuti nel nostro punto vendita. Vi auguriamo buono shopping.</p>
                       </div>
                     </div>
 
                     {/* Mock Item 2 */}
                     <div className="relative">
-                      <div className="absolute -left-[41px] top-0 w-6 h-6 rounded-full bg-blue-100 border-4 border-white shadow-sm flex items-center justify-center">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <div className="absolute -left-[41px] top-0 w-6 h-6 rounded-full bg-teal-100 border-4 border-white shadow-sm flex items-center justify-center">
+                        <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
                       </div>
-                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 hover:shadow-md transition-all">
+                      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-md transition-all">
                         <div className="flex justify-between items-start mb-2">
-                          <span className="font-bold text-slate-800">Offerta Lampo</span>
-                          <span className="text-sm font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">10:30</span>
+                          <span className="font-bold text-gray-800">Offerta Lampo</span>
+                          <span className="text-sm font-mono text-teal-600 bg-teal-50 px-2 py-1 rounded-lg">10:30</span>
                         </div>
-                        <p className="text-sm text-slate-600">Sconto del 20% su tutti i prodotti da forno per i prossimi 30 minuti.</p>
+                        <p className="text-sm text-gray-600">Sconto del 20% su tutti i prodotti da forno per i prossimi 30 minuti.</p>
                       </div>
                     </div>
 
                     <div className="text-center pt-4">
-                      <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Fine Programmazione</p>
+                      <p className="text-xs text-gray-400 uppercase tracking-widest font-semibold">Fine Programmazione</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Domani */}
                 <div>
-                  <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2 text-lg">
-                    <span className="w-3 h-3 rounded-full bg-blue-400 shadow-lg shadow-blue-400/50"></span>
+                  <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2 text-lg">
+                    <span className="w-3 h-3 rounded-full bg-teal-400 shadow-md"></span>
                     Domani
                   </h3>
-                  <div className="h-full flex flex-col items-center justify-center p-8 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-200 text-center">
-                    <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center mb-4 text-slate-300">
+                  <div className="h-full flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 text-center">
+                    <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center mb-4 text-gray-300">
                       <Clock size={24} />
                     </div>
-                    <p className="text-slate-500 font-medium">Nessuna programmazione</p>
-                    <button className="mt-4 text-blue-600 text-sm font-semibold hover:underline">
+                    <p className="text-gray-500 font-medium">Nessuna programmazione</p>
+                    <button className="mt-4 text-emerald-600 text-sm font-semibold hover:underline">
                       Copia da oggi
                     </button>
                   </div>
@@ -808,17 +805,17 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
           {/* History Tab */}
           {activeTab === 'history' && (
-            <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-6 md:p-8">
+            <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
                     <CheckCircle size={18} />
                   </span>
                   Storico Esecuzioni
                 </h2>
                 <button
                   onClick={loadHistory}
-                  className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors text-sm font-medium"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm font-medium shadow-md"
                 >
                   Aggiorna
                 </button>
@@ -826,28 +823,28 @@ const VivaldiManager = ({ currentUser, getAuthHeader, showNotification }) => {
 
               <div className="space-y-3">
                 {history.length === 0 ? (
-                  <p className="text-slate-400 text-center py-12">Nessun record nello storico</p>
+                  <p className="text-gray-400 text-center py-12">Nessun record nello storico</p>
                 ) : (
                   history.map(item => (
                     <div
                       key={item.id}
-                      className="p-4 bg-slate-50 rounded-xl border border-slate-100 hover:bg-white hover:shadow-md transition-all flex items-center justify-between group"
+                      className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-white hover:shadow-md transition-all flex items-center justify-between group"
                     >
                       <div className="flex-1">
-                        <p className="font-medium text-slate-800">{item.contenuto_pulito || item.contenuto}</p>
+                        <p className="font-medium text-gray-800">{item.contenuto_pulito || item.contenuto}</p>
                         <div className="flex items-center gap-3 mt-1.5">
-                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${item.priorita === 'Urgente' ? 'bg-red-100 text-red-700' : 'bg-slate-200 text-slate-600'
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${item.priorita === 'Urgente' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'
                             }`}>
                             {item.priorita}
                           </span>
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-gray-500">
                             {new Date(item.eseguito_at).toLocaleString('it-IT')}
                           </span>
                         </div>
                       </div>
                       <button
                         onClick={() => handleDeleteHistory(item.id)}
-                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 size={18} />
                       </button>
