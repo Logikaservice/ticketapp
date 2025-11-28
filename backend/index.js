@@ -429,7 +429,7 @@ app.post('/api/login', async (req, res) => {
     if (user.ruolo !== 'admin' && user.ruolo !== 'tecnico' && !enabledProjects.includes(requestedProject)) {
       client.release();
       return res.status(403).json({
-        error: `Accesso negato. Non hai i permessi per accedere a ${requestedProject === 'orari' ? 'Orari e Turni' : 'Ticket'}. Contatta l'amministratore.`
+        error: `Accesso negato. Non hai i permessi per accedere a ${requestedProject === 'orari' ? 'Orari e Turni' : requestedProject === 'vivaldi' ? 'Vivaldi' : 'Ticket'}. Contatta l'amministratore.`
       });
     }
 
