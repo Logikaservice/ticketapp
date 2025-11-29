@@ -86,6 +86,9 @@ const DisplayView = ({ messages, viewMode }) => {
     const [animationFromCenter, setAnimationFromCenter] = useState(false); // true = dal centro schermo, false = dal centro metà
     const [prevUrgentCount, setPrevUrgentCount] = useState(0);
     const [prevNonUrgentCount, setPrevNonUrgentCount] = useState(0);
+    
+    // Stato per tracciare quando è stato creato l'ultimo urgente (per far rimanere visibile 10s)
+    const [lastUrgentCreatedAt, setLastUrgentCreatedAt] = useState(null);
 
     // Determina se dividere lo schermo
     const hasUrgentMessages = urgentMessages.length > 0;
@@ -94,9 +97,6 @@ const DisplayView = ({ messages, viewMode }) => {
     // Se è stato creato un nuovo urgente negli ultimi 10 secondi, mostra a schermo intero
     const forceFullScreenForNewUrgent = lastUrgentCreatedAt && (Date.now() - lastUrgentCreatedAt < 10000);
     const shouldSplit = hasUrgentMessages && hasNonUrgentMessages && !forceFullScreenForNewUrgent;
-
-    // Stato per tracciare quando è stato creato l'ultimo urgente (per far rimanere visibile 10s)
-    const [lastUrgentCreatedAt, setLastUrgentCreatedAt] = useState(null);
     
     // Slide messaggi urgenti (ogni 10 secondi con animazione simbolo dal centro metà)
     // Solo se ci sono più di 1 messaggio urgente
