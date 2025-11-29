@@ -114,34 +114,60 @@ const DisplayView = ({ messages, viewMode }) => {
                 @keyframes slideInZoom {
                     0% {
                         opacity: 0;
-                        transform: scale(0.8) translateX(50px);
+                        transform: scale(0.7) translateX(100px);
+                        filter: blur(10px);
+                    }
+                    50% {
+                        opacity: 0.5;
+                        transform: scale(0.9) translateX(20px);
+                        filter: blur(3px);
                     }
                     100% {
                         opacity: 1;
                         transform: scale(1) translateX(0);
+                        filter: blur(0px);
                     }
                 }
                 
                 @keyframes flashBorder {
                     0% {
-                        opacity: 0;
-                        transform: scale(1);
-                        box-shadow: 0 0 0 0 rgba(255, 255, 255, 1);
-                    }
-                    20% {
                         opacity: 1;
-                        transform: scale(1);
-                        box-shadow: 0 0 0 20px rgba(255, 255, 255, 0);
+                        border-width: 20px;
+                        border-color: rgba(255, 255, 255, 1);
+                        box-shadow: 0 0 100px rgba(255, 255, 255, 1), inset 0 0 100px rgba(255, 255, 255, 0.5);
                     }
-                    50% {
-                        opacity: 0.8;
-                        transform: scale(1.01);
-                        box-shadow: 0 0 0 40px rgba(255, 255, 255, 0);
+                    30% {
+                        opacity: 0.9;
+                        border-width: 15px;
+                        border-color: rgba(255, 255, 255, 0.9);
+                        box-shadow: 0 0 80px rgba(255, 255, 255, 0.8), inset 0 0 80px rgba(255, 255, 255, 0.3);
+                    }
+                    60% {
+                        opacity: 0.6;
+                        border-width: 10px;
+                        border-color: rgba(255, 255, 255, 0.6);
+                        box-shadow: 0 0 50px rgba(255, 255, 255, 0.5), inset 0 0 50px rgba(255, 255, 255, 0.2);
                     }
                     100% {
                         opacity: 0;
-                        transform: scale(1);
-                        box-shadow: 0 0 0 60px rgba(255, 255, 255, 0);
+                        border-width: 0px;
+                        border-color: rgba(255, 255, 255, 0);
+                        box-shadow: 0 0 0px rgba(255, 255, 255, 0), inset 0 0 0px rgba(255, 255, 255, 0);
+                    }
+                }
+                
+                @keyframes fadeOutIn {
+                    0% {
+                        opacity: 1;
+                    }
+                    40% {
+                        opacity: 0;
+                    }
+                    60% {
+                        opacity: 0;
+                    }
+                    100% {
+                        opacity: 1;
                     }
                 }
                 
@@ -187,21 +213,34 @@ const DisplayView = ({ messages, viewMode }) => {
                         {viewMode === 'single' && activeMessages.length > 1 && (
                             <div 
                                 key={`flash-${slideKey}`}
-                                className="absolute inset-0 pointer-events-none flash-border-effect"
+                                className="absolute inset-0 pointer-events-none z-50"
                                 style={{ 
-                                    animation: 'flashBorder 1s ease-out forwards',
-                                    border: '8px solid rgba(255, 255, 255, 0.8)'
+                                    animation: 'flashBorder 1.5s ease-out forwards',
+                                    border: '20px solid rgba(255, 255, 255, 1)',
+                                    borderRadius: '1.5rem'
+                                }}
+                            />
+                        )}
+                        
+                        {/* Overlay bianco flash per evidenziare il cambio */}
+                        {viewMode === 'single' && activeMessages.length > 1 && (
+                            <div 
+                                key={`overlay-${slideKey}`}
+                                className="absolute inset-0 pointer-events-none z-40 bg-white"
+                                style={{ 
+                                    animation: 'fadeOutIn 1.5s ease-out forwards',
+                                    opacity: 0
                                 }}
                             />
                         )}
 
                         {/* Contenuto Messaggio */}
                         <div 
-                            key={`content-${slideKey}`}
-                            className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl transform transition-all duration-1000 ease-in-out hover:scale-105 slide-in-animation"
+                            key={`content-${slideKey}-${msg.id}`}
+                            className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl transform hover:scale-105"
                             style={{
                                 animation: viewMode === 'single' && activeMessages.length > 1 
-                                    ? 'slideInZoom 1s ease-out forwards' 
+                                    ? 'slideInZoom 1.5s ease-out forwards' 
                                     : 'none'
                             }}
                         >
