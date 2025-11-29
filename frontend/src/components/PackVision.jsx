@@ -231,13 +231,18 @@ const DisplayView = ({ messages, viewMode }) => {
         }
         
         // Assicurati che l'indice corrente sia valido
-        if (currentNonUrgentIndex >= nonUrgentMessages.length || currentNonUrgentIndex < 0) {
+        let initialIndex = currentNonUrgentIndex;
+        if (initialIndex >= nonUrgentMessages.length || initialIndex < 0 || !nonUrgentMessages[initialIndex]) {
+            initialIndex = 0;
             setCurrentNonUrgentIndex(0);
             currentIndexRef.current = 0;
+        } else {
+            currentIndexRef.current = initialIndex;
         }
         
-        console.log('🔄 [PackVision] Avvio slideshow per', nonUrgentMessages.length, 'messaggi non urgenti, indice iniziale:', currentNonUrgentIndex);
+        console.log('🔄 [PackVision] Avvio slideshow per', nonUrgentMessages.length, 'messaggi non urgenti, indice iniziale:', initialIndex);
         
+        // Avvia l'intervallo immediatamente (non aspettare 10 secondi per il primo cambio)
         const interval = setInterval(() => {
             const currentIdx = currentIndexRef.current;
             const messages = messagesRef.current;
