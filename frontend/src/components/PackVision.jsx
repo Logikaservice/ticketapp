@@ -297,6 +297,9 @@ const DisplayView = ({ messages, viewMode }) => {
                             <div 
                                 className="fixed inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-red-600 to-orange-600 overflow-hidden"
                             >
+                                {/* Sfondo rotante */}
+                                <div className="rotating-background"></div>
+                                
                                 {/* Lucciole animate sullo sfondo */}
                                 {fireflies.map((fly) => (
                                     <div
