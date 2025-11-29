@@ -378,7 +378,11 @@ export default function PackVision({ onClose }) {
                 </div>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => window.open(window.location.href + '?mode=display', '_blank')}
+                        onClick={() => {
+                            const url = new URL(window.location.href);
+                            url.searchParams.set('mode', 'display');
+                            window.open(url.toString(), '_blank');
+                        }}
                         className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
                     >
                         <Maximize size={16} />

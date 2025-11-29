@@ -166,7 +166,10 @@ export default function TicketApp() {
     // Se c'è un dominio richiesto (vivaldi), mostra subito vivaldi
     return isVivaldiDomain;
   });
-  const [showPackVision, setShowPackVision] = useState(false);
+  const [showPackVision, setShowPackVision] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('mode') === 'display';
+  });
 
   // Aggiorna lo stato quando cambia il dominio richiesto
   useEffect(() => {
