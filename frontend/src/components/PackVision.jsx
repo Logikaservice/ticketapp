@@ -196,13 +196,19 @@ const DisplayView = ({ messages, viewMode }) => {
         }
     }, [urgentMessages.length, nonUrgentMessages.length, nonUrgentMessages.map(m => `${m.id}-${m.created_at}`).join(',')]);
     
-    // Inizializza il primo messaggio non urgente quando ce ne sono 2+
+    // Inizializza il primo messaggio non urgente quando ci sono 2+ messaggi e si passa da 1 a 2+
     useEffect(() => {
-        if (urgentMessages.length === 0 && nonUrgentMessages.length >= 2 && currentNonUrgentIndex >= nonUrgentMessages.length) {
-            setCurrentNonUrgentIndex(0);
-            setCurrentNonUrgent(nonUrgentMessages[0]);
+        if (urgentMessages.length === 0 && nonUrgentMessages.length >= 2) {
+            // Se l'indice non è valido o non è ancora impostato, inizializzalo
+            if (currentNonUrgentIndex >= nonUrgentMessages.length || currentNonUrgentIndex < 0) {
+                setCurrentNonUrgentIndex(0);
+            }
+            // Se non c'è un messaggio corrente impostato, impostalo
+            if (!nonUrgentMessages[currentNonUrgentIndex]) {
+                setCurrentNonUrgentIndex(0);
+            }
         }
-    }, [urgentMessages.length, nonUrgentMessages.length]);
+    }, [urgentMessages.length, nonUrgentMessages.length, currentNonUrgentIndex, nonUrgentMessages]);
     
     // Rotazione automatica dei messaggi non urgenti ogni 10 secondi (quando ce ne sono 2+)
     useEffect(() => {
