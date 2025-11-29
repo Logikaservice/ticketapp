@@ -198,11 +198,11 @@ const DisplayView = ({ messages, viewMode }) => {
                 // Registra il momento della creazione per far restare il messaggio visibile per 10 secondi a schermo intero
                 setLastUrgentCreatedAt(Date.now());
                 
-                // Dopo 1 secondo, nasconde animazione e mostra messaggio
+                // Dopo 2 secondi, nasconde animazione simbolo e mostra messaggio completo
                 setTimeout(() => {
                     setShowIconAnimation(false);
                     setAnimationFromCenter(false);
-                }, 1000);
+                }, 2000); // 2 secondi come richiesto
                 
                 // Dopo 10 secondi, pulisci il flag per permettere lo split (se ci sono non urgenti)
                 setTimeout(() => {
@@ -295,13 +295,17 @@ const DisplayView = ({ messages, viewMode }) => {
                         transform: scale(0.1);
                         opacity: 0.5;
                     }
-                    50% {
+                    20% {
                         transform: scale(1.2);
+                        opacity: 1;
+                    }
+                    80% {
+                        transform: scale(1);
                         opacity: 1;
                     }
                     100% {
                         transform: scale(1);
-                        opacity: 0;
+                        opacity: 1;
                     }
                 }
                 
@@ -338,13 +342,19 @@ const DisplayView = ({ messages, viewMode }) => {
                         key={`icon-center-${animationKey}`}
                         className="fixed inset-0 flex items-center justify-center z-30 pointer-events-none"
                         style={{
-                            animation: 'iconGrowCenter 1s ease-out forwards',
                             background: currentUrgent.priority === 'danger' 
                                 ? 'radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(220, 38, 38, 0.9) 50%, rgba(185, 28, 28, 0.85) 100%)'
                                 : 'transparent'
                         }}
                     >
-                        <div className="text-white">
+                        <div 
+                            className="text-white"
+                            style={{
+                                animation: 'iconGrowCenter 0.8s ease-out forwards',
+                                opacity: 1,
+                                transform: 'scale(1)'
+                            }}
+                        >
                             {React.cloneElement(THEMES[currentUrgent.priority].icon, { 
                                 size: 300, 
                                 className: 'text-white drop-shadow-2xl'
