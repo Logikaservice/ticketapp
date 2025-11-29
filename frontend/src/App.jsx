@@ -274,14 +274,19 @@ export default function TicketApp() {
     if (isLoggedIn) {
       setNotifications(prev => prev.filter(n => !(n.sticky && n.message === 'Disconnesso per inattività')));
 
-      // Dopo il login, verifica se c'è un dominio richiesto e mostra la gestione orari se necessario
+      // Dopo il login, verifica se c'è un dominio richiesto e mostra la gestione orari/vivaldi se necessario
       const savedDomain = localStorage.getItem('requestedDomain');
       if (savedDomain === 'orari' || savedDomain === 'turni') {
         setShowDashboard(false);
         setShowOrariTurni(true);
+        setShowVivaldi(false);
+      } else if (savedDomain === 'vivaldi' || isVivaldiDomain) {
+        setShowDashboard(false);
+        setShowOrariTurni(false);
+        setShowVivaldi(true);
       }
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, isVivaldiDomain]);
 
   // Aggiorna i ref per il timer di inattività
   useEffect(() => {
