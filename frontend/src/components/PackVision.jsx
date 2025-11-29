@@ -70,6 +70,8 @@ const DisplayView = ({ messages, viewMode }) => {
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     // Stato per tracciare quando avviene un cambio di slide (per animazione)
     const [slideKey, setSlideKey] = useState(0);
+    // Stato per tracciare se siamo in fase di transizione
+    const [isTransitioning, setIsTransitioning] = useState(false);
 
     // Logica per visualizzazione singola o split
     let displayMessages;
@@ -86,19 +88,29 @@ const DisplayView = ({ messages, viewMode }) => {
         }
     }
 
-    // Slide automatico ogni 5 secondi per modalità singolo con più messaggi
+    // Slide automatico: messaggio visibile 5 secondi, poi transizione 1.5 secondi
     useEffect(() => {
         if (viewMode === 'single' && activeMessages.length > 1) {
-            const slideInterval = setInterval(() => {
-                setCurrentSlideIndex((prevIndex) => {
-                    const newIndex = (prevIndex + 1) % activeMessages.length;
-                    // Aggiorna slideKey per triggerare l'animazione
-                    setSlideKey((prev) => prev + 1);
-                    return newIndex;
-                });
-            }, 5000); // 5 secondi
+            // Timer per mostrare il messaggio per 5 secondi
+            const displayTimer = setInterval(() => {
+                // Avvia la transizione (mostra effetti bianchi)
+                setIsTransitioning(true);
+                setSlideKey((prev) => prev + 1);
+                
+                // Dopo 1.5 secondi (durata transizione), cambia il messaggio
+                setTimeout(() => {
+                    setCurrentSlideIndex((prevIndex) => {
+                        const newIndex = (prevIndex + 1) % activeMessages.length;
+                        // Disattiva la transizione dopo un piccolo delay per permettere al nuovo messaggio di apparire
+                        setTimeout(() => {
+                            setIsTransitioning(false);
+                        }, 100);
+                        return newIndex;
+                    });
+                }, 1500); // 1.5 secondi per la transizione
+            }, 5000); // 5 secondi di visualizzazione
 
-            return () => clearInterval(slideInterval);
+            return () => clearInterval(displayTimer);
         }
     }, [viewMode, activeMessages.length]);
 
@@ -209,8 +221,8 @@ const DisplayView = ({ messages, viewMode }) => {
                             </div>
                         )}
 
-                        {/* Effetto flash/border al cambio slide (solo in modalità singolo) */}
-                        {viewMode === 'single' && activeMessages.length > 1 && (
+                        {/* Effetto flash/border al cambio slide (solo durante la transizione) */}
+                        {viewMode === 'single' && activeMessages.length > 1 && isTransitioning && (
                             <div 
                                 key={`flash-${slideKey}`}
                                 className="absolute inset-0 pointer-events-none z-50"
@@ -222,8 +234,8 @@ const DisplayView = ({ messages, viewMode }) => {
                             />
                         )}
                         
-                        {/* Overlay bianco flash per evidenziare il cambio */}
-                        {viewMode === 'single' && activeMessages.length > 1 && (
+                        {/* Overlay bianco flash per evidenziare il cambio (solo durante la transizione) */}
+                        {viewMode === 'single' && activeMessages.length > 1 && isTransitioning && (
                             <div 
                                 key={`overlay-${slideKey}`}
                                 className="absolute inset-0 pointer-events-none z-40 bg-white"
@@ -239,7 +251,7 @@ const DisplayView = ({ messages, viewMode }) => {
                             key={`content-${slideKey}-${msg.id}`}
                             className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl transform hover:scale-105"
                             style={{
-                                animation: viewMode === 'single' && activeMessages.length > 1 
+                                animation: viewMode === 'single' && activeMessages.length > 1 && isTransitioning
                                     ? 'slideInZoom 1.5s ease-out forwards' 
                                     : 'none'
                             }}
