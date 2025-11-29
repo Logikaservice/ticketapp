@@ -92,30 +92,65 @@ const DisplayView = ({ messages, viewMode }) => {
     const hasNonUrgentMessages = nonUrgentMessages.length > 0;
     const shouldSplit = hasUrgentMessages && hasNonUrgentMessages;
 
+    // Stato per tracciare quando è stato creato l'ultimo urgente (per far rimanere visibile 10s)
+    const [lastUrgentCreatedAt, setLastUrgentCreatedAt] = useState(null);
+    
     // Slide messaggi urgenti (ogni 10 secondi con animazione simbolo dal centro metà)
     // Solo se ci sono più di 1 messaggio urgente
     useEffect(() => {
         if (urgentMessages.length > 1) {
-            const urgentInterval = setInterval(() => {
-                // Mostra animazione simbolo dal centro della metà superiore
-                setShowIconAnimation(true);
-                setAnimationFromCenter(false); // Dal centro della metà superiore
-                setAnimationKey(prev => prev + 1);
+            // Se c'è un nuovo urgente appena creato, aspetta 10 secondi prima di iniziare lo slide
+            if (lastUrgentCreatedAt) {
+                const timeSinceCreation = Date.now() - lastUrgentCreatedAt;
+                const waitTime = Math.max(0, 10000 - timeSinceCreation);
                 
-                // Dopo 1 secondo (animazione simbolo), cambia messaggio
-                setTimeout(() => {
-                    setCurrentUrgentIndex(prev => (prev + 1) % urgentMessages.length);
-                    setShowIconAnimation(false);
-                    setSlideKey(prev => prev + 1);
-                }, 1000);
-            }, 10000); // 10 secondi per ogni messaggio urgente
+                // Aspetta che passino 10 secondi dalla creazione prima di iniziare lo slide
+                const initialTimeout = setTimeout(() => {
+                    setLastUrgentCreatedAt(null);
+                    
+                    // Ora inizia lo slide normale ogni 10 secondi
+                    const urgentInterval = setInterval(() => {
+                        // Mostra animazione simbolo dal centro della metà superiore
+                        setShowIconAnimation(true);
+                        setAnimationFromCenter(false);
+                        setAnimationKey(prev => prev + 1);
+                        
+                        // Dopo 1 secondo (animazione simbolo), cambia messaggio
+                        setTimeout(() => {
+                            setCurrentUrgentIndex(prev => (prev + 1) % urgentMessages.length);
+                            setShowIconAnimation(false);
+                            setSlideKey(prev => prev + 1);
+                        }, 1000);
+                    }, 10000);
+                    
+                    return () => clearInterval(urgentInterval);
+                }, waitTime);
+                
+                return () => clearTimeout(initialTimeout);
+            } else {
+                // Nessun nuovo urgente, inizia subito lo slide ogni 10 secondi
+                const urgentInterval = setInterval(() => {
+                    // Mostra animazione simbolo dal centro della metà superiore
+                    setShowIconAnimation(true);
+                    setAnimationFromCenter(false);
+                    setAnimationKey(prev => prev + 1);
+                    
+                    // Dopo 1 secondo (animazione simbolo), cambia messaggio
+                    setTimeout(() => {
+                        setCurrentUrgentIndex(prev => (prev + 1) % urgentMessages.length);
+                        setShowIconAnimation(false);
+                        setSlideKey(prev => prev + 1);
+                    }, 1000);
+                }, 10000);
 
-            return () => clearInterval(urgentInterval);
+                return () => clearInterval(urgentInterval);
+            }
         } else {
             // Se c'è un solo urgente, non slitta - resta fisso
             setShowIconAnimation(false);
+            setLastUrgentCreatedAt(null);
         }
-    }, [urgentMessages.length]);
+    }, [urgentMessages.length, lastUrgentCreatedAt]);
 
     // Slide messaggi non urgenti (ogni 5 secondi, solo in split con più messaggi)
     useEffect(() => {
@@ -156,6 +191,9 @@ const DisplayView = ({ messages, viewMode }) => {
                 if (recentIndex !== -1) {
                     setCurrentUrgentIndex(recentIndex);
                 }
+                
+                // Registra il momento della creazione per far restare il messaggio visibile per 10 secondi
+                setLastUrgentCreatedAt(Date.now());
                 
                 // Dopo 1 secondo, nasconde animazione e mostra messaggio
                 setTimeout(() => {
@@ -292,7 +330,10 @@ const DisplayView = ({ messages, viewMode }) => {
                         key={`icon-center-${animationKey}`}
                         className="fixed inset-0 flex items-center justify-center z-30 pointer-events-none"
                         style={{
-                            animation: 'iconGrowCenter 1s ease-out forwards'
+                            animation: 'iconGrowCenter 1s ease-out forwards',
+                            background: currentUrgent.priority === 'danger' 
+                                ? 'radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(220, 38, 38, 0.9) 50%, rgba(185, 28, 28, 0.85) 100%)'
+                                : 'transparent'
                         }}
                     >
                         <div className="text-white">
@@ -310,7 +351,10 @@ const DisplayView = ({ messages, viewMode }) => {
                         key={`icon-half-${animationKey}`}
                         className="absolute top-0 left-0 right-0 h-1/2 flex items-center justify-center z-30 pointer-events-none"
                         style={{
-                            animation: 'iconGrowHalf 1s ease-out forwards'
+                            animation: 'iconGrowHalf 1s ease-out forwards',
+                            background: currentUrgent.priority === 'danger'
+                                ? 'radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(220, 38, 38, 0.9) 50%, rgba(185, 28, 28, 0.85) 100%)'
+                                : 'transparent'
                         }}
                     >
                         <div className="text-white">
