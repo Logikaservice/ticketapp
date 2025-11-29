@@ -90,7 +90,10 @@ const DisplayView = ({ messages, viewMode }) => {
     // Determina se dividere lo schermo
     const hasUrgentMessages = urgentMessages.length > 0;
     const hasNonUrgentMessages = nonUrgentMessages.length > 0;
-    const shouldSplit = hasUrgentMessages && hasNonUrgentMessages;
+    
+    // Se è stato creato un nuovo urgente negli ultimi 10 secondi, mostra a schermo intero
+    const forceFullScreenForNewUrgent = lastUrgentCreatedAt && (Date.now() - lastUrgentCreatedAt < 10000);
+    const shouldSplit = hasUrgentMessages && hasNonUrgentMessages && !forceFullScreenForNewUrgent;
 
     // Stato per tracciare quando è stato creato l'ultimo urgente (per far rimanere visibile 10s)
     const [lastUrgentCreatedAt, setLastUrgentCreatedAt] = useState(null);
@@ -192,7 +195,7 @@ const DisplayView = ({ messages, viewMode }) => {
                     setCurrentUrgentIndex(recentIndex);
                 }
                 
-                // Registra il momento della creazione per far restare il messaggio visibile per 10 secondi
+                // Registra il momento della creazione per far restare il messaggio visibile per 10 secondi a schermo intero
                 setLastUrgentCreatedAt(Date.now());
                 
                 // Dopo 1 secondo, nasconde animazione e mostra messaggio
@@ -200,6 +203,11 @@ const DisplayView = ({ messages, viewMode }) => {
                     setShowIconAnimation(false);
                     setAnimationFromCenter(false);
                 }, 1000);
+                
+                // Dopo 10 secondi, pulisci il flag per permettere lo split (se ci sono non urgenti)
+                setTimeout(() => {
+                    setLastUrgentCreatedAt(null);
+                }, 10000);
             }
         }
         setPrevUrgentCount(urgentMessages.length);
@@ -385,7 +393,10 @@ const DisplayView = ({ messages, viewMode }) => {
                 )}
 
                 {/* Parte superiore: Messaggi urgenti (se presenti) */}
-                {shouldSplit ? (
+                {forceFullScreenForNewUrgent && hasUrgentMessages ? (
+                    // Nuovo urgente appena creato: schermo intero per 10 secondi
+                    currentUrgent && renderMessage(currentUrgent, true, false, 'h-full w-full')
+                ) : shouldSplit ? (
                     <>
                         {currentUrgent ? (
                             <div className="h-1/2 relative">
