@@ -84,6 +84,8 @@ const DisplayView = ({ messages, viewMode }) => {
     const [currentNonUrgentIndex, setCurrentNonUrgentIndex] = useState(0);
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [isUrgentTransitioning, setIsUrgentTransitioning] = useState(false);
+    const [shouldKeepUrgentFullScreen, setShouldKeepUrgentFullScreen] = useState(false);
+    const [lastUrgentCreatedAt, setLastUrgentCreatedAt] = useState(null);
     const [prevUrgentCount, setPrevUrgentCount] = useState(0);
     const [prevNonUrgentCount, setPrevNonUrgentCount] = useState(0);
 
@@ -99,6 +101,10 @@ const DisplayView = ({ messages, viewMode }) => {
             });
 
             console.log('🚨 [PackVision] Nuovo messaggio urgente rilevato:', mostRecentUrgent.id);
+            
+            // Imposta il timestamp di creazione e forza schermo intero per 10 secondi
+            setLastUrgentCreatedAt(Date.now());
+            setShouldKeepUrgentFullScreen(true);
             
             // Se c'è un solo messaggio urgente, usalo direttamente
             if (urgentMessages.length === 1) {
@@ -124,6 +130,12 @@ const DisplayView = ({ messages, viewMode }) => {
                     }, 2000);
                 }
             }
+            
+            // Dopo 12 secondi totali (2 di icona + 10 di messaggio), permette la divisione se ci sono non urgenti
+            setTimeout(() => {
+                console.log('⏰ [PackVision] Timer 10 secondi scaduto, controllo se dividere lo schermo');
+                setShouldKeepUrgentFullScreen(false);
+            }, 12000); // 12 secondi (2 di icona + 10 di messaggio)
         }
         
         // Se non ci sono urgenti, pulisci
@@ -157,6 +169,10 @@ const DisplayView = ({ messages, viewMode }) => {
             if (urgentMessage && urgentMessage.priority === 'danger' && !showIconAnimation) {
                 console.log('✅ [PackVision] Avvio animazione per nuovo urgente:', messageId);
                 
+                // Imposta il timestamp di creazione e forza schermo intero per 10 secondi
+                setLastUrgentCreatedAt(Date.now());
+                setShouldKeepUrgentFullScreen(true);
+                
                 // Se c'è un solo messaggio urgente, usa il messaggio diretto
                 if (urgentMessages.length === 1) {
                     setCurrentUrgent(urgentMessage);
@@ -177,6 +193,12 @@ const DisplayView = ({ messages, viewMode }) => {
                 setTimeout(() => {
                     setShowIconAnimation(false);
                 }, 2000);
+                
+                // Dopo 12 secondi totali (2 di icona + 10 di messaggio), permette la divisione se ci sono non urgenti
+                setTimeout(() => {
+                    console.log('⏰ [PackVision] Timer 10 secondi scaduto (da evento), controllo se dividere lo schermo');
+                    setShouldKeepUrgentFullScreen(false);
+                }, 12000); // 12 secondi (2 di icona + 10 di messaggio)
             }
         };
         
@@ -318,8 +340,16 @@ const DisplayView = ({ messages, viewMode }) => {
         };
     }, [urgentMessages.length, nonUrgentMessages.length]);
     
-    // Rotazione automatica dei messaggi urgenti ogni 10 secondi (quando ce ne sono 2+)
+    // Rotazione automatica dei messaggi urgenti ogni 10 secondi (quando ce ne sono 2+ o quando lo schermo è diviso)
     useEffect(() => {
+        // Se ci sono meno di 2 urgenti E non ci sono non urgenti (quindi non è diviso), non fare rotazione
+        if (urgentMessages.length < 2 && nonUrgentMessages.length === 0) {
+            setIsUrgentTransitioning(false);
+            return;
+        }
+        
+        // Se c'è un solo urgente ma ci sono non urgenti (schermo diviso), non fare rotazione per ora
+        // (potrebbe essere implementata in futuro)
         if (urgentMessages.length < 2) {
             setIsUrgentTransitioning(false);
             return;
@@ -685,8 +715,43 @@ const DisplayView = ({ messages, viewMode }) => {
                 }
             `}</style>
             <div className="fixed inset-0 bg-black text-white overflow-hidden">
-                {/* Se ci sono messaggi urgenti */}
-                {urgentMessages.length > 0 ? (
+                {/* Se ci sono messaggi urgenti E non urgenti E non deve rimanere a schermo intero → SCHERMO DIVISO */}
+                {urgentMessages.length > 0 && nonUrgentMessages.length > 0 && !shouldKeepUrgentFullScreen && !showIconAnimation ? (
+                    <>
+                        {/* Metà superiore: messaggi urgenti che ruotano ogni 10 secondi */}
+                        <div className="absolute top-0 left-0 w-full h-1/2 relative overflow-hidden z-20">
+                            {urgentMessages[currentUrgentIndex] && (
+                                <>
+                                    {renderUrgentMessage(urgentMessages[currentUrgentIndex], isUrgentTransitioning)}
+                                    
+                                    {/* Fascio di luce durante la transizione - sopra tutto */}
+                                    {isUrgentTransitioning && (
+                                        <div className="absolute inset-0 z-50 pointer-events-none">
+                                            <div className="light-beam"></div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                        
+                        {/* Metà inferiore: messaggi non urgenti che ruotano ogni 10 secondi */}
+                        <div className="absolute top-1/2 left-0 w-full h-1/2 relative overflow-hidden z-20">
+                            {nonUrgentMessages[currentNonUrgentIndex] && (
+                                <>
+                                    {renderNonUrgentMessage(nonUrgentMessages[currentNonUrgentIndex], true)}
+                                    
+                                    {/* Fascio di luce durante la transizione - sopra tutto */}
+                                    {isTransitioning && (
+                                        <div className="absolute inset-0 z-50 pointer-events-none">
+                                            <div className="light-beam"></div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </>
+                ) : urgentMessages.length > 0 ? (
+                    /* Se ci sono SOLO messaggi urgenti (o devono rimanere a schermo intero) */
                     <>
                         {/* Se c'è un solo messaggio urgente */}
                         {urgentMessages.length === 1 && currentUrgent ? (
