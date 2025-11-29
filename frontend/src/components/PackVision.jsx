@@ -66,9 +66,39 @@ const DisplayView = ({ messages, viewMode }) => {
         { id: 1, content: 'In attesa di messaggi...', priority: 'info', created_at: new Date() }
     ];
 
+    // Stato per tracciare quale messaggio mostrare in modalità singolo con slide
+    const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+
     // Logica per visualizzazione singola o split
-    // Se split, prendiamo i primi 2 messaggi attivi
-    const displayMessages = viewMode === 'split' ? activeMessages.slice(0, 2) : [activeMessages[0]];
+    let displayMessages;
+    if (viewMode === 'split') {
+        // Se split, prendiamo i primi 2 messaggi attivi
+        displayMessages = activeMessages.slice(0, 2);
+    } else {
+        // Se singolo e ci sono più messaggi, usiamo lo slide automatico
+        if (activeMessages.length > 1) {
+            // Usa l'indice corrente per ciclare tra i messaggi
+            displayMessages = [activeMessages[currentSlideIndex % activeMessages.length]];
+        } else {
+            displayMessages = [activeMessages[0]];
+        }
+    }
+
+    // Slide automatico ogni 5 secondi per modalità singolo con più messaggi
+    useEffect(() => {
+        if (viewMode === 'single' && activeMessages.length > 1) {
+            const slideInterval = setInterval(() => {
+                setCurrentSlideIndex((prevIndex) => (prevIndex + 1) % activeMessages.length);
+            }, 5000); // 5 secondi
+
+            return () => clearInterval(slideInterval);
+        }
+    }, [viewMode, activeMessages.length]);
+
+    // Reset l'indice quando cambiano i messaggi
+    useEffect(() => {
+        setCurrentSlideIndex(0);
+    }, [activeMessages.map(m => m.id).join(',')]);
 
     return (
         <div className="fixed inset-0 bg-black text-white overflow-hidden flex">
@@ -79,7 +109,7 @@ const DisplayView = ({ messages, viewMode }) => {
 
                 return (
                     <div
-                        key={msg.id}
+                        key={`${msg.id}-${currentSlideIndex}`}
                         className={`${widthClass} h-full bg-gradient-to-br ${theme.gradient} flex flex-col items-center justify-center p-12 relative transition-all duration-1000 ease-in-out`}
                     >
                         {/* Orologio solo nel primo pannello o in alto a destra assoluto */}
@@ -89,8 +119,24 @@ const DisplayView = ({ messages, viewMode }) => {
                             </div>
                         )}
 
+                        {/* Indicatore slide (solo in modalità singolo con più messaggi) */}
+                        {viewMode === 'single' && activeMessages.length > 1 && (
+                            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10 flex gap-2">
+                                {activeMessages.map((_, idx) => (
+                                    <div
+                                        key={idx}
+                                        className={`h-2 rounded-full transition-all duration-300 ${
+                                            idx === currentSlideIndex
+                                                ? 'w-8 bg-white'
+                                                : 'w-2 bg-white/50'
+                                        }`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+
                         {/* Contenuto Messaggio */}
-                        <div className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl transform transition-transform hover:scale-105 duration-500">
+                        <div className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl transform transition-all duration-1000 ease-in-out hover:scale-105">
                             <div className="flex justify-center">{theme.icon}</div>
                             <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
                                 {theme.label}
@@ -101,6 +147,12 @@ const DisplayView = ({ messages, viewMode }) => {
                             <div className="mt-8 text-lg opacity-70">
                                 Inviato: {new Date(msg.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                             </div>
+                            {/* Indicatore posizione slide (solo se più messaggi) */}
+                            {viewMode === 'single' && activeMessages.length > 1 && (
+                                <div className="mt-4 text-sm opacity-60">
+                                    {currentSlideIndex + 1} / {activeMessages.length}
+                                </div>
+                            )}
                         </div>
                     </div>
                 );
