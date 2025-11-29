@@ -226,6 +226,7 @@ const DisplayView = ({ messages, viewMode }) => {
                 );
             })}
         </div>
+        </>
     );
 };
 
