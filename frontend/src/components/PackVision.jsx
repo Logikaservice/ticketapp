@@ -94,8 +94,8 @@ const DisplayView = ({ messages, viewMode }) => {
     const hasUrgentMessages = urgentMessages.length > 0;
     const hasNonUrgentMessages = nonUrgentMessages.length > 0;
     
-    // Se è stato creato un nuovo urgente negli ultimi 10 secondi, mostra a schermo intero
-    const forceFullScreenForNewUrgent = lastUrgentCreatedAt && (Date.now() - lastUrgentCreatedAt < 10000);
+    // Se è stato creato un nuovo urgente negli ultimi 10 secondi O se c'è animazione icona, mostra a schermo intero
+    const forceFullScreenForNewUrgent = (lastUrgentCreatedAt && (Date.now() - lastUrgentCreatedAt < 10000)) || (showIconAnimation && animationFromCenter);
     const shouldSplit = hasUrgentMessages && hasNonUrgentMessages && !forceFullScreenForNewUrgent;
     
     // Slide messaggi urgenti (ogni 10 secondi con animazione simbolo dal centro metà)
