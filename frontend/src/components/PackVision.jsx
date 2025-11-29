@@ -80,6 +80,8 @@ const DisplayView = ({ messages, viewMode }) => {
     const [showIconAnimation, setShowIconAnimation] = useState(false);
     const [currentUrgent, setCurrentUrgent] = useState(null);
     const [currentNonUrgent, setCurrentNonUrgent] = useState(null);
+    const [currentNonUrgentIndex, setCurrentNonUrgentIndex] = useState(0);
+    const [isTransitioning, setIsTransitioning] = useState(false);
     const [prevUrgentCount, setPrevUrgentCount] = useState(0);
     const [prevNonUrgentCount, setPrevNonUrgentCount] = useState(0);
 
@@ -181,7 +183,57 @@ const DisplayView = ({ messages, viewMode }) => {
         }
         
         setPrevNonUrgentCount(nonUrgentMessages.length);
+        
+        // Se c'è un solo messaggio non urgente e non ci sono urgenti, impostalo come corrente
+        if (urgentMessages.length === 0 && nonUrgentMessages.length === 1 && !currentNonUrgent) {
+            setCurrentNonUrgent(nonUrgentMessages[0]);
+            setCurrentNonUrgentIndex(0);
+        }
+        
+        // Se ci sono 2+ messaggi non urgenti, inizializza l'indice se necessario
+        if (urgentMessages.length === 0 && nonUrgentMessages.length >= 2 && currentNonUrgentIndex === 0 && !currentNonUrgent) {
+            setCurrentNonUrgent(nonUrgentMessages[0]);
+        }
     }, [urgentMessages.length, nonUrgentMessages.length, nonUrgentMessages.map(m => `${m.id}-${m.created_at}`).join(',')]);
+    
+    // Inizializza il primo messaggio non urgente quando ce ne sono 2+
+    useEffect(() => {
+        if (urgentMessages.length === 0 && nonUrgentMessages.length >= 2 && currentNonUrgentIndex >= nonUrgentMessages.length) {
+            setCurrentNonUrgentIndex(0);
+            setCurrentNonUrgent(nonUrgentMessages[0]);
+        }
+    }, [urgentMessages.length, nonUrgentMessages.length]);
+    
+    // Rotazione automatica dei messaggi non urgenti ogni 10 secondi (quando ce ne sono 2+)
+    useEffect(() => {
+        if (urgentMessages.length > 0 || nonUrgentMessages.length < 2) {
+            setIsTransitioning(false);
+            return;
+        }
+        
+        // Assicurati che l'indice corrente sia valido
+        if (currentNonUrgentIndex >= nonUrgentMessages.length || currentNonUrgentIndex < 0) {
+            setCurrentNonUrgentIndex(0);
+        }
+        
+        const interval = setInterval(() => {
+            setCurrentNonUrgentIndex(prev => {
+                const nextIndex = (prev + 1) % nonUrgentMessages.length;
+                
+                // Avvia animazione di transizione
+                setIsTransitioning(true);
+                
+                // Dopo 1 secondo (durata animazione), ferma l'animazione
+                setTimeout(() => {
+                    setIsTransitioning(false);
+                }, 1000);
+                
+                return nextIndex;
+            });
+        }, 10000); // 10 secondi
+        
+        return () => clearInterval(interval);
+    }, [urgentMessages.length, nonUrgentMessages.length, nonUrgentMessages, currentNonUrgentIndex]);
     
     // Listener per eventi personalizzati quando viene creato un messaggio non urgente (senza urgenti)
     useEffect(() => {
@@ -283,7 +335,7 @@ const DisplayView = ({ messages, viewMode }) => {
     };
     
     // Funzione per renderizzare un messaggio non urgente (quando non ci sono urgenti)
-    const renderNonUrgentMessage = (msg) => {
+    const renderNonUrgentMessage = (msg, isBottomHalf = false) => {
         if (!msg) return null;
         const theme = THEMES[msg.priority] || THEMES.info;
         
@@ -291,7 +343,7 @@ const DisplayView = ({ messages, viewMode }) => {
         const gradientClass = `bg-gradient-to-br ${theme.gradient}`;
         
         return (
-            <div className={`h-full w-full ${gradientClass} flex flex-col items-center justify-center p-12 relative overflow-hidden`}>
+            <div className={`h-full w-full ${gradientClass} flex flex-col items-center justify-center p-12 relative overflow-hidden ${isBottomHalf && isTransitioning ? 'slide-out-left' : ''}`}>
                 {/* Sfondo rotante */}
                 <div className="rotating-background"></div>
                 
@@ -310,19 +362,21 @@ const DisplayView = ({ messages, viewMode }) => {
                     />
                 ))}
                 
-                {/* Orologio in alto a destra */}
-                <div className="absolute top-8 right-8 z-10">
-                    <DigitalClock />
-                </div>
+                {/* Orologio in alto a destra (solo se schermo intero) */}
+                {!isBottomHalf && (
+                    <div className="absolute top-8 right-8 z-10">
+                        <DigitalClock />
+                    </div>
+                )}
 
                 {/* Contenuto Messaggio - nascosto durante animazione icona, con fade-in */}
                 {!showIconAnimation && (
-                    <div className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10 message-fade-in">
+                    <div className={`glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10 ${isBottomHalf && isTransitioning ? 'slide-in-right' : isBottomHalf ? '' : 'message-fade-in'}`}>
                         <div className="flex justify-center">{theme.icon}</div>
                         <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
                             {theme.label}
                         </h2>
-                        <p className="text-6xl md:text-7xl font-black leading-tight drop-shadow-lg break-words">
+                        <p className={`${isBottomHalf ? 'text-4xl md:text-5xl' : 'text-6xl md:text-7xl'} font-black leading-tight drop-shadow-lg break-words`}>
                             {msg.content}
                         </p>
                         <div className="mt-8 text-lg opacity-70">
@@ -364,8 +418,74 @@ const DisplayView = ({ messages, viewMode }) => {
                     }
                 }
                 
+                @keyframes lightBeam {
+                    0% {
+                        transform: translateX(-100%) skewX(-20deg);
+                        opacity: 0;
+                    }
+                    30% {
+                        opacity: 1;
+                    }
+                    70% {
+                        opacity: 1;
+                    }
+                    100% {
+                        transform: translateX(200%) skewX(-20deg);
+                        opacity: 0;
+                    }
+                }
+                
+                @keyframes slideOutLeft {
+                    0% {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                    100% {
+                        transform: translateX(-100%);
+                        opacity: 0;
+                    }
+                }
+                
+                @keyframes slideInRight {
+                    0% {
+                        transform: translateX(100%);
+                        opacity: 0;
+                    }
+                    100% {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+                
                 .message-fade-in {
                     animation: fadeInMessage 1s ease-out forwards;
+                }
+                
+                .light-beam {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: linear-gradient(
+                        90deg,
+                        transparent 0%,
+                        rgba(255, 255, 255, 0.1) 20%,
+                        rgba(255, 255, 255, 0.3) 50%,
+                        rgba(255, 255, 255, 0.1) 80%,
+                        transparent 100%
+                    );
+                    pointer-events: none;
+                    z-index: 50;
+                    animation: lightBeam 1s ease-out forwards;
+                }
+                
+                .slide-out-left {
+                    animation: slideOutLeft 0.8s ease-in forwards;
+                }
+                
+                .slide-in-right {
+                    animation: slideInRight 0.8s ease-out forwards;
                 }
                 
                 @keyframes firefly {
@@ -478,51 +598,82 @@ const DisplayView = ({ messages, viewMode }) => {
                         {/* Messaggio urgente a schermo intero (dopo animazione icona) */}
                         {!showIconAnimation && renderUrgentMessage(currentUrgent)}
                     </>
-                ) : currentNonUrgent && urgentMessages.length === 0 ? (
+                ) : urgentMessages.length === 0 && nonUrgentMessages.length > 0 ? (
                     <>
-                        {/* Animazione icona dal centro per 2 secondi per messaggi non urgenti */}
-                        {showIconAnimation && (() => {
-                            const theme = THEMES[currentNonUrgent.priority] || THEMES.info;
-                            const gradientClass = `bg-gradient-to-br ${theme.gradient}`;
-                            return (
-                                <div 
-                                    className={`fixed inset-0 flex items-center justify-center z-30 ${gradientClass} overflow-hidden`}
-                                >
-                                    {/* Sfondo rotante */}
-                                    <div className="rotating-background"></div>
-                                    
-                                    {/* Lucciole animate sullo sfondo */}
-                                    {fireflies.map((fly) => (
-                                        <div
-                                            key={`fly-icon-nonurgent-${fly.id}`}
-                                            className="firefly"
-                                            style={{
-                                                '--left': `${fly.left}%`,
-                                                '--top': `${fly.top}%`,
-                                                '--tx': `${fly.tx}px`,
-                                                '--ty': `${fly.ty}px`,
-                                                '--delay': `${fly.delay}s`
-                                            }}
-                                        />
-                                    ))}
-                                    
-                                    <div 
-                                        className="text-white relative z-10"
-                                        style={{
-                                            animation: 'iconGrowCenter 2s ease-out forwards'
-                                        }}
-                                    >
-                                        {React.cloneElement(theme.icon, { 
-                                            size: 300, 
-                                            className: 'text-white drop-shadow-2xl'
-                                        })}
+                        {/* Se c'è un solo messaggio non urgente: schermo intero */}
+                        {nonUrgentMessages.length === 1 ? (
+                            <>
+                                {/* Animazione icona dal centro per 2 secondi per messaggi non urgenti */}
+                                {showIconAnimation && (() => {
+                                    const theme = THEMES[nonUrgentMessages[0].priority] || THEMES.info;
+                                    const gradientClass = `bg-gradient-to-br ${theme.gradient}`;
+                                    return (
+                                        <div 
+                                            className={`fixed inset-0 flex items-center justify-center z-30 ${gradientClass} overflow-hidden`}
+                                        >
+                                            {/* Sfondo rotante */}
+                                            <div className="rotating-background"></div>
+                                            
+                                            {/* Lucciole animate sullo sfondo */}
+                                            {fireflies.map((fly) => (
+                                                <div
+                                                    key={`fly-icon-nonurgent-${fly.id}`}
+                                                    className="firefly"
+                                                    style={{
+                                                        '--left': `${fly.left}%`,
+                                                        '--top': `${fly.top}%`,
+                                                        '--tx': `${fly.tx}px`,
+                                                        '--ty': `${fly.ty}px`,
+                                                        '--delay': `${fly.delay}s`
+                                                    }}
+                                                />
+                                            ))}
+                                            
+                                            <div 
+                                                className="text-white relative z-10"
+                                                style={{
+                                                    animation: 'iconGrowCenter 2s ease-out forwards'
+                                                }}
+                                            >
+                                                {React.cloneElement(theme.icon, { 
+                                                    size: 300, 
+                                                    className: 'text-white drop-shadow-2xl'
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                                
+                                {/* Messaggio non urgente a schermo intero (dopo animazione icona) */}
+                                {!showIconAnimation && renderNonUrgentMessage(nonUrgentMessages[0])}
+                            </>
+                        ) : (
+                            // Se ci sono 2+ messaggi non urgenti: divisione orizzontale
+                            <>
+                                {/* Metà superiore: nera */}
+                                <div className="absolute top-0 left-0 w-full h-1/2 bg-black flex items-center justify-center">
+                                    <div className="absolute top-8 right-8 z-10">
+                                        <DigitalClock />
                                     </div>
                                 </div>
-                            );
-                        })()}
-                        
-                        {/* Messaggio non urgente a schermo intero (dopo animazione icona) */}
-                        {!showIconAnimation && renderNonUrgentMessage(currentNonUrgent)}
+                                
+                                {/* Metà inferiore: messaggi non urgenti che ruotano ogni 10 secondi */}
+                                <div className="absolute bottom-0 left-0 w-full h-1/2 relative overflow-hidden">
+                                    {nonUrgentMessages[currentNonUrgentIndex] && (
+                                        <>
+                                            {renderNonUrgentMessage(nonUrgentMessages[currentNonUrgentIndex], true)}
+                                            
+                                            {/* Fascio di luce durante la transizione - sopra tutto */}
+                                            {isTransitioning && (
+                                                <div className="absolute inset-0 z-50 pointer-events-none">
+                                                    <div className="light-beam"></div>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </>
                 ) : (
                     // Nessun messaggio: schermo nero con orologio
@@ -984,14 +1135,21 @@ export default function PackVision({ onClose }) {
                     // Se non ci sono urgenti, emetti evento per messaggio non urgente
                     if (!hasUrgentMessages) {
                         console.log('📋 [PackVision] Messaggio non urgente creato (nessun urgente presente), emetto evento');
-                        // Emetti subito l'evento senza timeout per pubblicazione veloce
-                        window.dispatchEvent(new CustomEvent('packvision:newNonUrgentMessage', { 
-                            detail: { 
-                                messageId: responseData.id, 
-                                timestamp: Date.now(),
-                                message: responseData
-                            } 
-                        }));
+                        
+                        // Controlla se ci sono già altri messaggi non urgenti
+                        const existingNonUrgent = messages.filter(m => m.priority !== 'danger' && m.active);
+                        
+                        // Se questo è il primo messaggio non urgente, emetti evento per animazione icona
+                        if (existingNonUrgent.length === 0) {
+                            window.dispatchEvent(new CustomEvent('packvision:newNonUrgentMessage', { 
+                                detail: { 
+                                    messageId: responseData.id, 
+                                    timestamp: Date.now(),
+                                    message: responseData
+                                } 
+                            }));
+                        }
+                        // Se ce ne sono già altri, lo schermo si dividerà automaticamente
                     }
                 }
             } else {
