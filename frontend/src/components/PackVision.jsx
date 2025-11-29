@@ -75,6 +75,9 @@ const DisplayView = ({ messages, viewMode }) => {
     // Separa messaggi urgenti da non urgenti
     const urgentMessages = activeMessages.filter(msg => msg.priority === 'danger');
     const nonUrgentMessages = activeMessages.filter(msg => msg.priority !== 'danger');
+    
+    // Tieni traccia degli ID dei messaggi urgenti per rilevare nuovi
+    const [knownUrgentIds, setKnownUrgentIds] = useState(new Set());
 
     // Stati per slide urgenti e non urgenti
     const [currentUrgentIndex, setCurrentUrgentIndex] = useState(0);
@@ -170,9 +173,55 @@ const DisplayView = ({ messages, viewMode }) => {
         }
     }, [nonUrgentMessages.length, shouldSplit]);
 
-    // Rileva nuovi messaggi urgenti e avvia animazione dal centro
+    // Listener per eventi personalizzati quando viene creato un nuovo messaggio urgente
     useEffect(() => {
-        if (urgentMessages.length > 0) {
+        const handleNewUrgentMessage = (event) => {
+            const { messageId, timestamp } = event.detail;
+            console.log('🚨 [PackVision DisplayView] Evento nuovo messaggio urgente ricevuto:', messageId);
+            
+            // Verifica che il messaggio sia nella lista degli urgenti
+            const urgentMessage = urgentMessages.find(m => m.id === messageId);
+            
+            if (urgentMessage && urgentMessage.priority === 'danger' && !showIconAnimation && !lastUrgentCreatedAt) {
+                console.log('✅ [PackVision DisplayView] Avvio animazione per nuovo urgente');
+                
+                // Imposta immediatamente il flag per schermo intero
+                setLastUrgentCreatedAt(timestamp || Date.now());
+                
+                // Avvia animazione icona
+                setShowIconAnimation(true);
+                setAnimationFromCenter(true);
+                setAnimationKey(prev => prev + 1);
+                
+                // Imposta il messaggio come corrente
+                const urgentIndex = urgentMessages.findIndex(m => m.id === messageId);
+                if (urgentIndex !== -1) {
+                    setCurrentUrgentIndex(urgentIndex);
+                }
+                
+                // Dopo 2 secondi, nasconde animazione simbolo e mostra messaggio completo
+                setTimeout(() => {
+                    setShowIconAnimation(false);
+                    setAnimationFromCenter(false);
+                }, 2000);
+                
+                // Dopo 10 secondi, pulisci il flag per permettere lo split (se ci sono non urgenti)
+                setTimeout(() => {
+                    setLastUrgentCreatedAt(null);
+                }, 10000);
+            }
+        };
+        
+        window.addEventListener('packvision:newUrgentMessage', handleNewUrgentMessage);
+        
+        return () => {
+            window.removeEventListener('packvision:newUrgentMessage', handleNewUrgentMessage);
+        };
+    }, [urgentMessages, showIconAnimation, lastUrgentCreatedAt]);
+    
+    // Rileva nuovi messaggi urgenti e avvia animazione dal centro (fallback)
+    useEffect(() => {
+        if (urgentMessages.length > 0 && !lastUrgentCreatedAt && !showIconAnimation) {
             // Trova il messaggio più recente
             const mostRecentUrgent = urgentMessages.reduce((latest, current) => {
                 const latestTime = new Date(latest.created_at || latest.id);
@@ -180,10 +229,12 @@ const DisplayView = ({ messages, viewMode }) => {
                 return currentTime > latestTime ? current : latest;
             });
 
-            // Se il messaggio più recente è nuovo (creato negli ultimi 3 secondi) o se è il primo
-            const isNew = new Date(mostRecentUrgent.created_at || mostRecentUrgent.id).getTime() > Date.now() - 3000;
+            // Se il messaggio più recente è nuovo (creato negli ultimi 5 secondi)
+            const isNew = new Date(mostRecentUrgent.created_at || mostRecentUrgent.id).getTime() > Date.now() - 5000;
             
-            if ((urgentMessages.length > prevUrgentCount || isNew) && !showIconAnimation) {
+            if ((urgentMessages.length > prevUrgentCount || isNew)) {
+                console.log('🚨 [PackVision DisplayView] Nuovo messaggio urgente rilevato (fallback):', mostRecentUrgent.id);
+                
                 // Nuovo messaggio urgente creato: animazione dal centro schermo
                 setShowIconAnimation(true);
                 setAnimationFromCenter(true);
@@ -865,11 +916,27 @@ export default function PackVision({ onClose }) {
 
             if (res.ok) {
                 console.log('✅ [PackVision] Messaggio creato con successo:', responseData);
+                
                 setMessages(prev => {
                     const newMessages = [responseData, ...prev];
                     console.log('📋 [PackVision] Nuovo stato messaggi:', newMessages.length, 'messaggi');
                     return newMessages;
                 });
+                
+                // Se è urgente, segnalalo immediatamente tramite evento personalizzato
+                if (responseData.priority === 'danger') {
+                    console.log('🚨 [PackVision] Messaggio urgente creato, emetto evento');
+                    // Usa un timeout minimo per assicurarsi che lo stato sia aggiornato
+                    setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('packvision:newUrgentMessage', { 
+                            detail: { 
+                                messageId: responseData.id, 
+                                timestamp: Date.now(),
+                                message: responseData
+                            } 
+                        }));
+                    }, 50);
+                }
             } else {
                 console.error('❌ [PackVision] Errore risposta server:', {
                     status: res.status,
