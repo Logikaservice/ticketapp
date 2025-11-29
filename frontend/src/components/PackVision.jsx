@@ -70,8 +70,6 @@ const DisplayView = ({ messages, viewMode }) => {
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
     // Stato per tracciare quando avviene un cambio di slide (per animazione)
     const [slideKey, setSlideKey] = useState(0);
-    // Stato per tracciare se siamo in fase di transizione
-    const [isTransitioning, setIsTransitioning] = useState(false);
 
     // Logica per visualizzazione singola o split
     let displayMessages;
@@ -88,29 +86,18 @@ const DisplayView = ({ messages, viewMode }) => {
         }
     }
 
-    // Slide automatico: messaggio visibile 5 secondi, poi transizione 1.5 secondi
+    // Slide automatico: messaggio visibile 5 secondi, poi cambio diretto
     useEffect(() => {
         if (viewMode === 'single' && activeMessages.length > 1) {
-            // Timer per mostrare il messaggio per 5 secondi
-            const displayTimer = setInterval(() => {
-                // Avvia la transizione (mostra effetti bianchi)
-                setIsTransitioning(true);
-                setSlideKey((prev) => prev + 1);
-                
-                // Dopo 1.5 secondi (durata transizione), cambia il messaggio
-                setTimeout(() => {
-                    setCurrentSlideIndex((prevIndex) => {
-                        const newIndex = (prevIndex + 1) % activeMessages.length;
-                        // Disattiva la transizione dopo un piccolo delay per permettere al nuovo messaggio di apparire
-                        setTimeout(() => {
-                            setIsTransitioning(false);
-                        }, 100);
-                        return newIndex;
-                    });
-                }, 1500); // 1.5 secondi per la transizione
+            const slideInterval = setInterval(() => {
+                setCurrentSlideIndex((prevIndex) => {
+                    const newIndex = (prevIndex + 1) % activeMessages.length;
+                    setSlideKey((prev) => prev + 1);
+                    return newIndex;
+                });
             }, 5000); // 5 secondi di visualizzazione
 
-            return () => clearInterval(displayTimer);
+            return () => clearInterval(slideInterval);
         }
     }, [viewMode, activeMessages.length]);
 
@@ -123,68 +110,15 @@ const DisplayView = ({ messages, viewMode }) => {
         <>
             {/* Animazioni CSS per gli effetti di slide */}
             <style>{`
-                @keyframes slideInZoom {
+                @keyframes fadeSlide {
                     0% {
                         opacity: 0;
-                        transform: scale(0.7) translateX(100px);
-                        filter: blur(10px);
-                    }
-                    50% {
-                        opacity: 0.5;
-                        transform: scale(0.9) translateX(20px);
-                        filter: blur(3px);
+                        transform: translateX(30px) scale(0.95);
                     }
                     100% {
                         opacity: 1;
-                        transform: scale(1) translateX(0);
-                        filter: blur(0px);
+                        transform: translateX(0) scale(1);
                     }
-                }
-                
-                @keyframes flashBorder {
-                    0% {
-                        opacity: 1;
-                        border-width: 20px;
-                        border-color: rgba(255, 255, 255, 1);
-                        box-shadow: 0 0 100px rgba(255, 255, 255, 1), inset 0 0 100px rgba(255, 255, 255, 0.5);
-                    }
-                    30% {
-                        opacity: 0.9;
-                        border-width: 15px;
-                        border-color: rgba(255, 255, 255, 0.9);
-                        box-shadow: 0 0 80px rgba(255, 255, 255, 0.8), inset 0 0 80px rgba(255, 255, 255, 0.3);
-                    }
-                    60% {
-                        opacity: 0.6;
-                        border-width: 10px;
-                        border-color: rgba(255, 255, 255, 0.6);
-                        box-shadow: 0 0 50px rgba(255, 255, 255, 0.5), inset 0 0 50px rgba(255, 255, 255, 0.2);
-                    }
-                    100% {
-                        opacity: 0;
-                        border-width: 0px;
-                        border-color: rgba(255, 255, 255, 0);
-                        box-shadow: 0 0 0px rgba(255, 255, 255, 0), inset 0 0 0px rgba(255, 255, 255, 0);
-                    }
-                }
-                
-                @keyframes fadeOutIn {
-                    0% {
-                        opacity: 1;
-                    }
-                    40% {
-                        opacity: 0;
-                    }
-                    60% {
-                        opacity: 0;
-                    }
-                    100% {
-                        opacity: 1;
-                    }
-                }
-                
-                .slide-in-animation {
-                    animation: slideInZoom 1s ease-out forwards;
                 }
             `}</style>
             <div className="fixed inset-0 bg-black text-white overflow-hidden flex">
@@ -221,38 +155,14 @@ const DisplayView = ({ messages, viewMode }) => {
                             </div>
                         )}
 
-                        {/* Effetto flash/border al cambio slide (solo durante la transizione) */}
-                        {viewMode === 'single' && activeMessages.length > 1 && isTransitioning && (
-                            <div 
-                                key={`flash-${slideKey}`}
-                                className="absolute inset-0 pointer-events-none z-50"
-                                style={{ 
-                                    animation: 'flashBorder 1.5s ease-out forwards',
-                                    border: '20px solid rgba(255, 255, 255, 1)',
-                                    borderRadius: '1.5rem'
-                                }}
-                            />
-                        )}
-                        
-                        {/* Overlay bianco flash per evidenziare il cambio (solo durante la transizione) */}
-                        {viewMode === 'single' && activeMessages.length > 1 && isTransitioning && (
-                            <div 
-                                key={`overlay-${slideKey}`}
-                                className="absolute inset-0 pointer-events-none z-40 bg-white"
-                                style={{ 
-                                    animation: 'fadeOutIn 1.5s ease-out forwards',
-                                    opacity: 0
-                                }}
-                            />
-                        )}
 
                         {/* Contenuto Messaggio */}
                         <div 
                             key={`content-${slideKey}-${msg.id}`}
                             className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl transform hover:scale-105"
                             style={{
-                                animation: viewMode === 'single' && activeMessages.length > 1 && isTransitioning
-                                    ? 'slideInZoom 1.5s ease-out forwards' 
+                                animation: viewMode === 'single' && activeMessages.length > 1
+                                    ? 'fadeSlide 0.8s ease-in-out forwards' 
                                     : 'none'
                             }}
                         >
