@@ -10,11 +10,29 @@ module.exports = (pool, io) => {
         next();
     };
 
-    // GET /api/packvision/messages - Ottieni messaggi attivi
+    // GET /api/packvision/messages - Ottieni messaggi attivi (filtra quelli scaduti)
     router.get('/messages', requireDb, async (req, res) => {
         try {
             const client = await pool.connect();
-            const result = await client.query('SELECT * FROM messages WHERE active = true ORDER BY created_at DESC');
+            
+            // Disattiva automaticamente i messaggi scaduti
+            await client.query(`
+                UPDATE messages 
+                SET active = false 
+                WHERE active = true 
+                AND expires_at IS NOT NULL 
+                AND expires_at < NOW()
+            `);
+            
+            // Ottieni solo messaggi attivi e non scaduti
+            const result = await client.query(`
+                SELECT * FROM messages 
+                WHERE active = true 
+                AND (expires_at IS NULL OR expires_at > NOW())
+                ORDER BY 
+                    CASE WHEN priority = 'danger' THEN 0 ELSE 1 END,
+                    created_at DESC
+            `);
             client.release();
             res.json(result.rows);
         } catch (err) {

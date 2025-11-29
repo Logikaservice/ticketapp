@@ -61,111 +61,168 @@ const DigitalClock = () => {
 
 // --- COMPONENTE DISPLAY (MAXI SCHERMO) ---
 const DisplayView = ({ messages, viewMode }) => {
-    // Mock messages se vuoto
-    const activeMessages = messages.length > 0 ? messages : [
-        { id: 1, content: 'In attesa di messaggi...', priority: 'info', created_at: new Date() }
-    ];
+    // Filtra messaggi attivi e non scaduti
+    const now = new Date();
+    const activeMessages = messages.filter(msg => {
+        if (!msg.active) return false;
+        if (msg.expires_at) {
+            const expiresAt = new Date(msg.expires_at);
+            return expiresAt > now;
+        }
+        return true;
+    });
 
-    // Stato per tracciare quale messaggio mostrare in modalità singolo con slide
-    const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-    // Stato per tracciare quando avviene un cambio di slide (per animazione)
+    // Separa messaggi urgenti da non urgenti
+    const urgentMessages = activeMessages.filter(msg => msg.priority === 'danger');
+    const nonUrgentMessages = activeMessages.filter(msg => msg.priority !== 'danger');
+
+    // Stati per slide urgenti e non urgenti
+    const [currentUrgentIndex, setCurrentUrgentIndex] = useState(0);
+    const [currentNonUrgentIndex, setCurrentNonUrgentIndex] = useState(0);
     const [slideKey, setSlideKey] = useState(0);
+    const [showIconAnimation, setShowIconAnimation] = useState(false);
+    const [showIconAnimationNonUrgent, setShowIconAnimationNonUrgent] = useState(false);
+    const [animationKey, setAnimationKey] = useState(0);
+    const [animationFromCenter, setAnimationFromCenter] = useState(false); // true = dal centro schermo, false = dal centro metà
+    const [prevUrgentCount, setPrevUrgentCount] = useState(0);
+    const [prevNonUrgentCount, setPrevNonUrgentCount] = useState(0);
 
-    // Logica per visualizzazione singola o split
-    let displayMessages;
-    if (viewMode === 'split') {
-        // Se split, prendiamo i primi 2 messaggi attivi
-        displayMessages = activeMessages.slice(0, 2);
-    } else {
-        // Se singolo e ci sono più messaggi, usiamo lo slide automatico
-        if (activeMessages.length > 1) {
-            // Usa l'indice corrente per ciclare tra i messaggi
-            displayMessages = [activeMessages[currentSlideIndex % activeMessages.length]];
+    // Determina se dividere lo schermo
+    const hasUrgentMessages = urgentMessages.length > 0;
+    const hasNonUrgentMessages = nonUrgentMessages.length > 0;
+    const shouldSplit = hasUrgentMessages && hasNonUrgentMessages;
+
+    // Slide messaggi urgenti (ogni 10 secondi con animazione simbolo dal centro metà)
+    // Solo se ci sono più di 1 messaggio urgente
+    useEffect(() => {
+        if (urgentMessages.length > 1) {
+            const urgentInterval = setInterval(() => {
+                // Mostra animazione simbolo dal centro della metà superiore
+                setShowIconAnimation(true);
+                setAnimationFromCenter(false); // Dal centro della metà superiore
+                setAnimationKey(prev => prev + 1);
+                
+                // Dopo 1 secondo (animazione simbolo), cambia messaggio
+                setTimeout(() => {
+                    setCurrentUrgentIndex(prev => (prev + 1) % urgentMessages.length);
+                    setShowIconAnimation(false);
+                    setSlideKey(prev => prev + 1);
+                }, 1000);
+            }, 10000); // 10 secondi per ogni messaggio urgente
+
+            return () => clearInterval(urgentInterval);
         } else {
-            displayMessages = [activeMessages[0]];
+            // Se c'è un solo urgente, non slitta - resta fisso
+            setShowIconAnimation(false);
         }
-    }
+    }, [urgentMessages.length]);
 
-    // Slide automatico: messaggio visibile 5 secondi, poi cambio diretto
+    // Slide messaggi non urgenti (ogni 5 secondi, solo in split con più messaggi)
     useEffect(() => {
-        if (viewMode === 'single' && activeMessages.length > 1) {
-            const slideInterval = setInterval(() => {
-                setCurrentSlideIndex((prevIndex) => {
-                    const newIndex = (prevIndex + 1) % activeMessages.length;
-                    setSlideKey((prev) => prev + 1);
-                    return newIndex;
-                });
-            }, 5000); // 5 secondi di visualizzazione
+        if (nonUrgentMessages.length > 1 && shouldSplit) {
+            const nonUrgentInterval = setInterval(() => {
+                setCurrentNonUrgentIndex(prev => (prev + 1) % nonUrgentMessages.length);
+                setSlideKey(prev => prev + 1);
+            }, 5000); // 5 secondi
 
-            return () => clearInterval(slideInterval);
+            return () => clearInterval(nonUrgentInterval);
+        } else if (nonUrgentMessages.length === 1 && !shouldSplit) {
+            // Un solo messaggio non urgente: non slitta, resta fisso
+            setCurrentNonUrgentIndex(0);
         }
-    }, [viewMode, activeMessages.length]);
+    }, [nonUrgentMessages.length, shouldSplit]);
 
-    // Reset l'indice quando cambiano i messaggi
+    // Rileva nuovi messaggi urgenti e avvia animazione dal centro
     useEffect(() => {
-        setCurrentSlideIndex(0);
-    }, [activeMessages.map(m => m.id).join(',')]);
+        if (urgentMessages.length > 0) {
+            // Trova il messaggio più recente
+            const mostRecentUrgent = urgentMessages.reduce((latest, current) => {
+                const latestTime = new Date(latest.created_at || latest.id);
+                const currentTime = new Date(current.created_at || current.id);
+                return currentTime > latestTime ? current : latest;
+            });
 
-    return (
-        <>
-            {/* Animazioni CSS per gli effetti di slide */}
-            <style>{`
-                @keyframes fadeSlide {
-                    0% {
-                        opacity: 0;
-                        transform: translateX(30px) scale(0.95);
-                    }
-                    100% {
-                        opacity: 1;
-                        transform: translateX(0) scale(1);
-                    }
+            // Se il messaggio più recente è nuovo (creato negli ultimi 3 secondi) o se è il primo
+            const isNew = new Date(mostRecentUrgent.created_at || mostRecentUrgent.id).getTime() > Date.now() - 3000;
+            
+            if ((urgentMessages.length > prevUrgentCount || isNew) && !showIconAnimation) {
+                // Nuovo messaggio urgente creato: animazione dal centro schermo
+                setShowIconAnimation(true);
+                setAnimationFromCenter(true);
+                setAnimationKey(prev => prev + 1);
+                
+                // Imposta il messaggio più recente come corrente
+                const recentIndex = urgentMessages.findIndex(m => m.id === mostRecentUrgent.id);
+                if (recentIndex !== -1) {
+                    setCurrentUrgentIndex(recentIndex);
                 }
-            `}</style>
-            <div className="fixed inset-0 bg-black text-white overflow-hidden flex">
-            {displayMessages.map((msg, index) => {
-                const theme = THEMES[msg.priority] || THEMES.info;
-                const isSplit = viewMode === 'split';
-                const widthClass = isSplit ? 'w-1/2' : 'w-full';
+                
+                // Dopo 1 secondo, nasconde animazione e mostra messaggio
+                setTimeout(() => {
+                    setShowIconAnimation(false);
+                    setAnimationFromCenter(false);
+                }, 1000);
+            }
+        }
+        setPrevUrgentCount(urgentMessages.length);
+    }, [urgentMessages.length, urgentMessages.map(m => `${m.id}-${m.created_at}`).join(',')]);
 
-                return (
-                    <div
-                        key={`${msg.id}-${currentSlideIndex}`}
-                        className={`${widthClass} h-full bg-gradient-to-br ${theme.gradient} flex flex-col items-center justify-center p-12 relative transition-all duration-1000 ease-in-out`}
-                    >
-                        {/* Orologio solo nel primo pannello o in alto a destra assoluto */}
-                        {index === (isSplit ? 1 : 0) && (
-                            <div className="absolute top-8 right-8 z-10">
-                                <DigitalClock />
-                            </div>
-                        )}
+    // Rileva nuovi messaggi non urgenti (solo se è l'unico)
+    useEffect(() => {
+        if (nonUrgentMessages.length === 1 && nonUrgentMessages.length > prevNonUrgentCount && !shouldSplit) {
+            // Nuovo messaggio non urgente singolo: animazione dal centro
+            setShowIconAnimationNonUrgent(true);
+            setAnimationKey(prev => prev + 1);
+            
+            setTimeout(() => {
+                setShowIconAnimationNonUrgent(false);
+            }, 1000);
+        }
+        setPrevNonUrgentCount(nonUrgentMessages.length);
+    }, [nonUrgentMessages.length, nonUrgentMessages.map(m => m.id).join(','), shouldSplit]);
 
-                        {/* Indicatore slide (solo in modalità singolo con più messaggi) */}
-                        {viewMode === 'single' && activeMessages.length > 1 && (
-                            <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10 flex gap-2">
-                                {activeMessages.map((_, idx) => (
-                                    <div
-                                        key={idx}
-                                        className={`h-2 rounded-full transition-all duration-300 ${
-                                            idx === currentSlideIndex
-                                                ? 'w-8 bg-white'
-                                                : 'w-2 bg-white/50'
-                                        }`}
-                                    />
-                                ))}
-                            </div>
-                        )}
+    // Reset indici quando cambiano i messaggi
+    useEffect(() => {
+        if (urgentMessages.length === 0) {
+            setCurrentUrgentIndex(0);
+        }
+        if (nonUrgentMessages.length === 0) {
+            setCurrentNonUrgentIndex(0);
+        }
+    }, [urgentMessages.map(m => m.id).join(','), nonUrgentMessages.map(m => m.id).join(',')]);
 
+    // Messaggio urgente corrente
+    const currentUrgent = urgentMessages.length > 0 ? urgentMessages[currentUrgentIndex] : null;
+    
+    // Messaggio non urgente corrente
+    const currentNonUrgent = nonUrgentMessages.length > 0 
+        ? (shouldSplit ? nonUrgentMessages[currentNonUrgentIndex] : nonUrgentMessages[0])
+        : null;
 
-                        {/* Contenuto Messaggio */}
-                        <div 
-                            key={`content-${slideKey}-${msg.id}`}
-                            className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl transform hover:scale-105"
-                            style={{
-                                animation: viewMode === 'single' && activeMessages.length > 1
-                                    ? 'fadeSlide 0.8s ease-in-out forwards' 
-                                    : 'none'
-                            }}
-                        >
+    // Funzione per renderizzare un messaggio
+    const renderMessage = (msg, isUrgent = false, isInSplitSection = false, sectionClass = '') => {
+        if (!msg) return null;
+        const theme = THEMES[msg.priority] || THEMES.info;
+        const shouldShowIconAnimation = (isUrgent && showIconAnimation) || (!isUrgent && showIconAnimationNonUrgent && !isInSplitSection);
+        
+        return (
+            <div className={`${sectionClass} bg-gradient-to-br ${theme.gradient} flex flex-col items-center justify-center p-12 relative transition-all duration-1000 ease-in-out`}>
+                {/* Orologio in alto a destra */}
+                <div className="absolute top-8 right-8 z-10">
+                    <DigitalClock />
+                </div>
+
+                {/* Contenuto Messaggio */}
+                <div 
+                    key={`content-${slideKey}-${msg.id}`}
+                    className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl transform"
+                    style={{
+                        animation: shouldShowIconAnimation ? 'none' : 'fadeIn 0.5s ease-in-out forwards',
+                        opacity: shouldShowIconAnimation ? 0 : 1
+                    }}
+                >
+                    {!shouldShowIconAnimation && (
+                        <>
                             <div className="flex justify-center">{theme.icon}</div>
                             <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
                                 {theme.label}
@@ -176,17 +233,149 @@ const DisplayView = ({ messages, viewMode }) => {
                             <div className="mt-8 text-lg opacity-70">
                                 Inviato: {new Date(msg.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
                             </div>
-                            {/* Indicatore posizione slide (solo se più messaggi) */}
-                            {viewMode === 'single' && activeMessages.length > 1 && (
-                                <div className="mt-4 text-sm opacity-60">
-                                    {currentSlideIndex + 1} / {activeMessages.length}
-                                </div>
-                            )}
+                        </>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <>
+            {/* Animazioni CSS */}
+            <style>{`
+                @keyframes iconGrowCenter {
+                    0% {
+                        transform: scale(0.1);
+                        opacity: 0.5;
+                    }
+                    50% {
+                        transform: scale(1.2);
+                        opacity: 1;
+                    }
+                    100% {
+                        transform: scale(1);
+                        opacity: 0;
+                    }
+                }
+                
+                @keyframes iconGrowHalf {
+                    0% {
+                        transform: scale(0.1);
+                        opacity: 0.5;
+                    }
+                    50% {
+                        transform: scale(1.3);
+                        opacity: 1;
+                    }
+                    100% {
+                        transform: scale(1);
+                        opacity: 0;
+                    }
+                }
+                
+                @keyframes fadeIn {
+                    0% {
+                        opacity: 0;
+                        transform: scale(0.95);
+                    }
+                    100% {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                }
+            `}</style>
+            <div className="fixed inset-0 bg-black text-white overflow-hidden flex flex-col relative">
+                {/* Animazione simbolo dal centro schermo (per nuovi messaggi) */}
+                {showIconAnimation && animationFromCenter && currentUrgent && (
+                    <div 
+                        key={`icon-center-${animationKey}`}
+                        className="fixed inset-0 flex items-center justify-center z-30 pointer-events-none"
+                        style={{
+                            animation: 'iconGrowCenter 1s ease-out forwards'
+                        }}
+                    >
+                        <div className="text-white">
+                            {React.cloneElement(THEMES[currentUrgent.priority].icon, { 
+                                size: 300, 
+                                className: 'text-white drop-shadow-2xl'
+                            })}
                         </div>
                     </div>
-                );
-            })}
-        </div>
+                )}
+
+                {/* Animazione simbolo dal centro metà (per slittamento urgenti) */}
+                {showIconAnimation && !animationFromCenter && currentUrgent && shouldSplit && (
+                    <div 
+                        key={`icon-half-${animationKey}`}
+                        className="absolute top-0 left-0 right-0 h-1/2 flex items-center justify-center z-30 pointer-events-none"
+                        style={{
+                            animation: 'iconGrowHalf 1s ease-out forwards'
+                        }}
+                    >
+                        <div className="text-white">
+                            {React.cloneElement(THEMES[currentUrgent.priority].icon, { 
+                                size: 200, 
+                                className: 'text-white drop-shadow-2xl'
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Animazione simbolo per messaggi non urgenti singoli */}
+                {showIconAnimationNonUrgent && currentNonUrgent && !shouldSplit && (
+                    <div 
+                        key={`icon-nonurgent-${animationKey}`}
+                        className="fixed inset-0 flex items-center justify-center z-30 pointer-events-none"
+                        style={{
+                            animation: 'iconGrowCenter 1s ease-out forwards'
+                        }}
+                    >
+                        <div className="text-white">
+                            {React.cloneElement(THEMES[currentNonUrgent.priority].icon, { 
+                                size: 300, 
+                                className: 'text-white drop-shadow-2xl'
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Parte superiore: Messaggi urgenti (se presenti) */}
+                {shouldSplit ? (
+                    <>
+                        {currentUrgent ? (
+                            <div className="h-1/2 relative">
+                                {renderMessage(currentUrgent, true, true, 'h-full w-full')}
+                            </div>
+                        ) : (
+                            <div className="h-1/2 bg-black"></div>
+                        )}
+                        
+                        {/* Parte inferiore: Messaggi non urgenti */}
+                        {currentNonUrgent ? (
+                            <div className="h-1/2 relative">
+                                {renderMessage(currentNonUrgent, false, true, 'h-full w-full')}
+                            </div>
+                        ) : (
+                            <div className="h-1/2 bg-black"></div>
+                        )}
+                    </>
+                ) : hasUrgentMessages && !hasNonUrgentMessages ? (
+                    // Solo urgenti: schermo intero
+                    currentUrgent && renderMessage(currentUrgent, true, false, 'h-full w-full')
+                ) : hasNonUrgentMessages && !hasUrgentMessages ? (
+                    // Solo non urgenti: schermo intero
+                    currentNonUrgent && renderMessage(currentNonUrgent, false, false, 'h-full w-full')
+                ) : (
+                    // Nessun messaggio: schermo nero con orologio
+                    <div className="h-full w-full bg-black flex items-center justify-center">
+                        <div className="absolute top-8 right-8 z-10">
+                            <DigitalClock />
+                        </div>
+                        <div className="text-white text-4xl opacity-50">In attesa di messaggi...</div>
+                    </div>
+                )}
+            </div>
         </>
     );
 };
