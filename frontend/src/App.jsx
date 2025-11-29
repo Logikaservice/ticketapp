@@ -171,8 +171,7 @@ export default function TicketApp() {
     return params.get('mode') === 'display';
   });
   
-  // Controlla se siamo in modalità display PackVision
-  const urlParams = new URLSearchParams(window.location.search);
+  // Controlla se siamo in modalità display PackVision (riutilizza urlParams già dichiarato alla riga 63)
   const isPackVisionDisplayMode = urlParams.get('mode') === 'display';
 
   // Aggiorna lo stato quando cambia il dominio richiesto
