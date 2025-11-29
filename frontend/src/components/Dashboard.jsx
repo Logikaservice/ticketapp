@@ -1,10 +1,11 @@
 // src/components/Dashboard.jsx
 
 import React, { useEffect } from 'react';
-import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, Copy, X, Info, Users, Trash2, Sparkles, Building, Search, User, Globe, Key, Eye, EyeOff, Lock, ChevronDown, Clock, Hourglass } from 'lucide-react';
+import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCheck2, Copy, X, Info, Users, Trash2, Sparkles, Building, Search, User, Globe, Key, Eye, EyeOff, Lock, ChevronDown, Clock, Hourglass, Monitor } from 'lucide-react';
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
+import PackVision from './PackVision';
 import { formatDate } from '../utils/formatters';
 
 const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, cardKey = null }) => {
@@ -355,6 +356,11 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   const [companyTickets, setCompanyTickets] = React.useState([]);
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = React.useState(false);
   const [companySearchTerm, setCompanySearchTerm] = React.useState('');
+  const [showPackVision, setShowPackVision] = React.useState(false);
+
+  if (showPackVision) {
+    return <PackVision onClose={() => setShowPackVision(false)} />;
+  }
 
   // Estrai lista aziende uniche dai clienti
   const companies = React.useMemo(() => {
@@ -1016,8 +1022,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
                         setCompanySearchTerm('');
                       }}
                       className={`w-full px-4 py-2.5 text-left hover:bg-blue-50 transition flex items-center gap-3 border-l-2 ${!selectedCompany
-                          ? 'bg-blue-50 border-blue-500'
-                          : 'border-transparent'
+                        ? 'bg-blue-50 border-blue-500'
+                        : 'border-transparent'
                         }`}
                     >
                       <div className="flex-1 min-w-0">
@@ -1327,6 +1333,29 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
             onClick={() => sc.value > 0 && onOpenState && onOpenState(sc.key)}
           />
         ))}
+      </div>
+
+      {/* Sezione Progetti - Pannello Rapido */}
+      <div className="mb-6">
+        <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+          <Monitor size={20} className="text-blue-600" />
+          Progetti
+        </h3>
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+          <button
+            onClick={() => setShowPackVision(true)}
+            className="card-hover text-center w-full"
+          >
+            <div className="p-5 rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white shadow-sm hover:shadow-lg relative overflow-hidden">
+              <div className="text-sm font-medium text-gray-600 mb-3 flex items-center justify-center gap-2">
+                <Monitor size={18} className="text-blue-600" />
+                <span>PackVision</span>
+              </div>
+              <div className="text-xs text-gray-500">Gestione Maxi Schermo</div>
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
+            </div>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

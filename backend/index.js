@@ -26,8 +26,8 @@ const pool = new Pool({
 });
 
 // --- CONFIGURAZIONE DATABASE VIVALDI (separato) ---
-const vivaldiDbUrl = process.env.DATABASE_URL_VIVALDI || 
-                     process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/vivaldi_db');
+const vivaldiDbUrl = process.env.DATABASE_URL_VIVALDI ||
+  process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/vivaldi_db');
 
 if (!vivaldiDbUrl) {
   console.warn('⚠️ DATABASE_URL_VIVALDI non configurato! Vivaldi non sarà disponibile.');
@@ -43,8 +43,28 @@ if (vivaldiDbUrl) {
     }
   });
 } else {
-  // Crea un pool dummy per evitare errori, ma non sarà usato
   poolVivaldi = null;
+}
+
+// --- CONFIGURAZIONE DATABASE PACKVISION (separato) ---
+// Tenta di connettersi a packvision_db, se fallisce (es. non esiste), poolPackVision sarà null
+// e le route restituiranno 503 Service Unavailable
+const packvisionDbUrl = process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/packvision_db');
+let poolPackVision = null;
+
+if (packvisionDbUrl) {
+  // Non creiamo subito il pool, o meglio lo creiamo ma gestiamo errori di connessione nelle route
+  poolPackVision = new Pool({
+    connectionString: packvisionDbUrl,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
+
+  // Gestione errori idle client per evitare crash se il DB non esiste
+  poolPackVision.on('error', (err, client) => {
+    console.error('Errore inatteso su client PackVision (probabilmente DB non esiste):', err.message);
+  });
 }
 
 // Crea tabella access_logs se non esiste
@@ -604,6 +624,9 @@ const orariRoutes = require('./routes/orari')(pool);
 
 // Route per Vivaldi (database separato) - solo se pool disponibile
 const vivaldiRoutes = poolVivaldi ? require('./routes/vivaldi')(poolVivaldi) : null;
+const packvisionRoutes = require('./routes/packvision')(poolPackVision, io);
+
+app.use('/api/packvision', packvisionRoutes);
 
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
@@ -1085,8 +1108,8 @@ app.use('/api/orari', authenticateToken, (req, res, next) => {
 // Route Vivaldi (per tecnico/admin e clienti con permesso progetto vivaldi)
 app.use('/api/vivaldi', authenticateToken, (req, res, next) => {
   if (!vivaldiRoutes) {
-    return res.status(503).json({ 
-      error: 'Vivaldi non disponibile: DATABASE_URL_VIVALDI non configurato' 
+    return res.status(503).json({
+      error: 'Vivaldi non disponibile: DATABASE_URL_VIVALDI non configurato'
     });
   }
   // Tecnici e admin hanno sempre accesso
@@ -1129,14 +1152,14 @@ app.use((err, req, res, next) => {
   if (res.headersSent) {
     return next(err);
   }
-  
+
   console.error('❌ Errore non gestito:', err);
   console.error('❌ Stack:', err.stack);
   console.error('❌ Route:', req.method, req.path);
-  
+
   // Non esporre dettagli dell'errore in produzione
   const isDevelopment = process.env.NODE_ENV !== 'production';
-  
+
   res.status(err.status || 500).json({
     error: err.message || 'Errore interno del server',
     ...(isDevelopment && { stack: err.stack, details: err })
@@ -1503,18 +1526,18 @@ const startServer = async () => {
     try {
       if (poolVivaldi && vivaldiDbUrl) {
         const client = await poolVivaldi.connect();
-        
+
         // Verifica che siamo nel database corretto
         const dbCheck = await client.query('SELECT current_database()');
         const currentDb = dbCheck.rows[0].current_database;
         console.log(`✅ Connessione al database Vivaldi riuscita! (Database: ${currentDb})`);
-        
+
         if (currentDb !== 'vivaldi_db') {
           console.error(`❌ ERRORE: Pool Vivaldi connesso al database sbagliato: ${currentDb}`);
           console.error(`   Atteso: vivaldi_db`);
           console.error(`   Verifica DATABASE_URL_VIVALDI nel file .env`);
         }
-        
+
         // Verifica che le tabelle esistano
         try {
           const testQuery = await poolVivaldi.query('SELECT COUNT(*) FROM annunci_queue');
@@ -1523,7 +1546,7 @@ const startServer = async () => {
           console.warn("⚠️ Avviso: Tabelle Vivaldi non trovate. Esegui: node scripts/init-vivaldi-db.js");
           console.warn("   Errore:", tableErr.message);
         }
-        
+
         client.release();
       } else {
         console.warn("⚠️ DATABASE_URL_VIVALDI non configurato. Vivaldi non sarà disponibile.");
