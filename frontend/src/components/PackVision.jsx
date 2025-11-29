@@ -79,7 +79,9 @@ const DisplayView = ({ messages, viewMode }) => {
     // Stati semplici per animazione icona
     const [showIconAnimation, setShowIconAnimation] = useState(false);
     const [currentUrgent, setCurrentUrgent] = useState(null);
+    const [currentNonUrgent, setCurrentNonUrgent] = useState(null);
     const [prevUrgentCount, setPrevUrgentCount] = useState(0);
+    const [prevNonUrgentCount, setPrevNonUrgentCount] = useState(0);
 
     // Rileva quando viene creato un nuovo messaggio urgente
     useEffect(() => {
@@ -109,11 +111,14 @@ const DisplayView = ({ messages, viewMode }) => {
         // Se non ci sono urgenti, pulisci
         if (urgentMessages.length === 0) {
             setCurrentUrgent(null);
-            setShowIconAnimation(false);
+            // Non resettare showIconAnimation se stiamo mostrando un messaggio non urgente
+            if (urgentMessages.length === 0 && nonUrgentMessages.length === 0) {
+                setShowIconAnimation(false);
+            }
         }
         
         setPrevUrgentCount(urgentMessages.length);
-    }, [urgentMessages.length, urgentMessages.map(m => `${m.id}-${m.created_at}`).join(',')]);
+    }, [urgentMessages.length, urgentMessages.map(m => `${m.id}-${m.created_at}`).join(','), nonUrgentMessages.length]);
     
     // Listener per eventi personalizzati (quando viene creato da handleSendMessage) - rilevamento immediato
     useEffect(() => {
@@ -143,6 +148,72 @@ const DisplayView = ({ messages, viewMode }) => {
         window.addEventListener('packvision:newUrgentMessage', handleNewUrgentMessage);
         return () => window.removeEventListener('packvision:newUrgentMessage', handleNewUrgentMessage);
     }, [urgentMessages, showIconAnimation]);
+    
+    // Rileva quando viene creato un nuovo messaggio non urgente (solo se non ci sono urgenti)
+    useEffect(() => {
+        // Solo se non ci sono messaggi urgenti
+        if (urgentMessages.length === 0 && nonUrgentMessages.length > prevNonUrgentCount && nonUrgentMessages.length > 0) {
+            // Trova il messaggio più recente
+            const mostRecentNonUrgent = nonUrgentMessages.reduce((latest, current) => {
+                const latestTime = new Date(latest.created_at || latest.id);
+                const currentTime = new Date(current.created_at || current.id);
+                return currentTime > latestTime ? current : latest;
+            });
+
+            console.log('📋 [PackVision] Nuovo messaggio non urgente rilevato (nessun urgente presente):', mostRecentNonUrgent.id);
+            
+            // Imposta il messaggio corrente
+            setCurrentNonUrgent(mostRecentNonUrgent);
+            
+            // Avvia animazione icona dal centro per 2 secondi
+            setShowIconAnimation(true);
+            
+            // Dopo 2 secondi, nasconde animazione e mostra messaggio
+            setTimeout(() => {
+                setShowIconAnimation(false);
+            }, 2000);
+        }
+        
+        // Se non ci sono messaggi, pulisci
+        if (urgentMessages.length === 0 && nonUrgentMessages.length === 0) {
+            setCurrentNonUrgent(null);
+            setShowIconAnimation(false);
+        }
+        
+        setPrevNonUrgentCount(nonUrgentMessages.length);
+    }, [urgentMessages.length, nonUrgentMessages.length, nonUrgentMessages.map(m => `${m.id}-${m.created_at}`).join(',')]);
+    
+    // Listener per eventi personalizzati quando viene creato un messaggio non urgente (senza urgenti)
+    useEffect(() => {
+        const handleNewNonUrgentMessage = (event) => {
+            // Solo se non ci sono urgenti
+            if (urgentMessages.length > 0) return;
+            
+            const { messageId, message } = event.detail;
+            console.log('📋 [PackVision] Evento nuovo messaggio non urgente ricevuto:', messageId);
+            
+            // Usa il messaggio dall'evento o cerca nella lista
+            const nonUrgentMessage = message || nonUrgentMessages.find(m => m.id === messageId);
+            
+            if (nonUrgentMessage && nonUrgentMessage.priority !== 'danger' && !showIconAnimation) {
+                console.log('✅ [PackVision] Avvio animazione per nuovo messaggio non urgente:', messageId);
+                
+                // Imposta immediatamente il messaggio
+                setCurrentNonUrgent(nonUrgentMessage);
+                
+                // Avvia animazione icona con dissolvenza in entrata
+                setShowIconAnimation(true);
+                
+                // Dopo 2 secondi, nasconde animazione e mostra messaggio con fade-in
+                setTimeout(() => {
+                    setShowIconAnimation(false);
+                }, 2000);
+            }
+        };
+        
+        window.addEventListener('packvision:newNonUrgentMessage', handleNewNonUrgentMessage);
+        return () => window.removeEventListener('packvision:newNonUrgentMessage', handleNewNonUrgentMessage);
+    }, [urgentMessages.length, nonUrgentMessages, showIconAnimation]);
 
     // Genera lucciole casuali per l'animazione di sfondo
     const generateFireflies = () => {
@@ -169,6 +240,58 @@ const DisplayView = ({ messages, viewMode }) => {
         
         return (
             <div className="h-full w-full bg-gradient-to-br from-red-600 to-orange-600 flex flex-col items-center justify-center p-12 relative overflow-hidden">
+                {/* Sfondo rotante */}
+                <div className="rotating-background"></div>
+                
+                {/* Lucciole animate sullo sfondo */}
+                {fireflies.map((fly) => (
+                    <div
+                        key={fly.id}
+                        className="firefly"
+                        style={{
+                            '--left': `${fly.left}%`,
+                            '--top': `${fly.top}%`,
+                            '--tx': `${fly.tx}px`,
+                            '--ty': `${fly.ty}px`,
+                            '--delay': `${fly.delay}s`
+                        }}
+                    />
+                ))}
+                
+                {/* Orologio in alto a destra */}
+                <div className="absolute top-8 right-8 z-10">
+                    <DigitalClock />
+                </div>
+
+                {/* Contenuto Messaggio - nascosto durante animazione icona, con fade-in */}
+                {!showIconAnimation && (
+                    <div className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10 message-fade-in">
+                        <div className="flex justify-center">{theme.icon}</div>
+                        <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
+                            {theme.label}
+                        </h2>
+                        <p className="text-6xl md:text-7xl font-black leading-tight drop-shadow-lg break-words">
+                            {msg.content}
+                        </p>
+                        <div className="mt-8 text-lg opacity-70">
+                            Inviato: {new Date(msg.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+    
+    // Funzione per renderizzare un messaggio non urgente (quando non ci sono urgenti)
+    const renderNonUrgentMessage = (msg) => {
+        if (!msg) return null;
+        const theme = THEMES[msg.priority] || THEMES.info;
+        
+        // Determina i gradienti basati sulla priorità
+        const gradientClass = `bg-gradient-to-br ${theme.gradient}`;
+        
+        return (
+            <div className={`h-full w-full ${gradientClass} flex flex-col items-center justify-center p-12 relative overflow-hidden`}>
                 {/* Sfondo rotante */}
                 <div className="rotating-background"></div>
                 
@@ -341,7 +464,7 @@ const DisplayView = ({ messages, viewMode }) => {
                                 <div 
                                     className="text-white relative z-10"
                                     style={{
-                                        animation: 'iconGrowCenter 0.5s ease-out forwards'
+                                        animation: 'iconGrowCenter 2s ease-out forwards'
                                     }}
                                 >
                                     {React.cloneElement(THEMES.danger.icon, { 
@@ -354,6 +477,52 @@ const DisplayView = ({ messages, viewMode }) => {
                         
                         {/* Messaggio urgente a schermo intero (dopo animazione icona) */}
                         {!showIconAnimation && renderUrgentMessage(currentUrgent)}
+                    </>
+                ) : currentNonUrgent && urgentMessages.length === 0 ? (
+                    <>
+                        {/* Animazione icona dal centro per 2 secondi per messaggi non urgenti */}
+                        {showIconAnimation && (() => {
+                            const theme = THEMES[currentNonUrgent.priority] || THEMES.info;
+                            const gradientClass = `bg-gradient-to-br ${theme.gradient}`;
+                            return (
+                                <div 
+                                    className={`fixed inset-0 flex items-center justify-center z-30 ${gradientClass} overflow-hidden`}
+                                >
+                                    {/* Sfondo rotante */}
+                                    <div className="rotating-background"></div>
+                                    
+                                    {/* Lucciole animate sullo sfondo */}
+                                    {fireflies.map((fly) => (
+                                        <div
+                                            key={`fly-icon-nonurgent-${fly.id}`}
+                                            className="firefly"
+                                            style={{
+                                                '--left': `${fly.left}%`,
+                                                '--top': `${fly.top}%`,
+                                                '--tx': `${fly.tx}px`,
+                                                '--ty': `${fly.ty}px`,
+                                                '--delay': `${fly.delay}s`
+                                            }}
+                                        />
+                                    ))}
+                                    
+                                    <div 
+                                        className="text-white relative z-10"
+                                        style={{
+                                            animation: 'iconGrowCenter 2s ease-out forwards'
+                                        }}
+                                    >
+                                        {React.cloneElement(theme.icon, { 
+                                            size: 300, 
+                                            className: 'text-white drop-shadow-2xl'
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                        
+                        {/* Messaggio non urgente a schermo intero (dopo animazione icona) */}
+                        {!showIconAnimation && renderNonUrgentMessage(currentNonUrgent)}
                     </>
                 ) : (
                     // Nessun messaggio: schermo nero con orologio
@@ -790,6 +959,9 @@ export default function PackVision({ onClose }) {
             if (res.ok) {
                 console.log('✅ [PackVision] Messaggio creato con successo:', responseData);
                 
+                // Controlla se ci sono urgenti PRIMA di aggiornare lo stato
+                const hasUrgentMessages = messages.some(m => m.priority === 'danger' && m.active);
+                
                 setMessages(prev => {
                     const newMessages = [responseData, ...prev];
                     console.log('📋 [PackVision] Nuovo stato messaggi:', newMessages.length, 'messaggi');
@@ -799,16 +971,28 @@ export default function PackVision({ onClose }) {
                 // Se è urgente, segnalalo immediatamente tramite evento personalizzato
                 if (responseData.priority === 'danger') {
                     console.log('🚨 [PackVision] Messaggio urgente creato, emetto evento');
-                    // Usa un timeout minimo per assicurarsi che lo stato sia aggiornato
-                    setTimeout(() => {
-                        window.dispatchEvent(new CustomEvent('packvision:newUrgentMessage', { 
+                    // Emetti subito l'evento senza timeout per pubblicazione veloce
+                    window.dispatchEvent(new CustomEvent('packvision:newUrgentMessage', { 
+                        detail: { 
+                            messageId: responseData.id, 
+                            timestamp: Date.now(),
+                            message: responseData
+                        } 
+                    }));
+                } else {
+                    // Se è non urgente, controlla se ci sono urgenti
+                    // Se non ci sono urgenti, emetti evento per messaggio non urgente
+                    if (!hasUrgentMessages) {
+                        console.log('📋 [PackVision] Messaggio non urgente creato (nessun urgente presente), emetto evento');
+                        // Emetti subito l'evento senza timeout per pubblicazione veloce
+                        window.dispatchEvent(new CustomEvent('packvision:newNonUrgentMessage', { 
                             detail: { 
                                 messageId: responseData.id, 
                                 timestamp: Date.now(),
                                 message: responseData
                             } 
                         }));
-                    }, 50);
+                    }
                 }
             } else {
                 console.error('❌ [PackVision] Errore risposta server:', {
