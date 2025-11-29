@@ -5,7 +5,7 @@ import { AlertTriangle, FileText, PlayCircle, CheckCircle, Archive, Send, FileCh
 import TicketListContainer from './TicketListContainer';
 import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
-import PackVision from './PackVision';
+
 import { formatDate } from '../utils/formatters';
 
 const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, cardKey = null }) => {
@@ -356,7 +356,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   const [companyTickets, setCompanyTickets] = React.useState([]);
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = React.useState(false);
   const [companySearchTerm, setCompanySearchTerm] = React.useState('');
-  const [showPackVision, setShowPackVision] = React.useState(false);
+
 
 
 
@@ -1333,28 +1333,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         ))}
       </div>
 
-      {/* Sezione Progetti - Pannello Rapido */}
-      <div className="mb-6">
-        <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-          <Monitor size={20} className="text-blue-600" />
-          Progetti
-        </h3>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-          <button
-            onClick={() => setShowPackVision(true)}
-            className="card-hover text-center w-full"
-          >
-            <div className="p-5 rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white shadow-sm hover:shadow-lg relative overflow-hidden">
-              <div className="text-sm font-medium text-gray-600 mb-3 flex items-center justify-center gap-2">
-                <Monitor size={18} className="text-blue-600" />
-                <span>PackVision</span>
-              </div>
-              <div className="text-xs text-gray-500">Gestione Maxi Schermo</div>
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
-            </div>
-          </button>
-        </div>
-      </div>
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -1650,9 +1629,6 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         </div>
       </div>
 
-      {showPackVision && (
-        <PackVision onClose={() => setShowPackVision(false)} />
-      )}
     </div>
   );
 };

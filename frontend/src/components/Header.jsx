@@ -1,9 +1,9 @@
 // src/components/Header.jsx
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2 } from 'lucide-react';
+import { Plus, LogOut, Settings, Users, UserPlus, List, Sparkles, Key, BarChart3, Activity, Clock, FolderOpen, Calendar, Volume2, Monitor } from 'lucide-react';
 
-const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, isOrariDomain = false }) => {
+const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientModal, openSettings, openManageClientsModal, openAlertsHistory, openImportKeepass, openAnalytics, openAccessLogs, openInactivityTimer, openOrariTurni, openPackVision, isOrariDomain = false }) => {
   const [showClientMenu, setShowClientMenu] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [expandedAction, setExpandedAction] = useState(null);
@@ -43,8 +43,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
 
   // Versione sicura per visualizzare il ruolo
   const userRole = (currentUser?.ruolo || '').toUpperCase();
-  const roleClasses = currentUser?.ruolo === 'cliente' 
-    ? 'bg-blue-100 text-blue-800' 
+  const roleClasses = currentUser?.ruolo === 'cliente'
+    ? 'bg-blue-100 text-blue-800'
     : 'bg-green-100 text-green-800';
 
   // Azioni rapide disponibili
@@ -124,7 +124,8 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
       hasSubActions: true,
       subActions: [
         { label: 'Orari e Turni', icon: Calendar, color: 'violet', onClick: openOrariTurni },
-        { label: 'Vivaldi', icon: Volume2, color: 'violet', onClick: () => window.location.href = '/?domain=vivaldi' }
+        { label: 'Vivaldi', icon: Volume2, color: 'violet', onClick: () => window.location.href = '/?domain=vivaldi' },
+        { label: 'PackVision', icon: Monitor, color: 'violet', onClick: openPackVision }
       ]
     }
   ].filter(action => action.visible);
@@ -142,43 +143,43 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
             >
               <List size={20} />
             </button>
-            
+
             <div>
               <h1 className="text-2xl font-bold">{isOrariDomain ? 'Gestione Orari e Turni' : 'Sistema Gestione Ticket'}</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              {/* --- CODICE CORRETTO --- */}
-              <span className={`px-2 py-0.5 rounded text-xs font-medium ${roleClasses}`}>
-                {userRole}
-              </span>
-              {/* Controlla che currentUser esista prima di accedere alle sue proprietà */}
-              <span className="ml-2">{currentUser?.nome} - {currentUser?.azienda}</span>
-            </p>
+              <p className="text-sm text-gray-600 mt-1">
+                {/* --- CODICE CORRETTO --- */}
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${roleClasses}`}>
+                  {userRole}
+                </span>
+                {/* Controlla che currentUser esista prima di accedere alle sue proprietà */}
+                <span className="ml-2">{currentUser?.nome} - {currentUser?.azienda}</span>
+              </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             {!isOrariDomain && currentUser?.ruolo === 'cliente' && (
-              <button 
-                onClick={openNewTicketModal} 
+              <button
+                onClick={openNewTicketModal}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 <Plus size={18} />
                 Nuovo Ticket
               </button>
             )}
-            
+
             {!isOrariDomain && currentUser?.ruolo === 'tecnico' && (
-              <button 
-                onClick={openNewTicketModal} 
+              <button
+                onClick={openNewTicketModal}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 <Plus size={18} />
                 Nuovo Ticket
               </button>
             )}
-            
-            <button 
-              onClick={handleLogout} 
+
+            <button
+              onClick={handleLogout}
               className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               title="Logout"
             >
@@ -249,7 +250,7 @@ const Header = ({ currentUser, handleLogout, openNewTicketModal, openNewClientMo
                   </div>
                   <span className="font-medium">{action.label}</span>
                 </button>
-                
+
                 {/* Sotto-azioni (es. Gestione Clienti) */}
                 {action.hasSubActions && expandedAction === action.id && (
                   <div className="ml-4 border-l-2 border-gray-200 pl-2">

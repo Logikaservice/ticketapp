@@ -26,6 +26,7 @@ import { useWebSocket } from './hooks/useWebSocket';
 import GoogleCallback from './components/GoogleCallback';
 import TimesheetManager from './components/TimesheetManager';
 import VivaldiManager from './components/VivaldiManager';
+import PackVision from './components/PackVision';
 import { buildApiUrl } from './utils/apiConfig';
 
 const INITIAL_NEW_CLIENT_DATA = {
@@ -165,6 +166,7 @@ export default function TicketApp() {
     // Se c'è un dominio richiesto (vivaldi), mostra subito vivaldi
     return isVivaldiDomain;
   });
+  const [showPackVision, setShowPackVision] = useState(false);
 
   // Aggiorna lo stato quando cambia il dominio richiesto
   useEffect(() => {
@@ -2800,6 +2802,7 @@ export default function TicketApp() {
             openAccessLogs,
             openInactivityTimer,
             openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); setShowVivaldi(false); },
+            openPackVision: () => setShowPackVision(true),
             isOrariDomain: isOrariDomain
           }}
         />
@@ -2820,6 +2823,10 @@ export default function TicketApp() {
           >
             Torna alla Dashboard
           </div>
+        )}
+
+        {showPackVision && (
+          <PackVision onClose={() => setShowPackVision(false)} />
         )}
 
         <main className="max-w-7xl mx-auto px-4 py-6">
