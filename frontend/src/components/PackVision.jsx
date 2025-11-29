@@ -82,6 +82,7 @@ const DisplayView = ({ messages, viewMode }) => {
     const [currentNonUrgent, setCurrentNonUrgent] = useState(null);
     const [currentNonUrgentIndex, setCurrentNonUrgentIndex] = useState(0);
     const [isTransitioning, setIsTransitioning] = useState(false);
+    const [prevNonUrgentIndex, setPrevNonUrgentIndex] = useState(0);
     const [prevUrgentCount, setPrevUrgentCount] = useState(0);
     const [prevNonUrgentCount, setPrevNonUrgentCount] = useState(0);
 
@@ -226,15 +227,22 @@ const DisplayView = ({ messages, viewMode }) => {
             setCurrentNonUrgentIndex(prev => {
                 const nextIndex = (prev + 1) % nonUrgentMessages.length;
                 
-                // Avvia animazione di transizione
+                // Salva l'indice precedente
+                setPrevNonUrgentIndex(prev);
+                
+                // Avvia animazione di transizione con dissolvenza
                 setIsTransitioning(true);
                 
-                // Dopo 1 secondo (durata animazione), ferma l'animazione
+                // Dopo 1 secondo (durata fade-out), cambia messaggio
                 setTimeout(() => {
-                    setIsTransitioning(false);
-                }, 1000);
+                    setCurrentNonUrgentIndex(nextIndex);
+                    // Ferma l'animazione dopo un breve delay per permettere il fade-in
+                    setTimeout(() => {
+                        setIsTransitioning(false);
+                    }, 100);
+                }, 1000); // 1 secondo per il fade-out
                 
-                return nextIndex;
+                return prev; // Mantieni l'indice vecchio durante la transizione
             });
         }, 10000); // 10 secondi
         
@@ -349,7 +357,7 @@ const DisplayView = ({ messages, viewMode }) => {
         const gradientClass = `bg-gradient-to-br ${theme.gradient}`;
         
         return (
-            <div className={`h-full w-full ${gradientClass} flex flex-col items-center justify-center p-12 relative overflow-hidden ${isBottomHalf && isTransitioning ? 'slide-out-left' : ''}`}>
+            <div className={`h-full w-full ${gradientClass} flex flex-col items-center justify-center p-12 relative overflow-hidden ${isBottomHalf && isTransitioning ? 'fade-out' : ''}`}>
                 {/* Sfondo rotante */}
                 <div className="rotating-background"></div>
                 
@@ -377,7 +385,7 @@ const DisplayView = ({ messages, viewMode }) => {
 
                 {/* Contenuto Messaggio - nascosto durante animazione icona, con fade-in */}
                 {!showIconAnimation && (
-                    <div className={`glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10 ${isBottomHalf && isTransitioning ? 'slide-in-right' : isBottomHalf ? '' : 'message-fade-in'}`}>
+                    <div className={`glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10 ${isBottomHalf && !isTransitioning ? 'fade-in' : isBottomHalf ? '' : 'message-fade-in'}`}>
                         <div className="flex justify-center">{theme.icon}</div>
                         <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
                             {theme.label}
@@ -441,24 +449,20 @@ const DisplayView = ({ messages, viewMode }) => {
                     }
                 }
                 
-                @keyframes slideOutLeft {
+                @keyframes fadeOut {
                     0% {
-                        transform: translateX(0);
                         opacity: 1;
                     }
                     100% {
-                        transform: translateX(-100%);
                         opacity: 0;
                     }
                 }
                 
-                @keyframes slideInRight {
+                @keyframes fadeIn {
                     0% {
-                        transform: translateX(100%);
                         opacity: 0;
                     }
                     100% {
-                        transform: translateX(0);
                         opacity: 1;
                     }
                 }
@@ -486,12 +490,12 @@ const DisplayView = ({ messages, viewMode }) => {
                     animation: lightBeam 1s ease-out forwards;
                 }
                 
-                .slide-out-left {
-                    animation: slideOutLeft 0.8s ease-in forwards;
+                .fade-out {
+                    animation: fadeOut 1s ease-in forwards;
                 }
                 
-                .slide-in-right {
-                    animation: slideInRight 0.8s ease-out forwards;
+                .fade-in {
+                    animation: fadeIn 1s ease-out forwards;
                 }
                 
                 @keyframes firefly {
@@ -665,6 +669,7 @@ const DisplayView = ({ messages, viewMode }) => {
                                 
                                 {/* Metà inferiore: messaggi non urgenti che ruotano ogni 10 secondi */}
                                 <div className="absolute top-1/2 left-0 w-full h-1/2 relative overflow-hidden z-20">
+                                    {/* Messaggio corrente */}
                                     {nonUrgentMessages[currentNonUrgentIndex] && (
                                         <>
                                             {renderNonUrgentMessage(nonUrgentMessages[currentNonUrgentIndex], true)}
