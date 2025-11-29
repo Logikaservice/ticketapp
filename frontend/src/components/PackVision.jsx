@@ -254,10 +254,25 @@ const DisplayView = ({ messages, viewMode }) => {
                         {/* Animazione icona dal centro per 2 secondi */}
                         {showIconAnimation && (
                             <div 
-                                className="fixed inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-red-600 to-orange-600"
+                                className="fixed inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-red-600 to-orange-600 overflow-hidden"
                             >
+                                {/* Lucciole animate sullo sfondo */}
+                                {fireflies.map((fly) => (
+                                    <div
+                                        key={`fly-icon-${fly.id}`}
+                                        className="firefly"
+                                        style={{
+                                            '--left': `${fly.left}%`,
+                                            '--top': `${fly.top}%`,
+                                            '--tx': `${fly.tx}px`,
+                                            '--ty': `${fly.ty}px`,
+                                            '--delay': `${fly.delay}s`
+                                        }}
+                                    />
+                                ))}
+                                
                                 <div 
-                                    className="text-white"
+                                    className="text-white relative z-10"
                                     style={{
                                         animation: 'iconGrowCenter 0.5s ease-out forwards'
                                     }}
