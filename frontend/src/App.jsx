@@ -170,6 +170,10 @@ export default function TicketApp() {
     const params = new URLSearchParams(window.location.search);
     return params.get('mode') === 'display';
   });
+  
+  // Controlla se siamo in modalità display PackVision
+  const urlParams = new URLSearchParams(window.location.search);
+  const isPackVisionDisplayMode = urlParams.get('mode') === 'display';
 
   // Aggiorna lo stato quando cambia il dominio richiesto
   useEffect(() => {
@@ -2787,6 +2791,22 @@ export default function TicketApp() {
             alertsRefreshTrigger={alertsRefreshTrigger}
           />
         )}
+      </>
+    );
+  }
+
+  // Se siamo in modalità display PackVision, mostra solo PackVision
+  // Controlla direttamente dall'URL per essere sicuri che sia sempre aggiornato
+  const currentUrlParams = new URLSearchParams(window.location.search);
+  if (currentUrlParams.get('mode') === 'display') {
+    return (
+      <>
+        <PackVision onClose={() => {
+          // Rimuovi il parametro mode dall'URL e torna alla dashboard
+          const url = new URL(window.location.href);
+          url.searchParams.delete('mode');
+          window.location.href = url.toString();
+        }} />
       </>
     );
   }
