@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Send, Monitor, Layout, AlertTriangle, Info, CheckCircle, Settings, X, Maximize, GripVertical } from 'lucide-react';
+import { Clock, Send, Monitor, Layout, AlertTriangle, Info, CheckCircle, Settings, X, Maximize, GripVertical, Zap, Bell, MessageCircle, Edit2 } from 'lucide-react';
 
 // --- CONFIGURAZIONE COLORI E GRADIENTI ---
 const THEMES = {
@@ -9,7 +9,7 @@ const THEMES = {
         bg: 'bg-red-50',
         border: 'border-red-200',
         text: 'text-red-800',
-        icon: <AlertTriangle size={48} className="text-white mb-4" />,
+        icon: <Zap size={48} className="text-white mb-4" />, // Simbolo fulmine per URGENTE
         label: 'URGENTE'
     },
     warning: {
@@ -17,7 +17,7 @@ const THEMES = {
         bg: 'bg-amber-50',
         border: 'border-amber-200',
         text: 'text-amber-800',
-        icon: <AlertTriangle size={48} className="text-white mb-4" />,
+        icon: <Bell size={48} className="text-white mb-4" />, // Simbolo campanello per ATTENZIONE
         label: 'ATTENZIONE'
     },
     info: {
@@ -25,7 +25,7 @@ const THEMES = {
         bg: 'bg-blue-50',
         border: 'border-blue-200',
         text: 'text-blue-800',
-        icon: <Info size={48} className="text-white mb-4" />,
+        icon: <Info size={48} className="text-white mb-4" />, // Simbolo info per INFORMAZIONE
         label: 'INFORMAZIONE'
     },
     success: {
@@ -33,7 +33,7 @@ const THEMES = {
         bg: 'bg-emerald-50',
         border: 'border-emerald-200',
         text: 'text-emerald-800',
-        icon: <CheckCircle size={48} className="text-white mb-4" />,
+        icon: <CheckCircle size={48} className="text-white mb-4" />, // Simbolo check per COMPLETATO
         label: 'COMPLETATO'
     }
 };
@@ -192,16 +192,51 @@ const DisplayView = ({ messages, viewMode }) => {
 };
 
 // --- COMPONENTE ADMIN / SENDER ---
-const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMessages, onClearMessage, onReorderMessages }) => {
+const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMessages, onClearMessage, onReorderMessages, onUpdateMessage }) => {
     const [message, setMessage] = useState('');
     const [priority, setPriority] = useState('info');
+    const [duration, setDuration] = useState('24'); // Default 24 ore
+    const [customDuration, setCustomDuration] = useState('');
+    const [editingMessage, setEditingMessage] = useState(null);
     const [draggedIndex, setDraggedIndex] = useState(null);
 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!message.trim()) return;
-        onSendMessage({ content: message, priority });
+        
+        const durationHours = duration === 'custom' ? parseInt(customDuration) || 24 : parseInt(duration);
+        
+        if (editingMessage) {
+            // Modifica messaggio esistente
+            onUpdateMessage(editingMessage.id, { content: message, priority, duration_hours: durationHours });
+            setEditingMessage(null);
+        } else {
+            // Crea nuovo messaggio
+            onSendMessage({ content: message, priority, duration_hours: durationHours });
+        }
+        
         setMessage('');
+        setPriority('info');
+        setDuration('24');
+        setCustomDuration('');
+    };
+
+    const handleEditMessage = (msg) => {
+        setEditingMessage(msg);
+        setMessage(msg.content);
+        setPriority(msg.priority || 'info');
+        setDuration(msg.duration_hours ? msg.duration_hours.toString() : '24');
+        setCustomDuration('');
+        // Scroll al form
+        document.querySelector('.bg-white.rounded-2xl.shadow-lg').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const handleCancelEdit = () => {
+        setEditingMessage(null);
+        setMessage('');
+        setPriority('info');
+        setDuration('24');
+        setCustomDuration('');
     };
 
     return (
@@ -242,9 +277,17 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                     <div className="p-6 bg-gradient-to-r from-gray-50 to-white border-b">
                         <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                            <Send size={20} className="text-blue-500" />
-                            Nuovo Messaggio
+                            {editingMessage ? <Edit2 size={20} className="text-blue-500" /> : <Send size={20} className="text-blue-500" />}
+                            {editingMessage ? 'Modifica Messaggio' : 'Nuovo Messaggio'}
                         </h2>
+                        {editingMessage && (
+                            <button
+                                onClick={handleCancelEdit}
+                                className="mt-2 text-sm text-gray-500 hover:text-gray-700"
+                            >
+                                Annulla modifica
+                            </button>
+                        )}
                     </div>
                     <div className="p-6">
                         <form onSubmit={handleSubmit} className="space-y-6">
@@ -284,12 +327,60 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
                                 </div>
                             </div>
 
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Durata Messaggio</label>
+                                <div className="grid grid-cols-4 gap-2 mb-2">
+                                    {['6', '12', '18', '24'].map((hours) => (
+                                        <button
+                                            key={hours}
+                                            type="button"
+                                            onClick={() => {
+                                                setDuration(hours);
+                                                setCustomDuration('');
+                                            }}
+                                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                                                duration === hours && duration !== 'custom'
+                                                    ? 'bg-blue-600 text-white shadow-md'
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            {hours}h
+                                        </button>
+                                    ))}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setDuration('custom');
+                                        if (!customDuration) setCustomDuration('24');
+                                    }}
+                                    className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-all mb-2 ${
+                                        duration === 'custom'
+                                            ? 'bg-blue-600 text-white shadow-md'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    Personalizzato
+                                </button>
+                                {duration === 'custom' && (
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="168"
+                                        value={customDuration}
+                                        onChange={(e) => setCustomDuration(e.target.value)}
+                                        placeholder="Ore (1-168)"
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    />
+                                )}
+                            </div>
+
                             <button
                                 type="submit"
-                                disabled={!message.trim()}
+                                disabled={!message.trim() || (duration === 'custom' && (!customDuration || parseInt(customDuration) < 1))}
                                 className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                INVIA AL MAXI SCHERMO
+                                {editingMessage ? 'AGGIORNA MESSAGGIO' : 'INVIA AL MAXI SCHERMO'}
                             </button>
                         </form>
                     </div>
@@ -320,7 +411,10 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
                                     <div 
                                         key={msg.id} 
                                         draggable
-                                        onDragStart={() => setDraggedIndex(index)}
+                                        onDragStart={(e) => {
+                                            setDraggedIndex(index);
+                                            e.dataTransfer.effectAllowed = 'move';
+                                        }}
                                         onDragOver={(e) => {
                                             e.preventDefault();
                                         }}
@@ -332,26 +426,55 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
                                             setDraggedIndex(null);
                                         }}
                                         onDragEnd={() => setDraggedIndex(null)}
-                                        className={`bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-start justify-between group hover:shadow-md transition-all cursor-move ${
+                                        onClick={(e) => {
+                                            // Previeni il click se si sta facendo drag
+                                            if (draggedIndex === null) {
+                                                handleEditMessage(msg);
+                                            }
+                                        }}
+                                        className={`bg-white p-4 rounded-xl border shadow-sm flex items-start justify-between group hover:shadow-md transition-all cursor-pointer ${
+                                            editingMessage?.id === msg.id 
+                                                ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' 
+                                                : 'border-gray-200'
+                                        } ${
                                             draggedIndex === index ? 'opacity-50 scale-95' : ''
                                         } ${draggedIndex !== null && draggedIndex !== index ? 'border-blue-300 bg-blue-50' : ''}`}
                                     >
                                         <div className="flex items-start gap-4 flex-1">
                                             {/* Handle per il drag */}
-                                            <div className="text-gray-300 hover:text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0 pt-1">
+                                            <div 
+                                                className="text-gray-300 hover:text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0 pt-1"
+                                                onMouseDown={(e) => e.stopPropagation()}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
                                                 <GripVertical size={20} />
                                             </div>
                                             <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-white shadow-sm flex-shrink-0`}>
                                                 {React.cloneElement(theme.icon, { size: 24, className: 'text-white mb-0' })}
                                             </div>
                                             <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-1">
+                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 ${theme.text}`}>
                                                         {theme.label}
                                                     </span>
                                                     <span className="text-xs text-gray-400">
                                                         {new Date(msg.created_at).toLocaleTimeString()}
                                                     </span>
+                                                    {msg.duration_hours && (
+                                                        <span className="text-xs text-blue-600 font-medium">
+                                                            ⏱️ {msg.duration_hours}h
+                                                        </span>
+                                                    )}
+                                                    {msg.expires_at && (
+                                                        <span className="text-xs text-gray-500">
+                                                            Scade: {new Date(msg.expires_at).toLocaleString('it-IT', { 
+                                                                day: '2-digit', 
+                                                                month: '2-digit', 
+                                                                hour: '2-digit', 
+                                                                minute: '2-digit' 
+                                                            })}
+                                                        </span>
+                                                    )}
                                                     {activeMessages.length > 1 && (
                                                         <span className="text-xs text-gray-500 font-medium">
                                                             #{index + 1}
@@ -362,7 +485,10 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
                                             </div>
                                         </div>
                                         <button
-                                            onClick={() => onClearMessage(msg.id)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onClearMessage(msg.id);
+                                            }}
                                             className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 ml-2"
                                             title="Rimuovi messaggio"
                                         >
@@ -477,6 +603,23 @@ export default function PackVision({ onClose }) {
         }
     };
 
+    const handleUpdateMessage = async (id, updatedData) => {
+        try {
+            const res = await fetch(`/api/packvision/messages/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedData)
+            });
+
+            if (res.ok) {
+                const updatedMsg = await res.json();
+                setMessages(prev => prev.map(m => m.id === id ? updatedMsg : m));
+            }
+        } catch (err) {
+            console.error('Errore aggiornamento messaggio:', err);
+        }
+    };
+
     const handleUpdateSettings = async (newSettings) => {
         try {
             await fetch('/api/packvision/settings', {
@@ -542,6 +685,7 @@ export default function PackVision({ onClose }) {
                 activeMessages={messages}
                 onClearMessage={handleClearMessage}
                 onReorderMessages={handleReorderMessages}
+                onUpdateMessage={handleUpdateMessage}
             />
         </div>
     );

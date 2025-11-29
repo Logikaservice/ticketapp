@@ -25,7 +25,7 @@ module.exports = (pool, io) => {
 
     // POST /api/packvision/messages - Invia nuovo messaggio
     router.post('/messages', requireDb, async (req, res) => {
-        const { content, priority, display_mode } = req.body;
+        const { content, priority, display_mode, duration_hours } = req.body;
 
         if (!content) {
             return res.status(400).json({ error: 'Contenuto messaggio mancante' });
@@ -33,9 +33,18 @@ module.exports = (pool, io) => {
 
         try {
             const client = await pool.connect();
+            
+            // Calcola expires_at se duration_hours è fornito
+            let expiresAt = null;
+            if (duration_hours) {
+                const expiresDate = new Date();
+                expiresDate.setHours(expiresDate.getHours() + parseInt(duration_hours));
+                expiresAt = expiresDate.toISOString();
+            }
+
             const result = await client.query(
-                'INSERT INTO messages (content, priority, display_mode) VALUES ($1, $2, $3) RETURNING *',
-                [content, priority || 'info', display_mode || 'single']
+                'INSERT INTO messages (content, priority, display_mode, duration_hours, expires_at) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+                [content, priority || 'info', display_mode || 'single', duration_hours || null, expiresAt]
             );
             client.release();
 
@@ -49,6 +58,49 @@ module.exports = (pool, io) => {
             res.status(201).json(newMessage);
         } catch (err) {
             console.error('Errore invio messaggio PackVision:', err);
+            res.status(500).json({ error: 'Errore interno del server' });
+        }
+    });
+
+    // PUT /api/packvision/messages/:id - Aggiorna messaggio
+    router.put('/messages/:id', requireDb, async (req, res) => {
+        const { id } = req.params;
+        const { content, priority, duration_hours } = req.body;
+
+        if (!content) {
+            return res.status(400).json({ error: 'Contenuto messaggio mancante' });
+        }
+
+        try {
+            const client = await pool.connect();
+            
+            // Calcola expires_at se duration_hours è fornito
+            let expiresAt = null;
+            if (duration_hours) {
+                const expiresDate = new Date();
+                expiresDate.setHours(expiresDate.getHours() + parseInt(duration_hours));
+                expiresAt = expiresDate.toISOString();
+            }
+
+            const result = await client.query(
+                'UPDATE messages SET content = $1, priority = $2, duration_hours = $3, expires_at = $4, updated_at = NOW() WHERE id = $5 RETURNING *',
+                [content, priority || 'info', duration_hours || null, expiresAt, id]
+            );
+            client.release();
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Messaggio non trovato' });
+            }
+
+            const updatedMessage = result.rows[0];
+
+            if (io) {
+                io.emit('packvision:message', updatedMessage);
+            }
+
+            res.json(updatedMessage);
+        } catch (err) {
+            console.error('Errore aggiornamento messaggio PackVision:', err);
             res.status(500).json({ error: 'Errore interno del server' });
         }
     });
