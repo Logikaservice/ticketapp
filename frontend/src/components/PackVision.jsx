@@ -161,6 +161,9 @@ const DisplayView = ({ messages, viewMode }) => {
         
         return (
             <div className="h-full w-full bg-gradient-to-br from-red-600 to-orange-600 flex flex-col items-center justify-center p-12 relative overflow-hidden">
+                {/* Sfondo rotante */}
+                <div className="rotating-background"></div>
+                
                 {/* Lucciole animate sullo sfondo */}
                 {fireflies.map((fly) => (
                     <div
@@ -222,15 +225,24 @@ const DisplayView = ({ messages, viewMode }) => {
                 @keyframes firefly {
                     0%, 100% {
                         opacity: 0;
-                        transform: translate(0, 0) scale(0);
+                        transform: translate(0, 0) scale(0) rotate(0deg);
                     }
                     10% {
                         opacity: 1;
-                        transform: translate(var(--tx), var(--ty)) scale(1);
+                        transform: translate(var(--tx), var(--ty)) scale(1) rotate(0deg);
                     }
                     90% {
                         opacity: 1;
-                        transform: translate(var(--tx), var(--ty)) scale(1);
+                        transform: translate(var(--tx), var(--ty)) scale(1) rotate(0deg);
+                    }
+                }
+                
+                @keyframes rotateBackground {
+                    0% {
+                        transform: rotate(0deg);
+                    }
+                    100% {
+                        transform: rotate(360deg);
                     }
                 }
                 
@@ -245,6 +257,35 @@ const DisplayView = ({ messages, viewMode }) => {
                     animation-delay: var(--delay);
                     left: var(--left);
                     top: var(--top);
+                }
+                
+                .rotating-background {
+                    position: absolute;
+                    inset: 0;
+                    animation: rotateBackground 20s linear infinite;
+                    transform-origin: center center;
+                }
+                
+                .rotating-background::before {
+                    content: '';
+                    position: absolute;
+                    width: 200%;
+                    height: 200%;
+                    top: -50%;
+                    left: -50%;
+                    background: conic-gradient(
+                        from 0deg,
+                        rgba(239, 68, 68, 0.1) 0deg,
+                        rgba(220, 38, 38, 0.15) 45deg,
+                        rgba(239, 68, 68, 0.1) 90deg,
+                        rgba(251, 146, 60, 0.15) 135deg,
+                        rgba(239, 68, 68, 0.1) 180deg,
+                        rgba(220, 38, 38, 0.15) 225deg,
+                        rgba(239, 68, 68, 0.1) 270deg,
+                        rgba(251, 146, 60, 0.15) 315deg,
+                        rgba(239, 68, 68, 0.1) 360deg
+                    );
+                    pointer-events: none;
                 }
             `}</style>
             <div className="fixed inset-0 bg-black text-white overflow-hidden">
