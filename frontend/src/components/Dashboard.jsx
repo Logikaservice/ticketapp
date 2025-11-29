@@ -358,9 +358,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   const [companySearchTerm, setCompanySearchTerm] = React.useState('');
   const [showPackVision, setShowPackVision] = React.useState(false);
 
-  if (showPackVision) {
-    return <PackVision onClose={() => setShowPackVision(false)} />;
-  }
+
 
   // Estrai lista aziende uniche dai clienti
   const companies = React.useMemo(() => {
@@ -1652,6 +1650,9 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         </div>
       </div>
 
+      {showPackVision && (
+        <PackVision onClose={() => setShowPackVision(false)} />
+      )}
     </div>
   );
 };
