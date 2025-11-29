@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Send, Monitor, Layout, AlertTriangle, Info, CheckCircle, Settings, X, Maximize } from 'lucide-react';
+import { Clock, Send, Monitor, Layout, AlertTriangle, Info, CheckCircle, Settings, X, Maximize, GripVertical } from 'lucide-react';
 
 // --- CONFIGURAZIONE COLORI E GRADIENTI ---
 const THEMES = {
@@ -192,9 +192,10 @@ const DisplayView = ({ messages, viewMode }) => {
 };
 
 // --- COMPONENTE ADMIN / SENDER ---
-const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMessages, onClearMessage }) => {
+const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMessages, onClearMessage, onReorderMessages }) => {
     const [message, setMessage] = useState('');
     const [priority, setPriority] = useState('info');
+    const [draggedIndex, setDraggedIndex] = useState(null);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -313,15 +314,37 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
                                 <p className="text-sm">Invia un messaggio per vederlo qui.</p>
                             </div>
                         ) : (
-                            activeMessages.map((msg) => {
+                            activeMessages.map((msg, index) => {
                                 const theme = THEMES[msg.priority] || THEMES.info;
                                 return (
-                                    <div key={msg.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-start justify-between group hover:shadow-md transition-all">
-                                        <div className="flex items-start gap-4">
+                                    <div 
+                                        key={msg.id} 
+                                        draggable
+                                        onDragStart={() => setDraggedIndex(index)}
+                                        onDragOver={(e) => {
+                                            e.preventDefault();
+                                        }}
+                                        onDrop={(e) => {
+                                            e.preventDefault();
+                                            if (draggedIndex !== null && draggedIndex !== index) {
+                                                onReorderMessages(draggedIndex, index);
+                                            }
+                                            setDraggedIndex(null);
+                                        }}
+                                        onDragEnd={() => setDraggedIndex(null)}
+                                        className={`bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-start justify-between group hover:shadow-md transition-all cursor-move ${
+                                            draggedIndex === index ? 'opacity-50 scale-95' : ''
+                                        } ${draggedIndex !== null && draggedIndex !== index ? 'border-blue-300 bg-blue-50' : ''}`}
+                                    >
+                                        <div className="flex items-start gap-4 flex-1">
+                                            {/* Handle per il drag */}
+                                            <div className="text-gray-300 hover:text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0 pt-1">
+                                                <GripVertical size={20} />
+                                            </div>
                                             <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${theme.gradient} flex items-center justify-center text-white shadow-sm flex-shrink-0`}>
                                                 {React.cloneElement(theme.icon, { size: 24, className: 'text-white mb-0' })}
                                             </div>
-                                            <div>
+                                            <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 ${theme.text}`}>
                                                         {theme.label}
@@ -329,13 +352,18 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
                                                     <span className="text-xs text-gray-400">
                                                         {new Date(msg.created_at).toLocaleTimeString()}
                                                     </span>
+                                                    {activeMessages.length > 1 && (
+                                                        <span className="text-xs text-gray-500 font-medium">
+                                                            #{index + 1}
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <p className="font-bold text-gray-800 text-lg leading-tight">{msg.content}</p>
                                             </div>
                                         </div>
                                         <button
                                             onClick={() => onClearMessage(msg.id)}
-                                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 ml-2"
                                             title="Rimuovi messaggio"
                                         >
                                             <X size={20} />
@@ -365,7 +393,26 @@ export default function PackVision({ onClose }) {
                 const resMsg = await fetch('/api/packvision/messages');
                 if (resMsg.ok) {
                     const dataMsg = await resMsg.json();
-                    setMessages(dataMsg);
+                    // Applica l'ordine salvato se presente
+                    const savedOrder = localStorage.getItem('packvision_message_order');
+                    if (savedOrder && dataMsg.length > 0) {
+                        try {
+                            const order = JSON.parse(savedOrder);
+                            const sorted = [...dataMsg].sort((a, b) => {
+                                const indexA = order.indexOf(a.id);
+                                const indexB = order.indexOf(b.id);
+                                if (indexA === -1) return 1;
+                                if (indexB === -1) return -1;
+                                return indexA - indexB;
+                            });
+                            setMessages(sorted);
+                        } catch (err) {
+                            console.error('Errore caricamento ordine messaggi:', err);
+                            setMessages(dataMsg);
+                        }
+                    } else {
+                        setMessages(dataMsg);
+                    }
                 }
 
                 // Carica impostazioni
@@ -443,6 +490,21 @@ export default function PackVision({ onClose }) {
         }
     };
 
+    const handleReorderMessages = (fromIndex, toIndex) => {
+        setMessages(prev => {
+            const newMessages = [...prev];
+            const [moved] = newMessages.splice(fromIndex, 1);
+            newMessages.splice(toIndex, 0, moved);
+            
+            // Salva l'ordine in localStorage per persistenza
+            const order = newMessages.map(m => m.id);
+            localStorage.setItem('packvision_message_order', JSON.stringify(order));
+            
+            return newMessages;
+        });
+    };
+
+
     if (mode === 'display') {
         return <DisplayView messages={messages} viewMode={settings.viewMode} />;
     }
@@ -479,6 +541,7 @@ export default function PackVision({ onClose }) {
                 currentSettings={settings}
                 activeMessages={messages}
                 onClearMessage={handleClearMessage}
+                onReorderMessages={handleReorderMessages}
             />
         </div>
     );
