@@ -10,10 +10,75 @@ module.exports = (pool, io) => {
         next();
     };
 
+    // GET /api/packvision/health - Verifica connessione database
+    router.get('/health', requireDb, async (req, res) => {
+        let client = null;
+        try {
+            console.log('🔍 [PackVision] Verifica connessione database...');
+            
+            // Timeout per la connessione (5 secondi)
+            const connectPromise = pool.connect();
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Timeout connessione database (5s)')), 5000);
+            });
+            
+            client = await Promise.race([connectPromise, timeoutPromise]);
+            
+            // Test query semplice
+            await client.query('SELECT 1 as test');
+            
+            // Verifica che la tabella messages esista
+            const tableCheck = await client.query(`
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'messages'
+                )
+            `);
+            
+            if (client) {
+                client.release();
+            }
+            
+            const tableExists = tableCheck.rows[0]?.exists || false;
+            
+            res.json({
+                status: 'ok',
+                database: 'connected',
+                table_exists: tableExists,
+                message: tableExists ? 'Database e tabella verificati' : 'Database connesso ma tabella messages non trovata'
+            });
+        } catch (err) {
+            if (client) {
+                try {
+                    client.release();
+                } catch (releaseErr) {
+                    console.error('⚠️ [PackVision] Errore rilascio client:', releaseErr.message);
+                }
+            }
+            
+            console.error('❌ [PackVision] Errore verifica health:', err);
+            
+            res.status(503).json({
+                status: 'error',
+                database: 'disconnected',
+                error: err.message,
+                code: err.code
+            });
+        }
+    });
+
     // GET /api/packvision/messages - Ottieni messaggi attivi (filtra quelli scaduti)
     router.get('/messages', requireDb, async (req, res) => {
+        let client = null;
         try {
-            const client = await pool.connect();
+            // Timeout per la connessione (5 secondi)
+            const connectPromise = pool.connect();
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Timeout connessione database (5s)')), 5000);
+            });
+            
+            client = await Promise.race([connectPromise, timeoutPromise]);
             
             // Disattiva automaticamente i messaggi scaduti
             await client.query(`
@@ -33,11 +98,36 @@ module.exports = (pool, io) => {
                     CASE WHEN priority = 'danger' THEN 0 ELSE 1 END,
                     created_at DESC
             `);
-            client.release();
+            
+            if (client) {
+                client.release();
+            }
+            
             res.json(result.rows);
         } catch (err) {
-            console.error('Errore recupero messaggi PackVision:', err);
-            res.status(500).json({ error: 'Errore interno del server' });
+            if (client) {
+                try {
+                    client.release();
+                } catch (releaseErr) {
+                    console.error('⚠️ [PackVision] Errore rilascio client:', releaseErr.message);
+                }
+            }
+            
+            console.error('❌ [PackVision] Errore recupero messaggi:', err);
+            console.error('❌ [PackVision] Stack:', err.stack);
+            
+            // Se è un errore di connessione al database
+            if (err.message.includes('Timeout') || err.code === 'ETIMEDOUT' || err.code === 'ECONNREFUSED') {
+                return res.status(503).json({ 
+                    error: 'Database PackVision non disponibile',
+                    details: 'Impossibile connettersi al database. Verifica che il database packvision_db esista e sia accessibile.'
+                });
+            }
+            
+            res.status(500).json({ 
+                error: 'Errore interno del server',
+                details: err.message 
+            });
         }
     });
 
@@ -52,8 +142,15 @@ module.exports = (pool, io) => {
             return res.status(400).json({ error: 'Contenuto messaggio mancante' });
         }
 
+        let client = null;
         try {
-            const client = await pool.connect();
+            // Timeout per la connessione (5 secondi)
+            const connectPromise = pool.connect();
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Timeout connessione database (5s)')), 5000);
+            });
+            
+            client = await Promise.race([connectPromise, timeoutPromise]);
             
             // Calcola expires_at se duration_hours è fornito (o usa quello passato direttamente)
             let expiresAt = expires_at || null;
@@ -125,8 +222,17 @@ module.exports = (pool, io) => {
             console.log('💾 [PackVision] Esecuzione INSERT con query:', insertQuery);
             console.log('💾 [PackVision] Valori:', insertValues);
 
-            const result = await client.query(insertQuery, insertValues);
-            client.release();
+            // Timeout per la query (10 secondi)
+            const queryPromise = client.query(insertQuery, insertValues);
+            const queryTimeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Timeout query database (10s)')), 10000);
+            });
+            
+            const result = await Promise.race([queryPromise, queryTimeoutPromise]);
+            
+            if (client) {
+                client.release();
+            }
 
             const newMessage = result.rows[0];
             console.log('✅ [PackVision] Messaggio creato con successo:', newMessage.id);
@@ -138,14 +244,34 @@ module.exports = (pool, io) => {
 
             res.status(201).json(newMessage);
         } catch (err) {
+            // Rilascia il client se è stato acquisito
+            if (client) {
+                try {
+                    client.release();
+                } catch (releaseErr) {
+                    console.error('⚠️ [PackVision] Errore rilascio client:', releaseErr.message);
+                }
+            }
+            
             console.error('❌ [PackVision] Errore invio messaggio:', err);
             console.error('❌ [PackVision] Stack:', err.stack);
             console.error('❌ [PackVision] Dettagli errore:', {
                 message: err.message,
                 code: err.code,
                 detail: err.detail,
-                constraint: err.constraint
+                constraint: err.constraint,
+                errno: err.errno,
+                syscall: err.syscall
             });
+            
+            // Se è un errore di connessione al database
+            if (err.message.includes('Timeout') || err.code === 'ETIMEDOUT' || err.code === 'ECONNREFUSED') {
+                return res.status(503).json({ 
+                    error: 'Database PackVision non disponibile',
+                    details: 'Impossibile connettersi al database. Verifica che il database packvision_db esista e sia accessibile.'
+                });
+            }
+            
             res.status(500).json({ 
                 error: 'Errore interno del server',
                 details: err.message 

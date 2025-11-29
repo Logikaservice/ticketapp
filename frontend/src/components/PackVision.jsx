@@ -768,6 +768,7 @@ export default function PackVision({ onClose }) {
                 const expiresDate = new Date();
                 expiresDate.setHours(expiresDate.getHours() + parseInt(newMessage.duration_hours, 10));
                 expiresAt = expiresDate.toISOString();
+                console.log('📅 [PackVision] Scadenza calcolata:', expiresAt);
             }
 
             const messageToSend = {
@@ -775,24 +776,49 @@ export default function PackVision({ onClose }) {
                 expires_at: expiresAt
             };
 
+            console.log('📦 [PackVision] Dati da inviare al backend:', messageToSend);
+
             const res = await fetch('/api/packvision/messages', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(messageToSend)
             });
 
-            const responseData = await res.json();
+            console.log('📡 [PackVision] Risposta ricevuta - Status:', res.status, res.statusText);
+
+            let responseData;
+            try {
+                const text = await res.text();
+                console.log('📄 [PackVision] Risposta raw:', text);
+                responseData = text ? JSON.parse(text) : {};
+            } catch (parseErr) {
+                console.error('❌ [PackVision] Errore parsing risposta:', parseErr);
+                throw new Error('Impossibile leggere la risposta del server');
+            }
 
             if (res.ok) {
                 console.log('✅ [PackVision] Messaggio creato con successo:', responseData);
-                setMessages(prev => [responseData, ...prev]);
+                setMessages(prev => {
+                    const newMessages = [responseData, ...prev];
+                    console.log('📋 [PackVision] Nuovo stato messaggi:', newMessages.length, 'messaggi');
+                    return newMessages;
+                });
             } else {
-                console.error('❌ [PackVision] Errore risposta server:', responseData);
-                alert(`Errore nella creazione del messaggio: ${responseData.error || 'Errore sconosciuto'}`);
+                console.error('❌ [PackVision] Errore risposta server:', {
+                    status: res.status,
+                    statusText: res.statusText,
+                    data: responseData
+                });
+                const errorMsg = responseData.error || responseData.details || 'Errore sconosciuto';
+                alert(`Errore nella creazione del messaggio: ${errorMsg}`);
             }
         } catch (err) {
             console.error('❌ [PackVision] Errore invio messaggio:', err);
-            alert(`Errore nella creazione del messaggio: ${err.message}`);
+            console.error('❌ [PackVision] Stack trace:', err.stack);
+            const errorMsg = err.message || 'Errore di connessione';
+            alert(`Errore nella creazione del messaggio: ${errorMsg}`);
         }
     };
 
