@@ -10,6 +10,31 @@ module.exports = (pool, io) => {
         next();
     };
 
+    // Funzione helper per inizializzare automaticamente le colonne mancanti
+    const ensureColumns = async (client) => {
+        try {
+            // Verifica e aggiungi colonne mancanti
+            await client.query(`
+                ALTER TABLE messages 
+                ADD COLUMN IF NOT EXISTS duration_hours INTEGER,
+                ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ,
+                ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW(),
+                ADD COLUMN IF NOT EXISTS order_index INTEGER
+            `);
+            
+            // Crea indice se non esiste
+            await client.query(`
+                CREATE INDEX IF NOT EXISTS idx_messages_expires_at 
+                ON messages(expires_at)
+            `);
+        } catch (err) {
+            // Ignora errori se le colonne esistono già
+            if (!err.message.includes('already exists') && !err.message.includes('duplicate')) {
+                console.warn('⚠️ [PackVision] Errore durante inizializzazione colonne:', err.message);
+            }
+        }
+    };
+
     // GET /api/packvision/health - Verifica connessione database
     router.get('/health', requireDb, async (req, res) => {
         let client = null;
@@ -79,6 +104,9 @@ module.exports = (pool, io) => {
             });
             
             client = await Promise.race([connectPromise, timeoutPromise]);
+            
+            // Assicurati che le colonne esistano (inizializzazione automatica al primo accesso)
+            await ensureColumns(client);
             
             // Disattiva automaticamente i messaggi scaduti
             await client.query(`
@@ -151,6 +179,9 @@ module.exports = (pool, io) => {
             });
             
             client = await Promise.race([connectPromise, timeoutPromise]);
+            
+            // Assicurati che le colonne esistano (inizializzazione automatica)
+            await ensureColumns(client);
             
             // Calcola expires_at se duration_hours è fornito (o usa quello passato direttamente)
             let expiresAt = expires_at || null;
