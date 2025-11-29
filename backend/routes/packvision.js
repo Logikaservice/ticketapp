@@ -43,30 +43,93 @@ module.exports = (pool, io) => {
 
     // POST /api/packvision/messages - Invia nuovo messaggio
     router.post('/messages', requireDb, async (req, res) => {
-        const { content, priority, display_mode, duration_hours } = req.body;
+        const { content, priority, display_mode, duration_hours, expires_at } = req.body;
 
-        if (!content) {
+        console.log('📨 [PackVision] Nuovo messaggio ricevuto:', { content, priority, display_mode, duration_hours, expires_at });
+
+        if (!content || !content.trim()) {
+            console.error('❌ [PackVision] Contenuto messaggio mancante o vuoto');
             return res.status(400).json({ error: 'Contenuto messaggio mancante' });
         }
 
         try {
             const client = await pool.connect();
             
-            // Calcola expires_at se duration_hours è fornito
-            let expiresAt = null;
-            if (duration_hours) {
+            // Calcola expires_at se duration_hours è fornito (o usa quello passato direttamente)
+            let expiresAt = expires_at || null;
+            if (!expiresAt && duration_hours) {
                 const expiresDate = new Date();
-                expiresDate.setHours(expiresDate.getHours() + parseInt(duration_hours));
+                expiresDate.setHours(expiresDate.getHours() + parseInt(duration_hours, 10));
                 expiresAt = expiresDate.toISOString();
             }
 
-            const result = await client.query(
-                'INSERT INTO messages (content, priority, display_mode, duration_hours, expires_at) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-                [content, priority || 'info', display_mode || 'single', duration_hours || null, expiresAt]
-            );
+            // Verifica se la colonna order_index esiste
+            let hasOrderIndex = false;
+            try {
+                const columnCheck = await client.query(`
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'messages' AND column_name = 'order_index'
+                `);
+                hasOrderIndex = columnCheck.rows.length > 0;
+            } catch (checkErr) {
+                console.warn('⚠️ [PackVision] Impossibile verificare colonna order_index:', checkErr.message);
+            }
+
+            // Ottieni il massimo order_index per il nuovo messaggio (se la colonna esiste)
+            let orderIndex = null;
+            if (hasOrderIndex) {
+                try {
+                    const maxOrderResult = await client.query('SELECT COALESCE(MAX(order_index), -1) + 1 as next_order FROM messages WHERE active = true');
+                    orderIndex = parseInt(maxOrderResult.rows[0]?.next_order || 0, 10);
+                } catch (orderErr) {
+                    console.warn('⚠️ [PackVision] Errore calcolo order_index, uso default 0:', orderErr.message);
+                    orderIndex = 0;
+                }
+            }
+
+            // Costruisci la query INSERT in base alle colonne disponibili
+            let insertQuery, insertValues;
+            
+            if (hasOrderIndex) {
+                insertQuery = `
+                    INSERT INTO messages (content, priority, display_mode, duration_hours, expires_at, active, order_index) 
+                    VALUES ($1, $2, $3, $4, $5, $6, $7) 
+                    RETURNING *
+                `;
+                insertValues = [
+                    content.trim(),
+                    priority || 'info',
+                    display_mode || 'single',
+                    duration_hours ? parseInt(duration_hours, 10) : null,
+                    expiresAt,
+                    true,
+                    orderIndex
+                ];
+            } else {
+                insertQuery = `
+                    INSERT INTO messages (content, priority, display_mode, duration_hours, expires_at, active) 
+                    VALUES ($1, $2, $3, $4, $5, $6) 
+                    RETURNING *
+                `;
+                insertValues = [
+                    content.trim(),
+                    priority || 'info',
+                    display_mode || 'single',
+                    duration_hours ? parseInt(duration_hours, 10) : null,
+                    expiresAt,
+                    true
+                ];
+            }
+
+            console.log('💾 [PackVision] Esecuzione INSERT con query:', insertQuery);
+            console.log('💾 [PackVision] Valori:', insertValues);
+
+            const result = await client.query(insertQuery, insertValues);
             client.release();
 
             const newMessage = result.rows[0];
+            console.log('✅ [PackVision] Messaggio creato con successo:', newMessage.id);
 
             // Notifica via Socket.IO
             if (io) {
@@ -75,8 +138,18 @@ module.exports = (pool, io) => {
 
             res.status(201).json(newMessage);
         } catch (err) {
-            console.error('Errore invio messaggio PackVision:', err);
-            res.status(500).json({ error: 'Errore interno del server' });
+            console.error('❌ [PackVision] Errore invio messaggio:', err);
+            console.error('❌ [PackVision] Stack:', err.stack);
+            console.error('❌ [PackVision] Dettagli errore:', {
+                message: err.message,
+                code: err.code,
+                detail: err.detail,
+                constraint: err.constraint
+            });
+            res.status(500).json({ 
+                error: 'Errore interno del server',
+                details: err.message 
+            });
         }
     });
 

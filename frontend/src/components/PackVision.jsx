@@ -760,26 +760,39 @@ export default function PackVision({ onClose }) {
 
     const handleSendMessage = async (newMessage) => {
         try {
+            console.log('📤 [PackVision] Invio messaggio:', newMessage);
+            
+            // Calcola expires_at se duration_hours è fornito
+            let expiresAt = null;
+            if (newMessage.duration_hours) {
+                const expiresDate = new Date();
+                expiresDate.setHours(expiresDate.getHours() + parseInt(newMessage.duration_hours, 10));
+                expiresAt = expiresDate.toISOString();
+            }
+
+            const messageToSend = {
+                ...newMessage,
+                expires_at: expiresAt
+            };
+
             const res = await fetch('/api/packvision/messages', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newMessage)
+                body: JSON.stringify(messageToSend)
             });
 
+            const responseData = await res.json();
+
             if (res.ok) {
-                const savedMsg = await res.json();
-                setMessages(prev => [savedMsg, ...prev]);
+                console.log('✅ [PackVision] Messaggio creato con successo:', responseData);
+                setMessages(prev => [responseData, ...prev]);
+            } else {
+                console.error('❌ [PackVision] Errore risposta server:', responseData);
+                alert(`Errore nella creazione del messaggio: ${responseData.error || 'Errore sconosciuto'}`);
             }
         } catch (err) {
-            console.error('Errore invio messaggio:', err);
-            // Fallback ottimistico
-            const msg = {
-                id: Date.now(),
-                ...newMessage,
-                created_at: new Date(),
-                active: true
-            };
-            setMessages(prev => [msg, ...prev]);
+            console.error('❌ [PackVision] Errore invio messaggio:', err);
+            alert(`Errore nella creazione del messaggio: ${err.message}`);
         }
     };
 
