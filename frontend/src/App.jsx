@@ -153,8 +153,8 @@ export default function TicketApp() {
   const [previousUnreadCounts, setPreviousUnreadCounts] = useState({});
   // Inizializza lo stato in base al dominio richiesto
   const [showDashboard, setShowDashboard] = useState(() => {
-    // Se c'è un dominio richiesto (orari/turni/vivaldi), non mostrare dashboard
-    return !isOrariDomain && !isVivaldiDomain;
+    // La dashboard è sempre la schermata principale, tranne per orari/turni
+    return !isOrariDomain;
   });
 
   const [showOrariTurni, setShowOrariTurni] = useState(() => {
@@ -163,8 +163,8 @@ export default function TicketApp() {
   });
 
   const [showVivaldi, setShowVivaldi] = useState(() => {
-    // Se c'è un dominio richiesto (vivaldi), mostra subito vivaldi
-    return isVivaldiDomain;
+    // Vivaldi NON viene mostrato automaticamente, solo tramite menu
+    return false;
   });
   const [showPackVision, setShowPackVision] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -178,10 +178,11 @@ export default function TicketApp() {
       setShowDashboard(false);
       setShowOrariTurni(true);
       setShowVivaldi(false);
-    } else if (savedDomain === 'vivaldi' || isVivaldiDomain) {
-      setShowDashboard(false);
+    } else {
+      // Per tutti gli altri domini (incluso vivaldi), mostra la dashboard
+      setShowDashboard(true);
       setShowOrariTurni(false);
-      setShowVivaldi(true);
+      setShowVivaldi(false);
     }
   }, [isOrariDomain, isVivaldiDomain]);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
@@ -274,19 +275,21 @@ export default function TicketApp() {
     if (isLoggedIn) {
       setNotifications(prev => prev.filter(n => !(n.sticky && n.message === 'Disconnesso per inattività')));
 
-      // Dopo il login, verifica se c'è un dominio richiesto e mostra la gestione orari/vivaldi se necessario
+      // Dopo il login, verifica se c'è un dominio richiesto e mostra la gestione orari se necessario
+      // Per Vivaldi, la dashboard è sempre la schermata principale
       const savedDomain = localStorage.getItem('requestedDomain');
       if (savedDomain === 'orari' || savedDomain === 'turni') {
         setShowDashboard(false);
         setShowOrariTurni(true);
         setShowVivaldi(false);
-      } else if (savedDomain === 'vivaldi' || isVivaldiDomain) {
-        setShowDashboard(false);
+      } else {
+        // Per tutti gli altri domini (incluso vivaldi), mostra la dashboard
+        setShowDashboard(true);
         setShowOrariTurni(false);
-        setShowVivaldi(true);
+        setShowVivaldi(false);
       }
     }
-  }, [isLoggedIn, isVivaldiDomain]);
+  }, [isLoggedIn]);
 
   // Aggiorna i ref per il timer di inattività
   useEffect(() => {
@@ -2810,6 +2813,7 @@ export default function TicketApp() {
             openAccessLogs,
             openInactivityTimer,
             openOrariTurni: () => { setShowOrariTurni(true); setShowDashboard(false); setShowVivaldi(false); },
+            openVivaldi: () => { setShowVivaldi(true); setShowDashboard(false); setShowOrariTurni(false); },
             openPackVision: () => setShowPackVision(true),
             isOrariDomain: isOrariDomain
           }}
