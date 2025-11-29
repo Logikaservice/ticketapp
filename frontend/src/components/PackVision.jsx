@@ -68,6 +68,8 @@ const DisplayView = ({ messages, viewMode }) => {
 
     // Stato per tracciare quale messaggio mostrare in modalità singolo con slide
     const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+    // Stato per tracciare quando avviene un cambio di slide (per animazione)
+    const [slideKey, setSlideKey] = useState(0);
 
     // Logica per visualizzazione singola o split
     let displayMessages;
@@ -88,7 +90,12 @@ const DisplayView = ({ messages, viewMode }) => {
     useEffect(() => {
         if (viewMode === 'single' && activeMessages.length > 1) {
             const slideInterval = setInterval(() => {
-                setCurrentSlideIndex((prevIndex) => (prevIndex + 1) % activeMessages.length);
+                setCurrentSlideIndex((prevIndex) => {
+                    const newIndex = (prevIndex + 1) % activeMessages.length;
+                    // Aggiorna slideKey per triggerare l'animazione
+                    setSlideKey((prev) => prev + 1);
+                    return newIndex;
+                });
             }, 5000); // 5 secondi
 
             return () => clearInterval(slideInterval);
@@ -101,7 +108,48 @@ const DisplayView = ({ messages, viewMode }) => {
     }, [activeMessages.map(m => m.id).join(',')]);
 
     return (
-        <div className="fixed inset-0 bg-black text-white overflow-hidden flex">
+        <>
+            {/* Animazioni CSS per gli effetti di slide */}
+            <style>{`
+                @keyframes slideInZoom {
+                    0% {
+                        opacity: 0;
+                        transform: scale(0.8) translateX(50px);
+                    }
+                    100% {
+                        opacity: 1;
+                        transform: scale(1) translateX(0);
+                    }
+                }
+                
+                @keyframes flashBorder {
+                    0% {
+                        opacity: 0;
+                        transform: scale(1);
+                        box-shadow: 0 0 0 0 rgba(255, 255, 255, 1);
+                    }
+                    20% {
+                        opacity: 1;
+                        transform: scale(1);
+                        box-shadow: 0 0 0 20px rgba(255, 255, 255, 0);
+                    }
+                    50% {
+                        opacity: 0.8;
+                        transform: scale(1.01);
+                        box-shadow: 0 0 0 40px rgba(255, 255, 255, 0);
+                    }
+                    100% {
+                        opacity: 0;
+                        transform: scale(1);
+                        box-shadow: 0 0 0 60px rgba(255, 255, 255, 0);
+                    }
+                }
+                
+                .slide-in-animation {
+                    animation: slideInZoom 1s ease-out forwards;
+                }
+            `}</style>
+            <div className="fixed inset-0 bg-black text-white overflow-hidden flex">
             {displayMessages.map((msg, index) => {
                 const theme = THEMES[msg.priority] || THEMES.info;
                 const isSplit = viewMode === 'split';
@@ -135,8 +183,28 @@ const DisplayView = ({ messages, viewMode }) => {
                             </div>
                         )}
 
+                        {/* Effetto flash/border al cambio slide (solo in modalità singolo) */}
+                        {viewMode === 'single' && activeMessages.length > 1 && (
+                            <div 
+                                key={`flash-${slideKey}`}
+                                className="absolute inset-0 pointer-events-none flash-border-effect"
+                                style={{ 
+                                    animation: 'flashBorder 1s ease-out forwards',
+                                    border: '8px solid rgba(255, 255, 255, 0.8)'
+                                }}
+                            />
+                        )}
+
                         {/* Contenuto Messaggio */}
-                        <div className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl transform transition-all duration-1000 ease-in-out hover:scale-105">
+                        <div 
+                            key={`content-${slideKey}`}
+                            className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl transform transition-all duration-1000 ease-in-out hover:scale-105 slide-in-animation"
+                            style={{
+                                animation: viewMode === 'single' && activeMessages.length > 1 
+                                    ? 'slideInZoom 1s ease-out forwards' 
+                                    : 'none'
+                            }}
+                        >
                             <div className="flex justify-center">{theme.icon}</div>
                             <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
                                 {theme.label}
