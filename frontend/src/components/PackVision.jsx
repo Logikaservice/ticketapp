@@ -403,8 +403,8 @@ const DisplayView = ({ messages, viewMode }) => {
                 )}
 
                 {/* Parte superiore: Messaggi urgenti (se presenti) */}
-                {forceFullScreenForNewUrgent && hasUrgentMessages ? (
-                    // Nuovo urgente appena creato: schermo intero per 10 secondi
+                {(forceFullScreenForNewUrgent || (showIconAnimation && animationFromCenter)) && hasUrgentMessages ? (
+                    // Nuovo urgente appena creato: schermo intero per 10 secondi (con o senza animazione icona)
                     currentUrgent && renderMessage(currentUrgent, true, false, 'h-full w-full')
                 ) : shouldSplit ? (
                     <>
