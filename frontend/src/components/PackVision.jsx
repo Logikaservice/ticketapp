@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Clock, Send, Monitor, Layout, AlertTriangle, Info, CheckCircle, Settings, X, Maximize, GripVertical, Zap, Bell, MessageCircle, Edit2 } from 'lucide-react';
 
 // --- CONFIGURAZIONE COLORI E GRADIENTI ---
@@ -82,7 +82,6 @@ const DisplayView = ({ messages, viewMode }) => {
     const [currentNonUrgent, setCurrentNonUrgent] = useState(null);
     const [currentNonUrgentIndex, setCurrentNonUrgentIndex] = useState(0);
     const [isTransitioning, setIsTransitioning] = useState(false);
-    const [prevNonUrgentIndex, setPrevNonUrgentIndex] = useState(0);
     const [prevUrgentCount, setPrevUrgentCount] = useState(0);
     const [prevNonUrgentCount, setPrevNonUrgentCount] = useState(0);
 
@@ -211,6 +210,19 @@ const DisplayView = ({ messages, viewMode }) => {
         }
     }, [urgentMessages.length, nonUrgentMessages.length, currentNonUrgentIndex, nonUrgentMessages]);
     
+    // Ref per accedere al valore corrente dell'indice senza causare re-render
+    const currentIndexRef = useRef(currentNonUrgentIndex);
+    const messagesRef = useRef(nonUrgentMessages);
+    
+    // Aggiorna i ref quando cambiano i valori
+    useEffect(() => {
+        currentIndexRef.current = currentNonUrgentIndex;
+    }, [currentNonUrgentIndex]);
+    
+    useEffect(() => {
+        messagesRef.current = nonUrgentMessages;
+    }, [nonUrgentMessages]);
+    
     // Rotazione automatica dei messaggi non urgenti ogni 10 secondi (quando ce ne sono 2+)
     useEffect(() => {
         if (urgentMessages.length > 0 || nonUrgentMessages.length < 2) {
@@ -221,33 +233,39 @@ const DisplayView = ({ messages, viewMode }) => {
         // Assicurati che l'indice corrente sia valido
         if (currentNonUrgentIndex >= nonUrgentMessages.length || currentNonUrgentIndex < 0) {
             setCurrentNonUrgentIndex(0);
+            currentIndexRef.current = 0;
         }
         
+        console.log('🔄 [PackVision] Avvio slideshow per', nonUrgentMessages.length, 'messaggi non urgenti, indice iniziale:', currentNonUrgentIndex);
+        
         const interval = setInterval(() => {
-            setCurrentNonUrgentIndex(prev => {
-                const nextIndex = (prev + 1) % nonUrgentMessages.length;
+            const currentIdx = currentIndexRef.current;
+            const messages = messagesRef.current;
+            
+            console.log('⏱️ [PackVision] Cambio messaggio, indice corrente:', currentIdx);
+            
+            // Avvia animazione di transizione con dissolvenza
+            setIsTransitioning(true);
+            
+            // Dopo 1 secondo (durata fade-out), cambia messaggio
+            setTimeout(() => {
+                const nextIndex = (currentIdx + 1) % messages.length;
+                console.log('✅ [PackVision] Nuovo indice:', nextIndex, 'messaggio:', messages[nextIndex]?.content);
+                setCurrentNonUrgentIndex(nextIndex);
+                currentIndexRef.current = nextIndex;
                 
-                // Salva l'indice precedente
-                setPrevNonUrgentIndex(prev);
-                
-                // Avvia animazione di transizione con dissolvenza
-                setIsTransitioning(true);
-                
-                // Dopo 1 secondo (durata fade-out), cambia messaggio
+                // Ferma l'animazione dopo un breve delay per permettere il fade-in
                 setTimeout(() => {
-                    setCurrentNonUrgentIndex(nextIndex);
-                    // Ferma l'animazione dopo un breve delay per permettere il fade-in
-                    setTimeout(() => {
-                        setIsTransitioning(false);
-                    }, 100);
-                }, 1000); // 1 secondo per il fade-out
-                
-                return prev; // Mantieni l'indice vecchio durante la transizione
-            });
+                    setIsTransitioning(false);
+                }, 100);
+            }, 1000); // 1 secondo per il fade-out
         }, 10000); // 10 secondi
         
-        return () => clearInterval(interval);
-    }, [urgentMessages.length, nonUrgentMessages.length, nonUrgentMessages, currentNonUrgentIndex]);
+        return () => {
+            console.log('🛑 [PackVision] Fermo slideshow');
+            clearInterval(interval);
+        };
+    }, [urgentMessages.length, nonUrgentMessages.length]);
     
     // Listener per eventi personalizzati quando viene creato un messaggio non urgente (senza urgenti)
     useEffect(() => {
@@ -302,9 +320,9 @@ const DisplayView = ({ messages, viewMode }) => {
     // Funzione per renderizzare un messaggio urgente
     const renderUrgentMessage = (msg) => {
         if (!msg) return null;
-        const theme = THEMES[msg.priority] || THEMES.info;
-        
-        return (
+                const theme = THEMES[msg.priority] || THEMES.info;
+
+                return (
             <div className="h-full w-full bg-gradient-to-br from-red-600 to-orange-600 flex flex-col items-center justify-center p-12 relative overflow-hidden">
                 {/* Sfondo rotante */}
                 <div className="rotating-background"></div>
@@ -325,23 +343,23 @@ const DisplayView = ({ messages, viewMode }) => {
                 ))}
                 
                 {/* Orologio in alto a destra */}
-                <div className="absolute top-8 right-8 z-10">
-                    <DigitalClock />
-                </div>
+                            <div className="absolute top-8 right-8 z-10">
+                                <DigitalClock />
+                            </div>
 
                 {/* Contenuto Messaggio - nascosto durante animazione icona, con fade-in */}
                 {!showIconAnimation && (
                     <div className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10 message-fade-in">
-                        <div className="flex justify-center">{theme.icon}</div>
-                        <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
-                            {theme.label}
-                        </h2>
-                        <p className="text-6xl md:text-7xl font-black leading-tight drop-shadow-lg break-words">
-                            {msg.content}
-                        </p>
-                        <div className="mt-8 text-lg opacity-70">
-                            Inviato: {new Date(msg.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-                        </div>
+                            <div className="flex justify-center">{theme.icon}</div>
+                            <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
+                                {theme.label}
+                            </h2>
+                            <p className="text-6xl md:text-7xl font-black leading-tight drop-shadow-lg break-words">
+                                {msg.content}
+                            </p>
+                            <div className="mt-8 text-lg opacity-70">
+                                Inviato: {new Date(msg.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                            </div>
                     </div>
                 )}
             </div>
@@ -648,8 +666,8 @@ const DisplayView = ({ messages, viewMode }) => {
                                                 {React.cloneElement(theme.icon, { 
                                                     size: 300, 
                                                     className: 'text-white drop-shadow-2xl'
-                                                })}
-                                            </div>
+            })}
+        </div>
                                         </div>
                                     );
                                 })()}
@@ -1046,7 +1064,7 @@ export default function PackVision({ onClose }) {
                             setMessages(dataMsg);
                         }
                     } else {
-                        setMessages(dataMsg);
+                    setMessages(dataMsg);
                     }
                 }
 
