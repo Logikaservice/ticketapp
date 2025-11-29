@@ -656,15 +656,15 @@ const DisplayView = ({ messages, viewMode }) => {
                         ) : (
                             // Se ci sono 2+ messaggi non urgenti: divisione orizzontale
                             <>
-                                {/* Metà superiore: nera */}
-                                <div className="absolute top-0 left-0 w-full h-1/2 bg-black flex items-center justify-center">
-                                    <div className="absolute top-8 right-8 z-10">
+                                {/* Metà superiore: nera (rimane vuota) */}
+                                <div className="absolute top-0 left-0 w-full h-1/2 bg-black flex items-center justify-center z-10">
+                                    <div className="absolute top-8 right-8 z-20">
                                         <DigitalClock />
                                     </div>
                                 </div>
                                 
                                 {/* Metà inferiore: messaggi non urgenti che ruotano ogni 10 secondi */}
-                                <div className="absolute bottom-0 left-0 w-full h-1/2 relative overflow-hidden">
+                                <div className="absolute top-1/2 left-0 w-full h-1/2 relative overflow-hidden z-20">
                                     {nonUrgentMessages[currentNonUrgentIndex] && (
                                         <>
                                             {renderNonUrgentMessage(nonUrgentMessages[currentNonUrgentIndex], true)}
