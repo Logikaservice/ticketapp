@@ -136,13 +136,46 @@ const DisplayView = ({ messages, viewMode }) => {
         return () => window.removeEventListener('packvision:newUrgentMessage', handleNewUrgentMessage);
     }, [urgentMessages, showIconAnimation]);
 
+    // Genera lucciole casuali per l'animazione di sfondo
+    const generateFireflies = () => {
+        const fireflies = [];
+        for (let i = 0; i < 30; i++) {
+            fireflies.push({
+                id: i,
+                left: Math.random() * 100,
+                top: Math.random() * 100,
+                tx: (Math.random() - 0.5) * 100,
+                ty: (Math.random() - 0.5) * 100,
+                delay: Math.random() * 3
+            });
+        }
+        return fireflies;
+    };
+    
+    const [fireflies] = useState(generateFireflies());
+
     // Funzione per renderizzare un messaggio urgente
     const renderUrgentMessage = (msg) => {
         if (!msg) return null;
         const theme = THEMES[msg.priority] || THEMES.info;
         
         return (
-            <div className="h-full w-full bg-gradient-to-br from-red-600 to-orange-600 flex flex-col items-center justify-center p-12 relative">
+            <div className="h-full w-full bg-gradient-to-br from-red-600 to-orange-600 flex flex-col items-center justify-center p-12 relative overflow-hidden">
+                {/* Lucciole animate sullo sfondo */}
+                {fireflies.map((fly) => (
+                    <div
+                        key={fly.id}
+                        className="firefly"
+                        style={{
+                            '--left': `${fly.left}%`,
+                            '--top': `${fly.top}%`,
+                            '--tx': `${fly.tx}px`,
+                            '--ty': `${fly.ty}px`,
+                            '--delay': `${fly.delay}s`
+                        }}
+                    />
+                ))}
+                
                 {/* Orologio in alto a destra */}
                 <div className="absolute top-8 right-8 z-10">
                     <DigitalClock />
@@ -150,7 +183,7 @@ const DisplayView = ({ messages, viewMode }) => {
 
                 {/* Contenuto Messaggio - nascosto durante animazione icona */}
                 {!showIconAnimation && (
-                    <div className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl">
+                    <div className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10">
                         <div className="flex justify-center">{theme.icon}</div>
                         <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
                             {theme.label}
@@ -185,6 +218,34 @@ const DisplayView = ({ messages, viewMode }) => {
                         opacity: 1;
                     }
                 }
+                
+                @keyframes firefly {
+                    0%, 100% {
+                        opacity: 0;
+                        transform: translate(0, 0) scale(0);
+                    }
+                    10% {
+                        opacity: 1;
+                        transform: translate(var(--tx), var(--ty)) scale(1);
+                    }
+                    90% {
+                        opacity: 1;
+                        transform: translate(var(--tx), var(--ty)) scale(1);
+                    }
+                }
+                
+                .firefly {
+                    position: absolute;
+                    width: 4px;
+                    height: 4px;
+                    background: rgba(255, 255, 255, 0.8);
+                    border-radius: 50%;
+                    box-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.6);
+                    animation: firefly 3s infinite;
+                    animation-delay: var(--delay);
+                    left: var(--left);
+                    top: var(--top);
+                }
             `}</style>
             <div className="fixed inset-0 bg-black text-white overflow-hidden">
                 {/* Se c'è un messaggio urgente */}
@@ -193,10 +254,7 @@ const DisplayView = ({ messages, viewMode }) => {
                         {/* Animazione icona dal centro per 2 secondi */}
                         {showIconAnimation && (
                             <div 
-                                className="fixed inset-0 flex items-center justify-center z-30"
-                                style={{
-                                    background: 'radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(220, 38, 38, 0.9) 50%, rgba(185, 28, 28, 0.85) 100%)'
-                                }}
+                                className="fixed inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-red-600 to-orange-600"
                             >
                                 <div 
                                     className="text-white"
