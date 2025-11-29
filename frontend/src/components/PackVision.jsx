@@ -79,9 +79,11 @@ const DisplayView = ({ messages, viewMode }) => {
     // Stati semplici per animazione icona
     const [showIconAnimation, setShowIconAnimation] = useState(false);
     const [currentUrgent, setCurrentUrgent] = useState(null);
+    const [currentUrgentIndex, setCurrentUrgentIndex] = useState(0);
     const [currentNonUrgent, setCurrentNonUrgent] = useState(null);
     const [currentNonUrgentIndex, setCurrentNonUrgentIndex] = useState(0);
     const [isTransitioning, setIsTransitioning] = useState(false);
+    const [isUrgentTransitioning, setIsUrgentTransitioning] = useState(false);
     const [prevUrgentCount, setPrevUrgentCount] = useState(0);
     const [prevNonUrgentCount, setPrevNonUrgentCount] = useState(0);
 
@@ -98,25 +100,46 @@ const DisplayView = ({ messages, viewMode }) => {
 
             console.log('🚨 [PackVision] Nuovo messaggio urgente rilevato:', mostRecentUrgent.id);
             
-            // Imposta il messaggio corrente
-            setCurrentUrgent(mostRecentUrgent);
-            
-            // Avvia animazione icona dal centro per 2 secondi
-            setShowIconAnimation(true);
-            
-            // Dopo 2 secondi, nasconde animazione e mostra messaggio
-            setTimeout(() => {
-                setShowIconAnimation(false);
-            }, 2000);
+            // Se c'è un solo messaggio urgente, usalo direttamente
+            if (urgentMessages.length === 1) {
+                setCurrentUrgent(mostRecentUrgent);
+                setCurrentUrgentIndex(0);
+                // Avvia animazione icona dal centro per 2 secondi
+                setShowIconAnimation(true);
+                // Dopo 2 secondi, nasconde animazione e mostra messaggio
+                setTimeout(() => {
+                    setShowIconAnimation(false);
+                }, 2000);
+            } else {
+                // Se ce ne sono 2+, usa l'indice
+                const urgentIndex = urgentMessages.findIndex(m => m.id === mostRecentUrgent.id);
+                if (urgentIndex >= 0) {
+                    setCurrentUrgentIndex(urgentIndex);
+                    setCurrentUrgent(null); // Usa l'indice invece del messaggio diretto
+                    // Avvia animazione icona dal centro per 2 secondi
+                    setShowIconAnimation(true);
+                    // Dopo 2 secondi, nasconde animazione e mostra messaggio
+                    setTimeout(() => {
+                        setShowIconAnimation(false);
+                    }, 2000);
+                }
+            }
         }
         
         // Se non ci sono urgenti, pulisci
         if (urgentMessages.length === 0) {
             setCurrentUrgent(null);
+            setCurrentUrgentIndex(0);
             // Non resettare showIconAnimation se stiamo mostrando un messaggio non urgente
             if (urgentMessages.length === 0 && nonUrgentMessages.length === 0) {
                 setShowIconAnimation(false);
             }
+        }
+        
+        // Se c'è un solo messaggio urgente e non è impostato come currentUrgent
+        if (urgentMessages.length === 1 && !currentUrgent) {
+            setCurrentUrgent(urgentMessages[0]);
+            setCurrentUrgentIndex(0);
         }
         
         setPrevUrgentCount(urgentMessages.length);
@@ -134,8 +157,18 @@ const DisplayView = ({ messages, viewMode }) => {
             if (urgentMessage && urgentMessage.priority === 'danger' && !showIconAnimation) {
                 console.log('✅ [PackVision] Avvio animazione per nuovo urgente:', messageId);
                 
-                // Imposta immediatamente il messaggio
-                setCurrentUrgent(urgentMessage);
+                // Se c'è un solo messaggio urgente, usa il messaggio diretto
+                if (urgentMessages.length === 1) {
+                    setCurrentUrgent(urgentMessage);
+                    setCurrentUrgentIndex(0);
+                } else {
+                    // Se ce ne sono 2+, trova l'indice del nuovo messaggio
+                    const urgentIndex = urgentMessages.findIndex(m => m.id === messageId);
+                    if (urgentIndex >= 0) {
+                        setCurrentUrgentIndex(urgentIndex);
+                        setCurrentUrgent(null); // Usa l'indice invece del messaggio diretto
+                    }
+                }
                 
                 // Avvia animazione icona con dissolvenza in entrata
                 setShowIconAnimation(true);
@@ -210,11 +243,15 @@ const DisplayView = ({ messages, viewMode }) => {
         }
     }, [urgentMessages.length, nonUrgentMessages.length, currentNonUrgentIndex, nonUrgentMessages]);
     
-    // Ref per accedere al valore corrente dell'indice senza causare re-render
+    // Ref per accedere al valore corrente dell'indice senza causare re-render (non urgenti)
     const currentIndexRef = useRef(currentNonUrgentIndex);
     const messagesRef = useRef(nonUrgentMessages);
     
-    // Aggiorna i ref quando cambiano i valori
+    // Ref per accedere al valore corrente dell'indice senza causare re-render (urgenti)
+    const currentUrgentIndexRef = useRef(currentUrgentIndex);
+    const urgentMessagesRef = useRef(urgentMessages);
+    
+    // Aggiorna i ref quando cambiano i valori (non urgenti)
     useEffect(() => {
         currentIndexRef.current = currentNonUrgentIndex;
     }, [currentNonUrgentIndex]);
@@ -222,6 +259,15 @@ const DisplayView = ({ messages, viewMode }) => {
     useEffect(() => {
         messagesRef.current = nonUrgentMessages;
     }, [nonUrgentMessages]);
+    
+    // Aggiorna i ref quando cambiano i valori (urgenti)
+    useEffect(() => {
+        currentUrgentIndexRef.current = currentUrgentIndex;
+    }, [currentUrgentIndex]);
+    
+    useEffect(() => {
+        urgentMessagesRef.current = urgentMessages;
+    }, [urgentMessages]);
     
     // Rotazione automatica dei messaggi non urgenti ogni 10 secondi (quando ce ne sono 2+)
     useEffect(() => {
@@ -267,10 +313,61 @@ const DisplayView = ({ messages, viewMode }) => {
         }, 10000); // 10 secondi
         
         return () => {
-            console.log('🛑 [PackVision] Fermo slideshow');
+            console.log('🛑 [PackVision] Fermo slideshow non urgenti');
             clearInterval(interval);
         };
     }, [urgentMessages.length, nonUrgentMessages.length]);
+    
+    // Rotazione automatica dei messaggi urgenti ogni 10 secondi (quando ce ne sono 2+)
+    useEffect(() => {
+        if (urgentMessages.length < 2) {
+            setIsUrgentTransitioning(false);
+            return;
+        }
+        
+        // Assicurati che l'indice corrente sia valido
+        let initialIndex = currentUrgentIndex;
+        if (initialIndex >= urgentMessages.length || initialIndex < 0 || !urgentMessages[initialIndex]) {
+            initialIndex = 0;
+            setCurrentUrgentIndex(0);
+            currentUrgentIndexRef.current = 0;
+            setCurrentUrgent(null); // Usa l'indice invece del messaggio diretto
+        } else {
+            currentUrgentIndexRef.current = initialIndex;
+            setCurrentUrgent(null); // Usa l'indice invece del messaggio diretto
+        }
+        
+        console.log('🚨 [PackVision] Avvio slideshow per', urgentMessages.length, 'messaggi urgenti, indice iniziale:', initialIndex);
+        
+        // Avvia l'intervallo immediatamente
+        const interval = setInterval(() => {
+            const currentIdx = currentUrgentIndexRef.current;
+            const messages = urgentMessagesRef.current;
+            
+            console.log('⏱️ [PackVision] Cambio messaggio urgente, indice corrente:', currentIdx);
+            
+            // Avvia animazione di transizione con dissolvenza
+            setIsUrgentTransitioning(true);
+            
+            // Dopo 1 secondo (durata fade-out), cambia messaggio
+            setTimeout(() => {
+                const nextIndex = (currentIdx + 1) % messages.length;
+                console.log('✅ [PackVision] Nuovo indice urgente:', nextIndex, 'messaggio:', messages[nextIndex]?.content);
+                setCurrentUrgentIndex(nextIndex);
+                currentUrgentIndexRef.current = nextIndex;
+                
+                // Ferma l'animazione dopo un breve delay per permettere il fade-in
+                setTimeout(() => {
+                    setIsUrgentTransitioning(false);
+                }, 100);
+            }, 1000); // 1 secondo per il fade-out
+        }, 10000); // 10 secondi
+        
+        return () => {
+            console.log('🛑 [PackVision] Fermo slideshow urgenti');
+            clearInterval(interval);
+        };
+    }, [urgentMessages.length]);
     
     // Listener per eventi personalizzati quando viene creato un messaggio non urgente (senza urgenti)
     useEffect(() => {
@@ -323,12 +420,12 @@ const DisplayView = ({ messages, viewMode }) => {
     const [fireflies] = useState(generateFireflies());
 
     // Funzione per renderizzare un messaggio urgente
-    const renderUrgentMessage = (msg) => {
+    const renderUrgentMessage = (msg, isTransitioning = false) => {
         if (!msg) return null;
-                const theme = THEMES[msg.priority] || THEMES.info;
-
-                return (
-            <div className="h-full w-full bg-gradient-to-br from-red-600 to-orange-600 flex flex-col items-center justify-center p-12 relative overflow-hidden">
+        const theme = THEMES[msg.priority] || THEMES.info;
+        
+        return (
+            <div className={`h-full w-full bg-gradient-to-br from-red-600 to-orange-600 flex flex-col items-center justify-center p-12 relative overflow-hidden ${isTransitioning ? 'fade-out' : ''}`}>
                 {/* Sfondo rotante */}
                 <div className="rotating-background"></div>
                 
@@ -348,23 +445,23 @@ const DisplayView = ({ messages, viewMode }) => {
                 ))}
                 
                 {/* Orologio in alto a destra */}
-                            <div className="absolute top-8 right-8 z-10">
-                                <DigitalClock />
-                            </div>
+                <div className="absolute top-8 right-8 z-10">
+                    <DigitalClock />
+                </div>
 
                 {/* Contenuto Messaggio - nascosto durante animazione icona, con fade-in */}
                 {!showIconAnimation && (
-                    <div className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10 message-fade-in">
-                            <div className="flex justify-center">{theme.icon}</div>
-                            <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
-                                {theme.label}
-                            </h2>
-                            <p className="text-6xl md:text-7xl font-black leading-tight drop-shadow-lg break-words">
-                                {msg.content}
-                            </p>
-                            <div className="mt-8 text-lg opacity-70">
-                                Inviato: {new Date(msg.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-                            </div>
+                    <div className={`glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10 ${!isTransitioning ? 'fade-in' : 'message-fade-in'}`}>
+                        <div className="flex justify-center">{theme.icon}</div>
+                        <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
+                            {theme.label}
+                        </h2>
+                        <p className="text-6xl md:text-7xl font-black leading-tight drop-shadow-lg break-words">
+                            {msg.content}
+                        </p>
+                        <div className="mt-8 text-lg opacity-70">
+                            Inviato: {new Date(msg.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
                     </div>
                 )}
             </div>
@@ -588,48 +685,107 @@ const DisplayView = ({ messages, viewMode }) => {
                 }
             `}</style>
             <div className="fixed inset-0 bg-black text-white overflow-hidden">
-                {/* Se c'è un messaggio urgente */}
-                {currentUrgent ? (
+                {/* Se ci sono messaggi urgenti */}
+                {urgentMessages.length > 0 ? (
                     <>
-                        {/* Animazione icona dal centro per 2 secondi */}
-                        {showIconAnimation && (
-                            <div 
-                                className="fixed inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-red-600 to-orange-600 overflow-hidden"
-                            >
-                                {/* Sfondo rotante */}
-                                <div className="rotating-background"></div>
+                        {/* Se c'è un solo messaggio urgente */}
+                        {urgentMessages.length === 1 && currentUrgent ? (
+                            <>
+                                {/* Animazione icona dal centro per 2 secondi */}
+                                {showIconAnimation && (
+                                    <div 
+                                        className="fixed inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-red-600 to-orange-600 overflow-hidden"
+                                    >
+                                        {/* Sfondo rotante */}
+                                        <div className="rotating-background"></div>
+                                        
+                                        {/* Lucciole animate sullo sfondo */}
+                                        {fireflies.map((fly) => (
+                                            <div
+                                                key={`fly-icon-${fly.id}`}
+                                                className="firefly"
+                                                style={{
+                                                    '--left': `${fly.left}%`,
+                                                    '--top': `${fly.top}%`,
+                                                    '--tx': `${fly.tx}px`,
+                                                    '--ty': `${fly.ty}px`,
+                                                    '--delay': `${fly.delay}s`
+                                                }}
+                                            />
+                                        ))}
+                                        
+                                        <div 
+                                            className="text-white relative z-10"
+                                            style={{
+                                                animation: 'iconGrowCenter 2s ease-out forwards'
+                                            }}
+                                        >
+                                            {React.cloneElement(THEMES.danger.icon, { 
+                                                size: 300, 
+                                                className: 'text-white drop-shadow-2xl'
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                                 
-                                {/* Lucciole animate sullo sfondo */}
-                                {fireflies.map((fly) => (
-                                    <div
-                                        key={`fly-icon-${fly.id}`}
-                                        className="firefly"
-                                        style={{
-                                            '--left': `${fly.left}%`,
-                                            '--top': `${fly.top}%`,
-                                            '--tx': `${fly.tx}px`,
-                                            '--ty': `${fly.ty}px`,
-                                            '--delay': `${fly.delay}s`
-                                        }}
-                                    />
-                                ))}
+                                {/* Messaggio urgente a schermo intero (dopo animazione icona) */}
+                                {!showIconAnimation && renderUrgentMessage(currentUrgent, false)}
+                            </>
+                        ) : (
+                            // Se ci sono 2+ messaggi urgenti: slideshow con rotazione
+                            <>
+                                {/* Animazione icona dal centro per 2 secondi (solo al primo messaggio) */}
+                                {showIconAnimation && urgentMessages[currentUrgentIndex] && (
+                                    <div 
+                                        className="fixed inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-red-600 to-orange-600 overflow-hidden"
+                                    >
+                                        {/* Sfondo rotante */}
+                                        <div className="rotating-background"></div>
+                                        
+                                        {/* Lucciole animate sullo sfondo */}
+                                        {fireflies.map((fly) => (
+                                            <div
+                                                key={`fly-icon-urgent-${fly.id}`}
+                                                className="firefly"
+                                                style={{
+                                                    '--left': `${fly.left}%`,
+                                                    '--top': `${fly.top}%`,
+                                                    '--tx': `${fly.tx}px`,
+                                                    '--ty': `${fly.ty}px`,
+                                                    '--delay': `${fly.delay}s`
+                                                }}
+                                            />
+                                        ))}
+                                        
+                                        <div 
+                                            className="text-white relative z-10"
+                                            style={{
+                                                animation: 'iconGrowCenter 2s ease-out forwards'
+                                            }}
+                                        >
+                                            {React.cloneElement(THEMES.danger.icon, { 
+                                                size: 300, 
+                                                className: 'text-white drop-shadow-2xl'
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                                 
-                                <div 
-                                    className="text-white relative z-10"
-                                    style={{
-                                        animation: 'iconGrowCenter 2s ease-out forwards'
-                                    }}
-                                >
-                                    {React.cloneElement(THEMES.danger.icon, { 
-                                        size: 300, 
-                                        className: 'text-white drop-shadow-2xl'
-                                    })}
-                                </div>
-                            </div>
+                                {/* Messaggio urgente corrente (dopo animazione icona) */}
+                                {!showIconAnimation && urgentMessages[currentUrgentIndex] && (
+                                    <>
+                                        {renderUrgentMessage(urgentMessages[currentUrgentIndex], isUrgentTransitioning)}
+                                        
+                                        {/* Fascio di luce durante la transizione - sopra tutto */}
+                                        {isUrgentTransitioning && (
+                                            <div className="absolute inset-0 z-50 pointer-events-none">
+                                                <div className="light-beam"></div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </>
                         )}
-                        
-                        {/* Messaggio urgente a schermo intero (dopo animazione icona) */}
-                        {!showIconAnimation && renderUrgentMessage(currentUrgent)}
                     </>
                 ) : urgentMessages.length === 0 && nonUrgentMessages.length > 0 ? (
                     <>
