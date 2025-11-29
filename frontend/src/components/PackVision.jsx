@@ -115,17 +115,25 @@ const DisplayView = ({ messages, viewMode }) => {
         setPrevUrgentCount(urgentMessages.length);
     }, [urgentMessages.length, urgentMessages.map(m => `${m.id}-${m.created_at}`).join(',')]);
     
-    // Listener per eventi personalizzati (quando viene creato da handleSendMessage)
+    // Listener per eventi personalizzati (quando viene creato da handleSendMessage) - rilevamento immediato
     useEffect(() => {
         const handleNewUrgentMessage = (event) => {
-            const { messageId } = event.detail;
-            const urgentMessage = urgentMessages.find(m => m.id === messageId);
+            const { messageId, message } = event.detail;
+            console.log('🚨 [PackVision] Evento nuovo messaggio urgente ricevuto:', messageId);
+            
+            // Usa il messaggio dall'evento o cerca nella lista
+            const urgentMessage = message || urgentMessages.find(m => m.id === messageId);
             
             if (urgentMessage && urgentMessage.priority === 'danger' && !showIconAnimation) {
-                console.log('🚨 [PackVision] Evento nuovo messaggio urgente:', messageId);
+                console.log('✅ [PackVision] Avvio animazione per nuovo urgente:', messageId);
+                
+                // Imposta immediatamente il messaggio
                 setCurrentUrgent(urgentMessage);
+                
+                // Avvia animazione icona con dissolvenza in entrata
                 setShowIconAnimation(true);
                 
+                // Dopo 2 secondi, nasconde animazione e mostra messaggio con fade-in
                 setTimeout(() => {
                     setShowIconAnimation(false);
                 }, 2000);
@@ -184,9 +192,9 @@ const DisplayView = ({ messages, viewMode }) => {
                     <DigitalClock />
                 </div>
 
-                {/* Contenuto Messaggio - nascosto durante animazione icona */}
+                {/* Contenuto Messaggio - nascosto durante animazione icona, con fade-in */}
                 {!showIconAnimation && (
-                    <div className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10">
+                    <div className="glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10 message-fade-in">
                         <div className="flex justify-center">{theme.icon}</div>
                         <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
                             {theme.label}
@@ -210,16 +218,31 @@ const DisplayView = ({ messages, viewMode }) => {
                 @keyframes iconGrowCenter {
                     0% {
                         transform: scale(0.1);
-                        opacity: 0.5;
+                        opacity: 0;
                     }
-                    20% {
+                    30% {
                         transform: scale(1.2);
-                        opacity: 1;
+                        opacity: 0.8;
                     }
                     100% {
                         transform: scale(1);
                         opacity: 1;
                     }
+                }
+                
+                @keyframes fadeInMessage {
+                    0% {
+                        opacity: 0;
+                        transform: scale(0.95);
+                    }
+                    100% {
+                        opacity: 1;
+                        transform: scale(1);
+                    }
+                }
+                
+                .message-fade-in {
+                    animation: fadeInMessage 1s ease-out forwards;
                 }
                 
                 @keyframes firefly {
