@@ -36,6 +36,16 @@ module.exports = (pool, io) => {
         }
     };
 
+    // GET /api/packvision/test - Test endpoint semplice (per debug)
+    router.get('/test', (req, res) => {
+        res.json({ 
+            success: true, 
+            message: 'PackVision routes funzionano',
+            pool_exists: !!pool,
+            timestamp: new Date().toISOString()
+        });
+    });
+
     // GET /api/packvision/health - Verifica connessione database
     router.get('/health', requireDb, async (req, res) => {
         let client = null;
