@@ -483,7 +483,7 @@ const DisplayView = ({ messages, viewMode }) => {
     const [fireflies] = useState(generateFireflies());
 
     // Funzione per renderizzare un messaggio urgente
-    const renderUrgentMessage = (msg, isTransitioning = false) => {
+    const renderUrgentMessage = (msg, isTransitioning = false, isTopHalf = false) => {
         if (!msg) return null;
         const theme = THEMES[msg.priority] || THEMES.info;
         
@@ -507,26 +507,26 @@ const DisplayView = ({ messages, viewMode }) => {
                     />
                 ))}
                 
-                {/* Orologio in alto a destra */}
-                <div className="absolute top-8 right-8 z-10">
-                    <DigitalClock />
-                </div>
-
-                {/* Contenuto Messaggio - nascosto durante animazione icona, con fade-in */}
-                {!showIconAnimation && (
-                    <div className={`glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10 ${!isTransitioning ? 'fade-in' : 'message-fade-in'}`}>
-                        <div className="flex justify-center">{theme.icon}</div>
-                        <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
-                            {theme.label}
-                        </h2>
-                        <p className="text-6xl md:text-7xl font-black leading-tight drop-shadow-lg break-words">
-                            {msg.content}
-                        </p>
-                        <div className="mt-8 text-lg opacity-70">
-                            Inviato: {new Date(msg.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
-                        </div>
+                {/* Orologio in alto a destra (solo se non è in split mode o se è la parte superiore) */}
+                {!isTopHalf && (
+                    <div className="absolute top-8 right-8 z-10">
+                        <DigitalClock />
                     </div>
                 )}
+
+                {/* Contenuto Messaggio - nello split mode mostra sempre, senza controllo showIconAnimation */}
+                <div className={`glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10 ${!isTransitioning ? 'fade-in' : 'message-fade-in'}`}>
+                    <div className="flex justify-center">{theme.icon}</div>
+                    <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
+                        {theme.label}
+                    </h2>
+                    <p className={`${isTopHalf ? 'text-4xl md:text-5xl' : 'text-6xl md:text-7xl'} font-black leading-tight drop-shadow-lg break-words`}>
+                        {msg.content}
+                    </p>
+                    <div className="mt-8 text-lg opacity-70">
+                        Inviato: {new Date(msg.created_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                </div>
             </div>
         );
     };
@@ -566,8 +566,8 @@ const DisplayView = ({ messages, viewMode }) => {
                     </div>
                 )}
 
-                {/* Contenuto Messaggio - nascosto durante animazione icona, con fade-in */}
-                {!showIconAnimation && (
+                {/* Contenuto Messaggio - nello split mode mostra sempre, altrimenti nascondi durante animazione icona */}
+                {(isBottomHalf || !showIconAnimation) && (
                     <div className={`glass-panel p-12 rounded-3xl max-w-4xl w-full text-center backdrop-blur-md bg-white/10 border border-white/20 shadow-2xl relative z-10 ${isBottomHalf && !isTransitioning ? 'fade-in' : isBottomHalf ? '' : 'message-fade-in'}`}>
                         <div className="flex justify-center">{theme.icon}</div>
                         <h2 className="text-2xl font-bold uppercase tracking-widest opacity-80 mb-6 border-b border-white/30 pb-4 inline-block">
@@ -752,37 +752,58 @@ const DisplayView = ({ messages, viewMode }) => {
                 {(() => {
                     // Calcola shouldShowSplit al momento del rendering
                     const split = urgentMessages.length > 0 && nonUrgentMessages.length > 0 && !shouldKeepUrgentFullScreen && !showIconAnimation;
-                    if (split) console.log('✅ [Render] SCHERMO DIVISO ATTIVO');
+                    if (split) {
+                        console.log('✅ [Render] SCHERMO DIVISO ATTIVO', {
+                            urgent: urgentMessages.length,
+                            nonUrgent: nonUrgentMessages.length,
+                            fullScreen: shouldKeepUrgentFullScreen,
+                            iconAnim: showIconAnimation
+                        });
+                    }
                     return split;
                 })() ? (
                     <>
                         {/* Metà superiore: messaggi urgenti che ruotano ogni 10 secondi */}
                         <div className="absolute top-0 left-0 w-full h-1/2 relative overflow-hidden z-20">
-                            {urgentMessages[currentUrgentIndex] && (
-                                <>
-                                    {renderUrgentMessage(urgentMessages[currentUrgentIndex], isUrgentTransitioning)}
-                                    
-                                    {/* Fascio di luce durante la transizione - sopra tutto */}
-                                    {isUrgentTransitioning && (
-                                        <div className="absolute inset-0 z-50 pointer-events-none">
-                                            <div className="light-beam"></div>
-                                        </div>
-                                    )}
-                                </>
-                            )}
+                            {(() => {
+                                // Assicurati di avere un messaggio urgente valido
+                                const urgentToShow = urgentMessages[currentUrgentIndex] || urgentMessages[0];
+                                if (!urgentToShow) return null;
+                                
+                                return (
+                                    <>
+                                        {renderUrgentMessage(urgentToShow, isUrgentTransitioning, true)}
+                                        {isUrgentTransitioning && (
+                                            <div className="absolute inset-0 z-50 pointer-events-none">
+                                                <div className="light-beam"></div>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
                         
                         {/* Metà inferiore: messaggi non urgenti che ruotano ogni 10 secondi */}
-                        <div className="absolute top-1/2 left-0 w-full h-1/2 relative overflow-hidden z-20">
+                        <div className="absolute top-1/2 left-0 w-full h-1/2 relative overflow-hidden z-20 bg-black">
                             {(() => {
-                                if (nonUrgentMessages.length === 0) return null;
+                                console.log('🔍 [Render] Parte inferiore - nonUrgentMessages:', nonUrgentMessages.length, 'currentIndex:', currentNonUrgentIndex);
+                                
+                                if (nonUrgentMessages.length === 0) {
+                                    console.warn('⚠️ [Render] Nessun messaggio non urgente da mostrare!');
+                                    return null;
+                                }
                                 
                                 const validIndex = (currentNonUrgentIndex >= 0 && currentNonUrgentIndex < nonUrgentMessages.length) 
                                     ? currentNonUrgentIndex 
                                     : 0;
                                 const messageToShow = nonUrgentMessages[validIndex] || nonUrgentMessages[0];
                                 
-                                if (!messageToShow) return null;
+                                if (!messageToShow) {
+                                    console.error('❌ [Render] messageToShow è null!', { validIndex, nonUrgentMessages });
+                                    return null;
+                                }
+                                
+                                console.log('✅ [Render] Rendering messaggio non urgente:', messageToShow.id, messageToShow.priority);
                                 
                                 return (
                                     <>
