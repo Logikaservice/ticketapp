@@ -251,6 +251,21 @@ const DisplayView = ({ messages, viewMode }) => {
         }
     }, [urgentMessages.length, nonUrgentMessages.length, nonUrgentMessages.map(m => `${m.id}-${m.created_at}`).join(',')]);
     
+    // Inizializza currentNonUrgentIndex quando ci sono messaggi non urgenti e lo schermo è diviso
+    useEffect(() => {
+        // Quando ci sono sia urgenti che non urgenti (schermo diviso), assicurati che l'indice sia inizializzato
+        if (urgentMessages.length > 0 && nonUrgentMessages.length > 0) {
+            // Se l'indice non è valido o non c'è un messaggio all'indice corrente, inizializzalo
+            if (currentNonUrgentIndex >= nonUrgentMessages.length || currentNonUrgentIndex < 0 || !nonUrgentMessages[currentNonUrgentIndex]) {
+                console.log('🔧 [PackVision] Inizializzo currentNonUrgentIndex per schermo diviso:', 0);
+                setCurrentNonUrgentIndex(0);
+                currentIndexRef.current = 0;
+            }
+            // Assicurati che anche messagesRef sia aggiornato
+            messagesRef.current = nonUrgentMessages;
+        }
+    }, [urgentMessages.length, nonUrgentMessages.length, currentNonUrgentIndex, nonUrgentMessages]);
+    
     // Inizializza il primo messaggio non urgente quando ci sono 2+ messaggi e si passa da 1 a 2+
     useEffect(() => {
         if (urgentMessages.length === 0 && nonUrgentMessages.length >= 2) {
@@ -292,9 +307,16 @@ const DisplayView = ({ messages, viewMode }) => {
     }, [urgentMessages]);
     
     // Rotazione automatica dei messaggi non urgenti ogni 10 secondi (quando ce ne sono 2+)
+    // Funziona anche quando lo schermo è diviso (ci sono sia urgenti che non urgenti)
     useEffect(() => {
-        if (urgentMessages.length > 0 || nonUrgentMessages.length < 2) {
+        // Se ci sono meno di 2 messaggi non urgenti, non serve slideshow
+        if (nonUrgentMessages.length < 2) {
             setIsTransitioning(false);
+            // Se c'è un solo messaggio non urgente, assicurati che sia impostato come corrente
+            if (nonUrgentMessages.length === 1 && currentNonUrgentIndex !== 0) {
+                setCurrentNonUrgentIndex(0);
+                currentIndexRef.current = 0;
+            }
             return;
         }
         
@@ -338,7 +360,7 @@ const DisplayView = ({ messages, viewMode }) => {
             console.log('🛑 [PackVision] Fermo slideshow non urgenti');
             clearInterval(interval);
         };
-    }, [urgentMessages.length, nonUrgentMessages.length]);
+    }, [nonUrgentMessages.length, currentNonUrgentIndex]);
     
     // Rotazione automatica dei messaggi urgenti ogni 10 secondi (quando ce ne sono 2+ o quando lo schermo è diviso)
     useEffect(() => {
@@ -716,7 +738,14 @@ const DisplayView = ({ messages, viewMode }) => {
             `}</style>
             <div className="fixed inset-0 bg-black text-white overflow-hidden">
                 {/* Se ci sono messaggi urgenti E non urgenti E non deve rimanere a schermo intero → SCHERMO DIVISO */}
-                {urgentMessages.length > 0 && nonUrgentMessages.length > 0 && !shouldKeepUrgentFullScreen && !showIconAnimation ? (
+                {(() => {
+                    const shouldShowSplit = urgentMessages.length > 0 && nonUrgentMessages.length > 0 && !shouldKeepUrgentFullScreen && !showIconAnimation;
+                    if (shouldShowSplit) {
+                        console.log('🔍 [PackVision] Schermo diviso - Urgenti:', urgentMessages.length, 'Non urgenti:', nonUrgentMessages.length);
+                        console.log('🔍 [PackVision] currentNonUrgentIndex:', currentNonUrgentIndex, 'nonUrgentMessages:', nonUrgentMessages.map(m => ({ id: m.id, priority: m.priority, content: m.content?.substring(0, 20) })));
+                    }
+                    return shouldShowSplit;
+                })() ? (
                     <>
                         {/* Metà superiore: messaggi urgenti che ruotano ogni 10 secondi */}
                         <div className="absolute top-0 left-0 w-full h-1/2 relative overflow-hidden z-20">
@@ -736,18 +765,46 @@ const DisplayView = ({ messages, viewMode }) => {
                         
                         {/* Metà inferiore: messaggi non urgenti che ruotano ogni 10 secondi */}
                         <div className="absolute top-1/2 left-0 w-full h-1/2 relative overflow-hidden z-20">
-                            {nonUrgentMessages[currentNonUrgentIndex] && (
-                                <>
-                                    {renderNonUrgentMessage(nonUrgentMessages[currentNonUrgentIndex], true)}
-                                    
-                                    {/* Fascio di luce durante la transizione - sopra tutto */}
-                                    {isTransitioning && (
-                                        <div className="absolute inset-0 z-50 pointer-events-none">
-                                            <div className="light-beam"></div>
-                                        </div>
-                                    )}
-                                </>
-                            )}
+                            {(() => {
+                                console.log('🔍 [PackVision] Rendering parte inferiore - nonUrgentMessages.length:', nonUrgentMessages.length, 'currentNonUrgentIndex:', currentNonUrgentIndex);
+                                
+                                // Se non ci sono messaggi non urgenti, mostra nero (dovrebbe essere impossibile qui, ma per sicurezza)
+                                if (nonUrgentMessages.length === 0) {
+                                    console.warn('⚠️ [PackVision] nonUrgentMessages è vuoto ma siamo nello schermo diviso!');
+                                    return null;
+                                }
+                                
+                                // Assicurati di avere un messaggio valido da mostrare
+                                const validIndex = (currentNonUrgentIndex >= 0 && currentNonUrgentIndex < nonUrgentMessages.length) 
+                                    ? currentNonUrgentIndex 
+                                    : 0;
+                                const messageToShow = nonUrgentMessages[validIndex];
+                                
+                                console.log('🔍 [PackVision] validIndex:', validIndex, 'messageToShow:', messageToShow ? { id: messageToShow.id, priority: messageToShow.priority } : 'null');
+                                
+                                // Fallback: se non c'è un messaggio all'indice valido, usa il primo disponibile
+                                const finalMessage = messageToShow || nonUrgentMessages[0];
+                                
+                                if (!finalMessage) {
+                                    console.error('❌ [PackVision] Nessun messaggio disponibile da mostrare nella parte inferiore!');
+                                    return null;
+                                }
+                                
+                                console.log('✅ [PackVision] Rendering messaggio:', finalMessage.id, finalMessage.priority);
+                                
+                                return (
+                                    <>
+                                        {renderNonUrgentMessage(finalMessage, true)}
+                                        
+                                        {/* Fascio di luce durante la transizione - sopra tutto */}
+                                        {isTransitioning && (
+                                            <div className="absolute inset-0 z-50 pointer-events-none">
+                                                <div className="light-beam"></div>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
                     </>
                 ) : urgentMessages.length > 0 ? (
