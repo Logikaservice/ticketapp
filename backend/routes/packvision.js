@@ -490,19 +490,31 @@ module.exports = (pool, io) => {
     };
 
     // POST /api/packvision/monitor/request - Richiedi autorizzazione monitor
+    // Route PUBBLICA - non richiede autenticazione
     router.post('/monitor/request', requireDb, async (req, res) => {
+        console.log('📥 [PackVision] Richiesta autorizzazione monitor ricevuta:', req.body);
+        
         const { monitor_id } = req.body;
         const ip_address = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
         const user_agent = req.headers['user-agent'] || 'unknown';
 
         if (!monitor_id || monitor_id < 1 || monitor_id > 4) {
+            console.error('❌ [PackVision] Monitor ID non valido:', monitor_id);
             return res.status(400).json({ error: 'Monitor ID non valido (deve essere 1-4)' });
+        }
+
+        if (!pool) {
+            console.error('❌ [PackVision] Pool database non disponibile');
+            return res.status(503).json({ error: 'Database PackVision non disponibile' });
         }
 
         let client = null;
         try {
+            console.log('🔍 [PackVision] Tentativo connessione database...');
             client = await pool.connect();
+            console.log('✅ [PackVision] Database connesso, creo tabella se necessario...');
             await ensureMonitorAuthTable(client);
+            console.log('✅ [PackVision] Tabella verificata');
 
             // Genera codice univoco
             let authCode;
@@ -609,7 +621,15 @@ module.exports = (pool, io) => {
         } catch (err) {
             if (client) client.release();
             console.error('❌ [PackVision] Errore richiesta autorizzazione monitor:', err);
-            res.status(500).json({ error: 'Errore interno del server', details: err.message });
+            console.error('❌ [PackVision] Stack:', err.stack);
+            
+            // Assicurati di restituire sempre JSON, non HTML
+            if (!res.headersSent) {
+                res.status(500).json({ 
+                    error: 'Errore interno del server',
+                    details: process.env.NODE_ENV === 'development' ? err.message : undefined
+                });
+            }
         }
     });
 

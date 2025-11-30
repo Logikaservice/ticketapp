@@ -33,13 +33,32 @@ const MonitorAuthRequest = ({ monitorId, onAuthorized }) => {
         setError(null);
 
         try {
-            const response = await fetch(buildApiUrl('/api/packvision/monitor/request'), {
+            console.log('📤 [MonitorAuthRequest] Invio richiesta autorizzazione per monitor', monitorId);
+            const apiUrl = buildApiUrl('/api/packvision/monitor/request');
+            console.log('🔗 [MonitorAuthRequest] URL:', apiUrl);
+            
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ monitor_id: monitorId })
             });
 
+            console.log('📥 [MonitorAuthRequest] Risposta ricevuta:', {
+                status: response.status,
+                statusText: response.statusText,
+                contentType: response.headers.get('content-type')
+            });
+
+            // Controlla se la risposta è JSON o HTML
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('❌ [MonitorAuthRequest] Risposta non JSON ricevuta:', text.substring(0, 200));
+                throw new Error('Il server ha restituito una risposta non valida. Verifica che il backend sia raggiungibile.');
+            }
+
             const data = await response.json();
+            console.log('✅ [MonitorAuthRequest] Dati ricevuti:', data);
 
             if (!response.ok) {
                 throw new Error(data.error || 'Errore nella richiesta di autorizzazione');
@@ -48,7 +67,8 @@ const MonitorAuthRequest = ({ monitorId, onAuthorized }) => {
             setRequested(true);
             setRequestId(data.request_id);
         } catch (err) {
-            setError(err.message);
+            console.error('❌ [MonitorAuthRequest] Errore:', err);
+            setError(err.message || 'Errore nella richiesta di autorizzazione. Verifica la connessione al server.');
         } finally {
             setLoading(false);
         }
