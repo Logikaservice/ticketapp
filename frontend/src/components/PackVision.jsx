@@ -124,30 +124,30 @@ const DisplayView = ({ messages, viewMode }) => {
             if (urgentMessages.length === 1) {
                 setCurrentUrgent(mostRecentUrgent);
                 setCurrentUrgentIndex(0);
-                // Avvia animazione icona dal centro per 2 secondi
+                // Avvia animazione icona dal centro (0.8s animazione + 0.2s stabilizzazione)
                 setShowIconAnimation(true);
-                // Dopo 2 secondi, nasconde animazione e mostra messaggio
+                // Dopo 1 secondo, nasconde animazione e mostra messaggio
                 setTimeout(() => {
                     setShowIconAnimation(false);
-                }, 2000);
+                }, 1000);
             } else {
                 // Se ce ne sono 2+, usa l'indice
                 const urgentIndex = urgentMessages.findIndex(m => m.id === mostRecentUrgent.id);
                 if (urgentIndex >= 0) {
                     setCurrentUrgentIndex(urgentIndex);
                     setCurrentUrgent(null); // Usa l'indice invece del messaggio diretto
-                    // Avvia animazione icona dal centro per 2 secondi solo se riparte il timer
+                    // Avvia animazione icona dal centro (0.8s animazione + 0.2s stabilizzazione) solo se riparte il timer
                     if (shouldRestartTimer) {
                         setShowIconAnimation(true);
-                        // Dopo 2 secondi, nasconde animazione e mostra messaggio
+                        // Dopo 1 secondo, nasconde animazione e mostra messaggio
                         setTimeout(() => {
                             setShowIconAnimation(false);
-                        }, 2000);
+                        }, 1000);
                     }
                 }
             }
 
-            // Dopo 12 secondi totali (2 di icona + 10 di messaggio), permette la divisione se ci sono non urgenti
+            // Dopo 11.2 secondi totali (1 di icona + 10.2 di messaggio), permette la divisione se ci sono non urgenti
             // Solo se abbiamo ripartito il timer
             if (shouldRestartTimer) {
                 const timerId = setTimeout(() => {
@@ -155,7 +155,7 @@ const DisplayView = ({ messages, viewMode }) => {
                     console.log('⏰ [PackVision] Prima del reset - shouldKeepUrgentFullScreen:', shouldKeepUrgentFullScreen);
                     setShouldKeepUrgentFullScreen(false);
                     console.log('⏰ [PackVision] Dopo reset - shouldKeepUrgentFullScreen impostato a false');
-                }, 12000); // 12 secondi (2 di icona + 10 di messaggio)
+                }, 11200); // 11.2 secondi (1 di icona + 10.2 di messaggio)
 
                 // Cleanup del timer se il componente si smonta
                 return () => {
@@ -222,17 +222,17 @@ const DisplayView = ({ messages, viewMode }) => {
                     if (!showIconAnimation) {
                         setShowIconAnimation(true);
 
-                        // Dopo 2 secondi, nasconde animazione e mostra messaggio con fade-in
+                        // Dopo 1 secondo, nasconde animazione e mostra messaggio con fade-in
                         setTimeout(() => {
                             setShowIconAnimation(false);
-                        }, 2000);
+                        }, 1000);
                     }
 
-                    // Dopo 12 secondi totali (2 di icona + 10 di messaggio), permette la divisione se ci sono non urgenti
+                    // Dopo 11.2 secondi totali (1 di icona + 10.2 di messaggio), permette la divisione se ci sono non urgenti
                     setTimeout(() => {
                         console.log('⏰ [PackVision] Timer 10 secondi scaduto (da evento), controllo se dividere lo schermo');
                         setShouldKeepUrgentFullScreen(false);
-                    }, 12000); // 12 secondi (2 di icona + 10 di messaggio)
+                    }, 11200); // 11.2 secondi (1 di icona + 10.2 di messaggio)
                 } else {
                     console.log('⏰ [PackVision] Timer già scaduto: procedo direttamente con la divisione dello schermo (da evento)');
                     // Non ripartire il timer, procedi direttamente con la divisione
@@ -268,13 +268,13 @@ const DisplayView = ({ messages, viewMode }) => {
             // Imposta il messaggio corrente
             setCurrentNonUrgent(mostRecentNonUrgent);
 
-            // Avvia animazione icona dal centro per 2 secondi
+            // Avvia animazione icona dal centro (0.8s animazione + 0.2s stabilizzazione)
             setShowIconAnimation(true);
 
-            // Dopo 2 secondi, nasconde animazione e mostra messaggio
+            // Dopo 1 secondo, nasconde animazione e mostra messaggio
             setTimeout(() => {
                 setShowIconAnimation(false);
-            }, 2000);
+            }, 1000);
         }
 
         // Se non ci sono messaggi, pulisci
@@ -486,13 +486,13 @@ const DisplayView = ({ messages, viewMode }) => {
                 // Imposta immediatamente il messaggio
                 setCurrentNonUrgent(nonUrgentMessage);
 
-                // Avvia animazione icona con dissolvenza in entrata
+                // Avvia animazione icona con effetto impattante
                 setShowIconAnimation(true);
 
-                // Dopo 2 secondi, nasconde animazione e mostra messaggio con fade-in
+                // Dopo 1 secondo, nasconde animazione e mostra messaggio con fade-in
                 setTimeout(() => {
                     setShowIconAnimation(false);
-                }, 2000);
+                }, 1000);
             }
         };
 
@@ -627,16 +627,39 @@ const DisplayView = ({ messages, viewMode }) => {
             <style>{`
                 @keyframes iconGrowCenter {
                     0% {
-                        transform: scale(0.1);
+                        transform: scale(4) rotate(-10deg);
                         opacity: 0;
+                        filter: blur(20px) brightness(2);
                     }
-                    30% {
-                        transform: scale(1.2);
-                        opacity: 0.8;
+                    8% {
+                        transform: scale(3.5) rotate(5deg);
+                        opacity: 1;
+                        filter: blur(10px) brightness(1.5);
+                    }
+                    15% {
+                        transform: scale(0.8) rotate(-2deg);
+                        opacity: 1;
+                        filter: blur(0px) brightness(1);
+                    }
+                    25% {
+                        transform: scale(1.15) rotate(1deg);
+                        opacity: 1;
+                        filter: blur(0px) brightness(1);
+                    }
+                    35% {
+                        transform: scale(0.95) rotate(-0.5deg);
+                        opacity: 1;
+                        filter: blur(0px) brightness(1);
+                    }
+                    45% {
+                        transform: scale(1.05) rotate(0.5deg);
+                        opacity: 1;
+                        filter: blur(0px) brightness(1);
                     }
                     100% {
-                        transform: scale(1);
+                        transform: scale(1) rotate(0deg);
                         opacity: 1;
+                        filter: blur(0px) brightness(1);
                     }
                 }
                 
@@ -860,7 +883,7 @@ const DisplayView = ({ messages, viewMode }) => {
                         {/* Se c'è un solo messaggio urgente */}
                         {urgentMessages.length === 1 && currentUrgent ? (
                             <>
-                                {/* Animazione icona dal centro per 2 secondi */}
+                                {/* Animazione icona dal centro con effetto impattante (0.8s) */}
                                 {showIconAnimation && (
                                     <div
                                         className="fixed inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-red-600 to-orange-600 overflow-hidden"
@@ -886,7 +909,7 @@ const DisplayView = ({ messages, viewMode }) => {
                                         <div
                                             className="text-white relative z-10"
                                             style={{
-                                                animation: 'iconGrowCenter 2s ease-out forwards'
+                                                animation: 'iconGrowCenter 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
                                             }}
                                         >
                                             {React.cloneElement(THEMES.danger.icon, {
@@ -903,7 +926,7 @@ const DisplayView = ({ messages, viewMode }) => {
                         ) : (
                             // Se ci sono 2+ messaggi urgenti: slideshow con rotazione
                             <>
-                                {/* Animazione icona dal centro per 2 secondi (solo al primo messaggio) */}
+                                {/* Animazione icona dal centro con effetto impattante (0.8s) - solo al primo messaggio */}
                                 {showIconAnimation && urgentMessages[currentUrgentIndex] && (
                                     <div
                                         className="fixed inset-0 flex items-center justify-center z-30 bg-gradient-to-br from-red-600 to-orange-600 overflow-hidden"
@@ -929,7 +952,7 @@ const DisplayView = ({ messages, viewMode }) => {
                                         <div
                                             className="text-white relative z-10"
                                             style={{
-                                                animation: 'iconGrowCenter 2s ease-out forwards'
+                                                animation: 'iconGrowCenter 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
                                             }}
                                         >
                                             {React.cloneElement(THEMES.danger.icon, {
@@ -961,7 +984,7 @@ const DisplayView = ({ messages, viewMode }) => {
                         {/* Se c'è un solo messaggio non urgente: schermo intero */}
                         {nonUrgentMessages.length === 1 ? (
                             <>
-                                {/* Animazione icona dal centro per 2 secondi per messaggi non urgenti */}
+                                {/* Animazione icona dal centro con effetto impattante (0.8s) per messaggi non urgenti */}
                                 {showIconAnimation && (() => {
                                     const theme = THEMES[nonUrgentMessages[0].priority] || THEMES.info;
                                     const gradientClass = `bg-gradient-to-br ${theme.gradient}`;
@@ -990,7 +1013,7 @@ const DisplayView = ({ messages, viewMode }) => {
                                             <div
                                                 className="text-white relative z-10"
                                                 style={{
-                                                    animation: 'iconGrowCenter 2s ease-out forwards'
+                                                    animation: 'iconGrowCenter 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
                                                 }}
                                             >
                                                 {React.cloneElement(theme.icon, {
