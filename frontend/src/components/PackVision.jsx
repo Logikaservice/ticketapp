@@ -75,6 +75,24 @@ const DisplayView = ({ messages, viewMode }) => {
     // Separa messaggi urgenti da non urgenti
     const urgentMessages = activeMessages.filter(msg => msg.priority === 'danger');
     const nonUrgentMessages = activeMessages.filter(msg => msg.priority !== 'danger');
+    
+    // Debug: log sempre attivo per capire cosa succede
+    useEffect(() => {
+        console.log('🔍 [PackVision] ====== STATO ATTUALE ======');
+        console.log('🔍 [PackVision] activeMessages:', activeMessages.length, activeMessages.map(m => ({ id: m.id, priority: m.priority, active: m.active, content: m.content?.substring(0, 30) })));
+        console.log('🔍 [PackVision] urgentMessages:', urgentMessages.length, urgentMessages.map(m => ({ id: m.id, priority: m.priority })));
+        console.log('🔍 [PackVision] nonUrgentMessages:', nonUrgentMessages.length, nonUrgentMessages.map(m => ({ id: m.id, priority: m.priority, content: m.content?.substring(0, 30) })));
+        console.log('🔍 [PackVision] shouldKeepUrgentFullScreen:', shouldKeepUrgentFullScreen);
+        console.log('🔍 [PackVision] showIconAnimation:', showIconAnimation);
+        console.log('🔍 [PackVision] Condizione schermo diviso:', {
+            urgentMessages: urgentMessages.length > 0,
+            nonUrgentMessages: nonUrgentMessages.length > 0,
+            notFullScreen: !shouldKeepUrgentFullScreen,
+            notIconAnim: !showIconAnimation,
+            shouldSplit: urgentMessages.length > 0 && nonUrgentMessages.length > 0 && !shouldKeepUrgentFullScreen && !showIconAnimation
+        });
+        console.log('🔍 [PackVision] ============================');
+    }, [activeMessages, urgentMessages, nonUrgentMessages, shouldKeepUrgentFullScreen, showIconAnimation]);
 
     // Stati semplici per animazione icona
     const [showIconAnimation, setShowIconAnimation] = useState(false);
@@ -132,10 +150,17 @@ const DisplayView = ({ messages, viewMode }) => {
             }
             
             // Dopo 12 secondi totali (2 di icona + 10 di messaggio), permette la divisione se ci sono non urgenti
-            setTimeout(() => {
+            const timerId = setTimeout(() => {
                 console.log('⏰ [PackVision] Timer 10 secondi scaduto, controllo se dividere lo schermo');
+                console.log('⏰ [PackVision] Prima del reset - shouldKeepUrgentFullScreen:', shouldKeepUrgentFullScreen);
                 setShouldKeepUrgentFullScreen(false);
+                console.log('⏰ [PackVision] Dopo reset - shouldKeepUrgentFullScreen impostato a false');
             }, 12000); // 12 secondi (2 di icona + 10 di messaggio)
+            
+            // Cleanup del timer se il componente si smonta
+            return () => {
+                clearTimeout(timerId);
+            };
         }
         
         // Se non ci sono urgenti, pulisci
@@ -254,17 +279,18 @@ const DisplayView = ({ messages, viewMode }) => {
     // Inizializza currentNonUrgentIndex quando ci sono messaggi non urgenti e lo schermo è diviso
     useEffect(() => {
         // Quando ci sono sia urgenti che non urgenti (schermo diviso), assicurati che l'indice sia inizializzato
-        if (urgentMessages.length > 0 && nonUrgentMessages.length > 0) {
+        if (urgentMessages.length > 0 && nonUrgentMessages.length > 0 && !shouldKeepUrgentFullScreen && !showIconAnimation) {
+            console.log('🔧 [PackVision] Inizializzo currentNonUrgentIndex per schermo diviso');
             // Se l'indice non è valido o non c'è un messaggio all'indice corrente, inizializzalo
             if (currentNonUrgentIndex >= nonUrgentMessages.length || currentNonUrgentIndex < 0 || !nonUrgentMessages[currentNonUrgentIndex]) {
-                console.log('🔧 [PackVision] Inizializzo currentNonUrgentIndex per schermo diviso:', 0);
+                console.log('🔧 [PackVision] Reset indice a 0 perché non valido');
                 setCurrentNonUrgentIndex(0);
                 currentIndexRef.current = 0;
             }
             // Assicurati che anche messagesRef sia aggiornato
             messagesRef.current = nonUrgentMessages;
         }
-    }, [urgentMessages.length, nonUrgentMessages.length, currentNonUrgentIndex, nonUrgentMessages]);
+    }, [urgentMessages.length, nonUrgentMessages.length, currentNonUrgentIndex, nonUrgentMessages, shouldKeepUrgentFullScreen, showIconAnimation]);
     
     // Inizializza il primo messaggio non urgente quando ci sono 2+ messaggi e si passa da 1 a 2+
     useEffect(() => {
