@@ -76,6 +76,17 @@ const DisplayView = ({ messages, viewMode }) => {
     const urgentMessages = activeMessages.filter(msg => msg.priority === 'danger');
     const nonUrgentMessages = activeMessages.filter(msg => msg.priority !== 'danger');
     
+    // Stati semplici per animazione icona (dichiarati PRIMA degli useEffect che li usano)
+    const [showIconAnimation, setShowIconAnimation] = useState(false);
+    const [currentUrgent, setCurrentUrgent] = useState(null);
+    const [currentUrgentIndex, setCurrentUrgentIndex] = useState(0);
+    const [currentNonUrgent, setCurrentNonUrgent] = useState(null);
+    const [currentNonUrgentIndex, setCurrentNonUrgentIndex] = useState(0);
+    const [isTransitioning, setIsTransitioning] = useState(false);
+    const [isUrgentTransitioning, setIsUrgentTransitioning] = useState(false);
+    const [shouldKeepUrgentFullScreen, setShouldKeepUrgentFullScreen] = useState(false);
+    const [lastUrgentCreatedAt, setLastUrgentCreatedAt] = useState(null);
+    
     // Debug: log sempre attivo per capire cosa succede
     useEffect(() => {
         console.log('🔍 [PackVision] ====== STATO ATTUALE ======');
@@ -93,17 +104,6 @@ const DisplayView = ({ messages, viewMode }) => {
         });
         console.log('🔍 [PackVision] ============================');
     }, [activeMessages, urgentMessages, nonUrgentMessages, shouldKeepUrgentFullScreen, showIconAnimation]);
-
-    // Stati semplici per animazione icona
-    const [showIconAnimation, setShowIconAnimation] = useState(false);
-    const [currentUrgent, setCurrentUrgent] = useState(null);
-    const [currentUrgentIndex, setCurrentUrgentIndex] = useState(0);
-    const [currentNonUrgent, setCurrentNonUrgent] = useState(null);
-    const [currentNonUrgentIndex, setCurrentNonUrgentIndex] = useState(0);
-    const [isTransitioning, setIsTransitioning] = useState(false);
-    const [isUrgentTransitioning, setIsUrgentTransitioning] = useState(false);
-    const [shouldKeepUrgentFullScreen, setShouldKeepUrgentFullScreen] = useState(false);
-    const [lastUrgentCreatedAt, setLastUrgentCreatedAt] = useState(null);
     const [prevUrgentCount, setPrevUrgentCount] = useState(0);
     const [prevNonUrgentCount, setPrevNonUrgentCount] = useState(0);
 
