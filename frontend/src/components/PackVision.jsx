@@ -1314,10 +1314,13 @@ export default function PackVision({ onClose }) {
         return () => clearInterval(interval);
     }, []);
 
-    // Check URL params for display mode
+    // Check URL params for display mode o hostname packvision.logikaservice.it
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        if (params.get('mode') === 'display') {
+        const hostname = window.location.hostname;
+        
+        // Se siamo su packvision.logikaservice.it o abbiamo il parametro mode=display, passa in modalità display
+        if (params.get('mode') === 'display' || hostname === 'packvision.logikaservice.it' || hostname.includes('packvision')) {
             setMode('display');
         }
     }, []);

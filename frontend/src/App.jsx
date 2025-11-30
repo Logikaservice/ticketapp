@@ -46,8 +46,8 @@ export default function TicketApp() {
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
 
-  // Rileva se siamo su orari.logikaservice.it, turni.logikaservice.it o vivaldi.logikaservice.it
-  // Supporta anche parametro URL ?domain=orari/vivaldi per test locali
+  // Rileva se siamo su orari.logikaservice.it, turni.logikaservice.it, vivaldi.logikaservice.it o packvision.logikaservice.it
+  // Supporta anche parametro URL ?domain=orari/vivaldi/packvision per test locali
 
   // 1. Rileva l'hostname reale
   const hostname = window.location.hostname;
@@ -59,30 +59,36 @@ export default function TicketApp() {
   const isVivaldiHostname = hostname === 'vivaldi.logikaservice.it' ||
     (hostname.includes('vivaldi') && !hostname.includes('ticket'));
 
-  // 2. Parametro URL ?domain=orari/vivaldi per test
+  const isPackVisionHostname = hostname === 'packvision.logikaservice.it' ||
+    (hostname.includes('packvision') && !hostname.includes('ticket'));
+
+  // 2. Parametro URL ?domain=orari/vivaldi/packvision per test
   const urlParams = new URLSearchParams(window.location.search);
   const testDomain = urlParams.get('domain');
 
-  // 3. Se siamo su ticket.logikaservice.it (o hostname senza orari/turni/vivaldi), pulisci requestedDomain
-  if (!isOrariHostname && !isVivaldiHostname && !testDomain) {
+  // 3. Se siamo su ticket.logikaservice.it (o hostname senza orari/turni/vivaldi/packvision), pulisci requestedDomain
+  if (!isOrariHostname && !isVivaldiHostname && !isPackVisionHostname && !testDomain) {
     localStorage.removeItem('requestedDomain');
   }
 
   // 4. Salva il dominio richiesto SOLO se presente nell'URL o nell'hostname
-  if (testDomain === 'orari' || testDomain === 'turni' || testDomain === 'vivaldi') {
+  if (testDomain === 'orari' || testDomain === 'turni' || testDomain === 'vivaldi' || testDomain === 'packvision') {
     localStorage.setItem('requestedDomain', testDomain);
   } else if (isOrariHostname) {
     localStorage.setItem('requestedDomain', 'orari');
   } else if (isVivaldiHostname) {
     localStorage.setItem('requestedDomain', 'vivaldi');
+  } else if (isPackVisionHostname) {
+    localStorage.setItem('requestedDomain', 'packvision');
   }
 
   // 5. Determina il dominio finale: priorità a hostname reale, poi testDomain
   // MODIFICA: Rimosso localStorage.getItem('requestedDomain') per evitare persistenza indesiderata
-  const requestedDomain = isOrariHostname ? 'orari' : (isVivaldiHostname ? 'vivaldi' : (testDomain || null));
+  const requestedDomain = isOrariHostname ? 'orari' : (isVivaldiHostname ? 'vivaldi' : (isPackVisionHostname ? 'packvision' : (testDomain || null)));
 
   const isOrariDomain = requestedDomain === 'orari' || requestedDomain === 'turni';
   const isVivaldiDomain = requestedDomain === 'vivaldi';
+  const isPackVisionDomain = requestedDomain === 'packvision';
 
   // Controlla se abbiamo un codice OAuth nell'URL (solo una volta)
   const [oauthCode, setOauthCode] = useState(null);
@@ -167,12 +173,16 @@ export default function TicketApp() {
     return false;
   });
   const [showPackVision, setShowPackVision] = useState(() => {
+    // Se siamo su packvision.logikaservice.it, mostra automaticamente PackVision in modalità display
+    if (isPackVisionHostname) {
+      return true;
+    }
     const params = new URLSearchParams(window.location.search);
     return params.get('mode') === 'display';
   });
   
   // Controlla se siamo in modalità display PackVision (riutilizza urlParams già dichiarato alla riga 63)
-  const isPackVisionDisplayMode = urlParams.get('mode') === 'display';
+  const isPackVisionDisplayMode = urlParams.get('mode') === 'display' || isPackVisionHostname;
 
   // Aggiorna lo stato quando cambia il dominio richiesto
   useEffect(() => {
@@ -2794,13 +2804,20 @@ export default function TicketApp() {
     );
   }
 
-  // Se siamo in modalità display PackVision, mostra solo PackVision
-  // Controlla direttamente dall'URL per essere sicuri che sia sempre aggiornato
+  // Se siamo in modalità display PackVision o su packvision.logikaservice.it, mostra solo PackVision
+  // Controlla direttamente dall'URL e hostname per essere sicuri che sia sempre aggiornato
   const currentUrlParams = new URLSearchParams(window.location.search);
-  if (currentUrlParams.get('mode') === 'display') {
+  const isPackVisionDisplayHostname = window.location.hostname === 'packvision.logikaservice.it' || 
+    window.location.hostname.includes('packvision');
+  
+  if (currentUrlParams.get('mode') === 'display' || isPackVisionDisplayHostname) {
     return (
       <>
         <PackVision onClose={() => {
+          // Se siamo su packvision.logikaservice.it, non possiamo chiudere (è il dominio principale)
+          if (isPackVisionDisplayHostname) {
+            return; // Non permettere la chiusura se siamo sul dominio dedicato
+          }
           // Rimuovi il parametro mode dall'URL e torna alla dashboard
           const url = new URL(window.location.href);
           url.searchParams.delete('mode');
