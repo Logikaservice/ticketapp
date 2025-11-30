@@ -2716,6 +2716,47 @@ export default function TicketApp() {
     return <GoogleCallback />;
   }
 
+  // Controllo PackVision display mode PRIMA del controllo login
+  // Questo permette di mostrare la schermata di autorizzazione monitor invece del login
+  const currentUrlParams = new URLSearchParams(window.location.search);
+  const isPackVisionDisplayHostname = window.location.hostname === 'packvision.logikaservice.it' || 
+    window.location.hostname.includes('packvision');
+  const isDisplayMode = currentUrlParams.get('mode') === 'display';
+  
+  console.log('🔍 [App] Controllo PackVision:', {
+    hostname: window.location.hostname,
+    isPackVisionDisplayHostname,
+    mode: currentUrlParams.get('mode'),
+    isDisplayMode,
+    monitor: currentUrlParams.get('monitor')
+  });
+  
+  if (isDisplayMode || isPackVisionDisplayHostname) {
+    const monitorId = currentUrlParams.get('monitor') ? parseInt(currentUrlParams.get('monitor'), 10) : null;
+    
+    console.log('✅ [App] Mostro PackVisionWithAuth con monitorId:', monitorId);
+    
+    return (
+      <>
+        <PackVisionWithAuth 
+          monitorId={monitorId}
+          onClose={() => {
+            // Se siamo su packvision.logikaservice.it, non possiamo chiudere (è il dominio principale)
+            if (isPackVisionDisplayHostname) {
+              return; // Non permettere la chiusura se siamo sul dominio dedicato
+            }
+            // Rimuovi il parametro mode dall'URL e torna alla dashboard
+            const url = new URL(window.location.href);
+            url.searchParams.delete('mode');
+            window.location.href = url.toString();
+          }} 
+        />
+      </>
+    );
+  }
+  
+  console.log('❌ [App] Non in modalità display PackVision, procedo con login normale');
+
   if (!isLoggedIn) {
     return (
       <>
@@ -2801,34 +2842,6 @@ export default function TicketApp() {
             alertsRefreshTrigger={alertsRefreshTrigger}
           />
         )}
-      </>
-    );
-  }
-
-  // Se siamo in modalità display PackVision o su packvision.logikaservice.it, mostra solo PackVision
-  // Controlla direttamente dall'URL e hostname per essere sicuri che sia sempre aggiornato
-  const currentUrlParams = new URLSearchParams(window.location.search);
-  const isPackVisionDisplayHostname = window.location.hostname === 'packvision.logikaservice.it' || 
-    window.location.hostname.includes('packvision');
-  
-  if (currentUrlParams.get('mode') === 'display' || isPackVisionDisplayHostname) {
-    const monitorId = currentUrlParams.get('monitor') ? parseInt(currentUrlParams.get('monitor'), 10) : null;
-    
-    return (
-      <>
-        <PackVisionWithAuth 
-          monitorId={monitorId}
-          onClose={() => {
-            // Se siamo su packvision.logikaservice.it, non possiamo chiudere (è il dominio principale)
-            if (isPackVisionDisplayHostname) {
-              return; // Non permettere la chiusura se siamo sul dominio dedicato
-            }
-            // Rimuovi il parametro mode dall'URL e torna alla dashboard
-            const url = new URL(window.location.href);
-            url.searchParams.delete('mode');
-            window.location.href = url.toString();
-          }} 
-        />
       </>
     );
   }

@@ -9,8 +9,11 @@ const PackVisionWithAuth = ({ monitorId, onClose }) => {
 
     useEffect(() => {
         const checkMonitorAuth = async () => {
+            console.log('🔍 [PackVisionWithAuth] Verifica autorizzazione monitor:', { monitorId });
+            
             if (!monitorId || monitorId < 1 || monitorId > 4) {
-                // Nessun monitor_id, mostra direttamente PackVision
+                // Nessun monitor_id, mostra direttamente PackVision in modalità display
+                console.log('✅ [PackVisionWithAuth] Nessun monitor_id specificato, mostro PackVision direttamente');
                 setMonitorAuthorized(true);
                 setChecking(false);
                 return;
@@ -19,10 +22,13 @@ const PackVisionWithAuth = ({ monitorId, onClose }) => {
             const savedToken = localStorage.getItem(`packvision_monitor_${monitorId}_token`);
             
             if (!savedToken) {
+                console.log('⚠️ [PackVisionWithAuth] Nessun token trovato per monitor', monitorId, '- mostro richiesta autorizzazione');
                 setMonitorAuthorized(false);
                 setChecking(false);
                 return;
             }
+            
+            console.log('🔍 [PackVisionWithAuth] Token trovato, verifico con backend...');
 
             try {
                 const response = await fetch(buildApiUrl('/api/packvision/monitor/verify'), {
@@ -104,9 +110,11 @@ const PackVisionWithAuth = ({ monitorId, onClose }) => {
     }
 
     if (monitorAuthorized === false && monitorId) {
+        console.log('🚫 [PackVisionWithAuth] Monitor non autorizzato, mostro richiesta autorizzazione');
         return <MonitorAuthRequest monitorId={monitorId} onAuthorized={handleAuthorized} />;
     }
 
+    console.log('✅ [PackVisionWithAuth] Monitor autorizzato o nessun monitor_id, mostro PackVision');
     return <PackVision onClose={onClose} />;
 };
 
