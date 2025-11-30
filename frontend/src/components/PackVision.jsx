@@ -105,9 +105,20 @@ const DisplayView = ({ messages, viewMode }) => {
 
             console.log('🚨 [PackVision] Nuovo messaggio urgente rilevato:', mostRecentUrgent.id);
 
-            // Imposta il timestamp di creazione e forza schermo intero per 10 secondi
-            setLastUrgentCreatedAt(Date.now());
-            setShouldKeepUrgentFullScreen(true);
+            // Controlla se il timer dei 10 secondi è già scaduto (shouldKeepUrgentFullScreen è false)
+            // Se è già scaduto, non ripartire il timer ma procedere direttamente con la divisione
+            const shouldRestartTimer = shouldKeepUrgentFullScreen || urgentMessages.length === 1;
+            
+            if (shouldRestartTimer) {
+                console.log('⏰ [PackVision] Timer ancora attivo o primo messaggio: riparto il timer');
+                // Imposta il timestamp di creazione e forza schermo intero per 10 secondi
+                setLastUrgentCreatedAt(Date.now());
+                setShouldKeepUrgentFullScreen(true);
+            } else {
+                console.log('⏰ [PackVision] Timer già scaduto: procedo direttamente con la divisione dello schermo');
+                // Non ripartire il timer, procedi direttamente con la divisione
+                setShouldKeepUrgentFullScreen(false);
+            }
 
             // Se c'è un solo messaggio urgente, usalo direttamente
             if (urgentMessages.length === 1) {
@@ -125,27 +136,32 @@ const DisplayView = ({ messages, viewMode }) => {
                 if (urgentIndex >= 0) {
                     setCurrentUrgentIndex(urgentIndex);
                     setCurrentUrgent(null); // Usa l'indice invece del messaggio diretto
-                    // Avvia animazione icona dal centro per 2 secondi
-                    setShowIconAnimation(true);
-                    // Dopo 2 secondi, nasconde animazione e mostra messaggio
-                    setTimeout(() => {
-                        setShowIconAnimation(false);
-                    }, 2000);
+                    // Avvia animazione icona dal centro per 2 secondi solo se riparte il timer
+                    if (shouldRestartTimer) {
+                        setShowIconAnimation(true);
+                        // Dopo 2 secondi, nasconde animazione e mostra messaggio
+                        setTimeout(() => {
+                            setShowIconAnimation(false);
+                        }, 2000);
+                    }
                 }
             }
 
             // Dopo 12 secondi totali (2 di icona + 10 di messaggio), permette la divisione se ci sono non urgenti
-            const timerId = setTimeout(() => {
-                console.log('⏰ [PackVision] Timer 10 secondi scaduto, controllo se dividere lo schermo');
-                console.log('⏰ [PackVision] Prima del reset - shouldKeepUrgentFullScreen:', shouldKeepUrgentFullScreen);
-                setShouldKeepUrgentFullScreen(false);
-                console.log('⏰ [PackVision] Dopo reset - shouldKeepUrgentFullScreen impostato a false');
-            }, 12000); // 12 secondi (2 di icona + 10 di messaggio)
+            // Solo se abbiamo ripartito il timer
+            if (shouldRestartTimer) {
+                const timerId = setTimeout(() => {
+                    console.log('⏰ [PackVision] Timer 10 secondi scaduto, controllo se dividere lo schermo');
+                    console.log('⏰ [PackVision] Prima del reset - shouldKeepUrgentFullScreen:', shouldKeepUrgentFullScreen);
+                    setShouldKeepUrgentFullScreen(false);
+                    console.log('⏰ [PackVision] Dopo reset - shouldKeepUrgentFullScreen impostato a false');
+                }, 12000); // 12 secondi (2 di icona + 10 di messaggio)
 
-            // Cleanup del timer se il componente si smonta
-            return () => {
-                clearTimeout(timerId);
-            };
+                // Cleanup del timer se il componente si smonta
+                return () => {
+                    clearTimeout(timerId);
+                };
+            }
         }
 
         // Se non ci sono urgenti, pulisci
@@ -165,7 +181,7 @@ const DisplayView = ({ messages, viewMode }) => {
         }
 
         setPrevUrgentCount(urgentMessages.length);
-    }, [urgentMessages.length, urgentMessages.map(m => `${m.id}-${m.created_at}`).join(','), nonUrgentMessages.length]);
+    }, [urgentMessages.length, urgentMessages.map(m => `${m.id}-${m.created_at}`).join(','), nonUrgentMessages.length, shouldKeepUrgentFullScreen]);
 
     // Listener per eventi personalizzati (quando viene creato da handleSendMessage) - rilevamento immediato
     useEffect(() => {
@@ -176,45 +192,65 @@ const DisplayView = ({ messages, viewMode }) => {
             // Usa il messaggio dall'evento o cerca nella lista
             const urgentMessage = message || urgentMessages.find(m => m.id === messageId);
 
-            if (urgentMessage && urgentMessage.priority === 'danger' && !showIconAnimation) {
-                console.log('✅ [PackVision] Avvio animazione per nuovo urgente:', messageId);
+            if (urgentMessage && urgentMessage.priority === 'danger') {
+                // Controlla se il timer dei 10 secondi è già scaduto
+                // Se è già scaduto e ci sono già 2+ messaggi urgenti, non ripartire il timer
+                const currentUrgentCount = urgentMessages.length;
+                const shouldRestartTimer = shouldKeepUrgentFullScreen || currentUrgentCount === 1 || showIconAnimation;
+                
+                if (shouldRestartTimer) {
+                    console.log('✅ [PackVision] Avvio animazione per nuovo urgente:', messageId);
+                    
+                    // Imposta il timestamp di creazione e forza schermo intero per 10 secondi
+                    setLastUrgentCreatedAt(Date.now());
+                    setShouldKeepUrgentFullScreen(true);
 
-                // Imposta il timestamp di creazione e forza schermo intero per 10 secondi
-                setLastUrgentCreatedAt(Date.now());
-                setShouldKeepUrgentFullScreen(true);
+                    // Se c'è un solo messaggio urgente, usa il messaggio diretto
+                    if (currentUrgentCount === 1) {
+                        setCurrentUrgent(urgentMessage);
+                        setCurrentUrgentIndex(0);
+                    } else {
+                        // Se ce ne sono 2+, trova l'indice del nuovo messaggio
+                        const urgentIndex = urgentMessages.findIndex(m => m.id === messageId);
+                        if (urgentIndex >= 0) {
+                            setCurrentUrgentIndex(urgentIndex);
+                            setCurrentUrgent(null); // Usa l'indice invece del messaggio diretto
+                        }
+                    }
 
-                // Se c'è un solo messaggio urgente, usa il messaggio diretto
-                if (urgentMessages.length === 1) {
-                    setCurrentUrgent(urgentMessage);
-                    setCurrentUrgentIndex(0);
+                    // Avvia animazione icona con dissolvenza in entrata solo se non è già in corso
+                    if (!showIconAnimation) {
+                        setShowIconAnimation(true);
+
+                        // Dopo 2 secondi, nasconde animazione e mostra messaggio con fade-in
+                        setTimeout(() => {
+                            setShowIconAnimation(false);
+                        }, 2000);
+                    }
+
+                    // Dopo 12 secondi totali (2 di icona + 10 di messaggio), permette la divisione se ci sono non urgenti
+                    setTimeout(() => {
+                        console.log('⏰ [PackVision] Timer 10 secondi scaduto (da evento), controllo se dividere lo schermo');
+                        setShouldKeepUrgentFullScreen(false);
+                    }, 12000); // 12 secondi (2 di icona + 10 di messaggio)
                 } else {
-                    // Se ce ne sono 2+, trova l'indice del nuovo messaggio
+                    console.log('⏰ [PackVision] Timer già scaduto: procedo direttamente con la divisione dello schermo (da evento)');
+                    // Non ripartire il timer, procedi direttamente con la divisione
+                    setShouldKeepUrgentFullScreen(false);
+                    
+                    // Aggiorna l'indice del messaggio urgente corrente
                     const urgentIndex = urgentMessages.findIndex(m => m.id === messageId);
                     if (urgentIndex >= 0) {
                         setCurrentUrgentIndex(urgentIndex);
-                        setCurrentUrgent(null); // Usa l'indice invece del messaggio diretto
+                        setCurrentUrgent(null);
                     }
                 }
-
-                // Avvia animazione icona con dissolvenza in entrata
-                setShowIconAnimation(true);
-
-                // Dopo 2 secondi, nasconde animazione e mostra messaggio con fade-in
-                setTimeout(() => {
-                    setShowIconAnimation(false);
-                }, 2000);
-
-                // Dopo 12 secondi totali (2 di icona + 10 di messaggio), permette la divisione se ci sono non urgenti
-                setTimeout(() => {
-                    console.log('⏰ [PackVision] Timer 10 secondi scaduto (da evento), controllo se dividere lo schermo');
-                    setShouldKeepUrgentFullScreen(false);
-                }, 12000); // 12 secondi (2 di icona + 10 di messaggio)
             }
         };
 
         window.addEventListener('packvision:newUrgentMessage', handleNewUrgentMessage);
         return () => window.removeEventListener('packvision:newUrgentMessage', handleNewUrgentMessage);
-    }, [urgentMessages, showIconAnimation]);
+    }, [urgentMessages, showIconAnimation, shouldKeepUrgentFullScreen]);
 
     // Rileva quando viene creato un nuovo messaggio non urgente (solo se non ci sono urgenti)
     useEffect(() => {
