@@ -87,23 +87,8 @@ const DisplayView = ({ messages, viewMode }) => {
     const [shouldKeepUrgentFullScreen, setShouldKeepUrgentFullScreen] = useState(false);
     const [lastUrgentCreatedAt, setLastUrgentCreatedAt] = useState(null);
     
-    // Debug: log sempre attivo per capire cosa succede
-    useEffect(() => {
-        console.log('🔍 [PackVision] ====== STATO ATTUALE ======');
-        console.log('🔍 [PackVision] activeMessages:', activeMessages.length, activeMessages.map(m => ({ id: m.id, priority: m.priority, active: m.active, content: m.content?.substring(0, 30) })));
-        console.log('🔍 [PackVision] urgentMessages:', urgentMessages.length, urgentMessages.map(m => ({ id: m.id, priority: m.priority })));
-        console.log('🔍 [PackVision] nonUrgentMessages:', nonUrgentMessages.length, nonUrgentMessages.map(m => ({ id: m.id, priority: m.priority, content: m.content?.substring(0, 30) })));
-        console.log('🔍 [PackVision] shouldKeepUrgentFullScreen:', shouldKeepUrgentFullScreen);
-        console.log('🔍 [PackVision] showIconAnimation:', showIconAnimation);
-        console.log('🔍 [PackVision] Condizione schermo diviso:', {
-            urgentMessages: urgentMessages.length > 0,
-            nonUrgentMessages: nonUrgentMessages.length > 0,
-            notFullScreen: !shouldKeepUrgentFullScreen,
-            notIconAnim: !showIconAnimation,
-            shouldSplit: urgentMessages.length > 0 && nonUrgentMessages.length > 0 && !shouldKeepUrgentFullScreen && !showIconAnimation
-        });
-        console.log('🔍 [PackVision] ============================');
-    }, [activeMessages, urgentMessages, nonUrgentMessages, shouldKeepUrgentFullScreen, showIconAnimation]);
+    // Determina la modalità di visualizzazione
+    const shouldShowSplit = urgentMessages.length > 0 && nonUrgentMessages.length > 0 && !shouldKeepUrgentFullScreen && !showIconAnimation;
     const [prevUrgentCount, setPrevUrgentCount] = useState(0);
     const [prevNonUrgentCount, setPrevNonUrgentCount] = useState(0);
 
@@ -763,14 +748,12 @@ const DisplayView = ({ messages, viewMode }) => {
                 }
             `}</style>
             <div className="fixed inset-0 bg-black text-white overflow-hidden">
-                {/* Se ci sono messaggi urgenti E non urgenti E non deve rimanere a schermo intero → SCHERMO DIVISO */}
+                {/* SCHERMO DIVISO: Urgenti sopra, Non urgenti sotto */}
                 {(() => {
-                    const shouldShowSplit = urgentMessages.length > 0 && nonUrgentMessages.length > 0 && !shouldKeepUrgentFullScreen && !showIconAnimation;
-                    if (shouldShowSplit) {
-                        console.log('🔍 [PackVision] Schermo diviso - Urgenti:', urgentMessages.length, 'Non urgenti:', nonUrgentMessages.length);
-                        console.log('🔍 [PackVision] currentNonUrgentIndex:', currentNonUrgentIndex, 'nonUrgentMessages:', nonUrgentMessages.map(m => ({ id: m.id, priority: m.priority, content: m.content?.substring(0, 20) })));
-                    }
-                    return shouldShowSplit;
+                    // Calcola shouldShowSplit al momento del rendering
+                    const split = urgentMessages.length > 0 && nonUrgentMessages.length > 0 && !shouldKeepUrgentFullScreen && !showIconAnimation;
+                    if (split) console.log('✅ [Render] SCHERMO DIVISO ATTIVO');
+                    return split;
                 })() ? (
                     <>
                         {/* Metà superiore: messaggi urgenti che ruotano ogni 10 secondi */}
@@ -792,37 +775,18 @@ const DisplayView = ({ messages, viewMode }) => {
                         {/* Metà inferiore: messaggi non urgenti che ruotano ogni 10 secondi */}
                         <div className="absolute top-1/2 left-0 w-full h-1/2 relative overflow-hidden z-20">
                             {(() => {
-                                console.log('🔍 [PackVision] Rendering parte inferiore - nonUrgentMessages.length:', nonUrgentMessages.length, 'currentNonUrgentIndex:', currentNonUrgentIndex);
+                                if (nonUrgentMessages.length === 0) return null;
                                 
-                                // Se non ci sono messaggi non urgenti, mostra nero (dovrebbe essere impossibile qui, ma per sicurezza)
-                                if (nonUrgentMessages.length === 0) {
-                                    console.warn('⚠️ [PackVision] nonUrgentMessages è vuoto ma siamo nello schermo diviso!');
-                                    return null;
-                                }
-                                
-                                // Assicurati di avere un messaggio valido da mostrare
                                 const validIndex = (currentNonUrgentIndex >= 0 && currentNonUrgentIndex < nonUrgentMessages.length) 
                                     ? currentNonUrgentIndex 
                                     : 0;
-                                const messageToShow = nonUrgentMessages[validIndex];
+                                const messageToShow = nonUrgentMessages[validIndex] || nonUrgentMessages[0];
                                 
-                                console.log('🔍 [PackVision] validIndex:', validIndex, 'messageToShow:', messageToShow ? { id: messageToShow.id, priority: messageToShow.priority } : 'null');
-                                
-                                // Fallback: se non c'è un messaggio all'indice valido, usa il primo disponibile
-                                const finalMessage = messageToShow || nonUrgentMessages[0];
-                                
-                                if (!finalMessage) {
-                                    console.error('❌ [PackVision] Nessun messaggio disponibile da mostrare nella parte inferiore!');
-                                    return null;
-                                }
-                                
-                                console.log('✅ [PackVision] Rendering messaggio:', finalMessage.id, finalMessage.priority);
+                                if (!messageToShow) return null;
                                 
                                 return (
                                     <>
-                                        {renderNonUrgentMessage(finalMessage, true)}
-                                        
-                                        {/* Fascio di luce durante la transizione - sopra tutto */}
+                                        {renderNonUrgentMessage(messageToShow, true)}
                                         {isTransitioning && (
                                             <div className="absolute inset-0 z-50 pointer-events-none">
                                                 <div className="light-beam"></div>
