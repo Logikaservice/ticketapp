@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Clock, Send, Monitor, Layout, AlertTriangle, Info, CheckCircle, Settings, X, Maximize, GripVertical, Zap, Bell, MessageCircle, Edit2 } from 'lucide-react';
+import MonitorAuthManager from './MonitorAuthManager';
 
 // --- CONFIGURAZIONE COLORI E GRADIENTI ---
 const THEMES = {
@@ -1448,6 +1449,7 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
                     </div>
                 </div>
             </div>
+
         </div>
     );
 };
@@ -1714,6 +1716,11 @@ export default function PackVision({ onClose }) {
                 onReorderMessages={handleReorderMessages}
                 onUpdateMessage={handleUpdateMessage}
             />
+
+            {/* Sezione Autorizzazioni Monitor */}
+            <div className="mt-8 max-w-6xl mx-auto">
+                <MonitorAuthManager />
+            </div>
         </div>
     );
 }

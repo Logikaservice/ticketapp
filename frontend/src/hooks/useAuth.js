@@ -10,6 +10,24 @@ export const useAuth = (showNotification) => {
 
   // Verifica token al caricamento
   useEffect(() => {
+    // Verifica se c'è un monitor autorizzato (bypass login per monitor)
+    const monitorAuth = localStorage.getItem('packvision_monitor_auth');
+    const monitorId = localStorage.getItem('packvision_monitor_id');
+    if (monitorAuth === 'true' && monitorId) {
+      // C'è un monitor autorizzato, bypassa il login creando un utente fittizio per monitor
+      setCurrentUser({
+        id: `monitor_${monitorId}`,
+        email: `monitor${monitorId}@packvision.local`,
+        ruolo: 'monitor',
+        nome: `Monitor`,
+        cognome: monitorId,
+        telefono: null,
+        azienda: null
+      });
+      setIsLoggedIn(true);
+      return; // Non verificare il token JWT normale
+    }
+
     if (token) {
       try {
         // Verifica se il token è valido

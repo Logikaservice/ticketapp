@@ -26,7 +26,8 @@ import { useWebSocket } from './hooks/useWebSocket';
 import GoogleCallback from './components/GoogleCallback';
 import TimesheetManager from './components/TimesheetManager';
 import VivaldiManager from './components/VivaldiManager';
-import PackVision from './components/PackVision';
+import PackVisionWithAuth from './components/PackVisionWithAuth';
+import MonitorAuthRequest from './components/MonitorAuthRequest';
 import { buildApiUrl } from './utils/apiConfig';
 
 const INITIAL_NEW_CLIENT_DATA = {
@@ -2811,18 +2812,23 @@ export default function TicketApp() {
     window.location.hostname.includes('packvision');
   
   if (currentUrlParams.get('mode') === 'display' || isPackVisionDisplayHostname) {
+    const monitorId = currentUrlParams.get('monitor') ? parseInt(currentUrlParams.get('monitor'), 10) : null;
+    
     return (
       <>
-        <PackVision onClose={() => {
-          // Se siamo su packvision.logikaservice.it, non possiamo chiudere (è il dominio principale)
-          if (isPackVisionDisplayHostname) {
-            return; // Non permettere la chiusura se siamo sul dominio dedicato
-          }
-          // Rimuovi il parametro mode dall'URL e torna alla dashboard
-          const url = new URL(window.location.href);
-          url.searchParams.delete('mode');
-          window.location.href = url.toString();
-        }} />
+        <PackVisionWithAuth 
+          monitorId={monitorId}
+          onClose={() => {
+            // Se siamo su packvision.logikaservice.it, non possiamo chiudere (è il dominio principale)
+            if (isPackVisionDisplayHostname) {
+              return; // Non permettere la chiusura se siamo sul dominio dedicato
+            }
+            // Rimuovi il parametro mode dall'URL e torna alla dashboard
+            const url = new URL(window.location.href);
+            url.searchParams.delete('mode');
+            window.location.href = url.toString();
+          }} 
+        />
       </>
     );
   }

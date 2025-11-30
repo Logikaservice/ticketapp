@@ -448,5 +448,371 @@ module.exports = (pool, io) => {
         }
     });
 
+    // Funzione helper per creare tabella monitor_authorizations se non esiste
+    const ensureMonitorAuthTable = async (client) => {
+        try {
+            await client.query(`
+                CREATE TABLE IF NOT EXISTS monitor_authorizations (
+                    id SERIAL PRIMARY KEY,
+                    monitor_id INTEGER NOT NULL,
+                    authorization_code VARCHAR(6) NOT NULL,
+                    token VARCHAR(255) UNIQUE,
+                    ip_address VARCHAR(45),
+                    user_agent TEXT,
+                    authorized BOOLEAN DEFAULT FALSE,
+                    authorized_at TIMESTAMPTZ,
+                    authorized_by INTEGER,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '24 hours')
+                )
+            `);
+            await client.query(`
+                CREATE INDEX IF NOT EXISTS idx_monitor_auth_code ON monitor_authorizations(authorization_code);
+                CREATE INDEX IF NOT EXISTS idx_monitor_auth_token ON monitor_authorizations(token);
+                CREATE INDEX IF NOT EXISTS idx_monitor_auth_monitor ON monitor_authorizations(monitor_id);
+            `);
+        } catch (err) {
+            if (!err.message.includes('already exists')) {
+                console.warn('⚠️ [PackVision] Errore creazione tabella monitor_authorizations:', err.message);
+            }
+        }
+    };
+
+    // Genera codice di autorizzazione univoco a 6 cifre
+    const generateAuthCode = () => {
+        return Math.floor(100000 + Math.random() * 900000).toString();
+    };
+
+    // Genera token univoco per monitor autorizzato
+    const generateMonitorToken = (monitorId) => {
+        const crypto = require('crypto');
+        return crypto.randomBytes(32).toString('hex') + '_' + monitorId + '_' + Date.now();
+    };
+
+    // POST /api/packvision/monitor/request - Richiedi autorizzazione monitor
+    router.post('/monitor/request', requireDb, async (req, res) => {
+        const { monitor_id } = req.body;
+        const ip_address = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
+        const user_agent = req.headers['user-agent'] || 'unknown';
+
+        if (!monitor_id || monitor_id < 1 || monitor_id > 4) {
+            return res.status(400).json({ error: 'Monitor ID non valido (deve essere 1-4)' });
+        }
+
+        let client = null;
+        try {
+            client = await pool.connect();
+            await ensureMonitorAuthTable(client);
+
+            // Genera codice univoco
+            let authCode;
+            let codeExists = true;
+            let attempts = 0;
+            
+            while (codeExists && attempts < 10) {
+                authCode = generateAuthCode();
+                const checkResult = await client.query(
+                    'SELECT id FROM monitor_authorizations WHERE authorization_code = $1 AND expires_at > NOW()',
+                    [authCode]
+                );
+                codeExists = checkResult.rows.length > 0;
+                attempts++;
+            }
+
+            if (codeExists) {
+                return res.status(500).json({ error: 'Impossibile generare codice univoco' });
+            }
+
+            // Inserisci richiesta di autorizzazione
+            const result = await client.query(`
+                INSERT INTO monitor_authorizations (monitor_id, authorization_code, ip_address, user_agent)
+                VALUES ($1, $2, $3, $4)
+                RETURNING id, authorization_code, created_at, expires_at
+            `, [monitor_id, authCode, ip_address, user_agent]);
+
+            const request = result.rows[0];
+
+            // Invia email con codice
+            try {
+                const nodemailer = require('nodemailer');
+                const emailUser = process.env.EMAIL_USER;
+                const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
+
+                if (emailUser && emailPass) {
+                    const transporter = nodemailer.createTransport({
+                        service: 'gmail',
+                        auth: { user: emailUser, pass: emailPass }
+                    });
+
+                    const frontendUrl = process.env.FRONTEND_URL || 'https://ticket.logikaservice.it';
+                    const adminUrl = `${frontendUrl}/?showPackVision=true`;
+
+                    const mailOptions = {
+                        from: emailUser,
+                        to: 'info@logikaservice.it',
+                        subject: `🔐 Richiesta Autorizzazione Monitor PackVision - Monitor ${monitor_id}`,
+                        html: `
+                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                                <h2 style="color: #2563eb;">Richiesta Autorizzazione Monitor PackVision</h2>
+                                <p>È stata richiesta un'autorizzazione per il <strong>Monitor ${monitor_id}</strong>.</p>
+                                
+                                <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                                    <p style="margin: 0; font-size: 12px; color: #6b7280;">CODICE DI AUTORIZZAZIONE</p>
+                                    <h1 style="margin: 10px 0; font-size: 48px; color: #2563eb; letter-spacing: 8px; font-family: monospace;">${authCode}</h1>
+                                    <p style="margin: 0; font-size: 12px; color: #6b7280;">Valido per 24 ore</p>
+                                </div>
+
+                                <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                                    <p style="margin: 0;"><strong>Dettagli Richiesta:</strong></p>
+                                    <ul style="margin: 10px 0; padding-left: 20px;">
+                                        <li><strong>Monitor:</strong> ${monitor_id}</li>
+                                        <li><strong>IP:</strong> ${ip_address}</li>
+                                        <li><strong>Browser:</strong> ${user_agent.substring(0, 100)}</li>
+                                        <li><strong>Data/Ora:</strong> ${new Date(request.created_at).toLocaleString('it-IT')}</li>
+                                    </ul>
+                                </div>
+
+                                <div style="margin: 30px 0;">
+                                    <p>Per autorizzare questo monitor:</p>
+                                    <ol>
+                                        <li>Accedi a <a href="${adminUrl}" style="color: #2563eb;">PackVision Control</a></li>
+                                        <li>Vai alla sezione "Autorizzazioni Monitor"</li>
+                                        <li>Cerca la richiesta e clicca "Autorizza"</li>
+                                    </ol>
+                                </div>
+
+                                <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+                                    Se non hai richiesto questa autorizzazione, ignora questa email.
+                                </p>
+                            </div>
+                        `
+                    };
+
+                    await transporter.sendMail(mailOptions);
+                    console.log(`✅ [PackVision] Email autorizzazione monitor ${monitor_id} inviata a info@logikaservice.it`);
+                } else {
+                    console.warn('⚠️ [PackVision] Credenziali email non configurate, email non inviata');
+                }
+            } catch (emailErr) {
+                console.error('❌ [PackVision] Errore invio email autorizzazione:', emailErr);
+                // Non bloccare la risposta se l'email fallisce
+            }
+
+            client.release();
+            res.json({
+                success: true,
+                message: 'Codice di autorizzazione generato. Controlla la tua email.',
+                request_id: request.id,
+                expires_at: request.expires_at
+            });
+
+        } catch (err) {
+            if (client) client.release();
+            console.error('❌ [PackVision] Errore richiesta autorizzazione monitor:', err);
+            res.status(500).json({ error: 'Errore interno del server', details: err.message });
+        }
+    });
+
+    // GET /api/packvision/monitor/requests - Ottieni richieste di autorizzazione in attesa
+    router.get('/monitor/requests', requireDb, async (req, res) => {
+        let client = null;
+        try {
+            client = await pool.connect();
+            await ensureMonitorAuthTable(client);
+
+            const result = await client.query(`
+                SELECT id, monitor_id, authorization_code, ip_address, user_agent, 
+                       authorized, created_at, expires_at,
+                       CASE WHEN expires_at < NOW() THEN true ELSE false END as expired
+                FROM monitor_authorizations
+                WHERE authorized = false AND expires_at > NOW()
+                ORDER BY created_at DESC
+            `);
+
+            client.release();
+            res.json(result.rows);
+        } catch (err) {
+            if (client) client.release();
+            console.error('❌ [PackVision] Errore recupero richieste monitor:', err);
+            res.status(500).json({ error: 'Errore interno del server' });
+        }
+    });
+
+    // POST /api/packvision/monitor/approve - Approva richiesta monitor
+    router.post('/monitor/approve', requireDb, async (req, res) => {
+        const { request_id } = req.body;
+        const authorized_by = req.user?.id || null; // Se c'è autenticazione
+
+        if (!request_id) {
+            return res.status(400).json({ error: 'request_id richiesto' });
+        }
+
+        let client = null;
+        try {
+            client = await pool.connect();
+            await ensureMonitorAuthTable(client);
+
+            // Ottieni la richiesta
+            const requestResult = await client.query(
+                'SELECT * FROM monitor_authorizations WHERE id = $1',
+                [request_id]
+            );
+
+            if (requestResult.rows.length === 0) {
+                client.release();
+                return res.status(404).json({ error: 'Richiesta non trovata' });
+            }
+
+            const request = requestResult.rows[0];
+
+            if (request.authorized) {
+                client.release();
+                return res.status(400).json({ error: 'Richiesta già autorizzata' });
+            }
+
+            if (new Date(request.expires_at) < new Date()) {
+                client.release();
+                return res.status(400).json({ error: 'Richiesta scaduta' });
+            }
+
+            // Genera token permanente
+            const token = generateMonitorToken(request.monitor_id);
+
+            // Aggiorna richiesta come autorizzata
+            await client.query(`
+                UPDATE monitor_authorizations
+                SET authorized = true,
+                    authorized_at = NOW(),
+                    authorized_by = $1,
+                    token = $2
+                WHERE id = $3
+            `, [authorized_by, token, request_id]);
+
+            // Disattiva altre autorizzazioni per lo stesso monitor (una sola autorizzazione attiva)
+            await client.query(`
+                UPDATE monitor_authorizations
+                SET authorized = false
+                WHERE monitor_id = $1 AND id != $2 AND authorized = true
+            `, [request.monitor_id, request_id]);
+
+            client.release();
+
+            // Notifica via Socket.IO
+            if (io) {
+                io.emit('packvision:monitor-authorized', { monitor_id: request.monitor_id, token });
+            }
+
+            res.json({
+                success: true,
+                token: token,
+                monitor_id: request.monitor_id,
+                message: 'Monitor autorizzato con successo'
+            });
+
+        } catch (err) {
+            if (client) client.release();
+            console.error('❌ [PackVision] Errore approvazione monitor:', err);
+            res.status(500).json({ error: 'Errore interno del server', details: err.message });
+        }
+    });
+
+    // POST /api/packvision/monitor/verify - Verifica token monitor
+    router.post('/monitor/verify', requireDb, async (req, res) => {
+        const { token, monitor_id } = req.body;
+
+        if (!token || !monitor_id) {
+            return res.status(400).json({ error: 'Token e monitor_id richiesti' });
+        }
+
+        let client = null;
+        try {
+            client = await pool.connect();
+            await ensureMonitorAuthTable(client);
+
+            const result = await client.query(`
+                SELECT * FROM monitor_authorizations
+                WHERE token = $1 AND monitor_id = $2 AND authorized = true
+            `, [token, monitor_id]);
+
+            client.release();
+
+            if (result.rows.length === 0) {
+                return res.status(401).json({ 
+                    authorized: false,
+                    error: 'Token non valido o monitor non autorizzato'
+                });
+            }
+
+            const auth = result.rows[0];
+            res.json({
+                authorized: true,
+                monitor_id: auth.monitor_id,
+                authorized_at: auth.authorized_at
+            });
+
+        } catch (err) {
+            if (client) client.release();
+            console.error('❌ [PackVision] Errore verifica token monitor:', err);
+            res.status(500).json({ error: 'Errore interno del server' });
+        }
+    });
+
+    // GET /api/packvision/monitor/list - Lista monitor autorizzati
+    router.get('/monitor/list', requireDb, async (req, res) => {
+        let client = null;
+        try {
+            client = await pool.connect();
+            await ensureMonitorAuthTable(client);
+
+            const result = await client.query(`
+                SELECT monitor_id, authorized_at, ip_address, user_agent, created_at
+                FROM monitor_authorizations
+                WHERE authorized = true
+                ORDER BY monitor_id, authorized_at DESC
+            `);
+
+            client.release();
+            res.json(result.rows);
+        } catch (err) {
+            if (client) client.release();
+            console.error('❌ [PackVision] Errore lista monitor autorizzati:', err);
+            res.status(500).json({ error: 'Errore interno del server' });
+        }
+    });
+
+    // DELETE /api/packvision/monitor/revoke/:monitor_id - Revoca autorizzazione monitor
+    router.delete('/monitor/revoke/:monitor_id', requireDb, async (req, res) => {
+        const { monitor_id } = req.params;
+
+        if (!monitor_id || monitor_id < 1 || monitor_id > 4) {
+            return res.status(400).json({ error: 'Monitor ID non valido' });
+        }
+
+        let client = null;
+        try {
+            client = await pool.connect();
+            await ensureMonitorAuthTable(client);
+
+            await client.query(`
+                UPDATE monitor_authorizations
+                SET authorized = false
+                WHERE monitor_id = $1 AND authorized = true
+            `, [monitor_id]);
+
+            client.release();
+
+            if (io) {
+                io.emit('packvision:monitor-revoked', { monitor_id: parseInt(monitor_id) });
+            }
+
+            res.json({ success: true, message: `Autorizzazione monitor ${monitor_id} revocata` });
+
+        } catch (err) {
+            if (client) client.release();
+            console.error('❌ [PackVision] Errore revoca autorizzazione monitor:', err);
+            res.status(500).json({ error: 'Errore interno del server' });
+        }
+    });
+
     return router;
 };
