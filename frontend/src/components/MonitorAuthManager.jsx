@@ -70,7 +70,7 @@ const MonitorAuthManager = () => {
     };
 
     const handleRevoke = async (monitorId) => {
-        if (!confirm(`Sei sicuro di voler revocare l'autorizzazione per il Monitor ${monitorId}?`)) {
+        if (!window.confirm(`Sei sicuro di voler revocare l'autorizzazione per il Monitor ${monitorId}?`)) {
             return;
         }
 

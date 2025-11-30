@@ -27,7 +27,7 @@ import GoogleCallback from './components/GoogleCallback';
 import TimesheetManager from './components/TimesheetManager';
 import VivaldiManager from './components/VivaldiManager';
 import PackVisionWithAuth from './components/PackVisionWithAuth';
-import MonitorAuthRequest from './components/MonitorAuthRequest';
+import PackVision from './components/PackVision';
 import { buildApiUrl } from './utils/apiConfig';
 
 const INITIAL_NEW_CLIENT_DATA = {
