@@ -19,7 +19,8 @@ module.exports = (pool, io) => {
                 ADD COLUMN IF NOT EXISTS duration_hours INTEGER,
                 ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ,
                 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW(),
-                ADD COLUMN IF NOT EXISTS order_index INTEGER
+                ADD COLUMN IF NOT EXISTS order_index INTEGER,
+                ADD COLUMN IF NOT EXISTS monitors INTEGER[]
             `);
             
             // Crea indice se non esiste
@@ -161,7 +162,7 @@ module.exports = (pool, io) => {
 
     // POST /api/packvision/messages - Invia nuovo messaggio
     router.post('/messages', requireDb, async (req, res) => {
-        const { content, priority, display_mode, duration_hours, expires_at } = req.body;
+        const { content, priority, display_mode, duration_hours, expires_at, monitors } = req.body;
 
         console.log('📨 [PackVision] Nuovo messaggio ricevuto:', { content, priority, display_mode, duration_hours, expires_at });
 
@@ -216,12 +217,33 @@ module.exports = (pool, io) => {
                 }
             }
 
+            // Normalizza monitors: array di interi o default [1,2,3,4]
+            const monitorsArray = Array.isArray(monitors) && monitors.length > 0 
+                ? monitors.map(m => parseInt(m, 10)).filter(m => m >= 1 && m <= 4)
+                : [1, 2, 3, 4]; // Default: tutti i monitor
+
             // Costruisci la query INSERT in base alle colonne disponibili
             let insertQuery, insertValues;
             
             if (hasOrderIndex) {
                 insertQuery = `
-                    INSERT INTO messages (content, priority, display_mode, duration_hours, expires_at, active, order_index) 
+                    INSERT INTO messages (content, priority, display_mode, duration_hours, expires_at, active, order_index, monitors) 
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+                    RETURNING *
+                `;
+                insertValues = [
+                    content.trim(),
+                    priority || 'info',
+                    display_mode || 'single',
+                    duration_hours ? parseInt(duration_hours, 10) : null,
+                    expiresAt,
+                    true,
+                    orderIndex,
+                    monitorsArray
+                ];
+            } else {
+                insertQuery = `
+                    INSERT INTO messages (content, priority, display_mode, duration_hours, expires_at, active, monitors) 
                     VALUES ($1, $2, $3, $4, $5, $6, $7) 
                     RETURNING *
                 `;
@@ -232,21 +254,7 @@ module.exports = (pool, io) => {
                     duration_hours ? parseInt(duration_hours, 10) : null,
                     expiresAt,
                     true,
-                    orderIndex
-                ];
-            } else {
-                insertQuery = `
-                    INSERT INTO messages (content, priority, display_mode, duration_hours, expires_at, active) 
-                    VALUES ($1, $2, $3, $4, $5, $6) 
-                    RETURNING *
-                `;
-                insertValues = [
-                    content.trim(),
-                    priority || 'info',
-                    display_mode || 'single',
-                    duration_hours ? parseInt(duration_hours, 10) : null,
-                    expiresAt,
-                    true
+                    monitorsArray
                 ];
             }
 
@@ -313,7 +321,7 @@ module.exports = (pool, io) => {
     // PUT /api/packvision/messages/:id - Aggiorna messaggio
     router.put('/messages/:id', requireDb, async (req, res) => {
         const { id } = req.params;
-        const { content, priority, duration_hours } = req.body;
+        const { content, priority, duration_hours, monitors } = req.body;
 
         if (!content) {
             return res.status(400).json({ error: 'Contenuto messaggio mancante' });
@@ -330,9 +338,28 @@ module.exports = (pool, io) => {
                 expiresAt = expiresDate.toISOString();
             }
 
+            // Normalizza monitors: array di interi o mantieni quelli esistenti
+            let monitorsArray = null;
+            if (monitors !== undefined) {
+                monitorsArray = Array.isArray(monitors) && monitors.length > 0 
+                    ? monitors.map(m => parseInt(m, 10)).filter(m => m >= 1 && m <= 4)
+                    : [1, 2, 3, 4]; // Default: tutti i monitor
+            }
+
+            // Costruisci la query UPDATE dinamicamente
+            const updateFields = ['content = $1', 'priority = $2', 'duration_hours = $3', 'expires_at = $4', 'updated_at = NOW()'];
+            const updateValues = [content, priority || 'info', duration_hours || null, expiresAt];
+            
+            if (monitorsArray !== null) {
+                updateFields.push('monitors = $' + (updateValues.length + 1));
+                updateValues.push(monitorsArray);
+            }
+            
+            updateValues.push(id); // ID per WHERE clause
+
             const result = await client.query(
-                'UPDATE messages SET content = $1, priority = $2, duration_hours = $3, expires_at = $4, updated_at = NOW() WHERE id = $5 RETURNING *',
-                [content, priority || 'info', duration_hours || null, expiresAt, id]
+                `UPDATE messages SET ${updateFields.join(', ')} WHERE id = $${updateValues.length} RETURNING *`,
+                updateValues
             );
             client.release();
 

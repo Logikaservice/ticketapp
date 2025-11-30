@@ -61,14 +61,24 @@ const DigitalClock = () => {
 
 // --- COMPONENTE DISPLAY (MAXI SCHERMO) ---
 const DisplayView = ({ messages, viewMode }) => {
-    // Filtra messaggi attivi e non scaduti
+    // Ottieni il numero del monitor dall'URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const monitorId = parseInt(urlParams.get('monitor') || '1', 10); // Default monitor 1
+    
+    // Filtra messaggi attivi e non scaduti, e che sono assegnati a questo monitor
     const now = new Date();
     const activeMessages = messages.filter(msg => {
         if (!msg.active) return false;
         if (msg.expires_at) {
             const expiresAt = new Date(msg.expires_at);
-            return expiresAt > now;
+            if (expiresAt <= now) return false;
         }
+        // Filtra per monitor: se il messaggio ha monitors definiti, deve includere questo monitor
+        // Se monitors non è definito o è vuoto, mostra su tutti i monitor (retrocompatibilità)
+        if (msg.monitors && Array.isArray(msg.monitors) && msg.monitors.length > 0) {
+            return msg.monitors.includes(monitorId);
+        }
+        // Se non ha monitors definiti, mostra su tutti (comportamento pre-esistente)
         return true;
     });
 
@@ -1079,6 +1089,7 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
     const [customDuration, setCustomDuration] = useState('');
     const [editingMessage, setEditingMessage] = useState(null);
     const [draggedIndex, setDraggedIndex] = useState(null);
+    const [selectedMonitors, setSelectedMonitors] = useState([1, 2, 3, 4]); // Tutti i monitor selezionati di default
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -1088,17 +1099,18 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
 
         if (editingMessage) {
             // Modifica messaggio esistente
-            onUpdateMessage(editingMessage.id, { content: message, priority, duration_hours: durationHours });
+            onUpdateMessage(editingMessage.id, { content: message, priority, duration_hours: durationHours, monitors: selectedMonitors });
             setEditingMessage(null);
         } else {
             // Crea nuovo messaggio
-            onSendMessage({ content: message, priority, duration_hours: durationHours });
+            onSendMessage({ content: message, priority, duration_hours: durationHours, monitors: selectedMonitors });
         }
 
         setMessage('');
         setPriority('info');
         setDuration('24');
         setCustomDuration('');
+        // Mantieni i monitor selezionati per il prossimo messaggio
     };
 
     const handleEditMessage = (msg) => {
@@ -1107,6 +1119,7 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
         setPriority(msg.priority || 'info');
         setDuration(msg.duration_hours ? msg.duration_hours.toString() : '24');
         setCustomDuration('');
+        setSelectedMonitors(msg.monitors || [1, 2, 3, 4]); // Ripristina i monitor del messaggio
         // Scroll al form
         document.querySelector('.bg-white.rounded-2xl.shadow-lg').scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
@@ -1117,6 +1130,15 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
         setPriority('info');
         setDuration('24');
         setCustomDuration('');
+        setSelectedMonitors([1, 2, 3, 4]); // Ripristina tutti i monitor
+    };
+
+    const toggleMonitor = (monitorId) => {
+        setSelectedMonitors(prev => 
+            prev.includes(monitorId) 
+                ? prev.filter(id => id !== monitorId)
+                : [...prev, monitorId].sort()
+        );
     };
 
     return (
@@ -1141,13 +1163,13 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
                         Singolo
                     </button>
                     <button
-                        onClick={() => onUpdateSettings({ viewMode: 'split' })}
-                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${currentSettings.viewMode === 'split'
+                        onClick={() => onUpdateSettings({ viewMode: 'quad' })}
+                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${currentSettings.viewMode === 'quad'
                             ? 'bg-blue-600 text-white shadow-md'
                             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                             }`}
                     >
-                        Split (2 Messaggi)
+                        Visualizzazione a 4
                     </button>
                 </div>
             </header>
@@ -1253,9 +1275,43 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
                                 )}
                             </div>
 
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Monitor di Destinazione</label>
+                                <div className="grid grid-cols-4 gap-3">
+                                    {[1, 2, 3, 4].map((monitorId) => (
+                                        <button
+                                            key={monitorId}
+                                            type="button"
+                                            onClick={() => toggleMonitor(monitorId)}
+                                            className={`relative p-4 rounded-xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${
+                                                selectedMonitors.includes(monitorId)
+                                                    ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-200 shadow-md'
+                                                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                                            }`}
+                                        >
+                                            <Monitor 
+                                                size={32} 
+                                                className={selectedMonitors.includes(monitorId) ? 'text-blue-600' : 'text-gray-400'} 
+                                            />
+                                            <span className={`text-xs font-bold ${selectedMonitors.includes(monitorId) ? 'text-blue-600' : 'text-gray-500'}`}>
+                                                Monitor {monitorId}
+                                            </span>
+                                            {selectedMonitors.includes(monitorId) && (
+                                                <div className="absolute top-1 right-1 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                                                    <CheckCircle size={12} className="text-white" />
+                                                </div>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Seleziona i monitor su cui pubblicare questo messaggio
+                                </p>
+                            </div>
+
                             <button
                                 type="submit"
-                                disabled={!message.trim() || (duration === 'custom' && (!customDuration || parseInt(customDuration) < 1))}
+                                disabled={!message.trim() || selectedMonitors.length === 0 || (duration === 'custom' && (!customDuration || parseInt(customDuration) < 1))}
                                 className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {editingMessage ? 'AGGIORNA MESSAGGIO' : 'INVIA AL MAXI SCHERMO'}
@@ -1355,6 +1411,21 @@ const AdminPanel = ({ onSendMessage, onUpdateSettings, currentSettings, activeMe
                                                         <span className="text-xs text-gray-500 font-medium">
                                                             #{index + 1}
                                                         </span>
+                                                    )}
+                                                    {msg.monitors && msg.monitors.length > 0 && (
+                                                        <div className="flex items-center gap-1 ml-2">
+                                                            {[1, 2, 3, 4].map((monitorId) => (
+                                                                msg.monitors.includes(monitorId) && (
+                                                                    <div
+                                                                        key={monitorId}
+                                                                        className="w-5 h-5 rounded bg-blue-600 text-white flex items-center justify-center text-xs font-bold"
+                                                                        title={`Monitor ${monitorId}`}
+                                                                    >
+                                                                        {monitorId}
+                                                                    </div>
+                                                                )
+                                                            ))}
+                                                        </div>
                                                     )}
                                                 </div>
                                                 <p className="font-bold text-gray-800 text-lg leading-tight">{msg.content}</p>
