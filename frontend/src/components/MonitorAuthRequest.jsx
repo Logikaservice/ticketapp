@@ -160,24 +160,6 @@ const MonitorAuthRequest = ({ monitorId, onAuthorized }) => {
                     </div>
                 ) : !requested ? (
                     <div className="space-y-6">
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <div className="flex items-start gap-3">
-                                <Monitor className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                                <div className="flex-1">
-                                    <h3 className="font-semibold text-blue-900 mb-1">
-                                        Come funziona?
-                                    </h3>
-                                    <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-                                        <li>Clicca su "Attesa di accettazione" per creare una richiesta di autorizzazione</li>
-                                        <li>La richiesta apparirà immediatamente nella sezione "Richieste in Attesa" di PackVision Control</li>
-                                        <li>L'amministratore autorizzerà questo monitor da PackVision Control</li>
-                                        <li>Una volta autorizzato, questo monitor avrà accesso permanente</li>
-                                        <li>La richiesta scade dopo 5 minuti se non autorizzata</li>
-                                    </ol>
-                                </div>
-                            </div>
-                        </div>
-
                         {error && (
                             <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
                                 <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
