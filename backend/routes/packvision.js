@@ -473,7 +473,7 @@ module.exports = (pool, io) => {
                     authorized_at TIMESTAMPTZ,
                     authorized_by INTEGER,
                     created_at TIMESTAMPTZ DEFAULT NOW(),
-                    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '24 hours')
+                    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '15 minutes')
                 )
             `);
             await client.query(`
@@ -526,6 +526,28 @@ module.exports = (pool, io) => {
             await ensureMonitorAuthTable(client);
             console.log('✅ [PackVision] Tabella verificata');
 
+            // Verifica se esiste già una richiesta pendente per questo monitor
+            const existingRequest = await client.query(`
+                SELECT id, expires_at, authorized
+                FROM monitor_authorizations
+                WHERE monitor_id = $1 
+                AND authorized = false 
+                AND expires_at > NOW()
+                ORDER BY created_at DESC
+                LIMIT 1
+            `, [monitor_id]);
+
+            if (existingRequest.rows.length > 0) {
+                const existing = existingRequest.rows[0];
+                client.release();
+                console.log(`⚠️ [PackVision] Richiesta già esistente per monitor ${monitor_id}, ID: ${existing.id}`);
+                return res.status(409).json({ 
+                    error: 'Esiste già una richiesta in attesa per questo monitor',
+                    request_id: existing.id,
+                    expires_at: existing.expires_at
+                });
+            }
+
             // Genera codice univoco
             let authCode;
             let codeExists = true;
@@ -545,86 +567,24 @@ module.exports = (pool, io) => {
                 return res.status(500).json({ error: 'Impossibile generare codice univoco' });
             }
 
-            // Inserisci richiesta di autorizzazione
+            // Inserisci richiesta di autorizzazione con scadenza di 15 minuti
+            const expiresAt = new Date();
+            expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+
             const result = await client.query(`
-                INSERT INTO monitor_authorizations (monitor_id, authorization_code, ip_address, user_agent)
-                VALUES ($1, $2, $3, $4)
+                INSERT INTO monitor_authorizations (monitor_id, authorization_code, ip_address, user_agent, expires_at)
+                VALUES ($1, $2, $3, $4, $5)
                 RETURNING id, authorization_code, created_at, expires_at
-            `, [monitor_id, authCode, ip_address, user_agent]);
+            `, [monitor_id, authCode, ip_address, user_agent, expiresAt.toISOString()]);
 
             const request = result.rows[0];
-
-            // Invia email con codice
-            try {
-                const nodemailer = require('nodemailer');
-                const emailUser = process.env.EMAIL_USER;
-                const emailPass = process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS;
-
-                if (emailUser && emailPass) {
-                    const transporter = nodemailer.createTransport({
-                        service: 'gmail',
-                        auth: { user: emailUser, pass: emailPass }
-                    });
-
-                    const frontendUrl = process.env.FRONTEND_URL || 'https://ticket.logikaservice.it';
-                    const adminUrl = `${frontendUrl}/?showPackVision=true`;
-
-                    const mailOptions = {
-                        from: emailUser,
-                        to: 'info@logikaservice.it',
-                        subject: `🔐 Richiesta Autorizzazione Monitor PackVision - Monitor ${monitor_id}`,
-                        html: `
-                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                                <h2 style="color: #2563eb;">Richiesta Autorizzazione Monitor PackVision</h2>
-                                <p>È stata richiesta un'autorizzazione per il <strong>Monitor ${monitor_id}</strong>.</p>
-                                
-                                <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-                                    <p style="margin: 0; font-size: 12px; color: #6b7280;">CODICE DI AUTORIZZAZIONE</p>
-                                    <h1 style="margin: 10px 0; font-size: 48px; color: #2563eb; letter-spacing: 8px; font-family: monospace;">${authCode}</h1>
-                                    <p style="margin: 0; font-size: 12px; color: #6b7280;">Valido per 24 ore</p>
-                                </div>
-
-                                <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
-                                    <p style="margin: 0;"><strong>Dettagli Richiesta:</strong></p>
-                                    <ul style="margin: 10px 0; padding-left: 20px;">
-                                        <li><strong>Monitor:</strong> ${monitor_id}</li>
-                                        <li><strong>IP:</strong> ${ip_address}</li>
-                                        <li><strong>Browser:</strong> ${user_agent.substring(0, 100)}</li>
-                                        <li><strong>Data/Ora:</strong> ${new Date(request.created_at).toLocaleString('it-IT')}</li>
-                                    </ul>
-                                </div>
-
-                                <div style="margin: 30px 0;">
-                                    <p>Per autorizzare questo monitor:</p>
-                                    <ol>
-                                        <li>Accedi a <a href="${adminUrl}" style="color: #2563eb;">PackVision Control</a></li>
-                                        <li>Vai alla sezione "Autorizzazioni Monitor"</li>
-                                        <li>Cerca la richiesta e clicca "Autorizza"</li>
-                                    </ol>
-                                </div>
-
-                                <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
-                                    Se non hai richiesto questa autorizzazione, ignora questa email.
-                                </p>
-                            </div>
-                        `
-                    };
-
-                    await transporter.sendMail(mailOptions);
-                    console.log(`✅ [PackVision] Email autorizzazione monitor ${monitor_id} inviata a info@logikaservice.it`);
-                } else {
-                    console.warn('⚠️ [PackVision] Credenziali email non configurate, email non inviata');
-                }
-            } catch (emailErr) {
-                console.error('❌ [PackVision] Errore invio email autorizzazione:', emailErr);
-                // Non bloccare la risposta se l'email fallisce
-            }
 
             client.release();
             res.json({
                 success: true,
-                message: 'Codice di autorizzazione generato. Controlla la tua email.',
+                message: 'Richiesta di autorizzazione creata con successo.',
                 request_id: request.id,
+                authorization_code: authCode,
                 expires_at: request.expires_at
             });
 
@@ -657,6 +617,12 @@ module.exports = (pool, io) => {
                 FROM monitor_authorizations
                 WHERE authorized = false AND expires_at > NOW()
                 ORDER BY created_at DESC
+            `);
+
+            // Rimuovi automaticamente le richieste scadute
+            await client.query(`
+                DELETE FROM monitor_authorizations
+                WHERE authorized = false AND expires_at <= NOW()
             `);
 
             client.release();

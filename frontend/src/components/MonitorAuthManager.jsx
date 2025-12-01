@@ -47,25 +47,41 @@ const MonitorAuthManager = () => {
 
     const handleApprove = async (requestId) => {
         try {
+            console.log('📤 [MonitorAuthManager] Invio richiesta approvazione per request_id:', requestId);
             const response = await fetch(buildApiUrl('/api/packvision/monitor/approve'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ request_id: requestId })
             });
 
+            console.log('📥 [MonitorAuthManager] Risposta ricevuta:', {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok
+            });
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('❌ [MonitorAuthManager] Risposta non JSON:', text.substring(0, 200));
+                alert(`Errore: Il server ha restituito una risposta non valida (${response.status})`);
+                return;
+            }
+
+            const data = await response.json();
+            console.log('📥 [MonitorAuthManager] Dati ricevuti:', data);
+
             if (response.ok) {
-                const data = await response.json();
                 // Aggiorna le liste
                 await loadRequests();
                 await loadAuthorized();
-                alert(`Monitor ${data.monitor_id} autorizzato con successo!`);
+                alert(`✅ Monitor ${data.monitor_id} autorizzato con successo!`);
             } else {
-                const error = await response.json();
-                alert(`Errore: ${error.error || 'Impossibile autorizzare il monitor'}`);
+                alert(`❌ Errore: ${data.error || 'Impossibile autorizzare il monitor'}`);
             }
         } catch (err) {
-            console.error('Errore approvazione:', err);
-            alert('Errore nell\'autorizzazione del monitor');
+            console.error('❌ [MonitorAuthManager] Errore approvazione:', err);
+            alert(`❌ Errore nell'autorizzazione del monitor: ${err.message}`);
         }
     };
 
@@ -186,6 +202,20 @@ const MonitorAuthManager = () => {
                                                 <p><strong>Browser:</strong> {request.user_agent?.substring(0, 80)}...</p>
                                                 <p><strong>Richiesto:</strong> {new Date(request.created_at).toLocaleString('it-IT')}</p>
                                                 <p><strong>Scade:</strong> {new Date(request.expires_at).toLocaleString('it-IT')}</p>
+                                                {(() => {
+                                                    const expiresAt = new Date(request.expires_at);
+                                                    const now = new Date();
+                                                    const minutesLeft = Math.max(0, Math.floor((expiresAt - now) / 60000));
+                                                    return minutesLeft > 0 ? (
+                                                        <p className="text-amber-600 font-semibold">
+                                                            ⏱️ Tempo rimanente: {minutesLeft} minuti
+                                                        </p>
+                                                    ) : (
+                                                        <p className="text-red-600 font-semibold">
+                                                            ⚠️ Scaduta
+                                                        </p>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                         <button
