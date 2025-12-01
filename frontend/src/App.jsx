@@ -2892,6 +2892,15 @@ export default function TicketApp() {
           </div>
         )}
 
+        {!showDashboard && !showOrariTurni && !showVivaldi && !showPackVision && (
+          <div
+            className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200"
+            onClick={() => { setShowDashboard(true); }}
+          >
+            Torna alla Dashboard
+          </div>
+        )}
+
         {showPackVision && (
           <PackVision onClose={() => setShowPackVision(false)} />
         )}
