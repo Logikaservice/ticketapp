@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Monitor, Loader, AlertCircle, CheckCircle } from 'lucide-react';
+import { Monitor, Loader, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const MonitorAuthRequest = ({ monitorId, onAuthorized }) => {
@@ -8,6 +8,8 @@ const MonitorAuthRequest = ({ monitorId, onAuthorized }) => {
     const [requested, setRequested] = useState(false);
     const [requestId, setRequestId] = useState(null);
     const [checkingExisting, setCheckingExisting] = useState(true);
+    const [expiresAt, setExpiresAt] = useState(null);
+    const [timeRemaining, setTimeRemaining] = useState(null);
 
     // Verifica se esiste già una richiesta pendente per questo monitor
     useEffect(() => {
@@ -21,6 +23,7 @@ const MonitorAuthRequest = ({ monitorId, onAuthorized }) => {
                         console.log('✅ [MonitorAuthRequest] Richiesta esistente trovata:', existing);
                         setRequested(true);
                         setRequestId(existing.id);
+                        setExpiresAt(new Date(existing.expires_at));
                     }
                 }
             } catch (err) {
@@ -32,6 +35,30 @@ const MonitorAuthRequest = ({ monitorId, onAuthorized }) => {
 
         checkExistingRequest();
     }, [monitorId]);
+
+    // Countdown timer per la scadenza
+    useEffect(() => {
+        if (!expiresAt || !requested) return;
+
+        const updateCountdown = () => {
+            const now = new Date();
+            const diff = expiresAt - now;
+            
+            if (diff <= 0) {
+                setTimeRemaining(null);
+                return;
+            }
+
+            const minutes = Math.floor(diff / 60000);
+            const seconds = Math.floor((diff % 60000) / 1000);
+            setTimeRemaining({ minutes, seconds });
+        };
+
+        updateCountdown();
+        const interval = setInterval(updateCountdown, 1000);
+
+        return () => clearInterval(interval);
+    }, [expiresAt, requested]);
 
     // Ascolta WebSocket per notifiche di autorizzazione
     useEffect(() => {
@@ -90,6 +117,9 @@ const MonitorAuthRequest = ({ monitorId, onAuthorized }) => {
                     // Richiesta già esistente
                     setRequested(true);
                     setRequestId(data.request_id);
+                    if (data.expires_at) {
+                        setExpiresAt(new Date(data.expires_at));
+                    }
                     return;
                 }
                 throw new Error(data.error || 'Errore nella richiesta di autorizzazione');
@@ -97,6 +127,9 @@ const MonitorAuthRequest = ({ monitorId, onAuthorized }) => {
 
             setRequested(true);
             setRequestId(data.request_id);
+            if (data.expires_at) {
+                setExpiresAt(new Date(data.expires_at));
+            }
         } catch (err) {
             console.error('❌ [MonitorAuthRequest] Errore:', err);
             setError(err.message || 'Errore nella richiesta di autorizzazione. Verifica la connessione al server.');
@@ -116,7 +149,7 @@ const MonitorAuthRequest = ({ monitorId, onAuthorized }) => {
                         Autorizzazione Monitor {monitorId}
                     </h1>
                     <p className="text-gray-600">
-                        Questo monitor richiede autorizzazione per accedere a PackVision
+                        Richiedi l'autorizzazione per accedere.
                     </p>
                 </div>
 
@@ -139,7 +172,7 @@ const MonitorAuthRequest = ({ monitorId, onAuthorized }) => {
                                         <li>La richiesta apparirà immediatamente nella sezione "Richieste in Attesa" di PackVision Control</li>
                                         <li>L'amministratore autorizzerà questo monitor da PackVision Control</li>
                                         <li>Una volta autorizzato, questo monitor avrà accesso permanente</li>
-                                        <li>La richiesta scade dopo 15 minuti se non autorizzata</li>
+                                        <li>La richiesta scade dopo 5 minuti se non autorizzata</li>
                                     </ol>
                                 </div>
                             </div>
@@ -187,9 +220,17 @@ const MonitorAuthRequest = ({ monitorId, onAuthorized }) => {
                             <p className="text-sm text-green-800 mb-4">
                                 La richiesta di autorizzazione è stata creata e apparirà immediatamente nella sezione "Richieste in Attesa" di PackVision Control.
                             </p>
-                            <p className="text-xs text-green-700">
+                            <p className="text-xs text-green-700 mb-4">
                                 ID Richiesta: <span className="font-mono">{requestId}</span>
                             </p>
+                            {timeRemaining && (
+                                <div className="mt-4 inline-flex items-center justify-center px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                                    <Clock className="w-5 h-5 text-amber-600 mr-2" />
+                                    <span className="text-amber-800 font-semibold">
+                                        Tempo rimanente: {String(timeRemaining.minutes).padStart(2, '0')}:{String(timeRemaining.seconds).padStart(2, '0')}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">

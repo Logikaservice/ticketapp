@@ -473,7 +473,7 @@ module.exports = (pool, io) => {
                     authorized_at TIMESTAMPTZ,
                     authorized_by INTEGER,
                     created_at TIMESTAMPTZ DEFAULT NOW(),
-                    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '15 minutes')
+                    expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '5 minutes')
                 )
             `);
             await client.query(`
@@ -567,9 +567,9 @@ module.exports = (pool, io) => {
                 return res.status(500).json({ error: 'Impossibile generare codice univoco' });
             }
 
-            // Inserisci richiesta di autorizzazione con scadenza di 15 minuti
+            // Inserisci richiesta di autorizzazione con scadenza di 5 minuti
             const expiresAt = new Date();
-            expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+            expiresAt.setMinutes(expiresAt.getMinutes() + 5);
 
             const result = await client.query(`
                 INSERT INTO monitor_authorizations (monitor_id, authorization_code, ip_address, user_agent, expires_at)
