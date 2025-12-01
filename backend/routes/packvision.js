@@ -810,5 +810,73 @@ module.exports = (pool, io) => {
         }
     });
 
+    // DELETE /api/packvision/monitor/request/:request_id - Cancella una richiesta di autorizzazione
+    router.delete('/monitor/request/:request_id', requireDb, async (req, res) => {
+        const { request_id } = req.params;
+
+        if (!request_id) {
+            return res.status(400).json({ error: 'request_id richiesto' });
+        }
+
+        let client = null;
+        try {
+            client = await pool.connect();
+            await ensureMonitorAuthTable(client);
+
+            const result = await client.query(`
+                DELETE FROM monitor_authorizations
+                WHERE id = $1 AND authorized = false
+                RETURNING monitor_id
+            `, [request_id]);
+
+            client.release();
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Richiesta non trovata o già autorizzata' });
+            }
+
+            res.json({ 
+                success: true, 
+                message: `Richiesta ${request_id} cancellata`,
+                monitor_id: result.rows[0].monitor_id
+            });
+
+        } catch (err) {
+            if (client) client.release();
+            console.error('❌ [PackVision] Errore cancellazione richiesta monitor:', err);
+            res.status(500).json({ error: 'Errore interno del server' });
+        }
+    });
+
+    // DELETE /api/packvision/monitor/requests/cleanup - Cancella tutte le richieste pendenti (scadute e non)
+    router.delete('/monitor/requests/cleanup', requireDb, async (req, res) => {
+        let client = null;
+        try {
+            client = await pool.connect();
+            await ensureMonitorAuthTable(client);
+
+            // Cancella tutte le richieste non autorizzate (sia scadute che non)
+            const result = await client.query(`
+                DELETE FROM monitor_authorizations
+                WHERE authorized = false
+                RETURNING id, monitor_id
+            `);
+
+            client.release();
+
+            res.json({ 
+                success: true, 
+                message: `${result.rows.length} richieste cancellate`,
+                deleted_count: result.rows.length,
+                deleted_requests: result.rows
+            });
+
+        } catch (err) {
+            if (client) client.release();
+            console.error('❌ [PackVision] Errore pulizia richieste monitor:', err);
+            res.status(500).json({ error: 'Errore interno del server' });
+        }
+    });
+
     return router;
 };

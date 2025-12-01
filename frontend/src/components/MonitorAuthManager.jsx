@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Monitor, CheckCircle, XCircle, Clock, RefreshCw, Trash2 } from 'lucide-react';
+import { Monitor, CheckCircle, XCircle, Clock, RefreshCw, Trash2, X } from 'lucide-react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 const MonitorAuthManager = () => {
@@ -107,6 +107,53 @@ const MonitorAuthManager = () => {
         }
     };
 
+    const handleDeleteRequest = async (requestId) => {
+        if (!window.confirm('Sei sicuro di voler cancellare questa richiesta?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(buildApiUrl(`/api/packvision/monitor/request/${requestId}`), {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                await loadRequests();
+                alert('Richiesta cancellata con successo');
+            } else {
+                const error = await response.json();
+                alert(`Errore: ${error.error || 'Impossibile cancellare la richiesta'}`);
+            }
+        } catch (err) {
+            console.error('Errore cancellazione richiesta:', err);
+            alert('Errore nella cancellazione della richiesta');
+        }
+    };
+
+    const handleCleanupAllRequests = async () => {
+        if (!window.confirm('Sei sicuro di voler cancellare TUTTE le richieste pendenti? Questa azione non può essere annullata.')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(buildApiUrl('/api/packvision/monitor/requests/cleanup'), {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                await loadRequests();
+                alert(`${data.deleted_count} richieste cancellate con successo`);
+            } else {
+                const error = await response.json();
+                alert(`Errore: ${error.error || 'Impossibile cancellare le richieste'}`);
+            }
+        } catch (err) {
+            console.error('Errore pulizia richieste:', err);
+            alert('Errore nella cancellazione delle richieste');
+        }
+    };
+
     if (loading) {
         return <div className="text-center py-8 text-gray-500">Caricamento...</div>;
     }
@@ -164,13 +211,25 @@ const MonitorAuthManager = () => {
                         <Clock className="text-amber-600" size={20} />
                         Richieste in Attesa
                     </h3>
-                    <button
-                        onClick={() => { loadRequests(); loadAuthorized(); }}
-                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Aggiorna"
-                    >
-                        <RefreshCw size={18} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {requests.length > 0 && (
+                            <button
+                                onClick={handleCleanupAllRequests}
+                                className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-1"
+                                title="Cancella tutte le richieste"
+                            >
+                                <Trash2 size={16} />
+                                Cancella Tutte
+                            </button>
+                        )}
+                        <button
+                            onClick={() => { loadRequests(); loadAuthorized(); }}
+                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Aggiorna"
+                        >
+                            <RefreshCw size={18} />
+                        </button>
+                    </div>
                 </div>
                 <div className="p-6">
                     {requests.length === 0 ? (
@@ -218,13 +277,22 @@ const MonitorAuthManager = () => {
                                                 })()}
                                             </div>
                                         </div>
-                                        <button
-                                            onClick={() => handleApprove(request.id)}
-                                            className="ml-4 px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2"
-                                        >
-                                            <CheckCircle size={18} />
-                                            Autorizza
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => handleApprove(request.id)}
+                                                className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2"
+                                            >
+                                                <CheckCircle size={18} />
+                                                Autorizza
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteRequest(request.id)}
+                                                className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center gap-1"
+                                                title="Cancella richiesta"
+                                            >
+                                                <X size={18} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
