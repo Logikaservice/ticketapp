@@ -35,7 +35,7 @@ const getPortfolio = () => {
 
 // GET /api/crypto/history (Get chart data)
 router.get('/history', (req, res) => {
-    db.all("SELECT price, timestamp FROM price_history WHERE symbol = 'solana' ORDER BY timestamp DESC LIMIT 50", (err, rows) => {
+    db.all("SELECT price, timestamp FROM price_history WHERE symbol = 'solana' ORDER BY timestamp DESC LIMIT 500", (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         // Reverse to show oldest to newest
         const history = rows.map(row => ({
@@ -206,7 +206,7 @@ const CHECK_INTERVAL_MS = 10000; // Check every 10 seconds
 
 // Load history from DB on startup
 const loadPriceHistory = () => {
-    db.all("SELECT price FROM price_history WHERE symbol = 'solana' ORDER BY timestamp DESC LIMIT 50", (err, rows) => {
+    db.all("SELECT price FROM price_history WHERE symbol = 'solana' ORDER BY timestamp DESC LIMIT 300", (err, rows) => {
         if (!err && rows) {
             // Reverse because SQL gives DESC (newest first), but we need chronological order for RSI
             priceHistory = rows.map(r => r.price).reverse();

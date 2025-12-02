@@ -43,7 +43,7 @@ const CryptoDashboard = () => {
 
                 setPriceData(prev => {
                     const newData = [...prev, { time: new Date().toLocaleTimeString(), price }];
-                    if (newData.length > 50) newData.shift(); // Keep more history for chart
+                    if (newData.length > 500) newData.shift(); // Keep more history for chart
                     return newData;
                 });
             }
@@ -53,7 +53,7 @@ const CryptoDashboard = () => {
             setCurrentPrice(mockPrice);
             setPriceData(prev => {
                 const newData = [...prev, { time: new Date().toLocaleTimeString(), price: mockPrice }];
-                if (newData.length > 50) newData.shift();
+                if (newData.length > 500) newData.shift();
                 return newData;
             });
         }
