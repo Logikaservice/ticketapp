@@ -264,7 +264,7 @@ const calculateRSI = (prices) => {
 const runBotCycle = async () => {
     try {
         // 1. Check if bot is active (we run price collection ANYWAY to keep history valid)
-        // Use Promise-based dbGet to properly await the result
+        // Use Promise-based dbGet to properly await the result and avoid unhandled promise rejections
         const bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'");
         const isBotActive = bot && bot.is_active;
 
@@ -404,7 +404,7 @@ const runBotCycle = async () => {
         }
     } catch (error) {
         console.error('Bot Cycle Error:', error.message);
-        // Errors from executeTrade and other async operations will now be properly caught here
+        // Errors from executeTrade and other async operations are now properly caught here
     }
 };
 
