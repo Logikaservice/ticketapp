@@ -77,17 +77,19 @@ export default function TicketApp() {
   }
 
   // 4. Salva il dominio richiesto SOLO se presente nell'URL o nell'hostname
-  if (testDomain === 'orari' || testDomain === 'turni' || testDomain === 'vivaldi' || testDomain === 'packvision' || testDomain === 'crypto') {
-    localStorage.setItem('requestedDomain', testDomain);
-  } else if (isOrariHostname) {
-    localStorage.setItem('requestedDomain', 'orari');
-  } else if (isVivaldiHostname) {
-    localStorage.setItem('requestedDomain', 'vivaldi');
-  } else if (isPackVisionHostname) {
-    localStorage.setItem('requestedDomain', 'packvision');
-  } else if (isCryptoHostname) {
-    localStorage.setItem('requestedDomain', 'crypto');
-  }
+  useEffect(() => {
+    if (testDomain === 'orari' || testDomain === 'turni' || testDomain === 'vivaldi' || testDomain === 'packvision' || testDomain === 'crypto') {
+      localStorage.setItem('requestedDomain', testDomain);
+    } else if (isOrariHostname) {
+      localStorage.setItem('requestedDomain', 'orari');
+    } else if (isVivaldiHostname) {
+      localStorage.setItem('requestedDomain', 'vivaldi');
+    } else if (isPackVisionHostname) {
+      localStorage.setItem('requestedDomain', 'packvision');
+    } else if (isCryptoHostname) {
+      localStorage.setItem('requestedDomain', 'crypto');
+    }
+  }, [testDomain, isOrariHostname, isVivaldiHostname, isPackVisionHostname, isCryptoHostname]);
 
   // 5. Determina il dominio finale: priorità a hostname reale, poi testDomain
   // MODIFICA: Rimosso localStorage.getItem('requestedDomain') per evitare persistenza indesiderata
@@ -2735,13 +2737,13 @@ export default function TicketApp() {
     window.location.hostname.includes('packvision');
   const isDisplayMode = currentUrlParams.get('mode') === 'display';
 
-  console.log('🔍 [App] Controllo PackVision:', {
-    hostname: window.location.hostname,
-    isPackVisionDisplayHostname,
-    mode: currentUrlParams.get('mode'),
-    isDisplayMode,
-    monitor: currentUrlParams.get('monitor')
-  });
+  // console.log('🔍 [App] Controllo PackVision:', {
+  //   hostname: window.location.hostname,
+  //   isPackVisionDisplayHostname,
+  //   mode: currentUrlParams.get('mode'),
+  //   isDisplayMode,
+  //   monitor: currentUrlParams.get('monitor')
+  // });
 
   if (isDisplayMode || isPackVisionDisplayHostname) {
     const monitorId = currentUrlParams.get('monitor') ? parseInt(currentUrlParams.get('monitor'), 10) : null;
@@ -2767,7 +2769,7 @@ export default function TicketApp() {
     );
   }
 
-  console.log('❌ [App] Non in modalità display PackVision, procedo con login normale');
+  // console.log('❌ [App] Non in modalità display PackVision, procedo con login normale');
 
   if (!isLoggedIn) {
     return (
