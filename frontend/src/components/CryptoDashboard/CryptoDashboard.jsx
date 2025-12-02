@@ -14,6 +14,8 @@ const CryptoDashboard = () => {
     // Use relative path for production (handled by Nginx) and localhost for dev
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
+    const [allTrades, setAllTrades] = useState([]); // For chart plotting
+
     const fetchData = async () => {
         try {
             const res = await fetch(`${apiBase}/api/crypto/dashboard`);
@@ -21,6 +23,7 @@ const CryptoDashboard = () => {
                 const data = await res.json();
                 setPortfolio({ ...data.portfolio, rsi: data.rsi });
                 setTrades(data.recent_trades);
+                setAllTrades(data.all_trades || []); // Store full history for chart
                 const bot = data.active_bots.find(b => b.strategy_name === 'RSI_Strategy');
                 if (bot) setBotStatus({ active: bot.is_active === 1, strategy: bot.strategy_name });
             }
@@ -40,7 +43,7 @@ const CryptoDashboard = () => {
 
                 setPriceData(prev => {
                     const newData = [...prev, { time: new Date().toLocaleTimeString(), price }];
-                    if (newData.length > 30) newData.shift();
+                    if (newData.length > 50) newData.shift(); // Keep more history for chart
                     return newData;
                 });
             }
@@ -50,7 +53,7 @@ const CryptoDashboard = () => {
             setCurrentPrice(mockPrice);
             setPriceData(prev => {
                 const newData = [...prev, { time: new Date().toLocaleTimeString(), price: mockPrice }];
-                if (newData.length > 30) newData.shift();
+                if (newData.length > 50) newData.shift();
                 return newData;
             });
         }
@@ -96,6 +99,40 @@ const CryptoDashboard = () => {
     // Calculate total balance (EUR + Crypto value)
     const totalBalance = portfolio.balance_usd + ((portfolio.holdings['solana'] || 0) * currentPrice);
 
+    // Calculate P&L
+    const holdings = portfolio.holdings['solana'] || 0;
+    const avgPrice = portfolio.avg_buy_price || 0;
+    const investedValue = holdings * avgPrice;
+    const currentValue = holdings * currentPrice;
+    const pnlValue = currentValue - investedValue;
+    const pnlPercent = investedValue > 0 ? (pnlValue / investedValue) * 100 : 0;
+
+    // Prepare Chart Data with Trades
+    const chartData = priceData.map(point => {
+        // Find if any trade happened around this time (simple matching for demo)
+        const trade = allTrades.find(t => {
+            const tradeTime = new Date(t.timestamp).getTime();
+            // Match within 1 minute window for demo visualization
+            // If point.timestamp is missing (live data), we approximate
+            const pointTime = point.timestamp ? new Date(point.timestamp).getTime() : Date.now();
+            return Math.abs(tradeTime - pointTime) < 60000;
+        });
+
+        return {
+            ...point,
+            buy: trade && trade.type === 'buy' ? point.price : null,
+            sell: trade && trade.type === 'sell' ? point.price : null
+        };
+    });
+
+    // Custom Dot for Trades
+    const TradeMarker = (props) => {
+        const { cx, cy, payload } = props;
+        if (payload.buy) return <circle cx={cx} cy={cy} r={6} fill="#4ade80" stroke="#fff" strokeWidth={2} />;
+        if (payload.sell) return <circle cx={cx} cy={cy} r={6} fill="#ef4444" stroke="#fff" strokeWidth={2} />;
+        return null;
+    };
+
     return (
         <div className="crypto-dashboard">
             <div className="crypto-header">
@@ -107,11 +144,26 @@ const CryptoDashboard = () => {
                 </div>
             </div>
 
-            <div className="balance-card">
-                <div className="balance-label">Total Balance</div>
-                <div className="balance-amount">€{totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                <div className="balance-change change-positive">
-                    <ArrowUpRight size={16} /> +2.4% Today
+            <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+                <div className="balance-card" style={{ marginBottom: 0 }}>
+                    <div className="balance-label">Total Balance</div>
+                    <div className="balance-amount">€{totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="balance-change change-positive">
+                        <ArrowUpRight size={16} /> +2.4% Today
+                    </div>
+                </div>
+
+                <div className="balance-card" style={{ marginBottom: 0, background: 'linear-gradient(145deg, #1c1c1e, #2a2a2d)' }}>
+                    <div className="balance-label">Open Position P&L</div>
+                    <div className={`balance-amount ${pnlValue >= 0 ? 'text-green-500' : 'text-red-500'}`} style={{ fontSize: '2.5rem' }}>
+                        {pnlValue >= 0 ? '+' : ''}€{pnlValue.toFixed(2)}
+                    </div>
+                    <div style={{ color: pnlValue >= 0 ? '#4ade80' : '#f87171', fontWeight: 'bold' }}>
+                        {pnlValue >= 0 ? '▲' : '▼'} {pnlPercent.toFixed(2)}%
+                        <span style={{ color: '#9ca3af', marginLeft: '10px', fontSize: '0.9rem', fontWeight: 'normal' }}>
+                            (Avg Price: €{avgPrice.toFixed(2)})
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -123,7 +175,7 @@ const CryptoDashboard = () => {
                     </div>
                     <div className="chart-container">
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={priceData}>
+                            <LineChart data={chartData}>
                                 <XAxis dataKey="time" hide />
                                 <YAxis domain={['auto', 'auto']} hide />
                                 <Tooltip
@@ -136,7 +188,7 @@ const CryptoDashboard = () => {
                                     dataKey="price"
                                     stroke="#3b82f6"
                                     strokeWidth={3}
-                                    dot={false}
+                                    dot={<TradeMarker />}
                                     animationDuration={500}
                                 />
                             </LineChart>
