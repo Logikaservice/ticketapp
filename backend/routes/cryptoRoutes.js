@@ -6,7 +6,7 @@ const https = require('https');
 // Helper for native HTTPS get request (no dependencies)
 const httpsGet = (url) => {
     return new Promise((resolve, reject) => {
-        https.get(url, (res) => {
+        const req = https.get(url, (res) => {
             let data = '';
             res.on('data', (chunk) => data += chunk);
             res.on('end', () => {
@@ -16,29 +16,12 @@ const httpsGet = (url) => {
                     reject(e);
                 }
             });
-        }).on('error', (err) => reject(err));
+        });
+
+        req.on('error', (err) => reject(err));
+        req.end();
     });
 };
-
-// ... inside runBotCycle ...
-try {
-    // Fetch Price using native https
-    const data = await httpsGet(`https://api.coincap.io/v2/assets/${symbol}`);
-    const priceUsd = parseFloat(data.data.priceUsd);
-
-    // Convert to EUR
-    let eurRate = 1.05;
-    try {
-        const rateData = await httpsGet('https://api.coincap.io/v2/rates/euro');
-        eurRate = parseFloat(rateData.data.rateUsd) || 1.05;
-    } catch (e) { }
-
-    currentPrice = priceUsd / eurRate; // Price in EUR
-} catch (e) {
-    console.error('Error fetching price:', e.message);
-    // Use a realistic fallback if API fails completely
-    if (currentPrice === 0) currentPrice = 120.00 + (Math.random() * 0.5);
-}
 
 // Helper to get portfolio
 const getPortfolio = () => {
@@ -97,26 +80,18 @@ router.get('/price/:symbol', async (req, res) => {
 
     try {
         // 1. Fetch Crypto Price (USD)
-        const response = await fetch(`https://api.coincap.io/v2/assets/${symbol}`);
-        if (!response.ok) throw new Error(`CoinCap API Error: ${response.statusText}`);
-        const data = await response.json();
+        const data = await httpsGet(`https://api.coincap.io/v2/assets/${symbol}`);
         let price = parseFloat(data.data.priceUsd);
 
         // 2. Convert to EUR if requested
         if (currency === 'eur') {
             try {
-                const rateRes = await fetch('https://api.coincap.io/v2/rates/euro');
-                if (rateRes.ok) {
-                    const rateData = await rateRes.json();
-                    const eurRate = parseFloat(rateData.data.rateUsd); // 1 EUR = X USD
-                    price = price / eurRate;
-                } else {
-                    console.warn("⚠️ Failed to fetch EUR rate, using default 1.05");
-                    price = price / 1.05; // Fallback rate
-                }
+                const rateData = await httpsGet('https://api.coincap.io/v2/rates/euro');
+                const eurRate = parseFloat(rateData.data.rateUsd) || 1.05;
+                price = price / eurRate;
             } catch (e) {
-                console.warn("⚠️ Error fetching EUR rate:", e.message);
-                price = price / 1.05; // Fallback rate
+                console.warn("⚠️ Failed to fetch EUR rate, using default 1.05");
+                price = price / 1.05;
             }
         }
 
@@ -126,7 +101,7 @@ router.get('/price/:symbol', async (req, res) => {
 
         // Fallback Mock Data to prevent dashboard crash
         console.log("⚠️ Using Mock Data for price due to error");
-        const mockPrice = symbol === 'solana' ? 220.50 : 50000;
+        const mockPrice = symbol === 'solana' ? 120.50 : 50000;
         res.json({ data: { priceUsd: mockPrice, isMock: true } });
     }
 });
@@ -143,8 +118,6 @@ router.post('/bot/toggle', (req, res) => {
 // POST /api/crypto/trade (Simulation)
 router.post('/trade', async (req, res) => {
     const { symbol, type, amount, price, strategy } = req.body;
-    // In a real app, we would check balance here.
-    // For this demo, we just record it.
 
     const cost = amount * price;
 
