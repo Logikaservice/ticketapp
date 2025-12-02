@@ -339,17 +339,20 @@ const runBotCycle = async () => {
 
                 // 1. RSI Overbought (Classic Signal)
                 if (rsi > RSI_OVERBOUGHT) {
-                    await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `RSI Overbought (${rsi.toFixed(2)})`);
+                    const pnl = (currentPrice - lastBuyPrice) * cryptoAmount;
+                    await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `RSI Overbought (${rsi.toFixed(2)})`, pnl);
                     console.log(`✅ BOT SELL: RSI ${rsi.toFixed(2)} > ${RSI_OVERBOUGHT}. Taking profit.`);
                 }
                 // 2. Take Profit (Hard Target)
                 else if (pnlPercent >= TAKE_PROFIT_PCT) {
-                    await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `Take Profit (+${(pnlPercent * 100).toFixed(2)}%)`);
+                    const pnl = (currentPrice - lastBuyPrice) * cryptoAmount;
+                    await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `Take Profit (+${(pnlPercent * 100).toFixed(2)}%)`, pnl);
                     console.log(`💰 BOT SELL: Take Profit triggered. Gain: +${(pnlPercent * 100).toFixed(2)}%`);
                 }
                 // 3. Stop Loss (Safety Net)
                 else if (pnlPercent <= -STOP_LOSS_PCT) {
-                    await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `Stop Loss (${(pnlPercent * 100).toFixed(2)}%)`);
+                    const pnl = (currentPrice - lastBuyPrice) * cryptoAmount;
+                    await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `Stop Loss (${(pnlPercent * 100).toFixed(2)}%)`, pnl);
                     console.log(`🛡️ BOT SELL: Stop Loss triggered. Loss: ${(pnlPercent * 100).toFixed(2)}%`);
                 }
             }
@@ -360,7 +363,7 @@ const runBotCycle = async () => {
 };
 
 // Helper to execute trade internally
-const executeTrade = (symbol, type, amount, price, strategy) => {
+const executeTrade = (symbol, type, amount, price, strategy, realizedPnl = null) => {
     const cost = amount * price;
     db.get("SELECT * FROM portfolio LIMIT 1", (err, row) => {
         if (err) return;
@@ -378,8 +381,8 @@ const executeTrade = (symbol, type, amount, price, strategy) => {
 
         db.serialize(() => {
             db.run("UPDATE portfolio SET balance_usd = ?, holdings = ?", [balance, JSON.stringify(holdings)]);
-            db.run("INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
-                [symbol, type, amount, price, strategy]);
+            db.run("INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES (?, ?, ?, ?, ?, ?)",
+                [symbol, type, amount, price, strategy, realizedPnl]);
         });
     });
 };

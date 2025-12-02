@@ -256,18 +256,70 @@ const CryptoDashboard = () => {
                     {trades.length === 0 ? (
                         <div style={{ color: '#555', textAlign: 'center', padding: '20px' }}>No trades yet. Start the bot!</div>
                     ) : (
-                        trades.map((trade, i) => (
-                            <div key={i} className="trade-item">
-                                <div className="trade-info">
-                                    <span className="trade-symbol">{trade.symbol ? trade.symbol.toUpperCase() : 'SOL'}</span>
-                                    <span className="trade-time">{new Date(trade.timestamp).toLocaleTimeString()}</span>
-                                </div>
-                                <div className={`trade-amount ${trade.type === 'buy' ? 'type-buy' : 'type-sell'}`}>
-                                    {trade.type === 'buy' ? '+' : '-'}{trade.amount.toFixed(4)}
-                                    <div style={{ fontSize: '0.8rem', color: '#777' }}>@ €{trade.price.toFixed(2)}</div>
-                                </div>
-                            </div>
-                        ))
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                            <thead>
+                                <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Time</th>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Type</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>Price</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>Amount</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>Total</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>P&L / Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {trades.map((trade, i) => {
+                                    const isBuy = trade.type === 'buy';
+                                    const totalValue = trade.amount * trade.price;
+                                    const pnl = trade.profit_loss;
+
+                                    // Theoretical P&L for BUYs (Open Positions)
+                                    const theoreticalPnl = isBuy ? (currentPrice - trade.price) * trade.amount : 0;
+                                    const theoreticalPnlPercent = isBuy ? ((currentPrice - trade.price) / trade.price) * 100 : 0;
+
+                                    return (
+                                        <tr key={i} style={{ borderBottom: '1px solid #1f2937' }}>
+                                            <td style={{ padding: '10px', color: '#9ca3af' }}>
+                                                {new Date(trade.timestamp).toLocaleTimeString()}
+                                            </td>
+                                            <td style={{ padding: '10px' }}>
+                                                <span style={{
+                                                    color: isBuy ? '#4ade80' : '#ef4444',
+                                                    fontWeight: 'bold',
+                                                    textTransform: 'uppercase'
+                                                }}>
+                                                    {trade.type}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
+                                                €{trade.price.toFixed(2)}
+                                            </td>
+                                            <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
+                                                {trade.amount.toFixed(4)}
+                                            </td>
+                                            <td style={{ padding: '10px', textAlign: 'right', color: '#9ca3af' }}>
+                                                €{totalValue.toFixed(2)}
+                                            </td>
+                                            <td style={{ padding: '10px', textAlign: 'right' }}>
+                                                {!isBuy && pnl !== null ? (
+                                                    <span style={{ color: pnl >= 0 ? '#4ade80' : '#ef4444', fontWeight: 'bold' }}>
+                                                        {pnl >= 0 ? '+' : ''}€{pnl.toFixed(2)}
+                                                    </span>
+                                                ) : isBuy ? (
+                                                    <span style={{ color: theoreticalPnl >= 0 ? '#4ade80' : '#ef4444', fontSize: '0.85rem' }}>
+                                                        {theoreticalPnl >= 0 ? '+' : ''}€{theoreticalPnl.toFixed(2)} ({theoreticalPnlPercent.toFixed(2)}%)
+                                                        <br />
+                                                        <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>Unrealized</span>
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ color: '#6b7280' }}>-</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     )}
                 </div>
             </div>
