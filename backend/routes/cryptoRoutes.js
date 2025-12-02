@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../crypto_db');
-const fetch = require('node-fetch');
+// Dynamic import wrapper for node-fetch v3+ compatibility in CommonJS
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 // Helper to get portfolio
 const getPortfolio = () => {
@@ -55,25 +56,42 @@ router.get('/dashboard', async (req, res) => {
 
 // GET /api/crypto/price/:symbol (Proxy to get real price)
 router.get('/price/:symbol', async (req, res) => {
-    const symbol = req.params.symbol.toLowerCase(); // e.g., bitcoin
-    const currency = req.query.currency || 'usd'; // Default to USD
+    const { symbol } = req.params;
+    const { currency } = req.query; // 'eur' or 'usd'
 
     try {
-        // Using CoinCap API for free real-time data
+        // 1. Fetch Crypto Price (USD)
         const response = await fetch(`https://api.coincap.io/v2/assets/${symbol}`);
+        if (!response.ok) throw new Error(`CoinCap API Error: ${response.statusText}`);
         const data = await response.json();
         let price = parseFloat(data.data.priceUsd);
 
+        // 2. Convert to EUR if requested
         if (currency === 'eur') {
-            const rateRes = await fetch('https://api.coincap.io/v2/rates/euro');
-            const rateData = await rateRes.json();
-            const eurRate = parseFloat(rateData.data.rateUsd) || 1.05;
-            price = price / eurRate;
+            try {
+                const rateRes = await fetch('https://api.coincap.io/v2/rates/euro');
+                if (rateRes.ok) {
+                    const rateData = await rateRes.json();
+                    const eurRate = parseFloat(rateData.data.rateUsd); // 1 EUR = X USD
+                    price = price / eurRate;
+                } else {
+                    console.warn("⚠️ Failed to fetch EUR rate, using default 1.05");
+                    price = price / 1.05; // Fallback rate
+                }
+            } catch (e) {
+                console.warn("⚠️ Error fetching EUR rate:", e.message);
+                price = price / 1.05; // Fallback rate
+            }
         }
 
-        res.json({ data: { priceUsd: price } }); // Keep structure compatible
+        res.json({ data: { priceUsd: price } });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch price' });
+        console.error('❌ Error fetching price:', error.message);
+
+        // Fallback Mock Data to prevent dashboard crash
+        console.log("⚠️ Using Mock Data for price due to error");
+        const mockPrice = symbol === 'solana' ? 220.50 : 50000;
+        res.json({ data: { priceUsd: mockPrice, isMock: true } });
     }
 });
 
@@ -121,10 +139,6 @@ router.post('/trade', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
-// ==========================================
-// BOT ENGINE (Background Worker)
-// ==========================================
 
 // ==========================================
 // BOT ENGINE (Background Worker)
