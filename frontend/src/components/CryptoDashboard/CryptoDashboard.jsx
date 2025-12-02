@@ -11,7 +11,6 @@ const CryptoDashboard = () => {
     const [currentPrice, setCurrentPrice] = useState(0);
 
     // Determine API base URL
-    // Use relative path for production (handled by Nginx) and localhost for dev
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
     const [allTrades, setAllTrades] = useState([]); // For chart plotting
@@ -119,12 +118,10 @@ const CryptoDashboard = () => {
 
     // Prepare Chart Data with Trades
     const chartData = priceData.map(point => {
-        // Find if any trade happened around this time (simple matching for demo)
         const trade = allTrades.find(t => {
             if (!point.timestamp) return false;
             const tradeTime = new Date(t.timestamp).getTime();
             const pointTime = new Date(point.timestamp).getTime();
-            // Match within 2 minutes window to be safe with intervals
             return Math.abs(tradeTime - pointTime) < 120000;
         });
 
@@ -146,7 +143,8 @@ const CryptoDashboard = () => {
                 </div>
             </div>
 
-            <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            {/* TOP STATS GRID - 3 COLUMNS */}
+            <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.8fr', gap: '20px', marginBottom: '20px' }}>
                 <div className="balance-card" style={{ marginBottom: 0 }}>
                     <div className="balance-label">Total Balance</div>
                     <div className="balance-amount">€{totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
@@ -163,12 +161,37 @@ const CryptoDashboard = () => {
                     <div style={{ color: pnlValue >= 0 ? '#4ade80' : '#f87171', fontWeight: 'bold' }}>
                         {pnlValue >= 0 ? '▲' : '▼'} {pnlPercent.toFixed(2)}%
                         <span style={{ color: '#9ca3af', marginLeft: '10px', fontSize: '0.9rem', fontWeight: 'normal' }}>
-                            (Avg Price: €{avgPrice.toFixed(2)})
+                            (Avg: €{avgPrice.toFixed(2)})
                         </span>
                     </div>
                 </div>
+
+                {/* Compact Bot Control */}
+                <div className="balance-card" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="balance-label">AI Bot Status</div>
+                        <Power size={20} className={botStatus.active ? "text-green-500" : "text-gray-500"} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+                        <div className={`bot-indicator ${botStatus.active ? 'bot-active' : 'bot-inactive'}`} style={{ width: '40px', height: '40px' }}>
+                            <Activity size={20} />
+                        </div>
+                        <div>
+                            <div style={{ fontWeight: 'bold', color: botStatus.active ? '#4ade80' : '#9ca3af' }}>
+                                {botStatus.active ? "Active" : "Paused"}
+                            </div>
+                            {portfolio.rsi !== null && (
+                                <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>RSI: {portfolio.rsi.toFixed(2)}</div>
+                            )}
+                        </div>
+                    </div>
+                    <button className="toggle-btn" onClick={toggleBot} style={{ marginTop: '10px', padding: '8px', fontSize: '0.9rem' }}>
+                        {botStatus.active ? "Stop Bot" : "Start Bot"}
+                    </button>
+                </div>
             </div>
 
+            {/* MAIN CRYPTO GRID - CHART & OPEN POSITIONS */}
             <div className="crypto-grid">
                 <div className="crypto-card">
                     <div className="card-title">
@@ -224,107 +247,71 @@ const CryptoDashboard = () => {
                     </div>
                 </div>
 
+                {/* MT5 Style Open Positions (Moved Here) */}
                 <div className="crypto-card">
                     <div className="card-title">
-                        <Power size={20} className={botStatus.active ? "text-green-500" : "text-gray-500"} />
-                        AI Bot Control
+                        <Activity size={20} className="text-blue-500" />
+                        Open Positions (Live)
                     </div>
-                    <div className="bot-status-container">
-                        <div className={`bot-indicator ${botStatus.active ? 'bot-active' : 'bot-inactive'}`}>
-                            <Activity size={32} />
-                        </div>
-                        <div>
-                            <h3>{botStatus.active ? "AI Trading Active" : "AI Paused"}</h3>
-                            <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>Strategy: RSI Momentum</p>
-                            {portfolio.rsi !== undefined && portfolio.rsi !== null && (
-                                <div style={{ marginTop: '5px', fontSize: '0.9rem', fontWeight: 'bold', color: portfolio.rsi < 30 ? '#10b981' : portfolio.rsi > 70 ? '#ef4444' : '#f59e0b' }}>
-                                    RSI: {portfolio.rsi.toFixed(2)}
-                                    <span style={{ marginLeft: '5px', fontWeight: 'normal', color: '#9ca3af' }}>
-                                        ({portfolio.rsi < 30 ? 'Oversold - BUY' : portfolio.rsi > 70 ? 'Overbought - SELL' : 'Neutral'})
-                                    </span>
-                                </div>
-                            )}
-                            {(portfolio.rsi === null || portfolio.rsi === undefined) && (
-                                <div style={{ marginTop: '5px', fontSize: '0.8rem', color: '#6b7280' }}>
-                                    Gathering data for RSI...
-                                </div>
-                            )}
-                        </div>
-                        <button className="toggle-btn" onClick={toggleBot}>
-                            {botStatus.active ? "Stop Bot" : "Start Bot"}
-                        </button>
-                    </div>
-                </div>
-            </div>
+                    <div className="trades-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                        {(() => {
+                            // Calculate Open Positions (FIFO Logic)
+                            let totalSold = trades.filter(t => t.type === 'sell').reduce((acc, t) => acc + t.amount, 0);
+                            const buys = trades.filter(t => t.type === 'buy').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); // Oldest first
+                            const openPositions = [];
 
-            {/* MT5 Style Open Positions */}
-            <div className="crypto-card" style={{ marginTop: '20px' }}>
-                <div className="card-title">
-                    <Activity size={20} className="text-blue-500" />
-                    Open Positions (Live)
-                </div>
-                <div className="trades-list">
-                    {(() => {
-                        // Calculate Open Positions (FIFO Logic)
-                        let totalSold = trades.filter(t => t.type === 'sell').reduce((acc, t) => acc + t.amount, 0);
-                        const buys = trades.filter(t => t.type === 'buy').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); // Oldest first
-                        const openPositions = [];
-
-                        for (const buy of buys) {
-                            if (totalSold >= buy.amount) {
-                                totalSold -= buy.amount; // Fully sold
-                            } else {
-                                const remaining = buy.amount - totalSold;
-                                openPositions.push({ ...buy, amount: remaining, originalAmount: buy.amount });
-                                totalSold = 0; // All sells accounted for
+                            for (const buy of buys) {
+                                if (totalSold >= buy.amount) {
+                                    totalSold -= buy.amount; // Fully sold
+                                } else {
+                                    const remaining = buy.amount - totalSold;
+                                    openPositions.push({ ...buy, amount: remaining, originalAmount: buy.amount });
+                                    totalSold = 0; // All sells accounted for
+                                }
                             }
-                        }
 
-                        if (openPositions.length === 0) {
-                            return <div style={{ color: '#555', textAlign: 'center', padding: '20px' }}>No open positions.</div>;
-                        }
+                            if (openPositions.length === 0) {
+                                return <div style={{ color: '#555', textAlign: 'center', padding: '20px' }}>No open positions.</div>;
+                            }
 
-                        return (
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                                <thead>
-                                    <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
-                                        <th style={{ padding: '10px', textAlign: 'left' }}>Time</th>
-                                        <th style={{ padding: '10px', textAlign: 'left' }}>Symbol</th>
-                                        <th style={{ padding: '10px', textAlign: 'right' }}>Entry Price</th>
-                                        <th style={{ padding: '10px', textAlign: 'right' }}>Current</th>
-                                        <th style={{ padding: '10px', textAlign: 'right' }}>Volume</th>
-                                        <th style={{ padding: '10px', textAlign: 'right' }}>P&L</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {openPositions.map((pos, i) => {
-                                        const pnl = (currentPrice - pos.price) * pos.amount;
-                                        const pnlPercent = ((currentPrice - pos.price) / pos.price) * 100;
+                            return (
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+                                    <thead>
+                                        <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
+                                            <th style={{ padding: '5px', textAlign: 'left' }}>Time</th>
+                                            <th style={{ padding: '5px', textAlign: 'right' }}>Price</th>
+                                            <th style={{ padding: '5px', textAlign: 'right' }}>Vol</th>
+                                            <th style={{ padding: '5px', textAlign: 'right' }}>P&L</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {openPositions.map((pos, i) => {
+                                            const pnl = (currentPrice - pos.price) * pos.amount;
 
-                                        return (
-                                            <tr key={i} style={{ borderBottom: '1px solid #1f2937', background: pnl >= 0 ? 'rgba(74, 222, 128, 0.05)' : 'rgba(239, 68, 68, 0.05)' }}>
-                                                <td style={{ padding: '10px', color: '#9ca3af' }}>{new Date(pos.timestamp).toLocaleTimeString()}</td>
-                                                <td style={{ padding: '10px', fontWeight: 'bold' }}>{pos.symbol.toUpperCase()}</td>
-                                                <td style={{ padding: '10px', textAlign: 'right' }}>€{pos.price.toFixed(2)}</td>
-                                                <td style={{ padding: '10px', textAlign: 'right', color: '#fff' }}>€{currentPrice.toFixed(2)}</td>
-                                                <td style={{ padding: '10px', textAlign: 'right' }}>{pos.amount.toFixed(4)}</td>
-                                                <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: pnl >= 0 ? '#4ade80' : '#ef4444' }}>
-                                                    {pnl >= 0 ? '+' : ''}€{pnl.toFixed(2)} <span style={{ fontSize: '0.8em', fontWeight: 'normal' }}>({pnlPercent.toFixed(2)}%)</span>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        );
-                    })()}
+                                            return (
+                                                <tr key={i} style={{ borderBottom: '1px solid #1f2937', background: pnl >= 0 ? 'rgba(74, 222, 128, 0.05)' : 'rgba(239, 68, 68, 0.05)' }}>
+                                                    <td style={{ padding: '5px', color: '#9ca3af' }}>{new Date(pos.timestamp).toLocaleTimeString()}</td>
+                                                    <td style={{ padding: '5px', textAlign: 'right' }}>€{pos.price.toFixed(2)}</td>
+                                                    <td style={{ padding: '5px', textAlign: 'right' }}>{pos.amount.toFixed(4)}</td>
+                                                    <td style={{ padding: '5px', textAlign: 'right', fontWeight: 'bold', color: pnl >= 0 ? '#4ade80' : '#ef4444' }}>
+                                                        {pnl >= 0 ? '+' : ''}€{pnl.toFixed(2)}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            );
+                        })()}
+                    </div>
                 </div>
             </div>
 
+            {/* RECENT TRADES HISTORY */}
             <div className="crypto-card" style={{ marginTop: '20px' }}>
                 <div className="card-title">
                     <RefreshCw size={20} className="text-gray-400" />
-                    Recent Trades
+                    Recent Trades History
                 </div>
                 <div className="trades-list">
                     {trades.length === 0 ? (
