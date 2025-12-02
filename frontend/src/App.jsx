@@ -89,7 +89,7 @@ export default function TicketApp() {
 
   // 5. Determina il dominio finale: priorità a hostname reale, poi testDomain
   // MODIFICA: Rimosso localStorage.getItem('requestedDomain') per evitare persistenza indesiderata
-  const requestedDomain = isOrariHostname ? 'orari' : (isVivaldiHostname ? 'vivaldi' : (isPackVisionHostname ? 'packvision' : (testDomain || null)));
+  const requestedDomain = isOrariHostname ? 'orari' : (isVivaldiHostname ? 'vivaldi' : (isPackVisionHostname ? 'packvision' : (isCryptoHostname ? 'crypto' : (testDomain || null))));
 
   const isOrariDomain = requestedDomain === 'orari' || requestedDomain === 'turni';
   const isVivaldiDomain = requestedDomain === 'vivaldi';
@@ -309,15 +309,22 @@ export default function TicketApp() {
       // Dopo il login, verifica se c'è un dominio richiesto e mostra la gestione orari se necessario
       // Per Vivaldi, la dashboard è sempre la schermata principale
       const savedDomain = localStorage.getItem('requestedDomain');
-      if (savedDomain === 'orari' || savedDomain === 'turni') {
+      if (savedDomain === 'crypto' || isCryptoHostname) {
+        setShowDashboard(false);
+        setShowOrariTurni(false);
+        setShowVivaldi(false);
+        setShowCryptoDashboard(true);
+      } else if (savedDomain === 'orari' || savedDomain === 'turni') {
         setShowDashboard(false);
         setShowOrariTurni(true);
         setShowVivaldi(false);
+        setShowCryptoDashboard(false);
       } else {
         // Per tutti gli altri domini (incluso vivaldi), mostra la dashboard
         setShowDashboard(true);
         setShowOrariTurni(false);
         setShowVivaldi(false);
+        setShowCryptoDashboard(false);
       }
     }
   }, [isLoggedIn]);
