@@ -11,28 +11,21 @@ const CryptoDashboard = () => {
     const [currentPrice, setCurrentPrice] = useState(0);
 
     // Determine API base URL
-    // Force HTTPS URL for production to avoid any relative path ambiguity
-    const apiBase = window.location.hostname === 'localhost'
-        ? 'http://localhost:3001'
-        : 'https://ticket.logikaservice.it';
-
-    console.log("CryptoDashboard API Base:", apiBase); // Debug log
+    // Use relative path for production (handled by Nginx) and localhost for dev
+    const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
     const fetchData = async () => {
         try {
             const res = await fetch(`${apiBase}/api/crypto/dashboard`);
             if (res.ok) {
                 const data = await res.json();
-                console.log("📊 Dashboard Data Received:", data); // Debug log
                 setPortfolio({ ...data.portfolio, rsi: data.rsi });
                 setTrades(data.recent_trades);
                 const bot = data.active_bots.find(b => b.strategy_name === 'RSI_Strategy');
                 if (bot) setBotStatus({ active: bot.is_active === 1, strategy: bot.strategy_name });
-            } else {
-                console.error(`❌ Fetch Dashboard Failed: ${res.status} ${res.statusText}`);
             }
         } catch (error) {
-            console.error("❌ Error fetching dashboard data from:", `${apiBase}/api/crypto/dashboard`, error);
+            console.error("Error fetching dashboard:", error);
         }
     };
 
@@ -42,7 +35,6 @@ const CryptoDashboard = () => {
             const res = await fetch(`${apiBase}/api/crypto/price/solana?currency=eur`);
             if (res.ok) {
                 const data = await res.json();
-                console.log("💰 Price Data Received:", data); // Debug log
                 const price = parseFloat(data.data.priceUsd);
                 setCurrentPrice(price);
 
@@ -51,8 +43,6 @@ const CryptoDashboard = () => {
                     if (newData.length > 30) newData.shift();
                     return newData;
                 });
-            } else {
-                console.error(`❌ Fetch Price Failed: ${res.status} ${res.statusText}`);
             }
         } catch (error) {
             // Fallback mock data if API fails
