@@ -28,6 +28,7 @@ import TimesheetManager from './components/TimesheetManager';
 import VivaldiManager from './components/VivaldiManager';
 import PackVisionWithAuth from './components/PackVisionWithAuth';
 import PackVision from './components/PackVision';
+import CryptoDashboard from './components/CryptoDashboard/CryptoDashboard';
 import { buildApiUrl } from './utils/apiConfig';
 
 const INITIAL_NEW_CLIENT_DATA = {
@@ -62,6 +63,9 @@ export default function TicketApp() {
 
   const isPackVisionHostname = hostname === 'packvision.logikaservice.it' ||
     (hostname.includes('packvision') && !hostname.includes('ticket'));
+
+  const isCryptoHostname = hostname === 'crypto.logikaservice.it' ||
+    (hostname.includes('crypto') && !hostname.includes('ticket'));
 
   // 2. Parametro URL ?domain=orari/vivaldi/packvision per test
   const urlParams = new URLSearchParams(window.location.search);
@@ -181,24 +185,37 @@ export default function TicketApp() {
     const params = new URLSearchParams(window.location.search);
     return params.get('mode') === 'display';
   });
-  
+
+  const [showCryptoDashboard, setShowCryptoDashboard] = useState(() => {
+    if (isCryptoHostname) return true;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('domain') === 'crypto';
+  });
+
   // Controlla se siamo in modalità display PackVision (riutilizza urlParams già dichiarato alla riga 63)
   const isPackVisionDisplayMode = urlParams.get('mode') === 'display' || isPackVisionHostname;
 
   // Aggiorna lo stato quando cambia il dominio richiesto
   useEffect(() => {
     const savedDomain = localStorage.getItem('requestedDomain');
-    if (savedDomain === 'orari' || savedDomain === 'turni' || isOrariDomain) {
+    if (savedDomain === 'crypto' || isCryptoHostname) {
+      setShowDashboard(false);
+      setShowOrariTurni(false);
+      setShowVivaldi(false);
+      setShowCryptoDashboard(true);
+    } else if (savedDomain === 'orari' || savedDomain === 'turni' || isOrariDomain) {
       setShowDashboard(false);
       setShowOrariTurni(true);
       setShowVivaldi(false);
+      setShowCryptoDashboard(false);
     } else {
       // Per tutti gli altri domini (incluso vivaldi), mostra la dashboard
       setShowDashboard(true);
       setShowOrariTurni(false);
       setShowVivaldi(false);
+      setShowCryptoDashboard(false);
     }
-  }, [isOrariDomain, isVivaldiDomain]);
+  }, [isOrariDomain, isVivaldiDomain, isCryptoHostname]);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
@@ -2719,10 +2736,10 @@ export default function TicketApp() {
   // Controllo PackVision display mode PRIMA del controllo login
   // Questo permette di mostrare la schermata di autorizzazione monitor invece del login
   const currentUrlParams = new URLSearchParams(window.location.search);
-  const isPackVisionDisplayHostname = window.location.hostname === 'packvision.logikaservice.it' || 
+  const isPackVisionDisplayHostname = window.location.hostname === 'packvision.logikaservice.it' ||
     window.location.hostname.includes('packvision');
   const isDisplayMode = currentUrlParams.get('mode') === 'display';
-  
+
   console.log('🔍 [App] Controllo PackVision:', {
     hostname: window.location.hostname,
     isPackVisionDisplayHostname,
@@ -2730,15 +2747,15 @@ export default function TicketApp() {
     isDisplayMode,
     monitor: currentUrlParams.get('monitor')
   });
-  
+
   if (isDisplayMode || isPackVisionDisplayHostname) {
     const monitorId = currentUrlParams.get('monitor') ? parseInt(currentUrlParams.get('monitor'), 10) : null;
-    
+
     console.log('✅ [App] Mostro PackVisionWithAuth con monitorId:', monitorId);
-    
+
     return (
       <>
-        <PackVisionWithAuth 
+        <PackVisionWithAuth
           monitorId={monitorId}
           onClose={() => {
             // Se siamo su packvision.logikaservice.it, non possiamo chiudere (è il dominio principale)
@@ -2749,12 +2766,12 @@ export default function TicketApp() {
             const url = new URL(window.location.href);
             url.searchParams.delete('mode');
             window.location.href = url.toString();
-          }} 
+          }}
         />
       </>
     );
   }
-  
+
   console.log('❌ [App] Non in modalità display PackVision, procedo con login normale');
 
   if (!isLoggedIn) {
@@ -2949,6 +2966,10 @@ export default function TicketApp() {
                 </div>
               </div>
             )
+          ) : showCryptoDashboard ? (
+            <div className="animate-slideInRight">
+              <CryptoDashboard />
+            </div>
           ) : showOrariTurni ? (
             // Verifica accesso al sistema orari (admin e tecnici hanno sempre accesso)
             (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico' || currentUser?.enabled_projects?.includes('orari')) ? (

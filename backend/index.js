@@ -628,6 +628,10 @@ const packvisionRoutes = require('./routes/packvision')(poolPackVision, io);
 
 app.use('/api/packvision', packvisionRoutes);
 
+// Route per Crypto Dashboard (database SQLite separato)
+const cryptoRoutes = require('./routes/cryptoRoutes');
+app.use('/api/crypto', cryptoRoutes);
+
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
 
