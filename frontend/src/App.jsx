@@ -198,26 +198,12 @@ export default function TicketApp() {
   const isPackVisionDisplayMode = urlParams.get('mode') === 'display' || isPackVisionHostname;
 
   // Aggiorna lo stato quando cambia il dominio richiesto
+  // Aggiorna lo stato quando cambia il dominio richiesto
   useEffect(() => {
-    const savedDomain = localStorage.getItem('requestedDomain');
-    if (savedDomain === 'crypto' || isCryptoHostname) {
-      setShowDashboard(false);
-      setShowOrariTurni(false);
-      setShowVivaldi(false);
-      setShowCryptoDashboard(true);
-    } else if (savedDomain === 'orari' || savedDomain === 'turni' || isOrariDomain) {
-      setShowDashboard(false);
-      setShowOrariTurni(true);
-      setShowVivaldi(false);
-      setShowCryptoDashboard(false);
-    } else {
-      // Per tutti gli altri domini (incluso vivaldi), mostra la dashboard
-      setShowDashboard(true);
-      setShowOrariTurni(false);
-      setShowVivaldi(false);
-      setShowCryptoDashboard(false);
-    }
-  }, [isOrariDomain, isVivaldiDomain, isCryptoHostname]);
+    // Questo effetto causava loop infiniti se non gestito correttamente
+    // Rimosso logica aggressiva di reset stato
+    // Lasciamo che lo stato iniziale gestisca la visualizzazione corretta
+  }, []);
   const [dashboardTargetState, setDashboardTargetState] = useState('aperto');
   const [dashboardHighlights, setDashboardHighlights] = useState({});
   const [prevTicketStates, setPrevTicketStates] = useState({});
