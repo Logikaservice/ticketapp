@@ -52,6 +52,14 @@ function initDb() {
         // Insert default strategy if not exists
         db.run(`INSERT OR IGNORE INTO bot_settings (strategy_name, is_active, parameters) 
             VALUES ('RSI_Strategy', 0, '{"period": 14, "buy_threshold": 30, "sell_threshold": 70}')`);
+
+        // Price History (New Table for Persistence)
+        db.run(`CREATE TABLE IF NOT EXISTS price_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT,
+            price REAL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
     });
 }
 

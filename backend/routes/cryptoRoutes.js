@@ -101,10 +101,26 @@ router.post('/trade', async (req, res) => {
 // BOT ENGINE (Background Worker)
 // ==========================================
 
-// In-memory price history for RSI calculation (last 20 prices)
+// ==========================================
+// BOT ENGINE (Background Worker)
+// ==========================================
+
+// In-memory price history for RSI calculation (synced with DB)
 let priceHistory = [];
 const RSI_PERIOD = 14;
 const CHECK_INTERVAL_MS = 10000; // Check every 10 seconds
+
+// Load history from DB on startup
+const loadPriceHistory = () => {
+    db.all("SELECT price FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp DESC LIMIT 50", (err, rows) => {
+        if (!err && rows) {
+            // Reverse because SQL gives DESC (newest first), but we need chronological order for RSI
+            priceHistory = rows.map(r => r.price).reverse();
+            console.log(`📈 BOT: Loaded ${priceHistory.length} historical prices from DB.`);
+        }
+    });
+};
+loadPriceHistory();
 
 // Calculate RSI
 const calculateRSI = (prices) => {
@@ -130,25 +146,43 @@ const calculateRSI = (prices) => {
 // Bot Loop Function
 const runBotCycle = async () => {
     try {
-        // 1. Check if bot is active
+        // 1. Check if bot is active (we run price collection ANYWAY to keep history valid)
         db.get("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'", async (err, bot) => {
-            if (err || !bot || !bot.is_active) return; // Bot stopped
+            const isBotActive = bot && bot.is_active;
 
             // 2. Get current price
             const symbol = 'bitcoin';
-            const response = await fetch(`https://api.coincap.io/v2/assets/${symbol}`);
-            const data = await response.json();
-            const currentPrice = parseFloat(data.data.priceUsd);
+            let currentPrice = 0;
 
-            // 3. Update history
+            try {
+                const response = await fetch(`https://api.coincap.io/v2/assets/${symbol}`);
+                const data = await response.json();
+                currentPrice = parseFloat(data.data.priceUsd);
+            } catch (e) {
+                console.error('Error fetching price:', e.message);
+                return;
+            }
+
+            // 3. Update history (RAM + DB)
             priceHistory.push(currentPrice);
             if (priceHistory.length > 50) priceHistory.shift(); // Keep memory clean
 
+            // Save to DB
+            db.run("INSERT INTO price_history (symbol, price) VALUES (?, ?)", [symbol, currentPrice]);
+
+            // Optional: Cleanup old history (keep last 1000 entries to save space) every 100 cycles
+            if (Math.random() < 0.01) {
+                db.run("DELETE FROM price_history WHERE id NOT IN (SELECT id FROM price_history ORDER BY timestamp DESC LIMIT 1000)");
+            }
+
             // 4. Calculate RSI
             const rsi = calculateRSI(priceHistory);
-            if (!rsi) return; // Not enough data yet
 
-            console.log(`🤖 BOT: Price=${currentPrice.toFixed(2)} | RSI=${rsi.toFixed(2)}`);
+            if (rsi) {
+                console.log(`🤖 BOT: Price=${currentPrice.toFixed(2)} | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);
+            }
+
+            if (!isBotActive || !rsi) return; // Stop here if bot is off
 
             // 5. Decision Logic
             const portfolio = await getPortfolio();
