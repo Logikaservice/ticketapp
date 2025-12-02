@@ -204,22 +204,30 @@ const runBotCycle = async () => {
             let currentPrice = 0;
 
             try {
-                // Fetch Price using native https
-                const data = await httpsGet(`https://api.coincap.io/v2/assets/${symbol}`);
-                const priceUsd = parseFloat(data.data.priceUsd);
+                // Fetch Price using Binance API (Direct EUR pair, very reliable)
+                // Symbol: SOLEUR
+                const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=SOLEUR`);
 
-                // Convert to EUR
-                let eurRate = 1.05;
-                try {
-                    const rateData = await httpsGet('https://api.coincap.io/v2/rates/euro');
-                    eurRate = parseFloat(rateData.data.rateUsd) || 1.05;
-                } catch (e) { }
+                if (data && data.price) {
+                    currentPrice = parseFloat(data.price);
+                } else {
+                    throw new Error("Invalid data from Binance");
+                }
 
-                currentPrice = priceUsd / eurRate; // Price in EUR
             } catch (e) {
-                console.error('Error fetching price:', e.message);
-                // Use a realistic fallback if API fails completely
-                if (currentPrice === 0) currentPrice = 120.00 + (Math.random() * 0.5);
+                console.error('Error fetching price from Binance:', e.message);
+
+                // Fallback to CoinGecko if Binance fails
+                try {
+                    const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=eur');
+                    if (geckoData && geckoData.solana && geckoData.solana.eur) {
+                        currentPrice = parseFloat(geckoData.solana.eur);
+                    }
+                } catch (e2) {
+                    console.error('Error fetching price from CoinGecko:', e2.message);
+                    // Last resort fallback
+                    if (currentPrice === 0) currentPrice = 120.00 + (Math.random() * 0.5);
+                }
             }
 
             // 3. Update history (RAM + DB)
