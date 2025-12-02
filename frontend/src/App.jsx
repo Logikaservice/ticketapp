@@ -77,7 +77,7 @@ export default function TicketApp() {
   }
 
   // 4. Salva il dominio richiesto SOLO se presente nell'URL o nell'hostname
-  if (testDomain === 'orari' || testDomain === 'turni' || testDomain === 'vivaldi' || testDomain === 'packvision') {
+  if (testDomain === 'orari' || testDomain === 'turni' || testDomain === 'vivaldi' || testDomain === 'packvision' || testDomain === 'crypto') {
     localStorage.setItem('requestedDomain', testDomain);
   } else if (isOrariHostname) {
     localStorage.setItem('requestedDomain', 'orari');
@@ -85,6 +85,8 @@ export default function TicketApp() {
     localStorage.setItem('requestedDomain', 'vivaldi');
   } else if (isPackVisionHostname) {
     localStorage.setItem('requestedDomain', 'packvision');
+  } else if (isCryptoHostname) {
+    localStorage.setItem('requestedDomain', 'crypto');
   }
 
   // 5. Determina il dominio finale: priorità a hostname reale, poi testDomain
