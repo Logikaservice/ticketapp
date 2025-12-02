@@ -43,7 +43,8 @@ router.get('/dashboard', async (req, res) => {
                         holdings: JSON.parse(portfolio.holdings)
                     },
                     recent_trades: trades,
-                    active_bots: bots
+                    active_bots: bots,
+                    rsi: latestRSI // Send current RSI to frontend
                 });
             });
         });
@@ -131,6 +132,7 @@ router.post('/trade', async (req, res) => {
 
 // In-memory price history for RSI calculation (synced with DB)
 let priceHistory = [];
+let latestRSI = null; // Store latest RSI for frontend display
 const RSI_PERIOD = 14;
 const CHECK_INTERVAL_MS = 10000; // Check every 10 seconds
 
@@ -211,6 +213,7 @@ const runBotCycle = async () => {
 
             // 4. Calculate RSI
             const rsi = calculateRSI(priceHistory);
+            latestRSI = rsi; // Update global variable
 
             if (rsi) {
                 console.log(`🤖 BOT: SOL/EUR=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);

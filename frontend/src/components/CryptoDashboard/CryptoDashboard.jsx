@@ -4,7 +4,7 @@ import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet } from
 import './CryptoLayout.css';
 
 const CryptoDashboard = () => {
-    const [portfolio, setPortfolio] = useState({ balance_usd: 10000, holdings: {} }); // balance_usd is now treated as EUR
+    const [portfolio, setPortfolio] = useState({ balance_usd: 10000, holdings: {}, rsi: null }); // balance_usd is now treated as EUR
     const [trades, setTrades] = useState([]);
     const [botStatus, setBotStatus] = useState({ active: false, strategy: 'RSI_Strategy' });
     const [priceData, setPriceData] = useState([]);
@@ -17,7 +17,7 @@ const CryptoDashboard = () => {
             const res = await fetch(`${apiBase}/api/crypto/dashboard`);
             if (res.ok) {
                 const data = await res.json();
-                setPortfolio(data.portfolio);
+                setPortfolio({ ...data.portfolio, rsi: data.rsi });
                 setTrades(data.recent_trades);
                 const bot = data.active_bots.find(b => b.strategy_name === 'RSI_Strategy');
                 if (bot) setBotStatus({ active: bot.is_active === 1, strategy: bot.strategy_name });
@@ -157,6 +157,14 @@ const CryptoDashboard = () => {
                         <div>
                             <h3>{botStatus.active ? "AI Trading Active" : "AI Paused"}</h3>
                             <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>Strategy: RSI Momentum</p>
+                            {portfolio.rsi !== undefined && (
+                                <div style={{ marginTop: '5px', fontSize: '0.9rem', fontWeight: 'bold', color: portfolio.rsi < 30 ? '#10b981' : portfolio.rsi > 70 ? '#ef4444' : '#f59e0b' }}>
+                                    RSI: {portfolio.rsi.toFixed(2)}
+                                    <span style={{ marginLeft: '5px', fontWeight: 'normal', color: '#9ca3af' }}>
+                                        ({portfolio.rsi < 30 ? 'Oversold - BUY' : portfolio.rsi > 70 ? 'Overbought - SELL' : 'Neutral'})
+                                    </span>
+                                </div>
+                            )}
                         </div>
                         <button className="toggle-btn" onClick={toggleBot}>
                             {botStatus.active ? "Stop Bot" : "Start Bot"}
