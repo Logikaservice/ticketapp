@@ -822,4 +822,252 @@ setInterval(async () => {
     }
 }, 5000);
 
+// ==========================================
+// BINANCE API INTEGRATION
+// ==========================================
+
+const { getBinanceClient, isBinanceAvailable, getMode } = require('../utils/binanceConfig');
+
+// GET /api/crypto/binance/mode - Get current Binance mode
+router.get('/binance/mode', (req, res) => {
+    res.json({
+        mode: getMode(),
+        available: isBinanceAvailable(),
+        message: isBinanceAvailable() 
+            ? `Modalità attiva: ${getMode().toUpperCase()}` 
+            : 'Modalità DEMO: usando simulazione locale'
+    });
+});
+
+// GET /api/crypto/binance/balance - Get balance from Binance
+router.get('/binance/balance', async (req, res) => {
+    try {
+        if (!isBinanceAvailable()) {
+            return res.status(400).json({
+                error: 'Binance non disponibile in modalità DEMO',
+                suggestion: 'Configura BINANCE_MODE=testnet per usare Binance Testnet'
+            });
+        }
+
+        const { symbol } = req.query;
+        const client = getBinanceClient();
+        const balance = await client.getBalance(symbol);
+
+        res.json({
+            success: true,
+            mode: getMode(),
+            balance: symbol ? balance : balance,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Errore getBalance:', error);
+        res.status(500).json({
+            error: error.message || 'Errore nel recupero del saldo',
+            code: error.code
+        });
+    }
+});
+
+// GET /api/crypto/binance/price/:symbol - Get price from Binance
+router.get('/binance/price/:symbol', async (req, res) => {
+    try {
+        if (!isBinanceAvailable()) {
+            return res.status(400).json({
+                error: 'Binance non disponibile in modalità DEMO'
+            });
+        }
+
+        const { symbol } = req.params;
+        const client = getBinanceClient();
+        const price = await client.getPrice(symbol);
+
+        res.json({
+            success: true,
+            mode: getMode(),
+            ...price
+        });
+    } catch (error) {
+        console.error('❌ Errore getPrice:', error);
+        res.status(500).json({
+            error: error.message || 'Errore nel recupero del prezzo',
+            code: error.code
+        });
+    }
+});
+
+// POST /api/crypto/binance/order/market - Place market order
+router.post('/binance/order/market', async (req, res) => {
+    try {
+        if (!isBinanceAvailable()) {
+            return res.status(400).json({
+                error: 'Binance non disponibile in modalità DEMO'
+            });
+        }
+
+        const { symbol, side, quantity } = req.body;
+
+        if (!symbol || !side || !quantity) {
+            return res.status(400).json({
+                error: 'Parametri mancanti: symbol, side, quantity sono obbligatori'
+            });
+        }
+
+        if (!['BUY', 'SELL'].includes(side.toUpperCase())) {
+            return res.status(400).json({
+                error: 'side deve essere BUY o SELL'
+            });
+        }
+
+        const client = getBinanceClient();
+        const order = await client.placeMarketOrder(symbol, side, quantity);
+
+        res.json({
+            success: true,
+            mode: getMode(),
+            order
+        });
+    } catch (error) {
+        console.error('❌ Errore placeMarketOrder:', error);
+        res.status(500).json({
+            error: error.message || 'Errore nella creazione dell\'ordine',
+            code: error.code
+        });
+    }
+});
+
+// POST /api/crypto/binance/order/limit - Place limit order
+router.post('/binance/order/limit', async (req, res) => {
+    try {
+        if (!isBinanceAvailable()) {
+            return res.status(400).json({
+                error: 'Binance non disponibile in modalità DEMO'
+            });
+        }
+
+        const { symbol, side, quantity, price } = req.body;
+
+        if (!symbol || !side || !quantity || !price) {
+            return res.status(400).json({
+                error: 'Parametri mancanti: symbol, side, quantity, price sono obbligatori'
+            });
+        }
+
+        if (!['BUY', 'SELL'].includes(side.toUpperCase())) {
+            return res.status(400).json({
+                error: 'side deve essere BUY o SELL'
+            });
+        }
+
+        const client = getBinanceClient();
+        const order = await client.placeLimitOrder(symbol, side, quantity, price);
+
+        res.json({
+            success: true,
+            mode: getMode(),
+            order
+        });
+    } catch (error) {
+        console.error('❌ Errore placeLimitOrder:', error);
+        res.status(500).json({
+            error: error.message || 'Errore nella creazione dell\'ordine limite',
+            code: error.code
+        });
+    }
+});
+
+// POST /api/crypto/binance/order/stop - Place stop-loss order
+router.post('/binance/order/stop', async (req, res) => {
+    try {
+        if (!isBinanceAvailable()) {
+            return res.status(400).json({
+                error: 'Binance non disponibile in modalità DEMO'
+            });
+        }
+
+        const { symbol, side, quantity, stopPrice } = req.body;
+
+        if (!symbol || !side || !quantity || !stopPrice) {
+            return res.status(400).json({
+                error: 'Parametri mancanti: symbol, side, quantity, stopPrice sono obbligatori'
+            });
+        }
+
+        if (!['BUY', 'SELL'].includes(side.toUpperCase())) {
+            return res.status(400).json({
+                error: 'side deve essere BUY o SELL'
+            });
+        }
+
+        const client = getBinanceClient();
+        const order = await client.placeStopLossOrder(symbol, side, quantity, stopPrice);
+
+        res.json({
+            success: true,
+            mode: getMode(),
+            order
+        });
+    } catch (error) {
+        console.error('❌ Errore placeStopLossOrder:', error);
+        res.status(500).json({
+            error: error.message || 'Errore nella creazione dell\'ordine stop-loss',
+            code: error.code
+        });
+    }
+});
+
+// GET /api/crypto/binance/orders/history - Get order history
+router.get('/binance/orders/history', async (req, res) => {
+    try {
+        if (!isBinanceAvailable()) {
+            return res.status(400).json({
+                error: 'Binance non disponibile in modalità DEMO'
+            });
+        }
+
+        const { symbol, limit } = req.query;
+        const client = getBinanceClient();
+        const orders = await client.getOrderHistory(symbol, parseInt(limit) || 50);
+
+        res.json({
+            success: true,
+            mode: getMode(),
+            orders,
+            count: orders.length
+        });
+    } catch (error) {
+        console.error('❌ Errore getOrderHistory:', error);
+        res.status(500).json({
+            error: error.message || 'Errore nel recupero dello storico ordini',
+            code: error.code
+        });
+    }
+});
+
+// DELETE /api/crypto/binance/order/:symbol/:orderId - Cancel order
+router.delete('/binance/order/:symbol/:orderId', async (req, res) => {
+    try {
+        if (!isBinanceAvailable()) {
+            return res.status(400).json({
+                error: 'Binance non disponibile in modalità DEMO'
+            });
+        }
+
+        const { symbol, orderId } = req.params;
+        const client = getBinanceClient();
+        const result = await client.cancelOrder(symbol, orderId);
+
+        res.json({
+            success: true,
+            mode: getMode(),
+            result
+        });
+    } catch (error) {
+        console.error('❌ Errore cancelOrder:', error);
+        res.status(500).json({
+            error: error.message || 'Errore nella cancellazione dell\'ordine',
+            code: error.code
+        });
+    }
+});
+
 module.exports = router;
