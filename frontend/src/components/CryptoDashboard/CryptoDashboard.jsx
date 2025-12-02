@@ -157,12 +157,17 @@ const CryptoDashboard = () => {
                         <div>
                             <h3>{botStatus.active ? "AI Trading Active" : "AI Paused"}</h3>
                             <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>Strategy: RSI Momentum</p>
-                            {portfolio.rsi !== undefined && (
+                            {portfolio.rsi !== undefined && portfolio.rsi !== null && (
                                 <div style={{ marginTop: '5px', fontSize: '0.9rem', fontWeight: 'bold', color: portfolio.rsi < 30 ? '#10b981' : portfolio.rsi > 70 ? '#ef4444' : '#f59e0b' }}>
                                     RSI: {portfolio.rsi.toFixed(2)}
                                     <span style={{ marginLeft: '5px', fontWeight: 'normal', color: '#9ca3af' }}>
                                         ({portfolio.rsi < 30 ? 'Oversold - BUY' : portfolio.rsi > 70 ? 'Overbought - SELL' : 'Neutral'})
                                     </span>
+                                </div>
+                            )}
+                            {(portfolio.rsi === null || portfolio.rsi === undefined) && (
+                                <div style={{ marginTop: '5px', fontSize: '0.8rem', color: '#6b7280' }}>
+                                    Gathering data for RSI...
                                 </div>
                             )}
                         </div>
