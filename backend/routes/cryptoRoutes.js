@@ -63,17 +63,43 @@ router.get('/dashboard', async (req, res) => {
 
         // Run queries in parallel for speed
         const [trades, bots] = await Promise.all([
-            dbAll("SELECT * FROM trades ORDER BY timestamp DESC LIMIT 10"),
+            dbAll("SELECT * FROM trades ORDER BY timestamp DESC LIMIT 50"), // Increased limit for calculation
             dbAll("SELECT * FROM bot_settings")
         ]);
+
+        // Calculate Average Buy Price for current holdings
+        let avgBuyPrice = 0;
+        let totalCost = 0;
+        let totalAmount = 0;
+        const currentHoldings = JSON.parse(portfolio.holdings || '{}')['solana'] || 0;
+
+        if (currentHoldings > 0) {
+            // Simple FIFO/Weighted Average logic from recent trades
+            // We scan trades backwards to find the cost basis of current holdings
+            let remainingHoldings = currentHoldings;
+            for (const trade of trades) {
+                if (trade.type === 'buy' && trade.symbol === 'solana') {
+                    const amount = Math.min(trade.amount, remainingHoldings);
+                    totalCost += amount * trade.price;
+                    totalAmount += amount;
+                    remainingHoldings -= amount;
+                    if (remainingHoldings <= 0) break;
+                }
+            }
+            if (totalAmount > 0) {
+                avgBuyPrice = totalCost / totalAmount;
+            }
+        }
 
         res.json({
             portfolio: {
                 balance_usd: portfolio.balance_usd,
-                holdings: JSON.parse(portfolio.holdings || '{}')
+                holdings: JSON.parse(portfolio.holdings || '{}'),
+                avg_buy_price: avgBuyPrice // Send calculated avg price
             },
-            recent_trades: trades, // Guaranteed to be an array
-            active_bots: bots,     // Guaranteed to be an array
+            recent_trades: trades.slice(0, 10), // Send only 10 to frontend list
+            all_trades: trades, // Send more history for chart plotting
+            active_bots: bots,
             rsi: latestRSI
         });
     } catch (error) {
