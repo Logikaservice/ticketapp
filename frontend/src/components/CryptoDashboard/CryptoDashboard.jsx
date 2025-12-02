@@ -257,6 +257,70 @@ const CryptoDashboard = () => {
                 </div>
             </div>
 
+            {/* MT5 Style Open Positions */}
+            <div className="crypto-card" style={{ marginTop: '20px' }}>
+                <div className="card-title">
+                    <Activity size={20} className="text-blue-500" />
+                    Open Positions (Live)
+                </div>
+                <div className="trades-list">
+                    {(() => {
+                        // Calculate Open Positions (FIFO Logic)
+                        let totalSold = trades.filter(t => t.type === 'sell').reduce((acc, t) => acc + t.amount, 0);
+                        const buys = trades.filter(t => t.type === 'buy').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); // Oldest first
+                        const openPositions = [];
+
+                        for (const buy of buys) {
+                            if (totalSold >= buy.amount) {
+                                totalSold -= buy.amount; // Fully sold
+                            } else {
+                                const remaining = buy.amount - totalSold;
+                                openPositions.push({ ...buy, amount: remaining, originalAmount: buy.amount });
+                                totalSold = 0; // All sells accounted for
+                            }
+                        }
+
+                        if (openPositions.length === 0) {
+                            return <div style={{ color: '#555', textAlign: 'center', padding: '20px' }}>No open positions.</div>;
+                        }
+
+                        return (
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                                <thead>
+                                    <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
+                                        <th style={{ padding: '10px', textAlign: 'left' }}>Time</th>
+                                        <th style={{ padding: '10px', textAlign: 'left' }}>Symbol</th>
+                                        <th style={{ padding: '10px', textAlign: 'right' }}>Entry Price</th>
+                                        <th style={{ padding: '10px', textAlign: 'right' }}>Current</th>
+                                        <th style={{ padding: '10px', textAlign: 'right' }}>Volume</th>
+                                        <th style={{ padding: '10px', textAlign: 'right' }}>P&L</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {openPositions.map((pos, i) => {
+                                        const pnl = (currentPrice - pos.price) * pos.amount;
+                                        const pnlPercent = ((currentPrice - pos.price) / pos.price) * 100;
+
+                                        return (
+                                            <tr key={i} style={{ borderBottom: '1px solid #1f2937', background: pnl >= 0 ? 'rgba(74, 222, 128, 0.05)' : 'rgba(239, 68, 68, 0.05)' }}>
+                                                <td style={{ padding: '10px', color: '#9ca3af' }}>{new Date(pos.timestamp).toLocaleTimeString()}</td>
+                                                <td style={{ padding: '10px', fontWeight: 'bold' }}>{pos.symbol.toUpperCase()}</td>
+                                                <td style={{ padding: '10px', textAlign: 'right' }}>€{pos.price.toFixed(2)}</td>
+                                                <td style={{ padding: '10px', textAlign: 'right', color: '#fff' }}>€{currentPrice.toFixed(2)}</td>
+                                                <td style={{ padding: '10px', textAlign: 'right' }}>{pos.amount.toFixed(4)}</td>
+                                                <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: pnl >= 0 ? '#4ade80' : '#ef4444' }}>
+                                                    {pnl >= 0 ? '+' : ''}€{pnl.toFixed(2)} <span style={{ fontSize: '0.8em', fontWeight: 'normal' }}>({pnlPercent.toFixed(2)}%)</span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        );
+                    })()}
+                </div>
+            </div>
+
             <div className="crypto-card" style={{ marginTop: '20px' }}>
                 <div className="card-title">
                     <RefreshCw size={20} className="text-gray-400" />
