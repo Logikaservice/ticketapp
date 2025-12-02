@@ -42,11 +42,22 @@ router.get('/dashboard', async (req, res) => {
 // GET /api/crypto/price/:symbol (Proxy to get real price)
 router.get('/price/:symbol', async (req, res) => {
     const symbol = req.params.symbol.toLowerCase(); // e.g., bitcoin
+    const currency = req.query.currency || 'usd'; // Default to USD
+
     try {
         // Using CoinCap API for free real-time data
         const response = await fetch(`https://api.coincap.io/v2/assets/${symbol}`);
         const data = await response.json();
-        res.json(data);
+        let price = parseFloat(data.data.priceUsd);
+
+        if (currency === 'eur') {
+            const rateRes = await fetch('https://api.coincap.io/v2/rates/euro');
+            const rateData = await rateRes.json();
+            const eurRate = parseFloat(rateData.data.rateUsd) || 1.05;
+            price = price / eurRate;
+        }
+
+        res.json({ data: { priceUsd: price } }); // Keep structure compatible
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch price' });
     }
@@ -112,7 +123,7 @@ const CHECK_INTERVAL_MS = 10000; // Check every 10 seconds
 
 // Load history from DB on startup
 const loadPriceHistory = () => {
-    db.all("SELECT price FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp DESC LIMIT 50", (err, rows) => {
+    db.all("SELECT price FROM price_history WHERE symbol = 'solana' ORDER BY timestamp DESC LIMIT 50", (err, rows) => {
         if (!err && rows) {
             // Reverse because SQL gives DESC (newest first), but we need chronological order for RSI
             priceHistory = rows.map(r => r.price).reverse();
@@ -150,14 +161,24 @@ const runBotCycle = async () => {
         db.get("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'", async (err, bot) => {
             const isBotActive = bot && bot.is_active;
 
-            // 2. Get current price
-            const symbol = 'bitcoin';
+            // 2. Get current price (SOLANA)
+            const symbol = 'solana';
             let currentPrice = 0;
 
             try {
                 const response = await fetch(`https://api.coincap.io/v2/assets/${symbol}`);
                 const data = await response.json();
-                currentPrice = parseFloat(data.data.priceUsd);
+                const priceUsd = parseFloat(data.data.priceUsd);
+
+                // Convert to EUR
+                let eurRate = 1.05;
+                try {
+                    const rateRes = await fetch('https://api.coincap.io/v2/rates/euro');
+                    const rateData = await rateRes.json();
+                    eurRate = parseFloat(rateData.data.rateUsd) || 1.05;
+                } catch (e) { }
+
+                currentPrice = priceUsd / eurRate; // Price in EUR
             } catch (e) {
                 console.error('Error fetching price:', e.message);
                 return;
@@ -179,7 +200,7 @@ const runBotCycle = async () => {
             const rsi = calculateRSI(priceHistory);
 
             if (rsi) {
-                console.log(`🤖 BOT: Price=${currentPrice.toFixed(2)} | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);
+                console.log(`🤖 BOT: SOL/EUR=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);
             }
 
             if (!isBotActive || !rsi) return; // Stop here if bot is off
@@ -190,14 +211,13 @@ const runBotCycle = async () => {
             let holdings = JSON.parse(portfolio.holdings);
             const cryptoAmount = holdings[symbol] || 0;
 
-            // BUY SIGNAL (RSI < 30) - Buy $1000 worth if we have USD
-            if (rsi < 30 && balance >= 1000) {
-                const amountToBuy = 1000 / currentPrice;
+            if (rsi < 30 && balance >= 100) {
+                const amountToBuy = 100 / currentPrice;
                 executeTrade(symbol, 'buy', amountToBuy, currentPrice, 'RSI_Strategy (Auto)');
                 console.log('✅ BOT BUY EXECUTED');
             }
             // SELL SIGNAL (RSI > 70) - Sell all crypto if we have any
-            else if (rsi > 70 && cryptoAmount > 0.0001) {
+            else if (rsi > 70 && cryptoAmount > 0.1) {
                 executeTrade(symbol, 'sell', cryptoAmount, currentPrice, 'RSI_Strategy (Auto)');
                 console.log('✅ BOT SELL EXECUTED');
             }

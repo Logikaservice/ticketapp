@@ -4,7 +4,7 @@ import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet } from
 import './CryptoLayout.css';
 
 const CryptoDashboard = () => {
-    const [portfolio, setPortfolio] = useState({ balance_usd: 10000, holdings: {} });
+    const [portfolio, setPortfolio] = useState({ balance_usd: 10000, holdings: {} }); // balance_usd is now treated as EUR
     const [trades, setTrades] = useState([]);
     const [botStatus, setBotStatus] = useState({ active: false, strategy: 'RSI_Strategy' });
     const [priceData, setPriceData] = useState([]);
@@ -29,8 +29,8 @@ const CryptoDashboard = () => {
 
     const fetchPrice = async () => {
         try {
-            // Fetch real Bitcoin price
-            const res = await fetch(`${apiBase}/api/crypto/price/bitcoin`);
+            // Fetch real Solana price in EUR
+            const res = await fetch(`${apiBase}/api/crypto/price/solana?currency=eur`);
             if (res.ok) {
                 const data = await res.json();
                 const price = parseFloat(data.data.priceUsd);
@@ -44,7 +44,7 @@ const CryptoDashboard = () => {
             }
         } catch (error) {
             // Fallback mock data if API fails
-            const mockPrice = 95000 + Math.random() * 1000;
+            const mockPrice = 200 + Math.random() * 5; // Mock SOL price
             setCurrentPrice(mockPrice);
             setPriceData(prev => {
                 const newData = [...prev, { time: new Date().toLocaleTimeString(), price: mockPrice }];
@@ -78,8 +78,8 @@ const CryptoDashboard = () => {
         }
     };
 
-    // Calculate total balance (USD + Crypto value)
-    const totalBalance = portfolio.balance_usd + ((portfolio.holdings['bitcoin'] || 0) * currentPrice);
+    // Calculate total balance (EUR + Crypto value)
+    const totalBalance = portfolio.balance_usd + ((portfolio.holdings['solana'] || 0) * currentPrice);
 
     return (
         <div className="crypto-dashboard">
@@ -94,7 +94,7 @@ const CryptoDashboard = () => {
 
             <div className="balance-card">
                 <div className="balance-label">Total Balance</div>
-                <div className="balance-amount">${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="balance-amount">€{totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                 <div className="balance-change change-positive">
                     <ArrowUpRight size={16} /> +2.4% Today
                 </div>
@@ -104,7 +104,7 @@ const CryptoDashboard = () => {
                 <div className="crypto-card">
                     <div className="card-title">
                         <Activity size={20} className="text-blue-500" />
-                        Bitcoin / USD Live Market
+                        Solana / EUR Live Market
                     </div>
                     <div className="chart-container">
                         <ResponsiveContainer width="100%" height="100%">
@@ -128,7 +128,7 @@ const CryptoDashboard = () => {
                         </ResponsiveContainer>
                     </div>
                     <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                        1 BTC = ${currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        1 SOL = €{currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     </div>
                 </div>
 
@@ -164,12 +164,12 @@ const CryptoDashboard = () => {
                         trades.map((trade, i) => (
                             <div key={i} className="trade-item">
                                 <div className="trade-info">
-                                    <span className="trade-symbol">{trade.symbol ? trade.symbol.toUpperCase() : 'BTC'}</span>
+                                    <span className="trade-symbol">{trade.symbol ? trade.symbol.toUpperCase() : 'SOL'}</span>
                                     <span className="trade-time">{new Date(trade.timestamp).toLocaleTimeString()}</span>
                                 </div>
                                 <div className={`trade-amount ${trade.type === 'buy' ? 'type-buy' : 'type-sell'}`}>
-                                    {trade.type === 'buy' ? '+' : '-'}{trade.amount}
-                                    <div style={{ fontSize: '0.8rem', color: '#777' }}>@ ${trade.price}</div>
+                                    {trade.type === 'buy' ? '+' : '-'}{trade.amount.toFixed(4)}
+                                    <div style={{ fontSize: '0.8rem', color: '#777' }}>@ €{trade.price.toFixed(2)}</div>
                                 </div>
                             </div>
                         ))
