@@ -11,9 +11,10 @@ const CryptoDashboard = () => {
     const [currentPrice, setCurrentPrice] = useState(0);
 
     // Determine API base URL
-    // In production (VPS), it should be empty string to use relative path '/api/...' handled by Nginx
-    // In local development, it might be http://localhost:3001
-    const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+    // Force HTTPS URL for production to avoid any relative path ambiguity
+    const apiBase = window.location.hostname === 'localhost'
+        ? 'http://localhost:3001'
+        : 'https://ticket.logikaservice.it';
 
     console.log("CryptoDashboard API Base:", apiBase); // Debug log
 
