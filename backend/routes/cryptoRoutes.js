@@ -304,17 +304,30 @@ const runBotCycle = async () => {
             let holdings = JSON.parse(portfolio.holdings || '{}');
             const cryptoAmount = holdings[symbol] || 0;
 
-            // Calculate Average Buy Price (approximate from recent trades if not stored)
-            // In a real pro system, we would track "lots" separately.
-            // Here we fetch the last BUY trade to establish a reference price.
+            // Calculate Weighted Average Buy Price (Real Cost Basis)
             let lastBuyPrice = 0;
             if (cryptoAmount > 0) {
-                const lastTrade = await new Promise(resolve => {
-                    db.get("SELECT price FROM trades WHERE symbol = ? AND type = 'buy' ORDER BY timestamp DESC LIMIT 1", [symbol], (err, row) => {
-                        resolve(row ? row.price : 0);
-                    });
-                });
-                lastBuyPrice = lastTrade;
+                // Fetch recent buys to calculate average
+                const trades = await dbAll("SELECT * FROM trades WHERE symbol = ? AND type = 'buy' ORDER BY timestamp DESC LIMIT 20", [symbol]);
+
+                let totalCost = 0;
+                let totalQty = 0;
+                let remainingToMatch = cryptoAmount;
+
+                for (const t of trades) {
+                    const qty = Math.min(t.amount, remainingToMatch);
+                    totalCost += qty * t.price;
+                    totalQty += qty;
+                    remainingToMatch -= qty;
+                    if (remainingToMatch <= 0.0001) break;
+                }
+
+                if (totalQty > 0) {
+                    lastBuyPrice = totalCost / totalQty;
+                } else {
+                    // Fallback if history is lost but holdings exist
+                    lastBuyPrice = currentPrice;
+                }
             }
 
             // --- STRATEGY PARAMETERS ---
@@ -326,12 +339,21 @@ const runBotCycle = async () => {
 
             console.log(`📊 ANALISI: Prezzo=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Holdings=${cryptoAmount.toFixed(4)} SOL | AvgPrice=${lastBuyPrice.toFixed(2)}€`);
 
-            // BUY LOGIC
+            // BUY LOGIC (Smart Accumulation / DCA)
             if (rsi < RSI_OVERSOLD && balance >= TRADE_SIZE_EUR) {
-                // Buy only if we have enough cash
-                const amountToBuy = TRADE_SIZE_EUR / currentPrice;
-                await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `RSI Oversold (${rsi.toFixed(2)})`);
-                console.log(`✅ BOT BUY: RSI ${rsi.toFixed(2)} < ${RSI_OVERSOLD}. Buying ${amountToBuy.toFixed(4)} SOL.`);
+                // Scenario A: First Entry
+                if (cryptoAmount < 0.001) {
+                    const amountToBuy = TRADE_SIZE_EUR / currentPrice;
+                    await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `RSI Oversold (${rsi.toFixed(2)})`);
+                    console.log(`✅ BOT BUY (Entry): RSI ${rsi.toFixed(2)} < ${RSI_OVERSOLD}. Buying ${amountToBuy.toFixed(4)} SOL.`);
+                }
+                // Scenario B: DCA (Accumulate if price drops 2% below Avg Price)
+                else if (currentPrice < lastBuyPrice * 0.98) {
+                    // Aggressive: Buy double (Martingale) or same amount? Let's stick to same amount for safety.
+                    const amountToBuy = TRADE_SIZE_EUR / currentPrice;
+                    await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `DCA Accumulation (Price -2%)`);
+                    console.log(`📉 BOT BUY (DCA): Price dropped below Avg. Lowering entry price.`);
+                }
             }
 
             // SELL LOGIC (Manage Open Position)
