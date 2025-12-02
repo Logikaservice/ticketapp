@@ -71,43 +71,6 @@ router.get('/dashboard', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
-});
-
-// GET /api/crypto/price/:symbol (Proxy to get real price)
-router.get('/price/:symbol', async (req, res) => {
-    const { symbol } = req.params;
-    const { currency } = req.query; // 'eur' or 'usd'
-
-    try {
-        // 1. Fetch Crypto Price (USD)
-        const data = await httpsGet(`https://api.coincap.io/v2/assets/${symbol}`);
-        let price = parseFloat(data.data.priceUsd);
-
-        // 2. Convert to EUR if requested
-        if (currency === 'eur') {
-            try {
-                const rateData = await httpsGet('https://api.coincap.io/v2/rates/euro');
-                const eurRate = parseFloat(rateData.data.rateUsd) || 1.05;
-                price = price / eurRate;
-            } catch (e) {
-                console.warn("⚠️ Failed to fetch EUR rate, using default 1.05");
-                price = price / 1.05;
-            }
-        }
-
-        res.json({ data: { priceUsd: price } });
-    } catch (error) {
-        console.error('❌ Error fetching price:', error.message);
-
-        // Fallback Mock Data to prevent dashboard crash
-        console.log("⚠️ Using Mock Data for price due to error");
-        const mockPrice = symbol === 'solana' ? 120.50 : 50000;
-        res.json({ data: { priceUsd: mockPrice, isMock: true } });
-    }
-});
-
-// POST /api/crypto/bot/toggle
-router.post('/bot/toggle', (req, res) => {
     const { strategy_name, is_active } = req.body;
     db.run("UPDATE bot_settings SET is_active = ? WHERE strategy_name = ?", [is_active ? 1 : 0, strategy_name], function (err) {
         if (err) return res.status(500).json({ error: err.message });
