@@ -10,7 +10,12 @@ const CryptoDashboard = () => {
     const [priceData, setPriceData] = useState([]);
     const [currentPrice, setCurrentPrice] = useState(0);
 
-    const apiBase = process.env.REACT_APP_API_URL || '';
+    // Determine API base URL
+    // In production (VPS), it should be empty string to use relative path '/api/...' handled by Nginx
+    // In local development, it might be http://localhost:3001
+    const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+
+    console.log("CryptoDashboard API Base:", apiBase); // Debug log
 
     const fetchData = async () => {
         try {
