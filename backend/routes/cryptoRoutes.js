@@ -97,4 +97,108 @@ router.post('/trade', async (req, res) => {
     }
 });
 
+// ==========================================
+// BOT ENGINE (Background Worker)
+// ==========================================
+
+// In-memory price history for RSI calculation (last 20 prices)
+let priceHistory = [];
+const RSI_PERIOD = 14;
+const CHECK_INTERVAL_MS = 10000; // Check every 10 seconds
+
+// Calculate RSI
+const calculateRSI = (prices) => {
+    if (prices.length < RSI_PERIOD + 1) return null;
+
+    let gains = 0;
+    let losses = 0;
+
+    for (let i = 1; i <= RSI_PERIOD; i++) {
+        const change = prices[prices.length - i] - prices[prices.length - i - 1];
+        if (change > 0) gains += change;
+        else losses += Math.abs(change);
+    }
+
+    if (losses === 0) return 100;
+
+    const avgGain = gains / RSI_PERIOD;
+    const avgLoss = losses / RSI_PERIOD;
+    const rs = avgGain / avgLoss;
+    return 100 - (100 / (1 + rs));
+};
+
+// Bot Loop Function
+const runBotCycle = async () => {
+    try {
+        // 1. Check if bot is active
+        db.get("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'", async (err, bot) => {
+            if (err || !bot || !bot.is_active) return; // Bot stopped
+
+            // 2. Get current price
+            const symbol = 'bitcoin';
+            const response = await fetch(`https://api.coincap.io/v2/assets/${symbol}`);
+            const data = await response.json();
+            const currentPrice = parseFloat(data.data.priceUsd);
+
+            // 3. Update history
+            priceHistory.push(currentPrice);
+            if (priceHistory.length > 50) priceHistory.shift(); // Keep memory clean
+
+            // 4. Calculate RSI
+            const rsi = calculateRSI(priceHistory);
+            if (!rsi) return; // Not enough data yet
+
+            console.log(`🤖 BOT: Price=${currentPrice.toFixed(2)} | RSI=${rsi.toFixed(2)}`);
+
+            // 5. Decision Logic
+            const portfolio = await getPortfolio();
+            let balance = portfolio.balance_usd;
+            let holdings = JSON.parse(portfolio.holdings);
+            const cryptoAmount = holdings[symbol] || 0;
+
+            // BUY SIGNAL (RSI < 30) - Buy $1000 worth if we have USD
+            if (rsi < 30 && balance >= 1000) {
+                const amountToBuy = 1000 / currentPrice;
+                executeTrade(symbol, 'buy', amountToBuy, currentPrice, 'RSI_Strategy (Auto)');
+                console.log('✅ BOT BUY EXECUTED');
+            }
+            // SELL SIGNAL (RSI > 70) - Sell all crypto if we have any
+            else if (rsi > 70 && cryptoAmount > 0.0001) {
+                executeTrade(symbol, 'sell', cryptoAmount, currentPrice, 'RSI_Strategy (Auto)');
+                console.log('✅ BOT SELL EXECUTED');
+            }
+        });
+    } catch (error) {
+        console.error('Bot Cycle Error:', error.message);
+    }
+};
+
+// Helper to execute trade internally
+const executeTrade = (symbol, type, amount, price, strategy) => {
+    const cost = amount * price;
+    db.get("SELECT * FROM portfolio LIMIT 1", (err, row) => {
+        if (err) return;
+        let balance = row.balance_usd;
+        let holdings = JSON.parse(row.holdings);
+
+        if (type === 'buy') {
+            balance -= cost;
+            holdings[symbol] = (holdings[symbol] || 0) + amount;
+        } else {
+            balance += cost;
+            holdings[symbol] = (holdings[symbol] || 0) - amount;
+            if (holdings[symbol] < 0) holdings[symbol] = 0; // Safety
+        }
+
+        db.serialize(() => {
+            db.run("UPDATE portfolio SET balance_usd = ?, holdings = ?", [balance, JSON.stringify(holdings)]);
+            db.run("INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
+                [symbol, type, amount, price, strategy]);
+        });
+    });
+};
+
+// Start the loop
+setInterval(runBotCycle, CHECK_INTERVAL_MS);
+
 module.exports = router;
