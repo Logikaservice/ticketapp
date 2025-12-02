@@ -10,7 +10,7 @@ const CryptoDashboard = () => {
     const [priceData, setPriceData] = useState([]);
     const [currentPrice, setCurrentPrice] = useState(0);
 
-    const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    const apiBase = process.env.REACT_APP_API_URL || '';
 
     const fetchData = async () => {
         try {
