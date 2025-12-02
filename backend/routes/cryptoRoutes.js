@@ -271,21 +271,61 @@ const runBotCycle = async () => {
 
             if (!isBotActive || !rsi) return; // Stop here if bot is off
 
-            // 5. Decision Logic
+            // 5. Professional Decision Logic
             const portfolio = await getPortfolio();
             let balance = portfolio.balance_usd;
-            let holdings = JSON.parse(portfolio.holdings);
+            let holdings = JSON.parse(portfolio.holdings || '{}');
             const cryptoAmount = holdings[symbol] || 0;
 
-            if (rsi < 30 && balance >= 100) {
-                const amountToBuy = 100 / currentPrice;
-                executeTrade(symbol, 'buy', amountToBuy, currentPrice, 'RSI_Strategy (Auto)');
-                console.log('✅ BOT BUY EXECUTED');
+            // Calculate Average Buy Price (approximate from recent trades if not stored)
+            // In a real pro system, we would track "lots" separately.
+            // Here we fetch the last BUY trade to establish a reference price.
+            let lastBuyPrice = 0;
+            if (cryptoAmount > 0) {
+                const lastTrade = await new Promise(resolve => {
+                    db.get("SELECT price FROM trades WHERE symbol = ? AND type = 'buy' ORDER BY timestamp DESC LIMIT 1", [symbol], (err, row) => {
+                        resolve(row ? row.price : 0);
+                    });
+                });
+                lastBuyPrice = lastTrade;
             }
-            // SELL SIGNAL (RSI > 70) - Sell all crypto if we have any
-            else if (rsi > 70 && cryptoAmount > 0.1) {
-                executeTrade(symbol, 'sell', cryptoAmount, currentPrice, 'RSI_Strategy (Auto)');
-                console.log('✅ BOT SELL EXECUTED');
+
+            // --- STRATEGY PARAMETERS ---
+            const RSI_OVERSOLD = 30;
+            const RSI_OVERBOUGHT = 70;
+            const STOP_LOSS_PCT = 0.02; // 2% max loss
+            const TAKE_PROFIT_PCT = 0.03; // 3% target profit
+            const TRADE_SIZE_EUR = 50; // Invest 50€ per trade (Money Management)
+
+            console.log(`📊 ANALISI: Prezzo=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Holdings=${cryptoAmount.toFixed(4)} SOL | AvgPrice=${lastBuyPrice.toFixed(2)}€`);
+
+            // BUY LOGIC
+            if (rsi < RSI_OVERSOLD && balance >= TRADE_SIZE_EUR) {
+                // Buy only if we have enough cash
+                const amountToBuy = TRADE_SIZE_EUR / currentPrice;
+                await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `RSI Oversold (${rsi.toFixed(2)})`);
+                console.log(`✅ BOT BUY: RSI ${rsi.toFixed(2)} < ${RSI_OVERSOLD}. Buying ${amountToBuy.toFixed(4)} SOL.`);
+            }
+
+            // SELL LOGIC (Manage Open Position)
+            else if (cryptoAmount > 0.01) {
+                const pnlPercent = (currentPrice - lastBuyPrice) / lastBuyPrice;
+
+                // 1. RSI Overbought (Classic Signal)
+                if (rsi > RSI_OVERBOUGHT) {
+                    await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `RSI Overbought (${rsi.toFixed(2)})`);
+                    console.log(`✅ BOT SELL: RSI ${rsi.toFixed(2)} > ${RSI_OVERBOUGHT}. Taking profit.`);
+                }
+                // 2. Take Profit (Hard Target)
+                else if (pnlPercent >= TAKE_PROFIT_PCT) {
+                    await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `Take Profit (+${(pnlPercent * 100).toFixed(2)}%)`);
+                    console.log(`💰 BOT SELL: Take Profit triggered. Gain: +${(pnlPercent * 100).toFixed(2)}%`);
+                }
+                // 3. Stop Loss (Safety Net)
+                else if (pnlPercent <= -STOP_LOSS_PCT) {
+                    await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `Stop Loss (${(pnlPercent * 100).toFixed(2)}%)`);
+                    console.log(`🛡️ BOT SELL: Stop Loss triggered. Loss: ${(pnlPercent * 100).toFixed(2)}%`);
+                }
             }
         });
     } catch (error) {
