@@ -115,6 +115,16 @@ router.post('/bot/toggle', (req, res) => {
     });
 });
 
+// POST /api/crypto/reset (Reset Demo Portfolio)
+router.post('/reset', (req, res) => {
+    db.serialize(() => {
+        // 262.5 USD is approx 250 EUR
+        db.run("UPDATE portfolio SET balance_usd = 262.5, holdings = '{}' WHERE id = 1");
+        db.run("DELETE FROM trades");
+        res.json({ success: true, message: "Portfolio reset to €250" });
+    });
+});
+
 // POST /api/crypto/trade (Simulation)
 router.post('/trade', async (req, res) => {
     const { symbol, type, amount, price, strategy } = req.body;
