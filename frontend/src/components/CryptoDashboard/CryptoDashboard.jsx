@@ -23,6 +23,7 @@ const CryptoDashboard = () => {
             const res = await fetch(`${apiBase}/api/crypto/dashboard`);
             if (res.ok) {
                 const data = await res.json();
+                console.log("📊 Dashboard Data Received:", data); // Debug log
                 setPortfolio({ ...data.portfolio, rsi: data.rsi });
                 setTrades(data.recent_trades);
                 const bot = data.active_bots.find(b => b.strategy_name === 'RSI_Strategy');
@@ -41,6 +42,7 @@ const CryptoDashboard = () => {
             const res = await fetch(`${apiBase}/api/crypto/price/solana?currency=eur`);
             if (res.ok) {
                 const data = await res.json();
+                console.log("💰 Price Data Received:", data); // Debug log
                 const price = parseFloat(data.data.priceUsd);
                 setCurrentPrice(price);
 
