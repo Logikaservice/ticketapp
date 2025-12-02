@@ -28,7 +28,7 @@ const CryptoDashboard = () => {
                 if (bot) setBotStatus({ active: bot.is_active === 1, strategy: bot.strategy_name });
             }
         } catch (error) {
-            console.error("Error fetching dashboard data:", error);
+            console.error("❌ Error fetching dashboard data from:", `${apiBase}/api/crypto/dashboard`, error);
         }
     };
 
