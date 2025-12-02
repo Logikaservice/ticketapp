@@ -46,36 +46,40 @@ router.get('/history', (req, res) => {
     });
 });
 
+// Helper for DB queries using Promises
+const dbAll = (query, params = []) => {
+    return new Promise((resolve, reject) => {
+        db.all(query, params, (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows || []);
+        });
+    });
+};
+
 // GET /api/crypto/dashboard
 router.get('/dashboard', async (req, res) => {
     try {
         const portfolio = await getPortfolio();
 
-        db.all("SELECT * FROM trades ORDER BY timestamp DESC LIMIT 10", (err, trades) => {
-            if (err) return res.status(500).json({ error: err.message });
+        // Run queries in parallel for speed
+        const [trades, bots] = await Promise.all([
+            dbAll("SELECT * FROM trades ORDER BY timestamp DESC LIMIT 10"),
+            dbAll("SELECT * FROM bot_settings")
+        ]);
 
-            db.all("SELECT * FROM bot_settings", (err, bots) => {
-                if (err) return res.status(500).json({ error: err.message });
-
-                res.json({
-                    portfolio: {
-                        balance_usd: portfolio.balance_usd,
-                        holdings: JSON.parse(portfolio.holdings)
-                    },
-                    recent_trades: trades,
-                    active_bots: bots,
-                    rsi: latestRSI // Send current RSI to frontend
-                });
-            });
+        res.json({
+            portfolio: {
+                balance_usd: portfolio.balance_usd,
+                holdings: JSON.parse(portfolio.holdings || '{}')
+            },
+            recent_trades: trades, // Guaranteed to be an array
+            active_bots: bots,     // Guaranteed to be an array
+            rsi: latestRSI
         });
     } catch (error) {
+        console.error("Dashboard Error:", error);
         res.status(500).json({ error: error.message });
     }
-    const { strategy_name, is_active } = req.body;
-    db.run("UPDATE bot_settings SET is_active = ? WHERE strategy_name = ?", [is_active ? 1 : 0, strategy_name], function (err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ success: true, strategy_name, is_active });
-    });
 });
 
 // GET /api/crypto/price/:symbol (Proxy to get real price)
