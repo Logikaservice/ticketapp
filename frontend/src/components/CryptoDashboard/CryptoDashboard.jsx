@@ -42,7 +42,12 @@ const CryptoDashboard = () => {
                 setCurrentPrice(price);
 
                 setPriceData(prev => {
-                    const newData = [...prev, { time: new Date().toLocaleTimeString(), price }];
+                    const now = new Date();
+                    const newData = [...prev, {
+                        time: now.toLocaleTimeString(),
+                        price,
+                        timestamp: now.toISOString()
+                    }];
                     if (newData.length > 500) newData.shift(); // Keep more history for chart
                     return newData;
                 });
@@ -52,7 +57,12 @@ const CryptoDashboard = () => {
             const mockPrice = 200 + Math.random() * 5; // Mock SOL price
             setCurrentPrice(mockPrice);
             setPriceData(prev => {
-                const newData = [...prev, { time: new Date().toLocaleTimeString(), price: mockPrice }];
+                const now = new Date();
+                const newData = [...prev, {
+                    time: now.toLocaleTimeString(),
+                    price: mockPrice,
+                    timestamp: now.toISOString()
+                }];
                 if (newData.length > 500) newData.shift();
                 return newData;
             });
@@ -111,11 +121,11 @@ const CryptoDashboard = () => {
     const chartData = priceData.map(point => {
         // Find if any trade happened around this time (simple matching for demo)
         const trade = allTrades.find(t => {
+            if (!point.timestamp) return false;
             const tradeTime = new Date(t.timestamp).getTime();
-            // Match within 1 minute window for demo visualization
-            // If point.timestamp is missing (live data), we approximate
-            const pointTime = point.timestamp ? new Date(point.timestamp).getTime() : Date.now();
-            return Math.abs(tradeTime - pointTime) < 60000;
+            const pointTime = new Date(point.timestamp).getTime();
+            // Match within 2 minutes window to be safe with intervals
+            return Math.abs(tradeTime - pointTime) < 120000;
         });
 
         return {

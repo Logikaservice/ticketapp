@@ -40,7 +40,8 @@ router.get('/history', (req, res) => {
         // Reverse to show oldest to newest
         const history = rows.map(row => ({
             time: new Date(row.timestamp).toLocaleTimeString(),
-            price: row.price
+            price: row.price,
+            timestamp: row.timestamp // Crucial for matching trades on chart
         })).reverse();
         res.json(history);
     });
