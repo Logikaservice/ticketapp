@@ -13,6 +13,19 @@ const getPortfolio = () => {
     });
 };
 
+// GET /api/crypto/history (Get chart data)
+router.get('/history', (req, res) => {
+    db.all("SELECT price, timestamp FROM price_history WHERE symbol = 'solana' ORDER BY timestamp DESC LIMIT 50", (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        // Reverse to show oldest to newest
+        const history = rows.map(row => ({
+            time: new Date(row.timestamp).toLocaleTimeString(),
+            price: row.price
+        })).reverse();
+        res.json(history);
+    });
+});
+
 // GET /api/crypto/dashboard
 router.get('/dashboard', async (req, res) => {
     try {

@@ -54,7 +54,20 @@ const CryptoDashboard = () => {
         }
     };
 
+    const fetchHistory = async () => {
+        try {
+            const res = await fetch(`${apiBase}/api/crypto/history`);
+            if (res.ok) {
+                const history = await res.json();
+                setPriceData(history);
+            }
+        } catch (error) {
+            console.error("Error fetching history:", error);
+        }
+    };
+
     useEffect(() => {
+        fetchHistory(); // Load history first
         fetchData();
         fetchPrice();
         const interval = setInterval(() => {
