@@ -57,6 +57,26 @@ const dbAll = (query, params = []) => {
     });
 };
 
+// Helper for db.get using Promises
+const dbGet = (query, params = []) => {
+    return new Promise((resolve, reject) => {
+        db.get(query, params, (err, row) => {
+            if (err) reject(err);
+            else resolve(row || null);
+        });
+    });
+};
+
+// Helper for db.run using Promises
+const dbRun = (query, params = []) => {
+    return new Promise((resolve, reject) => {
+        db.run(query, params, function(err) {
+            if (err) reject(err);
+            else resolve({ lastID: this.lastID, changes: this.changes });
+        });
+    });
+};
+
 // GET /api/crypto/dashboard
 router.get('/dashboard', async (req, res) => {
     try {
@@ -389,51 +409,51 @@ const runBotCycle = async () => {
 
 // Helper to open a position (used by bot)
 const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss = null, takeProfit = null) => {
-    return new Promise((resolve, reject) => {
-        db.get("SELECT * FROM portfolio LIMIT 1", async (err, row) => {
-            if (err) {
-                reject(err);
-                return;
+    try {
+        // Use Promise-based getPortfolio to properly await the result
+        const portfolio = await getPortfolio();
+        
+        const cost = volume * entryPrice;
+        let balance = portfolio.balance_usd;
+        let holdings = JSON.parse(portfolio.holdings || '{}');
+
+        if (type === 'buy') {
+            if (balance < cost) {
+                throw new Error('Insufficient funds');
             }
+            balance -= cost;
+            holdings[symbol] = (holdings[symbol] || 0) + volume;
+        } else {
+            // Short position
+            balance += cost;
+            holdings[symbol] = (holdings[symbol] || 0) - volume;
+        }
 
-            const cost = volume * entryPrice;
-            let balance = row.balance_usd;
-            let holdings = JSON.parse(row.holdings || '{}');
+        const ticketId = generateTicketId();
 
-            if (type === 'buy') {
-                if (balance < cost) {
-                    reject(new Error('Insufficient funds'));
-                    return;
-                }
-                balance -= cost;
-                holdings[symbol] = (holdings[symbol] || 0) + volume;
-            } else {
-                // Short position
-                balance += cost;
-                holdings[symbol] = (holdings[symbol] || 0) - volume;
-            }
+        // Update database using Promise-based operations (sequentially to ensure order)
+        await dbRun(
+            "UPDATE portfolio SET balance_usd = ?, holdings = ?",
+            [balance, JSON.stringify(holdings)]
+        );
+        
+        await dbRun(
+            `INSERT INTO open_positions 
+            (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')`,
+            [ticketId, symbol, type, volume, entryPrice, entryPrice, stopLoss, takeProfit, strategy || 'Bot']
+        );
 
-            const ticketId = generateTicketId();
+        await dbRun(
+            "INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
+            [symbol, type, volume, entryPrice, strategy || 'Bot Open']
+        );
 
-            db.serialize(() => {
-                db.run("UPDATE portfolio SET balance_usd = ?, holdings = ?", [balance, JSON.stringify(holdings)]);
-                
-                db.run(
-                    `INSERT INTO open_positions 
-                    (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')`,
-                    [ticketId, symbol, type, volume, entryPrice, entryPrice, stopLoss, takeProfit, strategy || 'Bot']
-                );
-
-                db.run(
-                    "INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
-                    [symbol, type, volume, entryPrice, strategy || 'Bot Open']
-                );
-
-                resolve(ticketId);
-            });
-        });
-    });
+        return ticketId;
+    } catch (err) {
+        console.error('Error in openPosition:', err.message);
+        throw err;
+    }
 };
 
 // Helper to execute trade internally (legacy - now uses positions)
@@ -451,39 +471,53 @@ const executeTrade = async (symbol, type, amount, price, strategy, realizedPnl =
             console.log(`✅ Position opened: ${type.toUpperCase()} ${amount} ${symbol} @ ${price}`);
         } catch (err) {
             console.error('Error opening position:', err.message);
+            throw err; // Re-throw to allow caller to handle
         }
     } else {
         // If it's a sell, close the oldest open position
         try {
-            db.get("SELECT * FROM open_positions WHERE symbol = ? AND type = 'buy' AND status = 'open' ORDER BY opened_at ASC LIMIT 1", 
-                [symbol], async (err, pos) => {
-                    if (err || !pos) {
-                        // Fallback to old logic if no position found
-                        const cost = amount * price;
-                        db.get("SELECT * FROM portfolio LIMIT 1", (err, row) => {
-                            if (err) return;
-                            let balance = row.balance_usd;
-                            let holdings = JSON.parse(row.holdings);
+            // Use Promise-based db.get to properly await the result
+            const pos = await dbGet(
+                "SELECT * FROM open_positions WHERE symbol = ? AND type = 'buy' AND status = 'open' ORDER BY opened_at ASC LIMIT 1",
+                [symbol]
+            );
 
-                            balance += cost;
-                            holdings[symbol] = (holdings[symbol] || 0) - amount;
-                            if (holdings[symbol] < 0) holdings[symbol] = 0;
+            if (!pos) {
+                // Fallback to old logic if no position found
+                console.warn(`⚠️ No open position found for ${symbol}, using fallback logic`);
+                try {
+                    const portfolio = await getPortfolio();
+                    const cost = amount * price;
+                    let balance = portfolio.balance_usd;
+                    let holdings = JSON.parse(portfolio.holdings || '{}');
 
-                            db.serialize(() => {
-                                db.run("UPDATE portfolio SET balance_usd = ?, holdings = ?", [balance, JSON.stringify(holdings)]);
-                                db.run("INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES (?, ?, ?, ?, ?, ?)",
-                                    [symbol, type, amount, price, strategy, realizedPnl]);
-                            });
-                        });
-                        return;
-                    }
+                    balance += cost;
+                    holdings[symbol] = (holdings[symbol] || 0) - amount;
+                    if (holdings[symbol] < 0) holdings[symbol] = 0;
 
-                    // Close the position
-                    await closePosition(pos.ticket_id, price, 'taken');
-                    console.log(`✅ Position closed: ${pos.ticket_id} @ ${price}`);
-                });
+                    // Use Promise-based operations for consistency
+                    await dbRun(
+                        "UPDATE portfolio SET balance_usd = ?, holdings = ?",
+                        [balance, JSON.stringify(holdings)]
+                    );
+                    await dbRun(
+                        "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES (?, ?, ?, ?, ?, ?)",
+                        [symbol, type, amount, price, strategy, realizedPnl]
+                    );
+                    console.log(`✅ Fallback trade executed: ${type.toUpperCase()} ${amount} ${symbol} @ ${price}`);
+                } catch (fallbackErr) {
+                    console.error('Error in fallback trade logic:', fallbackErr.message);
+                    throw fallbackErr;
+                }
+                return;
+            }
+
+            // Close the position and wait for it to complete
+            await closePosition(pos.ticket_id, price, 'taken');
+            console.log(`✅ Position closed: ${pos.ticket_id} @ ${price}`);
         } catch (err) {
             console.error('Error closing position:', err.message);
+            throw err; // Re-throw to allow caller to handle
         }
     }
 };
@@ -568,58 +602,62 @@ const updatePositionsPnL = async (currentPrice, symbol = 'solana') => {
 
 // Helper to close a position
 const closePosition = async (ticketId, closePrice, reason = 'manual') => {
-    return new Promise((resolve, reject) => {
-        db.get("SELECT * FROM open_positions WHERE ticket_id = ? AND status = 'open'", [ticketId], async (err, pos) => {
-            if (err || !pos) {
-                reject(new Error('Position not found'));
-                return;
-            }
+    try {
+        // Use Promise-based db.get to properly await the result
+        const pos = await dbGet(
+            "SELECT * FROM open_positions WHERE ticket_id = ? AND status = 'open'",
+            [ticketId]
+        );
 
-            // Calculate final P&L
-            let finalPnl = 0;
-            if (pos.type === 'buy') {
-                finalPnl = (closePrice - pos.entry_price) * pos.volume;
-            } else {
-                finalPnl = (pos.entry_price - closePrice) * pos.volume;
-            }
+        if (!pos) {
+            throw new Error('Position not found or already closed');
+        }
 
-            // Update portfolio
-            const portfolio = await getPortfolio();
-            let balance = portfolio.balance_usd;
-            let holdings = JSON.parse(portfolio.holdings || '{}');
+        // Calculate final P&L
+        let finalPnl = 0;
+        if (pos.type === 'buy') {
+            finalPnl = (closePrice - pos.entry_price) * pos.volume;
+        } else {
+            finalPnl = (pos.entry_price - closePrice) * pos.volume;
+        }
 
-            if (pos.type === 'buy') {
-                // Selling: add money, remove crypto
-                balance += closePrice * pos.volume;
-                holdings[pos.symbol] = (holdings[pos.symbol] || 0) - pos.volume;
-            } else {
-                // Closing short: subtract money, add crypto back
-                balance -= closePrice * pos.volume;
-                holdings[pos.symbol] = (holdings[pos.symbol] || 0) + pos.volume;
-            }
+        // Update portfolio
+        const portfolio = await getPortfolio();
+        let balance = portfolio.balance_usd;
+        let holdings = JSON.parse(portfolio.holdings || '{}');
 
-            // Update database
-            db.serialize(() => {
-                db.run(
-                    "UPDATE portfolio SET balance_usd = ?, holdings = ?",
-                    [balance, JSON.stringify(holdings)]
-                );
+        if (pos.type === 'buy') {
+            // Selling: add money, remove crypto
+            balance += closePrice * pos.volume;
+            holdings[pos.symbol] = (holdings[pos.symbol] || 0) - pos.volume;
+        } else {
+            // Closing short: subtract money, add crypto back
+            balance -= closePrice * pos.volume;
+            holdings[pos.symbol] = (holdings[pos.symbol] || 0) + pos.volume;
+        }
 
-                db.run(
-                    "UPDATE open_positions SET status = ?, closed_at = CURRENT_TIMESTAMP, current_price = ?, profit_loss = ? WHERE ticket_id = ?",
-                    [reason, closePrice, finalPnl, ticketId]
-                );
+        // Update database using Promise-based operations (sequentially to ensure order)
+        await dbRun(
+            "UPDATE portfolio SET balance_usd = ?, holdings = ?",
+            [balance, JSON.stringify(holdings)]
+        );
 
-                // Record in trades history
-                db.run(
-                    "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES (?, ?, ?, ?, ?, ?)",
-                    [pos.symbol, pos.type === 'buy' ? 'sell' : 'buy', pos.volume, closePrice, pos.strategy || 'Manual Close', finalPnl]
-                );
-            });
+        await dbRun(
+            "UPDATE open_positions SET status = ?, closed_at = CURRENT_TIMESTAMP, current_price = ?, profit_loss = ? WHERE ticket_id = ?",
+            [reason, closePrice, finalPnl, ticketId]
+        );
 
-            resolve({ success: true, pnl: finalPnl });
-        });
-    });
+        // Record in trades history
+        await dbRun(
+            "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES (?, ?, ?, ?, ?, ?)",
+            [pos.symbol, pos.type === 'buy' ? 'sell' : 'buy', pos.volume, closePrice, pos.strategy || 'Manual Close', finalPnl]
+        );
+
+        return { success: true, pnl: finalPnl };
+    } catch (err) {
+        console.error('Error in closePosition:', err.message);
+        throw err;
+    }
 };
 
 // GET /api/crypto/positions - Get all open positions
