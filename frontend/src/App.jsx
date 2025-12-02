@@ -2919,7 +2919,7 @@ export default function TicketApp() {
           <PackVision onClose={() => setShowPackVision(false)} />
         )}
 
-        <main className="max-w-7xl mx-auto px-4 py-6">
+        <main className={`mx-auto px-4 py-6 ${showCryptoDashboard ? 'w-full max-w-none' : 'max-w-7xl'}`}>
           {showVivaldi ? (
             // Verifica accesso al sistema Vivaldi (admin e tecnici hanno sempre accesso)
             (currentUser?.ruolo === 'admin' || currentUser?.ruolo === 'tecnico' || currentUser?.enabled_projects?.includes('vivaldi')) ? (
