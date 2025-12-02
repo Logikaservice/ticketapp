@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
+import { ComposedChart, Line, Area, Scatter, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet } from 'lucide-react';
 import './CryptoLayout.css';
 
@@ -175,23 +175,33 @@ const CryptoDashboard = () => {
                     </div>
                     <div className="chart-container">
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={chartData}>
+                            <ComposedChart data={chartData}>
+                                <defs>
+                                    <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
                                 <XAxis dataKey="time" hide />
                                 <YAxis domain={['auto', 'auto']} hide />
                                 <Tooltip
-                                    contentStyle={{ backgroundColor: '#1c1c1e', border: 'none', borderRadius: '8px' }}
+                                    contentStyle={{ backgroundColor: '#1c1c1e', border: '1px solid #333', borderRadius: '8px' }}
                                     itemStyle={{ color: '#fff' }}
                                     labelStyle={{ display: 'none' }}
                                 />
-                                <Line
+                                <Area
                                     type="monotone"
                                     dataKey="price"
                                     stroke="#3b82f6"
                                     strokeWidth={3}
-                                    dot={<TradeMarker />}
-                                    animationDuration={500}
+                                    fillOpacity={1}
+                                    fill="url(#colorPrice)"
                                 />
-                            </LineChart>
+                                {/* Scatter plot for Buy signals */}
+                                <Scatter name="Buy" dataKey="buy" fill="#4ade80" shape="circle" />
+                                {/* Scatter plot for Sell signals */}
+                                <Scatter name="Sell" dataKey="sell" fill="#ef4444" shape="circle" />
+                            </ComposedChart>
                         </ResponsiveContainer>
                     </div>
                     <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '1.2rem', fontWeight: 'bold' }}>
