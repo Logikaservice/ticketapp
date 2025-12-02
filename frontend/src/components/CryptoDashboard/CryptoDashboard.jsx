@@ -125,14 +125,6 @@ const CryptoDashboard = () => {
         };
     });
 
-    // Custom Dot for Trades
-    const TradeMarker = (props) => {
-        const { cx, cy, payload } = props;
-        if (payload.buy) return <circle cx={cx} cy={cy} r={6} fill="#4ade80" stroke="#fff" strokeWidth={2} />;
-        if (payload.sell) return <circle cx={cx} cy={cy} r={6} fill="#ef4444" stroke="#fff" strokeWidth={2} />;
-        return null;
-    };
-
     return (
         <div className="crypto-dashboard">
             <div className="crypto-header">
@@ -173,7 +165,12 @@ const CryptoDashboard = () => {
                         <Activity size={20} className="text-blue-500" />
                         Solana / EUR Live Market
                     </div>
-                    <div className="chart-container">
+                    <div className="chart-container" style={{ position: 'relative' }}>
+                        {chartData.length === 0 && (
+                            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#666' }}>
+                                Loading Chart Data...
+                            </div>
+                        )}
                         <ResponsiveContainer width="100%" height="100%">
                             <ComposedChart data={chartData}>
                                 <defs>
@@ -182,12 +179,21 @@ const CryptoDashboard = () => {
                                         <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <XAxis dataKey="time" hide />
-                                <YAxis domain={['auto', 'auto']} hide />
+                                <XAxis
+                                    dataKey="time"
+                                    stroke="#333"
+                                    tick={{ fill: '#666', fontSize: 10 }}
+                                    minTickGap={30}
+                                />
+                                <YAxis
+                                    domain={['auto', 'auto']}
+                                    stroke="#333"
+                                    tick={{ fill: '#666', fontSize: 10 }}
+                                    width={40}
+                                />
                                 <Tooltip
                                     contentStyle={{ backgroundColor: '#1c1c1e', border: '1px solid #333', borderRadius: '8px' }}
                                     itemStyle={{ color: '#fff' }}
-                                    labelStyle={{ display: 'none' }}
                                 />
                                 <Area
                                     type="monotone"
@@ -196,10 +202,9 @@ const CryptoDashboard = () => {
                                     strokeWidth={3}
                                     fillOpacity={1}
                                     fill="url(#colorPrice)"
+                                    isAnimationActive={false}
                                 />
-                                {/* Scatter plot for Buy signals */}
                                 <Scatter name="Buy" dataKey="buy" fill="#4ade80" shape="circle" />
-                                {/* Scatter plot for Sell signals */}
                                 <Scatter name="Sell" dataKey="sell" fill="#ef4444" shape="circle" />
                             </ComposedChart>
                         </ResponsiveContainer>
