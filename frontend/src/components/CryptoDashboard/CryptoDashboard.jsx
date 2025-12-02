@@ -27,6 +27,8 @@ const CryptoDashboard = () => {
                 setTrades(data.recent_trades);
                 const bot = data.active_bots.find(b => b.strategy_name === 'RSI_Strategy');
                 if (bot) setBotStatus({ active: bot.is_active === 1, strategy: bot.strategy_name });
+            } else {
+                console.error(`❌ Fetch Dashboard Failed: ${res.status} ${res.statusText}`);
             }
         } catch (error) {
             console.error("❌ Error fetching dashboard data from:", `${apiBase}/api/crypto/dashboard`, error);
@@ -47,6 +49,8 @@ const CryptoDashboard = () => {
                     if (newData.length > 30) newData.shift();
                     return newData;
                 });
+            } else {
+                console.error(`❌ Fetch Price Failed: ${res.status} ${res.statusText}`);
             }
         } catch (error) {
             // Fallback mock data if API fails
