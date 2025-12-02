@@ -264,146 +264,147 @@ const calculateRSI = (prices) => {
 const runBotCycle = async () => {
     try {
         // 1. Check if bot is active (we run price collection ANYWAY to keep history valid)
-        db.get("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'", async (err, bot) => {
-            const isBotActive = bot && bot.is_active;
+        // Use Promise-based dbGet to properly await the result
+        const bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'");
+        const isBotActive = bot && bot.is_active;
 
-            // 2. Get current price (SOLANA)
-            const symbol = 'solana';
-            let currentPrice = 0;
+        // 2. Get current price (SOLANA)
+        const symbol = 'solana';
+        let currentPrice = 0;
 
+        try {
+            // Fetch Price using Binance API (Direct EUR pair, very reliable)
+            // Symbol: SOLEUR
+            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=SOLEUR`);
+
+            if (data && data.price) {
+                currentPrice = parseFloat(data.price);
+            } else {
+                throw new Error("Invalid data from Binance");
+            }
+
+        } catch (e) {
+            console.error('Error fetching price from Binance:', e.message);
+
+            // Fallback to CoinGecko if Binance fails
             try {
-                // Fetch Price using Binance API (Direct EUR pair, very reliable)
-                // Symbol: SOLEUR
-                const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=SOLEUR`);
-
-                if (data && data.price) {
-                    currentPrice = parseFloat(data.price);
-                } else {
-                    throw new Error("Invalid data from Binance");
+                const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=eur');
+                if (geckoData && geckoData.solana && geckoData.solana.eur) {
+                    currentPrice = parseFloat(geckoData.solana.eur);
                 }
+            } catch (e2) {
+                console.error('Error fetching price from CoinGecko:', e2.message);
+                // Last resort fallback
+                if (currentPrice === 0) currentPrice = 120.00 + (Math.random() * 0.5);
+            }
+        }
 
-            } catch (e) {
-                console.error('Error fetching price from Binance:', e.message);
+        // 3. Update history (RAM + DB)
+        priceHistory.push(currentPrice);
+        if (priceHistory.length > 50) priceHistory.shift(); // Keep memory clean
 
-                // Fallback to CoinGecko if Binance fails
-                try {
-                    const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=eur');
-                    if (geckoData && geckoData.solana && geckoData.solana.eur) {
-                        currentPrice = parseFloat(geckoData.solana.eur);
-                    }
-                } catch (e2) {
-                    console.error('Error fetching price from CoinGecko:', e2.message);
-                    // Last resort fallback
-                    if (currentPrice === 0) currentPrice = 120.00 + (Math.random() * 0.5);
-                }
+        // Save to DB using Promise-based operation
+        await dbRun("INSERT INTO price_history (symbol, price) VALUES (?, ?)", [symbol, currentPrice]);
+
+        // Optional: Cleanup old history (keep last 1000 entries to save space) every 100 cycles
+        if (Math.random() < 0.01) {
+            await dbRun("DELETE FROM price_history WHERE id NOT IN (SELECT id FROM price_history ORDER BY timestamp DESC LIMIT 1000)");
+        }
+
+        // 4. Calculate RSI
+        const rsi = calculateRSI(priceHistory);
+        latestRSI = rsi; // Update global variable
+
+        if (rsi) {
+            console.log(`🤖 BOT: SOL/EUR=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);
+        }
+
+        if (!isBotActive || !rsi) return; // Stop here if bot is off
+
+        // 5. Professional Decision Logic
+        const portfolio = await getPortfolio();
+        let balance = portfolio.balance_usd;
+        let holdings = JSON.parse(portfolio.holdings || '{}');
+        const cryptoAmount = holdings[symbol] || 0;
+
+        // Calculate Weighted Average Buy Price (Real Cost Basis)
+        let lastBuyPrice = 0;
+        if (cryptoAmount > 0) {
+            // Fetch recent buys to calculate average
+            const trades = await dbAll("SELECT * FROM trades WHERE symbol = ? AND type = 'buy' ORDER BY timestamp DESC LIMIT 20", [symbol]);
+
+            let totalCost = 0;
+            let totalQty = 0;
+            let remainingToMatch = cryptoAmount;
+
+            for (const t of trades) {
+                const qty = Math.min(t.amount, remainingToMatch);
+                totalCost += qty * t.price;
+                totalQty += qty;
+                remainingToMatch -= qty;
+                if (remainingToMatch <= 0.0001) break;
             }
 
-            // 3. Update history (RAM + DB)
-            priceHistory.push(currentPrice);
-            if (priceHistory.length > 50) priceHistory.shift(); // Keep memory clean
-
-            // Save to DB
-            db.run("INSERT INTO price_history (symbol, price) VALUES (?, ?)", [symbol, currentPrice]);
-
-            // Optional: Cleanup old history (keep last 1000 entries to save space) every 100 cycles
-            if (Math.random() < 0.01) {
-                db.run("DELETE FROM price_history WHERE id NOT IN (SELECT id FROM price_history ORDER BY timestamp DESC LIMIT 1000)");
+            if (totalQty > 0) {
+                lastBuyPrice = totalCost / totalQty;
+            } else {
+                // Fallback if history is lost but holdings exist
+                lastBuyPrice = currentPrice;
             }
+        }
 
-            // 4. Calculate RSI
-            const rsi = calculateRSI(priceHistory);
-            latestRSI = rsi; // Update global variable
+        // --- STRATEGY PARAMETERS ---
+        const RSI_OVERSOLD = 30;
+        const RSI_OVERBOUGHT = 70;
+        const STOP_LOSS_PCT = 0.02; // 2% max loss
+        const TAKE_PROFIT_PCT = 0.03; // 3% target profit
+        const TRADE_SIZE_EUR = 50; // Invest 50€ per trade (Money Management)
 
-            if (rsi) {
-                console.log(`🤖 BOT: SOL/EUR=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);
+        console.log(`📊 ANALISI: Prezzo=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Holdings=${cryptoAmount.toFixed(4)} SOL | AvgPrice=${lastBuyPrice.toFixed(2)}€`);
+
+        // BUY LOGIC (Smart Accumulation / DCA)
+        if (rsi < RSI_OVERSOLD && balance >= TRADE_SIZE_EUR) {
+            // Scenario A: First Entry
+            if (cryptoAmount < 0.001) {
+                const amountToBuy = TRADE_SIZE_EUR / currentPrice;
+                await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `RSI Oversold (${rsi.toFixed(2)})`);
+                console.log(`✅ BOT BUY (Entry): RSI ${rsi.toFixed(2)} < ${RSI_OVERSOLD}. Buying ${amountToBuy.toFixed(4)} SOL.`);
             }
-
-            if (!isBotActive || !rsi) return; // Stop here if bot is off
-
-            // 5. Professional Decision Logic
-            const portfolio = await getPortfolio();
-            let balance = portfolio.balance_usd;
-            let holdings = JSON.parse(portfolio.holdings || '{}');
-            const cryptoAmount = holdings[symbol] || 0;
-
-            // Calculate Weighted Average Buy Price (Real Cost Basis)
-            let lastBuyPrice = 0;
-            if (cryptoAmount > 0) {
-                // Fetch recent buys to calculate average
-                const trades = await dbAll("SELECT * FROM trades WHERE symbol = ? AND type = 'buy' ORDER BY timestamp DESC LIMIT 20", [symbol]);
-
-                let totalCost = 0;
-                let totalQty = 0;
-                let remainingToMatch = cryptoAmount;
-
-                for (const t of trades) {
-                    const qty = Math.min(t.amount, remainingToMatch);
-                    totalCost += qty * t.price;
-                    totalQty += qty;
-                    remainingToMatch -= qty;
-                    if (remainingToMatch <= 0.0001) break;
-                }
-
-                if (totalQty > 0) {
-                    lastBuyPrice = totalCost / totalQty;
-                } else {
-                    // Fallback if history is lost but holdings exist
-                    lastBuyPrice = currentPrice;
-                }
+            // Scenario B: DCA (Accumulate if price drops 2% below Avg Price)
+            else if (currentPrice < lastBuyPrice * 0.98) {
+                // Aggressive: Buy double (Martingale) or same amount? Let's stick to same amount for safety.
+                const amountToBuy = TRADE_SIZE_EUR / currentPrice;
+                await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `DCA Accumulation (Price -2%)`);
+                console.log(`📉 BOT BUY (DCA): Price dropped below Avg. Lowering entry price.`);
             }
+        }
 
-            // --- STRATEGY PARAMETERS ---
-            const RSI_OVERSOLD = 30;
-            const RSI_OVERBOUGHT = 70;
-            const STOP_LOSS_PCT = 0.02; // 2% max loss
-            const TAKE_PROFIT_PCT = 0.03; // 3% target profit
-            const TRADE_SIZE_EUR = 50; // Invest 50€ per trade (Money Management)
+        // SELL LOGIC (Manage Open Position)
+        else if (cryptoAmount > 0.01) {
+            const pnlPercent = (currentPrice - lastBuyPrice) / lastBuyPrice;
 
-            console.log(`📊 ANALISI: Prezzo=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Holdings=${cryptoAmount.toFixed(4)} SOL | AvgPrice=${lastBuyPrice.toFixed(2)}€`);
-
-            // BUY LOGIC (Smart Accumulation / DCA)
-            if (rsi < RSI_OVERSOLD && balance >= TRADE_SIZE_EUR) {
-                // Scenario A: First Entry
-                if (cryptoAmount < 0.001) {
-                    const amountToBuy = TRADE_SIZE_EUR / currentPrice;
-                    await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `RSI Oversold (${rsi.toFixed(2)})`);
-                    console.log(`✅ BOT BUY (Entry): RSI ${rsi.toFixed(2)} < ${RSI_OVERSOLD}. Buying ${amountToBuy.toFixed(4)} SOL.`);
-                }
-                // Scenario B: DCA (Accumulate if price drops 2% below Avg Price)
-                else if (currentPrice < lastBuyPrice * 0.98) {
-                    // Aggressive: Buy double (Martingale) or same amount? Let's stick to same amount for safety.
-                    const amountToBuy = TRADE_SIZE_EUR / currentPrice;
-                    await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `DCA Accumulation (Price -2%)`);
-                    console.log(`📉 BOT BUY (DCA): Price dropped below Avg. Lowering entry price.`);
-                }
+            // 1. RSI Overbought (Classic Signal)
+            if (rsi > RSI_OVERBOUGHT) {
+                const pnl = (currentPrice - lastBuyPrice) * cryptoAmount;
+                await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `RSI Overbought (${rsi.toFixed(2)})`, pnl);
+                console.log(`✅ BOT SELL: RSI ${rsi.toFixed(2)} > ${RSI_OVERBOUGHT}. Taking profit.`);
             }
-
-            // SELL LOGIC (Manage Open Position)
-            else if (cryptoAmount > 0.01) {
-                const pnlPercent = (currentPrice - lastBuyPrice) / lastBuyPrice;
-
-                // 1. RSI Overbought (Classic Signal)
-                if (rsi > RSI_OVERBOUGHT) {
-                    const pnl = (currentPrice - lastBuyPrice) * cryptoAmount;
-                    await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `RSI Overbought (${rsi.toFixed(2)})`, pnl);
-                    console.log(`✅ BOT SELL: RSI ${rsi.toFixed(2)} > ${RSI_OVERBOUGHT}. Taking profit.`);
-                }
-                // 2. Take Profit (Hard Target)
-                else if (pnlPercent >= TAKE_PROFIT_PCT) {
-                    const pnl = (currentPrice - lastBuyPrice) * cryptoAmount;
-                    await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `Take Profit (+${(pnlPercent * 100).toFixed(2)}%)`, pnl);
-                    console.log(`💰 BOT SELL: Take Profit triggered. Gain: +${(pnlPercent * 100).toFixed(2)}%`);
-                }
-                // 3. Stop Loss (Safety Net)
-                else if (pnlPercent <= -STOP_LOSS_PCT) {
-                    const pnl = (currentPrice - lastBuyPrice) * cryptoAmount;
-                    await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `Stop Loss (${(pnlPercent * 100).toFixed(2)}%)`, pnl);
-                    console.log(`🛡️ BOT SELL: Stop Loss triggered. Loss: ${(pnlPercent * 100).toFixed(2)}%`);
-                }
+            // 2. Take Profit (Hard Target)
+            else if (pnlPercent >= TAKE_PROFIT_PCT) {
+                const pnl = (currentPrice - lastBuyPrice) * cryptoAmount;
+                await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `Take Profit (+${(pnlPercent * 100).toFixed(2)}%)`, pnl);
+                console.log(`💰 BOT SELL: Take Profit triggered. Gain: +${(pnlPercent * 100).toFixed(2)}%`);
             }
-        });
+            // 3. Stop Loss (Safety Net)
+            else if (pnlPercent <= -STOP_LOSS_PCT) {
+                const pnl = (currentPrice - lastBuyPrice) * cryptoAmount;
+                await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `Stop Loss (${(pnlPercent * 100).toFixed(2)}%)`, pnl);
+                console.log(`🛡️ BOT SELL: Stop Loss triggered. Loss: ${(pnlPercent * 100).toFixed(2)}%`);
+            }
+        }
     } catch (error) {
         console.error('Bot Cycle Error:', error.message);
+        // Errors from executeTrade and other async operations will now be properly caught here
     }
 };
 
