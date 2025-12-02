@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ComposedChart, Line, Area, Scatter, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet } from 'lucide-react';
+import OpenPositions from './OpenPositions';
 import './CryptoLayout.css';
 
 const CryptoDashboard = () => {
@@ -14,6 +15,7 @@ const CryptoDashboard = () => {
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
     const [allTrades, setAllTrades] = useState([]); // For chart plotting
+    const [openPositions, setOpenPositions] = useState([]);
 
     const fetchData = async () => {
         try {
@@ -23,11 +25,45 @@ const CryptoDashboard = () => {
                 setPortfolio({ ...data.portfolio, rsi: data.rsi });
                 setTrades(data.recent_trades);
                 setAllTrades(data.all_trades || []); // Store full history for chart
+                setOpenPositions(data.open_positions || []); // Store open positions
                 const bot = data.active_bots.find(b => b.strategy_name === 'RSI_Strategy');
                 if (bot) setBotStatus({ active: bot.is_active === 1, strategy: bot.strategy_name });
             }
         } catch (error) {
             console.error("Error fetching dashboard:", error);
+        }
+    };
+
+    const handleUpdatePnL = async () => {
+        try {
+            await fetch(`${apiBase}/api/crypto/positions/update-pnl?symbol=solana`);
+            // Refresh positions after update
+            const res = await fetch(`${apiBase}/api/crypto/positions?status=open`);
+            if (res.ok) {
+                const data = await res.json();
+                setOpenPositions(data.positions || []);
+            }
+        } catch (error) {
+            console.error("Error updating P&L:", error);
+        }
+    };
+
+    const handleClosePosition = async (ticketId) => {
+        try {
+            const res = await fetch(`${apiBase}/api/crypto/positions/close/${ticketId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (res.ok) {
+                // Refresh data
+                fetchData();
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Errore nella chiusura della posizione');
+            }
+        } catch (error) {
+            console.error("Error closing position:", error);
+            alert('Errore nella chiusura della posizione');
         }
     };
 
@@ -247,63 +283,14 @@ const CryptoDashboard = () => {
                     </div>
                 </div>
 
-                {/* MT5 Style Open Positions (Moved Here) */}
-                <div className="crypto-card">
-                    <div className="card-title">
-                        <Activity size={20} className="text-blue-500" />
-                        Open Positions (Live)
-                    </div>
-                    <div className="trades-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                        {(() => {
-                            // Calculate Open Positions (FIFO Logic)
-                            let totalSold = trades.filter(t => t.type === 'sell').reduce((acc, t) => acc + t.amount, 0);
-                            const buys = trades.filter(t => t.type === 'buy').sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); // Oldest first
-                            const openPositions = [];
-
-                            for (const buy of buys) {
-                                if (totalSold >= buy.amount) {
-                                    totalSold -= buy.amount; // Fully sold
-                                } else {
-                                    const remaining = buy.amount - totalSold;
-                                    openPositions.push({ ...buy, amount: remaining, originalAmount: buy.amount });
-                                    totalSold = 0; // All sells accounted for
-                                }
-                            }
-
-                            if (openPositions.length === 0) {
-                                return <div style={{ color: '#555', textAlign: 'center', padding: '20px' }}>No open positions.</div>;
-                            }
-
-                            return (
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                                    <thead>
-                                        <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
-                                            <th style={{ padding: '5px', textAlign: 'left' }}>Time</th>
-                                            <th style={{ padding: '5px', textAlign: 'right' }}>Price</th>
-                                            <th style={{ padding: '5px', textAlign: 'right' }}>Vol</th>
-                                            <th style={{ padding: '5px', textAlign: 'right' }}>P&L</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {openPositions.map((pos, i) => {
-                                            const pnl = (currentPrice - pos.price) * pos.amount;
-
-                                            return (
-                                                <tr key={i} style={{ borderBottom: '1px solid #1f2937', background: pnl >= 0 ? 'rgba(74, 222, 128, 0.05)' : 'rgba(239, 68, 68, 0.05)' }}>
-                                                    <td style={{ padding: '5px', color: '#9ca3af' }}>{new Date(pos.timestamp).toLocaleTimeString()}</td>
-                                                    <td style={{ padding: '5px', textAlign: 'right' }}>€{pos.price.toFixed(2)}</td>
-                                                    <td style={{ padding: '5px', textAlign: 'right' }}>{pos.amount.toFixed(4)}</td>
-                                                    <td style={{ padding: '5px', textAlign: 'right', fontWeight: 'bold', color: pnl >= 0 ? '#4ade80' : '#ef4444' }}>
-                                                        {pnl >= 0 ? '+' : ''}€{pnl.toFixed(2)}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            );
-                        })()}
-                    </div>
+                {/* MT5 Style Open Positions */}
+                <div className="crypto-card" style={{ gridColumn: 'span 2' }}>
+                    <OpenPositions
+                        positions={openPositions}
+                        currentPrice={currentPrice}
+                        onClosePosition={handleClosePosition}
+                        onUpdatePnL={handleUpdatePnL}
+                    />
                 </div>
             </div>
 

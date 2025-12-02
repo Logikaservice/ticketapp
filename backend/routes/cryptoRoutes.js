@@ -63,9 +63,10 @@ router.get('/dashboard', async (req, res) => {
         const portfolio = await getPortfolio();
 
         // Run queries in parallel for speed
-        const [trades, bots] = await Promise.all([
+        const [trades, bots, openPositions] = await Promise.all([
             dbAll("SELECT * FROM trades ORDER BY timestamp DESC LIMIT 50"), // Increased limit for calculation
-            dbAll("SELECT * FROM bot_settings")
+            dbAll("SELECT * FROM bot_settings"),
+            dbAll("SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC")
         ]);
 
         // Calculate Average Buy Price for current holdings
@@ -101,6 +102,7 @@ router.get('/dashboard', async (req, res) => {
             recent_trades: trades.slice(0, 10), // Send only 10 to frontend list
             all_trades: trades, // Send more history for chart plotting
             active_bots: bots,
+            open_positions: openPositions, // Include open positions
             rsi: latestRSI
         });
     } catch (error) {
@@ -385,32 +387,400 @@ const runBotCycle = async () => {
     }
 };
 
-// Helper to execute trade internally
-const executeTrade = (symbol, type, amount, price, strategy, realizedPnl = null) => {
-    const cost = amount * price;
-    db.get("SELECT * FROM portfolio LIMIT 1", (err, row) => {
-        if (err) return;
-        let balance = row.balance_usd;
-        let holdings = JSON.parse(row.holdings);
+// Helper to open a position (used by bot)
+const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss = null, takeProfit = null) => {
+    return new Promise((resolve, reject) => {
+        db.get("SELECT * FROM portfolio LIMIT 1", async (err, row) => {
+            if (err) {
+                reject(err);
+                return;
+            }
 
-        if (type === 'buy') {
-            balance -= cost;
-            holdings[symbol] = (holdings[symbol] || 0) + amount;
-        } else {
-            balance += cost;
-            holdings[symbol] = (holdings[symbol] || 0) - amount;
-            if (holdings[symbol] < 0) holdings[symbol] = 0; // Safety
-        }
+            const cost = volume * entryPrice;
+            let balance = row.balance_usd;
+            let holdings = JSON.parse(row.holdings || '{}');
 
-        db.serialize(() => {
-            db.run("UPDATE portfolio SET balance_usd = ?, holdings = ?", [balance, JSON.stringify(holdings)]);
-            db.run("INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES (?, ?, ?, ?, ?, ?)",
-                [symbol, type, amount, price, strategy, realizedPnl]);
+            if (type === 'buy') {
+                if (balance < cost) {
+                    reject(new Error('Insufficient funds'));
+                    return;
+                }
+                balance -= cost;
+                holdings[symbol] = (holdings[symbol] || 0) + volume;
+            } else {
+                // Short position
+                balance += cost;
+                holdings[symbol] = (holdings[symbol] || 0) - volume;
+            }
+
+            const ticketId = generateTicketId();
+
+            db.serialize(() => {
+                db.run("UPDATE portfolio SET balance_usd = ?, holdings = ?", [balance, JSON.stringify(holdings)]);
+                
+                db.run(
+                    `INSERT INTO open_positions 
+                    (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')`,
+                    [ticketId, symbol, type, volume, entryPrice, entryPrice, stopLoss, takeProfit, strategy || 'Bot']
+                );
+
+                db.run(
+                    "INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
+                    [symbol, type, volume, entryPrice, strategy || 'Bot Open']
+                );
+
+                resolve(ticketId);
+            });
         });
     });
 };
 
+// Helper to execute trade internally (legacy - now uses positions)
+const executeTrade = async (symbol, type, amount, price, strategy, realizedPnl = null) => {
+    // If it's a buy, open a position
+    if (type === 'buy') {
+        try {
+            // Calculate stop loss and take profit based on strategy
+            const STOP_LOSS_PCT = 0.02; // 2%
+            const TAKE_PROFIT_PCT = 0.03; // 3%
+            const stopLoss = price * (1 - STOP_LOSS_PCT);
+            const takeProfit = price * (1 + TAKE_PROFIT_PCT);
+            
+            await openPosition(symbol, type, amount, price, strategy, stopLoss, takeProfit);
+            console.log(`✅ Position opened: ${type.toUpperCase()} ${amount} ${symbol} @ ${price}`);
+        } catch (err) {
+            console.error('Error opening position:', err.message);
+        }
+    } else {
+        // If it's a sell, close the oldest open position
+        try {
+            db.get("SELECT * FROM open_positions WHERE symbol = ? AND type = 'buy' AND status = 'open' ORDER BY opened_at ASC LIMIT 1", 
+                [symbol], async (err, pos) => {
+                    if (err || !pos) {
+                        // Fallback to old logic if no position found
+                        const cost = amount * price;
+                        db.get("SELECT * FROM portfolio LIMIT 1", (err, row) => {
+                            if (err) return;
+                            let balance = row.balance_usd;
+                            let holdings = JSON.parse(row.holdings);
+
+                            balance += cost;
+                            holdings[symbol] = (holdings[symbol] || 0) - amount;
+                            if (holdings[symbol] < 0) holdings[symbol] = 0;
+
+                            db.serialize(() => {
+                                db.run("UPDATE portfolio SET balance_usd = ?, holdings = ?", [balance, JSON.stringify(holdings)]);
+                                db.run("INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES (?, ?, ?, ?, ?, ?)",
+                                    [symbol, type, amount, price, strategy, realizedPnl]);
+                            });
+                        });
+                        return;
+                    }
+
+                    // Close the position
+                    await closePosition(pos.ticket_id, price, 'taken');
+                    console.log(`✅ Position closed: ${pos.ticket_id} @ ${price}`);
+                });
+        } catch (err) {
+            console.error('Error closing position:', err.message);
+        }
+    }
+};
+
 // Start the loop
 setInterval(runBotCycle, CHECK_INTERVAL_MS);
+
+// ==========================================
+// OPEN POSITIONS API (MetaTrader 5 Style)
+// ==========================================
+
+// Helper to generate unique ticket ID
+const generateTicketId = () => {
+    return `T${Date.now()}${Math.floor(Math.random() * 1000)}`;
+};
+
+// Helper to update P&L for all open positions
+const updatePositionsPnL = async (currentPrice, symbol = 'solana') => {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'", [symbol], async (err, positions) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            for (const pos of positions) {
+                let pnl = 0;
+                let pnlPct = 0;
+
+                if (pos.type === 'buy') {
+                    // Long position: profit when price goes up
+                    pnl = (currentPrice - pos.entry_price) * pos.volume;
+                    pnlPct = ((currentPrice - pos.entry_price) / pos.entry_price) * 100;
+                } else {
+                    // Short position: profit when price goes down
+                    pnl = (pos.entry_price - currentPrice) * pos.volume;
+                    pnlPct = ((pos.entry_price - currentPrice) / pos.entry_price) * 100;
+                }
+
+                // Update position
+                db.run(
+                    "UPDATE open_positions SET current_price = ?, profit_loss = ?, profit_loss_pct = ? WHERE ticket_id = ?",
+                    [currentPrice, pnl, pnlPct, pos.ticket_id]
+                );
+
+                // Check stop loss and take profit
+                if (pos.stop_loss || pos.take_profit) {
+                    let shouldClose = false;
+                    let closeReason = '';
+
+                    if (pos.type === 'buy') {
+                        // Long position
+                        if (pos.stop_loss && currentPrice <= pos.stop_loss) {
+                            shouldClose = true;
+                            closeReason = 'stopped';
+                        } else if (pos.take_profit && currentPrice >= pos.take_profit) {
+                            shouldClose = true;
+                            closeReason = 'taken';
+                        }
+                    } else {
+                        // Short position
+                        if (pos.stop_loss && currentPrice >= pos.stop_loss) {
+                            shouldClose = true;
+                            closeReason = 'stopped';
+                        } else if (pos.take_profit && currentPrice <= pos.take_profit) {
+                            shouldClose = true;
+                            closeReason = 'taken';
+                        }
+                    }
+
+                    if (shouldClose) {
+                        // Close position automatically
+                        await closePosition(pos.ticket_id, currentPrice, closeReason);
+                    }
+                }
+            }
+
+            resolve(positions.length);
+        });
+    });
+};
+
+// Helper to close a position
+const closePosition = async (ticketId, closePrice, reason = 'manual') => {
+    return new Promise((resolve, reject) => {
+        db.get("SELECT * FROM open_positions WHERE ticket_id = ? AND status = 'open'", [ticketId], async (err, pos) => {
+            if (err || !pos) {
+                reject(new Error('Position not found'));
+                return;
+            }
+
+            // Calculate final P&L
+            let finalPnl = 0;
+            if (pos.type === 'buy') {
+                finalPnl = (closePrice - pos.entry_price) * pos.volume;
+            } else {
+                finalPnl = (pos.entry_price - closePrice) * pos.volume;
+            }
+
+            // Update portfolio
+            const portfolio = await getPortfolio();
+            let balance = portfolio.balance_usd;
+            let holdings = JSON.parse(portfolio.holdings || '{}');
+
+            if (pos.type === 'buy') {
+                // Selling: add money, remove crypto
+                balance += closePrice * pos.volume;
+                holdings[pos.symbol] = (holdings[pos.symbol] || 0) - pos.volume;
+            } else {
+                // Closing short: subtract money, add crypto back
+                balance -= closePrice * pos.volume;
+                holdings[pos.symbol] = (holdings[pos.symbol] || 0) + pos.volume;
+            }
+
+            // Update database
+            db.serialize(() => {
+                db.run(
+                    "UPDATE portfolio SET balance_usd = ?, holdings = ?",
+                    [balance, JSON.stringify(holdings)]
+                );
+
+                db.run(
+                    "UPDATE open_positions SET status = ?, closed_at = CURRENT_TIMESTAMP, current_price = ?, profit_loss = ? WHERE ticket_id = ?",
+                    [reason, closePrice, finalPnl, ticketId]
+                );
+
+                // Record in trades history
+                db.run(
+                    "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES (?, ?, ?, ?, ?, ?)",
+                    [pos.symbol, pos.type === 'buy' ? 'sell' : 'buy', pos.volume, closePrice, pos.strategy || 'Manual Close', finalPnl]
+                );
+            });
+
+            resolve({ success: true, pnl: finalPnl });
+        });
+    });
+};
+
+// GET /api/crypto/positions - Get all open positions
+router.get('/positions', (req, res) => {
+    const { status } = req.query;
+    const query = status 
+        ? "SELECT * FROM open_positions WHERE status = ? ORDER BY opened_at DESC"
+        : "SELECT * FROM open_positions ORDER BY opened_at DESC";
+    
+    const params = status ? [status] : [];
+
+    db.all(query, params, (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json({ positions: rows });
+    });
+});
+
+// POST /api/crypto/positions/open - Open a new position
+router.post('/positions/open', async (req, res) => {
+    const { symbol, type, volume, entry_price, stop_loss, take_profit, strategy } = req.body;
+
+    if (!symbol || !type || !volume || !entry_price) {
+        return res.status(400).json({ error: 'Missing required fields: symbol, type, volume, entry_price' });
+    }
+
+    if (type !== 'buy' && type !== 'sell') {
+        return res.status(400).json({ error: 'Type must be "buy" or "sell"' });
+    }
+
+    try {
+        const portfolio = await getPortfolio();
+        let balance = portfolio.balance_usd;
+        let holdings = JSON.parse(portfolio.holdings || '{}');
+        const cost = volume * entry_price;
+
+        // Check if we have enough funds/holdings
+        if (type === 'buy') {
+            if (balance < cost) {
+                return res.status(400).json({ error: 'Insufficient funds' });
+            }
+            balance -= cost;
+            holdings[symbol] = (holdings[symbol] || 0) + volume;
+        } else {
+            // Short position: we need to "borrow" crypto, so we add money but track negative holdings
+            if ((holdings[symbol] || 0) < volume) {
+                // For short, we're selling what we don't have, so we add to balance
+                balance += cost;
+                holdings[symbol] = (holdings[symbol] || 0) - volume;
+            } else {
+                return res.status(400).json({ error: 'Cannot short when you have holdings. Close position first.' });
+            }
+        }
+
+        const ticketId = generateTicketId();
+
+        // Create position
+        db.serialize(() => {
+            db.run(
+                "UPDATE portfolio SET balance_usd = ?, holdings = ?",
+                [balance, JSON.stringify(holdings)]
+            );
+
+            db.run(
+                `INSERT INTO open_positions 
+                (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')`,
+                [ticketId, symbol, type, volume, entry_price, entry_price, stop_loss || null, take_profit || null, strategy || 'Manual', 'open']
+            );
+
+            // Record initial trade
+            db.run(
+                "INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
+                [symbol, type, volume, entry_price, strategy || 'Manual Open']
+            );
+        });
+
+        res.json({
+            success: true,
+            ticket_id: ticketId,
+            message: `Position opened: ${type.toUpperCase()} ${volume} ${symbol.toUpperCase()} @ ${entry_price}`
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/crypto/positions/close/:ticketId - Close a position
+router.post('/positions/close/:ticketId', async (req, res) => {
+    const { ticketId } = req.params;
+    const { close_price } = req.body;
+
+    try {
+        // Get current price if not provided
+        let finalPrice = close_price;
+        if (!finalPrice) {
+            try {
+                const priceData = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=SOLEUR`);
+                finalPrice = parseFloat(priceData.price);
+            } catch (e) {
+                return res.status(500).json({ error: 'Could not fetch current price. Please provide close_price.' });
+            }
+        }
+
+        const result = await closePosition(ticketId, finalPrice, 'manual');
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/crypto/positions/update-pnl - Update P&L for all positions (called periodically)
+router.get('/positions/update-pnl', async (req, res) => {
+    try {
+        const { symbol } = req.query;
+        const targetSymbol = symbol || 'solana';
+
+        // Get current price
+        let currentPrice = 0;
+        try {
+            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=SOLEUR`);
+            if (data && data.price) {
+                currentPrice = parseFloat(data.price);
+            } else {
+                // Fallback to CoinGecko
+                const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=eur');
+                if (geckoData && geckoData.solana && geckoData.solana.eur) {
+                    currentPrice = parseFloat(geckoData.solana.eur);
+                }
+            }
+        } catch (e) {
+            return res.status(500).json({ error: 'Could not fetch current price' });
+        }
+
+        const updatedCount = await updatePositionsPnL(currentPrice, targetSymbol);
+        res.json({ success: true, updated: updatedCount, current_price: currentPrice });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update P&L every 5 seconds in background
+setInterval(async () => {
+    try {
+        let currentPrice = 0;
+        try {
+            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=SOLEUR`);
+            if (data && data.price) {
+                currentPrice = parseFloat(data.price);
+            }
+        } catch (e) {
+            // Silent fail in background
+            return;
+        }
+        if (currentPrice > 0) {
+            await updatePositionsPnL(currentPrice, 'solana');
+        }
+    } catch (err) {
+        // Silent fail
+    }
+}, 5000);
 
 module.exports = router;

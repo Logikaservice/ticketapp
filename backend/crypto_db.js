@@ -60,6 +60,31 @@ function initDb() {
             price REAL,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
+
+        // Open Positions (MetaTrader 5 style)
+        db.run(`CREATE TABLE IF NOT EXISTS open_positions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            ticket_id TEXT UNIQUE NOT NULL,
+            symbol TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('buy', 'sell')),
+            volume REAL NOT NULL,
+            entry_price REAL NOT NULL,
+            current_price REAL DEFAULT 0,
+            stop_loss REAL,
+            take_profit REAL,
+            swap REAL DEFAULT 0,
+            commission REAL DEFAULT 0,
+            profit_loss REAL DEFAULT 0,
+            profit_loss_pct REAL DEFAULT 0,
+            opened_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            closed_at DATETIME,
+            strategy TEXT,
+            status TEXT DEFAULT 'open' CHECK(status IN ('open', 'closed', 'stopped', 'taken'))
+        )`);
+
+        // Create index for faster queries
+        db.run(`CREATE INDEX IF NOT EXISTS idx_open_positions_status ON open_positions(status)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_open_positions_symbol ON open_positions(symbol)`);
     });
 }
 
