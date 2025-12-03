@@ -104,8 +104,23 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
 
         // If we have enough data, create candlesticks; otherwise use line data
         if (validData.length > 10) {
-            // Group prices by time intervals (15 minutes)
-            const interval = 15 * 60; // 15 minutes in seconds
+            // Calculate optimal interval based on data density
+            // If data spans less than 2 hours, use 1-minute intervals
+            // Otherwise use 5-minute or 15-minute intervals
+            const timeSpan = validData[validData.length - 1].time - validData[0].time;
+            const hours = timeSpan / 3600;
+            
+            let interval;
+            if (hours < 2) {
+                interval = 60; // 1 minute for recent/short-term data
+            } else if (hours < 24) {
+                interval = 5 * 60; // 5 minutes for daily data
+            } else {
+                interval = 15 * 60; // 15 minutes for longer periods
+            }
+            
+            console.log(`📊 LightweightChart: Using ${interval / 60}-minute intervals for ${hours.toFixed(2)} hours of data`);
+            
             const groupedData = {};
             
             validData.forEach((point) => {
@@ -142,6 +157,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
 
             if (candlestickData.length > 0) {
                 console.log('✅ LightweightChart: Setting candlestick data:', candlestickData.length, 'candles');
+                console.log('📊 Sample candle:', candlestickData[0]);
                 candlestickSeriesRef.current.setData(candlestickData);
             }
         } else {
