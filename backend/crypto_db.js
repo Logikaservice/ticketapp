@@ -49,9 +49,16 @@ function initDb() {
       parameters TEXT
     )`);
 
-        // Insert default strategy if not exists
+        // Insert default strategy if not exists with all configurable parameters
         db.run(`INSERT OR IGNORE INTO bot_settings (strategy_name, is_active, parameters) 
-            VALUES ('RSI_Strategy', 0, '{"period": 14, "buy_threshold": 30, "sell_threshold": 70}')`);
+            VALUES ('RSI_Strategy', 0, '{
+                "rsi_period": 14,
+                "rsi_oversold": 30,
+                "rsi_overbought": 70,
+                "stop_loss_pct": 2.0,
+                "take_profit_pct": 3.0,
+                "trade_size_eur": 50
+            }')`);
 
         // Price History (New Table for Persistence)
         db.run(`CREATE TABLE IF NOT EXISTS price_history (

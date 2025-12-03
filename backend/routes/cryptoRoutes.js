@@ -283,8 +283,33 @@ router.post('/trade', async (req, res) => {
 // In-memory price history for RSI calculation (synced with DB)
 let priceHistory = [];
 let latestRSI = null; // Store latest RSI for frontend display
-const RSI_PERIOD = 14;
 const CHECK_INTERVAL_MS = 10000; // Check every 10 seconds
+
+// Default strategy parameters (fallback if not configured)
+const DEFAULT_PARAMS = {
+    rsi_period: 14,
+    rsi_oversold: 30,
+    rsi_overbought: 70,
+    stop_loss_pct: 2.0,
+    take_profit_pct: 3.0,
+    trade_size_eur: 50
+};
+
+// Helper to get bot strategy parameters from database
+const getBotParameters = async () => {
+    try {
+        const bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'");
+        if (bot && bot.parameters) {
+            const params = JSON.parse(bot.parameters);
+            // Merge with defaults to ensure all parameters exist
+            return { ...DEFAULT_PARAMS, ...params };
+        }
+    } catch (err) {
+        console.error('Error loading bot parameters:', err.message);
+    }
+    // Return defaults if error or not found
+    return DEFAULT_PARAMS;
+};
 
 // Load history from DB on startup
 const loadPriceHistory = () => {
@@ -299,13 +324,13 @@ const loadPriceHistory = () => {
 loadPriceHistory();
 
 // Calculate RSI
-const calculateRSI = (prices) => {
-    if (prices.length < RSI_PERIOD + 1) return null;
+const calculateRSI = (prices, period = 14) => {
+    if (prices.length < period + 1) return null;
 
     let gains = 0;
     let losses = 0;
 
-    for (let i = 1; i <= RSI_PERIOD; i++) {
+    for (let i = 1; i <= period; i++) {
         const change = prices[prices.length - i] - prices[prices.length - i - 1];
         if (change > 0) gains += change;
         else losses += Math.abs(change);
@@ -313,8 +338,8 @@ const calculateRSI = (prices) => {
 
     if (losses === 0) return 100;
 
-    const avgGain = gains / RSI_PERIOD;
-    const avgLoss = losses / RSI_PERIOD;
+    const avgGain = gains / period;
+    const avgLoss = losses / period;
     const rs = avgGain / avgLoss;
     return 100 - (100 / (1 + rs));
 };
@@ -370,17 +395,20 @@ const runBotCycle = async () => {
             await dbRun("DELETE FROM price_history WHERE id NOT IN (SELECT id FROM price_history ORDER BY timestamp DESC LIMIT 1000)");
         }
 
-        // 4. Calculate RSI
-        const rsi = calculateRSI(priceHistory);
+        // 4. Get bot parameters from database
+        const params = await getBotParameters();
+
+        // 5. Calculate RSI using configured period
+        const rsi = calculateRSI(priceHistory, params.rsi_period);
         latestRSI = rsi; // Update global variable
 
         if (rsi) {
-            console.log(`🤖 BOT: BTC/EUR=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);
+            console.log(`🤖 BOT: BTC/EUR=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} (Period: ${params.rsi_period}) | Active=${isBotActive}`);
         }
 
         if (!isBotActive || !rsi) return; // Stop here if bot is off
 
-        // 5. Professional Decision Logic
+        // 6. Professional Decision Logic
         const portfolio = await getPortfolio();
         let balance = portfolio.balance_usd;
         let holdings = JSON.parse(portfolio.holdings || '{}');
@@ -412,14 +440,14 @@ const runBotCycle = async () => {
             }
         }
 
-        // --- STRATEGY PARAMETERS ---
-        const RSI_OVERSOLD = 30;
-        const RSI_OVERBOUGHT = 70;
-        const STOP_LOSS_PCT = 0.02; // 2% max loss
-        const TAKE_PROFIT_PCT = 0.03; // 3% target profit
-        const TRADE_SIZE_EUR = 50; // Invest 50€ per trade (Money Management)
+        // --- STRATEGY PARAMETERS (from database) ---
+        const RSI_OVERSOLD = params.rsi_oversold;
+        const RSI_OVERBOUGHT = params.rsi_overbought;
+        const STOP_LOSS_PCT = params.stop_loss_pct / 100; // Convert percentage to decimal
+        const TAKE_PROFIT_PCT = params.take_profit_pct / 100; // Convert percentage to decimal
+        const TRADE_SIZE_EUR = params.trade_size_eur;
 
-                console.log(`📊 ANALISI: Prezzo=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Holdings=${cryptoAmount.toFixed(4)} BTC | AvgPrice=${lastBuyPrice.toFixed(2)}€`);
+                console.log(`📊 ANALISI: Prezzo=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Holdings=${cryptoAmount.toFixed(4)} BTC | AvgPrice=${lastBuyPrice.toFixed(2)}€ | Params: RSI[${RSI_OVERSOLD}/${RSI_OVERBOUGHT}] SL:${params.stop_loss_pct}% TP:${params.take_profit_pct}%`);
 
         // BUY LOGIC (Smart Accumulation / DCA)
         if (rsi < RSI_OVERSOLD && balance >= TRADE_SIZE_EUR) {
@@ -1199,4 +1227,93 @@ router.delete('/binance/order/:symbol/:orderId', async (req, res) => {
         });
     }
 });
+
+// ==========================================
+// BOT CONFIGURATION ENDPOINTS
+// ==========================================
+
+// POST /api/crypto/bot/toggle - Toggle bot on/off
+router.post('/bot/toggle', async (req, res) => {
+    try {
+        const { strategy_name, is_active } = req.body;
+        
+        if (!strategy_name) {
+            return res.status(400).json({ error: 'strategy_name is required' });
+        }
+
+        const activeValue = is_active ? 1 : 0;
+        await dbRun(
+            "UPDATE bot_settings SET is_active = ? WHERE strategy_name = ?",
+            [activeValue, strategy_name]
+        );
+
+        res.json({
+            success: true,
+            strategy_name,
+            is_active: activeValue === 1,
+            message: `Bot ${activeValue === 1 ? 'attivato' : 'disattivato'}`
+        });
+    } catch (error) {
+        console.error('Error toggling bot:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/crypto/bot/parameters - Get bot strategy parameters
+router.get('/bot/parameters', async (req, res) => {
+    try {
+        const params = await getBotParameters();
+        res.json({
+            success: true,
+            parameters: params
+        });
+    } catch (error) {
+        console.error('Error getting bot parameters:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// PUT /api/crypto/bot/parameters - Update bot strategy parameters
+router.put('/bot/parameters', async (req, res) => {
+    try {
+        const { parameters } = req.body;
+
+        if (!parameters) {
+            return res.status(400).json({ error: 'parameters object is required' });
+        }
+
+        // Validate parameters
+        const validParams = {
+            rsi_period: Math.max(5, Math.min(30, parseInt(parameters.rsi_period) || DEFAULT_PARAMS.rsi_period)),
+            rsi_oversold: Math.max(0, Math.min(50, parseFloat(parameters.rsi_oversold) || DEFAULT_PARAMS.rsi_oversold)),
+            rsi_overbought: Math.max(50, Math.min(100, parseFloat(parameters.rsi_overbought) || DEFAULT_PARAMS.rsi_overbought)),
+            stop_loss_pct: Math.max(0.1, Math.min(10, parseFloat(parameters.stop_loss_pct) || DEFAULT_PARAMS.stop_loss_pct)),
+            take_profit_pct: Math.max(0.1, Math.min(20, parseFloat(parameters.take_profit_pct) || DEFAULT_PARAMS.take_profit_pct)),
+            trade_size_eur: Math.max(10, Math.min(1000, parseFloat(parameters.trade_size_eur) || DEFAULT_PARAMS.trade_size_eur))
+        };
+
+        // Ensure oversold < overbought
+        if (validParams.rsi_oversold >= validParams.rsi_overbought) {
+            return res.status(400).json({ 
+                error: 'rsi_oversold must be less than rsi_overbought' 
+            });
+        }
+
+        // Update database
+        await dbRun(
+            "UPDATE bot_settings SET parameters = ? WHERE strategy_name = 'RSI_Strategy'",
+            [JSON.stringify(validParams)]
+        );
+
+        res.json({
+            success: true,
+            parameters: validParams,
+            message: 'Parametri aggiornati con successo'
+        });
+    } catch (error) {
+        console.error('Error updating bot parameters:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

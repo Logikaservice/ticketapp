@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet, Settings } from 'lucide-react';
 import OpenPositions from './OpenPositions';
 import LightweightChart from './LightweightChart';
+import BotSettings from './BotSettings';
 import './CryptoLayout.css';
 
 const CryptoDashboard = () => {
@@ -16,6 +17,7 @@ const CryptoDashboard = () => {
 
     const [allTrades, setAllTrades] = useState([]); // For chart plotting
     const [openPositions, setOpenPositions] = useState([]);
+    const [showBotSettings, setShowBotSettings] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -215,9 +217,23 @@ const CryptoDashboard = () => {
                             )}
                         </div>
                     </div>
-                    <button className="toggle-btn" onClick={toggleBot} style={{ marginTop: '10px', padding: '8px', fontSize: '0.9rem' }}>
-                        {botStatus.active ? "Stop Bot" : "Start Bot"}
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                        <button 
+                            className="toggle-btn" 
+                            onClick={toggleBot} 
+                            style={{ flex: 1, padding: '8px', fontSize: '0.9rem' }}
+                        >
+                            {botStatus.active ? "Stop Bot" : "Start Bot"}
+                        </button>
+                        <button 
+                            className="toggle-btn" 
+                            onClick={() => setShowBotSettings(true)}
+                            style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px' }}
+                            title="Configurazione Bot"
+                        >
+                            <Settings size={18} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -333,6 +349,13 @@ const CryptoDashboard = () => {
                     )}
                 </div>
             </div>
+
+            {/* Bot Settings Modal */}
+            <BotSettings
+                isOpen={showBotSettings}
+                onClose={() => setShowBotSettings(false)}
+                apiBase={apiBase}
+            />
         </div>
     );
 };
