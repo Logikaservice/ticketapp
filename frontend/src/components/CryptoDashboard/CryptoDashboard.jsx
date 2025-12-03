@@ -22,15 +22,23 @@ const CryptoDashboard = () => {
             const res = await fetch(`${apiBase}/api/crypto/dashboard`);
             if (res.ok) {
                 const data = await res.json();
+                console.log('📊 Dashboard data received:', {
+                    portfolio: data.portfolio,
+                    tradesCount: data.recent_trades?.length || 0,
+                    allTradesCount: data.all_trades?.length || 0,
+                    openPositionsCount: data.open_positions?.length || 0
+                });
                 setPortfolio({ ...data.portfolio, rsi: data.rsi });
-                setTrades(data.recent_trades);
+                setTrades(data.recent_trades || []);
                 setAllTrades(data.all_trades || []); // Store full history for chart
                 setOpenPositions(data.open_positions || []); // Store open positions
-                const bot = data.active_bots.find(b => b.strategy_name === 'RSI_Strategy');
+                const bot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy');
                 if (bot) setBotStatus({ active: bot.is_active === 1, strategy: bot.strategy_name });
+            } else {
+                console.error('❌ Dashboard fetch failed:', res.status, res.statusText);
             }
         } catch (error) {
-            console.error("Error fetching dashboard:", error);
+            console.error("❌ Error fetching dashboard:", error);
         }
     };
 
@@ -222,18 +230,18 @@ const CryptoDashboard = () => {
                     </div>
                     <LightweightChart
                         symbol="BTCEUR"
-                        trades={allTrades.map(trade => ({
+                        trades={(allTrades || []).map(trade => ({
                             type: trade.type,
                             timestamp: trade.timestamp,
-                            price: trade.price,
-                            amount: trade.amount,
+                            price: typeof trade.price === 'number' ? trade.price : parseFloat(trade.price),
+                            amount: typeof trade.amount === 'number' ? trade.amount : parseFloat(trade.amount),
                             strategy: trade.strategy || 'Bot'
                         }))}
                         currentPrice={currentPrice}
-                        priceHistory={priceData.map(point => ({
-                            timestamp: point.timestamp,
-                            price: point.price
-                        }))}
+                        priceHistory={(priceData || []).map(point => ({
+                            timestamp: point.timestamp || point.time,
+                            price: typeof point.price === 'number' ? point.price : parseFloat(point.price)
+                        })).filter(p => p.timestamp && !isNaN(p.price))}
                     />
                 </div>
 

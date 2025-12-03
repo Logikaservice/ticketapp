@@ -71,51 +71,87 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
 
     // Update chart data
     useEffect(() => {
-        if (!candlestickSeriesRef.current || priceHistory.length === 0) return;
+        if (!candlestickSeriesRef.current) return;
+
+        console.log('📊 LightweightChart: priceHistory length:', priceHistory.length);
+        
+        if (priceHistory.length === 0) {
+            console.warn('⚠️ LightweightChart: No price history data');
+            return;
+        }
 
         // Convert price history to candlestick format
-        // Group prices by time intervals (15 minutes)
-        const interval = 15 * 60; // 15 minutes in seconds
-        const groupedData = {};
-        
-        priceHistory.forEach((point) => {
-            const time = new Date(point.timestamp || point.time).getTime() / 1000;
-            const intervalKey = Math.floor(time / interval) * interval;
-            
-            if (!groupedData[intervalKey]) {
-                groupedData[intervalKey] = {
-                    time: intervalKey,
-                    prices: []
-                };
-            }
-            
-            const price = typeof point.price === 'number' ? point.price : parseFloat(point.price);
-            if (!isNaN(price)) {
-                groupedData[intervalKey].prices.push(price);
-            }
-        });
+        // Use line chart if we don't have enough data for candlesticks
+        const validData = priceHistory
+            .map((point) => {
+                const price = typeof point.price === 'number' ? point.price : parseFloat(point.price);
+                const timestamp = point.timestamp || point.time;
+                const time = timestamp ? new Date(timestamp).getTime() / 1000 : null;
+                
+                if (isNaN(price) || !time) return null;
+                
+                return { time, price };
+            })
+            .filter(item => item !== null)
+            .sort((a, b) => a.time - b.time);
 
-        // Convert grouped data to candlesticks
-        const candlestickData = Object.values(groupedData)
-            .sort((a, b) => a.time - b.time)
-            .map((group, index, array) => {
-                const prices = group.prices;
-                const open = index > 0 ? array[index - 1].prices[array[index - 1].prices.length - 1] : prices[0];
-                const close = prices[prices.length - 1];
-                const high = Math.max(...prices);
-                const low = Math.min(...prices);
+        console.log('📊 LightweightChart: Valid data points:', validData.length);
 
-                return {
-                    time: group.time,
-                    open: open || close,
-                    high: high || close,
-                    low: low || close,
-                    close: close,
-                };
+        if (validData.length === 0) {
+            console.warn('⚠️ LightweightChart: No valid data points after filtering');
+            return;
+        }
+
+        // If we have enough data, create candlesticks; otherwise use line data
+        if (validData.length > 10) {
+            // Group prices by time intervals (15 minutes)
+            const interval = 15 * 60; // 15 minutes in seconds
+            const groupedData = {};
+            
+            validData.forEach((point) => {
+                const intervalKey = Math.floor(point.time / interval) * interval;
+                
+                if (!groupedData[intervalKey]) {
+                    groupedData[intervalKey] = {
+                        time: intervalKey,
+                        prices: []
+                    };
+                }
+                
+                groupedData[intervalKey].prices.push(point.price);
             });
 
-        if (candlestickData.length > 0) {
-            candlestickSeriesRef.current.setData(candlestickData);
+            // Convert grouped data to candlesticks
+            const candlestickData = Object.values(groupedData)
+                .sort((a, b) => a.time - b.time)
+                .map((group, index, array) => {
+                    const prices = group.prices;
+                    const open = index > 0 ? array[index - 1].prices[array[index - 1].prices.length - 1] : prices[0];
+                    const close = prices[prices.length - 1];
+                    const high = Math.max(...prices);
+                    const low = Math.min(...prices);
+
+                    return {
+                        time: group.time,
+                        open: open || close,
+                        high: high || close,
+                        low: low || close,
+                        close: close,
+                    };
+                });
+
+            if (candlestickData.length > 0) {
+                console.log('✅ LightweightChart: Setting candlestick data:', candlestickData.length, 'candles');
+                candlestickSeriesRef.current.setData(candlestickData);
+            }
+        } else {
+            // Use line chart for small datasets
+            const lineData = validData.map(point => ({
+                time: point.time,
+                value: point.price
+            }));
+            console.log('✅ LightweightChart: Setting line data:', lineData.length, 'points');
+            candlestickSeriesRef.current.setData(lineData);
         }
     }, [priceHistory]);
 
