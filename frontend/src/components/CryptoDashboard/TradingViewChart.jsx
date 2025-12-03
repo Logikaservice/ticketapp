@@ -74,44 +74,26 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [] }) => {
 
     return (
         <div className="tradingview-chart-container">
-            <div ref={containerRef} className="tradingview-chart-wrapper">
-                {/* TradingView widget will be inserted here */}
-            </div>
-            
-            {/* Trade Markers Overlay */}
-            {markers.length > 0 && (
-                <div className="trade-markers-overlay">
-                    {markers.map(marker => (
-                        <div
-                            key={marker.id}
-                            className={`trade-marker trade-marker-${marker.type}`}
-                            title={`${marker.type.toUpperCase()}: ${marker.amount} @ €${marker.price} - ${marker.strategy}`}
-                        >
-                            <div className={`marker-icon ${marker.type}`}>
-                                {marker.type === 'buy' ? '↑' : '↓'}
-                            </div>
-                            <div className="marker-label">
-                                {marker.type === 'buy' ? 'BUY' : 'SELL'}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Trades List Below Chart */}
+            {/* Trades Legend Above Chart */}
             {trades.length > 0 && (
-                <div className="trades-legend">
-                    <h4>Operazioni Bot ({trades.length})</h4>
+                <div className="trades-legend-top">
+                    <div className="legend-header">
+                        <h4>🤖 Operazioni Bot</h4>
+                        <span className="trade-count">{trades.length} operazioni</span>
+                    </div>
                     <div className="trades-list-compact">
-                        {trades.slice(-10).reverse().map((trade, index) => (
-                            <div key={index} className={`trade-badge ${trade.type}`}>
+                        {trades.slice(-8).reverse().map((trade, index) => (
+                            <div key={index} className={`trade-badge ${trade.type}`} title={`${trade.strategy || 'Bot'} - ${new Date(trade.timestamp).toLocaleString('it-IT')}`}>
+                                <span className="trade-icon">{trade.type === 'buy' ? '↑' : '↓'}</span>
                                 <span className="trade-type">{trade.type.toUpperCase()}</span>
-                                <span className="trade-price">€{parseFloat(trade.price).toFixed(2)}</span>
+                                <span className="trade-price">€{parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 <span className="trade-amount">{parseFloat(trade.amount).toFixed(4)} BTC</span>
                                 <span className="trade-time">
                                     {new Date(trade.timestamp).toLocaleTimeString('it-IT', { 
                                         hour: '2-digit', 
-                                        minute: '2-digit' 
+                                        minute: '2-digit',
+                                        day: '2-digit',
+                                        month: '2-digit'
                                     })}
                                 </span>
                             </div>
@@ -119,6 +101,10 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [] }) => {
                     </div>
                 </div>
             )}
+            
+            <div ref={containerRef} className="tradingview-chart-wrapper">
+                {/* TradingView widget will be inserted here */}
+            </div>
         </div>
     );
 };

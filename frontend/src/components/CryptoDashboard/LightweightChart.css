@@ -1,97 +1,18 @@
-.tradingview-chart-container {
+.lightweight-chart-container {
     position: relative;
     width: 100%;
-    height: 500px;
     background: #1c1c1e;
     border-radius: 12px;
     overflow: hidden;
+    border: 1px solid #2c2c2e;
 }
 
-.tradingview-chart-wrapper {
+.lightweight-chart-wrapper {
     width: 100%;
-    height: 100%;
+    height: 500px;
     position: relative;
 }
 
-.trade-markers-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    pointer-events: none;
-    z-index: 10;
-}
-
-.trade-marker {
-    position: absolute;
-    pointer-events: all;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    transform: translate(-50%, -100%);
-    animation: markerPulse 0.5s ease-out;
-}
-
-.trade-marker-buy {
-    color: #4ade80;
-}
-
-.trade-marker-sell {
-    color: #f87171;
-}
-
-.marker-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 18px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.marker-icon.buy {
-    background: linear-gradient(135deg, #4ade80, #22c55e);
-    color: white;
-}
-
-.marker-icon.sell {
-    background: linear-gradient(135deg, #f87171, #ef4444);
-    color: white;
-}
-
-.marker-label {
-    font-size: 10px;
-    font-weight: 600;
-    margin-top: 2px;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-}
-
-@keyframes markerPulse {
-    0% {
-        opacity: 0;
-        transform: translate(-50%, -100%) scale(0.5);
-    }
-    100% {
-        opacity: 1;
-        transform: translate(-50%, -100%) scale(1);
-    }
-}
-
-.trade-marker:hover {
-    z-index: 20;
-}
-
-.trade-marker:hover .marker-icon {
-    transform: scale(1.2);
-    transition: transform 0.2s;
-}
-
-/* Trades Legend Below Chart */
 .trades-legend-top {
     padding: 15px;
     background: #27272a;
@@ -143,11 +64,6 @@
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
-.trade-icon {
-    font-size: 1.1rem;
-    font-weight: bold;
-}
-
 .trade-badge.buy {
     background: rgba(74, 222, 128, 0.15);
     color: #4ade80;
@@ -158,6 +74,11 @@
     background: rgba(248, 113, 113, 0.15);
     color: #f87171;
     border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.trade-icon {
+    font-size: 1.1rem;
+    font-weight: bold;
 }
 
 .trade-type {
@@ -181,9 +102,61 @@
     margin-left: auto;
 }
 
+.current-price-display {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #e5e7eb;
+    padding: 10px;
+    background: #27272a;
+    border-top: 1px solid #3f3f46;
+}
+
+.marker-tooltip {
+    position: absolute;
+    background: rgba(28, 28, 30, 0.95);
+    border: 1px solid #3f3f46;
+    border-radius: 8px;
+    padding: 12px;
+    z-index: 1000;
+    min-width: 250px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+}
+
+.tooltip-header {
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #3f3f46;
+}
+
+.tooltip-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+}
+
+.tooltip-row span:first-child {
+    color: #9ca3af;
+}
+
+.tooltip-row span:last-child {
+    color: #e5e7eb;
+    font-weight: 600;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
-    .tradingview-chart-container {
+    .lightweight-chart-wrapper {
         height: 400px;
     }
     
@@ -194,5 +167,24 @@
     .trade-badge {
         justify-content: space-between;
     }
+}
+
+/* Scrollbar styling */
+.trades-legend-top::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.trades-legend-top::-webkit-scrollbar-track {
+    background: #1c1c1e;
+}
+
+.trades-legend-top::-webkit-scrollbar-thumb {
+    background: #3f3f46;
+    border-radius: 3px;
+}
+
+.trades-legend-top::-webkit-scrollbar-thumb:hover {
+    background: #52525b;
 }
 

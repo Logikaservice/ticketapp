@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet } from 'lucide-react';
 import OpenPositions from './OpenPositions';
-import TradingViewChart from './TradingViewChart';
+import LightweightChart from './LightweightChart';
 import './CryptoLayout.css';
 
 const CryptoDashboard = () => {
@@ -220,8 +220,8 @@ const CryptoDashboard = () => {
                         <Activity size={20} className="text-blue-500" />
                         Bitcoin / EUR Live Market
                     </div>
-                    <TradingViewChart 
-                        symbol="BTCEUR" 
+                    <LightweightChart
+                        symbol="BTCEUR"
                         trades={allTrades.map(trade => ({
                             type: trade.type,
                             timestamp: trade.timestamp,
@@ -229,10 +229,12 @@ const CryptoDashboard = () => {
                             amount: trade.amount,
                             strategy: trade.strategy || 'Bot'
                         }))}
+                        currentPrice={currentPrice}
+                        priceHistory={priceData.map(point => ({
+                            timestamp: point.timestamp,
+                            price: point.price
+                        }))}
                     />
-                    <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                        1 BTC = €{currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </div>
                 </div>
 
                 {/* MT5 Style Open Positions */}
