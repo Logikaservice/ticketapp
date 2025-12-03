@@ -1735,5 +1735,463 @@ router.post('/websocket/join', (req, res) => {
     });
 });
 
+// ==========================================
+// BACKTESTING SYSTEM
+// ==========================================
+
+// Backtesting simulation function
+const runBacktest = async (params, startDate, endDate, initialBalance = 10000) => {
+    try {
+        // Load historical prices from database or Binance
+        let historicalPrices = [];
+        
+        // Try to load from database first
+        const dbPrices = await dbAll(
+            "SELECT price, timestamp FROM price_history WHERE symbol = 'bitcoin' AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC",
+            [startDate, endDate]
+        );
+
+        if (dbPrices && dbPrices.length > 0) {
+            historicalPrices = dbPrices.map(p => ({
+                price: parseFloat(p.price),
+                timestamp: new Date(p.timestamp)
+            }));
+            console.log(`📊 Backtest: Loaded ${historicalPrices.length} prices from database`);
+        } else {
+            // Load from Binance if DB doesn't have enough data
+            console.log('📊 Backtest: Loading historical data from Binance...');
+            const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=BTCEUR&interval=15m&startTime=${new Date(startDate).getTime()}&endTime=${new Date(endDate).getTime()}&limit=1000`;
+            
+            try {
+                const binanceData = await new Promise((resolve, reject) => {
+                    https.get(binanceUrl, (res) => {
+                        let data = '';
+                        res.on('data', chunk => data += chunk);
+                        res.on('end', () => {
+                            try {
+                                resolve(JSON.parse(data));
+                            } catch (e) {
+                                reject(e);
+                            }
+                        });
+                    }).on('error', reject);
+                });
+
+                historicalPrices = binanceData.map(kline => ({
+                    price: parseFloat(kline[4]), // Close price
+                    timestamp: new Date(kline[0])
+                }));
+                console.log(`📊 Backtest: Loaded ${historicalPrices.length} prices from Binance`);
+            } catch (err) {
+                console.error('❌ Error loading from Binance:', err.message);
+                throw new Error('Could not load historical data for backtesting');
+            }
+        }
+
+        if (historicalPrices.length < params.rsi_period + 10) {
+            throw new Error(`Insufficient historical data. Need at least ${params.rsi_period + 10} data points, got ${historicalPrices.length}`);
+        }
+
+        // Initialize simulation state
+        let balance = initialBalance;
+        let holdings = 0; // BTC holdings
+        let trades = [];
+        let openPositions = [];
+        let priceHistoryWindow = [];
+        let lastBuyPrice = 0;
+        let peakBalance = initialBalance;
+        let maxDrawdown = 0;
+        let equityCurve = [];
+
+        const RSI_PERIOD = params.rsi_period || 14;
+        const RSI_OVERSOLD = params.rsi_oversold || 30;
+        const RSI_OVERBOUGHT = params.rsi_overbought || 70;
+        const STOP_LOSS_PCT = (params.stop_loss_pct || 2.0) / 100;
+        const TAKE_PROFIT_PCT = (params.take_profit_pct || 3.0) / 100;
+        const TRADE_SIZE_EUR = params.trade_size_eur || 50;
+
+        // Simulate each price point
+        for (let i = 0; i < historicalPrices.length; i++) {
+            const { price, timestamp } = historicalPrices[i];
+            priceHistoryWindow.push(price);
+            
+            // Keep only last 50 prices for RSI calculation
+            if (priceHistoryWindow.length > 50) {
+                priceHistoryWindow.shift();
+            }
+
+            // Calculate RSI
+            const rsi = calculateRSI(priceHistoryWindow, RSI_PERIOD);
+            if (!rsi) continue; // Not enough data yet
+
+            const currentBalance = balance + (holdings * price);
+            equityCurve.push({
+                timestamp,
+                balance: currentBalance,
+                price,
+                rsi
+            });
+
+            // Update peak and drawdown
+            if (currentBalance > peakBalance) {
+                peakBalance = currentBalance;
+            }
+            const drawdown = (peakBalance - currentBalance) / peakBalance;
+            if (drawdown > maxDrawdown) {
+                maxDrawdown = drawdown;
+            }
+
+            // Check open positions for stop loss / take profit
+            const positionsToClose = [];
+            openPositions.forEach((pos, idx) => {
+                if (pos.type === 'buy') {
+                    const pnlPct = (price - pos.entryPrice) / pos.entryPrice;
+                    if (price <= pos.stopLoss) {
+                        positionsToClose.push({ idx, reason: 'stop_loss', price });
+                    } else if (price >= pos.takeProfit) {
+                        positionsToClose.push({ idx, reason: 'take_profit', price });
+                    }
+                }
+            });
+
+            // Close positions that hit SL/TP
+            positionsToClose.reverse().forEach(({ idx, reason, price: closePrice }) => {
+                const pos = openPositions[idx];
+                const pnl = (closePrice - pos.entryPrice) * pos.volume;
+                balance += closePrice * pos.volume;
+                holdings -= pos.volume;
+                
+                trades.push({
+                    type: 'sell',
+                    price: closePrice,
+                    volume: pos.volume,
+                    timestamp,
+                    strategy: reason === 'stop_loss' ? 'Stop Loss' : 'Take Profit',
+                    profit_loss: pnl
+                });
+
+                openPositions.splice(idx, 1);
+                if (holdings > 0.001) {
+                    // Recalculate average buy price
+                    const remainingTrades = trades.filter(t => t.type === 'buy' && t.timestamp <= timestamp).slice(-10);
+                    let totalCost = 0;
+                    let totalQty = 0;
+                    let remaining = holdings;
+                    for (let t of remainingTrades.reverse()) {
+                        const qty = Math.min(t.volume, remaining);
+                        totalCost += qty * t.price;
+                        totalQty += qty;
+                        remaining -= qty;
+                        if (remaining <= 0.0001) break;
+                    }
+                    if (totalQty > 0) {
+                        lastBuyPrice = totalCost / totalQty;
+                    }
+                } else {
+                    lastBuyPrice = 0;
+                }
+            });
+
+            // Trading logic (same as bot)
+            if (rsi < RSI_OVERSOLD && balance >= TRADE_SIZE_EUR && holdings < 0.001) {
+                // Buy signal
+                const amountToBuy = TRADE_SIZE_EUR / price;
+                balance -= TRADE_SIZE_EUR;
+                holdings += amountToBuy;
+                lastBuyPrice = price;
+
+                const stopLoss = price * (1 - STOP_LOSS_PCT);
+                const takeProfit = price * (1 + TAKE_PROFIT_PCT);
+
+                openPositions.push({
+                    type: 'buy',
+                    entryPrice: price,
+                    volume: amountToBuy,
+                    stopLoss,
+                    takeProfit,
+                    timestamp
+                });
+
+                trades.push({
+                    type: 'buy',
+                    price,
+                    volume: amountToBuy,
+                    timestamp,
+                    strategy: `RSI Oversold (${rsi.toFixed(2)})`,
+                    profit_loss: null
+                });
+            } else if (holdings > 0.01 && rsi > RSI_OVERBOUGHT) {
+                // Sell signal (close all positions)
+                const pnl = (price - lastBuyPrice) * holdings;
+                balance += price * holdings;
+                
+                trades.push({
+                    type: 'sell',
+                    price,
+                    volume: holdings,
+                    timestamp,
+                    strategy: `RSI Overbought (${rsi.toFixed(2)})`,
+                    profit_loss: pnl
+                });
+
+                holdings = 0;
+                openPositions = [];
+                lastBuyPrice = 0;
+            } else if (holdings > 0.01 && lastBuyPrice > 0) {
+                const pnlPercent = (price - lastBuyPrice) / lastBuyPrice;
+                
+                if (pnlPercent >= TAKE_PROFIT_PCT) {
+                    const pnl = (price - lastBuyPrice) * holdings;
+                    balance += price * holdings;
+                    
+                    trades.push({
+                        type: 'sell',
+                        price,
+                        volume: holdings,
+                        timestamp,
+                        strategy: `Take Profit (+${(pnlPercent * 100).toFixed(2)}%)`,
+                        profit_loss: pnl
+                    });
+
+                    holdings = 0;
+                    openPositions = [];
+                    lastBuyPrice = 0;
+                } else if (pnlPercent <= -STOP_LOSS_PCT) {
+                    const pnl = (price - lastBuyPrice) * holdings;
+                    balance += price * holdings;
+                    
+                    trades.push({
+                        type: 'sell',
+                        price,
+                        volume: holdings,
+                        timestamp,
+                        strategy: `Stop Loss (${(pnlPercent * 100).toFixed(2)}%)`,
+                        profit_loss: pnl
+                    });
+
+                    holdings = 0;
+                    openPositions = [];
+                    lastBuyPrice = 0;
+                }
+            }
+        }
+
+        // Close any remaining open positions at final price
+        const finalPrice = historicalPrices[historicalPrices.length - 1].price;
+        if (holdings > 0.001) {
+            const pnl = (finalPrice - lastBuyPrice) * holdings;
+            balance += finalPrice * holdings;
+            trades.push({
+                type: 'sell',
+                price: finalPrice,
+                volume: holdings,
+                timestamp: historicalPrices[historicalPrices.length - 1].timestamp,
+                strategy: 'End of backtest',
+                profit_loss: pnl
+            });
+        }
+
+        // Calculate statistics
+        const finalBalance = balance;
+        const totalPnl = finalBalance - initialBalance;
+        const totalPnlPct = (totalPnl / initialBalance) * 100;
+        
+        const completedTrades = trades.filter(t => t.profit_loss !== null);
+        const winningTrades = completedTrades.filter(t => t.profit_loss > 0);
+        const losingTrades = completedTrades.filter(t => t.profit_loss < 0);
+        
+        const winRate = completedTrades.length > 0 ? (winningTrades.length / completedTrades.length) * 100 : 0;
+        
+        const totalWinning = winningTrades.reduce((sum, t) => sum + t.profit_loss, 0);
+        const totalLosing = Math.abs(losingTrades.reduce((sum, t) => sum + t.profit_loss, 0));
+        const profitFactor = totalLosing > 0 ? totalWinning / totalLosing : (totalWinning > 0 ? Infinity : 0);
+
+        // Calculate Sharpe Ratio (simplified)
+        let sharpeRatio = 0;
+        if (equityCurve.length > 1) {
+            const returns = [];
+            for (let i = 1; i < equityCurve.length; i++) {
+                const ret = (equityCurve[i].balance - equityCurve[i-1].balance) / equityCurve[i-1].balance;
+                returns.push(ret);
+            }
+            const avgReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+            const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length;
+            const stdDev = Math.sqrt(variance);
+            sharpeRatio = stdDev > 0 ? (avgReturn / stdDev) * Math.sqrt(252) : 0; // Annualized
+        }
+
+        return {
+            initialBalance,
+            finalBalance,
+            totalTrades: completedTrades.length,
+            winningTrades: winningTrades.length,
+            losingTrades: losingTrades.length,
+            totalPnl,
+            totalPnlPct,
+            winRate,
+            profitFactor,
+            maxDrawdown,
+            maxDrawdownPct: maxDrawdown * 100,
+            sharpeRatio,
+            trades,
+            equityCurve
+        };
+    } catch (err) {
+        console.error('❌ Backtest error:', err);
+        throw err;
+    }
+};
+
+// POST /api/crypto/backtest/run - Run a backtest
+router.post('/backtest/run', async (req, res) => {
+    try {
+        const { params, startDate, endDate, initialBalance, testName } = req.body;
+
+        if (!params || !startDate || !endDate) {
+            return res.status(400).json({ error: 'Missing required fields: params, startDate, endDate' });
+        }
+
+        // Validate date range
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        if (start >= end) {
+            return res.status(400).json({ error: 'startDate must be before endDate' });
+        }
+
+        // Limit date range to prevent excessive computation
+        const daysDiff = (end - start) / (1000 * 60 * 60 * 24);
+        if (daysDiff > 365) {
+            return res.status(400).json({ error: 'Date range cannot exceed 365 days' });
+        }
+
+        console.log(`🔄 Starting backtest: ${testName || 'Unnamed'} from ${startDate} to ${endDate}`);
+
+        const result = await runBacktest(
+            params,
+            startDate,
+            endDate,
+            initialBalance || 10000
+        );
+
+        // Save results to database
+        const resultsData = JSON.stringify({
+            trades: result.trades,
+            equityCurve: result.equityCurve
+        });
+
+        await dbRun(
+            `INSERT INTO backtest_results 
+            (test_name, strategy_params, start_date, end_date, initial_balance, final_balance,
+             total_trades, winning_trades, losing_trades, total_pnl, total_pnl_pct,
+             win_rate, profit_factor, max_drawdown, max_drawdown_pct, sharpe_ratio, results_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                testName || 'Backtest',
+                JSON.stringify(params),
+                startDate,
+                endDate,
+                result.initialBalance,
+                result.finalBalance,
+                result.totalTrades,
+                result.winningTrades,
+                result.losingTrades,
+                result.totalPnl,
+                result.totalPnlPct,
+                result.winRate,
+                result.profitFactor,
+                result.maxDrawdown,
+                result.maxDrawdownPct,
+                result.sharpeRatio,
+                resultsData
+            ]
+        );
+
+        // Return summary (without full trades/equity curve for performance)
+        res.json({
+            success: true,
+            results: {
+                initialBalance: result.initialBalance,
+                finalBalance: result.finalBalance,
+                totalTrades: result.totalTrades,
+                winningTrades: result.winningTrades,
+                losingTrades: result.losingTrades,
+                totalPnl: result.totalPnl,
+                totalPnlPct: result.totalPnlPct,
+                winRate: result.winRate,
+                profitFactor: result.profitFactor,
+                maxDrawdown: result.maxDrawdown,
+                maxDrawdownPct: result.maxDrawdownPct,
+                sharpeRatio: result.sharpeRatio
+            },
+            message: 'Backtest completed successfully'
+        });
+    } catch (error) {
+        console.error('❌ Backtest run error:', error);
+        res.status(500).json({ error: error.message || 'Error running backtest' });
+    }
+});
+
+// GET /api/crypto/backtest/results - Get all backtest results
+router.get('/backtest/results', async (req, res) => {
+    try {
+        const { limit = 20 } = req.query;
+        const results = await dbAll(
+            `SELECT id, test_name, start_date, end_date, initial_balance, final_balance,
+             total_trades, winning_trades, losing_trades, total_pnl, total_pnl_pct,
+             win_rate, profit_factor, max_drawdown_pct, sharpe_ratio, created_at
+             FROM backtest_results 
+             ORDER BY created_at DESC 
+             LIMIT ?`,
+            [parseInt(limit)]
+        );
+
+        res.json({ success: true, results });
+    } catch (error) {
+        console.error('❌ Error fetching backtest results:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/crypto/backtest/results/:id - Get detailed backtest result
+router.get('/backtest/results/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await dbGet(
+            `SELECT * FROM backtest_results WHERE id = ?`,
+            [id]
+        );
+
+        if (!result) {
+            return res.status(404).json({ error: 'Backtest result not found' });
+        }
+
+        const resultsData = result.results_data ? JSON.parse(result.results_data) : null;
+
+        res.json({
+            success: true,
+            result: {
+                ...result,
+                strategy_params: result.strategy_params ? JSON.parse(result.strategy_params) : null,
+                results_data: resultsData
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error fetching backtest detail:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// DELETE /api/crypto/backtest/results/:id - Delete a backtest result
+router.delete('/backtest/results/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await dbRun('DELETE FROM backtest_results WHERE id = ?', [id]);
+        res.json({ success: true, message: 'Backtest result deleted' });
+    } catch (error) {
+        console.error('❌ Error deleting backtest result:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;
 module.exports.setSocketIO = setSocketIO;

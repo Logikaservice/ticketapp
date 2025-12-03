@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet, Settings } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet, Settings, BarChart2 } from 'lucide-react';
 import OpenPositions from './OpenPositions';
 import LightweightChart from './LightweightChart';
 import BotSettings from './BotSettings';
 import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
+import BacktestPanel from './BacktestPanel';
 import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
 import './CryptoLayout.css';
 
@@ -21,7 +22,9 @@ const CryptoDashboard = () => {
     const [allTrades, setAllTrades] = useState([]); // For chart plotting
     const [openPositions, setOpenPositions] = useState([]);
     const [showBotSettings, setShowBotSettings] = useState(false);
+    const [showBacktestPanel, setShowBacktestPanel] = useState(false);
     const [notifications, setNotifications] = useState([]);
+    const [botParameters, setBotParameters] = useState(null);
     
     // WebSocket for real-time notifications
     const { connected: wsConnected } = useCryptoWebSocket(
@@ -71,6 +74,10 @@ const CryptoDashboard = () => {
                 setOpenPositions(data.open_positions || []); // Store open positions
                 const bot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy');
                 if (bot) setBotStatus({ active: bot.is_active === 1, strategy: bot.strategy_name });
+                // Load bot parameters for backtesting
+                if (data.bot_parameters) {
+                    setBotParameters(data.bot_parameters);
+                }
             } else {
                 console.error('❌ Dashboard fetch failed:', res.status, res.statusText);
             }
@@ -268,6 +275,14 @@ const CryptoDashboard = () => {
                         >
                             <Settings size={18} />
                         </button>
+                        <button 
+                            className="toggle-btn" 
+                            onClick={() => setShowBacktestPanel(true)}
+                            style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px' }}
+                            title="Backtesting Strategia"
+                        >
+                            <BarChart2 size={18} />
+                        </button>
                     </div>
                 </div>
             </div>
@@ -393,6 +408,14 @@ const CryptoDashboard = () => {
                 isOpen={showBotSettings}
                 onClose={() => setShowBotSettings(false)}
                 apiBase={apiBase}
+            />
+
+            {/* Backtest Panel Modal */}
+            <BacktestPanel
+                isOpen={showBacktestPanel}
+                onClose={() => setShowBacktestPanel(false)}
+                apiBase={apiBase}
+                currentBotParams={botParameters}
             />
 
             {/* Real-time Notifications */}

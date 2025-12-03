@@ -136,6 +136,71 @@ function initDb() {
         // Create index for faster queries
         db.run(`CREATE INDEX IF NOT EXISTS idx_open_positions_status ON open_positions(status)`);
         db.run(`CREATE INDEX IF NOT EXISTS idx_open_positions_symbol ON open_positions(symbol)`);
+
+        // Backtesting Results Table
+        db.run(`CREATE TABLE IF NOT EXISTS backtest_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            test_name TEXT,
+            strategy_params TEXT,
+            start_date DATETIME,
+            end_date DATETIME,
+            initial_balance REAL,
+            final_balance REAL,
+            total_trades INTEGER,
+            winning_trades INTEGER,
+            losing_trades INTEGER,
+            total_pnl REAL,
+            total_pnl_pct REAL,
+            win_rate REAL,
+            profit_factor REAL,
+            max_drawdown REAL,
+            max_drawdown_pct REAL,
+            sharpe_ratio REAL,
+            results_data TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Migrate existing table: add new columns if they don't exist
+        db.all("PRAGMA table_info(backtest_results)", (err, columns) => {
+            if (!err && columns && columns.length > 0) {
+                const columnNames = columns.map(c => c.name);
+                
+                const columnsToAdd = [
+                    { name: 'test_name', sql: 'TEXT' },
+                    { name: 'strategy_params', sql: 'TEXT' },
+                    { name: 'start_date', sql: 'DATETIME' },
+                    { name: 'end_date', sql: 'DATETIME' },
+                    { name: 'initial_balance', sql: 'REAL' },
+                    { name: 'final_balance', sql: 'REAL' },
+                    { name: 'total_trades', sql: 'INTEGER' },
+                    { name: 'winning_trades', sql: 'INTEGER' },
+                    { name: 'losing_trades', sql: 'INTEGER' },
+                    { name: 'total_pnl', sql: 'REAL' },
+                    { name: 'total_pnl_pct', sql: 'REAL' },
+                    { name: 'win_rate', sql: 'REAL' },
+                    { name: 'profit_factor', sql: 'REAL' },
+                    { name: 'max_drawdown', sql: 'REAL' },
+                    { name: 'max_drawdown_pct', sql: 'REAL' },
+                    { name: 'sharpe_ratio', sql: 'REAL' },
+                    { name: 'results_data', sql: 'TEXT' },
+                    { name: 'created_at', sql: 'DATETIME DEFAULT CURRENT_TIMESTAMP' }
+                ];
+                
+                columnsToAdd.forEach(col => {
+                    if (!columnNames.includes(col.name)) {
+                        db.run(`ALTER TABLE backtest_results ADD COLUMN ${col.name} ${col.sql}`, (alterErr) => {
+                            if (alterErr) {
+                                console.error(`Error adding column ${col.name}:`, alterErr.message);
+                            } else {
+                                console.log(`✅ Added column ${col.name} to backtest_results`);
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+        db.run(`CREATE INDEX IF NOT EXISTS idx_backtest_results_created ON backtest_results(created_at DESC)`);
     });
 }
 
