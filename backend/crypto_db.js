@@ -72,6 +72,42 @@ function initDb() {
             price REAL,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
+        
+        // Klines OHLC complete per candele stabili (come TradingView)
+        db.run(`CREATE TABLE IF NOT EXISTS klines (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            interval TEXT NOT NULL DEFAULT '15m',
+            open_time INTEGER NOT NULL,
+            open_price REAL NOT NULL,
+            high_price REAL NOT NULL,
+            low_price REAL NOT NULL,
+            close_price REAL NOT NULL,
+            volume REAL DEFAULT 0,
+            close_time INTEGER NOT NULL,
+            UNIQUE(symbol, interval, open_time)
+        )`);
+        
+        // Indice per performance
+        db.run(`CREATE INDEX IF NOT EXISTS idx_klines_lookup ON klines(symbol, interval, open_time DESC)`);
+        
+        // Klines OHLC complete (per candele stabili come TradingView)
+        db.run(`CREATE TABLE IF NOT EXISTS klines (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            symbol TEXT NOT NULL,
+            interval TEXT NOT NULL DEFAULT '15m',
+            open_time INTEGER NOT NULL,
+            open_price REAL NOT NULL,
+            high_price REAL NOT NULL,
+            low_price REAL NOT NULL,
+            close_price REAL NOT NULL,
+            volume REAL DEFAULT 0,
+            close_time INTEGER NOT NULL,
+            UNIQUE(symbol, interval, open_time)
+        )`);
+        
+        // Indici per performance
+        db.run(`CREATE INDEX IF NOT EXISTS idx_klines_symbol_interval_time ON klines(symbol, interval, open_time)`);
 
         // Open Positions (MetaTrader 5 style)
         db.run(`CREATE TABLE IF NOT EXISTS open_positions (

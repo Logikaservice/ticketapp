@@ -119,124 +119,51 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             return;
         }
 
-        // Convert price history to candlestick format
-        // Use line chart if we don't have enough data for candlesticks
-        const validData = priceHistory
-            .map((point) => {
-                const price = typeof point.price === 'number' ? point.price : parseFloat(point.price);
-                const timestamp = point.timestamp || point.time;
-                const time = timestamp ? new Date(timestamp).getTime() / 1000 : null;
-                
-                if (isNaN(price) || !time) return null;
-                
-                return { time, price };
-            })
-            .filter(item => item !== null)
-            .sort((a, b) => a.time - b.time);
-
-        console.log('📊 LightweightChart: Valid data points:', validData.length);
-
-        if (validData.length === 0) {
-            console.warn('⚠️ LightweightChart: No valid data points after filtering');
-            return;
-        }
-
-        // If we have enough data, create candlesticks; otherwise use line data
-        if (validData.length > 10) {
-            // Usa intervallo FISSO salvato o calcola e salva
-            const INTERVAL_KEY = `chart_interval_${symbol}`;
-            let interval = null;
-            
-            // Prova a recuperare intervallo salvato
-            try {
-                const savedInterval = localStorage.getItem(INTERVAL_KEY);
-                if (savedInterval) {
-                    interval = parseInt(savedInterval, 10);
-                }
-            } catch (e) {
-                console.warn('Errore recupero intervallo salvato:', e);
-            }
-            
-            // Se non salvato, calcola e salva
-            if (!interval) {
-                const timeSpan = validData[validData.length - 1].time - validData[0].time;
-                const hours = timeSpan / 3600;
-                
-                if (hours < 2) {
-                    interval = 60; // 1 minute
-                } else if (hours < 24) {
-                    interval = 5 * 60; // 5 minutes
-                } else {
-                    interval = 15 * 60; // 15 minutes
-                }
-                
-                // Salva l'intervallo per usi futuri
-                try {
-                    localStorage.setItem(INTERVAL_KEY, interval.toString());
-                } catch (e) {
-                    console.warn('Errore salvataggio intervallo:', e);
-                }
-            }
-            
-            console.log(`📊 LightweightChart: Using FIXED ${interval / 60}-minute intervals (saved)`);
-            
-            const groupedData = {};
-            
-            validData.forEach((point) => {
-                const intervalKey = Math.floor(point.time / interval) * interval;
-                
-                if (!groupedData[intervalKey]) {
-                    groupedData[intervalKey] = {
-                        time: intervalKey,
-                        prices: []
-                    };
-                }
-                
-                groupedData[intervalKey].prices.push(point.price);
-            });
-
-            // Convert grouped data to candlesticks
-            const candlestickData = Object.values(groupedData)
-                .sort((a, b) => a.time - b.time)
-                .map((group, index, array) => {
-                    const prices = group.prices;
-                    const open = index > 0 ? array[index - 1].prices[array[index - 1].prices.length - 1] : prices[0];
-                    const close = prices[prices.length - 1];
-                    const high = Math.max(...prices);
-                    const low = Math.min(...prices);
-
+        // Check if we have OHLC candlesticks (from klines table) or price points
+        const hasOHLC = priceHistory.length > 0 && priceHistory[0].hasOwnProperty('open') && priceHistory[0].hasOwnProperty('high');
+        
+        if (hasOHLC) {
+            // Use OHLC candlesticks directly (no grouping needed - already from Binance)
+            const candlestickData = priceHistory
+                .map((candle) => {
+                    const time = typeof candle.time === 'number' ? candle.time : (candle.timestamp ? new Date(candle.timestamp).getTime() / 1000 : null);
+                    const open = typeof candle.open === 'number' ? candle.open : parseFloat(candle.open);
+                    const high = typeof candle.high === 'number' ? candle.high : parseFloat(candle.high);
+                    const low = typeof candle.low === 'number' ? candle.low : parseFloat(candle.low);
+                    const close = typeof candle.close === 'number' ? candle.close : parseFloat(candle.close);
+                    
+                    if (!time || isNaN(open) || isNaN(high) || isNaN(low) || isNaN(close)) return null;
+                    
                     return {
-                        time: group.time,
-                        open: open || close,
-                        high: high || close,
-                        low: low || close,
-                        close: close,
+                        time: time,
+                        open: open,
+                        high: high,
+                        low: low,
+                        close: close
                     };
-                });
+                })
+                .filter(item => item !== null)
+                .sort((a, b) => a.time - b.time);
 
             if (candlestickData.length > 0) {
-                console.log('✅ LightweightChart: Setting candlestick data:', candlestickData.length, 'candles');
+                console.log('✅ LightweightChart: Setting OHLC candlestick data:', candlestickData.length, 'candles (from Binance klines)');
                 candlestickSeriesRef.current.setData(candlestickData);
                 
-                // Restore saved position after data is loaded - con retry logic
+                // Restore saved position after data is loaded
                 if (!hasRestoredPositionRef.current && chartRef.current) {
                     const restorePosition = (attempt = 0) => {
                         const savedPosition = localStorage.getItem(`chart_position_${symbol}`);
                         if (savedPosition && chartRef.current) {
                             try {
                                 const { from, to } = JSON.parse(savedPosition);
-                                
-                                // Verifica che il range sia valido rispetto ai dati
                                 const firstTime = candlestickData[0].time;
                                 const lastTime = candlestickData[candlestickData.length - 1].time;
                                 
-                                // Se il range salvato è valido, ripristina
                                 if (from >= firstTime && to <= lastTime && from < to) {
                                     chartRef.current.timeScale().setVisibleRange({ from, to });
                                     hasRestoredPositionRef.current = true;
                                     console.log('✅ Grafico: Posizione ripristinata', { from, to });
                                 } else if (attempt < 3) {
-                                    // Retry dopo che il grafico si è stabilizzato
                                     setTimeout(() => restorePosition(attempt + 1), 500);
                                 } else {
                                     console.log('⚠️ Grafico: Range salvato non valido, usando default');
@@ -248,46 +175,64 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                             setTimeout(() => restorePosition(attempt + 1), 500);
                         }
                     };
-                    
-                    // Primo tentativo dopo un breve delay
                     setTimeout(() => restorePosition(0), 300);
                 }
+                return;
             }
-        } else {
-            // Use line chart for small datasets
-            const lineData = validData.map(point => ({
-                time: point.time,
-                value: point.price
-            }));
-            console.log('✅ LightweightChart: Setting line data:', lineData.length, 'points');
-            candlestickSeriesRef.current.setData(lineData);
-            
-            // Restore saved position - stessa logica di retry
-            if (!hasRestoredPositionRef.current && chartRef.current) {
-                const restorePosition = (attempt = 0) => {
-                    const savedPosition = localStorage.getItem(`chart_position_${symbol}`);
-                    if (savedPosition && chartRef.current) {
-                        try {
-                            const { from, to } = JSON.parse(savedPosition);
-                            const firstTime = lineData[0]?.time;
-                            const lastTime = lineData[lineData.length - 1]?.time;
-                            
-                            if (firstTime && lastTime && from >= firstTime && to <= lastTime && from < to) {
-                                chartRef.current.timeScale().setVisibleRange({ from, to });
-                                hasRestoredPositionRef.current = true;
-                                console.log('✅ Grafico: Posizione ripristinata (line data)');
-                            } else if (attempt < 3) {
-                                setTimeout(() => restorePosition(attempt + 1), 500);
-                            }
-                        } catch (e) {
-                            console.warn('Errore nel ripristino posizione:', e);
+        }
+        
+        // Fallback: Convert price points to candlesticks (backward compatibility)
+        const validData = priceHistory
+            .map((point) => {
+                const price = typeof point.price === 'number' ? point.price : parseFloat(point.price);
+                const timestamp = point.timestamp || point.time;
+                const time = timestamp ? (typeof timestamp === 'number' ? timestamp : new Date(timestamp).getTime() / 1000) : null;
+                
+                if (isNaN(price) || !time) return null;
+                
+                return { time, price };
+            })
+            .filter(item => item !== null)
+            .sort((a, b) => a.time - b.time);
+
+        if (validData.length === 0) {
+            console.warn('⚠️ LightweightChart: No valid data points');
+            return;
+        }
+
+        // Use line chart for price points (fallback)
+        const lineData = validData.map(point => ({
+            time: point.time,
+            value: point.price
+        }));
+        console.log('✅ LightweightChart: Setting line data (fallback):', lineData.length, 'points');
+        candlestickSeriesRef.current.setData(lineData);
+        
+        // Restore saved position
+        if (!hasRestoredPositionRef.current && chartRef.current) {
+            const restorePosition = (attempt = 0) => {
+                const savedPosition = localStorage.getItem(`chart_position_${symbol}`);
+                if (savedPosition && chartRef.current) {
+                    try {
+                        const { from, to } = JSON.parse(savedPosition);
+                        const firstTime = lineData[0]?.time;
+                        const lastTime = lineData[lineData.length - 1]?.time;
+                        
+                        if (firstTime && lastTime && from >= firstTime && to <= lastTime && from < to) {
+                            chartRef.current.timeScale().setVisibleRange({ from, to });
+                            hasRestoredPositionRef.current = true;
+                            console.log('✅ Grafico: Posizione ripristinata (fallback)');
+                        } else if (attempt < 3) {
+                            setTimeout(() => restorePosition(attempt + 1), 500);
                         }
-                    } else if (attempt < 3) {
-                        setTimeout(() => restorePosition(attempt + 1), 500);
+                    } catch (e) {
+                        console.warn('Errore nel ripristino posizione:', e);
                     }
-                };
-                setTimeout(() => restorePosition(0), 300);
-            }
+                } else if (attempt < 3) {
+                    setTimeout(() => restorePosition(attempt + 1), 500);
+                }
+            };
+            setTimeout(() => restorePosition(0), 300);
         }
     }, [priceHistory]);
 

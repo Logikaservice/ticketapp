@@ -86,41 +86,79 @@ router.get('/history', async (req, res) => {
                     }).on('error', reject);
                 });
 
-                // Save to database
+                // Save OHLC klines to database (complete candlestick data)
                 let saved = 0;
+                let savedKlines = 0;
                 for (const kline of binanceData) {
-                    const timestamp = new Date(kline[0]).toISOString();
-                    const price = parseFloat(kline[4]); // Close price
+                    // Binance kline format: [openTime, open, high, low, close, volume, closeTime, ...]
+                    const openTime = parseInt(kline[0]);
+                    const open = parseFloat(kline[1]);
+                    const high = parseFloat(kline[2]);
+                    const low = parseFloat(kline[3]);
+                    const close = parseFloat(kline[4]);
+                    const volume = parseFloat(kline[5]);
+                    const closeTime = parseInt(kline[6]);
+                    const timestamp = new Date(openTime).toISOString();
                     
                     try {
+                        // Save close price for backward compatibility
                         await dbRun(
                             "INSERT OR IGNORE INTO price_history (symbol, price, timestamp) VALUES (?, ?, ?)",
-                            ['bitcoin', price, timestamp]
+                            ['bitcoin', close, timestamp]
                         );
                         saved++;
+                        
+                        // Save complete OHLC kline
+                        await dbRun(
+                            `INSERT OR IGNORE INTO klines 
+                            (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                            ['bitcoin', '15m', openTime, open, high, low, close, volume, closeTime]
+                        );
+                        savedKlines++;
                     } catch (err) {
                         // Ignore duplicate errors
                     }
                 }
                 
-                console.log(`✅ Loaded ${saved} historical prices from Binance`);
+                console.log(`✅ Loaded ${saved} historical prices and ${savedKlines} klines from Binance`);
             } catch (err) {
                 console.error('⚠️ Error loading from Binance, using existing data:', err.message);
             }
         }
 
-        // Get all available history
-        const historyRows = await dbAll("SELECT price, timestamp FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp ASC LIMIT 500");
+        // Try to get OHLC klines first (more accurate)
+        const klinesRows = await dbAll(
+            "SELECT open_time, open_price, high_price, low_price, close_price, volume FROM klines WHERE symbol = 'bitcoin' AND interval = '15m' ORDER BY open_time ASC LIMIT 500"
+        );
         
-        // Convert to format expected by frontend
-        const history = (historyRows || []).map(row => ({
-            time: new Date(row.timestamp).toLocaleTimeString(),
-            price: row.price,
-            timestamp: row.timestamp
-        }));
+        if (klinesRows && klinesRows.length > 0) {
+            // Return OHLC candlesticks (like TradingView)
+            const candles = klinesRows.map(row => ({
+                time: row.open_time, // Unix timestamp (seconds)
+                open: row.open_price,
+                high: row.high_price,
+                low: row.low_price,
+                close: row.close_price,
+                volume: row.volume
+            }));
+            
+            console.log(`📊 Returning ${candles.length} OHLC candlesticks from klines table`);
+            res.json(candles);
+        } else {
+            // Fallback to price_history points (backward compatibility)
+            const historyRows = await dbAll("SELECT price, timestamp FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp ASC LIMIT 500");
+            
+            // Convert to format expected by frontend
+            const history = (historyRows || []).map(row => ({
+                time: new Date(row.timestamp).getTime() / 1000, // Unix timestamp in seconds
+                price: row.price,
+                timestamp: row.timestamp
+            }));
 
-        console.log(`📊 Returning ${history.length} price history points`);
-        res.json(history);
+            console.log(`📊 Returning ${history.length} price history points (fallback)`);
+            res.json(history);
+        }
     } catch (error) {
         console.error('❌ Error fetching price history:', error);
         res.status(500).json({ error: error.message });
