@@ -971,9 +971,22 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
             [balance, JSON.stringify(holdings)]
         );
 
+        // Map reason to valid status (database constraint only allows: 'open', 'closed', 'stopped', 'taken')
+        let status = 'closed'; // Default
+        if (reason === 'taken' || reason.startsWith('taken')) {
+            // 'taken', 'taken (TP2)', etc. → 'taken'
+            status = 'taken';
+        } else if (reason === 'stopped' || reason.startsWith('stopped')) {
+            // 'stopped', 'stopped (SL)', etc. → 'stopped'
+            status = 'stopped';
+        } else {
+            // 'manual', 'TP1', 'TP2', 'SL', etc. → 'closed'
+            status = 'closed';
+        }
+
         await dbRun(
             "UPDATE open_positions SET status = ?, closed_at = CURRENT_TIMESTAMP, current_price = ?, profit_loss = ? WHERE ticket_id = ?",
-            [reason, closePrice, finalPnl, ticketId]
+            [status, closePrice, finalPnl, ticketId]
         );
 
         // Record in trades history
