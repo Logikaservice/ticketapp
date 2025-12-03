@@ -125,7 +125,8 @@ const CryptoDashboard = () => {
     };
 
     const handleResetPortfolio = async () => {
-        const confirmMessage = `Sei sicuro di voler resettare il portfolio?\n\nQuesto:${openPositions.length > 0 ? `\n- Chiuderà ${openPositions.length} posizione/i aperta/e` : ''}\n- Imposterà il saldo a €250\n- Resetterà tutte le holdings\n\nI trades storici verranno mantenuti.`;
+        const allPositionsCount = openPositions.length + (trades?.length || 0);
+        const confirmMessage = `⚠️ ATTENZIONE: Reset completo del portfolio!\n\nQuesto cancellerà:\n${openPositions.length > 0 ? `- ${openPositions.length} posizione/i aperta/e\n` : ''}- TUTTE le posizioni (aperte e chiuse)\n- TUTTI i trades (marker sul grafico e lista recenti)\n\nE poi:\n- Imposterà il saldo a €250\n- Resetterà tutte le holdings\n\nVuoi continuare?`;
         
         if (!window.confirm(confirmMessage)) {
             return;
@@ -134,13 +135,12 @@ const CryptoDashboard = () => {
         try {
             const res = await fetch(`${apiBase}/api/crypto/reset`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ clear_trades: false }) // Mantieni i trades storici
+                headers: { 'Content-Type': 'application/json' }
             });
             
             if (res.ok) {
                 const result = await res.json();
-                alert(result.message || 'Portfolio resettato con successo!');
+                alert(result.message || 'Portfolio resettato completamente!');
                 // Refresh data
                 fetchData();
             } else {

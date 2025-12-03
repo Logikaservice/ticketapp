@@ -256,50 +256,32 @@ router.get('/price/:symbol', async (req, res) => {
 // POST /api/crypto/reset (Reset Demo Portfolio)
 router.post('/reset', async (req, res) => {
     try {
-        const { clear_trades = false } = req.body; // Opzione per cancellare anche i trades
+        // 1. Conta posizioni e trades prima di cancellarli
+        const positionCountRows = await dbAll("SELECT COUNT(*) as count FROM open_positions");
+        const positionCount = positionCountRows && positionCountRows.length > 0 ? positionCountRows[0].count : 0;
         
-        // 1. Chiudi tutte le posizioni aperte
-        const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
+        const tradeCountRows = await dbAll("SELECT COUNT(*) as count FROM trades");
+        const tradeCount = tradeCountRows && tradeCountRows.length > 0 ? tradeCountRows[0].count : 0;
         
-        // Ottieni prezzo corrente per chiudere le posizioni
-        let currentPrice = 0;
-        try {
-            const priceData = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR`);
-            currentPrice = parseFloat(priceData.price);
-        } catch (e) {
-            console.error('Error fetching price for reset:', e.message);
-            // Usa l'ultimo prezzo dalla posizione se disponibile
-            if (openPositions.length > 0) {
-                currentPrice = openPositions[0].current_price || openPositions[0].entry_price;
-            }
-        }
+        // 2. Cancella TUTTE le posizioni (aperte e chiuse) - questo rimuove anche dal grafico
+        await dbRun("DELETE FROM open_positions");
+        console.log(`🗑️ Cancellate ${positionCount} posizione/i (aperte e chiuse)`);
         
-        // Chiudi tutte le posizioni aperte
-        for (const pos of openPositions) {
-            try {
-                const closePrice = currentPrice || pos.current_price || pos.entry_price;
-                await closePosition(pos.ticket_id, closePrice, 'manual');
-            } catch (err) {
-                console.error(`Error closing position ${pos.ticket_id}:`, err.message);
-                // Continua anche se fallisce una chiusura
-            }
-        }
+        // 3. Cancella TUTTI i trades - questo rimuove marker dal grafico e lista recenti
+        await dbRun("DELETE FROM trades");
+        console.log(`🗑️ Cancellati ${tradeCount} trade/i`);
         
-        // 2. Reset portfolio
+        // 4. Reset portfolio a €250
         await dbRun("UPDATE portfolio SET balance_usd = 250, holdings = '{}' WHERE id = 1");
         
-        // 3. Opzionale: Cancella trades se richiesto
-        if (clear_trades) {
-            await dbRun("DELETE FROM trades");
-        }
-        
-        // 4. Invalida cache Risk Manager
+        // 5. Invalida cache Risk Manager
         riskManager.invalidateCache();
         
         res.json({ 
             success: true, 
-            message: `Portfolio reset to €250. Closed ${openPositions.length} position(s).`,
-            closed_positions: openPositions.length
+            message: `Portfolio resettato completamente a €250. Cancellate ${positionCount} posizione/i e ${tradeCount} trade/i. Grafico e lista recenti puliti.`,
+            deleted_positions: positionCount,
+            deleted_trades: tradeCount
         });
     } catch (err) {
         console.error('Error resetting portfolio:', err);
