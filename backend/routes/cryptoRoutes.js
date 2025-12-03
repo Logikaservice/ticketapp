@@ -134,16 +134,20 @@ router.get('/history', async (req, res) => {
         
         if (klinesRows && klinesRows.length > 0) {
             // Return OHLC candlesticks (like TradingView)
-            const candles = klinesRows.map(row => ({
-                time: row.open_time, // Unix timestamp (seconds)
-                open: row.open_price,
-                high: row.high_price,
-                low: row.low_price,
-                close: row.close_price,
-                volume: row.volume
-            }));
+            const candles = klinesRows.map(row => {
+                // open_time from Binance is in milliseconds, convert to seconds for Lightweight Charts
+                const timeSeconds = Math.floor(row.open_time / 1000);
+                return {
+                    time: timeSeconds, // Unix timestamp in seconds
+                    open: parseFloat(row.open_price),
+                    high: parseFloat(row.high_price),
+                    low: parseFloat(row.low_price),
+                    close: parseFloat(row.close_price),
+                    volume: parseFloat(row.volume || 0)
+                };
+            }).filter(candle => !isNaN(candle.time) && candle.time > 0); // Filter invalid data
             
-            console.log(`📊 Returning ${candles.length} OHLC candlesticks from klines table`);
+            console.log(`📊 Returning ${candles.length} OHLC candlesticks from klines table (time range: ${candles[0]?.time} to ${candles[candles.length - 1]?.time})`);
             res.json(candles);
         } else {
             // Fallback to price_history points (backward compatibility)

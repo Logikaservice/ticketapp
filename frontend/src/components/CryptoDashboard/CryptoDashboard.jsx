@@ -195,10 +195,17 @@ const CryptoDashboard = () => {
             const res = await fetch(`${apiBase}/api/crypto/history`);
             if (res.ok) {
                 const history = await res.json();
+                console.log('📊 Fetched history:', {
+                    length: history.length,
+                    firstItem: history[0],
+                    hasOHLC: history.length > 0 && history[0].hasOwnProperty('open')
+                });
                 setPriceData(history);
+            } else {
+                console.error('❌ History fetch failed:', res.status, res.statusText);
             }
         } catch (error) {
-            console.error("Error fetching history:", error);
+            console.error("❌ Error fetching history:", error);
         }
     };
 
@@ -349,10 +356,7 @@ const CryptoDashboard = () => {
                             strategy: trade.strategy || 'Bot'
                         }))}
                         currentPrice={currentPrice}
-                        priceHistory={(priceData || []).map(point => ({
-                            timestamp: point.timestamp || point.time,
-                            price: typeof point.price === 'number' ? point.price : parseFloat(point.price)
-                        })).filter(p => p.timestamp && !isNaN(p.price))}
+                        priceHistory={priceData || []}
                     />
                 </div>
 
