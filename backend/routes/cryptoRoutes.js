@@ -3,6 +3,23 @@ const router = express.Router();
 const db = require('../crypto_db');
 const https = require('https');
 
+// Socket.io instance (will be set from index.js)
+let ioInstance = null;
+
+// Function to set Socket.io instance
+const setSocketIO = (io) => {
+    ioInstance = io;
+};
+
+// Helper to emit crypto events (optional auth - public room for crypto dashboard)
+const emitCryptoEvent = (eventName, data) => {
+    if (ioInstance) {
+        // Emit to public crypto room (anyone viewing crypto dashboard)
+        ioInstance.to('crypto:dashboard').emit(eventName, data);
+        console.log(`📡 Emitted crypto event: ${eventName}`, data);
+    }
+};
+
 // Helper for native HTTPS get request (no dependencies)
 const httpsGet = (url) => {
     return new Promise((resolve, reject) => {
@@ -537,6 +554,19 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
             [symbol, type, volume, entryPrice, strategy || 'Bot Open']
         );
 
+        // Emit real-time notification
+        emitCryptoEvent('crypto:position-opened', {
+            ticket_id: ticketId,
+            symbol,
+            type,
+            volume,
+            entry_price: entryPrice,
+            stop_loss: stopLoss,
+            take_profit: takeProfit,
+            strategy: strategy || 'Bot',
+            timestamp: new Date().toISOString()
+        });
+
         return ticketId;
     } catch (err) {
         console.error('Error in openPosition:', err.message);
@@ -740,6 +770,20 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
             "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES (?, ?, ?, ?, ?, ?)",
             [pos.symbol, pos.type === 'buy' ? 'sell' : 'buy', pos.volume, closePrice, pos.strategy || 'Manual Close', finalPnl]
         );
+
+        // Emit real-time notification
+        emitCryptoEvent('crypto:position-closed', {
+            ticket_id: ticketId,
+            symbol: pos.symbol,
+            type: pos.type,
+            volume: pos.volume,
+            entry_price: pos.entry_price,
+            close_price: closePrice,
+            profit_loss: finalPnl,
+            reason,
+            strategy: pos.strategy || 'Bot',
+            timestamp: new Date().toISOString()
+        });
 
         return { success: true, pnl: finalPnl };
     } catch (err) {
@@ -1470,4 +1514,21 @@ router.get('/statistics', async (req, res) => {
     }
 });
 
+// Export router and setSocketIO function
+// ==========================================
+// WEBSOCKET ROOM MANAGEMENT
+// ==========================================
+
+// POST /api/crypto/websocket/join - Join crypto dashboard room (called from frontend)
+router.post('/websocket/join', (req, res) => {
+    // This endpoint is just for documentation/logging
+    // Actual room join happens via Socket.io client connection
+    res.json({ 
+        success: true, 
+        message: 'Join crypto:dashboard room via Socket.io client',
+        room: 'crypto:dashboard'
+    });
+});
+
 module.exports = router;
+module.exports.setSocketIO = setSocketIO;

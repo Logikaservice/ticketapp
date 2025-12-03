@@ -4,6 +4,8 @@ import OpenPositions from './OpenPositions';
 import LightweightChart from './LightweightChart';
 import BotSettings from './BotSettings';
 import StatisticsPanel from './StatisticsPanel';
+import CryptoNotification from './CryptoNotification';
+import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
 import './CryptoLayout.css';
 
 const CryptoDashboard = () => {
@@ -19,6 +21,38 @@ const CryptoDashboard = () => {
     const [allTrades, setAllTrades] = useState([]); // For chart plotting
     const [openPositions, setOpenPositions] = useState([]);
     const [showBotSettings, setShowBotSettings] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    
+    // WebSocket for real-time notifications
+    const { connected: wsConnected } = useCryptoWebSocket(
+        // onPositionOpened
+        (data) => {
+            console.log('📈 Position opened via WebSocket:', data);
+            addNotification({ ...data, type: 'opened' });
+            // Refresh data immediately
+            setTimeout(() => {
+                fetchData();
+            }, 500);
+        },
+        // onPositionClosed
+        (data) => {
+            console.log('📉 Position closed via WebSocket:', data);
+            addNotification({ ...data, type: 'closed' });
+            // Refresh data immediately
+            setTimeout(() => {
+                fetchData();
+            }, 500);
+        }
+    );
+
+    const addNotification = (notification) => {
+        const id = Date.now() + Math.random();
+        setNotifications(prev => [...prev, { ...notification, id }]);
+    };
+
+    const removeNotification = (id) => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+    };
 
     const fetchData = async () => {
         try {

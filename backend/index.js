@@ -261,6 +261,18 @@ io.on('connection', (socket) => {
   socket.join(`user:${socket.userId}`);
   socket.join(`role:${socket.userRole}`);
 
+  // Allow joining crypto dashboard room (for real-time bot notifications)
+  socket.on('crypto:join-dashboard', () => {
+    socket.join('crypto:dashboard');
+    console.log(`✅ Socket ${socket.userId} joined crypto:dashboard room`);
+    socket.emit('crypto:joined', { room: 'crypto:dashboard' });
+  });
+
+  socket.on('crypto:leave-dashboard', () => {
+    socket.leave('crypto:dashboard');
+    console.log(`✅ Socket ${socket.userId} left crypto:dashboard room`);
+  });
+
   socket.on('disconnect', () => {
     console.log(`❌ WebSocket disconnesso: ${socket.userId}`);
   });
@@ -630,6 +642,8 @@ app.use('/api/packvision', packvisionRoutes);
 
 // Route per Crypto Dashboard (database SQLite separato)
 const cryptoRoutes = require('./routes/cryptoRoutes');
+// Pass Socket.io instance to crypto routes for real-time notifications
+cryptoRoutes.setSocketIO(io);
 app.use('/api/crypto', cryptoRoutes);
 
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
