@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ComposedChart, Line, Area, Scatter, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet } from 'lucide-react';
 import OpenPositions from './OpenPositions';
+import TradingViewChart from './TradingViewChart';
 import './CryptoLayout.css';
 
 const CryptoDashboard = () => {
@@ -152,21 +152,7 @@ const CryptoDashboard = () => {
     const pnlValue = currentValue - investedValue;
     const pnlPercent = investedValue > 0 ? (pnlValue / investedValue) * 100 : 0;
 
-    // Prepare Chart Data with Trades
-    const chartData = priceData.map(point => {
-        const trade = allTrades.find(t => {
-            if (!point.timestamp) return false;
-            const tradeTime = new Date(t.timestamp).getTime();
-            const pointTime = new Date(point.timestamp).getTime();
-            return Math.abs(tradeTime - pointTime) < 120000;
-        });
-
-        return {
-            ...point,
-            buy: trade && trade.type === 'buy' ? point.price : null,
-            sell: trade && trade.type === 'sell' ? point.price : null
-        };
-    });
+    // TradingView Chart doesn't need chartData preparation anymore
 
     return (
         <div className="crypto-dashboard">
@@ -234,52 +220,18 @@ const CryptoDashboard = () => {
                         <Activity size={20} className="text-blue-500" />
                         Bitcoin / EUR Live Market
                     </div>
-                    <div className="chart-container" style={{ position: 'relative' }}>
-                        {chartData.length === 0 && (
-                            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: '#666' }}>
-                                Loading Chart Data...
-                            </div>
-                        )}
-                        <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={chartData}>
-                                <defs>
-                                    <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <XAxis
-                                    dataKey="time"
-                                    stroke="#333"
-                                    tick={{ fill: '#666', fontSize: 10 }}
-                                    minTickGap={30}
-                                />
-                                <YAxis
-                                    domain={['auto', 'auto']}
-                                    stroke="#333"
-                                    tick={{ fill: '#666', fontSize: 10 }}
-                                    width={40}
-                                />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#1c1c1e', border: '1px solid #333', borderRadius: '8px' }}
-                                    itemStyle={{ color: '#fff' }}
-                                />
-                                <Area
-                                    type="monotone"
-                                    dataKey="price"
-                                    stroke="#3b82f6"
-                                    strokeWidth={3}
-                                    fillOpacity={1}
-                                    fill="url(#colorPrice)"
-                                    isAnimationActive={false}
-                                />
-                                <Scatter name="Buy" dataKey="buy" fill="#4ade80" shape="circle" />
-                                <Scatter name="Sell" dataKey="sell" fill="#ef4444" shape="circle" />
-                            </ComposedChart>
-                        </ResponsiveContainer>
-                    </div>
+                    <TradingViewChart 
+                        symbol="BTCEUR" 
+                        trades={allTrades.map(trade => ({
+                            type: trade.type,
+                            timestamp: trade.timestamp,
+                            price: trade.price,
+                            amount: trade.amount,
+                            strategy: trade.strategy || 'Bot'
+                        }))}
+                    />
                     <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                        1 SOL = €{currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        1 BTC = €{currentPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     </div>
                 </div>
 
