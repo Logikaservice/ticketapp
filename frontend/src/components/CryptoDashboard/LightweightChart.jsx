@@ -15,7 +15,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
     useEffect(() => {
         if (!chartContainerRef.current) return;
 
-        // Create chart
+        // Create chart - use full container width
         const chart = createChart(chartContainerRef.current, {
             layout: {
                 background: { type: ColorType.Solid, color: '#1c1c1e' },

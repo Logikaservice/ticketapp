@@ -2,15 +2,19 @@
     position: relative;
     width: 100%;
     background: #1c1c1e;
-    border-radius: 12px;
+    border-radius: 0;
     overflow: hidden;
-    border: 1px solid #2c2c2e;
+    border: none;
+    margin: 0;
+    padding: 0;
 }
 
 .lightweight-chart-wrapper {
     width: 100%;
     height: 500px;
     position: relative;
+    margin: 0;
+    padding: 0;
 }
 
 .chart-loading-overlay {
