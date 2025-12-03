@@ -71,11 +71,20 @@ jobs:
             cd ../frontend
             
             echo "🧹 Pulizia cache e build vecchi..."
+            # Rimuovi directory build completamente
             rm -rf build || true
+            # Rimuovi anche eventuali file residui nella root frontend
+            rm -f build static 2>/dev/null || true
+            
             # Rimuovi cache in modo sicuro (gestisce directory non vuote)
             if [ -d "node_modules/.cache" ]; then
               find node_modules/.cache -mindepth 1 -delete 2>/dev/null || rm -rf node_modules/.cache 2>/dev/null || true
             fi
+            
+            # Rimuovi anche cache di react-scripts
+            rm -rf node_modules/.cache/.eslintcache 2>/dev/null || true
+            rm -rf .cache 2>/dev/null || true
+            
             rm -f .env
             rm -f .env.production
             
@@ -85,11 +94,15 @@ jobs:
             echo "🔧 Configurazione variabili d'ambiente..."
             # Crea file .env per il build con l'URL corretto del backend
             # Se nginx fa proxy per /api/, usa URL vuoto (chiamate relative)
+            # Disabilita source maps per evitare errori durante il build
             echo "REACT_APP_API_URL=" > .env
+            echo "GENERATE_SOURCEMAP=false" >> .env
             echo "✅ File .env creato:"
             cat .env
             
             echo "🔨 Build frontend (pulito)..."
+            # Pulisci eventuali file residui prima del build
+            rm -rf build/static 2>/dev/null || true
             npm run build || {
               echo "❌ Errore build frontend"
               echo "📋 Verifica errori sopra"
