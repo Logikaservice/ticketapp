@@ -96,9 +96,7 @@ class BinanceClient {
 
         // Build query string
         let queryString = '';
-        if (method === 'GET' && Object.keys(params).length > 0) {
-            queryString = new URLSearchParams(params).toString();
-        }
+        let postBody = null;
 
         // Add signature if authenticated
         if (authenticated) {
@@ -108,11 +106,25 @@ class BinanceClient {
             
             // Add timestamp
             params.timestamp = Date.now();
+            
+            // For authenticated requests, parameters go in query string, not body
             queryString = new URLSearchParams(params).toString();
             
             // Generate signature
             const signature = this.generateSignature(queryString);
             queryString += `&signature=${signature}`;
+            
+            // For POST authenticated requests, body should be empty
+            postBody = null;
+        } else {
+            // For non-authenticated GET requests, params go in query string
+            if (method === 'GET' && Object.keys(params).length > 0) {
+                queryString = new URLSearchParams(params).toString();
+            }
+            // For non-authenticated POST requests, params can go in body as JSON
+            if (method === 'POST' && Object.keys(params).length > 0) {
+                postBody = JSON.stringify(params);
+            }
         }
 
         const url = `${baseUrl}${endpoint}${queryString ? '?' + queryString : ''}`;
@@ -122,10 +134,13 @@ class BinanceClient {
             hostname: urlObj.hostname,
             path: urlObj.pathname + urlObj.search,
             method: method,
-            headers: {
-                'Content-Type': 'application/json',
-            }
+            headers: {}
         };
+
+        // Set Content-Type header
+        if (postBody) {
+            options.headers['Content-Type'] = 'application/json';
+        }
 
         if (authenticated) {
             options.headers['X-MBX-APIKEY'] = this.apiKey;
@@ -141,7 +156,7 @@ class BinanceClient {
                     console.log(`🔄 Retry attempt ${attempt} per ${endpoint}`);
                 }
 
-                const result = await this.executeRequest(options, method === 'POST' ? JSON.stringify(params) : null);
+                const result = await this.executeRequest(options, postBody);
                 return result;
             } catch (error) {
                 lastError = error;
@@ -273,6 +288,7 @@ class BinanceClient {
                 quantity: quantity.toString()
             };
 
+            console.log(`📤 PlaceMarketOrder: ${symbol} ${side} ${quantity}`);
             const order = await this.makeRequest('POST', '/api/v3/order', params, true);
             return {
                 orderId: order.orderId,
