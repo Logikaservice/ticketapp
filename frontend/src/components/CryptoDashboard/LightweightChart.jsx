@@ -7,6 +7,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
     const chartRef = useRef(null);
     const candlestickSeriesRef = useRef(null);
     const markersRef = useRef([]);
+    const priceLinesRef = useRef([]); // Array per tenere traccia di tutte le price lines create
 
     // Initialize chart
     useEffect(() => {
