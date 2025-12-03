@@ -205,17 +205,45 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
 
     // Update price line (only show if we have historical data)
     useEffect(() => {
-        if (!candlestickSeriesRef.current || !currentPrice || priceHistory.length === 0) return;
+        if (!candlestickSeriesRef.current || !currentPrice || priceHistory.length === 0) {
+            // Rimuovi tutte le price lines se non ci sono dati
+            if (priceLinesRef.current.length > 0) {
+                priceLinesRef.current.forEach(priceLine => {
+                    try {
+                        candlestickSeriesRef.current?.removePriceLine(priceLine);
+                    } catch (e) {
+                        console.warn('Error removing price line:', e);
+                    }
+                });
+                priceLinesRef.current = [];
+            }
+            return;
+        }
 
-        // Create price line for current price
-        candlestickSeriesRef.current.createPriceLine({
-            price: currentPrice,
-            color: '#3b82f6',
-            lineWidth: 2,
-            lineStyle: 2, // Dashed
-            axisLabelVisible: true,
-            title: `€${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        // Rimuovi tutte le price lines precedenti
+        priceLinesRef.current.forEach(priceLine => {
+            try {
+                candlestickSeriesRef.current?.removePriceLine(priceLine);
+            } catch (e) {
+                console.warn('Error removing old price line:', e);
+            }
         });
+        priceLinesRef.current = [];
+
+        // Crea UNA SOLA price line per il prezzo corrente
+        try {
+            const newPriceLine = candlestickSeriesRef.current.createPriceLine({
+                price: currentPrice,
+                color: '#3b82f6',
+                lineWidth: 2,
+                lineStyle: 2, // Dashed
+                axisLabelVisible: true,
+                title: `€${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            });
+            priceLinesRef.current.push(newPriceLine);
+        } catch (e) {
+            console.error('Error creating price line:', e);
+        }
     }, [currentPrice, priceHistory.length]);
 
     return (
