@@ -102,9 +102,14 @@ const CryptoDashboard = () => {
 
     const handleClosePosition = async (ticketId) => {
         try {
+            // Pass current price to ensure correct closing price
             const res = await fetch(`${apiBase}/api/crypto/positions/close/${ticketId}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    close_price: currentPrice,
+                    symbol: 'bitcoin'
+                })
             });
             if (res.ok) {
                 // Refresh data

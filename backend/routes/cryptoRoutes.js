@@ -1105,16 +1105,23 @@ router.post('/positions/open', async (req, res) => {
 // POST /api/crypto/positions/close/:ticketId - Close a position
 router.post('/positions/close/:ticketId', async (req, res) => {
     const { ticketId } = req.params;
-    const { close_price } = req.body;
+    const { close_price, symbol } = req.body;
 
     try {
         // Get current price if not provided
         let finalPrice = close_price;
         if (!finalPrice) {
             try {
-                const priceData = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=SOLEUR`);
+                // Determine symbol - default to bitcoin
+                const tradingPair = (symbol === 'bitcoin' || !symbol) ? 'BTCEUR' : 'SOLEUR';
+                const priceData = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=${tradingPair}`);
                 finalPrice = parseFloat(priceData.price);
+                
+                if (!finalPrice || isNaN(finalPrice)) {
+                    throw new Error('Invalid price received from Binance');
+                }
             } catch (e) {
+                console.error('Error fetching price for close position:', e.message);
                 return res.status(500).json({ error: 'Could not fetch current price. Please provide close_price.' });
             }
         }
