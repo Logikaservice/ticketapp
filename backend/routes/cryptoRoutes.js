@@ -3,6 +3,10 @@ const router = express.Router();
 const db = require('../crypto_db');
 const https = require('https');
 
+// Import new services
+const riskManager = require('../services/RiskManager');
+const signalGenerator = require('../services/BidirectionalSignalGenerator');
+
 // Socket.io instance (will be set from index.js)
 let ioInstance = null;
 
@@ -366,11 +370,10 @@ const calculateRSI = (prices, period = 14) => {
     return 100 - (100 / (1 + rs));
 };
 
-// Bot Loop Function
+// Bot Loop Function - SERIOUS VERSION with Risk Manager and Bidirectional Signals
 const runBotCycle = async () => {
     try {
         // 1. Check if bot is active (we run price collection ANYWAY to keep history valid)
-        // Use Promise-based dbGet to properly await the result and avoid unhandled promise rejections
         const bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'");
         const isBotActive = bot && bot.is_active;
 
@@ -379,20 +382,14 @@ const runBotCycle = async () => {
         let currentPrice = 0;
 
         try {
-            // Fetch Price using Binance API (Direct EUR pair, very reliable)
-            // Symbol: BTCEUR
             const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR`);
-
             if (data && data.price) {
                 currentPrice = parseFloat(data.price);
             } else {
                 throw new Error("Invalid data from Binance");
             }
-
         } catch (e) {
             console.error('Error fetching price from Binance:', e.message);
-
-            // Fallback to CoinGecko if Binance fails
             try {
                 const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur');
                 if (geckoData && geckoData.bitcoin && geckoData.bitcoin.eur) {
@@ -400,120 +397,141 @@ const runBotCycle = async () => {
                 }
             } catch (e2) {
                 console.error('Error fetching price from CoinGecko:', e2.message);
-                // Last resort fallback
                 if (currentPrice === 0) currentPrice = 120.00 + (Math.random() * 0.5);
             }
         }
 
         // 3. Update history (RAM + DB)
         priceHistory.push(currentPrice);
-        if (priceHistory.length > 50) priceHistory.shift(); // Keep memory clean
+        if (priceHistory.length > 50) priceHistory.shift();
 
-        // Save to DB using Promise-based operation
         await dbRun("INSERT INTO price_history (symbol, price) VALUES (?, ?)", [symbol, currentPrice]);
 
-        // Optional: Cleanup old history (keep last 1000 entries to save space) every 100 cycles
+        // Optional: Cleanup old history
         if (Math.random() < 0.01) {
             await dbRun("DELETE FROM price_history WHERE id NOT IN (SELECT id FROM price_history ORDER BY timestamp DESC LIMIT 1000)");
         }
 
-        // 4. Get bot parameters from database
-        const params = await getBotParameters();
+        // 4. Update all open positions P&L (this handles SL/TP/trailing stop automatically)
+        await updatePositionsPnL(currentPrice, symbol);
 
-        // 5. Calculate RSI using configured period
+        // 5. Get bot parameters
+        const params = await getBotParameters();
         const rsi = calculateRSI(priceHistory, params.rsi_period);
-        latestRSI = rsi; // Update global variable
+        latestRSI = rsi;
 
         if (rsi) {
-            console.log(`🤖 BOT: BTC/EUR=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} (Period: ${params.rsi_period}) | Active=${isBotActive}`);
+            console.log(`🤖 BOT: BTC/EUR=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);
         }
 
         if (!isBotActive || !rsi) return; // Stop here if bot is off
 
-        // 6. Professional Decision Logic
-        const portfolio = await getPortfolio();
-        let balance = portfolio.balance_usd;
-        let holdings = JSON.parse(portfolio.holdings || '{}');
-        const cryptoAmount = holdings[symbol] || 0;
+        // 6. RISK CHECK - Protezione PRIMA di tutto
+        const riskCheck = await riskManager.calculateMaxRisk();
+        
+        if (!riskCheck.canTrade) {
+            console.log(`🛑 RISK MANAGER: Trading blocked - ${riskCheck.reason}`);
+            console.log(`   Daily Loss: ${(riskCheck.dailyLoss * 100).toFixed(2)}% | Exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Drawdown: ${(riskCheck.drawdown * 100).toFixed(2)}%`);
+            return; // STOP - Non tradare se rischio troppo alto
+        }
 
-        // Calculate Weighted Average Buy Price (Real Cost Basis)
-        let lastBuyPrice = 0;
-        if (cryptoAmount > 0) {
-            // Fetch recent buys to calculate average
-            const trades = await dbAll("SELECT * FROM trades WHERE symbol = ? AND type = 'buy' ORDER BY timestamp DESC LIMIT 20", [symbol]);
+        console.log(`✅ RISK MANAGER: OK - Max Position: €${riskCheck.maxPositionSize.toFixed(2)} | Available Exposure: ${(riskCheck.availableExposurePct * 100).toFixed(2)}%`);
 
-            let totalCost = 0;
-            let totalQty = 0;
-            let remainingToMatch = cryptoAmount;
+        // 7. Get price history for signal generation
+        const priceHistoryData = await dbAll(
+            "SELECT price, timestamp FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 50",
+            [symbol]
+        );
+        
+        // Reverse to chronological order
+        const historyForSignal = priceHistoryData.reverse().map(row => ({
+            price: row.price,
+            timestamp: row.timestamp
+        }));
 
-            for (const t of trades) {
-                const qty = Math.min(t.amount, remainingToMatch);
-                totalCost += qty * t.price;
-                totalQty += qty;
-                remainingToMatch -= qty;
-                if (remainingToMatch <= 0.0001) break;
+        // 8. Generate bidirectional signal
+        const signal = signalGenerator.generateSignal(historyForSignal);
+
+        console.log(`📡 SIGNAL: ${signal.direction} | Strength: ${signal.strength}/100 | Reasons: ${signal.reasons.join(', ')}`);
+
+        // 9. Get current open positions
+        const openPositions = await dbAll(
+            "SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'",
+            [symbol]
+        );
+
+        const longPositions = openPositions.filter(p => p.type === 'buy');
+        const shortPositions = openPositions.filter(p => p.type === 'sell');
+
+        // 10. DECISION LOGIC - Solo se segnale forte
+        if (signal.direction === 'LONG' && signal.strength >= 50) {
+            // Verifica se possiamo aprire LONG
+            const positionSize = Math.min(params.trade_size_eur, riskCheck.maxPositionSize);
+            const canOpen = await riskManager.canOpenPosition(positionSize);
+
+            if (canOpen.allowed && longPositions.length === 0) {
+                // Apri LONG position
+                const amount = positionSize / currentPrice;
+                const stopLoss = currentPrice * (1 - params.stop_loss_pct / 100);
+                const takeProfit = currentPrice * (1 + params.take_profit_pct / 100);
+
+                const options = {
+                    trailing_stop_enabled: params.trailing_stop_enabled || false,
+                    trailing_stop_distance_pct: params.trailing_stop_distance_pct || 1.0,
+                    partial_close_enabled: params.partial_close_enabled || false,
+                    take_profit_1_pct: params.take_profit_1_pct || 1.5,
+                    take_profit_2_pct: params.take_profit_2_pct || 3.0
+                };
+
+                await openPosition(symbol, 'buy', amount, currentPrice, `LONG Signal (${signal.strength}/100)`, stopLoss, takeProfit, options);
+                console.log(`✅ BOT LONG: Opened position @ €${currentPrice.toFixed(2)} | Size: €${positionSize.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
+                riskManager.invalidateCache(); // Invalida cache dopo operazione
+            } else if (!canOpen.allowed) {
+                console.log(`⚠️ BOT LONG: Cannot open - ${canOpen.reason}`);
+            } else if (longPositions.length > 0) {
+                console.log(`ℹ️ BOT LONG: Already have ${longPositions.length} LONG position(s)`);
             }
+        }
+        else if (signal.direction === 'SHORT' && signal.strength >= 50) {
+            // Verifica se possiamo aprire SHORT
+            const positionSize = Math.min(params.trade_size_eur, riskCheck.maxPositionSize);
+            const canOpen = await riskManager.canOpenPosition(positionSize);
 
-            if (totalQty > 0) {
-                lastBuyPrice = totalCost / totalQty;
+            if (canOpen.allowed && shortPositions.length === 0) {
+                // Apri SHORT position
+                const amount = positionSize / currentPrice;
+                const stopLoss = currentPrice * (1 + params.stop_loss_pct / 100); // Per SHORT, SL è sopra
+                const takeProfit = currentPrice * (1 - params.take_profit_pct / 100); // Per SHORT, TP è sotto
+
+                const options = {
+                    trailing_stop_enabled: params.trailing_stop_enabled || false,
+                    trailing_stop_distance_pct: params.trailing_stop_distance_pct || 1.0,
+                    partial_close_enabled: params.partial_close_enabled || false,
+                    take_profit_1_pct: params.take_profit_1_pct || 1.5,
+                    take_profit_2_pct: params.take_profit_2_pct || 3.0
+                };
+
+                await openPosition(symbol, 'sell', amount, currentPrice, `SHORT Signal (${signal.strength}/100)`, stopLoss, takeProfit, options);
+                console.log(`✅ BOT SHORT: Opened position @ €${currentPrice.toFixed(2)} | Size: €${positionSize.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
+                riskManager.invalidateCache(); // Invalida cache dopo operazione
+            } else if (!canOpen.allowed) {
+                console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason}`);
+            } else if (shortPositions.length > 0) {
+                console.log(`ℹ️ BOT SHORT: Already have ${shortPositions.length} SHORT position(s)`);
+            }
+        }
+        else {
+            // Segnale NEUTRAL o troppo debole
+            if (signal.direction === 'NEUTRAL') {
+                console.log(`➡️ BOT: Neutral signal (strength: ${signal.strength}/100) - No action`);
             } else {
-                // Fallback if history is lost but holdings exist
-                lastBuyPrice = currentPrice;
+                console.log(`➡️ BOT: Signal too weak (${signal.strength}/100 < 50) - No action`);
             }
         }
 
-        // --- STRATEGY PARAMETERS (from database) ---
-        const RSI_OVERSOLD = params.rsi_oversold;
-        const RSI_OVERBOUGHT = params.rsi_overbought;
-        const STOP_LOSS_PCT = params.stop_loss_pct / 100; // Convert percentage to decimal
-        const TAKE_PROFIT_PCT = params.take_profit_pct / 100; // Convert percentage to decimal
-        const TRADE_SIZE_EUR = params.trade_size_eur;
-
-                console.log(`📊 ANALISI: Prezzo=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Holdings=${cryptoAmount.toFixed(4)} BTC | AvgPrice=${lastBuyPrice.toFixed(2)}€ | Params: RSI[${RSI_OVERSOLD}/${RSI_OVERBOUGHT}] SL:${params.stop_loss_pct}% TP:${params.take_profit_pct}%`);
-
-        // BUY LOGIC (Smart Accumulation / DCA)
-        if (rsi < RSI_OVERSOLD && balance >= TRADE_SIZE_EUR) {
-            // Scenario A: First Entry
-            if (cryptoAmount < 0.001) {
-                const amountToBuy = TRADE_SIZE_EUR / currentPrice;
-                await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `RSI Oversold (${rsi.toFixed(2)})`, null, params);
-                console.log(`✅ BOT BUY (Entry): RSI ${rsi.toFixed(2)} < ${RSI_OVERSOLD}. Buying ${amountToBuy.toFixed(4)} BTC.`);
-            }
-            // Scenario B: DCA (Accumulate if price drops 2% below Avg Price)
-            else if (currentPrice < lastBuyPrice * 0.98) {
-                // Aggressive: Buy double (Martingale) or same amount? Let's stick to same amount for safety.
-                const amountToBuy = TRADE_SIZE_EUR / currentPrice;
-                await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `DCA Accumulation (Price -2%)`, null, params);
-                console.log(`📉 BOT BUY (DCA): Price dropped below Avg. Lowering entry price.`);
-            }
-        }
-
-        // SELL LOGIC (Manage Open Position)
-        else if (cryptoAmount > 0.01) {
-            const pnlPercent = (currentPrice - lastBuyPrice) / lastBuyPrice;
-
-            // 1. RSI Overbought (Classic Signal)
-            if (rsi > RSI_OVERBOUGHT) {
-                const pnl = (currentPrice - lastBuyPrice) * cryptoAmount;
-                await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `RSI Overbought (${rsi.toFixed(2)})`, pnl);
-                console.log(`✅ BOT SELL: RSI ${rsi.toFixed(2)} > ${RSI_OVERBOUGHT}. Taking profit.`);
-            }
-            // 2. Take Profit (Hard Target)
-            else if (pnlPercent >= TAKE_PROFIT_PCT) {
-                const pnl = (currentPrice - lastBuyPrice) * cryptoAmount;
-                await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `Take Profit (+${(pnlPercent * 100).toFixed(2)}%)`, pnl);
-                console.log(`💰 BOT SELL: Take Profit triggered. Gain: +${(pnlPercent * 100).toFixed(2)}%`);
-            }
-            // 3. Stop Loss (Safety Net)
-            else if (pnlPercent <= -STOP_LOSS_PCT) {
-                const pnl = (currentPrice - lastBuyPrice) * cryptoAmount;
-                await executeTrade(symbol, 'sell', cryptoAmount, currentPrice, `Stop Loss (${(pnlPercent * 100).toFixed(2)}%)`, pnl);
-                console.log(`🛡️ BOT SELL: Stop Loss triggered. Loss: ${(pnlPercent * 100).toFixed(2)}%`);
-            }
-        }
     } catch (error) {
-        console.error('Bot Cycle Error:', error.message);
-        // Errors from executeTrade and other async operations are now properly caught here
+        console.error('❌ Bot Cycle Error:', error.message);
+        console.error(error.stack);
     }
 };
 
