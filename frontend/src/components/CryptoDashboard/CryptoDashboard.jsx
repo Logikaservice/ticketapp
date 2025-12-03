@@ -3,6 +3,7 @@ import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet, Setti
 import OpenPositions from './OpenPositions';
 import LightweightChart from './LightweightChart';
 import BotSettings from './BotSettings';
+import StatisticsPanel from './StatisticsPanel';
 import './CryptoLayout.css';
 
 const CryptoDashboard = () => {
@@ -236,6 +237,9 @@ const CryptoDashboard = () => {
                     </div>
                 </div>
             </div>
+
+            {/* ADVANCED STATISTICS PANEL */}
+            <StatisticsPanel apiBase={apiBase} />
 
             {/* MAIN CRYPTO GRID - CHART & OPEN POSITIONS */}
             <div className="crypto-grid">

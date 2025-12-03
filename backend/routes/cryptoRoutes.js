@@ -1316,4 +1316,158 @@ router.put('/bot/parameters', async (req, res) => {
     }
 });
 
+// ==========================================
+// ADVANCED STATISTICS ENDPOINT
+// ==========================================
+
+// GET /api/crypto/statistics - Get advanced trading statistics
+router.get('/statistics', async (req, res) => {
+    try {
+        const portfolio = await getPortfolio();
+        const allTrades = await dbAll("SELECT * FROM trades ORDER BY timestamp ASC");
+        const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status != 'open' ORDER BY closed_at ASC");
+        
+        // Initial portfolio value (assumed starting balance)
+        const initialBalance = 262.5; // Default starting balance in EUR
+        
+        // Calculate current total balance
+        let currentPrice = 0;
+        try {
+            const priceData = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR`);
+            if (priceData && priceData.price) {
+                currentPrice = parseFloat(priceData.price);
+            }
+        } catch (e) {
+            console.warn('Could not fetch current price for statistics:', e.message);
+        }
+        
+        const holdings = JSON.parse(portfolio.holdings || '{}');
+        const bitcoinHoldings = holdings['bitcoin'] || 0;
+        const currentBalance = portfolio.balance_usd;
+        const cryptoValue = bitcoinHoldings * currentPrice;
+        const totalBalance = currentBalance + cryptoValue;
+        
+        // 1. Total P&L
+        let totalPnL = 0;
+        let totalProfit = 0;
+        let totalLoss = 0;
+        let winningTrades = 0;
+        let losingTrades = 0;
+        let totalVolume = 0;
+        
+        // Calculate from closed positions (more accurate)
+        closedPositions.forEach(pos => {
+            const pnl = pos.profit_loss || 0;
+            totalPnL += pnl;
+            if (pnl > 0) {
+                totalProfit += pnl;
+                winningTrades++;
+            } else if (pnl < 0) {
+                totalLoss += Math.abs(pnl);
+                losingTrades++;
+            }
+            totalVolume += pos.volume * pos.entry_price;
+        });
+        
+        // Also include trades with profit_loss (from manual trades)
+        allTrades.forEach(trade => {
+            if (trade.profit_loss !== null && trade.profit_loss !== undefined) {
+                const pnl = parseFloat(trade.profit_loss) || 0;
+                // Skip if already counted in closed positions
+                if (Math.abs(pnl) > 0.01) {
+                    totalPnL += pnl;
+                    if (pnl > 0) {
+                        totalProfit += pnl;
+                        winningTrades++;
+                    } else if (pnl < 0) {
+                        totalLoss += Math.abs(pnl);
+                        losingTrades++;
+                    }
+                }
+            }
+            // Count volume for all trades
+            if (trade.type === 'buy') {
+                totalVolume += (trade.amount || 0) * (trade.price || 0);
+            }
+        });
+        
+        const totalTrades = winningTrades + losingTrades;
+        const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
+        const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : (totalProfit > 0 ? Infinity : 0);
+        
+        // ROI calculation
+        const roi = initialBalance > 0 ? ((totalBalance - initialBalance) / initialBalance) * 100 : 0;
+        
+        // P&L Percent
+        const pnlPercent = initialBalance > 0 ? ((totalBalance - initialBalance) / initialBalance) * 100 : 0;
+        
+        // Trade statistics by period
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const monthAgo = new Date(today);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        
+        let tradesToday = 0;
+        let tradesThisWeek = 0;
+        let tradesThisMonth = 0;
+        
+        closedPositions.forEach(pos => {
+            if (pos.closed_at) {
+                const closedDate = new Date(pos.closed_at);
+                if (closedDate >= today) tradesToday++;
+                if (closedDate >= weekAgo) tradesThisWeek++;
+                if (closedDate >= monthAgo) tradesThisMonth++;
+            }
+        });
+        
+        // Average profit per winning trade
+        const avgWin = winningTrades > 0 ? totalProfit / winningTrades : 0;
+        const avgLoss = losingTrades > 0 ? totalLoss / losingTrades : 0;
+        
+        res.json({
+            success: true,
+            statistics: {
+                // Portfolio
+                initial_balance: initialBalance,
+                current_balance: totalBalance,
+                pnl_total: totalPnL,
+                pnl_percent: pnlPercent,
+                roi: roi,
+                
+                // Trade Performance
+                total_trades: totalTrades,
+                winning_trades: winningTrades,
+                losing_trades: losingTrades,
+                win_rate: winRate,
+                profit_factor: profitFactor === Infinity ? null : profitFactor,
+                
+                // Profit/Loss Breakdown
+                total_profit: totalProfit,
+                total_loss: totalLoss,
+                avg_win: avgWin,
+                avg_loss: avgLoss,
+                
+                // Volume
+                total_volume_eur: totalVolume,
+                
+                // Period Stats
+                trades_today: tradesToday,
+                trades_this_week: tradesThisWeek,
+                trades_this_month: tradesThisMonth,
+                
+                // Current Holdings
+                bitcoin_holdings: bitcoinHoldings,
+                current_bitcoin_price: currentPrice,
+                crypto_value: cryptoValue,
+                cash_balance: currentBalance
+            }
+        });
+    } catch (error) {
+        console.error('Error calculating statistics:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

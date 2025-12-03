@@ -1,0 +1,179 @@
+import React, { useState, useEffect } from 'react';
+import { TrendingUp, TrendingDown, BarChart3, Target, Activity, DollarSign, Percent } from 'lucide-react';
+import './StatisticsPanel.css';
+
+const StatisticsPanel = ({ apiBase }) => {
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    const fetchStatistics = async () => {
+        try {
+            const res = await fetch(`${apiBase}/api/crypto/statistics`);
+            if (res.ok) {
+                const data = await res.json();
+                setStats(data.statistics);
+                setError(null);
+            } else {
+                setError('Errore nel caricamento delle statistiche');
+            }
+        } catch (err) {
+            console.error('Error fetching statistics:', err);
+            setError('Errore di connessione');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchStatistics();
+        // Refresh every 10 seconds
+        const interval = setInterval(fetchStatistics, 10000);
+        return () => clearInterval(interval);
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="statistics-panel">
+                <div className="statistics-header">
+                    <BarChart3 size={24} className="text-blue-500" />
+                    <h3>Statistiche Avanzate</h3>
+                </div>
+                <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                    Caricamento statistiche...
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="statistics-panel">
+                <div className="statistics-header">
+                    <BarChart3 size={24} className="text-blue-500" />
+                    <h3>Statistiche Avanzate</h3>
+                </div>
+                <div style={{ textAlign: 'center', padding: '40px', color: '#f87171' }}>
+                    {error}
+                </div>
+            </div>
+        );
+    }
+
+    if (!stats) return null;
+
+    return (
+        <div className="statistics-panel">
+            <div className="statistics-header">
+                <BarChart3 size={24} className="text-blue-500" />
+                <h3>Statistiche Avanzate</h3>
+            </div>
+
+            <div className="statistics-grid">
+                {/* Total P&L */}
+                <div className="stat-card stat-card-primary">
+                    <div className="stat-label">
+                        <DollarSign size={18} />
+                        P&L Totale
+                    </div>
+                    <div className={`stat-value ${stats.pnl_total >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        {stats.pnl_total >= 0 ? '+' : ''}€{stats.pnl_total.toFixed(2)}
+                    </div>
+                    <div className="stat-change">
+                        <Percent size={14} />
+                        {stats.pnl_percent >= 0 ? '+' : ''}{stats.pnl_percent.toFixed(2)}%
+                    </div>
+                    <div className="stat-sublabel">ROI: {stats.roi >= 0 ? '+' : ''}{stats.roi.toFixed(2)}%</div>
+                </div>
+
+                {/* Win Rate */}
+                <div className="stat-card">
+                    <div className="stat-label">
+                        <Target size={18} />
+                        Win Rate
+                    </div>
+                    <div className="stat-value" style={{ color: stats.win_rate >= 50 ? '#4ade80' : '#f87171' }}>
+                        {stats.win_rate.toFixed(1)}%
+                    </div>
+                    <div className="stat-sublabel">
+                        {stats.winning_trades} vincenti / {stats.total_trades} totali
+                    </div>
+                    {stats.profit_factor !== null && (
+                        <div className="stat-change">
+                            Profit Factor: {stats.profit_factor.toFixed(2)}
+                        </div>
+                    )}
+                </div>
+
+                {/* Total Trades */}
+                <div className="stat-card">
+                    <div className="stat-label">
+                        <Activity size={18} />
+                        Trade Totali
+                    </div>
+                    <div className="stat-value">{stats.total_trades}</div>
+                    <div className="stat-sublabel">
+                        Oggi: {stats.trades_today} | Settimana: {stats.trades_this_week} | Mese: {stats.trades_this_month}
+                    </div>
+                </div>
+
+                {/* Average Win/Loss */}
+                <div className="stat-card">
+                    <div className="stat-label">
+                        <TrendingUp size={18} />
+                        Media Vincite/Perdite
+                    </div>
+                    <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
+                        <div style={{ flex: 1 }}>
+                            <div className="stat-mini-label" style={{ color: '#4ade80' }}>Vincita Media</div>
+                            <div className="stat-mini-value" style={{ color: '#4ade80' }}>
+                                +€{stats.avg_win.toFixed(2)}
+                            </div>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div className="stat-mini-label" style={{ color: '#f87171' }}>Perdita Media</div>
+                            <div className="stat-mini-value" style={{ color: '#f87171' }}>
+                                -€{stats.avg_loss.toFixed(2)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Total Volume */}
+                <div className="stat-card">
+                    <div className="stat-label">
+                        <BarChart3 size={18} />
+                        Volume Totale
+                    </div>
+                    <div className="stat-value">€{stats.total_volume_eur.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="stat-sublabel">Volume totale scambiato</div>
+                </div>
+
+                {/* Profit/Loss Breakdown */}
+                <div className="stat-card">
+                    <div className="stat-label">
+                        <TrendingDown size={18} />
+                        Profitti/Perdite
+                    </div>
+                    <div style={{ display: 'flex', gap: '20px', marginTop: '8px' }}>
+                        <div style={{ flex: 1 }}>
+                            <div className="stat-mini-label" style={{ color: '#4ade80' }}>Profitti</div>
+                            <div className="stat-mini-value" style={{ color: '#4ade80' }}>
+                                +€{stats.total_profit.toFixed(2)}
+                            </div>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <div className="stat-mini-label" style={{ color: '#f87171' }}>Perdite</div>
+                            <div className="stat-mini-value" style={{ color: '#f87171' }}>
+                                -€{stats.total_loss.toFixed(2)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default StatisticsPanel;
+
