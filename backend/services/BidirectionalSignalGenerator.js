@@ -25,7 +25,7 @@ class BidirectionalSignalGenerator {
     }
 
     /**
-     * Calcola RSI
+     * Calcola RSI (valore corrente)
      */
     calculateRSI(prices, period = 14) {
         if (prices.length < period + 1) return null;
@@ -49,6 +49,31 @@ class BidirectionalSignalGenerator {
         if (avgLoss === 0) return 100;
         const rs = avgGain / avgLoss;
         return 100 - (100 / (1 + rs));
+    }
+
+    /**
+     * Calcola RSI per tutti i punti storici (per divergenze)
+     * @param {Array} prices - Array di prezzi
+     * @param {number} period - Periodo RSI (default 14)
+     * @returns {Array} Array di valori RSI corrispondenti ai prezzi
+     */
+    calculateRSIHistory(prices, period = 14) {
+        if (prices.length < period + 1) return [];
+
+        const rsiValues = [];
+        
+        // Calcola RSI per ogni punto disponibile (rolling window)
+        for (let i = period + 1; i <= prices.length; i++) {
+            const priceSlice = prices.slice(0, i);
+            const rsi = this.calculateRSI(priceSlice, period);
+            if (rsi !== null) {
+                rsiValues.push(rsi);
+            } else {
+                rsiValues.push(null);
+            }
+        }
+        
+        return rsiValues;
     }
 
     /**
@@ -180,6 +205,111 @@ class BidirectionalSignalGenerator {
     }
 
     /**
+     * Trova picchi e valli (local maxima e minima)
+     */
+    findPeaksAndValleys(values, lookback = 5) {
+        if (values.length < lookback * 2 + 1) return { peaks: [], valleys: [] };
+        
+        const peaks = [];
+        const valleys = [];
+        
+        for (let i = lookback; i < values.length - lookback; i++) {
+            const current = values[i];
+            let isPeak = true;
+            let isValley = true;
+            
+            // Controlla se è un picco (tutti i valori intorno sono più bassi)
+            for (let j = i - lookback; j <= i + lookback; j++) {
+                if (j !== i) {
+                    if (values[j] >= current) isPeak = false;
+                    if (values[j] <= current) isValley = false;
+                }
+            }
+            
+            if (isPeak) {
+                peaks.push({ index: i, value: current });
+            }
+            if (isValley) {
+                valleys.push({ index: i, value: current });
+            }
+        }
+        
+        return { peaks, valleys };
+    }
+
+    /**
+     * Rileva divergenze RSI (prezzo vs RSI)
+     * @param {Array} prices - Array di prezzi
+     * @param {Array} rsiValues - Array di valori RSI corrispondenti
+     * @returns {Object} { type: 'bullish'|'bearish'|null, strength: 0-100 }
+     */
+    detectRSIDivergence(prices, rsiValues) {
+        if (!prices || !rsiValues || prices.length < 30 || rsiValues.length < 30) {
+            return { type: null, strength: 0 };
+        }
+        
+        // Usa solo gli ultimi 30-50 punti per divergenza recente
+        const lookback = Math.min(30, Math.floor(prices.length * 0.6));
+        const recentPrices = prices.slice(-lookback);
+        const recentRSI = rsiValues.slice(-lookback);
+        
+        // Trova picchi e valli
+        const pricePeaksValleys = this.findPeaksAndValleys(recentPrices, 3);
+        const rsiPeaksValleys = this.findPeaksAndValleys(recentRSI, 3);
+        
+        // BULLISH DIVERGENCE: Prezzo fa minimi più bassi, RSI fa minimi più alti
+        if (pricePeaksValleys.valleys.length >= 2 && rsiPeaksValleys.valleys.length >= 2) {
+            const recentValleys = pricePeaksValleys.valleys.slice(-2);
+            const recentRSIValleys = rsiPeaksValleys.valleys.slice(-2);
+            
+            if (recentValleys.length === 2 && recentRSIValleys.length === 2) {
+                const priceLower = recentValleys[0].value > recentValleys[1].value; // Prezzo più basso
+                const rsiHigher = recentRSIValleys[0].value < recentRSIValleys[1].value; // RSI più alto
+                
+                if (priceLower && rsiHigher) {
+                    // Calcola strength basata su quanto è evidente la divergenza
+                    const priceChange = Math.abs(recentValleys[0].value - recentValleys[1].value) / recentValleys[1].value;
+                    const rsiChange = Math.abs(recentRSIValleys[0].value - recentRSIValleys[1].value);
+                    const strength = Math.min(100, Math.floor((priceChange * 1000) + (rsiChange * 2)));
+                    
+                    return {
+                        type: 'bullish',
+                        strength: Math.max(60, Math.min(100, strength)),
+                        priceValleys: recentValleys,
+                        rsiValleys: recentRSIValleys
+                    };
+                }
+            }
+        }
+        
+        // BEARISH DIVERGENCE: Prezzo fa massimi più alti, RSI fa massimi più bassi
+        if (pricePeaksValleys.peaks.length >= 2 && rsiPeaksValleys.peaks.length >= 2) {
+            const recentPeaks = pricePeaksValleys.peaks.slice(-2);
+            const recentRSIPeaks = rsiPeaksValleys.peaks.slice(-2);
+            
+            if (recentPeaks.length === 2 && recentRSIPeaks.length === 2) {
+                const priceHigher = recentPeaks[0].value < recentPeaks[1].value; // Prezzo più alto
+                const rsiLower = recentRSIPeaks[0].value > recentRSIPeaks[1].value; // RSI più basso
+                
+                if (priceHigher && rsiLower) {
+                    const priceChange = Math.abs(recentPeaks[1].value - recentPeaks[0].value) / recentPeaks[0].value;
+                    const rsiChange = Math.abs(recentRSIPeaks[0].value - recentRSIPeaks[1].value);
+                    const strength = Math.min(100, Math.floor((priceChange * 1000) + (rsiChange * 2)));
+                    
+                    return {
+                        type: 'bearish',
+                        strength: Math.max(60, Math.min(100, strength)),
+                        pricePeaks: recentPeaks,
+                        rsiPeaks: recentRSIPeaks
+                    };
+                }
+            }
+        }
+        
+        return { type: null, strength: 0 };
+    }
+
+    /**
      * Calcola MACD (Moving Average Convergence Divergence) completo
      * @param {Array} prices - Array di prezzi
      * @param {number} fastPeriod - Periodo EMA veloce (default 12)
@@ -304,11 +434,16 @@ class BidirectionalSignalGenerator {
         const volatility = atr ? atr / currentPrice : 0.02; // Default 2%
         const avgVolatility = this.calculateVolatility(prices.slice(-30)) / avgPrice || 0.02;
         
-        // 2. Calcola indicatori PROFESSIONALI
+        // 2. Calcola RSI storico per divergenze
+        const rsiHistory = this.calculateRSIHistory(prices, 14);
+        const rsiDivergence = rsiHistory.length >= 15 ? 
+            this.detectRSIDivergence(prices, rsiHistory) : { type: null, strength: 0 };
+        
+        // 3. Calcola indicatori PROFESSIONALI
         const macd = this.calculateMACD(prices, 12, 26, 9);
         const bollinger = this.calculateBollingerBands(prices, 20, 2);
         
-        // 3. Calcola EMA multiple per trend analysis
+        // 4. Calcola EMA multiple per trend analysis
         const ema10 = this.calculateEMA(prices, 10);
         const ema20 = this.calculateEMA(prices, 20);
         const ema50 = this.calculateEMA(prices, 50);
@@ -333,6 +468,13 @@ class BidirectionalSignalGenerator {
             longSignal.strength += 20;
             longSignal.confirmations++;
             longSignal.reasons.push(`RSI strongly oversold (${rsi.toFixed(1)})`);
+        }
+
+        // CONFERMA 2.5: BULLISH DIVERGENCE RSI (segnale molto forte!)
+        if (rsiDivergence.type === 'bullish') {
+            longSignal.strength += Math.min(40, rsiDivergence.strength);
+            longSignal.confirmations++;
+            longSignal.reasons.push(`RSI Bullish Divergence detected (strength: ${rsiDivergence.strength})`);
         }
 
         // CONFERMA 3: MACD positivo e crescente
@@ -419,6 +561,13 @@ class BidirectionalSignalGenerator {
             shortSignal.reasons.push(`RSI strongly overbought (${rsi.toFixed(1)})`);
         }
 
+        // CONFERMA 2.5: BEARISH DIVERGENCE RSI (segnale molto forte!)
+        if (rsiDivergence.type === 'bearish') {
+            shortSignal.strength += Math.min(40, rsiDivergence.strength);
+            shortSignal.confirmations++;
+            shortSignal.reasons.push(`RSI Bearish Divergence detected (strength: ${rsiDivergence.strength})`);
+        }
+
         // CONFERMA 3: MACD negativo e decrescente
         if (macd && !macd.macdAboveSignal && !macd.macdAboveZero && !macd.histogramGrowing) {
             shortSignal.strength += 30;
@@ -480,6 +629,7 @@ class BidirectionalSignalGenerator {
                 confirmations: longSignal.confirmations,
                 indicators: {
                     rsi: rsi,
+                    rsiDivergence: rsiDivergence,
                     trend: trend,
                     majorTrend: majorTrend,
                     volume: volume,
@@ -501,6 +651,7 @@ class BidirectionalSignalGenerator {
                 confirmations: shortSignal.confirmations,
                 indicators: {
                     rsi: rsi,
+                    rsiDivergence: rsiDivergence,
                     trend: trend,
                     majorTrend: majorTrend,
                     volume: volume,
