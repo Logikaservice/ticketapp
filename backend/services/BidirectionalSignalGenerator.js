@@ -173,14 +173,26 @@ class BidirectionalSignalGenerator {
             reasons: []
         };
 
-        // RSI overbought + downtrend
+        // RSI overbought + downtrend (CONFERMA: prezzo sta già scendendo)
         if (rsi !== null && rsi > 70 && trend === 'bearish') {
-            shortSignal.strength += 40;
-            shortSignal.reasons.push(`RSI overbought (${rsi.toFixed(1)}) + downtrend`);
+            shortSignal.strength += 50; // Aumentato da 40 a 50 - più peso al downtrend
+            shortSignal.reasons.push(`RSI overbought (${rsi.toFixed(1)}) + downtrend confirmed`);
+        }
+        
+        // Verifica che il prezzo stia effettivamente scendendo
+        const priceChange = prices.length >= 3 
+            ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
+            : 0;
+        
+        // Penalizza SHORT se prezzo sta ancora salendo
+        if (priceChange > 0.1) { // Se prezzo è salito >0.1% negli ultimi 3 punti
+            shortSignal.strength = Math.max(0, shortSignal.strength - 30);
+            shortSignal.reasons.push(`Price still rising (+${priceChange.toFixed(2)}%) - waiting for reversal`);
         }
 
-        // RSI fortemente overbought
-        if (rsi !== null && rsi > 75) {
+        // RSI fortemente overbought - MA solo se trend non è ancora bullish
+        // Non aprire SHORT se il prezzo sta ancora salendo!
+        if (rsi !== null && rsi > 75 && trend !== 'bullish') {
             shortSignal.strength += 30;
             shortSignal.reasons.push(`RSI strongly overbought (${rsi.toFixed(1)})`);
         }
