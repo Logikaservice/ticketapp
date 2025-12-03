@@ -71,19 +71,21 @@ jobs:
             cd ../frontend
             
             echo "🧹 Pulizia cache e build vecchi..."
-            # Rimuovi directory build completamente
+            # Rimuovi directory build completamente e tutti i file residui
             rm -rf build || true
-            # Rimuovi anche eventuali file residui nella root frontend
-            rm -f build static 2>/dev/null || true
+            rm -rf build/static 2>/dev/null || true
+            rm -rf build/*.map 2>/dev/null || true
             
             # Rimuovi cache in modo sicuro (gestisce directory non vuote)
             if [ -d "node_modules/.cache" ]; then
               find node_modules/.cache -mindepth 1 -delete 2>/dev/null || rm -rf node_modules/.cache 2>/dev/null || true
             fi
             
-            # Rimuovi anche cache di react-scripts
+            # Rimuovi anche cache di react-scripts e altri file temporanei
             rm -rf node_modules/.cache/.eslintcache 2>/dev/null || true
             rm -rf .cache 2>/dev/null || true
+            rm -rf .eslintcache 2>/dev/null || true
+            find . -name "*.map" -type f -delete 2>/dev/null || true
             
             rm -f .env
             rm -f .env.production
