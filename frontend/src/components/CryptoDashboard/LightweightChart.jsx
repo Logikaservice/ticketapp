@@ -8,6 +8,8 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
     const candlestickSeriesRef = useRef(null);
     const markersRef = useRef([]);
     const priceLinesRef = useRef([]); // Array per tenere traccia di tutte le price lines create
+    const hasRestoredPositionRef = useRef(false); // Flag per evitare ripristino multiplo
+    const savePositionTimeoutRef = useRef(null); // Timeout per debounce salvataggio posizione
 
     // Initialize chart
     useEffect(() => {
@@ -51,6 +53,50 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
 
         candlestickSeriesRef.current = candlestickSeries;
 
+        // Restore saved chart position from localStorage
+        const savedPosition = localStorage.getItem(`chart_position_${symbol}`);
+        if (savedPosition && !hasRestoredPositionRef.current) {
+            try {
+                const { from, to } = JSON.parse(savedPosition);
+                // Restore position after a small delay to ensure chart is ready
+                setTimeout(() => {
+                    if (chartRef.current && from && to) {
+                        chartRef.current.timeScale().setVisibleRange({ from, to });
+                        hasRestoredPositionRef.current = true;
+                        console.log('✅ Grafico: Posizione ripristinata', { from, to });
+                    }
+                }, 500);
+            } catch (e) {
+                console.warn('Errore nel ripristino posizione grafico:', e);
+            }
+        }
+
+        // Save chart position when user scrolls/zooms
+        const saveChartPosition = () => {
+            if (savePositionTimeoutRef.current) {
+                clearTimeout(savePositionTimeoutRef.current);
+            }
+            savePositionTimeoutRef.current = setTimeout(() => {
+                if (chartRef.current) {
+                    try {
+                        const visibleRange = chartRef.current.timeScale().getVisibleRange();
+                        if (visibleRange && visibleRange.from && visibleRange.to) {
+                            localStorage.setItem(`chart_position_${symbol}`, JSON.stringify({
+                                from: visibleRange.from,
+                                to: visibleRange.to
+                            }));
+                            console.log('💾 Grafico: Posizione salvata', visibleRange);
+                        }
+                    } catch (e) {
+                        console.warn('Errore nel salvataggio posizione grafico:', e);
+                    }
+                }
+            }, 500); // Debounce: salva dopo 500ms di inattività
+        };
+
+        // Listen to timeScale changes (scroll/zoom)
+        chart.timeScale().subscribeVisibleTimeRangeChange(saveChartPosition);
+
         // Handle resize
         const handleResize = () => {
             if (chartContainerRef.current && chartRef.current) {
@@ -64,11 +110,15 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
 
         return () => {
             window.removeEventListener('resize', handleResize);
+            if (savePositionTimeoutRef.current) {
+                clearTimeout(savePositionTimeoutRef.current);
+            }
             if (chartRef.current) {
                 chartRef.current.remove();
             }
+            hasRestoredPositionRef.current = false;
         };
-    }, []);
+    }, [symbol]);
 
     // Update chart data
     useEffect(() => {
@@ -160,6 +210,25 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                 console.log('✅ LightweightChart: Setting candlestick data:', candlestickData.length, 'candles');
                 console.log('📊 Sample candle:', candlestickData[0]);
                 candlestickSeriesRef.current.setData(candlestickData);
+                
+                // Restore saved position after data is loaded (if not already restored)
+                if (!hasRestoredPositionRef.current && chartRef.current) {
+                    const savedPosition = localStorage.getItem(`chart_position_${symbol}`);
+                    if (savedPosition) {
+                        try {
+                            const { from, to } = JSON.parse(savedPosition);
+                            setTimeout(() => {
+                                if (chartRef.current && from && to) {
+                                    chartRef.current.timeScale().setVisibleRange({ from, to });
+                                    hasRestoredPositionRef.current = true;
+                                    console.log('✅ Grafico: Posizione ripristinata dopo caricamento dati');
+                                }
+                            }, 300);
+                        } catch (e) {
+                            console.warn('Errore nel ripristino posizione dopo caricamento:', e);
+                        }
+                    }
+                }
             }
         } else {
             // Use line chart for small datasets
@@ -169,6 +238,25 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             }));
             console.log('✅ LightweightChart: Setting line data:', lineData.length, 'points');
             candlestickSeriesRef.current.setData(lineData);
+            
+            // Restore saved position after data is loaded (if not already restored)
+            if (!hasRestoredPositionRef.current && chartRef.current) {
+                const savedPosition = localStorage.getItem(`chart_position_${symbol}`);
+                if (savedPosition) {
+                    try {
+                        const { from, to } = JSON.parse(savedPosition);
+                        setTimeout(() => {
+                            if (chartRef.current && from && to) {
+                                chartRef.current.timeScale().setVisibleRange({ from, to });
+                                hasRestoredPositionRef.current = true;
+                                console.log('✅ Grafico: Posizione ripristinata dopo caricamento dati');
+                            }
+                        }, 300);
+                    } catch (e) {
+                        console.warn('Errore nel ripristino posizione dopo caricamento:', e);
+                    }
+                }
+            }
         }
     }, [priceHistory]);
 
