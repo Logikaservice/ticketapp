@@ -37,8 +37,8 @@ const getPortfolio = () => {
 router.get('/history', async (req, res) => {
     try {
         // Check if we have enough data
-        const rows = await dbAll("SELECT COUNT(*) as count FROM price_history WHERE symbol = 'bitcoin'");
-        const count = rows && rows.length > 0 ? rows[0].count : 0;
+        const countRows = await dbAll("SELECT COUNT(*) as count FROM price_history WHERE symbol = 'bitcoin'");
+        const count = countRows && countRows.length > 0 ? countRows[0].count : 0;
 
         console.log(`📊 Price history count: ${count}`);
 
