@@ -539,11 +539,20 @@ class BidirectionalSignalGenerator {
                 direction: 'NEUTRAL',
                 strength: 0,
                 reasons: [`SHORT blocked: Price still rising (+${priceChange.toFixed(2)}%) - waiting for reversal`],
-                rsi: rsi,
-                trend: trend,
-                volume: volume,
-                macd: macd,
-                bollinger: bollinger
+                confirmations: 0,
+                indicators: {
+                    rsi: rsi,
+                    rsiDivergence: rsiDivergence,
+                    trend: trend,
+                    majorTrend: majorTrend,
+                    volume: volume,
+                    macd: macd,
+                    bollinger: bollinger,
+                    ema10: ema10,
+                    ema20: ema20,
+                    ema50: ema50,
+                    ema200: ema200
+                }
             };
         }
 
