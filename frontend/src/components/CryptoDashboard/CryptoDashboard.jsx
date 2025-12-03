@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet, Settings, BarChart2 } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet, Settings, BarChart2, RotateCcw } from 'lucide-react';
 import OpenPositions from './OpenPositions';
 import LightweightChart from './LightweightChart';
 import BotSettings from './BotSettings';
@@ -121,6 +121,35 @@ const CryptoDashboard = () => {
         } catch (error) {
             console.error("Error closing position:", error);
             alert('Errore nella chiusura della posizione');
+        }
+    };
+
+    const handleResetPortfolio = async () => {
+        const confirmMessage = `Sei sicuro di voler resettare il portfolio?\n\nQuesto:${openPositions.length > 0 ? `\n- Chiuderà ${openPositions.length} posizione/i aperta/e` : ''}\n- Imposterà il saldo a €250\n- Resetterà tutte le holdings\n\nI trades storici verranno mantenuti.`;
+        
+        if (!window.confirm(confirmMessage)) {
+            return;
+        }
+        
+        try {
+            const res = await fetch(`${apiBase}/api/crypto/reset`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ clear_trades: false }) // Mantieni i trades storici
+            });
+            
+            if (res.ok) {
+                const result = await res.json();
+                alert(result.message || 'Portfolio resettato con successo!');
+                // Refresh data
+                fetchData();
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Errore nel reset del portfolio');
+            }
+        } catch (error) {
+            console.error("Error resetting portfolio:", error);
+            alert('Errore nel reset del portfolio');
         }
     };
 
@@ -287,6 +316,14 @@ const CryptoDashboard = () => {
                             title="Backtesting Strategia"
                         >
                             <BarChart2 size={18} />
+                        </button>
+                        <button 
+                            className="toggle-btn" 
+                            onClick={handleResetPortfolio}
+                            style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px', background: '#ef4444', color: '#fff' }}
+                            title="Reset Portfolio a €250"
+                        >
+                            <RotateCcw size={18} />
                         </button>
                     </div>
                 </div>
