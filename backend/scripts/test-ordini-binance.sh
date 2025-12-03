@@ -23,12 +23,12 @@ else
 fi
 echo ""
 
-# Test 2: Verifica Prezzo SOLEUR
-echo "2️⃣  VERIFICA PREZZO SOLEUR"
+# Test 2: Verifica Prezzo BTCEUR
+echo "2️⃣  VERIFICA PREZZO BTCEUR"
 echo "────────────────────────────────────────"
-echo "🧪 Prezzo SOLEUR"
-echo "   URL: $BASE_URL/price/SOLEUR"
-response=$(curl -s "$BASE_URL/price/SOLEUR")
+echo "🧪 Prezzo BTCEUR"
+echo "   URL: $BASE_URL/price/BTCEUR"
+response=$(curl -s "$BASE_URL/price/BTCEUR")
 if [ $? -eq 0 ]; then
     echo "   ✅ SUCCESS"
     echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
@@ -75,20 +75,20 @@ echo ""
 echo "Vuoi fare un ordine di test?"
 echo "Questo ordine userà denaro VIRTUALE (Testnet)"
 echo ""
-echo "Prezzo attuale SOLEUR: €${price:-N/A}"
+echo "Prezzo attuale BTCEUR: €${price:-N/A}"
 echo ""
 
-read -p "Vuoi procedere con un ordine BUY di 0.1 SOLUSDT? (s/n): " conferma
+read -p "Vuoi procedere con un ordine BUY di 0.001 BTCUSDT? (s/n): " conferma
 
 if [ "$conferma" = "s" ] || [ "$conferma" = "S" ] || [ "$conferma" = "si" ] || [ "$conferma" = "SI" ]; then
     echo ""
-    echo "5️⃣  ORDINE A MERCATO (BUY 0.1 SOLUSDT)"
+    echo "5️⃣  ORDINE A MERCATO (BUY 0.001 BTCUSDT)"
     echo "────────────────────────────────────────"
     echo "🧪 Market Order BUY"
     echo "   URL: $BASE_URL/order/market"
     
     # Crea il JSON body
-    body='{"symbol":"SOLUSDT","side":"BUY","quantity":"0.1"}'
+    body='{"symbol":"BTCUSDT","side":"BUY","quantity":"0.001"}'
     
     response=$(curl -s -X POST "$BASE_URL/order/market" \
         -H "Content-Type: application/json" \

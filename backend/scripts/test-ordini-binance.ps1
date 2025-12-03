@@ -60,9 +60,9 @@ Test-Endpoint -Name "Modalità Binance" -Url "$baseUrl/mode"
 Write-Host ""
 
 # Test 2: Verifica Prezzo
-Write-Host "2️⃣  VERIFICA PREZZO SOLEUR" -ForegroundColor Cyan
+Write-Host "2️⃣  VERIFICA PREZZO BTCEUR" -ForegroundColor Cyan
 Write-Host "────────────────────────────────────────" -ForegroundColor Gray
-$priceResponse = Test-Endpoint -Name "Prezzo SOLEUR" -Url "$baseUrl/price/SOLEUR"
+$priceResponse = Test-Endpoint -Name "Prezzo BTCEUR" -Url "$baseUrl/price/BTCEUR"
 Write-Host ""
 
 # Test 3: Verifica Saldo
@@ -74,7 +74,7 @@ Write-Host ""
 # Test 4: Storico Ordini
 Write-Host "4️⃣  STORICO ORDINI" -ForegroundColor Cyan
 Write-Host "────────────────────────────────────────" -ForegroundColor Gray
-Test-Endpoint -Name "Storico Ordini" -Url "$baseUrl/orders/history?symbol=SOLEUR&limit=10"
+Test-Endpoint -Name "Storico Ordini" -Url "$baseUrl/orders/history?symbol=BTCEUR&limit=10"
 Write-Host ""
 
 # Test 5: Chiedi conferma per ordine
@@ -86,20 +86,20 @@ Write-Host "Vuoi fare un ordine di test?" -ForegroundColor Yellow
 Write-Host "Questo ordine userà denaro VIRTUALE (Testnet)" -ForegroundColor Yellow
 Write-Host ""
 $prezzoAttuale = if ($priceResponse) { $priceResponse.price } else { "~119" }
-Write-Host "Prezzo attuale SOLEUR: €$prezzoAttuale" -ForegroundColor White
+Write-Host "Prezzo attuale BTCEUR: €$prezzoAttuale" -ForegroundColor White
 Write-Host ""
 
-$confirma = Read-Host "Vuoi procedere con un ordine BUY di 0.01 SOL? (s/n)"
+$confirma = Read-Host "Vuoi procedere con un ordine BUY di 0.001 BTC? (s/n)"
 
 if ($confirma -eq "s" -or $confirma -eq "S" -or $confirma -eq "si" -or $confirma -eq "SI") {
     Write-Host ""
-    Write-Host "5️⃣  ORDINE A MERCATO (BUY 0.01 SOL)" -ForegroundColor Cyan
+    Write-Host "5️⃣  ORDINE A MERCATO (BUY 0.001 BTC)" -ForegroundColor Cyan
     Write-Host "────────────────────────────────────────" -ForegroundColor Gray
     
     $orderBody = @{
-        symbol = "SOLEUR"
+        symbol = "BTCEUR"
         side = "BUY"
-        quantity = "0.01"
+        quantity = "0.001"
     }
     
     $orderResponse = Test-Endpoint -Name "Market Order BUY" -Url "$baseUrl/order/market" -Method "POST" -Body $orderBody
@@ -108,7 +108,7 @@ if ($confirma -eq "s" -or $confirma -eq "S" -or $confirma -eq "si" -or $confirma
         Write-Host ""
         Write-Host "✅ ORDINE ESEGUITO CON SUCCESSO!" -ForegroundColor Green
         Write-Host "   Order ID: $($orderResponse.order.orderId)" -ForegroundColor White
-        Write-Host "   Quantità: $($orderResponse.order.quantity) SOL" -ForegroundColor White
+        Write-Host "   Quantità: $($orderResponse.order.quantity) BTC" -ForegroundColor White
         Write-Host "   Prezzo: €$($orderResponse.order.price)" -ForegroundColor White
         Write-Host "   Status: $($orderResponse.order.status)" -ForegroundColor White
         Write-Host ""

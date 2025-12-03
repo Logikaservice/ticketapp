@@ -114,6 +114,11 @@ class BinanceClient {
             const signature = this.generateSignature(queryString);
             queryString += `&signature=${signature}`;
             
+            // Log parameters for debugging
+            console.log(`📤 Binance POST Request (${endpoint}):`);
+            console.log(`   Query string: ${queryString}`);
+            console.log(`   Parameters count: ${Object.keys(params).length + 1} (params) + 1 (signature) = ${Object.keys(params).length + 2}`);
+            
             // For POST authenticated requests, body should be empty
             postBody = null;
         } else {

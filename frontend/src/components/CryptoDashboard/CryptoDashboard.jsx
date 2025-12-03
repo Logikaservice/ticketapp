@@ -36,7 +36,7 @@ const CryptoDashboard = () => {
 
     const handleUpdatePnL = async () => {
         try {
-            await fetch(`${apiBase}/api/crypto/positions/update-pnl?symbol=solana`);
+            await fetch(`${apiBase}/api/crypto/positions/update-pnl?symbol=bitcoin`);
             // Refresh positions after update
             const res = await fetch(`${apiBase}/api/crypto/positions?status=open`);
             if (res.ok) {
@@ -69,8 +69,8 @@ const CryptoDashboard = () => {
 
     const fetchPrice = async () => {
         try {
-            // Fetch real Solana price in EUR
-            const res = await fetch(`${apiBase}/api/crypto/price/solana?currency=eur`);
+            // Fetch real Bitcoin price in EUR
+            const res = await fetch(`${apiBase}/api/crypto/price/bitcoin?currency=eur`);
             if (res.ok) {
                 const data = await res.json();
                 const price = parseFloat(data.data.priceUsd);
@@ -142,10 +142,10 @@ const CryptoDashboard = () => {
     };
 
     // Calculate total balance (EUR + Crypto value)
-    const totalBalance = portfolio.balance_usd + ((portfolio.holdings['solana'] || 0) * currentPrice);
+    const totalBalance = portfolio.balance_usd + ((portfolio.holdings['bitcoin'] || 0) * currentPrice);
 
     // Calculate P&L
-    const holdings = portfolio.holdings['solana'] || 0;
+    const holdings = portfolio.holdings['bitcoin'] || 0;
     const avgPrice = portfolio.avg_buy_price || 0;
     const investedValue = holdings * avgPrice;
     const currentValue = holdings * currentPrice;
@@ -232,7 +232,7 @@ const CryptoDashboard = () => {
                 <div className="crypto-card">
                     <div className="card-title">
                         <Activity size={20} className="text-blue-500" />
-                        Solana / EUR Live Market
+                        Bitcoin / EUR Live Market
                     </div>
                     <div className="chart-container" style={{ position: 'relative' }}>
                         {chartData.length === 0 && (

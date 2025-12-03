@@ -35,7 +35,7 @@ const getPortfolio = () => {
 
 // GET /api/crypto/history (Get chart data)
 router.get('/history', (req, res) => {
-    db.all("SELECT price, timestamp FROM price_history WHERE symbol = 'solana' ORDER BY timestamp DESC LIMIT 500", (err, rows) => {
+    db.all("SELECT price, timestamp FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp DESC LIMIT 500", (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         // Reverse to show oldest to newest
         const history = rows.map(row => ({
@@ -93,14 +93,14 @@ router.get('/dashboard', async (req, res) => {
         let avgBuyPrice = 0;
         let totalCost = 0;
         let totalAmount = 0;
-        const currentHoldings = JSON.parse(portfolio.holdings || '{}')['solana'] || 0;
+        const currentHoldings = JSON.parse(portfolio.holdings || '{}')['bitcoin'] || 0;
 
         if (currentHoldings > 0) {
             // Simple FIFO/Weighted Average logic from recent trades
             // We scan trades backwards to find the cost basis of current holdings
             let remainingHoldings = currentHoldings;
             for (const trade of trades) {
-                if (trade.type === 'buy' && trade.symbol === 'solana') {
+                if (trade.type === 'buy' && trade.symbol === 'bitcoin') {
                     const amount = Math.min(trade.amount, remainingHoldings);
                     totalCost += amount * trade.price;
                     totalAmount += amount;
@@ -140,7 +140,7 @@ router.get('/price/:symbol', async (req, res) => {
     try {
         // 1. Try Binance (Best for EUR)
         try {
-            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=SOLEUR`);
+            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR`);
             if (data && data.price) {
                 price = parseFloat(data.price);
             }
@@ -229,7 +229,7 @@ const CHECK_INTERVAL_MS = 10000; // Check every 10 seconds
 
 // Load history from DB on startup
 const loadPriceHistory = () => {
-    db.all("SELECT price FROM price_history WHERE symbol = 'solana' ORDER BY timestamp DESC LIMIT 300", (err, rows) => {
+    db.all("SELECT price FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp DESC LIMIT 300", (err, rows) => {
         if (!err && rows) {
             // Reverse because SQL gives DESC (newest first), but we need chronological order for RSI
             priceHistory = rows.map(r => r.price).reverse();
@@ -268,14 +268,14 @@ const runBotCycle = async () => {
         const bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'");
         const isBotActive = bot && bot.is_active;
 
-        // 2. Get current price (SOLANA)
-        const symbol = 'solana';
+        // 2. Get current price (BITCOIN)
+        const symbol = 'bitcoin';
         let currentPrice = 0;
 
         try {
             // Fetch Price using Binance API (Direct EUR pair, very reliable)
-            // Symbol: SOLEUR
-            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=SOLEUR`);
+            // Symbol: BTCEUR
+            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR`);
 
             if (data && data.price) {
                 currentPrice = parseFloat(data.price);
@@ -288,9 +288,9 @@ const runBotCycle = async () => {
 
             // Fallback to CoinGecko if Binance fails
             try {
-                const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=eur');
-                if (geckoData && geckoData.solana && geckoData.solana.eur) {
-                    currentPrice = parseFloat(geckoData.solana.eur);
+                const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur');
+                if (geckoData && geckoData.bitcoin && geckoData.bitcoin.eur) {
+                    currentPrice = parseFloat(geckoData.bitcoin.eur);
                 }
             } catch (e2) {
                 console.error('Error fetching price from CoinGecko:', e2.message);
@@ -316,7 +316,7 @@ const runBotCycle = async () => {
         latestRSI = rsi; // Update global variable
 
         if (rsi) {
-            console.log(`🤖 BOT: SOL/EUR=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);
+            console.log(`🤖 BOT: BTC/EUR=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);
         }
 
         if (!isBotActive || !rsi) return; // Stop here if bot is off
@@ -360,7 +360,7 @@ const runBotCycle = async () => {
         const TAKE_PROFIT_PCT = 0.03; // 3% target profit
         const TRADE_SIZE_EUR = 50; // Invest 50€ per trade (Money Management)
 
-        console.log(`📊 ANALISI: Prezzo=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Holdings=${cryptoAmount.toFixed(4)} SOL | AvgPrice=${lastBuyPrice.toFixed(2)}€`);
+                console.log(`📊 ANALISI: Prezzo=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Holdings=${cryptoAmount.toFixed(4)} BTC | AvgPrice=${lastBuyPrice.toFixed(2)}€`);
 
         // BUY LOGIC (Smart Accumulation / DCA)
         if (rsi < RSI_OVERSOLD && balance >= TRADE_SIZE_EUR) {
@@ -368,7 +368,7 @@ const runBotCycle = async () => {
             if (cryptoAmount < 0.001) {
                 const amountToBuy = TRADE_SIZE_EUR / currentPrice;
                 await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `RSI Oversold (${rsi.toFixed(2)})`);
-                console.log(`✅ BOT BUY (Entry): RSI ${rsi.toFixed(2)} < ${RSI_OVERSOLD}. Buying ${amountToBuy.toFixed(4)} SOL.`);
+                console.log(`✅ BOT BUY (Entry): RSI ${rsi.toFixed(2)} < ${RSI_OVERSOLD}. Buying ${amountToBuy.toFixed(4)} BTC.`);
             }
             // Scenario B: DCA (Accumulate if price drops 2% below Avg Price)
             else if (currentPrice < lastBuyPrice * 0.98) {
@@ -536,7 +536,7 @@ const generateTicketId = () => {
 };
 
 // Helper to update P&L for all open positions
-const updatePositionsPnL = async (currentPrice, symbol = 'solana') => {
+const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
     return new Promise((resolve, reject) => {
         db.all("SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'", [symbol], async (err, positions) => {
             if (err) {
@@ -775,19 +775,19 @@ router.post('/positions/close/:ticketId', async (req, res) => {
 router.get('/positions/update-pnl', async (req, res) => {
     try {
         const { symbol } = req.query;
-        const targetSymbol = symbol || 'solana';
+        const targetSymbol = symbol || 'bitcoin';
 
         // Get current price
         let currentPrice = 0;
         try {
-            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=SOLEUR`);
+            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR`);
             if (data && data.price) {
                 currentPrice = parseFloat(data.price);
             } else {
                 // Fallback to CoinGecko
-                const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=eur');
-                if (geckoData && geckoData.solana && geckoData.solana.eur) {
-                    currentPrice = parseFloat(geckoData.solana.eur);
+                const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur');
+                if (geckoData && geckoData.bitcoin && geckoData.bitcoin.eur) {
+                    currentPrice = parseFloat(geckoData.bitcoin.eur);
                 }
             }
         } catch (e) {
@@ -806,7 +806,7 @@ setInterval(async () => {
     try {
         let currentPrice = 0;
         try {
-            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=SOLEUR`);
+            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR`);
             if (data && data.price) {
                 currentPrice = parseFloat(data.price);
             }
@@ -815,7 +815,7 @@ setInterval(async () => {
             return;
         }
         if (currentPrice > 0) {
-            await updatePositionsPnL(currentPrice, 'solana');
+            await updatePositionsPnL(currentPrice, 'bitcoin');
         }
     } catch (err) {
         // Silent fail
