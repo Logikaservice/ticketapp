@@ -394,6 +394,17 @@ const CryptoDashboard = () => {
                 onClose={() => setShowBotSettings(false)}
                 apiBase={apiBase}
             />
+
+            {/* Real-time Notifications */}
+            <div className="crypto-notifications-container">
+                {notifications.map(notification => (
+                    <CryptoNotification
+                        key={notification.id}
+                        notification={notification}
+                        onClose={() => removeNotification(notification.id)}
+                    />
+                ))}
+            </div>
         </div>
     );
 };

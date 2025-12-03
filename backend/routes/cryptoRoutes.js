@@ -309,7 +309,12 @@ const DEFAULT_PARAMS = {
     rsi_overbought: 70,
     stop_loss_pct: 2.0,
     take_profit_pct: 3.0,
-    trade_size_eur: 50
+    trade_size_eur: 50,
+    trailing_stop_enabled: false,
+    trailing_stop_distance_pct: 1.0,
+    partial_close_enabled: false,
+    take_profit_1_pct: 1.5,
+    take_profit_2_pct: 3.0
 };
 
 // Helper to get bot strategy parameters from database
@@ -471,14 +476,14 @@ const runBotCycle = async () => {
             // Scenario A: First Entry
             if (cryptoAmount < 0.001) {
                 const amountToBuy = TRADE_SIZE_EUR / currentPrice;
-                await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `RSI Oversold (${rsi.toFixed(2)})`);
+                await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `RSI Oversold (${rsi.toFixed(2)})`, null, params);
                 console.log(`✅ BOT BUY (Entry): RSI ${rsi.toFixed(2)} < ${RSI_OVERSOLD}. Buying ${amountToBuy.toFixed(4)} BTC.`);
             }
             // Scenario B: DCA (Accumulate if price drops 2% below Avg Price)
             else if (currentPrice < lastBuyPrice * 0.98) {
                 // Aggressive: Buy double (Martingale) or same amount? Let's stick to same amount for safety.
                 const amountToBuy = TRADE_SIZE_EUR / currentPrice;
-                await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `DCA Accumulation (Price -2%)`);
+                await executeTrade(symbol, 'buy', amountToBuy, currentPrice, `DCA Accumulation (Price -2%)`, null, params);
                 console.log(`📉 BOT BUY (DCA): Price dropped below Avg. Lowering entry price.`);
             }
         }
@@ -513,7 +518,7 @@ const runBotCycle = async () => {
 };
 
 // Helper to open a position (used by bot)
-const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss = null, takeProfit = null) => {
+const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss = null, takeProfit = null, options = {}) => {
     try {
         // Use Promise-based getPortfolio to properly await the result
         const portfolio = await getPortfolio();
@@ -542,11 +547,21 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
             [balance, JSON.stringify(holdings)]
         );
         
+        // Prepare additional fields for trailing stop and partial close
+        const trailingStopEnabled = options.trailing_stop_enabled ? 1 : 0;
+        const trailingStopDistance = options.trailing_stop_distance_pct || 0;
+        const tp1Enabled = options.partial_close_enabled && options.take_profit_1_pct ? 1 : 0;
+        const takeProfit1 = tp1Enabled ? entryPrice * (1 + (type === 'buy' ? options.take_profit_1_pct : -options.take_profit_1_pct) / 100) : null;
+        const takeProfit2 = tp1Enabled && options.take_profit_2_pct ? entryPrice * (1 + (type === 'buy' ? options.take_profit_2_pct : -options.take_profit_2_pct) / 100) : null;
+
         await dbRun(
             `INSERT INTO open_positions 
-            (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')`,
-            [ticketId, symbol, type, volume, entryPrice, entryPrice, stopLoss, takeProfit, strategy || 'Bot']
+            (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status,
+             trailing_stop_enabled, trailing_stop_distance_pct, highest_price,
+             take_profit_1, take_profit_2)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?)`,
+            [ticketId, symbol, type, volume, entryPrice, entryPrice, stopLoss, takeProfit, strategy || 'Bot',
+             trailingStopEnabled, trailingStopDistance, entryPrice, takeProfit1, takeProfit2]
         );
 
         await dbRun(
@@ -575,18 +590,28 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
 };
 
 // Helper to execute trade internally (legacy - now uses positions)
-const executeTrade = async (symbol, type, amount, price, strategy, realizedPnl = null) => {
+const executeTrade = async (symbol, type, amount, price, strategy, realizedPnl = null, botParams = null) => {
     // If it's a buy, open a position
     if (type === 'buy') {
         try {
-            // Calculate stop loss and take profit based on strategy
-            const STOP_LOSS_PCT = 0.02; // 2%
-            const TAKE_PROFIT_PCT = 0.03; // 3%
+            // Use bot parameters if available, otherwise defaults
+            const params = botParams || DEFAULT_PARAMS;
+            const STOP_LOSS_PCT = params.stop_loss_pct / 100;
+            const TAKE_PROFIT_PCT = params.take_profit_pct / 100;
             const stopLoss = price * (1 - STOP_LOSS_PCT);
             const takeProfit = price * (1 + TAKE_PROFIT_PCT);
             
-            await openPosition(symbol, type, amount, price, strategy, stopLoss, takeProfit);
-            console.log(`✅ Position opened: ${type.toUpperCase()} ${amount} ${symbol} @ ${price}`);
+            // Prepare options for trailing stop and partial close
+            const options = {
+                trailing_stop_enabled: params.trailing_stop_enabled || false,
+                trailing_stop_distance_pct: params.trailing_stop_distance_pct || 1.0,
+                partial_close_enabled: params.partial_close_enabled || false,
+                take_profit_1_pct: params.take_profit_1_pct || 1.5,
+                take_profit_2_pct: params.take_profit_2_pct || 3.0
+            };
+            
+            await openPosition(symbol, type, amount, price, strategy, stopLoss, takeProfit, options);
+            console.log(`✅ Position opened: ${type.toUpperCase()} ${amount} ${symbol} @ ${price} | TS: ${options.trailing_stop_enabled ? 'ON' : 'OFF'} | PC: ${options.partial_close_enabled ? 'ON' : 'OFF'}`);
         } catch (err) {
             console.error('Error opening position:', err.message);
             throw err; // Re-throw to allow caller to handle
@@ -664,51 +689,141 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
             for (const pos of positions) {
                 let pnl = 0;
                 let pnlPct = 0;
+                let remainingVolume = pos.volume - (pos.volume_closed || 0);
 
                 if (pos.type === 'buy') {
                     // Long position: profit when price goes up
-                    pnl = (currentPrice - pos.entry_price) * pos.volume;
+                    pnl = (currentPrice - pos.entry_price) * remainingVolume;
                     pnlPct = ((currentPrice - pos.entry_price) / pos.entry_price) * 100;
                 } else {
                     // Short position: profit when price goes down
-                    pnl = (pos.entry_price - currentPrice) * pos.volume;
+                    pnl = (pos.entry_price - currentPrice) * remainingVolume;
                     pnlPct = ((pos.entry_price - currentPrice) / pos.entry_price) * 100;
                 }
 
-                // Update position
+                // Track highest price for trailing stop loss
+                let highestPrice = pos.highest_price || pos.entry_price;
+                let stopLoss = pos.stop_loss;
+                let shouldUpdateStopLoss = false;
+
+                // Update highest price for long positions (buy)
+                if (pos.type === 'buy' && currentPrice > highestPrice) {
+                    highestPrice = currentPrice;
+                    shouldUpdateStopLoss = true;
+                }
+                // Update lowest price for short positions (sell) - for trailing stop
+                else if (pos.type === 'sell' && (pos.highest_price === 0 || currentPrice < pos.highest_price)) {
+                    highestPrice = currentPrice; // For shorts, we track lowest price
+                    shouldUpdateStopLoss = true;
+                }
+
+                // Trailing Stop Loss Logic
+                if (pos.trailing_stop_enabled && pos.trailing_stop_distance_pct > 0) {
+                    if (pos.type === 'buy') {
+                        // For long positions, trailing stop moves up as price increases
+                        if (currentPrice > highestPrice) {
+                            // Calculate new trailing stop loss
+                            const trailingStopPrice = highestPrice * (1 - pos.trailing_stop_distance_pct / 100);
+                            // Only update if new stop loss is higher than current
+                            if (!stopLoss || trailingStopPrice > stopLoss) {
+                                stopLoss = trailingStopPrice;
+                                shouldUpdateStopLoss = true;
+                            }
+                        }
+                    } else {
+                        // For short positions, trailing stop moves down as price decreases
+                        if (currentPrice < highestPrice || highestPrice === 0) {
+                            const trailingStopPrice = (highestPrice || currentPrice) * (1 + pos.trailing_stop_distance_pct / 100);
+                            // Only update if new stop loss is lower than current
+                            if (!stopLoss || trailingStopPrice < stopLoss) {
+                                stopLoss = trailingStopPrice;
+                                shouldUpdateStopLoss = true;
+                            }
+                        }
+                    }
+                }
+
+                // Update position with current price, P&L, and potentially new stop loss/highest price
+                const updateFields = ['current_price = ?', 'profit_loss = ?', 'profit_loss_pct = ?'];
+                const updateValues = [currentPrice, pnl, pnlPct];
+
+                if (shouldUpdateStopLoss) {
+                    updateFields.push('highest_price = ?', 'stop_loss = ?');
+                    updateValues.push(highestPrice, stopLoss);
+                }
+
+                updateValues.push(pos.ticket_id);
                 db.run(
-                    "UPDATE open_positions SET current_price = ?, profit_loss = ?, profit_loss_pct = ? WHERE ticket_id = ?",
-                    [currentPrice, pnl, pnlPct, pos.ticket_id]
+                    `UPDATE open_positions SET ${updateFields.join(', ')} WHERE ticket_id = ?`,
+                    updateValues
                 );
 
-                // Check stop loss and take profit
-                if (pos.stop_loss || pos.take_profit) {
+                // Partial Close: Check TP1 (if configured)
+                if (pos.take_profit_1 && !pos.tp1_hit && remainingVolume > 0) {
+                    let tp1Hit = false;
+                    if (pos.type === 'buy' && currentPrice >= pos.take_profit_1) {
+                        tp1Hit = true;
+                    } else if (pos.type === 'sell' && currentPrice <= pos.take_profit_1) {
+                        tp1Hit = true;
+                    }
+
+                    if (tp1Hit) {
+                        // Close 50% of remaining position at TP1
+                        const volumeToClose = remainingVolume * 0.5;
+                        await partialClosePosition(pos.ticket_id, volumeToClose, currentPrice, 'TP1');
+                        // Mark TP1 as hit (partialClosePosition already updates volume_closed, so we only mark the flag)
+                        await dbRun(
+                            "UPDATE open_positions SET tp1_hit = 1 WHERE ticket_id = ?",
+                            [pos.ticket_id]
+                        );
+                    }
+                }
+
+                // Re-fetch position to get updated values after partial close
+                const updatedPos = await dbGet("SELECT * FROM open_positions WHERE ticket_id = ?", [pos.ticket_id]);
+                if (!updatedPos || updatedPos.status !== 'open') continue; // Skip if closed
+
+                const finalRemainingVolume = updatedPos.volume - (updatedPos.volume_closed || 0);
+                if (finalRemainingVolume <= 0.0001) {
+                    // Position fully closed by partial close, mark as closed
+                    await dbRun(
+                        "UPDATE open_positions SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE ticket_id = ?",
+                        [pos.ticket_id]
+                    );
+                    continue;
+                }
+
+                // Check stop loss and take profit (TP2 if TP1 was hit, otherwise original TP)
+                const activeTakeProfit = (updatedPos.tp1_hit && updatedPos.take_profit_2) ? updatedPos.take_profit_2 : updatedPos.take_profit;
+                const activeStopLoss = updatedPos.stop_loss;
+
+                if (activeStopLoss || activeTakeProfit) {
                     let shouldClose = false;
                     let closeReason = '';
 
-                    if (pos.type === 'buy') {
+                    if (updatedPos.type === 'buy') {
                         // Long position
-                        if (pos.stop_loss && currentPrice <= pos.stop_loss) {
+                        if (activeStopLoss && currentPrice <= activeStopLoss) {
                             shouldClose = true;
                             closeReason = 'stopped';
-                        } else if (pos.take_profit && currentPrice >= pos.take_profit) {
+                        } else if (activeTakeProfit && currentPrice >= activeTakeProfit) {
                             shouldClose = true;
-                            closeReason = 'taken';
+                            closeReason = updatedPos.tp1_hit ? 'taken (TP2)' : 'taken';
                         }
                     } else {
                         // Short position
-                        if (pos.stop_loss && currentPrice >= pos.stop_loss) {
+                        if (activeStopLoss && currentPrice >= activeStopLoss) {
                             shouldClose = true;
                             closeReason = 'stopped';
-                        } else if (pos.take_profit && currentPrice <= pos.take_profit) {
+                        } else if (activeTakeProfit && currentPrice <= activeTakeProfit) {
                             shouldClose = true;
-                            closeReason = 'taken';
+                            closeReason = updatedPos.tp1_hit ? 'taken (TP2)' : 'taken';
                         }
                     }
 
                     if (shouldClose) {
-                        // Close position automatically
-                        await closePosition(pos.ticket_id, currentPrice, closeReason);
+                        // Close remaining position automatically
+                        await closePosition(updatedPos.ticket_id, currentPrice, closeReason);
                     }
                 }
             }
@@ -716,6 +831,84 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
             resolve(positions.length);
         });
     });
+};
+
+// Helper to partially close a position (for partial close strategy)
+const partialClosePosition = async (ticketId, volumeToClose, closePrice, reason = 'TP1') => {
+    try {
+        const pos = await dbGet(
+            "SELECT * FROM open_positions WHERE ticket_id = ? AND status = 'open'",
+            [ticketId]
+        );
+
+        if (!pos) {
+            throw new Error('Position not found or already closed');
+        }
+
+        const remainingVolume = pos.volume - (pos.volume_closed || 0);
+        let actualVolumeToClose = volumeToClose;
+        if (actualVolumeToClose > remainingVolume) {
+            actualVolumeToClose = remainingVolume; // Close all remaining if more requested
+        }
+
+        // Calculate P&L for this partial close
+        let partialPnl = 0;
+        if (pos.type === 'buy') {
+            partialPnl = (closePrice - pos.entry_price) * actualVolumeToClose;
+        } else {
+            partialPnl = (pos.entry_price - closePrice) * actualVolumeToClose;
+        }
+
+        // Update portfolio
+        const portfolio = await getPortfolio();
+        let balance = portfolio.balance_usd;
+        let holdings = JSON.parse(portfolio.holdings || '{}');
+
+        if (pos.type === 'buy') {
+            // Selling: add money, remove crypto
+            balance += closePrice * actualVolumeToClose;
+            holdings[pos.symbol] = (holdings[pos.symbol] || 0) - actualVolumeToClose;
+        } else {
+            // Closing short: subtract money, add crypto back
+            balance -= closePrice * actualVolumeToClose;
+            holdings[pos.symbol] = (holdings[pos.symbol] || 0) + actualVolumeToClose;
+        }
+
+        // Update database
+        await dbRun(
+            "UPDATE portfolio SET balance_usd = ?, holdings = ?",
+            [balance, JSON.stringify(holdings)]
+        );
+
+        // Update position (don't close it, just mark partial close)
+        await dbRun(
+            "UPDATE open_positions SET volume_closed = volume_closed + ?, current_price = ? WHERE ticket_id = ?",
+            [actualVolumeToClose, closePrice, ticketId]
+        );
+
+        // Record partial close in trades history
+        await dbRun(
+            "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES (?, ?, ?, ?, ?, ?)",
+            [pos.symbol, pos.type === 'buy' ? 'sell' : 'buy', actualVolumeToClose, closePrice, `${pos.strategy || 'Bot'} - ${reason}`, partialPnl]
+        );
+
+        // Emit real-time notification
+        emitCryptoEvent('crypto:position-partial-close', {
+            ticket_id: ticketId,
+            symbol: pos.symbol,
+            volume_closed: actualVolumeToClose,
+            remaining_volume: remainingVolume - actualVolumeToClose,
+            close_price: closePrice,
+            profit_loss: partialPnl,
+            reason,
+            timestamp: new Date().toISOString()
+        });
+
+        return { success: true, pnl: partialPnl, volume_closed: actualVolumeToClose };
+    } catch (err) {
+        console.error('Error in partialClosePosition:', err.message);
+        throw err;
+    }
 };
 
 // Helper to close a position
@@ -1333,13 +1526,25 @@ router.put('/bot/parameters', async (req, res) => {
             rsi_overbought: Math.max(50, Math.min(100, parseFloat(parameters.rsi_overbought) || DEFAULT_PARAMS.rsi_overbought)),
             stop_loss_pct: Math.max(0.1, Math.min(10, parseFloat(parameters.stop_loss_pct) || DEFAULT_PARAMS.stop_loss_pct)),
             take_profit_pct: Math.max(0.1, Math.min(20, parseFloat(parameters.take_profit_pct) || DEFAULT_PARAMS.take_profit_pct)),
-            trade_size_eur: Math.max(10, Math.min(1000, parseFloat(parameters.trade_size_eur) || DEFAULT_PARAMS.trade_size_eur))
+            trade_size_eur: Math.max(10, Math.min(1000, parseFloat(parameters.trade_size_eur) || DEFAULT_PARAMS.trade_size_eur)),
+            trailing_stop_enabled: parameters.trailing_stop_enabled === true || parameters.trailing_stop_enabled === 'true' || parameters.trailing_stop_enabled === 1 || DEFAULT_PARAMS.trailing_stop_enabled,
+            trailing_stop_distance_pct: Math.max(0.1, Math.min(5, parseFloat(parameters.trailing_stop_distance_pct) || DEFAULT_PARAMS.trailing_stop_distance_pct)),
+            partial_close_enabled: parameters.partial_close_enabled === true || parameters.partial_close_enabled === 'true' || parameters.partial_close_enabled === 1 || DEFAULT_PARAMS.partial_close_enabled,
+            take_profit_1_pct: Math.max(0.1, Math.min(5, parseFloat(parameters.take_profit_1_pct) || DEFAULT_PARAMS.take_profit_1_pct)),
+            take_profit_2_pct: Math.max(0.1, Math.min(10, parseFloat(parameters.take_profit_2_pct) || DEFAULT_PARAMS.take_profit_2_pct))
         };
 
         // Ensure oversold < overbought
         if (validParams.rsi_oversold >= validParams.rsi_overbought) {
             return res.status(400).json({ 
                 error: 'rsi_oversold must be less than rsi_overbought' 
+            });
+        }
+
+        // Ensure TP1 < TP2 when partial close is enabled
+        if (validParams.partial_close_enabled && validParams.take_profit_1_pct >= validParams.take_profit_2_pct) {
+            return res.status(400).json({ 
+                error: 'take_profit_1_pct must be less than take_profit_2_pct when partial close is enabled' 
             });
         }
 

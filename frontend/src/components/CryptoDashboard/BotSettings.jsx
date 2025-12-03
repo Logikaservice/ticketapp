@@ -9,7 +9,12 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
         rsi_overbought: 70,
         stop_loss_pct: 2.0,
         take_profit_pct: 3.0,
-        trade_size_eur: 50
+        trade_size_eur: 50,
+        trailing_stop_enabled: false,
+        trailing_stop_distance_pct: 1.0,
+        partial_close_enabled: false,
+        take_profit_1_pct: 1.5,
+        take_profit_2_pct: 3.0
     });
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -72,7 +77,11 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
     };
 
     const handleChange = (key, value) => {
-        setParameters(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
+        if (key === 'trailing_stop_enabled' || key === 'partial_close_enabled') {
+            setParameters(prev => ({ ...prev, [key]: value === true || value === 'true' || value === 1 }));
+        } else {
+            setParameters(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
+        }
     };
 
     if (!isOpen) return null;
@@ -227,6 +236,103 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                                     Importo in Euro investito per ogni operazione. Gestione del rischio: non investire più del 5-10% del capitale per trade.
                                 </div>
                             </div>
+
+                            {/* Trailing Stop Loss Enabled */}
+                            <div className="parameter-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={parameters.trailing_stop_enabled || false}
+                                        onChange={(e) => handleChange('trailing_stop_enabled', e.target.checked)}
+                                        style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                                    />
+                                    <span>Abilita Trailing Stop Loss</span>
+                                </label>
+                                <div className="parameter-desc">
+                                    Lo stop loss si muove automaticamente seguendo il prezzo favorevole. Blocca i profitti mentre permette di continuare a guadagnare.
+                                </div>
+                            </div>
+
+                            {/* Trailing Stop Distance */}
+                            {parameters.trailing_stop_enabled && (
+                                <div className="parameter-group">
+                                    <label htmlFor="trailing_stop_distance_pct">
+                                        Distanza Trailing Stop (%)
+                                        <span className="parameter-hint">(0.1-5)</span>
+                                    </label>
+                                    <input
+                                        id="trailing_stop_distance_pct"
+                                        type="number"
+                                        min="0.1"
+                                        max="5"
+                                        step="0.1"
+                                        value={parameters.trailing_stop_distance_pct}
+                                        onChange={(e) => handleChange('trailing_stop_distance_pct', e.target.value)}
+                                    />
+                                    <div className="parameter-desc">
+                                        Distanza percentuale dal prezzo massimo/minimo per il trailing stop. Più basso = stop loss più vicino (meno rischio ma più probabilità di uscita prematura).
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Partial Close Enabled */}
+                            <div className="parameter-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={parameters.partial_close_enabled || false}
+                                        onChange={(e) => handleChange('partial_close_enabled', e.target.checked)}
+                                        style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                                    />
+                                    <span>Abilita Chiusura Parziale</span>
+                                </label>
+                                <div className="parameter-desc">
+                                    Chiude il 50% della posizione al primo take profit (TP1) e mantiene il 50% per il secondo take profit (TP2).
+                                </div>
+                            </div>
+
+                            {/* Take Profit 1 (for Partial Close) */}
+                            {parameters.partial_close_enabled && (
+                                <>
+                                    <div className="parameter-group">
+                                        <label htmlFor="take_profit_1_pct">
+                                            Take Profit 1 - Prima Chiusura (%)
+                                            <span className="parameter-hint">(0.1-5)</span>
+                                        </label>
+                                        <input
+                                            id="take_profit_1_pct"
+                                            type="number"
+                                            min="0.1"
+                                            max="5"
+                                            step="0.1"
+                                            value={parameters.take_profit_1_pct}
+                                            onChange={(e) => handleChange('take_profit_1_pct', e.target.value)}
+                                        />
+                                        <div className="parameter-desc">
+                                            Chiude 50% della posizione quando il profitto raggiunge questa percentuale. Assicura profitti garantiti.
+                                        </div>
+                                    </div>
+
+                                    <div className="parameter-group">
+                                        <label htmlFor="take_profit_2_pct">
+                                            Take Profit 2 - Seconda Chiusura (%)
+                                            <span className="parameter-hint">(0.1-10)</span>
+                                        </label>
+                                        <input
+                                            id="take_profit_2_pct"
+                                            type="number"
+                                            min="0.1"
+                                            max="10"
+                                            step="0.1"
+                                            value={parameters.take_profit_2_pct}
+                                            onChange={(e) => handleChange('take_profit_2_pct', e.target.value)}
+                                        />
+                                        <div className="parameter-desc">
+                                            Chiude il restante 50% quando il profitto raggiunge questa percentuale. Permette di sfruttare movimenti più ampi.
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         <div className="bot-settings-footer">

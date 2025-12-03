@@ -57,7 +57,12 @@ function initDb() {
                 "rsi_overbought": 70,
                 "stop_loss_pct": 2.0,
                 "take_profit_pct": 3.0,
-                "trade_size_eur": 50
+                "trade_size_eur": 50,
+                "trailing_stop_enabled": false,
+                "trailing_stop_distance_pct": 1.0,
+                "partial_close_enabled": false,
+                "take_profit_1_pct": 1.5,
+                "take_profit_2_pct": 3.0
             }')`);
 
         // Price History (New Table for Persistence)
@@ -86,8 +91,47 @@ function initDb() {
             opened_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             closed_at DATETIME,
             strategy TEXT,
-            status TEXT DEFAULT 'open' CHECK(status IN ('open', 'closed', 'stopped', 'taken'))
+            status TEXT DEFAULT 'open' CHECK(status IN ('open', 'closed', 'stopped', 'taken')),
+            -- Trailing Stop Loss fields
+            trailing_stop_enabled INTEGER DEFAULT 0,
+            trailing_stop_distance_pct REAL DEFAULT 0,
+            highest_price REAL DEFAULT 0,
+            -- Partial Close fields
+            volume_closed REAL DEFAULT 0,
+            take_profit_1 REAL,
+            take_profit_2 REAL,
+            tp1_hit INTEGER DEFAULT 0
         )`);
+        
+        // Migrate existing table: add new columns if they don't exist
+        // SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we check first
+        db.all("PRAGMA table_info(open_positions)", (err, columns) => {
+            if (!err && columns && columns.length > 0) {
+                const columnNames = columns.map(c => c.name);
+                
+                const columnsToAdd = [
+                    { name: 'trailing_stop_enabled', sql: 'INTEGER DEFAULT 0' },
+                    { name: 'trailing_stop_distance_pct', sql: 'REAL DEFAULT 0' },
+                    { name: 'highest_price', sql: 'REAL DEFAULT 0' },
+                    { name: 'volume_closed', sql: 'REAL DEFAULT 0' },
+                    { name: 'take_profit_1', sql: 'REAL' },
+                    { name: 'take_profit_2', sql: 'REAL' },
+                    { name: 'tp1_hit', sql: 'INTEGER DEFAULT 0' }
+                ];
+                
+                columnsToAdd.forEach(col => {
+                    if (!columnNames.includes(col.name)) {
+                        db.run(`ALTER TABLE open_positions ADD COLUMN ${col.name} ${col.sql}`, (alterErr) => {
+                            if (alterErr) {
+                                console.error(`Error adding column ${col.name}:`, alterErr.message);
+                            } else {
+                                console.log(`✅ Added column ${col.name} to open_positions`);
+                            }
+                        });
+                    }
+                });
+            }
+        });
 
         // Create index for faster queries
         db.run(`CREATE INDEX IF NOT EXISTS idx_open_positions_status ON open_positions(status)`);
