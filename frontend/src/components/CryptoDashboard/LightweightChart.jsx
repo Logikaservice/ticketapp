@@ -238,17 +238,17 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                 </div>
             )}
 
-            {/* Chart Container */}
-            {priceHistory.length === 0 ? (
-                <div className="chart-loading-message">
-                    <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
-                        <div style={{ fontSize: '1.2rem', marginBottom: '10px' }}>📊 Caricamento dati storici...</div>
-                        <div style={{ fontSize: '0.9rem' }}>Il grafico si popolerà automaticamente con i dati storici di Binance</div>
+            {/* Chart Container - Always render to allow initialization */}
+            <div ref={chartContainerRef} className="lightweight-chart-wrapper">
+                {priceHistory.length === 0 && (
+                    <div className="chart-loading-overlay">
+                        <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                            <div style={{ fontSize: '1.2rem', marginBottom: '10px' }}>📊 Caricamento dati storici...</div>
+                            <div style={{ fontSize: '0.9rem' }}>Il grafico si popolerà automaticamente con i dati storici di Binance</div>
+                        </div>
                     </div>
-                </div>
-            ) : (
-                <div ref={chartContainerRef} className="lightweight-chart-wrapper" />
-            )}
+                )}
+            </div>
 
             {/* Current Price Display */}
             {currentPrice > 0 && (
