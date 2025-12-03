@@ -888,8 +888,70 @@ router.get('/binance/price/:symbol', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Errore getPrice:', error);
-        res.status(500).json({
+        res.status(error.statusCode || 500).json({
             error: error.message || 'Errore nel recupero del prezzo',
+            code: error.code
+        });
+    }
+});
+
+// GET /api/crypto/binance/symbols - Get available trading symbols
+router.get('/binance/symbols', async (req, res) => {
+    try {
+        if (!isBinanceAvailable()) {
+            return res.status(400).json({
+                error: 'Binance non disponibile in modalità DEMO'
+            });
+        }
+
+        const client = getBinanceClient();
+        const baseUrl = client.getBaseUrl();
+        
+        const https = require('https');
+        const exchangeInfo = await new Promise((resolve, reject) => {
+            const req = https.get(`${baseUrl}/api/v3/exchangeInfo`, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    try {
+                        resolve(JSON.parse(data));
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+            });
+            req.on('error', reject);
+            req.setTimeout(10000, () => {
+                req.destroy();
+                reject(new Error('Request timeout'));
+            });
+        });
+
+        const symbols = exchangeInfo.symbols
+            .filter(s => s.status === 'TRADING')
+            .map(s => ({
+                symbol: s.symbol,
+                baseAsset: s.baseAsset,
+                quoteAsset: s.quoteAsset,
+                filters: s.filters
+            }));
+
+        // Filtra simboli con SOL o EUR
+        const solSymbols = symbols.filter(s => s.baseAsset === 'SOL' || s.quoteAsset === 'SOL');
+        const eurSymbols = symbols.filter(s => s.baseAsset === 'EUR' || s.quoteAsset === 'EUR');
+
+        res.json({
+            success: true,
+            mode: getMode(),
+            total: symbols.length,
+            solSymbols: solSymbols.slice(0, 20), // Mostra primi 20
+            eurSymbols: eurSymbols.slice(0, 20),
+            allSymbols: symbols.slice(0, 50) // Mostra primi 50 per riferimento
+        });
+    } catch (error) {
+        console.error('❌ Errore getSymbols:', error);
+        res.status(500).json({
+            error: error.message || 'Errore nel recupero dei simboli',
             code: error.code
         });
     }
@@ -928,9 +990,18 @@ router.post('/binance/order/market', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Errore placeMarketOrder:', error);
-        res.status(500).json({
+        console.error('❌ Stack:', error.stack);
+        console.error('❌ Error details:', {
+            message: error.message,
+            code: error.code,
+            statusCode: error.statusCode,
+            response: error.response || 'N/A'
+        });
+        
+        res.status(error.statusCode || 500).json({
             error: error.message || 'Errore nella creazione dell\'ordine',
-            code: error.code
+            code: error.code,
+            details: error.statusCode === 400 ? 'Verifica parametri (simbolo, quantità minima)' : undefined
         });
     }
 });
@@ -1066,6 +1137,69 @@ router.delete('/binance/order/:symbol/:orderId', async (req, res) => {
         res.status(500).json({
             error: error.message || 'Errore nella cancellazione dell\'ordine',
             code: error.code
+        });
+    }
+});
+
+// GET /api/crypto/binance/symbols - Get available trading symbols
+router.get('/binance/symbols', async (req, res) => {
+    try {
+        if (!isBinanceAvailable()) {
+            return res.status(400).json({
+                error: 'Binance non disponibile in modalità DEMO'
+            });
+        }
+
+        const client = getBinanceClient();
+        const baseUrl = client.getBaseUrl();
+        
+        const https = require('https');
+        const exchangeInfo = await new Promise((resolve, reject) => {
+            const req = https.get(`${baseUrl}/api/v3/exchangeInfo`, (res) => {
+                let data = '';
+                res.on('data', chunk => data += chunk);
+                res.on('end', () => {
+                    try {
+                        resolve(JSON.parse(data));
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+            });
+            req.on('error', reject);
+            req.setTimeout(10000, () => {
+                req.destroy();
+                reject(new Error('Request timeout'));
+            });
+        });
+
+        const symbols = exchangeInfo.symbols
+            .filter(s => s.status === 'TRADING')
+            .map(s => ({
+                symbol: s.symbol,
+                baseAsset: s.baseAsset,
+                quoteAsset: s.quoteAsset
+            }));
+
+        // Filtra simboli con SOL
+        const solSymbols = symbols.filter(s => s.baseAsset === 'SOL' || s.quoteAsset === 'SOL');
+        const eurSymbols = symbols.filter(s => s.baseAsset === 'EUR' || s.quoteAsset === 'EUR');
+
+        res.json({
+            success: true,
+            mode: getMode(),
+            total: symbols.length,
+            solSymbols: solSymbols.slice(0, 10),
+            eurSymbols: eurSymbols.slice(0, 10),
+            commonSymbols: symbols.filter(s => 
+                ['BTC', 'ETH', 'BNB', 'SOL'].includes(s.baseAsset) && 
+                ['USDT', 'EUR', 'BTC'].includes(s.quoteAsset)
+            ).slice(0, 20)
+        });
+    } catch (error) {
+        console.error('❌ Errore getSymbols:', error);
+        res.status(500).json({
+            error: error.message || 'Errore nel recupero dei simboli'
         });
     }
 });

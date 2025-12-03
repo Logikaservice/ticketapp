@@ -179,13 +179,19 @@ class BinanceClient {
                         if (res.statusCode >= 200 && res.statusCode < 300) {
                             resolve(parsed);
                         } else {
-                            const error = new Error(parsed.msg || `HTTP ${res.statusCode}: ${data}`);
+                            const errorMessage = parsed.msg || parsed.error || `HTTP ${res.statusCode}: ${data.substring(0, 200)}`;
+                            const error = new Error(errorMessage);
                             error.statusCode = res.statusCode;
                             error.code = parsed.code;
+                            error.response = parsed; // Include full response for debugging
+                            console.error(`❌ Binance API Error (${res.statusCode}):`, errorMessage);
+                            console.error('❌ Full response:', JSON.stringify(parsed, null, 2));
                             reject(error);
                         }
                     } catch (e) {
-                        reject(new Error(`Invalid JSON response: ${data}`));
+                        const error = new Error(`Invalid JSON response: ${data.substring(0, 500)}`);
+                        error.rawResponse = data;
+                        reject(error);
                     }
                 });
             });
