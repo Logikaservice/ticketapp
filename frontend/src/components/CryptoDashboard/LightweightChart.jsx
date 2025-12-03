@@ -187,12 +187,12 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
         }
     }, [trades]);
 
-    // Update price line (remove old one before adding new)
+    // Update price line (only show if we have historical data)
     useEffect(() => {
-        if (!candlestickSeriesRef.current || !currentPrice) return;
+        if (!candlestickSeriesRef.current || !currentPrice || priceHistory.length === 0) return;
 
-        // Remove previous price line if exists
-        const priceLineId = candlestickSeriesRef.current.createPriceLine({
+        // Create price line for current price
+        candlestickSeriesRef.current.createPriceLine({
             price: currentPrice,
             color: '#3b82f6',
             lineWidth: 2,
@@ -200,7 +200,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             axisLabelVisible: true,
             title: `€${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         });
-    }, [currentPrice]);
+    }, [currentPrice, priceHistory.length]);
 
     return (
         <div className="lightweight-chart-container">

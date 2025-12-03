@@ -34,17 +34,76 @@ const getPortfolio = () => {
 };
 
 // GET /api/crypto/history (Get chart data)
-router.get('/history', (req, res) => {
-    db.all("SELECT price, timestamp FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp DESC LIMIT 500", (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        // Reverse to show oldest to newest
-        const history = rows.map(row => ({
+router.get('/history', async (req, res) => {
+    try {
+        // Check if we have enough data
+        const rows = await dbAll("SELECT COUNT(*) as count FROM price_history WHERE symbol = 'bitcoin'");
+        const count = rows && rows.length > 0 ? rows[0].count : 0;
+
+        console.log(`📊 Price history count: ${count}`);
+
+        // If we have less than 50 data points, try to load from Binance
+        if (count < 50) {
+            console.log('⚠️ Price history is sparse, loading from Binance...');
+            
+            try {
+                // Load recent klines from Binance (last 24 hours, 15min intervals = 96 candles)
+                const https = require('https');
+                const binanceUrl = 'https://api.binance.com/api/v3/klines?symbol=BTCEUR&interval=15m&limit=96';
+                
+                const binanceData = await new Promise((resolve, reject) => {
+                    https.get(binanceUrl, (res) => {
+                        let data = '';
+                        res.on('data', chunk => data += chunk);
+                        res.on('end', () => {
+                            try {
+                                resolve(JSON.parse(data));
+                            } catch (e) {
+                                reject(e);
+                            }
+                        });
+                    }).on('error', reject);
+                });
+
+                // Save to database
+                let saved = 0;
+                for (const kline of binanceData) {
+                    const timestamp = new Date(kline[0]).toISOString();
+                    const price = parseFloat(kline[4]); // Close price
+                    
+                    try {
+                        await dbRun(
+                            "INSERT OR IGNORE INTO price_history (symbol, price, timestamp) VALUES (?, ?, ?)",
+                            ['bitcoin', price, timestamp]
+                        );
+                        saved++;
+                    } catch (err) {
+                        // Ignore duplicate errors
+                    }
+                }
+                
+                console.log(`✅ Loaded ${saved} historical prices from Binance`);
+            } catch (err) {
+                console.error('⚠️ Error loading from Binance, using existing data:', err.message);
+            }
+        }
+
+        // Get all available history
+        const historyRows = await dbAll("SELECT price, timestamp FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp ASC LIMIT 500");
+        
+        // Convert to format expected by frontend
+        const history = (historyRows || []).map(row => ({
             time: new Date(row.timestamp).toLocaleTimeString(),
             price: row.price,
-            timestamp: row.timestamp // Crucial for matching trades on chart
-        })).reverse();
+            timestamp: row.timestamp
+        }));
+
+        console.log(`📊 Returning ${history.length} price history points`);
         res.json(history);
-    });
+    } catch (error) {
+        console.error('❌ Error fetching price history:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Helper for DB queries using Promises
