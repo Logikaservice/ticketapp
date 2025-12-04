@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import './TradingViewChart.css';
 
 const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], currentPrice = 0 }) => {
@@ -82,14 +82,31 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
     }, [trades]);
 
     // Filtra trades solo con posizioni aperte
-    const openTrades = trades.filter(trade => {
-        if (!openPositions || openPositions.length === 0) return false;
-        if (!trade.ticket_id) return false;
-        const tradeTicketId = String(trade.ticket_id);
-        return openPositions.some(
-            pos => String(pos.ticket_id) === tradeTicketId && pos.status === 'open'
-        );
-    });
+    const openTrades = useMemo(() => {
+        if (!openPositions || openPositions.length === 0) {
+            console.log('🔍 TradingViewChart: Nessuna posizione aperta');
+            return [];
+        }
+        
+        const filtered = trades.filter(trade => {
+            if (!trade.ticket_id) return false;
+            const tradeTicketId = String(trade.ticket_id);
+            const hasOpenPosition = openPositions.some(
+                pos => String(pos.ticket_id) === tradeTicketId && pos.status === 'open'
+            );
+            return hasOpenPosition;
+        });
+        
+        console.log('🔍 TradingViewChart:', {
+            totalTrades: trades.length,
+            openPositions: openPositions.length,
+            openTrades: filtered.length,
+            openPositionsIds: openPositions.map(p => p.ticket_id),
+            tradesIds: trades.map(t => t.ticket_id)
+        });
+        
+        return filtered;
+    }, [trades, openPositions]);
 
     // Crea numeri identificativi per i marker
     const tradeIdMap = new Map();
@@ -105,11 +122,12 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
         <div className="tradingview-chart-container">
             <div className="chart-main-wrapper">
                 {/* TradingView Chart - stesso di Binance */}
-                <div ref={containerRef} className="tradingview-chart-wrapper" style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+                <div ref={containerRef} className="tradingview-chart-wrapper" style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'visible' }}>
                     {/* TradingView widget will be inserted here */}
                     
                     {/* Overlay per marker - sopra il grafico con posizionamento intelligente */}
                     {openTrades.length > 0 && (() => {
+                        console.log('📍 Rendering markers:', openTrades.length);
                         // Calcola range di tempo e prezzo per posizionamento
                         const now = Date.now();
                         const tradeTimes = openTrades.map(t => new Date(t.timestamp).getTime());

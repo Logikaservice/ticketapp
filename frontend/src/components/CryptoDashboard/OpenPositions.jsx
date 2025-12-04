@@ -4,14 +4,14 @@ import { X, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
 const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL }) => {
     const [isUpdating, setIsUpdating] = useState(false);
 
-    // Update P&L periodically
+    // Update P&L periodically (more frequently for instant updates)
     useEffect(() => {
         const interval = setInterval(() => {
             if (onUpdatePnL) {
                 setIsUpdating(true);
                 onUpdatePnL().finally(() => setIsUpdating(false));
             }
-        }, 5000); // Update every 5 seconds
+        }, 2000); // Update every 2 seconds for instant feedback
 
         return () => clearInterval(interval);
     }, [onUpdatePnL]);

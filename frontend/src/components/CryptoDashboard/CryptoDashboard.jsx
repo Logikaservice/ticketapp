@@ -32,19 +32,17 @@ const CryptoDashboard = () => {
         (data) => {
             console.log('📈 Position opened via WebSocket:', data);
             addNotification({ ...data, type: 'opened' });
-            // Refresh data immediately
-            setTimeout(() => {
-                fetchData();
-            }, 500);
+            // Refresh data immediately (no delay for instant updates)
+            fetchData();
+            fetchPrice(); // Also update price immediately
         },
         // onPositionClosed
         (data) => {
             console.log('📉 Position closed via WebSocket:', data);
             addNotification({ ...data, type: 'closed' });
-            // Refresh data immediately
-            setTimeout(() => {
-                fetchData();
-            }, 500);
+            // Refresh data immediately (no delay for instant updates)
+            fetchData();
+            fetchPrice(); // Also update price immediately
         }
     );
 
@@ -191,15 +189,15 @@ const CryptoDashboard = () => {
         fetchData();
         fetchPrice();
         
-        // Update price frequently (every 2 seconds)
+        // Update price frequently (every 1 second for real-time feel)
         const priceInterval = setInterval(() => {
             fetchPrice();
-        }, 2000);
+        }, 1000);
         
-        // Update data (positions, trades) every 3 seconds
+        // Update data (positions, trades) every 1.5 seconds for instant updates
         const dataInterval = setInterval(() => {
             fetchData();
-        }, 3000);
+        }, 1500);
         
         // Update history (candles) more frequently (every 15 seconds) for real-time updates
         const historyInterval = setInterval(() => {
@@ -341,15 +339,7 @@ const CryptoDashboard = () => {
                     </div>
                     <TradingViewChart
                         symbol="BTCEUR"
-                        trades={(allTrades || []).filter(trade => {
-                            // Mostra SOLO trades con posizioni APERTE
-                            if (!openPositions || openPositions.length === 0) return false;
-                            if (!trade.ticket_id) return false;
-                            const tradeTicketId = String(trade.ticket_id);
-                            return openPositions.some(
-                                pos => String(pos.ticket_id) === tradeTicketId && pos.status === 'open'
-                            );
-                        }).map(trade => ({
+                        trades={(allTrades || []).map(trade => ({
                             type: trade.type,
                             timestamp: trade.timestamp,
                             price: typeof trade.price === 'number' ? trade.price : parseFloat(trade.price),
