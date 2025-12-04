@@ -30,19 +30,15 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
             "interval": "15", // 15 minuti per corrispondenza con Lightweight Charts
             "timezone": "Europe/Rome",
             "theme": "dark",
-            "style": "1",
+            "style": "1", // Candlestick (puoi cambiare dalla toolbar)
             "locale": "it",
             "enable_publishing": false,
-            "hide_top_toolbar": false,
+            "hide_top_toolbar": false, // Mostra toolbar superiore (per cambiare tipo grafico)
             "hide_legend": false,
             "save_image": false,
             "calendar": false,
-            "toolbar_bg": "#1c1c1e", // Colore toolbar
-            "withdateranges": true, // Abilita date ranges
+            "withdateranges": true,
             "studies_overrides": {},
-            "drawing_toolbar": true, // Abilita toolbar per disegnare linee
-            "allow_symbol_change": true, // Permette cambio simbolo
-            "hide_side_toolbar": false, // Mostra toolbar laterale per tool di disegno
             "support_host": "https://www.tradingview.com",
             "height": 500,
             "width": "100%",
