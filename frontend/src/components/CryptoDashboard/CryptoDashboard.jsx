@@ -190,11 +190,27 @@ const CryptoDashboard = () => {
         fetchHistory(); // Load history first
         fetchData();
         fetchPrice();
-        const interval = setInterval(() => {
-            fetchData();
+        
+        // Update price frequently (every 3 seconds)
+        const priceInterval = setInterval(() => {
             fetchPrice();
-        }, 3000); // Update every 3 seconds
-        return () => clearInterval(interval);
+        }, 3000);
+        
+        // Update data (positions, trades) every 5 seconds
+        const dataInterval = setInterval(() => {
+            fetchData();
+        }, 5000);
+        
+        // Update history (candles) less frequently (every 30 seconds) to avoid overload
+        const historyInterval = setInterval(() => {
+            fetchHistory();
+        }, 30000);
+        
+        return () => {
+            clearInterval(priceInterval);
+            clearInterval(dataInterval);
+            clearInterval(historyInterval);
+        };
     }, []);
 
     const toggleBot = async () => {

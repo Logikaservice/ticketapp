@@ -10,6 +10,8 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
     const priceLinesRef = useRef([]); // Array per tenere traccia di tutte le price lines create
     const hasRestoredPositionRef = useRef(false); // Flag per evitare ripristino multiplo
     const savePositionTimeoutRef = useRef(null); // Timeout per debounce salvataggio posizione
+    const lastCandleDataRef = useRef(null); // Memorizza l'ultima candela per aggiornarla con prezzo live
+    const isUserScrolledRef = useRef(false); // Flag per sapere se l'utente ha scrollato manualmente
 
     // Initialize chart
     useEffect(() => {
@@ -82,7 +84,11 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
         };
 
         // Listen to timeScale changes (scroll/zoom)
-        chart.timeScale().subscribeVisibleTimeRangeChange(saveChartPosition);
+        chart.timeScale().subscribeVisibleTimeRangeChange((newVisibleRange) => {
+            // Rileva scroll manuale dell'utente
+            isUserScrolledRef.current = true;
+            saveChartPosition(newVisibleRange);
+        });
 
         // Handle resize
         const handleResize = () => {
@@ -147,6 +153,9 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                 .sort((a, b) => a.time - b.time);
 
             if (candlestickData.length > 0) {
+                // Salva l'ultima candela per aggiornamenti live
+                lastCandleDataRef.current = candlestickData[candlestickData.length - 1];
+                
                 candlestickSeriesRef.current.setData(candlestickData);
                 
                 // Restore saved position after data is loaded
@@ -162,6 +171,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                                 if (from >= firstTime && to <= lastTime && from < to) {
                                     chartRef.current.timeScale().setVisibleRange({ from, to });
                                     hasRestoredPositionRef.current = true;
+                                    isUserScrolledRef.current = true; // L'utente ha una posizione salvata, non auto-scrollare
                                 } else if (attempt < 3) {
                                     setTimeout(() => restorePosition(attempt + 1), 500);
                                 }
@@ -170,10 +180,43 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                             }
                         } else if (attempt < 3) {
                             setTimeout(() => restorePosition(attempt + 1), 500);
+                        } else {
+                            // Nessuna posizione salvata - auto-scroll alla fine
+                            isUserScrolledRef.current = false;
                         }
                     };
                     setTimeout(() => restorePosition(0), 300);
+                } else if (!hasRestoredPositionRef.current) {
+                    // Nessuna posizione salvata - auto-scroll alla fine
+                    isUserScrolledRef.current = false;
                 }
+                
+                // Auto-scroll alla fine se l'utente non ha scrollato manualmente
+                if (!isUserScrolledRef.current && chartRef.current && candlestickData.length > 0) {
+                    setTimeout(() => {
+                        try {
+                            const lastTime = candlestickData[candlestickData.length - 1].time;
+                            const visibleRange = chartRef.current.timeScale().getVisibleRange();
+                            if (visibleRange) {
+                                // Scroll solo se siamo vicini alla fine (ultimi 10% del grafico)
+                                const timeRange = lastTime - candlestickData[0].time;
+                                const scrollThreshold = lastTime - (timeRange * 0.1);
+                                
+                                if (!visibleRange.to || visibleRange.to >= scrollThreshold) {
+                                    // Auto-scroll alla fine per mostrare il prezzo corrente
+                                    const windowDuration = visibleRange.to - visibleRange.from;
+                                    chartRef.current.timeScale().setVisibleRange({
+                                        from: lastTime - windowDuration,
+                                        to: lastTime
+                                    });
+                                }
+                            }
+                        } catch (e) {
+                            // Silent fail
+                        }
+                    }, 100);
+                }
+                
                 return;
             }
         }
@@ -303,6 +346,36 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             candlestickSeriesRef.current.setMarkers([]);
         }
     }, [trades]);
+
+    // Update last candle with live price (real-time candlestick update)
+    useEffect(() => {
+        if (!candlestickSeriesRef.current || !currentPrice || !lastCandleDataRef.current || priceHistory.length === 0) {
+            return;
+        }
+
+        try {
+            // Update the last candle with current price to create a "live" candle
+            const lastCandle = lastCandleDataRef.current;
+            const liveCandle = {
+                time: lastCandle.time,
+                open: lastCandle.open,
+                high: Math.max(lastCandle.high, currentPrice),
+                low: Math.min(lastCandle.low, currentPrice),
+                close: currentPrice // Update close with current price
+            };
+
+            // Update only the last candle using updateData (more efficient than setData)
+            candlestickSeriesRef.current.updateData(liveCandle);
+            
+            // Update lastCandleDataRef with new high/low values
+            lastCandleDataRef.current = liveCandle;
+            
+            // Auto-scroll è disabilitato per ora - può causare problemi con gli aggiornamenti
+            // TODO: Implementare auto-scroll più intelligente che non interferisca con gli aggiornamenti
+        } catch (e) {
+            // Silent fail - candlestick might not be ready yet
+        }
+    }, [currentPrice]);
 
     // Update price line (only show if we have historical data)
     useEffect(() => {
