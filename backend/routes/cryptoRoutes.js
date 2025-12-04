@@ -71,14 +71,20 @@ router.get('/history', async (req, res) => {
 
         console.log(`📊 Klines count: ${klinesCount}, Price history count: ${count}`);
 
-        // Determine limit based on interval
-        let limit = 500;
+        // Determine limit based on interval - Aumentato per avere più dati storici
+        let limit = 1000; // Aumentato da 500 a 1000 per avere più dati
         if (interval === '1m') {
             limit = 1440; // 1 day of 1-minute candles
         } else if (interval === '1d') {
             limit = 365; // 1 year of daily candles
         } else if (interval === '1h') {
             limit = 720; // 30 days of hourly candles
+        } else if (interval === '15m') {
+            limit = 2000; // ~20 giorni di candele 15m (circa 2000 candele)
+        } else if (interval === '5m') {
+            limit = 2000; // ~7 giorni di candele 5m
+        } else if (interval === '30m') {
+            limit = 1000; // ~20 giorni di candele 30m
         }
         
         // If we have less than required klines, try to load from Binance
@@ -86,20 +92,21 @@ router.get('/history', async (req, res) => {
         const minRequired = interval === '1m' ? 1000 : 200;
         const shouldLoadFromBinance = klinesCount < minRequired;
         
-        // ✅ FIX: Calcola sempre almeno 24 ore di candele per garantire copertura completa del giorno
-        const candlesNeededFor24h = interval === '15m' ? 96 : // 24 hours (4 candles/hour * 24)
-                                   interval === '1m' ? 1440 : // 24 hours (60 candles/hour * 24)
-                                   interval === '5m' ? 288 : // 24 hours (12 candles/hour * 24)
-                                   interval === '30m' ? 48 : // 24 hours (2 candles/hour * 24)
-                                   interval === '1h' ? 24 : // 24 hours
-                                   interval === '4h' ? 6 : // 24 hours
-                                   interval === '1d' ? 30 : // 30 days
-                                   96; // Default: 24 hours
+        // ✅ FIX: Calcola sempre almeno 7 giorni di candele per avere dati sufficienti per il grafico
+        const candlesNeededFor7Days = interval === '15m' ? 672 : // 7 days (4 candles/hour * 24 * 7)
+                                      interval === '1m' ? 10080 : // 7 days (60 candles/hour * 24 * 7)
+                                      interval === '5m' ? 2016 : // 7 days (12 candles/hour * 24 * 7)
+                                      interval === '30m' ? 336 : // 7 days (2 candles/hour * 24 * 7)
+                                      interval === '1h' ? 168 : // 7 days
+                                      interval === '4h' ? 42 : // 7 days
+                                      interval === '1d' ? 30 : // 30 days
+                                      672; // Default: 7 days
         
-        // ✅ FIX: Usa sempre almeno 24 ore, o il limite richiesto se maggiore
-        const binanceLimit = Math.max(limit, candlesNeededFor24h);
+        // ✅ FIX: Usa sempre almeno 7 giorni, o il limite richiesto se maggiore
+        const binanceLimit = Math.max(limit, candlesNeededFor7Days);
         
-        if (shouldLoadFromBinance || klinesCount < candlesNeededFor24h) {
+        // Carica sempre da Binance se abbiamo meno del minimo richiesto o se è un simbolo nuovo
+        if (shouldLoadFromBinance || klinesCount < candlesNeededFor7Days) {
             console.log(`📥 Loading ${binanceLimit} klines from Binance for interval ${interval} (current count: ${klinesCount})...`);
             
             try {
@@ -165,7 +172,7 @@ router.get('/history', async (req, res) => {
 
         // Try to get OHLC klines first (more accurate) with specified interval
         // ✅ FIX CRITICO: Prendi le ULTIME N candele (più recenti), poi ordina per ASC per il grafico
-        // Calcola il timestamp minimo per le ultime N candele (circa 24 ore per 15m = 96 candele)
+        // Calcola il timestamp minimo per le ultime N candele (aumentato per avere più dati)
         const now = Date.now();
         const intervalMs = {
             '1m': 60 * 1000,
@@ -177,7 +184,16 @@ router.get('/history', async (req, res) => {
             '1d': 24 * 60 * 60 * 1000
         };
         const intervalDuration = intervalMs[interval] || 15 * 60 * 1000;
-        const minTime = now - (limit * intervalDuration); // Timestamp minimo per le ultime N candele
+        // Aumenta il periodo per avere più dati: 7 giorni invece di solo 24 ore
+        const daysToLoad = interval === '1d' ? 30 : interval === '1h' ? 7 : interval === '15m' ? 7 : 7;
+        const candlesForPeriod = interval === '15m' ? daysToLoad * 24 * 4 : // 4 candele/ora per 15m
+                                 interval === '5m' ? daysToLoad * 24 * 12 : // 12 candele/ora per 5m
+                                 interval === '30m' ? daysToLoad * 24 * 2 : // 2 candele/ora per 30m
+                                 interval === '1h' ? daysToLoad * 24 : // 24 candele/giorno per 1h
+                                 interval === '4h' ? daysToLoad * 6 : // 6 candele/giorno per 4h
+                                 interval === '1d' ? daysToLoad : // 1 candela/giorno
+                                 limit;
+        const minTime = now - (candlesForPeriod * intervalDuration); // Timestamp minimo per le ultime N candele
         
         const klinesRows = await dbAll(
             `SELECT open_time, open_price, high_price, low_price, close_price, volume 
@@ -185,7 +201,7 @@ router.get('/history', async (req, res) => {
              WHERE symbol = ? AND interval = ? AND open_time >= ? 
              ORDER BY open_time ASC 
              LIMIT ?`,
-            [symbol, interval, minTime, limit]
+            [symbol, interval, minTime, Math.max(limit, candlesForPeriod)]
         );
         
         if (klinesRows && klinesRows.length > 0) {
