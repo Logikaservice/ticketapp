@@ -358,6 +358,7 @@ const CryptoDashboard = () => {
                             ticket_id: trade.ticket_id || null
                         }))}
                         openPositions={openPositions || []}
+                        currentPrice={currentPrice}
                     />
                 </div>
 

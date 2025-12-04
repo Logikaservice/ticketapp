@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './TradingViewChart.css';
 
-const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [] }) => {
+const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], currentPrice = 0 }) => {
     const containerRef = useRef(null);
     const widgetRef = useRef(null);
     const [markers, setMarkers] = useState([]);
+    const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
+    const [timeRange, setTimeRange] = useState({ min: 0, max: 0 });
 
     useEffect(() => {
         // Cleanup previous widget
@@ -106,37 +108,62 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [] }
                 <div ref={containerRef} className="tradingview-chart-wrapper" style={{ flex: 1, minWidth: 0, position: 'relative' }}>
                     {/* TradingView widget will be inserted here */}
                     
-                    {/* Overlay per marker - sopra il grafico */}
-                    {openTrades.length > 0 && (
-                        <div className="markers-overlay">
-                            {openTrades.map((trade, index) => {
-                                const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
-                                const markerId = tradeIdMap.get(uniqueKey) || (index + 1);
-                                const isBuy = trade.type === 'buy';
-                                
-                                return (
-                                    <div
-                                        key={`marker-${trade.ticket_id || trade.timestamp}-${index}`}
-                                        className={`chart-marker ${isBuy ? 'marker-buy' : 'marker-sell'}`}
-                                        style={{
-                                            position: 'absolute',
-                                            // Posizionamento approssimativo - TradingView non espone coordinate precise
-                                            // Useremo un posizionamento basato su timestamp relativo
-                                            left: `${(index % 10) * 10}%`, // Distribuzione temporanea
-                                            top: isBuy ? '85%' : '15%', // BUY in basso, SELL in alto
-                                            zIndex: 1000
-                                        }}
-                                        title={`${trade.type.toUpperCase()} #${markerId} - €${parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} - ${new Date(trade.timestamp).toLocaleString('it-IT')}`}
-                                    >
-                                        <div className="marker-arrow">
-                                            {isBuy ? '↑' : '↓'}
+                    {/* Overlay per marker - sopra il grafico con posizionamento intelligente */}
+                    {openTrades.length > 0 && (() => {
+                        // Calcola range di tempo e prezzo per posizionamento
+                        const now = Date.now();
+                        const tradeTimes = openTrades.map(t => new Date(t.timestamp).getTime());
+                        const tradePrices = openTrades.map(t => parseFloat(t.price));
+                        
+                        // Range temporale: ultime 24 ore o range dei trades
+                        const minTime = tradeTimes.length > 0 ? Math.min(...tradeTimes) : now - (24 * 60 * 60 * 1000);
+                        const maxTime = tradeTimes.length > 0 ? Math.max(...tradeTimes) : now;
+                        const timeSpan = maxTime - minTime || 1;
+                        
+                        // Range di prezzo: ±5% dal prezzo corrente o range dei trades
+                        const allPrices = [...tradePrices, currentPrice].filter(p => p > 0);
+                        const minPrice = allPrices.length > 0 ? Math.min(...allPrices) * 0.95 : currentPrice * 0.95;
+                        const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) * 1.05 : currentPrice * 1.05;
+                        const priceSpan = maxPrice - minPrice || 1;
+                        
+                        return (
+                            <div className="markers-overlay">
+                                {openTrades.map((trade, index) => {
+                                    const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
+                                    const markerId = tradeIdMap.get(uniqueKey) || (index + 1);
+                                    const isBuy = trade.type === 'buy';
+                                    
+                                    // Calcola posizione X (tempo) - 5% padding laterale
+                                    const tradeTime = new Date(trade.timestamp).getTime();
+                                    const timePercent = ((tradeTime - minTime) / timeSpan) * 90 + 5; // 5% - 95%
+                                    
+                                    // Calcola posizione Y (prezzo) - invertito (top = prezzo alto)
+                                    const tradePrice = parseFloat(trade.price);
+                                    const pricePercent = 100 - (((tradePrice - minPrice) / priceSpan) * 90 + 5); // 5% - 95% invertito
+                                    
+                                    return (
+                                        <div
+                                            key={`marker-${trade.ticket_id || trade.timestamp}-${index}`}
+                                            className={`chart-marker ${isBuy ? 'marker-buy' : 'marker-sell'}`}
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${Math.max(5, Math.min(95, timePercent))}%`,
+                                                top: `${Math.max(5, Math.min(95, pricePercent))}%`,
+                                                zIndex: 1000,
+                                                transform: 'translate(-50%, -50%)'
+                                            }}
+                                            title={`${trade.type.toUpperCase()} #${markerId} - €${parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} - ${new Date(trade.timestamp).toLocaleString('it-IT')}`}
+                                        >
+                                            <div className="marker-arrow">
+                                                {isBuy ? '↑' : '↓'}
+                                            </div>
+                                            <div className="marker-number">{markerId}</div>
                                         </div>
-                                        <div className="marker-number">{markerId}</div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 {/* Operazioni Bot - A DESTRA del grafico */}
