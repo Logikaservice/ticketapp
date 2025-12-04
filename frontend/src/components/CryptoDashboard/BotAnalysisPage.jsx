@@ -9,9 +9,14 @@ const BotAnalysisPage = () => {
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
     
     const navigateToDashboard = () => {
-        const url = new URL(window.location);
-        url.searchParams.delete('page');
-        window.location.href = url.toString();
+        // Se siamo in una finestra popup, chiudila, altrimenti naviga
+        if (window.opener) {
+            window.close();
+        } else {
+            const url = new URL(window.location);
+            url.searchParams.delete('page');
+            window.location.href = url.toString();
+        }
     };
 
     useEffect(() => {

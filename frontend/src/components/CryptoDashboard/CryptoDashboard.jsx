@@ -343,11 +343,12 @@ const CryptoDashboard = () => {
                             className="toggle-btn" 
                             onClick={() => {
                                 const url = new URL(window.location);
+                                url.searchParams.set('domain', 'crypto');
                                 url.searchParams.set('page', 'bot-analysis');
-                                window.location.href = url.toString();
+                                window.open(url.toString(), 'BotAnalysis', 'width=1200,height=800,resizable=yes,scrollbars=yes');
                             }}
                             style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px', background: '#3b82f6' }}
-                            title="Analisi Bot in Tempo Reale - Vedi cosa sta valutando"
+                            title="Analisi Bot in Tempo Reale - Apri in nuova finestra"
                         >
                             🔍
                         </button>
