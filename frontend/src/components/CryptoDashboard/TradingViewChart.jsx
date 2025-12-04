@@ -24,27 +24,6 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                                  symbol === 'BTCUSDT' ? 'BINANCE:BTCUSDT' :
                                  `BINANCE:${symbol}`;
 
-        script.innerHTML = JSON.stringify({
-            "autosize": true,
-            "symbol": tradingViewSymbol,
-            "interval": "15", // 15 minuti per corrispondenza con Lightweight Charts
-            "timezone": "Europe/Rome",
-            "theme": "dark",
-            "style": "1", // Candlestick (puoi cambiare dalla toolbar)
-            "locale": "it",
-            "enable_publishing": false,
-            "hide_top_toolbar": false, // Mostra toolbar superiore (per cambiare tipo grafico)
-            "hide_legend": false,
-            "save_image": false,
-            "calendar": false,
-            "withdateranges": true,
-            "studies_overrides": {},
-            "support_host": "https://www.tradingview.com",
-            "height": 500,
-            "width": "100%",
-            "container_id": "tradingview_chart"
-        });
-
         // Crea container univoco per evitare conflitti
         const uniqueId = `tradingview_chart_${Date.now()}`;
         const container = document.createElement('div');
@@ -54,10 +33,38 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
         containerRef.current.appendChild(container);
         widgetRef.current = container;
 
-        // Aggiorna container_id nello script
-        const scriptContent = JSON.parse(script.innerHTML);
-        scriptContent.container_id = uniqueId;
-        script.innerHTML = JSON.stringify(scriptContent);
+        // Configurazione widget TradingView - parametri ottimizzati per mostrare toolbar completa
+        // NOTA: Il widget embedded TradingView mostra la toolbar di default se hide_top_toolbar è false
+        const widgetConfig = {
+            "autosize": true,
+            "symbol": tradingViewSymbol,
+            "interval": "15", // 15 minuti per corrispondenza con Lightweight Charts
+            "timezone": "Europe/Rome",
+            "theme": "dark",
+            "style": "1", // Candlestick (puoi cambiare dalla toolbar)
+            "locale": "it",
+            "enable_publishing": false,
+            "hide_top_toolbar": false, // IMPORTANTE: false = mostra toolbar con pulsanti tipo grafico
+            "hide_legend": false,
+            "save_image": false,
+            "calendar": false,
+            "withdateranges": true,
+            "range": "1D",
+            "studies_overrides": {},
+            "support_host": "https://www.tradingview.com",
+            "height": 500,
+            "width": "100%",
+            "container_id": uniqueId
+        };
+        
+        script.innerHTML = JSON.stringify(widgetConfig);
+        
+        console.log('📊 TradingView Widget Config:', {
+            hide_top_toolbar: widgetConfig.hide_top_toolbar,
+            style: widgetConfig.style,
+            symbol: widgetConfig.symbol,
+            container_id: widgetConfig.container_id
+        });
 
         container.appendChild(script);
 
