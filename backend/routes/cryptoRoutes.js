@@ -1781,9 +1781,12 @@ router.get('/statistics', async (req, res) => {
             }
         });
         
-        // Total trades = posizioni chiuse (con P&L realizzato)
-        const totalTrades = winningTrades + losingTrades;
-        const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
+        // Total trades = posizioni chiuse (con P&L realizzato) per win rate
+        const closedTradesForWinRate = winningTrades + losingTrades;
+        const winRate = closedTradesForWinRate > 0 ? (winningTrades / closedTradesForWinRate) * 100 : 0;
+        
+        // Total trades = tutti i trades (per display)
+        const totalTrades = allTrades.length;
         const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : (totalProfit > 0 ? Infinity : 0);
         
         // ROI calculation

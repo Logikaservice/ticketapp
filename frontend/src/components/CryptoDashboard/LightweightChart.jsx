@@ -286,34 +286,34 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                 new Date(a.timestamp) - new Date(b.timestamp)
             );
 
-            // Crea un map per tracciare i numeri identificativi per ticket_id
-            const ticketIdMap = new Map();
+            // Crea un map per tracciare i numeri identificativi - usa indice sequenziale per tutti
+            const tradeIdMap = new Map();
             let nextId = 1;
 
-            // Assegna numeri identificativi univoci basati su ticket_id o sequenziali
-            sortedTrades.forEach((trade) => {
-                if (trade.ticket_id && !ticketIdMap.has(trade.ticket_id)) {
-                    ticketIdMap.set(trade.ticket_id, nextId++);
-                } else if (!trade.ticket_id) {
-                    // Se non ha ticket_id, usa un ID basato sull'indice
-                    ticketIdMap.set(`trade-${trade.timestamp}`, nextId++);
+            // Assegna numeri identificativi sequenziali a tutti i trades
+            sortedTrades.forEach((trade, index) => {
+                // Usa una chiave univoca: ticket_id se disponibile, altrimenti timestamp + tipo
+                const uniqueKey = trade.ticket_id 
+                    ? `ticket-${trade.ticket_id}` 
+                    : `trade-${trade.timestamp}-${trade.type}-${index}`;
+                
+                if (!tradeIdMap.has(uniqueKey)) {
+                    tradeIdMap.set(uniqueKey, nextId++);
                 }
             });
 
             // Crea marker con numeri identificativi
-            const markers = sortedTrades.map((trade) => {
+            const markers = sortedTrades.map((trade, index) => {
                 const tradeTime = new Date(trade.timestamp).getTime() / 1000;
-                const tradePrice = parseFloat(trade.price);
                 
                 // Ottieni il numero identificativo
-                let markerId;
-                if (trade.ticket_id && ticketIdMap.has(trade.ticket_id)) {
-                    markerId = ticketIdMap.get(trade.ticket_id);
-                } else {
-                    markerId = ticketIdMap.get(`trade-${trade.timestamp}`) || 1;
-                }
+                const uniqueKey = trade.ticket_id 
+                    ? `ticket-${trade.ticket_id}` 
+                    : `trade-${trade.timestamp}-${trade.type}-${index}`;
+                
+                const markerId = tradeIdMap.get(uniqueKey) || (index + 1);
 
-                // Mostra solo il numero (il colore indica già buy/sell)
+                // Mostra SEMPRE il numero (il colore indica già buy/sell)
                 const text = `${markerId}`;
 
                 return {
@@ -323,7 +323,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                     shape: trade.type === 'buy' ? 'arrowUp' : 'arrowDown',
                     text: text,
                     size: 2,
-                    id: `marker-${trade.ticket_id || trade.timestamp}-${trade.type}`,
+                    id: `marker-${trade.ticket_id || trade.timestamp}-${trade.type}-${index}`,
                 };
             });
 
@@ -447,13 +447,13 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                     )}
                 </div>
 
-                {/* Trades Legend - A DESTRA del grafico */}
-                {trades.length > 0 && (
-                    <div className="trades-legend-right">
-                        <div className="legend-header">
-                            <h4>🤖 Operazioni Bot</h4>
-                            <span className="trade-count">{trades.length} operazioni</span>
-                        </div>
+                {/* Trades Legend - A DESTRA del grafico - SEMPRE VISIBILE */}
+                <div className="trades-legend-right">
+                    <div className="legend-header">
+                        <h4>🤖 Operazioni Bot</h4>
+                        <span className="trade-count">{trades.length} operazioni</span>
+                    </div>
+                    {trades.length > 0 ? (
                         <div className="trades-list-vertical">
                             {trades.slice().reverse().map((trade, index) => (
                                 <div 
@@ -484,8 +484,12 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                                 </div>
                             ))}
                         </div>
-                    </div>
-                )}
+                    ) : (
+                        <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>
+                            Nessuna operazione recente
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Chart Legend */}
