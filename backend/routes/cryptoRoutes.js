@@ -3045,6 +3045,19 @@ router.get('/bot-analysis', async (req, res) => {
                 stopLossPct: params.stop_loss_pct,
                 takeProfitPct: params.take_profit_pct,
                 tradeSizeEur: params.trade_size_eur
+            },
+            // ✅ Dettagli indicatori attivi/inattivi per spiegare lo Strength
+            indicatorDetails: {
+                long: {
+                    active: longActiveConfirmations || [],
+                    inactive: longInactiveConfirmations || [],
+                    totalStrength: (longActiveConfirmations || []).reduce((sum, c) => sum + (c.points || 0), 0)
+                },
+                short: {
+                    active: shortActiveConfirmations || [],
+                    inactive: shortInactiveConfirmations || [],
+                    totalStrength: (shortActiveConfirmations || []).reduce((sum, c) => sum + (c.points || 0), 0)
+                }
             }
         });
     } catch (error) {
