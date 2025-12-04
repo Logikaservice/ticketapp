@@ -2776,27 +2776,12 @@ router.get('/bot-analysis', async (req, res) => {
             return res.status(500).json({ error: 'Errore nella generazione del segnale' });
         }
         
-        console.log('🔍 [BOT-ANALYSIS] Calculating indicator details...');
-        // ✅ Calcola indicatori dettagliati per mostrare cosa è attivo
+        console.log('🔍 [BOT-ANALYSIS] Getting indicators...');
+        // ✅ Calcola indicatori base
         const indicators = signal.indicators || {};
         const rsi = indicators.rsi;
-        const trend = indicators.trend;
-        const macd = indicators.macd;
-        const bollinger = indicators.bollinger;
-        const volume = indicators.volume;
-        const rsiDivergence = indicators.rsiDivergence;
         
-        // Calcola quali conferme LONG sono attive (inizializza sempre)
-        let longActiveConfirmations = [];
-        let longInactiveConfirmations = [];
-        let shortActiveConfirmations = [];
-        let shortInactiveConfirmations = [];
-        
-        try {
-        
-        if (rsi !== null && rsi !== undefined && rsi < 30 && trend === 'bullish') {
-            longActiveConfirmations.push({ name: 'RSI oversold (< 30) + uptrend', points: 25, active: true });
-        } else {
+        console.log('🔍 [BOT-ANALYSIS] Getting risk check...');
             const rsiValue = (rsi !== null && rsi !== undefined) ? rsi.toFixed(1) : 'N/A';
             longInactiveConfirmations.push({ name: 'RSI oversold (< 30) + uptrend', points: 25, active: false, reason: (rsi !== null && rsi !== undefined && rsi < 30) ? 'Trend non bullish' : (rsi !== null && rsi !== undefined) ? `RSI ${rsiValue} (serve < 30)` : 'RSI non disponibile' });
         }
@@ -3121,19 +3106,6 @@ router.get('/bot-analysis', async (req, res) => {
                 takeProfitPct: params.take_profit_pct,
                 tradeSizeEur: params.trade_size_eur
             },
-            // ✅ Dettagli indicatori attivi/inattivi per spiegare lo Strength
-            indicatorDetails: {
-                long: {
-                    active: longActiveConfirmations || [],
-                    inactive: longInactiveConfirmations || [],
-                    totalStrength: (longActiveConfirmations || []).reduce((sum, c) => sum + (c.points || 0), 0)
-                },
-                short: {
-                    active: shortActiveConfirmations || [],
-                    inactive: shortInactiveConfirmations || [],
-                    totalStrength: (shortActiveConfirmations || []).reduce((sum, c) => sum + (c.points || 0), 0)
-                }
-            }
         });
     } catch (error) {
         console.error('❌ [BOT-ANALYSIS] ========== ERRORE CRITICO ==========');

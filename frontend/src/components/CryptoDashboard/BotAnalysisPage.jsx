@@ -61,7 +61,7 @@ const BotAnalysisPage = () => {
         );
     }
 
-    const { signal, requirements, risk, positions, currentPrice, rsi, botParameters, indicatorDetails } = analysis;
+    const { signal, requirements, risk, positions, currentPrice, rsi, botParameters } = analysis;
 
     return (
         <div className="bot-analysis-page">
@@ -286,38 +286,6 @@ const BotAnalysisPage = () => {
                                 <strong>Stato:</strong> {requirements.short.reason}
                             </div>
                             
-                            {/* ✅ Dettagli indicatori attivi/inattivi */}
-                            {indicatorDetails && indicatorDetails.short && (
-                                <div className="indicator-details">
-                                    <div className="indicator-details-header">
-                                        <strong>📊 Dettagli Indicator (SHORT):</strong>
-                                        <span className="total-strength">Strength totale: {indicatorDetails.short.totalStrength}/100</span>
-                                    </div>
-                                    {indicatorDetails.short.active.length > 0 && (
-                                        <div className="active-indicators">
-                                            <strong className="active-title">✅ Attivi ({indicatorDetails.short.active.length}):</strong>
-                                            {indicatorDetails.short.active.map((ind, idx) => (
-                                                <div key={idx} className="indicator-item active">
-                                                    <span className="indicator-name">{ind.name}</span>
-                                                    <span className="indicator-points">+{ind.points} punti</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    {indicatorDetails.short.inactive.length > 0 && (
-                                        <div className="inactive-indicators">
-                                            <strong className="inactive-title">❌ Non attivi ({indicatorDetails.short.inactive.length}):</strong>
-                                            {indicatorDetails.short.inactive.slice(0, 5).map((ind, idx) => (
-                                                <div key={idx} className="indicator-item inactive">
-                                                    <span className="indicator-name">{ind.name}</span>
-                                                    <span className="indicator-points">{ind.points} punti</span>
-                                                    <span className="indicator-reason">({ind.reason})</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     </div>
 
