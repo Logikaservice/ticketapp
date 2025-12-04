@@ -138,8 +138,18 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                         const maxTime = tradeTimes.length > 0 ? Math.max(...tradeTimes) : now;
                         const timeSpan = maxTime - minTime || 1;
                         
-                        // Range di prezzo: ±5% dal prezzo corrente o range dei trades
-                        const allPrices = [...tradePrices, currentPrice].filter(p => p > 0);
+                        // Range di prezzo: usa entry_price dalle posizioni aperte invece di trade.price
+                        const entryPrices = openTrades.map(trade => {
+                            const matchingPosition = openPositions.find(
+                                pos => String(pos.ticket_id) === String(trade.ticket_id) && pos.status === 'open'
+                            );
+                            return matchingPosition && matchingPosition.entry_price 
+                                ? parseFloat(matchingPosition.entry_price)
+                                : parseFloat(trade.price);
+                        }).filter(p => p > 0);
+                        
+                        // Range di prezzo: ±5% dal prezzo corrente o range degli entry prices
+                        const allPrices = [...entryPrices, currentPrice].filter(p => p > 0);
                         const minPrice = allPrices.length > 0 ? Math.min(...allPrices) * 0.95 : currentPrice * 0.95;
                         const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) * 1.05 : currentPrice * 1.05;
                         const priceSpan = maxPrice - minPrice || 1;
@@ -147,6 +157,16 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                         return (
                             <div className="markers-overlay">
                                 {openTrades.map((trade, index) => {
+                                    // Trova la posizione aperta corrispondente per ottenere entry_price
+                                    const matchingPosition = openPositions.find(
+                                        pos => String(pos.ticket_id) === String(trade.ticket_id) && pos.status === 'open'
+                                    );
+                                    
+                                    // Usa entry_price dalla posizione se disponibile, altrimenti fallback a trade.price
+                                    const entryPrice = matchingPosition && matchingPosition.entry_price 
+                                        ? parseFloat(matchingPosition.entry_price)
+                                        : parseFloat(trade.price);
+                                    
                                     const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
                                     const markerId = tradeIdMap.get(uniqueKey) || (index + 1);
                                     const isBuy = trade.type === 'buy';
@@ -155,9 +175,19 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                                     const tradeTime = new Date(trade.timestamp).getTime();
                                     const timePercent = ((tradeTime - minTime) / timeSpan) * 90 + 5; // 5% - 95%
                                     
-                                    // Calcola posizione Y (prezzo) - invertito (top = prezzo alto)
-                                    const tradePrice = parseFloat(trade.price);
-                                    const pricePercent = 100 - (((tradePrice - minPrice) / priceSpan) * 90 + 5); // 5% - 95% invertito
+                                    // Calcola posizione Y (prezzo) usando ENTRY_PRICE - invertito (top = prezzo alto)
+                                    const pricePercent = 100 - (((entryPrice - minPrice) / priceSpan) * 90 + 5); // 5% - 95% invertito
+                                    
+                                    // Log per debug
+                                    if (matchingPosition) {
+                                        console.log(`📍 Marker #${markerId}:`, {
+                                            ticket_id: trade.ticket_id,
+                                            trade_price: trade.price,
+                                            entry_price: matchingPosition.entry_price,
+                                            using_price: entryPrice,
+                                            price_diff: Math.abs(parseFloat(trade.price) - entryPrice)
+                                        });
+                                    }
                                     
                                     return (
                                         <div
@@ -170,7 +200,7 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                                                 zIndex: 1000,
                                                 transform: 'translate(-50%, -50%)'
                                             }}
-                                            title={`${trade.type.toUpperCase()} #${markerId} - €${parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} - ${new Date(trade.timestamp).toLocaleString('it-IT')}`}
+                                            title={`${trade.type.toUpperCase()} #${markerId} - Entry: €${entryPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} - ${new Date(trade.timestamp).toLocaleString('it-IT')}`}
                                         >
                                             <div className="marker-arrow">
                                                 {isBuy ? '↑' : '↓'}
