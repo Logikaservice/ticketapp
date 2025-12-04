@@ -170,8 +170,18 @@ const BotAnalysisPage = () => {
                                 <div className="progress-bar">
                                     <div 
                                         className="progress-fill" 
-                                        style={{ width: `${Math.min(100, (requirements.long.currentStrength / requirements.long.minStrength) * 100)}%` }}
+                                        style={{ 
+                                            width: `${Math.min(100, (requirements.long.currentStrength / requirements.long.minStrength) * 100)}%`,
+                                            transition: 'width 0.5s ease-in-out',
+                                            background: requirements.long.currentStrength >= requirements.long.minStrength 
+                                                ? 'linear-gradient(90deg, #10b981, #059669)' 
+                                                : 'linear-gradient(90deg, #3b82f6, #2563eb)'
+                                        }}
                                     />
+                                </div>
+                                {/* Indicatore visivo percentuale */}
+                                <div className="strength-percentage">
+                                    {Math.round((requirements.long.currentStrength / requirements.long.minStrength) * 100)}% del target raggiunto
                                 </div>
                             </div>
                             <div className="requirement-progress">
@@ -188,11 +198,30 @@ const BotAnalysisPage = () => {
                                         <span className="needs">{requirements.long.needsConfirmations} in più</span>
                                     )}
                                 </div>
-                                <div className="progress-bar">
-                                    <div 
-                                        className="progress-fill" 
-                                        style={{ width: `${Math.min(100, (requirements.long.currentConfirmations / requirements.long.minConfirmations) * 100)}%` }}
-                                    />
+                                {/* ✅ Barra di progresso con indicatori visivi per ogni conferma */}
+                                <div className="progress-bar-container">
+                                    <div className="progress-bar">
+                                        <div 
+                                            className="progress-fill" 
+                                            style={{ 
+                                                width: `${Math.min(100, (requirements.long.currentConfirmations / requirements.long.minConfirmations) * 100)}%`,
+                                                transition: 'width 0.5s ease-in-out'
+                                            }}
+                                        />
+                                    </div>
+                                    {/* Indicatori visivi per ogni conferma */}
+                                    <div className="confirmation-indicators">
+                                        {Array.from({ length: requirements.long.minConfirmations }).map((_, index) => {
+                                            const isActive = index < requirements.long.currentConfirmations;
+                                            return (
+                                                <div 
+                                                    key={index}
+                                                    className={`confirmation-dot ${isActive ? 'active' : 'inactive'}`}
+                                                    title={`Conferma ${index + 1}${isActive ? ' ✓' : ''}`}
+                                                />
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
                             <div className="requirement-reason">
