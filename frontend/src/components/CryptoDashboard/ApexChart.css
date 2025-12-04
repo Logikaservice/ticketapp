@@ -1,0 +1,249 @@
+.apex-chart-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.chart-main-wrapper {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+    min-height: 500px;
+}
+
+.apex-chart-wrapper {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    background: #1c1c1e;
+    border-radius: 8px;
+    padding: 16px;
+    overflow: visible;
+}
+
+.chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 500px;
+    color: #9ca3af;
+    font-size: 16px;
+}
+
+.current-price-line {
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #3b82f6;
+    border-top: 2px dashed #3b82f6;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.interval-selector {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.interval-button {
+    padding: 6px 12px;
+    background: #2d2d30;
+    border: 1px solid #374151;
+    border-radius: 4px;
+    color: #9ca3af;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.interval-button:hover {
+    background: #374151;
+    border-color: #4b5563;
+    color: #fff;
+}
+
+.interval-button.active {
+    background: #10b981;
+    border-color: #10b981;
+    color: #fff;
+}
+
+.trades-legend-right {
+    width: 300px;
+    min-width: 300px;
+    background: #1c1c1e;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.trades-legend-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #374151;
+}
+
+.trades-legend-icon {
+    font-size: 20px;
+}
+
+.trades-legend-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.trades-legend-content {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.trades-legend-count {
+    font-size: 14px;
+    color: #9ca3af;
+    margin-bottom: 12px;
+}
+
+.trades-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.trade-item {
+    background: #2d2d30;
+    border-radius: 6px;
+    padding: 12px;
+    border: 1px solid #374151;
+}
+
+.trade-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.trade-type {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.trade-type.buy {
+    background: #10b981;
+    color: #fff;
+}
+
+.trade-type.sell {
+    background: #ef4444;
+    color: #fff;
+}
+
+.trade-number {
+    font-size: 12px;
+    color: #9ca3af;
+    font-weight: 600;
+}
+
+.trade-details {
+    font-size: 12px;
+    color: #d1d5db;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.trade-details .profit {
+    color: #10b981;
+    font-weight: 600;
+}
+
+.trade-details .loss {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.trade-time {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+.no-operations {
+    text-align: center;
+    color: #9ca3af;
+    padding: 20px;
+}
+
+.no-operations-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+.chart-legend {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    padding: 12px;
+    background: #1c1c1e;
+    border-radius: 6px;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
+}
+
+.current-price-display {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+    color: #3b82f6;
+    padding: 12px;
+    background: #1c1c1e;
+    border-radius: 6px;
+}
+
+/* Scrollbar styling */
+.trades-legend-right::-webkit-scrollbar {
+    width: 6px;
+}
+
+.trades-legend-right::-webkit-scrollbar-track {
+    background: #1c1c1e;
+}
+
+.trades-legend-right::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 3px;
+}
+
+.trades-legend-right::-webkit-scrollbar-thumb:hover {
+    background: #4b5563;
+}
+

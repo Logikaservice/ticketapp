@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet, Settings, BarChart2, RotateCcw } from 'lucide-react';
 import OpenPositions from './OpenPositions';
 import TradingViewChart from './TradingViewChart';
-import LightweightChart from './LightweightChart';
+import ApexChart from './ApexChart';
 import BotSettings from './BotSettings';
 import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
@@ -26,7 +26,7 @@ const CryptoDashboard = () => {
     const [showBacktestPanel, setShowBacktestPanel] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [botParameters, setBotParameters] = useState(null);
-    const [useLightweightChart, setUseLightweightChart] = useState(false); // Toggle tra TradingView e Lightweight Charts
+    const [useApexChart, setUseApexChart] = useState(false); // Toggle tra TradingView e ApexChart
     
     // WebSocket for real-time notifications
     const { connected: wsConnected } = useCryptoWebSocket(
@@ -186,26 +186,26 @@ const CryptoDashboard = () => {
         }
     };
     
-    // Fetch history for Lightweight Charts (15m di default, ma può cambiare)
-    const [lightweightHistory, setLightweightHistory] = useState([]);
-    const [lightweightInterval, setLightweightInterval] = useState('15m'); // Default 15m per corrispondenza
-    const fetchLightweightHistory = async (interval = '15m') => {
+    // Fetch history for ApexChart (15m di default, ma può cambiare)
+    const [apexHistory, setApexHistory] = useState([]);
+    const [apexInterval, setApexInterval] = useState('15m'); // Default 15m per corrispondenza
+    const fetchApexHistory = async (interval = '15m') => {
         try {
             const res = await fetch(`${apiBase}/api/crypto/history?interval=${interval}`);
             if (res.ok) {
                 const history = await res.json();
-                setLightweightHistory(history);
+                setApexHistory(history);
             } else {
-                console.error('❌ Lightweight history fetch failed:', res.status, res.statusText);
+                console.error('❌ ApexChart history fetch failed:', res.status, res.statusText);
             }
         } catch (error) {
-            console.error("❌ Error fetching lightweight history:", error);
+            console.error("❌ Error fetching ApexChart history:", error);
         }
     };
 
     useEffect(() => {
         fetchHistory(); // Load history first (15m for TradingView)
-        fetchLightweightHistory(lightweightInterval); // Load history for Lightweight Charts
+        fetchApexHistory(apexInterval); // Load history for ApexChart
         fetchData();
         fetchPrice();
         
@@ -223,8 +223,8 @@ const CryptoDashboard = () => {
         // ✅ FIX: Aggiornamento più frequente per vedere candele in tempo reale
         const historyInterval = setInterval(() => {
             fetchHistory();
-            if (useLightweightChart) {
-                fetchLightweightHistory(lightweightInterval); // Update data when using Lightweight Charts
+            if (useApexChart) {
+                fetchApexHistory(apexInterval); // Update data when using ApexChart
             }
         }, 5000); // Ridotto da 15s a 5s per aggiornamenti più frequenti
         
@@ -363,10 +363,10 @@ const CryptoDashboard = () => {
                             Bitcoin / EUR Live Market
                         </div>
                         <button
-                            onClick={() => setUseLightweightChart(!useLightweightChart)}
+                            onClick={() => setUseApexChart(!useApexChart)}
                             style={{
                                 padding: '6px 12px',
-                                background: useLightweightChart ? '#4ade80' : '#3f3f46',
+                                background: useApexChart ? '#4ade80' : '#3f3f46',
                                 color: '#fff',
                                 border: 'none',
                                 borderRadius: '6px',
@@ -375,13 +375,13 @@ const CryptoDashboard = () => {
                                 fontWeight: '500',
                                 transition: 'all 0.2s'
                             }}
-                            title={useLightweightChart ? 'Passa a TradingView (con tool di disegno)' : 'Passa a Lightweight Charts (con marker precisi)'}
+                            title={useApexChart ? 'Passa a TradingView (con tool di disegno)' : 'Passa ad ApexChart (con marker precisi e aggiornamenti real-time)'}
                         >
-                            {useLightweightChart ? '📊 TradingView' : '📍 Marker Chart'}
+                            {useApexChart ? '📊 TradingView' : '📍 ApexChart'}
                         </button>
                     </div>
-                    {useLightweightChart ? (
-                        <LightweightChart
+                    {useApexChart ? (
+                        <ApexChart
                             symbol="BTCEUR"
                             trades={(allTrades || []).map(trade => ({
                                 type: trade.type,
@@ -393,11 +393,11 @@ const CryptoDashboard = () => {
                             }))}
                             openPositions={openPositions || []}
                             currentPrice={currentPrice}
-                            priceHistory={lightweightHistory.length > 0 ? lightweightHistory : priceData || []}
-                            currentInterval={lightweightInterval}
+                            priceHistory={apexHistory.length > 0 ? apexHistory : priceData || []}
+                            currentInterval={apexInterval}
                             onIntervalChange={(newInterval) => {
-                                setLightweightInterval(newInterval);
-                                fetchLightweightHistory(newInterval);
+                                setApexInterval(newInterval);
+                                fetchApexHistory(newInterval);
                             }}
                         />
                     ) : (
