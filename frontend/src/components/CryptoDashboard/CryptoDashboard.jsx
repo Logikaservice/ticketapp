@@ -352,6 +352,7 @@ const CryptoDashboard = () => {
                         }))}
                         currentPrice={currentPrice}
                         priceHistory={priceData || []}
+                        openPositions={openPositions || []}
                     />
                 </div>
 
@@ -393,9 +394,16 @@ const CryptoDashboard = () => {
                                     const totalValue = trade.amount * trade.price;
                                     const pnl = trade.profit_loss;
 
-                                    // Theoretical P&L for BUYs (Open Positions)
-                                    const theoreticalPnl = isBuy ? (currentPrice - trade.price) * trade.amount : 0;
-                                    const theoreticalPnlPercent = isBuy ? ((currentPrice - trade.price) / trade.price) * 100 : 0;
+                                    // Check if this trade has a corresponding open position
+                                    const hasOpenPosition = isBuy && openPositions.some(pos => 
+                                        pos.type === 'buy' && 
+                                        Math.abs(parseFloat(pos.entry_price) - parseFloat(trade.price)) < 0.01 &&
+                                        Math.abs(parseFloat(pos.volume) - parseFloat(trade.amount)) < 0.0001
+                                    );
+
+                                    // Theoretical P&L for BUYs ONLY if position is still open
+                                    const theoreticalPnl = (isBuy && hasOpenPosition) ? (currentPrice - trade.price) * trade.amount : 0;
+                                    const theoreticalPnlPercent = (isBuy && hasOpenPosition) ? ((currentPrice - trade.price) / trade.price) * 100 : 0;
 
                                     return (
                                         <tr key={i} style={{ borderBottom: '1px solid #1f2937' }}>
@@ -425,11 +433,15 @@ const CryptoDashboard = () => {
                                                     <span style={{ color: pnl >= 0 ? '#4ade80' : '#ef4444', fontWeight: 'bold' }}>
                                                         {pnl >= 0 ? '+' : ''}€{pnl.toFixed(2)}
                                                     </span>
-                                                ) : isBuy ? (
+                                                ) : isBuy && hasOpenPosition ? (
                                                     <span style={{ color: theoreticalPnl >= 0 ? '#4ade80' : '#ef4444', fontSize: '0.85rem' }}>
                                                         {theoreticalPnl >= 0 ? '+' : ''}€{theoreticalPnl.toFixed(2)} ({theoreticalPnlPercent.toFixed(2)}%)
                                                         <br />
                                                         <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>Unrealized</span>
+                                                    </span>
+                                                ) : isBuy ? (
+                                                    <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+                                                        Chiusa
                                                     </span>
                                                 ) : (
                                                     <span style={{ color: '#6b7280' }}>-</span>

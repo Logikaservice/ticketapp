@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import './LightweightChart.css';
 
-const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, priceHistory = [] }) => {
+const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, priceHistory = [], openPositions = [] }) => {
     const chartContainerRef = useRef(null);
     const chartRef = useRef(null);
     const candlestickSeriesRef = useRef(null);
@@ -393,6 +393,48 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* Chart Legend */}
+            <div style={{
+                padding: '12px 16px',
+                background: '#27272a',
+                borderTop: '1px solid #3f3f46',
+                fontSize: '11px',
+                color: '#9ca3af',
+                display: 'flex',
+                gap: '20px',
+                alignItems: 'center'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{
+                        width: '20px',
+                        height: '2px',
+                        background: '#3b82f6',
+                        borderStyle: 'dashed',
+                        borderWidth: '1px',
+                        borderColor: '#3b82f6'
+                    }}></div>
+                    <span>Prezzo Corrente</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{
+                        width: '12px',
+                        height: '12px',
+                        background: '#4ade80',
+                        borderRadius: '2px'
+                    }}></div>
+                    <span>Candele Verdi = Prezzo Sale</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{
+                        width: '12px',
+                        height: '12px',
+                        background: '#f87171',
+                        borderRadius: '2px'
+                    }}></div>
+                    <span>Candele Rosse = Prezzo Scende</span>
+                </div>
             </div>
 
             {/* Current Price Display */}
