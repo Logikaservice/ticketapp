@@ -273,55 +273,55 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
         }
     }, [priceHistory]);
 
-    // Add markers for trades - CON NUMERI IDENTIFICATIVI
+    // Add markers for trades - SOLO QUELLI CON POSIZIONI APERTE
     useEffect(() => {
         if (!candlestickSeriesRef.current) return;
 
         // Clear previous markers
         markersRef.current = [];
 
-        if (trades.length > 0) {
+        // Filtra SOLO trades con posizioni APERTE
+        const openTrades = trades.filter(trade => {
+            if (!openPositions || openPositions.length === 0) return false;
+            if (!trade.ticket_id) return false;
+            
+            // Confronta ticket_id come stringhe
+            const tradeTicketId = String(trade.ticket_id);
+            return openPositions.some(
+                pos => String(pos.ticket_id) === tradeTicketId && pos.status === 'open'
+            );
+        });
+
+        if (openTrades.length > 0) {
             // Ordina trades per timestamp
-            const sortedTrades = [...trades].sort((a, b) => 
+            const sortedTrades = [...openTrades].sort((a, b) => 
                 new Date(a.timestamp) - new Date(b.timestamp)
             );
 
-            // Crea un map per tracciare i numeri identificativi - usa indice sequenziale per tutti
+            // Crea un map per tracciare i numeri identificativi
             const tradeIdMap = new Map();
             let nextId = 1;
 
-            // Assegna numeri identificativi sequenziali a tutti i trades
-            sortedTrades.forEach((trade, index) => {
-                // Usa una chiave univoca: ticket_id se disponibile, altrimenti timestamp + tipo
-                const uniqueKey = trade.ticket_id 
-                    ? `ticket-${trade.ticket_id}` 
-                    : `trade-${trade.timestamp}-${trade.type}-${index}`;
-                
+            // Assegna numeri identificativi sequenziali
+            sortedTrades.forEach((trade) => {
+                const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
                 if (!tradeIdMap.has(uniqueKey)) {
                     tradeIdMap.set(uniqueKey, nextId++);
                 }
             });
 
-            // Crea marker con numeri identificativi
+            // Crea marker SOLO per trades con posizioni aperte
             const markers = sortedTrades.map((trade, index) => {
                 const tradeTime = new Date(trade.timestamp).getTime() / 1000;
-                
-                // Ottieni il numero identificativo
-                const uniqueKey = trade.ticket_id 
-                    ? `ticket-${trade.ticket_id}` 
-                    : `trade-${trade.timestamp}-${trade.type}-${index}`;
-                
+                const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
                 const markerId = tradeIdMap.get(uniqueKey) || (index + 1);
-
-                // Mostra SEMPRE il numero (il colore indica già buy/sell)
-                const text = `${markerId}`;
 
                 return {
                     time: tradeTime,
                     position: trade.type === 'buy' ? 'belowBar' : 'aboveBar',
                     color: trade.type === 'buy' ? '#4ade80' : '#f87171',
                     shape: trade.type === 'buy' ? 'arrowUp' : 'arrowDown',
-                    text: text,
+                    text: `${markerId}`,
                     size: 2,
                     id: `marker-${trade.ticket_id || trade.timestamp}-${trade.type}-${index}`,
                 };
@@ -331,12 +331,12 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             candlestickSeriesRef.current.setMarkers(markers);
             
         } else {
-            // Clear markers if no trades
+            // Clear markers if no open trades
             candlestickSeriesRef.current.setMarkers([]);
         }
-    }, [trades]);
+    }, [trades, openPositions]);
 
-    // Update last candle with live price (real-time candlestick update) - FORZATO OGNI SECONDO
+    // Update last candle with live price (real-time candlestick update) - FORZATO OGNI 500ms
     useEffect(() => {
         if (!candlestickSeriesRef.current || !currentPrice || !lastCandleDataRef.current || priceHistory.length === 0) {
             return;
@@ -349,6 +349,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             try {
                 const lastCandle = lastCandleDataRef.current;
                 
+                // Crea nuova candela live con prezzo corrente
                 const liveCandle = {
                     time: lastCandle.time,
                     open: lastCandle.open,
@@ -357,19 +358,19 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                     close: currentPrice // Update close with current price
                 };
 
-                // FORZA l'aggiornamento ogni volta
+                // FORZA l'aggiornamento - usa updateData per efficienza
                 candlestickSeriesRef.current.updateData(liveCandle);
                 lastCandleDataRef.current = liveCandle;
             } catch (e) {
-                // Silent fail
+                console.error('Error updating live candle:', e);
             }
         };
 
         // Aggiorna subito
         updateCandle();
 
-        // E poi ogni secondo per movimento fluido
-        const interval = setInterval(updateCandle, 1000);
+        // E poi ogni 500ms per movimento molto fluido e visibile
+        const interval = setInterval(updateCandle, 500);
 
         return () => clearInterval(interval);
     }, [currentPrice, priceHistory.length]);
