@@ -7,6 +7,7 @@ import BotSettings from './BotSettings';
 import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
 import BacktestPanel from './BacktestPanel';
+import BotAnalysisPanel from './BotAnalysisPanel';
 import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
 import './CryptoLayout.css';
 
@@ -24,6 +25,7 @@ const CryptoDashboard = () => {
     const [openPositions, setOpenPositions] = useState([]);
     const [showBotSettings, setShowBotSettings] = useState(false);
     const [showBacktestPanel, setShowBacktestPanel] = useState(false);
+    const [showBotAnalysis, setShowBotAnalysis] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [botParameters, setBotParameters] = useState(null);
     const [useApexChart, setUseApexChart] = useState(false); // Toggle tra TradingView e ApexChart
@@ -338,6 +340,14 @@ const CryptoDashboard = () => {
                             title="Backtesting Strategia"
                         >
                             <BarChart2 size={18} />
+                        </button>
+                        <button 
+                            className="toggle-btn" 
+                            onClick={() => setShowBotAnalysis(true)}
+                            style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px', background: '#3b82f6' }}
+                            title="Analisi Bot in Tempo Reale - Vedi cosa sta valutando"
+                        >
+                            🔍
                         </button>
                         <button 
                             className="toggle-btn" 

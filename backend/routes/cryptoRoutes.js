@@ -2665,5 +2665,192 @@ router.delete('/backtest/results/:id', async (req, res) => {
     }
 });
 
+// ✅ NUOVO ENDPOINT: Analisi bot in tempo reale - Mostra cosa sta valutando il bot
+router.get('/bot-analysis', async (req, res) => {
+    try {
+        const symbol = 'bitcoin';
+        const currentPrice = await getCurrentPrice(symbol);
+        
+        if (!currentPrice) {
+            return res.status(500).json({ error: 'Impossibile ottenere prezzo corrente' });
+        }
+
+        // Get price history for analysis (usa klines per dati più accurati)
+        const priceHistoryData = await dbAll(
+            "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
+            [symbol]
+        );
+        
+        // Se non ci sono klines, usa price_history
+        let historyForSignal = [];
+        if (priceHistoryData && priceHistoryData.length > 0) {
+            historyForSignal = priceHistoryData.reverse().map(row => ({
+                price: parseFloat(row.close_price),
+                high: parseFloat(row.high_price),
+                low: parseFloat(row.low_price),
+                close: parseFloat(row.close_price),
+                timestamp: new Date(row.open_time).toISOString()
+            }));
+        } else {
+            const priceHistoryRows = await dbAll(
+                "SELECT price, timestamp FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 100",
+                [symbol]
+            );
+            historyForSignal = priceHistoryRows.reverse().map(row => ({
+                price: parseFloat(row.price),
+                timestamp: row.timestamp
+            }));
+        }
+
+        // Generate signal with full details
+        const signal = signalGenerator.generateSignal(historyForSignal);
+        
+        // Get bot parameters
+        const params = await getBotParameters();
+        const rsi = calculateRSI(historyForSignal.map(h => h.price || h.close), params.rsi_period);
+        
+        // Risk check
+        const riskCheck = await riskManager.calculateMaxRisk();
+        
+        // Get open positions
+        const openPositions = await dbAll(
+            "SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'",
+            [symbol]
+        );
+        
+        const longPositions = openPositions.filter(p => p.type === 'buy');
+        const shortPositions = openPositions.filter(p => p.type === 'sell');
+        
+        // Calculate what's needed for LONG
+        const LONG_MIN_CONFIRMATIONS = 4;
+        const LONG_MIN_STRENGTH = 70;
+        const longCurrentStrength = signal.direction === 'LONG' ? signal.strength : 0;
+        const longCurrentConfirmations = signal.direction === 'LONG' ? signal.confirmations : 0;
+        const longNeedsConfirmations = Math.max(0, LONG_MIN_CONFIRMATIONS - longCurrentConfirmations);
+        const longNeedsStrength = Math.max(0, LONG_MIN_STRENGTH - longCurrentStrength);
+        const longMeetsRequirements = signal.direction === 'LONG' && 
+                                     signal.strength >= LONG_MIN_STRENGTH && 
+                                     signal.confirmations >= LONG_MIN_CONFIRMATIONS;
+        
+        // Calculate what's needed for SHORT
+        const SHORT_MIN_CONFIRMATIONS = 5;
+        const SHORT_MIN_STRENGTH = 70;
+        const shortCurrentStrength = signal.direction === 'SHORT' ? signal.strength : 0;
+        const shortCurrentConfirmations = signal.direction === 'SHORT' ? signal.confirmations : 0;
+        const shortNeedsConfirmations = Math.max(0, SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations);
+        const shortNeedsStrength = Math.max(0, SHORT_MIN_STRENGTH - shortCurrentStrength);
+        const shortMeetsRequirements = signal.direction === 'SHORT' && 
+                                      signal.strength >= SHORT_MIN_STRENGTH && 
+                                      signal.confirmations >= SHORT_MIN_CONFIRMATIONS;
+        
+        // Calculate max position size
+        const maxAvailableForNewPosition = Math.min(
+            params.trade_size_eur,
+            riskCheck.maxPositionSize,
+            riskCheck.availableExposure * 0.25
+        );
+        
+        const canOpenCheck = await riskManager.canOpenPosition(maxAvailableForNewPosition);
+        
+        // Determine why it can't open
+        let longReason = '';
+        let shortReason = '';
+        
+        if (signal.direction === 'LONG') {
+            if (longMeetsRequirements && canOpenCheck.allowed) {
+                longReason = '✅ PRONTO AD APRIRE LONG';
+            } else if (!longMeetsRequirements) {
+                if (longNeedsStrength > 0 && longNeedsConfirmations > 0) {
+                    longReason = `Serve strength +${longNeedsStrength} e ${longNeedsConfirmations} conferme in più`;
+                } else if (longNeedsStrength > 0) {
+                    longReason = `Serve strength +${longNeedsStrength} punti`;
+                } else if (longNeedsConfirmations > 0) {
+                    longReason = `Serve ${longNeedsConfirmations} conferme in più`;
+                } else {
+                    longReason = signal.reasons[0] || 'Segnale non abbastanza forte';
+                }
+            } else {
+                longReason = canOpenCheck.reason || 'Risk manager blocca';
+            }
+        } else if (signal.direction === 'SHORT') {
+            if (shortMeetsRequirements && canOpenCheck.allowed) {
+                shortReason = '✅ PRONTO AD APRIRE SHORT';
+            } else if (!shortMeetsRequirements) {
+                if (shortNeedsStrength > 0 && shortNeedsConfirmations > 0) {
+                    shortReason = `Serve strength +${shortNeedsStrength} e ${shortNeedsConfirmations} conferme in più`;
+                } else if (shortNeedsStrength > 0) {
+                    shortReason = `Serve strength +${shortNeedsStrength} punti`;
+                } else if (shortNeedsConfirmations > 0) {
+                    shortReason = `Serve ${shortNeedsConfirmations} conferme in più`;
+                } else {
+                    shortReason = signal.reasons[0] || 'Segnale non abbastanza forte';
+                }
+            } else {
+                shortReason = canOpenCheck.reason || 'Risk manager blocca';
+            }
+        } else {
+            longReason = 'Nessun segnale LONG attivo';
+            shortReason = 'Nessun segnale SHORT attivo';
+        }
+        
+        res.json({
+            currentPrice,
+            rsi: rsi || 0,
+            signal: {
+                direction: signal.direction,
+                strength: signal.strength || 0,
+                confirmations: signal.confirmations || 0,
+                reasons: signal.reasons || [],
+                indicators: signal.indicators || {}
+            },
+            requirements: {
+                long: {
+                    minStrength: LONG_MIN_STRENGTH,
+                    minConfirmations: LONG_MIN_CONFIRMATIONS,
+                    currentStrength: longCurrentStrength,
+                    currentConfirmations: longCurrentConfirmations,
+                    needsStrength: longNeedsStrength,
+                    needsConfirmations: longNeedsConfirmations,
+                    canOpen: longMeetsRequirements && canOpenCheck.allowed,
+                    reason: longReason
+                },
+                short: {
+                    minStrength: SHORT_MIN_STRENGTH,
+                    minConfirmations: SHORT_MIN_CONFIRMATIONS,
+                    currentStrength: shortCurrentStrength,
+                    currentConfirmations: shortCurrentConfirmations,
+                    needsStrength: shortNeedsStrength,
+                    needsConfirmations: shortNeedsConfirmations,
+                    canOpen: shortMeetsRequirements && canOpenCheck.allowed,
+                    reason: shortReason
+                }
+            },
+            risk: {
+                canTrade: riskCheck.canTrade,
+                reason: riskCheck.reason || 'OK',
+                dailyLoss: riskCheck.dailyLoss * 100,
+                currentExposure: riskCheck.currentExposure * 100,
+                availableExposure: riskCheck.availableExposure,
+                maxPositionSize: riskCheck.maxPositionSize,
+                maxAvailableForNewPosition
+            },
+            positions: {
+                long: longPositions.length,
+                short: shortPositions.length,
+                total: openPositions.length
+            },
+            botParameters: {
+                rsiPeriod: params.rsi_period,
+                stopLossPct: params.stop_loss_pct,
+                takeProfitPct: params.take_profit_pct,
+                tradeSizeEur: params.trade_size_eur
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error getting bot analysis:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;
 module.exports.setSocketIO = setSocketIO;
