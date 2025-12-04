@@ -2718,9 +2718,156 @@ router.get('/bot-analysis', async (req, res) => {
         // Generate signal with full details
         const signal = signalGenerator.generateSignal(historyForSignal);
         
-        // Get bot parameters
-        const params = await getBotParameters();
-        const rsi = calculateRSI(historyForSignal.map(h => h.price || h.close), params.rsi_period);
+        // ✅ Calcola indicatori dettagliati per mostrare cosa è attivo
+        const indicators = signal.indicators || {};
+        const rsi = indicators.rsi;
+        const trend = indicators.trend;
+        const macd = indicators.macd;
+        const bollinger = indicators.bollinger;
+        const volume = indicators.volume;
+        const rsiDivergence = indicators.rsiDivergence;
+        
+        // Calcola quali conferme LONG sono attive
+        const longActiveConfirmations = [];
+        const longInactiveConfirmations = [];
+        
+        if (rsi !== null && rsi < 30 && trend === 'bullish') {
+            longActiveConfirmations.push({ name: 'RSI oversold (< 30) + uptrend', points: 25, active: true });
+        } else {
+            longInactiveConfirmations.push({ name: 'RSI oversold (< 30) + uptrend', points: 25, active: false, reason: rsi !== null && rsi < 30 ? 'Trend non bullish' : rsi !== null ? `RSI ${rsi.toFixed(1)} (serve < 30)` : 'RSI non disponibile' });
+        }
+        
+        if (rsi !== null && rsi < 25) {
+            longActiveConfirmations.push({ name: 'RSI fortemente oversold (< 25)', points: 20, active: true });
+        } else {
+            longInactiveConfirmations.push({ name: 'RSI fortemente oversold (< 25)', points: 20, active: false, reason: rsi !== null ? `RSI ${rsi.toFixed(1)} (serve < 25)` : 'RSI non disponibile' });
+        }
+        
+        if (rsiDivergence && rsiDivergence.type === 'bullish') {
+            longActiveConfirmations.push({ name: 'RSI Bullish Divergence', points: Math.min(40, rsiDivergence.strength || 40), active: true });
+        } else {
+            longInactiveConfirmations.push({ name: 'RSI Bullish Divergence', points: 40, active: false, reason: 'Nessuna divergenza bullish rilevata' });
+        }
+        
+        if (macd && macd.macdAboveSignal && macd.macdAboveZero && macd.histogramGrowing) {
+            longActiveConfirmations.push({ name: 'MACD bullish (sopra signal e zero, crescente)', points: 30, active: true });
+        } else {
+            longInactiveConfirmations.push({ name: 'MACD bullish', points: 30, active: false, reason: macd ? 'MACD non soddisfa tutti i requisiti' : 'MACD non disponibile' });
+        }
+        
+        if (bollinger && bollinger.priceAtLower && rsi !== null && rsi < 35) {
+            longActiveConfirmations.push({ name: 'Prezzo a lower Bollinger + RSI oversold', points: 25, active: true });
+        } else {
+            longInactiveConfirmations.push({ name: 'Prezzo a lower Bollinger + RSI oversold', points: 25, active: false, reason: bollinger ? (bollinger.priceAtLower ? `RSI ${rsi?.toFixed(1)} (serve < 35)` : 'Prezzo non a lower band') : 'Bollinger non disponibile' });
+        }
+        
+        if (trend === 'bullish' && indicators.majorTrend === 'bullish') {
+            longActiveConfirmations.push({ name: 'Trend bullish confermato (EMA 10>20, 50>200)', points: 20, active: true });
+        } else {
+            longInactiveConfirmations.push({ name: 'Trend bullish confermato', points: 20, active: false, reason: trend !== 'bullish' ? `Trend: ${trend}` : `Major trend: ${indicators.majorTrend}` });
+        }
+        
+        if (indicators.ema10 && indicators.ema20 && historyForSignal.length > 0) {
+            const currentPrice = historyForSignal[historyForSignal.length - 1].price || historyForSignal[historyForSignal.length - 1].close;
+            if (currentPrice > indicators.ema10 && indicators.ema10 > indicators.ema20) {
+                longActiveConfirmations.push({ name: 'Prezzo sopra EMA 10 & EMA 10 > EMA 20', points: 15, active: true });
+            } else {
+                longInactiveConfirmations.push({ name: 'Prezzo sopra EMA 10 & EMA 10 > EMA 20', points: 15, active: false, reason: 'Prezzo o EMA non allineati correttamente' });
+            }
+        } else {
+            longInactiveConfirmations.push({ name: 'Prezzo sopra EMA 10 & EMA 10 > EMA 20', points: 15, active: false, reason: 'EMA non disponibili' });
+        }
+        
+        if (volume && volume.isHigh) {
+            longActiveConfirmations.push({ name: `Volume alto (${volume.ratio?.toFixed(2)}x)`, points: 15, active: true });
+        } else {
+            longInactiveConfirmations.push({ name: 'Volume alto', points: 15, active: false, reason: volume ? `Volume ratio: ${volume.ratio?.toFixed(2)}x (serve > soglia)` : 'Volume non disponibile' });
+        }
+        
+        // CONFERMA 8: Prezzo stabile/salente
+        if (historyForSignal.length >= 5) {
+            const priceChangeLong = (historyForSignal[historyForSignal.length - 1].price - historyForSignal[historyForSignal.length - 5].price) / historyForSignal[historyForSignal.length - 5].price * 100;
+            if (priceChangeLong >= -0.5) {
+                longActiveConfirmations.push({ name: `Prezzo stabile/salente (${priceChangeLong.toFixed(2)}%)`, points: 10, active: true });
+            } else {
+                longInactiveConfirmations.push({ name: 'Prezzo stabile/salente', points: 10, active: false, reason: `Prezzo scende troppo (${priceChangeLong.toFixed(2)}%)` });
+            }
+        } else {
+            longInactiveConfirmations.push({ name: 'Prezzo stabile/salente', points: 10, active: false, reason: 'Dati insufficienti' });
+        }
+        
+        // Calcola quali conferme SHORT sono attive
+        const shortActiveConfirmations = [];
+        const shortInactiveConfirmations = [];
+        
+        if (rsi !== null && rsi > 70 && trend === 'bearish' && historyForSignal.length >= 3) {
+            const priceChange = (historyForSignal[historyForSignal.length - 1].price - historyForSignal[historyForSignal.length - 3].price) / historyForSignal[historyForSignal.length - 3].price * 100;
+            if (priceChange < -0.1) {
+                shortActiveConfirmations.push({ name: 'RSI overbought (> 70) + downtrend + prezzo scende', points: 35, active: true });
+            } else {
+                shortInactiveConfirmations.push({ name: 'RSI overbought (> 70) + downtrend + prezzo scende', points: 35, active: false, reason: `Prezzo non scende abbastanza (${priceChange.toFixed(2)}%)` });
+            }
+        } else {
+            shortInactiveConfirmations.push({ name: 'RSI overbought (> 70) + downtrend + prezzo scende', points: 35, active: false, reason: rsi !== null && rsi > 70 ? (trend !== 'bearish' ? `Trend: ${trend}` : 'Prezzo non scende') : `RSI ${rsi?.toFixed(1)} (serve > 70)` });
+        }
+        
+        if (rsi !== null && rsi > 75 && trend !== 'bullish') {
+            shortActiveConfirmations.push({ name: 'RSI fortemente overbought (> 75)', points: 25, active: true });
+        } else {
+            shortInactiveConfirmations.push({ name: 'RSI fortemente overbought (> 75)', points: 25, active: false, reason: rsi !== null && rsi > 75 ? `Trend: ${trend} (serve non bullish)` : `RSI ${rsi?.toFixed(1)} (serve > 75)` });
+        }
+        
+        if (rsiDivergence && rsiDivergence.type === 'bearish') {
+            shortActiveConfirmations.push({ name: 'RSI Bearish Divergence', points: Math.min(40, rsiDivergence.strength || 40), active: true });
+        } else {
+            shortInactiveConfirmations.push({ name: 'RSI Bearish Divergence', points: 40, active: false, reason: 'Nessuna divergenza bearish rilevata' });
+        }
+        
+        if (macd && macd.macdBelowSignal && macd.macdBelowZero && macd.histogramShrinking) {
+            shortActiveConfirmations.push({ name: 'MACD bearish (sotto signal e zero, decrescente)', points: 30, active: true });
+        } else {
+            shortInactiveConfirmations.push({ name: 'MACD bearish', points: 30, active: false, reason: macd ? 'MACD non soddisfa tutti i requisiti' : 'MACD non disponibile' });
+        }
+        
+        if (bollinger && bollinger.priceAtUpper && rsi !== null && rsi > 65) {
+            shortActiveConfirmations.push({ name: 'Prezzo a upper Bollinger + RSI overbought', points: 25, active: true });
+        } else {
+            shortInactiveConfirmations.push({ name: 'Prezzo a upper Bollinger + RSI overbought', points: 25, active: false, reason: bollinger ? (bollinger.priceAtUpper ? `RSI ${rsi?.toFixed(1)} (serve > 65)` : 'Prezzo non a upper band') : 'Bollinger non disponibile' });
+        }
+        
+        if (trend === 'bearish' && indicators.majorTrend === 'bearish') {
+            shortActiveConfirmations.push({ name: 'Trend bearish confermato (EMA 10<20)', points: 25, active: true });
+        } else {
+            shortInactiveConfirmations.push({ name: 'Trend bearish confermato', points: 25, active: false, reason: trend !== 'bearish' ? `Trend: ${trend}` : `Major trend: ${indicators.majorTrend}` });
+        }
+        
+        if (indicators.ema10 && indicators.ema20 && historyForSignal.length > 0) {
+            const lastPrice = historyForSignal[historyForSignal.length - 1].price || historyForSignal[historyForSignal.length - 1].close;
+            if (lastPrice < indicators.ema10 && indicators.ema10 < indicators.ema20) {
+                shortActiveConfirmations.push({ name: 'Prezzo sotto EMA 10 & EMA 10 < EMA 20', points: 20, active: true });
+            } else {
+                shortInactiveConfirmations.push({ name: 'Prezzo sotto EMA 10 & EMA 10 < EMA 20', points: 20, active: false, reason: lastPrice >= indicators.ema10 ? 'Prezzo sopra EMA 10' : 'EMA 10 non sotto EMA 20' });
+            }
+        } else {
+            shortInactiveConfirmations.push({ name: 'Prezzo sotto EMA 10 & EMA 10 < EMA 20', points: 20, active: false, reason: 'EMA non disponibili' });
+        }
+        
+        if (historyForSignal.length >= 3) {
+            const priceChange = (historyForSignal[historyForSignal.length - 1].price - historyForSignal[historyForSignal.length - 3].price) / historyForSignal[historyForSignal.length - 3].price * 100;
+            if (priceChange < -0.1) {
+                shortActiveConfirmations.push({ name: `Prezzo sta scendendo (${priceChange.toFixed(2)}%)`, points: 20, active: true });
+            } else {
+                shortInactiveConfirmations.push({ name: 'Prezzo sta scendendo', points: 20, active: false, reason: `Prezzo ${priceChange >= 0 ? 'sale' : 'non scende abbastanza'} (${priceChange.toFixed(2)}%)` });
+            }
+        } else {
+            shortInactiveConfirmations.push({ name: 'Prezzo sta scendendo', points: 20, active: false, reason: 'Dati insufficienti' });
+        }
+        
+        if (volume && volume.isHigh) {
+            shortActiveConfirmations.push({ name: `Volume alto (${volume.ratio?.toFixed(2)}x)`, points: 15, active: true });
+        } else {
+            shortInactiveConfirmations.push({ name: 'Volume alto', points: 15, active: false, reason: volume ? `Volume ratio: ${volume.ratio?.toFixed(2)}x (serve > soglia)` : 'Volume non disponibile' });
+        }
         
         // Risk check
         const riskCheck = await riskManager.calculateMaxRisk();

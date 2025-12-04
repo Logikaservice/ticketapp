@@ -394,6 +394,92 @@
     font-weight: 500;
 }
 
+/* ✅ Dettagli indicatori */
+.indicator-details {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #374151;
+}
+
+.indicator-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: #fff;
+}
+
+.total-strength {
+    color: #3b82f6;
+    font-weight: 600;
+}
+
+.active-indicators,
+.inactive-indicators {
+    margin-top: 12px;
+}
+
+.active-title {
+    color: #10b981;
+    font-size: 13px;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.inactive-title {
+    color: #9ca3af;
+    font-size: 13px;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.indicator-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    margin: 4px 0;
+    border-radius: 4px;
+    font-size: 12px;
+    gap: 8px;
+}
+
+.indicator-item.active {
+    background: rgba(16, 185, 129, 0.1);
+    border-left: 3px solid #10b981;
+}
+
+.indicator-item.inactive {
+    background: rgba(55, 65, 81, 0.3);
+    border-left: 3px solid #6b7280;
+    opacity: 0.7;
+}
+
+.indicator-name {
+    flex: 1;
+    color: #d1d5db;
+}
+
+.indicator-points {
+    color: #3b82f6;
+    font-weight: 600;
+    min-width: 60px;
+    text-align: right;
+}
+
+.indicator-item.active .indicator-points {
+    color: #10b981;
+}
+
+.indicator-reason {
+    color: #9ca3af;
+    font-size: 11px;
+    font-style: italic;
+    max-width: 200px;
+    text-align: right;
+}
+
 .requirement-reason {
     margin-top: 12px;
     padding-top: 12px;
