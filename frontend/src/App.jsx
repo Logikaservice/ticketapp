@@ -2966,24 +2966,38 @@ export default function TicketApp() {
             )
           ) : showCryptoDashboard ? (
             <>
-              {!isCryptoHostname && (
-                <div
-                  className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200 mb-4"
-                  onClick={() => { 
-                    setShowCryptoDashboard(false); 
-                    setShowDashboard(true);
-                    // Rimuovi parametro domain=crypto dall'URL
-                    const url = new URL(window.location);
-                    url.searchParams.delete('domain');
-                    window.history.replaceState({}, '', url);
-                  }}
-                >
-                  ← Torna alla Dashboard Ticket (Clienti, Ricerche, Progetti, Analisi)
-                </div>
-              )}
-              <div className="animate-slideInRight">
-                <CryptoDashboard />
-              </div>
+              {(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const page = urlParams.get('page');
+                const isBotAnalysisPage = page === 'bot-analysis';
+                
+                return isBotAnalysisPage ? (
+                  <div className="animate-slideInRight">
+                    <BotAnalysisPage />
+                  </div>
+                ) : (
+                  <>
+                    {!isCryptoHostname && (
+                      <div
+                        className="w-full bg-gray-100 text-gray-700 shadow-sm text-center text-sm py-2 cursor-pointer hover:bg-gray-200 mb-4"
+                        onClick={() => { 
+                          setShowCryptoDashboard(false); 
+                          setShowDashboard(true);
+                          // Rimuovi parametro domain=crypto dall'URL
+                          const url = new URL(window.location);
+                          url.searchParams.delete('domain');
+                          window.history.replaceState({}, '', url);
+                        }}
+                      >
+                        ← Torna alla Dashboard Ticket (Clienti, Ricerche, Progetti, Analisi)
+                      </div>
+                    )}
+                    <div className="animate-slideInRight">
+                      <CryptoDashboard />
+                    </div>
+                  </>
+                );
+              })()}
             </>
           ) : showOrariTurni ? (
             // Verifica accesso al sistema orari (admin e tecnici hanno sempre accesso)
