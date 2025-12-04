@@ -2669,9 +2669,22 @@ router.delete('/backtest/results/:id', async (req, res) => {
 router.get('/bot-analysis', async (req, res) => {
     try {
         const symbol = 'bitcoin';
-        const currentPrice = await getCurrentPrice(symbol);
         
-        if (!currentPrice) {
+        // Get current price from Binance
+        let currentPrice = 0;
+        try {
+            const binanceData = await httpsGet('https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR');
+            currentPrice = parseFloat(binanceData.price);
+        } catch (err) {
+            console.error('Error fetching current price:', err);
+            // Fallback: get last price from DB
+            const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 1", [symbol]);
+            if (lastPrice) {
+                currentPrice = parseFloat(lastPrice.price);
+            }
+        }
+        
+        if (!currentPrice || currentPrice === 0) {
             return res.status(500).json({ error: 'Impossibile ottenere prezzo corrente' });
         }
 
