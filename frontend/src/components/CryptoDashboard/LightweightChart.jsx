@@ -433,13 +433,55 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
 
     return (
         <div className="lightweight-chart-container">
-            {/* Chart Container - Always render to allow initialization */}
-            <div ref={chartContainerRef} className="lightweight-chart-wrapper" style={{ flex: 1, minWidth: 0 }}>
-                {priceHistory.length === 0 && (
-                    <div className="chart-loading-overlay">
-                        <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
-                            <div style={{ fontSize: '1.2rem', marginBottom: '10px' }}>📊 Caricamento dati storici...</div>
-                            <div style={{ fontSize: '0.9rem' }}>Il grafico si popolerà automaticamente con i dati storici di Binance</div>
+            <div className="chart-main-wrapper">
+                {/* Chart Container - Always render to allow initialization */}
+                <div ref={chartContainerRef} className="lightweight-chart-wrapper">
+                    {priceHistory.length === 0 && (
+                        <div className="chart-loading-overlay">
+                            <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
+                                <div style={{ fontSize: '1.2rem', marginBottom: '10px' }}>📊 Caricamento dati storici...</div>
+                                <div style={{ fontSize: '0.9rem' }}>Il grafico si popolerà automaticamente con i dati storici di Binance</div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Trades Legend - A DESTRA del grafico */}
+                {trades.length > 0 && (
+                    <div className="trades-legend-right">
+                        <div className="legend-header">
+                            <h4>🤖 Operazioni Bot</h4>
+                            <span className="trade-count">{trades.length} operazioni</span>
+                        </div>
+                        <div className="trades-list-vertical">
+                            {trades.slice().reverse().map((trade, index) => (
+                                <div 
+                                    key={index} 
+                                    className={`trade-badge ${trade.type}`}
+                                    title={`${trade.strategy || 'Bot'} - ${new Date(trade.timestamp).toLocaleString('it-IT')}`}
+                                >
+                                    <span className="trade-icon">{trade.type === 'buy' ? '↑' : '↓'}</span>
+                                    <div className="trade-details">
+                                        <div className="trade-row">
+                                            <span className="trade-type">{trade.type.toUpperCase()}</span>
+                                            <span className="trade-price">
+                                                €{parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </span>
+                                        </div>
+                                        <div className="trade-row">
+                                            <span className="trade-amount">{parseFloat(trade.amount).toFixed(4)} BTC</span>
+                                            <span className="trade-time">
+                                                {new Date(trade.timestamp).toLocaleTimeString('it-IT', { 
+                                                    hour: '2-digit', 
+                                                    minute: '2-digit',
+                                                    day: '2-digit',
+                                                    month: '2-digit'
+                                                })}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}
@@ -491,46 +533,6 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             {currentPrice > 0 && (
                 <div className="current-price-display">
                     1 BTC = €{currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-            )}
-
-            {/* Trades Legend - A DESTRA del grafico */}
-            {trades.length > 0 && (
-                <div className="trades-legend-right">
-                    <div className="legend-header">
-                        <h4>🤖 Operazioni Bot</h4>
-                        <span className="trade-count">{trades.length} operazioni</span>
-                    </div>
-                    <div className="trades-list-vertical">
-                        {trades.slice().reverse().map((trade, index) => (
-                            <div 
-                                key={index} 
-                                className={`trade-badge ${trade.type}`}
-                                title={`${trade.strategy || 'Bot'} - ${new Date(trade.timestamp).toLocaleString('it-IT')}`}
-                            >
-                                <span className="trade-icon">{trade.type === 'buy' ? '↑' : '↓'}</span>
-                                <div className="trade-details">
-                                    <div className="trade-row">
-                                        <span className="trade-type">{trade.type.toUpperCase()}</span>
-                                        <span className="trade-price">
-                                            €{parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                        </span>
-                                    </div>
-                                    <div className="trade-row">
-                                        <span className="trade-amount">{parseFloat(trade.amount).toFixed(4)} BTC</span>
-                                        <span className="trade-time">
-                                            {new Date(trade.timestamp).toLocaleTimeString('it-IT', { 
-                                                hour: '2-digit', 
-                                                minute: '2-digit',
-                                                day: '2-digit',
-                                                month: '2-digit'
-                                            })}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
                 </div>
             )}
 

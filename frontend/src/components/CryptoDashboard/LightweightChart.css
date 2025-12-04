@@ -3,17 +3,22 @@
     width: 100%;
     background: #1c1c1e;
     border-radius: 0;
-    overflow: visible;
+    overflow: hidden;
     border: none;
     margin: 0;
     padding: 0;
+}
+
+.chart-main-wrapper {
     display: flex;
     gap: 10px;
     align-items: flex-start;
+    width: 100%;
 }
 
 .lightweight-chart-wrapper {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     height: 500px;
     position: relative;
     margin: 0;
@@ -54,10 +59,11 @@
 
 .trades-legend-right {
     width: 280px;
+    flex-shrink: 0;
     padding: 15px;
     background: #27272a;
     border-left: 1px solid #3f3f46;
-    max-height: 500px;
+    height: 500px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
