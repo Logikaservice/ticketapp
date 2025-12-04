@@ -2735,9 +2735,13 @@ router.get('/bot-analysis', async (req, res) => {
         const volume = indicators.volume;
         const rsiDivergence = indicators.rsiDivergence;
         
-        // Calcola quali conferme LONG sono attive
-        const longActiveConfirmations = [];
-        const longInactiveConfirmations = [];
+        // Calcola quali conferme LONG sono attive (inizializza sempre)
+        let longActiveConfirmations = [];
+        let longInactiveConfirmations = [];
+        let shortActiveConfirmations = [];
+        let shortInactiveConfirmations = [];
+        
+        try {
         
         if (rsi !== null && rsi !== undefined && rsi < 30 && trend === 'bullish') {
             longActiveConfirmations.push({ name: 'RSI oversold (< 30) + uptrend', points: 25, active: true });
