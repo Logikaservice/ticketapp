@@ -522,20 +522,23 @@ class BidirectionalSignalGenerator {
             longSignal.strengthContributions.push({ indicator: 'Price above EMA', points, reason: `Price above EMA 10 & EMA 10 > EMA 20` });
         }
 
-        // CONFERMA 7: Volume alto (movimento forte)
-        if (volume.isHigh) {
+        // CONFERMA 7: Volume alto (movimento forte) - SOLO se prezzo sale o è stabile
+        const priceChangeForVolume = prices.length >= 3 
+            ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
+            : 0;
+        if (volume.isHigh && priceChangeForVolume >= -0.2) { // Volume alto + prezzo sale/stabile (non scende)
             const points = 15;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`High volume (${volume.ratio.toFixed(2)}x)`);
-            longSignal.strengthContributions.push({ indicator: 'High volume', points, reason: `High volume (${volume.ratio.toFixed(2)}x)` });
+            longSignal.reasons.push(`High volume (${volume.ratio.toFixed(2)}x) + price stable/rising`);
+            longSignal.strengthContributions.push({ indicator: 'High volume', points, reason: `High volume (${volume.ratio.toFixed(2)}x) + price stable/rising` });
         }
 
-        // CONFERMA 8: Prezzo NON scende (ultimi periodi)
+        // CONFERMA 8: Prezzo NON scende (ultimi periodi) - SOLO se prezzo sale o è stabile
         const priceChangeLong = prices.length >= 5 
             ? (prices[prices.length - 1] - prices[prices.length - 5]) / prices[prices.length - 5] * 100
             : 0;
-        if (priceChangeLong >= -0.5) { // Non scende più di 0.5%
+        if (priceChangeLong >= 0) { // Prezzo sale o è stabile (NON scende)
             const points = 10;
             longSignal.strength += points;
             longSignal.reasons.push(`Price stable/rising (${priceChangeLong.toFixed(2)}%)`);
