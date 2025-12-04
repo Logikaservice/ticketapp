@@ -81,40 +81,45 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
         }
     }, [trades]);
 
-    // Filtra trades solo con posizioni aperte
-    const openTrades = useMemo(() => {
+    // Usa direttamente le posizioni aperte invece di filtrare i trades
+    const displayPositions = useMemo(() => {
         if (!openPositions || openPositions.length === 0) {
             console.log('🔍 TradingViewChart: Nessuna posizione aperta');
             return [];
         }
         
-        const filtered = trades.filter(trade => {
-            if (!trade.ticket_id) return false;
-            const tradeTicketId = String(trade.ticket_id);
-            const hasOpenPosition = openPositions.some(
-                pos => String(pos.ticket_id) === tradeTicketId && pos.status === 'open'
-            );
-            return hasOpenPosition;
+        // Filtra solo posizioni aperte e crea oggetti per display
+        const positions = openPositions
+            .filter(pos => pos.status === 'open')
+            .map(pos => ({
+                ticket_id: pos.ticket_id,
+                type: pos.type, // 'buy' or 'sell'
+                entry_price: parseFloat(pos.entry_price) || 0,
+                volume: parseFloat(pos.volume) || 0,
+                timestamp: pos.opened_at || pos.timestamp || new Date().toISOString(),
+                strategy: pos.strategy || 'Bot'
+            }));
+        
+        console.log('🔍 TradingViewChart - Posizioni aperte:', {
+            totalOpenPositions: positions.length,
+            positions: positions.map(p => ({
+                ticket_id: p.ticket_id,
+                type: p.type,
+                entry_price: p.entry_price,
+                timestamp: p.timestamp
+            }))
         });
         
-        console.log('🔍 TradingViewChart:', {
-            totalTrades: trades.length,
-            openPositions: openPositions.length,
-            openTrades: filtered.length,
-            openPositionsIds: openPositions.map(p => p.ticket_id),
-            tradesIds: trades.map(t => t.ticket_id)
-        });
-        
-        return filtered;
-    }, [trades, openPositions]);
+        return positions;
+    }, [openPositions]);
 
     // Crea numeri identificativi per i marker
-    const tradeIdMap = new Map();
+    const positionIdMap = new Map();
     let nextId = 1;
-    openTrades.forEach(trade => {
-        const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
-        if (!tradeIdMap.has(uniqueKey)) {
-            tradeIdMap.set(uniqueKey, nextId++);
+    displayPositions.forEach(pos => {
+        const uniqueKey = pos.ticket_id ? `ticket-${pos.ticket_id}` : `pos-${pos.timestamp}`;
+        if (!positionIdMap.has(uniqueKey)) {
+            positionIdMap.set(uniqueKey, nextId++);
         }
     });
 
@@ -126,27 +131,17 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                     {/* TradingView widget will be inserted here */}
                     
                     {/* Overlay per marker - sopra il grafico con posizionamento intelligente */}
-                    {openTrades.length > 0 && (() => {
-                        console.log('📍 Rendering markers:', openTrades.length);
+                    {displayPositions.length > 0 && (() => {
+                        console.log('📍 Rendering markers da posizioni aperte:', displayPositions.length);
                         // Calcola range di tempo e prezzo per posizionamento
                         const now = Date.now();
-                        const tradeTimes = openTrades.map(t => new Date(t.timestamp).getTime());
-                        const tradePrices = openTrades.map(t => parseFloat(t.price));
+                        const positionTimes = displayPositions.map(p => new Date(p.timestamp).getTime());
+                        const entryPrices = displayPositions.map(p => p.entry_price).filter(p => p > 0);
                         
-                        // Range temporale: ultime 24 ore o range dei trades
-                        const minTime = tradeTimes.length > 0 ? Math.min(...tradeTimes) : now - (24 * 60 * 60 * 1000);
-                        const maxTime = tradeTimes.length > 0 ? Math.max(...tradeTimes) : now;
+                        // Range temporale: ultime 24 ore o range delle posizioni
+                        const minTime = positionTimes.length > 0 ? Math.min(...positionTimes) : now - (24 * 60 * 60 * 1000);
+                        const maxTime = positionTimes.length > 0 ? Math.max(...positionTimes) : now;
                         const timeSpan = maxTime - minTime || 1;
-                        
-                        // Range di prezzo: usa entry_price dalle posizioni aperte invece di trade.price
-                        const entryPrices = openTrades.map(trade => {
-                            const matchingPosition = openPositions.find(
-                                pos => String(pos.ticket_id) === String(trade.ticket_id) && pos.status === 'open'
-                            );
-                            return matchingPosition && matchingPosition.entry_price 
-                                ? parseFloat(matchingPosition.entry_price)
-                                : parseFloat(trade.price);
-                        }).filter(p => p > 0);
                         
                         // Range di prezzo: ±5% dal prezzo corrente o range degli entry prices
                         const allPrices = [...entryPrices, currentPrice].filter(p => p > 0);
@@ -156,51 +151,38 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                         
                         return (
                             <div className="markers-overlay">
-                                {openTrades.map((trade, index) => {
-                                    // Trova la posizione aperta corrispondente per ottenere entry_price
-                                    const matchingPosition = openPositions.find(
-                                        pos => String(pos.ticket_id) === String(trade.ticket_id) && pos.status === 'open'
-                                    );
-                                    
-                                    // Usa entry_price dalla posizione se disponibile, altrimenti fallback a trade.price
-                                    const entryPrice = matchingPosition && matchingPosition.entry_price 
-                                        ? parseFloat(matchingPosition.entry_price)
-                                        : parseFloat(trade.price);
-                                    
-                                    const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
-                                    const markerId = tradeIdMap.get(uniqueKey) || (index + 1);
-                                    const isBuy = trade.type === 'buy';
+                                {displayPositions.map((pos, index) => {
+                                    const uniqueKey = pos.ticket_id ? `ticket-${pos.ticket_id}` : `pos-${pos.timestamp}`;
+                                    const markerId = positionIdMap.get(uniqueKey) || (index + 1);
+                                    const isBuy = pos.type === 'buy';
                                     
                                     // Calcola posizione X (tempo) - 5% padding laterale
-                                    const tradeTime = new Date(trade.timestamp).getTime();
-                                    const timePercent = ((tradeTime - minTime) / timeSpan) * 90 + 5; // 5% - 95%
+                                    const positionTime = new Date(pos.timestamp).getTime();
+                                    const timePercent = ((positionTime - minTime) / timeSpan) * 90 + 5; // 5% - 95%
                                     
                                     // Calcola posizione Y (prezzo) usando ENTRY_PRICE - invertito (top = prezzo alto)
-                                    const pricePercent = 100 - (((entryPrice - minPrice) / priceSpan) * 90 + 5); // 5% - 95% invertito
+                                    const pricePercent = 100 - (((pos.entry_price - minPrice) / priceSpan) * 90 + 5); // 5% - 95% invertito
                                     
-                                    // Log per debug
-                                    if (matchingPosition) {
-                                        console.log(`📍 Marker #${markerId}:`, {
-                                            ticket_id: trade.ticket_id,
-                                            trade_price: trade.price,
-                                            entry_price: matchingPosition.entry_price,
-                                            using_price: entryPrice,
-                                            price_diff: Math.abs(parseFloat(trade.price) - entryPrice)
-                                        });
-                                    }
+                                    console.log(`📍 Marker #${markerId}:`, {
+                                        ticket_id: pos.ticket_id,
+                                        type: pos.type,
+                                        entry_price: pos.entry_price,
+                                        timestamp: pos.timestamp,
+                                        position: { x: timePercent, y: pricePercent }
+                                    });
                                     
                                     return (
                                         <div
-                                            key={`marker-${trade.ticket_id || trade.timestamp}-${index}`}
+                                            key={`marker-${pos.ticket_id || pos.timestamp}-${index}`}
                                             className={`chart-marker ${isBuy ? 'marker-buy' : 'marker-sell'}`}
                                             style={{
                                                 position: 'absolute',
                                                 left: `${Math.max(5, Math.min(95, timePercent))}%`,
                                                 top: `${Math.max(5, Math.min(95, pricePercent))}%`,
-                                                zIndex: 1000,
+                                                zIndex: 10000,
                                                 transform: 'translate(-50%, -50%)'
                                             }}
-                                            title={`${trade.type.toUpperCase()} #${markerId} - Entry: €${entryPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} - ${new Date(trade.timestamp).toLocaleString('it-IT')}`}
+                                            title={`${pos.type.toUpperCase()} #${markerId} - Entry: €${pos.entry_price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} - ${new Date(pos.timestamp).toLocaleString('it-IT')}`}
                                         >
                                             <div className="marker-arrow">
                                                 {isBuy ? '↑' : '↓'}
@@ -218,30 +200,30 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                 <div className="trades-legend-right">
                     <div className="legend-header">
                         <h4>🤖 Operazioni Bot</h4>
-                        <span className="trade-count">{openTrades.length} operazioni aperte</span>
+                        <span className="trade-count">{displayPositions.length} operazioni aperte</span>
                     </div>
-                    {openTrades.length > 0 ? (
+                    {displayPositions.length > 0 ? (
                         <div className="trades-list-vertical">
-                            {openTrades
+                            {displayPositions
                                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) // Più recenti in alto
-                                .map((trade, index) => (
+                                .map((pos, index) => (
                                 <div 
-                                    key={index} 
-                                    className={`trade-badge ${trade.type}`}
-                                    title={`${trade.strategy || 'Bot'} - ${new Date(trade.timestamp).toLocaleString('it-IT')}`}
+                                    key={pos.ticket_id || index} 
+                                    className={`trade-badge ${pos.type}`}
+                                    title={`${pos.strategy || 'Bot'} - ${new Date(pos.timestamp).toLocaleString('it-IT')}`}
                                 >
-                                    <span className="trade-icon">{trade.type === 'buy' ? '↑' : '↓'}</span>
+                                    <span className="trade-icon">{pos.type === 'buy' ? '↑' : '↓'}</span>
                                     <div className="trade-details">
                                         <div className="trade-row">
-                                            <span className="trade-type">{trade.type.toUpperCase()}</span>
+                                            <span className="trade-type">{pos.type.toUpperCase()}</span>
                                             <span className="trade-price">
-                                                €{parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                €{pos.entry_price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </span>
                                         </div>
                                         <div className="trade-row">
-                                            <span className="trade-amount">{parseFloat(trade.amount).toFixed(4)} BTC</span>
+                                            <span className="trade-amount">{pos.volume.toFixed(4)} BTC</span>
                                             <span className="trade-time">
-                                                {new Date(trade.timestamp).toLocaleTimeString('it-IT', { 
+                                                {new Date(pos.timestamp).toLocaleTimeString('it-IT', { 
                                                     hour: '2-digit', 
                                                     minute: '2-digit',
                                                     day: '2-digit',

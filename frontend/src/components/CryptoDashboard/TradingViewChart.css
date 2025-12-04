@@ -245,7 +245,7 @@
     right: 0;
     bottom: 0;
     pointer-events: none;
-    z-index: 1000;
+    z-index: 10000; /* Alto z-index per essere sopra TradingView */
 }
 
 .chart-marker {
