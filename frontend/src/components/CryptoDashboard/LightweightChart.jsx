@@ -345,6 +345,14 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
         try {
             // Update the last candle with current price to create a "live" candle
             const lastCandle = lastCandleDataRef.current;
+            
+            // Se il prezzo è cambiato significativamente, aggiorna la candela
+            const priceDiff = Math.abs(currentPrice - lastCandle.close);
+            if (priceDiff < 0.01 && lastCandle.close === currentPrice) {
+                // Prezzo non è cambiato abbastanza, skip update
+                return;
+            }
+            
             const liveCandle = {
                 time: lastCandle.time,
                 open: lastCandle.open,
@@ -358,13 +366,10 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             
             // Update lastCandleDataRef with new high/low values
             lastCandleDataRef.current = liveCandle;
-            
-            // Auto-scroll è disabilitato per ora - può causare problemi con gli aggiornamenti
-            // TODO: Implementare auto-scroll più intelligente che non interferisca con gli aggiornamenti
         } catch (e) {
             // Silent fail - candlestick might not be ready yet
         }
-    }, [currentPrice]);
+    }, [currentPrice, priceHistory.length]);
 
     // Update price lines: current price (blue) + entry lines for open BUY positions
     useEffect(() => {
@@ -451,27 +456,33 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                 <div className="trades-legend-right">
                     <div className="legend-header">
                         <h4>🤖 Operazioni Bot</h4>
-                        <span className="trade-count">{trades.length} operazioni</span>
+                        <span className="trade-count">
+                            {trades.filter(trade => {
+                                if (!trade.ticket_id) return false;
+                                return openPositions && openPositions.some(
+                                    pos => pos.ticket_id === trade.ticket_id && pos.status === 'open'
+                                );
+                            }).length} operazioni aperte
+                        </span>
                     </div>
-                    {trades.length > 0 ? (
+                    {trades.filter(trade => {
+                        if (!trade.ticket_id) return false;
+                        return openPositions && openPositions.some(
+                            pos => pos.ticket_id === trade.ticket_id && pos.status === 'open'
+                        );
+                    }).length > 0 ? (
                         <div className="trades-list-vertical">
                             {trades
                                 .filter(trade => {
-                                    // Mostra solo trades con posizioni aperte o recenti (ultime 24h)
-                                    if (!trade.ticket_id) return true; // Se non ha ticket_id, mostra sempre
+                                    // Mostra SOLO trades con posizioni APERTE - NESSUNA chiusa
+                                    if (!trade.ticket_id) return false; // Se non ha ticket_id, non mostrare
                                     
-                                    // Verifica se c'è una posizione aperta per questo ticket
+                                    // Verifica se c'è una posizione APERTA per questo ticket
                                     const hasOpenPosition = openPositions && openPositions.some(
                                         pos => pos.ticket_id === trade.ticket_id && pos.status === 'open'
                                     );
                                     
-                                    if (hasOpenPosition) return true;
-                                    
-                                    // Mostra anche trades recenti (ultime 24h) anche se chiusi
-                                    const tradeDate = new Date(trade.timestamp);
-                                    const now = new Date();
-                                    const hoursDiff = (now - tradeDate) / (1000 * 60 * 60);
-                                    return hoursDiff <= 24;
+                                    return hasOpenPosition; // Solo se ha posizione aperta
                                 })
                                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) // Più recenti in alto
                                 .map((trade, index) => (

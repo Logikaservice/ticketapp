@@ -191,20 +191,20 @@ const CryptoDashboard = () => {
         fetchData();
         fetchPrice();
         
-        // Update price frequently (every 3 seconds)
+        // Update price frequently (every 2 seconds)
         const priceInterval = setInterval(() => {
             fetchPrice();
-        }, 3000);
+        }, 2000);
         
-        // Update data (positions, trades) every 5 seconds
+        // Update data (positions, trades) every 3 seconds
         const dataInterval = setInterval(() => {
             fetchData();
-        }, 5000);
+        }, 3000);
         
-        // Update history (candles) less frequently (every 30 seconds) to avoid overload
+        // Update history (candles) more frequently (every 15 seconds) for real-time updates
         const historyInterval = setInterval(() => {
             fetchHistory();
-        }, 30000);
+        }, 15000);
         
         return () => {
             clearInterval(priceInterval);

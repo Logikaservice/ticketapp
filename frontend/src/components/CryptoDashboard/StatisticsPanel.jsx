@@ -27,8 +27,8 @@ const StatisticsPanel = ({ apiBase }) => {
 
     useEffect(() => {
         fetchStatistics();
-        // Refresh every 10 seconds
-        const interval = setInterval(fetchStatistics, 10000);
+        // Refresh every 3 seconds for real-time updates
+        const interval = setInterval(fetchStatistics, 3000);
         return () => clearInterval(interval);
     }, []);
 
