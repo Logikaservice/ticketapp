@@ -81,14 +81,30 @@ router.get('/history', async (req, res) => {
         }
         
         // If we have less than required klines, try to load from Binance
+        // ✅ FIX: Carica sempre almeno 24 ore di candele per copertura completa
         const minRequired = interval === '1m' ? 1000 : 200;
-        if (klinesCount < minRequired) {
-            console.log(`⚠️ Klines data is sparse for ${interval}, loading from Binance...`);
+        const shouldLoadFromBinance = klinesCount < minRequired;
+        
+        // ✅ FIX: Calcola sempre almeno 24 ore di candele per garantire copertura completa del giorno
+        const candlesNeededFor24h = interval === '15m' ? 96 : // 24 hours (4 candles/hour * 24)
+                                   interval === '1m' ? 1440 : // 24 hours (60 candles/hour * 24)
+                                   interval === '5m' ? 288 : // 24 hours (12 candles/hour * 24)
+                                   interval === '30m' ? 48 : // 24 hours (2 candles/hour * 24)
+                                   interval === '1h' ? 24 : // 24 hours
+                                   interval === '4h' ? 6 : // 24 hours
+                                   interval === '1d' ? 30 : // 30 days
+                                   96; // Default: 24 hours
+        
+        // ✅ FIX: Usa sempre almeno 24 ore, o il limite richiesto se maggiore
+        const binanceLimit = Math.max(limit, candlesNeededFor24h);
+        
+        if (shouldLoadFromBinance || klinesCount < candlesNeededFor24h) {
+            console.log(`📥 Loading ${binanceLimit} klines from Binance for interval ${interval} (current count: ${klinesCount})...`);
             
             try {
                 // Load klines from Binance with specified interval
                 const https = require('https');
-                const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=BTCEUR&interval=${interval}&limit=${limit}`;
+                const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=BTCEUR&interval=${interval}&limit=${binanceLimit}`;
                 
                 const binanceData = await new Promise((resolve, reject) => {
                     https.get(binanceUrl, (res) => {
@@ -146,10 +162,28 @@ router.get('/history', async (req, res) => {
         }
 
         // Try to get OHLC klines first (more accurate) with specified interval
-        // ✅ FIX: Ordina per ASC per avere sequenza cronologica corretta (dal più vecchio al più recente)
+        // ✅ FIX CRITICO: Prendi le ULTIME N candele (più recenti), poi ordina per ASC per il grafico
+        // Calcola il timestamp minimo per le ultime N candele (circa 24 ore per 15m = 96 candele)
+        const now = Date.now();
+        const intervalMs = {
+            '1m': 60 * 1000,
+            '5m': 5 * 60 * 1000,
+            '15m': 15 * 60 * 1000,
+            '30m': 30 * 60 * 1000,
+            '1h': 60 * 60 * 1000,
+            '4h': 4 * 60 * 60 * 1000,
+            '1d': 24 * 60 * 60 * 1000
+        };
+        const intervalDuration = intervalMs[interval] || 15 * 60 * 1000;
+        const minTime = now - (limit * intervalDuration); // Timestamp minimo per le ultime N candele
+        
         const klinesRows = await dbAll(
-            `SELECT open_time, open_price, high_price, low_price, close_price, volume FROM klines WHERE symbol = 'bitcoin' AND interval = ? ORDER BY open_time ASC LIMIT ?`,
-            [interval, limit]
+            `SELECT open_time, open_price, high_price, low_price, close_price, volume 
+             FROM klines 
+             WHERE symbol = 'bitcoin' AND interval = ? AND open_time >= ? 
+             ORDER BY open_time ASC 
+             LIMIT ?`,
+            [interval, minTime, limit]
         );
         
         if (klinesRows && klinesRows.length > 0) {
