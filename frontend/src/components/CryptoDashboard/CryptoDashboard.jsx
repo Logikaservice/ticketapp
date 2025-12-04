@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet, Settings, BarChart2, RotateCcw } from 'lucide-react';
 import OpenPositions from './OpenPositions';
-import LightweightChart from './LightweightChart';
+import TradingViewChart from './TradingViewChart';
 import BotSettings from './BotSettings';
 import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
@@ -339,9 +339,17 @@ const CryptoDashboard = () => {
                         <Activity size={20} className="text-blue-500" />
                         Bitcoin / EUR Live Market
                     </div>
-                    <LightweightChart
+                    <TradingViewChart
                         symbol="BTCEUR"
-                        trades={(allTrades || []).map(trade => ({
+                        trades={(allTrades || []).filter(trade => {
+                            // Mostra SOLO trades con posizioni APERTE
+                            if (!openPositions || openPositions.length === 0) return false;
+                            if (!trade.ticket_id) return false;
+                            const tradeTicketId = String(trade.ticket_id);
+                            return openPositions.some(
+                                pos => String(pos.ticket_id) === tradeTicketId && pos.status === 'open'
+                            );
+                        }).map(trade => ({
                             type: trade.type,
                             timestamp: trade.timestamp,
                             price: typeof trade.price === 'number' ? trade.price : parseFloat(trade.price),
@@ -349,8 +357,6 @@ const CryptoDashboard = () => {
                             strategy: trade.strategy || 'Bot',
                             ticket_id: trade.ticket_id || null
                         }))}
-                        currentPrice={currentPrice}
-                        priceHistory={priceData || []}
                         openPositions={openPositions || []}
                     />
                 </div>
