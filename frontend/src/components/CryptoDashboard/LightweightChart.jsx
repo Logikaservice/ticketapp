@@ -493,7 +493,6 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                     1 BTC = €{currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
             )}
-            </div>
 
             {/* Trades Legend - A DESTRA del grafico */}
             {trades.length > 0 && (
