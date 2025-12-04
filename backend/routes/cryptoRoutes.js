@@ -2672,6 +2672,14 @@ router.get('/bot-analysis', async (req, res) => {
     
     try {
         // ✅ FIX: Verifica che le dipendenze siano disponibili
+        console.log('🔍 [BOT-ANALYSIS] Verifica dipendenze...');
+        console.log('🔍 [BOT-ANALYSIS] httpsGet:', typeof httpsGet);
+        console.log('🔍 [BOT-ANALYSIS] dbGet:', typeof dbGet);
+        console.log('🔍 [BOT-ANALYSIS] dbAll:', typeof dbAll);
+        console.log('🔍 [BOT-ANALYSIS] signalGenerator:', typeof signalGenerator);
+        console.log('🔍 [BOT-ANALYSIS] riskManager:', typeof riskManager);
+        console.log('🔍 [BOT-ANALYSIS] getBotParameters:', typeof getBotParameters);
+        
         if (typeof httpsGet === 'undefined') {
             console.error('❌ [BOT-ANALYSIS] httpsGet non definito');
             return res.status(500).json({ error: 'httpsGet non disponibile' });
@@ -2688,6 +2696,16 @@ router.get('/bot-analysis', async (req, res) => {
             console.error('❌ [BOT-ANALYSIS] signalGenerator non definito');
             return res.status(500).json({ error: 'signalGenerator non disponibile' });
         }
+        if (typeof riskManager === 'undefined') {
+            console.error('❌ [BOT-ANALYSIS] riskManager non definito');
+            return res.status(500).json({ error: 'riskManager non disponibile' });
+        }
+        if (typeof getBotParameters === 'undefined') {
+            console.error('❌ [BOT-ANALYSIS] getBotParameters non definito');
+            return res.status(500).json({ error: 'getBotParameters non disponibile' });
+        }
+        
+        console.log('🔍 [BOT-ANALYSIS] Tutte le dipendenze verificate OK');
         
         const symbol = 'bitcoin';
         console.log('🔍 [BOT-ANALYSIS] Symbol:', symbol);
