@@ -3099,16 +3099,20 @@ router.get('/bot-analysis', async (req, res) => {
             }
         });
     } catch (error) {
-        console.error('❌ Error getting bot analysis:', error);
-        console.error('❌ Error stack:', error.stack);
-        console.error('❌ Error details:', {
-            message: error.message,
-            name: error.name,
-            code: error.code
-        });
+        console.error('❌ [BOT-ANALYSIS] ========== ERRORE CRITICO ==========');
+        console.error('❌ [BOT-ANALYSIS] Error message:', error.message);
+        console.error('❌ [BOT-ANALYSIS] Error name:', error.name);
+        console.error('❌ [BOT-ANALYSIS] Error code:', error.code);
+        console.error('❌ [BOT-ANALYSIS] Error stack:', error.stack);
+        console.error('❌ [BOT-ANALYSIS] ======================================');
+        
+        // Invia risposta di errore più dettagliata
         res.status(500).json({ 
             error: error.message || 'Internal Server Error',
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            name: error.name,
+            code: error.code,
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+            timestamp: new Date().toISOString()
         });
     }
 });
