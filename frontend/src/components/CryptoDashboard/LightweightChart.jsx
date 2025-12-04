@@ -336,39 +336,42 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
         }
     }, [trades]);
 
-    // Update last candle with live price (real-time candlestick update)
+    // Update last candle with live price (real-time candlestick update) - FORZATO OGNI SECONDO
     useEffect(() => {
         if (!candlestickSeriesRef.current || !currentPrice || !lastCandleDataRef.current || priceHistory.length === 0) {
             return;
         }
 
-        try {
-            // Update the last candle with current price to create a "live" candle
-            const lastCandle = lastCandleDataRef.current;
+        // Aggiorna immediatamente
+        const updateCandle = () => {
+            if (!candlestickSeriesRef.current || !currentPrice || !lastCandleDataRef.current) return;
             
-            // Se il prezzo è cambiato significativamente, aggiorna la candela
-            const priceDiff = Math.abs(currentPrice - lastCandle.close);
-            if (priceDiff < 0.01 && lastCandle.close === currentPrice) {
-                // Prezzo non è cambiato abbastanza, skip update
-                return;
-            }
-            
-            const liveCandle = {
-                time: lastCandle.time,
-                open: lastCandle.open,
-                high: Math.max(lastCandle.high, currentPrice),
-                low: Math.min(lastCandle.low, currentPrice),
-                close: currentPrice // Update close with current price
-            };
+            try {
+                const lastCandle = lastCandleDataRef.current;
+                
+                const liveCandle = {
+                    time: lastCandle.time,
+                    open: lastCandle.open,
+                    high: Math.max(lastCandle.high, currentPrice),
+                    low: Math.min(lastCandle.low, currentPrice),
+                    close: currentPrice // Update close with current price
+                };
 
-            // Update only the last candle using updateData (more efficient than setData)
-            candlestickSeriesRef.current.updateData(liveCandle);
-            
-            // Update lastCandleDataRef with new high/low values
-            lastCandleDataRef.current = liveCandle;
-        } catch (e) {
-            // Silent fail - candlestick might not be ready yet
-        }
+                // FORZA l'aggiornamento ogni volta
+                candlestickSeriesRef.current.updateData(liveCandle);
+                lastCandleDataRef.current = liveCandle;
+            } catch (e) {
+                // Silent fail
+            }
+        };
+
+        // Aggiorna subito
+        updateCandle();
+
+        // E poi ogni secondo per movimento fluido
+        const interval = setInterval(updateCandle, 1000);
+
+        return () => clearInterval(interval);
     }, [currentPrice, priceHistory.length]);
 
     // Update price lines: current price (blue) + entry lines for open BUY positions
@@ -458,32 +461,32 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                         <h4>🤖 Operazioni Bot</h4>
                         <span className="trade-count">
                             {trades.filter(trade => {
+                                if (!openPositions || openPositions.length === 0) return false;
                                 if (!trade.ticket_id) return false;
-                                return openPositions && openPositions.some(
-                                    pos => pos.ticket_id === trade.ticket_id && pos.status === 'open'
+                                
+                                // Confronta ticket_id come stringhe per evitare problemi di tipo
+                                const tradeTicketId = String(trade.ticket_id);
+                                return openPositions.some(
+                                    pos => String(pos.ticket_id) === tradeTicketId && pos.status === 'open'
                                 );
                             }).length} operazioni aperte
                         </span>
                     </div>
-                    {trades.filter(trade => {
-                        if (!trade.ticket_id) return false;
-                        return openPositions && openPositions.some(
-                            pos => pos.ticket_id === trade.ticket_id && pos.status === 'open'
-                        );
-                    }).length > 0 ? (
+                    {(() => {
+                        const openTrades = trades.filter(trade => {
+                            if (!openPositions || openPositions.length === 0) return false;
+                            if (!trade.ticket_id) return false;
+                            
+                            // Confronta ticket_id come stringhe per evitare problemi di tipo
+                            const tradeTicketId = String(trade.ticket_id);
+                            return openPositions.some(
+                                pos => String(pos.ticket_id) === tradeTicketId && pos.status === 'open'
+                            );
+                        });
+                        
+                        return openTrades.length > 0 ? (
                         <div className="trades-list-vertical">
-                            {trades
-                                .filter(trade => {
-                                    // Mostra SOLO trades con posizioni APERTE - NESSUNA chiusa
-                                    if (!trade.ticket_id) return false; // Se non ha ticket_id, non mostrare
-                                    
-                                    // Verifica se c'è una posizione APERTA per questo ticket
-                                    const hasOpenPosition = openPositions && openPositions.some(
-                                        pos => pos.ticket_id === trade.ticket_id && pos.status === 'open'
-                                    );
-                                    
-                                    return hasOpenPosition; // Solo se ha posizione aperta
-                                })
+                            {openTrades
                                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) // Più recenti in alto
                                 .map((trade, index) => (
                                 <div 
