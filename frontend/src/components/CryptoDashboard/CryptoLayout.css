@@ -69,14 +69,16 @@
 /* Grid Layout */
 .crypto-grid {
   display: grid;
-  grid-template-columns: 1fr 0.4fr;
+  grid-template-columns: 1fr;
   gap: 1.5rem;
   margin-right: 0;
 }
 
-/* Chart takes more space */
+/* Chart takes full width */
 .crypto-grid > .crypto-card:first-child {
-  min-width: 0; /* Allow shrinking */
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 @media (max-width: 1024px) {

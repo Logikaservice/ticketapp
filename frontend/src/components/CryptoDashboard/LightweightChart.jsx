@@ -455,7 +455,26 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                     </div>
                     {trades.length > 0 ? (
                         <div className="trades-list-vertical">
-                            {trades.slice().reverse().map((trade, index) => (
+                            {trades
+                                .filter(trade => {
+                                    // Mostra solo trades con posizioni aperte o recenti (ultime 24h)
+                                    if (!trade.ticket_id) return true; // Se non ha ticket_id, mostra sempre
+                                    
+                                    // Verifica se c'è una posizione aperta per questo ticket
+                                    const hasOpenPosition = openPositions && openPositions.some(
+                                        pos => pos.ticket_id === trade.ticket_id && pos.status === 'open'
+                                    );
+                                    
+                                    if (hasOpenPosition) return true;
+                                    
+                                    // Mostra anche trades recenti (ultime 24h) anche se chiusi
+                                    const tradeDate = new Date(trade.timestamp);
+                                    const now = new Date();
+                                    const hoursDiff = (now - tradeDate) / (1000 * 60 * 60);
+                                    return hoursDiff <= 24;
+                                })
+                                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) // Più recenti in alto
+                                .map((trade, index) => (
                                 <div 
                                     key={index} 
                                     className={`trade-badge ${trade.type}`}
