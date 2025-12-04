@@ -36,7 +36,7 @@ const BotAnalysisPage = () => {
         };
 
         fetchAnalysis();
-        const interval = setInterval(fetchAnalysis, 3000); // Aggiorna ogni 3 secondi
+        const interval = setInterval(fetchAnalysis, 1000); // ✅ Aggiorna ogni 1 secondo per vedere cambiamenti in tempo reale
 
         return () => clearInterval(interval);
     }, [apiBase]);
@@ -231,8 +231,18 @@ const BotAnalysisPage = () => {
                                 <div className="progress-bar">
                                     <div 
                                         className="progress-fill" 
-                                        style={{ width: `${Math.min(100, (requirements.short.currentStrength / requirements.short.minStrength) * 100)}%` }}
+                                        style={{ 
+                                            width: `${Math.min(100, (requirements.short.currentStrength / requirements.short.minStrength) * 100)}%`,
+                                            transition: 'width 0.5s ease-in-out',
+                                            background: requirements.short.currentStrength >= requirements.short.minStrength 
+                                                ? 'linear-gradient(90deg, #10b981, #059669)' 
+                                                : 'linear-gradient(90deg, #3b82f6, #2563eb)'
+                                        }}
                                     />
+                                </div>
+                                {/* Indicatore visivo percentuale */}
+                                <div className="strength-percentage">
+                                    {Math.round((requirements.short.currentStrength / requirements.short.minStrength) * 100)}% del target raggiunto
                                 </div>
                             </div>
                             <div className="requirement-progress">
@@ -249,11 +259,30 @@ const BotAnalysisPage = () => {
                                         <span className="needs">{requirements.short.needsConfirmations} in più</span>
                                     )}
                                 </div>
-                                <div className="progress-bar">
-                                    <div 
-                                        className="progress-fill" 
-                                        style={{ width: `${Math.min(100, (requirements.short.currentConfirmations / requirements.short.minConfirmations) * 100)}%` }}
-                                    />
+                                {/* ✅ Barra di progresso con indicatori visivi per ogni conferma */}
+                                <div className="progress-bar-container">
+                                    <div className="progress-bar">
+                                        <div 
+                                            className="progress-fill" 
+                                            style={{ 
+                                                width: `${Math.min(100, (requirements.short.currentConfirmations / requirements.short.minConfirmations) * 100)}%`,
+                                                transition: 'width 0.5s ease-in-out'
+                                            }}
+                                        />
+                                    </div>
+                                    {/* Indicatori visivi per ogni conferma */}
+                                    <div className="confirmation-indicators">
+                                        {Array.from({ length: requirements.short.minConfirmations }).map((_, index) => {
+                                            const isActive = index < requirements.short.currentConfirmations;
+                                            return (
+                                                <div 
+                                                    key={index}
+                                                    className={`confirmation-dot ${isActive ? 'active' : 'inactive'}`}
+                                                    title={`Conferma ${index + 1}${isActive ? ' ✓' : ''}`}
+                                                />
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
                             <div className="requirement-reason">
