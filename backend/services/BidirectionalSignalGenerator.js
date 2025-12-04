@@ -21,7 +21,8 @@
 class BidirectionalSignalGenerator {
     constructor() {
         // Soglia minima forza segnale (0-100)
-        this.MIN_SIGNAL_STRENGTH = 50;
+        // ✅ FIX: Abbassata da 50 a 40 per essere più reattivo (ma richiede comunque conferme)
+        this.MIN_SIGNAL_STRENGTH = 40;
     }
 
     /**

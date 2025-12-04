@@ -647,7 +647,17 @@ const runBotCycle = async () => {
         // 8. Generate bidirectional signal
         const signal = signalGenerator.generateSignal(historyForSignal);
 
-        console.log(`📡 SIGNAL: ${signal.direction} | Strength: ${signal.strength}/100 | Reasons: ${signal.reasons.join(', ')}`);
+        // ✅ LOGGING DETTAGLIATO per debug
+        console.log(`📡 SIGNAL ANALYSIS:`);
+        console.log(`   Direction: ${signal.direction}`);
+        console.log(`   Strength: ${signal.strength}/100`);
+        console.log(`   Confirmations: ${signal.confirmations || 0}`);
+        console.log(`   Reasons: ${signal.reasons.join(' | ')}`);
+        if (signal.indicators) {
+            console.log(`   RSI: ${signal.indicators.rsi?.toFixed(2) || 'N/A'}`);
+            console.log(`   Trend: ${signal.indicators.trend || 'N/A'}`);
+            console.log(`   MACD: ${signal.indicators.macd ? 'Present' : 'N/A'}`);
+        }
 
         // 9. Get current open positions
         const openPositions = await dbAll(
@@ -658,11 +668,18 @@ const runBotCycle = async () => {
         const longPositions = openPositions.filter(p => p.type === 'buy');
         const shortPositions = openPositions.filter(p => p.type === 'sell');
 
+        console.log(`📊 OPEN POSITIONS: LONG=${longPositions.length} | SHORT=${shortPositions.length}`);
+
         // 10. DECISION LOGIC - Solo se segnale forte
-        if (signal.direction === 'LONG' && signal.strength >= 50) {
+        // ✅ FIX: Abbassata soglia da 50 a 40 per essere più reattivo (ma richiede comunque conferme)
+        const MIN_SIGNAL_STRENGTH = 40; // Era 50, ora 40 per essere più reattivo
+        
+        if (signal.direction === 'LONG' && signal.strength >= MIN_SIGNAL_STRENGTH) {
             // Verifica se possiamo aprire LONG
             const positionSize = Math.min(params.trade_size_eur, riskCheck.maxPositionSize);
             const canOpen = await riskManager.canOpenPosition(positionSize);
+            
+            console.log(`🔍 LONG SIGNAL CHECK: Strength=${signal.strength} (>=${MIN_SIGNAL_STRENGTH}) | Confirmations=${signal.confirmations} (>=3) | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length}`);
 
             if (canOpen.allowed && longPositions.length === 0) {
                 // Apri LONG position
@@ -687,10 +704,12 @@ const runBotCycle = async () => {
                 console.log(`ℹ️ BOT LONG: Already have ${longPositions.length} LONG position(s)`);
             }
         }
-        else if (signal.direction === 'SHORT' && signal.strength >= 50) {
+        else if (signal.direction === 'SHORT' && signal.strength >= MIN_SIGNAL_STRENGTH) {
             // Verifica se possiamo aprire SHORT
             const positionSize = Math.min(params.trade_size_eur, riskCheck.maxPositionSize);
             const canOpen = await riskManager.canOpenPosition(positionSize);
+            
+            console.log(`🔍 SHORT SIGNAL CHECK: Strength=${signal.strength} (>=${MIN_SIGNAL_STRENGTH}) | Confirmations=${signal.confirmations} (>=4) | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length}`);
 
             if (canOpen.allowed && shortPositions.length === 0) {
                 // Apri SHORT position
@@ -718,9 +737,17 @@ const runBotCycle = async () => {
         else {
             // Segnale NEUTRAL o troppo debole
             if (signal.direction === 'NEUTRAL') {
-                console.log(`➡️ BOT: Neutral signal (strength: ${signal.strength}/100) - No action`);
+                console.log(`➡️ BOT: Neutral signal (strength: ${signal.strength}/100, confirmations: ${signal.confirmations || 0}) - No action`);
+                console.log(`   Reason: ${signal.reasons[0] || 'Unknown'}`);
+            } else if (signal.direction === 'LONG' || signal.direction === 'SHORT') {
+                const minStrength = signal.direction === 'LONG' ? 50 : 50;
+                const minConfirmations = signal.direction === 'LONG' ? 3 : 4;
+                console.log(`➡️ BOT: ${signal.direction} signal too weak - No action`);
+                console.log(`   Strength: ${signal.strength}/100 (required: >= ${minStrength})`);
+                console.log(`   Confirmations: ${signal.confirmations || 0} (required: >= ${minConfirmations})`);
+                console.log(`   Reasons: ${signal.reasons.slice(0, 3).join(' | ')}`);
             } else {
-                console.log(`➡️ BOT: Signal too weak (${signal.strength}/100 < 50) - No action`);
+                console.log(`➡️ BOT: Unknown signal direction - No action`);
             }
         }
 
