@@ -2782,11 +2782,7 @@ router.get('/bot-analysis', async (req, res) => {
         const rsi = indicators.rsi;
         
         console.log('🔍 [BOT-ANALYSIS] Getting risk check...');
-            const rsiValue = (rsi !== null && rsi !== undefined) ? rsi.toFixed(1) : 'N/A';
-            longInactiveConfirmations.push({ name: 'RSI oversold (< 30) + uptrend', points: 25, active: false, reason: (rsi !== null && rsi !== undefined && rsi < 30) ? 'Trend non bullish' : (rsi !== null && rsi !== undefined) ? `RSI ${rsiValue} (serve < 30)` : 'RSI non disponibile' });
-        }
-        
-        if (rsi !== null && rsi !== undefined && rsi < 25) {
+        // Risk check
             longActiveConfirmations.push({ name: 'RSI fortemente oversold (< 25)', points: 20, active: true });
         } else {
             const rsiValue = (rsi !== null && rsi !== undefined) ? rsi.toFixed(1) : 'N/A';
