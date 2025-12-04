@@ -521,7 +521,8 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                         <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>
                             Nessuna operazione recente
                         </div>
-                    )}
+                    );
+                    })()}
                 </div>
             </div>
 
