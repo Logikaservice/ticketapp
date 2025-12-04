@@ -2911,6 +2911,15 @@ router.get('/bot-analysis', async (req, res) => {
         } else {
             shortInactiveConfirmations.push({ name: 'Volume alto', points: 15, active: false, reason: volume ? `Volume ratio: ${volume.ratio?.toFixed(2)}x (serve > soglia)` : 'Volume non disponibile' });
         }
+        } catch (indicatorError) {
+            console.error('❌ Error calculating indicator details:', indicatorError);
+            console.error('❌ Indicator error stack:', indicatorError.stack);
+            // Continua con array vuoti se c'è un errore nel calcolo degli indicatori
+            longActiveConfirmations = [];
+            longInactiveConfirmations = [];
+            shortActiveConfirmations = [];
+            shortInactiveConfirmations = [];
+        }
         
         // Risk check
         const riskCheck = await riskManager.calculateMaxRisk();
