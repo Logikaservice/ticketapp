@@ -2667,7 +2667,8 @@ router.delete('/backtest/results/:id', async (req, res) => {
 
 // ✅ NUOVO ENDPOINT: Analisi bot in tempo reale - Mostra cosa sta valutando il bot
 router.get('/bot-analysis', async (req, res) => {
-    console.log('🔍 [BOT-ANALYSIS] Richiesta ricevuta');
+    console.log('🔍 [BOT-ANALYSIS] ========== RICHIESTA RICEVUTA ==========');
+    console.log('🔍 [BOT-ANALYSIS] Timestamp:', new Date().toISOString());
     try {
         const symbol = 'bitcoin';
         console.log('🔍 [BOT-ANALYSIS] Symbol:', symbol);
