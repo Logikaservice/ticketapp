@@ -538,25 +538,65 @@ const getBotParameters = async (symbol = 'bitcoin') => {
 // Symbol to Trading Pair mapping
 const SYMBOL_TO_PAIR = {
     'bitcoin': 'BTCEUR',
+    'bitcoin_usdt': 'BTCUSDT',
     'solana': 'SOLUSDT',
+    'solana_eur': 'SOLEUR',
     'ethereum': 'ETHEUR',
+    'ethereum_usdt': 'ETHUSDT',
     'cardano': 'ADAEUR',
+    'cardano_usdt': 'ADAUSDT',
     'polkadot': 'DOTEUR',
+    'polkadot_usdt': 'DOTUSDT',
     'chainlink': 'LINKEUR',
+    'chainlink_usdt': 'LINKUSDT',
     'litecoin': 'LTCEUR',
-    'ripple': 'XRPUSDT'
+    'litecoin_usdt': 'LTCUSDT',
+    'ripple': 'XRPUSDT',
+    'ripple_eur': 'XRPEUR',
+    'binance_coin': 'BNBUSDT',
+    'binance_coin_eur': 'BNBEUR',
+    'matic': 'MATICUSDT',
+    'matic_eur': 'MATICEUR',
+    'avalanche': 'AVAXUSDT',
+    'avalanche_eur': 'AVAXEUR',
+    'uniswap': 'UNIUSDT',
+    'uniswap_eur': 'UNIEUR',
+    'dogecoin': 'DOGEUSDT',
+    'dogecoin_eur': 'DOGEEUR',
+    'shiba': 'SHIBUSDT',
+    'shiba_eur': 'SHIBEUR'
 };
 
 // Symbol to CoinGecko ID mapping
 const SYMBOL_TO_COINGECKO = {
     'bitcoin': 'bitcoin',
+    'bitcoin_usdt': 'bitcoin',
     'solana': 'solana',
+    'solana_eur': 'solana',
     'ethereum': 'ethereum',
+    'ethereum_usdt': 'ethereum',
     'cardano': 'cardano',
+    'cardano_usdt': 'cardano',
     'polkadot': 'polkadot',
+    'polkadot_usdt': 'polkadot',
     'chainlink': 'chainlink',
+    'chainlink_usdt': 'chainlink',
     'litecoin': 'litecoin',
-    'ripple': 'ripple'
+    'litecoin_usdt': 'litecoin',
+    'ripple': 'ripple',
+    'ripple_eur': 'ripple',
+    'binance_coin': 'binancecoin',
+    'binance_coin_eur': 'binancecoin',
+    'matic': 'matic-network',
+    'matic_eur': 'matic-network',
+    'avalanche': 'avalanche-2',
+    'avalanche_eur': 'avalanche-2',
+    'uniswap': 'uniswap',
+    'uniswap_eur': 'uniswap',
+    'dogecoin': 'dogecoin',
+    'dogecoin_eur': 'dogecoin',
+    'shiba': 'shiba-inu',
+    'shiba_eur': 'shiba-inu'
 };
 
 // Helper to get price for a symbol
@@ -2024,16 +2064,50 @@ router.get('/bot/active', async (req, res) => {
 // GET /api/crypto/symbols/available - Get list of available trading symbols
 router.get('/symbols/available', async (req, res) => {
     try {
-        // Common crypto symbols that can be traded
+        // Common crypto symbols that can be traded - Aggiunti più simboli e coppie
         const availableSymbols = [
+            // Bitcoin
             { symbol: 'bitcoin', name: 'Bitcoin', pair: 'BTCEUR', display: 'BTC/EUR' },
+            { symbol: 'bitcoin_usdt', name: 'Bitcoin', pair: 'BTCUSDT', display: 'BTC/USDT' },
+            // Solana
             { symbol: 'solana', name: 'Solana', pair: 'SOLUSDT', display: 'SOL/USDT' },
+            { symbol: 'solana_eur', name: 'Solana', pair: 'SOLEUR', display: 'SOL/EUR' },
+            // Ethereum
             { symbol: 'ethereum', name: 'Ethereum', pair: 'ETHEUR', display: 'ETH/EUR' },
+            { symbol: 'ethereum_usdt', name: 'Ethereum', pair: 'ETHUSDT', display: 'ETH/USDT' },
+            // Cardano
             { symbol: 'cardano', name: 'Cardano', pair: 'ADAEUR', display: 'ADA/EUR' },
+            { symbol: 'cardano_usdt', name: 'Cardano', pair: 'ADAUSDT', display: 'ADA/USDT' },
+            // Polkadot
             { symbol: 'polkadot', name: 'Polkadot', pair: 'DOTEUR', display: 'DOT/EUR' },
+            { symbol: 'polkadot_usdt', name: 'Polkadot', pair: 'DOTUSDT', display: 'DOT/USDT' },
+            // Chainlink
             { symbol: 'chainlink', name: 'Chainlink', pair: 'LINKEUR', display: 'LINK/EUR' },
+            { symbol: 'chainlink_usdt', name: 'Chainlink', pair: 'LINKUSDT', display: 'LINK/USDT' },
+            // Litecoin
             { symbol: 'litecoin', name: 'Litecoin', pair: 'LTCEUR', display: 'LTC/EUR' },
-            { symbol: 'ripple', name: 'Ripple', pair: 'XRPUSDT', display: 'XRP/USDT' }
+            { symbol: 'litecoin_usdt', name: 'Litecoin', pair: 'LTCUSDT', display: 'LTC/USDT' },
+            // Ripple
+            { symbol: 'ripple', name: 'Ripple', pair: 'XRPUSDT', display: 'XRP/USDT' },
+            { symbol: 'ripple_eur', name: 'Ripple', pair: 'XRPEUR', display: 'XRP/EUR' },
+            // Binance Coin
+            { symbol: 'binance_coin', name: 'Binance Coin', pair: 'BNBUSDT', display: 'BNB/USDT' },
+            { symbol: 'binance_coin_eur', name: 'Binance Coin', pair: 'BNBEUR', display: 'BNB/EUR' },
+            // Polygon (MATIC)
+            { symbol: 'matic', name: 'Polygon', pair: 'MATICUSDT', display: 'MATIC/USDT' },
+            { symbol: 'matic_eur', name: 'Polygon', pair: 'MATICEUR', display: 'MATIC/EUR' },
+            // Avalanche
+            { symbol: 'avalanche', name: 'Avalanche', pair: 'AVAXUSDT', display: 'AVAX/USDT' },
+            { symbol: 'avalanche_eur', name: 'Avalanche', pair: 'AVAXEUR', display: 'AVAX/EUR' },
+            // Uniswap
+            { symbol: 'uniswap', name: 'Uniswap', pair: 'UNIUSDT', display: 'UNI/USDT' },
+            { symbol: 'uniswap_eur', name: 'Uniswap', pair: 'UNIEUR', display: 'UNI/EUR' },
+            // Dogecoin
+            { symbol: 'dogecoin', name: 'Dogecoin', pair: 'DOGEUSDT', display: 'DOGE/USDT' },
+            { symbol: 'dogecoin_eur', name: 'Dogecoin', pair: 'DOGEEUR', display: 'DOGE/EUR' },
+            // Shiba Inu
+            { symbol: 'shiba', name: 'Shiba Inu', pair: 'SHIBUSDT', display: 'SHIB/USDT' },
+            { symbol: 'shiba_eur', name: 'Shiba Inu', pair: 'SHIBEUR', display: 'SHIB/EUR' }
         ];
         
         // Get active bots to show which symbols have bots running

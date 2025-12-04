@@ -94,7 +94,10 @@ const CryptoDashboard = () => {
             const res = await fetch(`${apiBase}/api/crypto/symbols/available`);
             if (res.ok) {
                 const data = await res.json();
+                console.log('📊 Available symbols received:', data.symbols?.length || 0, 'symbols');
                 setAvailableSymbols(data.symbols || []);
+            } else {
+                console.error('❌ Error fetching symbols:', res.status, res.statusText);
             }
         } catch (error) {
             console.error("❌ Error fetching available symbols:", error);
