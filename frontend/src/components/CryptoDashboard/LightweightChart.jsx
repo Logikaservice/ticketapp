@@ -119,8 +119,26 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             return;
         }
 
+        // Debug: log first item to see structure
+        console.log('🔍 LightweightChart: First item structure:', {
+            keys: Object.keys(priceHistory[0] || {}),
+            firstItem: priceHistory[0],
+            hasOpen: 'open' in (priceHistory[0] || {}),
+            hasHigh: 'high' in (priceHistory[0] || {}),
+            hasLow: 'low' in (priceHistory[0] || {}),
+            hasClose: 'close' in (priceHistory[0] || {})
+        });
+
         // Check if we have OHLC candlesticks (from klines table) or price points
-        const hasOHLC = priceHistory.length > 0 && priceHistory[0].hasOwnProperty('open') && priceHistory[0].hasOwnProperty('high');
+        // Use 'in' operator instead of hasOwnProperty for better compatibility
+        const firstItem = priceHistory[0] || {};
+        const hasOHLC = priceHistory.length > 0 && 
+                       ('open' in firstItem) && 
+                       ('high' in firstItem) && 
+                       ('low' in firstItem) && 
+                       ('close' in firstItem);
+        
+        console.log('🔍 LightweightChart: hasOHLC check:', hasOHLC);
         
         if (hasOHLC) {
             // Use OHLC candlesticks directly (no grouping needed - already from Binance)

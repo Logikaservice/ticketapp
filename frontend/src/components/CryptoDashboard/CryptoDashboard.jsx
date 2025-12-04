@@ -198,7 +198,8 @@ const CryptoDashboard = () => {
                 console.log('📊 Fetched history:', {
                     length: history.length,
                     firstItem: history[0],
-                    hasOHLC: history.length > 0 && history[0].hasOwnProperty('open')
+                    keys: history.length > 0 ? Object.keys(history[0]) : [],
+                    hasOHLC: history.length > 0 && ('open' in history[0]) && ('high' in history[0]) && ('low' in history[0]) && ('close' in history[0])
                 });
                 setPriceData(history);
             } else {

@@ -57,20 +57,24 @@ const getPortfolio = () => {
 // GET /api/crypto/history (Get chart data)
 router.get('/history', async (req, res) => {
     try {
-        // Check if we have enough data
+        // Check if we have OHLC klines data first (preferred)
+        const klinesCountRows = await dbAll("SELECT COUNT(*) as count FROM klines WHERE symbol = 'bitcoin' AND interval = '15m'");
+        const klinesCount = klinesCountRows && klinesCountRows.length > 0 ? klinesCountRows[0].count : 0;
+        
+        // Also check price_history for backward compatibility
         const countRows = await dbAll("SELECT COUNT(*) as count FROM price_history WHERE symbol = 'bitcoin'");
         const count = countRows && countRows.length > 0 ? countRows[0].count : 0;
 
-        console.log(`📊 Price history count: ${count}`);
+        console.log(`📊 Klines count: ${klinesCount}, Price history count: ${count}`);
 
-        // If we have less than 50 data points, try to load from Binance
-        if (count < 50) {
-            console.log('⚠️ Price history is sparse, loading from Binance...');
+        // If we have less than 200 klines, try to load from Binance (even if price_history has data)
+        if (klinesCount < 200) {
+            console.log('⚠️ Klines data is sparse, loading from Binance...');
             
             try {
-                // Load recent klines from Binance (last 24 hours, 15min intervals = 96 candles)
+                // Load more klines from Binance (500 candles = ~5 days at 15min intervals)
                 const https = require('https');
-                const binanceUrl = 'https://api.binance.com/api/v3/klines?symbol=BTCEUR&interval=15m&limit=96';
+                const binanceUrl = 'https://api.binance.com/api/v3/klines?symbol=BTCEUR&interval=15m&limit=500';
                 
                 const binanceData = await new Promise((resolve, reject) => {
                     https.get(binanceUrl, (res) => {
@@ -148,6 +152,7 @@ router.get('/history', async (req, res) => {
             }).filter(candle => !isNaN(candle.time) && candle.time > 0); // Filter invalid data
             
             console.log(`📊 Returning ${candles.length} OHLC candlesticks from klines table (time range: ${candles[0]?.time} to ${candles[candles.length - 1]?.time})`);
+            console.log('📊 Sample candle structure:', candles[0]);
             res.json(candles);
         } else {
             // Fallback to price_history points (backward compatibility)
