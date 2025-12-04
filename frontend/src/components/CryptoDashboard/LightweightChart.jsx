@@ -2,7 +2,21 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import './LightweightChart.css';
 
-const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, priceHistory = [], openPositions = [] }) => {
+const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, priceHistory = [], openPositions = [], onIntervalChange, currentInterval = '15m' }) => {
+    const [selectedInterval, setSelectedInterval] = useState(currentInterval);
+    
+    // Aggiorna quando cambia l'intervallo esterno
+    useEffect(() => {
+        setSelectedInterval(currentInterval);
+    }, [currentInterval]);
+    
+    // Notifica il cambio di intervallo
+    const handleIntervalChange = (newInterval) => {
+        setSelectedInterval(newInterval);
+        if (onIntervalChange) {
+            onIntervalChange(newInterval);
+        }
+    };
     const chartContainerRef = useRef(null);
     const chartRef = useRef(null);
     const candlestickSeriesRef = useRef(null);
@@ -442,8 +456,50 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
         }
     }, [currentPrice, priceHistory.length, openPositions]);
 
+    const intervals = [
+        { value: '1m', label: '1 Min' },
+        { value: '5m', label: '5 Min' },
+        { value: '15m', label: '15 Min' },
+        { value: '30m', label: '30 Min' },
+        { value: '1h', label: '1 Ora' },
+        { value: '4h', label: '4 Ore' },
+        { value: '1d', label: '1 Giorno' }
+    ];
+
     return (
         <div className="lightweight-chart-container">
+            {/* Selettore Intervallo */}
+            <div style={{ 
+                padding: '10px 15px', 
+                background: '#27272a', 
+                borderBottom: '1px solid #3f3f46',
+                display: 'flex',
+                gap: '8px',
+                alignItems: 'center',
+                flexWrap: 'wrap'
+            }}>
+                <span style={{ color: '#9ca3af', fontSize: '0.85rem', fontWeight: '500' }}>Intervallo:</span>
+                {intervals.map(interval => (
+                    <button
+                        key={interval.value}
+                        onClick={() => handleIntervalChange(interval.value)}
+                        style={{
+                            padding: '4px 12px',
+                            background: selectedInterval === interval.value ? '#4ade80' : '#3f3f46',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: selectedInterval === interval.value ? '600' : '400',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        {interval.label}
+                    </button>
+                ))}
+            </div>
+            
             <div className="chart-main-wrapper">
                 {/* Chart Container - Always render to allow initialization */}
                 <div ref={chartContainerRef} className="lightweight-chart-wrapper">

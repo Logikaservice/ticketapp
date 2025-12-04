@@ -27,7 +27,7 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
         script.innerHTML = JSON.stringify({
             "autosize": true,
             "symbol": tradingViewSymbol,
-            "interval": "1", // 1 minuto per movimento più fluido come Binance
+            "interval": "15", // 15 minuti per corrispondenza con Lightweight Charts
             "timezone": "Europe/Rome",
             "theme": "dark",
             "style": "1",
@@ -40,6 +40,9 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
             "toolbar_bg": "#1c1c1e", // Colore toolbar
             "withdateranges": true, // Abilita date ranges
             "studies_overrides": {},
+            "drawing_toolbar": true, // Abilita toolbar per disegnare linee
+            "allow_symbol_change": true, // Permette cambio simbolo
+            "hide_side_toolbar": false, // Mostra toolbar laterale per tool di disegno
             "support_host": "https://www.tradingview.com",
             "height": 500,
             "width": "100%",

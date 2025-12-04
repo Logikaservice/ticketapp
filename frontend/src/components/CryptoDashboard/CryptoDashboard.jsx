@@ -186,11 +186,12 @@ const CryptoDashboard = () => {
         }
     };
     
-    // Fetch history for Lightweight Charts (1m) when switching
+    // Fetch history for Lightweight Charts (15m di default, ma può cambiare)
     const [lightweightHistory, setLightweightHistory] = useState([]);
-    const fetchLightweightHistory = async () => {
+    const [lightweightInterval, setLightweightInterval] = useState('15m'); // Default 15m per corrispondenza
+    const fetchLightweightHistory = async (interval = '15m') => {
         try {
-            const res = await fetch(`${apiBase}/api/crypto/history?interval=1m`);
+            const res = await fetch(`${apiBase}/api/crypto/history?interval=${interval}`);
             if (res.ok) {
                 const history = await res.json();
                 setLightweightHistory(history);
@@ -204,7 +205,7 @@ const CryptoDashboard = () => {
 
     useEffect(() => {
         fetchHistory(); // Load history first (15m for TradingView)
-        fetchLightweightHistory(); // Load 1m history for Lightweight Charts
+        fetchLightweightHistory(lightweightInterval); // Load history for Lightweight Charts
         fetchData();
         fetchPrice();
         
@@ -222,7 +223,7 @@ const CryptoDashboard = () => {
         const historyInterval = setInterval(() => {
             fetchHistory();
             if (useLightweightChart) {
-                fetchLightweightHistory(); // Update 1m data when using Lightweight Charts
+                fetchLightweightHistory(lightweightInterval); // Update data when using Lightweight Charts
             }
         }, 15000);
         
@@ -392,6 +393,11 @@ const CryptoDashboard = () => {
                             openPositions={openPositions || []}
                             currentPrice={currentPrice}
                             priceHistory={lightweightHistory.length > 0 ? lightweightHistory : priceData || []}
+                            currentInterval={lightweightInterval}
+                            onIntervalChange={(newInterval) => {
+                                setLightweightInterval(newInterval);
+                                fetchLightweightHistory(newInterval);
+                            }}
                         />
                     ) : (
                         <TradingViewChart
