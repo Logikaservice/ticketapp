@@ -2669,7 +2669,26 @@ router.delete('/backtest/results/:id', async (req, res) => {
 router.get('/bot-analysis', async (req, res) => {
     console.log('🔍 [BOT-ANALYSIS] ========== RICHIESTA RICEVUTA ==========');
     console.log('🔍 [BOT-ANALYSIS] Timestamp:', new Date().toISOString());
+    
     try {
+        // ✅ FIX: Verifica che le dipendenze siano disponibili
+        if (typeof httpsGet === 'undefined') {
+            console.error('❌ [BOT-ANALYSIS] httpsGet non definito');
+            return res.status(500).json({ error: 'httpsGet non disponibile' });
+        }
+        if (typeof dbGet === 'undefined') {
+            console.error('❌ [BOT-ANALYSIS] dbGet non definito');
+            return res.status(500).json({ error: 'dbGet non disponibile' });
+        }
+        if (typeof dbAll === 'undefined') {
+            console.error('❌ [BOT-ANALYSIS] dbAll non definito');
+            return res.status(500).json({ error: 'dbAll non disponibile' });
+        }
+        if (typeof signalGenerator === 'undefined') {
+            console.error('❌ [BOT-ANALYSIS] signalGenerator non definito');
+            return res.status(500).json({ error: 'signalGenerator non disponibile' });
+        }
+        
         const symbol = 'bitcoin';
         console.log('🔍 [BOT-ANALYSIS] Symbol:', symbol);
         
