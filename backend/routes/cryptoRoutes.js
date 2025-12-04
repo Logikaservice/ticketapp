@@ -2716,7 +2716,15 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         // Generate signal with full details
+        if (!historyForSignal || historyForSignal.length === 0) {
+            return res.status(500).json({ error: 'Nessun dato storico disponibile per l\'analisi' });
+        }
+        
         const signal = signalGenerator.generateSignal(historyForSignal);
+        
+        if (!signal || !signal.indicators) {
+            return res.status(500).json({ error: 'Errore nella generazione del segnale' });
+        }
         
         // ✅ Calcola indicatori dettagliati per mostrare cosa è attivo
         const indicators = signal.indicators || {};
@@ -3041,7 +3049,16 @@ router.get('/bot-analysis', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Error getting bot analysis:', error);
-        res.status(500).json({ error: error.message });
+        console.error('❌ Error stack:', error.stack);
+        console.error('❌ Error details:', {
+            message: error.message,
+            name: error.name,
+            code: error.code
+        });
+        res.status(500).json({ 
+            error: error.message || 'Internal Server Error',
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
