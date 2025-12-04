@@ -304,14 +304,27 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
         }
         
         // Trova i trades corrispondenti per ottenere il timestamp
+        // Usa sempre opened_at dalle posizioni quando disponibile (più accurato)
         const openTrades = positionsForMarkers.map(pos => {
+            // Preferisci opened_at dalla posizione (più accurato)
+            const timestamp = pos.opened_at || pos.timestamp;
+            
+            // Se non c'è opened_at, cerca nel trade corrispondente
             const matchingTrade = trades.find(t => String(t.ticket_id) === String(pos.ticket_id));
+            const finalTimestamp = timestamp || matchingTrade?.timestamp;
+            
+            if (!finalTimestamp) {
+                console.warn('⚠️ Marker: Nessun timestamp trovato per posizione', pos.ticket_id);
+                return null;
+            }
+            
             return {
                 ...pos,
-                timestamp: matchingTrade?.timestamp || pos.opened_at || pos.timestamp,
-                type: pos.type
+                timestamp: finalTimestamp,
+                type: pos.type,
+                entry_price: parseFloat(pos.entry_price) || 0
             };
-        }).filter(t => t.timestamp);
+        }).filter(t => t !== null && t.timestamp);
 
         // Ordina per timestamp
         const sortedTrades = [...openTrades].sort((a, b) => 

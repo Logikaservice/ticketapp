@@ -640,16 +640,21 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
         let balance = portfolio.balance_usd;
         let holdings = JSON.parse(portfolio.holdings || '{}');
 
+        const balanceBefore = balance;
+        
         if (type === 'buy') {
             if (balance < cost) {
                 throw new Error('Insufficient funds');
             }
             balance -= cost;
             holdings[symbol] = (holdings[symbol] || 0) + volume;
+            console.log(`💵 LONG OPEN: Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (-€${cost.toFixed(2)}) | Holdings: ${holdings[symbol].toFixed(8)}`);
         } else {
-            // Short position
+            // ✅ FIX CRITICO: Short position - ricevi denaro ma NON toccare holdings
+            // In uno SHORT vendi allo scoperto (non possiedi la crypto), quindi holdings NON cambiano
             balance += cost;
-            holdings[symbol] = (holdings[symbol] || 0) - volume;
+            // holdings[symbol] NON DEVE CAMBIARE all'apertura di uno SHORT
+            console.log(`💵 SHORT OPEN: Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (+€${cost.toFixed(2)}) | Holdings: ${holdings[symbol] || 0} (unchanged - short position)`);
         }
 
         const ticketId = generateTicketId();
@@ -695,6 +700,8 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
             timestamp: new Date().toISOString()
         });
 
+        console.log(`✅ POSITION OPENED: ${ticketId} | ${type.toUpperCase()} ${volume.toFixed(8)} ${symbol} @ €${entryPrice.toFixed(2)} | SL: €${stopLoss?.toFixed(2) || 'N/A'} | TP: €${takeProfit?.toFixed(2) || 'N/A'}`);
+        
         return ticketId;
     } catch (err) {
         console.error('Error in openPosition:', err.message);
@@ -825,9 +832,15 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
                     shouldUpdateStopLoss = true;
                 }
                 // Update lowest price for short positions (sell) - for trailing stop
-                else if (pos.type === 'sell' && (pos.highest_price === 0 || currentPrice < pos.highest_price)) {
-                    highestPrice = currentPrice; // For shorts, we track lowest price
-                    shouldUpdateStopLoss = true;
+                // NOTE: We use highest_price column to track lowest price for SHORT (database limitation)
+                // For SHORT: profit when price goes DOWN, so we track the LOWEST price reached
+                else if (pos.type === 'sell') {
+                    // For SHORT, highest_price actually stores the LOWEST price (confusing but works)
+                    const currentLowest = pos.highest_price || pos.entry_price;
+                    if (currentPrice < currentLowest) {
+                        highestPrice = currentPrice; // Track new lowest price for SHORT
+                        shouldUpdateStopLoss = true;
+                    }
                 }
 
                 // Trailing Stop Loss Logic
@@ -845,12 +858,17 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
                         }
                     } else {
                         // For short positions, trailing stop moves down as price decreases
-                        if (currentPrice < highestPrice || highestPrice === 0) {
-                            const trailingStopPrice = (highestPrice || currentPrice) * (1 + pos.trailing_stop_distance_pct / 100);
-                            // Only update if new stop loss is lower than current
+                        // highest_price actually stores the LOWEST price for SHORT positions
+                        const lowestPrice = highestPrice || pos.entry_price;
+                        if (currentPrice < lowestPrice) {
+                            // Trailing stop for SHORT: SL = lowest_price * (1 + distance%)
+                            // This moves the SL DOWN as price goes DOWN (protecting profit)
+                            const trailingStopPrice = currentPrice * (1 + pos.trailing_stop_distance_pct / 100);
+                            // Only update if new stop loss is LOWER than current (for SHORT, lower SL = better)
                             if (!stopLoss || trailingStopPrice < stopLoss) {
                                 stopLoss = trailingStopPrice;
                                 shouldUpdateStopLoss = true;
+                                console.log(`📈 TRAILING STOP UPDATE (SHORT): ${pos.ticket_id} | Lowest: €${currentPrice.toFixed(2)} | New SL: €${trailingStopPrice.toFixed(2)}`);
                             }
                         }
                     }
@@ -883,12 +901,14 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
                     if (tp1Hit) {
                         // Close 50% of remaining position at TP1
                         const volumeToClose = remainingVolume * 0.5;
+                        console.log(`📊 PARTIAL CLOSE TP1: ${pos.ticket_id} | Closing 50% (${volumeToClose.toFixed(8)}) at €${currentPrice.toFixed(2)}`);
                         await partialClosePosition(pos.ticket_id, volumeToClose, currentPrice, 'TP1');
                         // Mark TP1 as hit (partialClosePosition already updates volume_closed, so we only mark the flag)
                         await dbRun(
                             "UPDATE open_positions SET tp1_hit = 1 WHERE ticket_id = ?",
                             [pos.ticket_id]
                         );
+                        console.log(`✅ PARTIAL CLOSE TP1 COMPLETE: ${pos.ticket_id}`);
                     }
                 }
 
@@ -919,23 +939,28 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
                         if (activeStopLoss && currentPrice <= activeStopLoss) {
                             shouldClose = true;
                             closeReason = 'stopped';
+                            console.log(`🛑 STOP LOSS TRIGGERED: ${updatedPos.ticket_id} | LONG | Price: €${currentPrice.toFixed(2)} <= SL: €${activeStopLoss.toFixed(2)}`);
                         } else if (activeTakeProfit && currentPrice >= activeTakeProfit) {
                             shouldClose = true;
                             closeReason = updatedPos.tp1_hit ? 'taken (TP2)' : 'taken';
+                            console.log(`🎯 TAKE PROFIT TRIGGERED: ${updatedPos.ticket_id} | LONG | Price: €${currentPrice.toFixed(2)} >= TP: €${activeTakeProfit.toFixed(2)}`);
                         }
                     } else {
                         // Short position
                         if (activeStopLoss && currentPrice >= activeStopLoss) {
                             shouldClose = true;
                             closeReason = 'stopped';
+                            console.log(`🛑 STOP LOSS TRIGGERED: ${updatedPos.ticket_id} | SHORT | Price: €${currentPrice.toFixed(2)} >= SL: €${activeStopLoss.toFixed(2)}`);
                         } else if (activeTakeProfit && currentPrice <= activeTakeProfit) {
                             shouldClose = true;
                             closeReason = updatedPos.tp1_hit ? 'taken (TP2)' : 'taken';
+                            console.log(`🎯 TAKE PROFIT TRIGGERED: ${updatedPos.ticket_id} | SHORT | Price: €${currentPrice.toFixed(2)} <= TP: €${activeTakeProfit.toFixed(2)}`);
                         }
                     }
 
                     if (shouldClose) {
                         // Close remaining position automatically
+                        console.log(`⚡ AUTO-CLOSING POSITION: ${updatedPos.ticket_id} | Reason: ${closeReason}`);
                         await closePosition(updatedPos.ticket_id, currentPrice, closeReason);
                     }
                 }
@@ -964,6 +989,8 @@ const partialClosePosition = async (ticketId, volumeToClose, closePrice, reason 
             actualVolumeToClose = remainingVolume; // Close all remaining if more requested
         }
 
+        console.log(`📊 PARTIAL CLOSE: ${ticketId} | ${pos.type.toUpperCase()} | Closing ${actualVolumeToClose.toFixed(8)}/${remainingVolume.toFixed(8)} @ €${closePrice.toFixed(2)} | Reason: ${reason}`);
+
         // Calculate P&L for this partial close
         let partialPnl = 0;
         if (pos.type === 'buy') {
@@ -972,19 +999,25 @@ const partialClosePosition = async (ticketId, volumeToClose, closePrice, reason 
             partialPnl = (pos.entry_price - closePrice) * actualVolumeToClose;
         }
 
+        console.log(`💰 PARTIAL CLOSE P&L: ${pos.type.toUpperCase()} | (${closePrice} - ${pos.entry_price}) * ${actualVolumeToClose} = €${partialPnl.toFixed(2)}`);
+
         // Update portfolio
         const portfolio = await getPortfolio();
         let balance = portfolio.balance_usd;
         let holdings = JSON.parse(portfolio.holdings || '{}');
 
+        const balanceBefore = balance;
+
         if (pos.type === 'buy') {
             // Selling: add money, remove crypto
             balance += closePrice * actualVolumeToClose;
             holdings[pos.symbol] = (holdings[pos.symbol] || 0) - actualVolumeToClose;
+            console.log(`💵 PARTIAL CLOSE (LONG): Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (+€${(closePrice * actualVolumeToClose).toFixed(2)})`);
         } else {
             // Closing short: subtract money, add crypto back
             balance -= closePrice * actualVolumeToClose;
             holdings[pos.symbol] = (holdings[pos.symbol] || 0) + actualVolumeToClose;
+            console.log(`💵 PARTIAL CLOSE (SHORT): Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (-€${(closePrice * actualVolumeToClose).toFixed(2)})`);
         }
 
         // Update database
@@ -1017,6 +1050,8 @@ const partialClosePosition = async (ticketId, volumeToClose, closePrice, reason 
             timestamp: new Date().toISOString()
         });
 
+        console.log(`✅ PARTIAL CLOSE COMPLETE: ${ticketId} | P&L: €${partialPnl.toFixed(2)} | Remaining: ${(remainingVolume - actualVolumeToClose).toFixed(8)}`);
+
         return { success: true, pnl: partialPnl, volume_closed: actualVolumeToClose };
     } catch (err) {
         console.error('Error in partialClosePosition:', err.message);
@@ -1037,27 +1072,48 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
             throw new Error('Position not found or already closed');
         }
 
-        // Calculate final P&L
+        // ✅ FIX CRITICO: Calcola volume rimanente (considera partial closes)
+        const remainingVolume = pos.volume - (pos.volume_closed || 0);
+        
+        if (remainingVolume <= 0.0001) {
+            console.log(`⚠️ closePosition: Position ${ticketId} already fully closed (volume_closed: ${pos.volume_closed || 0})`);
+            // Mark as closed if not already
+            await dbRun(
+                "UPDATE open_positions SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE ticket_id = ?",
+                [ticketId]
+            );
+            return { success: true, pnl: 0, message: 'Position already fully closed' };
+        }
+
+        console.log(`🔒 CLOSING POSITION: ${ticketId} | Type: ${pos.type} | Entry: €${pos.entry_price} | Close: €${closePrice} | Volume: ${remainingVolume.toFixed(8)}/${pos.volume.toFixed(8)} | Reason: ${reason}`);
+
+        // Calculate final P&L on REMAINING volume only
         let finalPnl = 0;
         if (pos.type === 'buy') {
-            finalPnl = (closePrice - pos.entry_price) * pos.volume;
+            finalPnl = (closePrice - pos.entry_price) * remainingVolume;
         } else {
-            finalPnl = (pos.entry_price - closePrice) * pos.volume;
+            finalPnl = (pos.entry_price - closePrice) * remainingVolume;
         }
+
+        console.log(`💰 P&L CALCULATION: ${pos.type.toUpperCase()} | (${closePrice} - ${pos.entry_price}) * ${remainingVolume} = €${finalPnl.toFixed(2)}`);
 
         // Update portfolio
         const portfolio = await getPortfolio();
         let balance = portfolio.balance_usd;
         let holdings = JSON.parse(portfolio.holdings || '{}');
 
+        const balanceBefore = balance;
+
         if (pos.type === 'buy') {
-            // Selling: add money, remove crypto
-            balance += closePrice * pos.volume;
-            holdings[pos.symbol] = (holdings[pos.symbol] || 0) - pos.volume;
+            // Selling: add money, remove crypto (only remaining volume)
+            balance += closePrice * remainingVolume;
+            holdings[pos.symbol] = (holdings[pos.symbol] || 0) - remainingVolume;
+            console.log(`💵 LONG CLOSE: Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (+€${(closePrice * remainingVolume).toFixed(2)})`);
         } else {
-            // Closing short: subtract money, add crypto back
-            balance -= closePrice * pos.volume;
-            holdings[pos.symbol] = (holdings[pos.symbol] || 0) + pos.volume;
+            // Closing short: subtract money, add crypto back (only remaining volume)
+            balance -= closePrice * remainingVolume;
+            holdings[pos.symbol] = (holdings[pos.symbol] || 0) + remainingVolume;
+            console.log(`💵 SHORT CLOSE: Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (-€${(closePrice * remainingVolume).toFixed(2)})`);
         }
 
         // Update database using Promise-based operations (sequentially to ensure order)
@@ -1084,11 +1140,13 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
             [status, closePrice, finalPnl, ticketId]
         );
 
-        // Record in trades history
+        // Record in trades history (use remaining volume, not full volume)
         await dbRun(
             "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES (?, ?, ?, ?, ?, ?)",
-            [pos.symbol, pos.type === 'buy' ? 'sell' : 'buy', pos.volume, closePrice, pos.strategy || 'Manual Close', finalPnl]
+            [pos.symbol, pos.type === 'buy' ? 'sell' : 'buy', remainingVolume, closePrice, pos.strategy || 'Manual Close', finalPnl]
         );
+        
+        console.log(`✅ POSITION CLOSED: ${ticketId} | P&L: €${finalPnl.toFixed(2)} | Status: ${status} | Reason: ${reason}`);
 
         // Emit real-time notification
         emitCryptoEvent('crypto:position-closed', {
