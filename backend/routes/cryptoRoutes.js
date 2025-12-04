@@ -2737,8 +2737,9 @@ router.get('/bot-analysis', async (req, res) => {
         // Calculate what's needed for LONG
         const LONG_MIN_CONFIRMATIONS = 4;
         const LONG_MIN_STRENGTH = 70;
-        const longCurrentStrength = signal.direction === 'LONG' ? signal.strength : 0;
-        const longCurrentConfirmations = signal.direction === 'LONG' ? signal.confirmations : 0;
+        // ✅ FIX: Usa longSignal se disponibile (anche quando direction è NEUTRAL), altrimenti usa signal.strength solo se direction è LONG
+        const longCurrentStrength = signal.longSignal ? signal.longSignal.strength : (signal.direction === 'LONG' ? signal.strength : 0);
+        const longCurrentConfirmations = signal.longSignal ? signal.longSignal.confirmations : (signal.direction === 'LONG' ? signal.confirmations : 0);
         const longNeedsConfirmations = Math.max(0, LONG_MIN_CONFIRMATIONS - longCurrentConfirmations);
         const longNeedsStrength = Math.max(0, LONG_MIN_STRENGTH - longCurrentStrength);
         const longMeetsRequirements = signal.direction === 'LONG' && 
@@ -2748,8 +2749,9 @@ router.get('/bot-analysis', async (req, res) => {
         // Calculate what's needed for SHORT
         const SHORT_MIN_CONFIRMATIONS = 5;
         const SHORT_MIN_STRENGTH = 70;
-        const shortCurrentStrength = signal.direction === 'SHORT' ? signal.strength : 0;
-        const shortCurrentConfirmations = signal.direction === 'SHORT' ? signal.confirmations : 0;
+        // ✅ FIX: Usa shortSignal se disponibile (anche quando direction è NEUTRAL), altrimenti usa signal.strength solo se direction è SHORT
+        const shortCurrentStrength = signal.shortSignal ? signal.shortSignal.strength : (signal.direction === 'SHORT' ? signal.strength : 0);
+        const shortCurrentConfirmations = signal.shortSignal ? signal.shortSignal.confirmations : (signal.direction === 'SHORT' ? signal.confirmations : 0);
         const shortNeedsConfirmations = Math.max(0, SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations);
         const shortNeedsStrength = Math.max(0, SHORT_MIN_STRENGTH - shortCurrentStrength);
         const shortMeetsRequirements = signal.direction === 'SHORT' && 

@@ -198,30 +198,14 @@ const BotAnalysisPage = () => {
                                         <span className="needs">{requirements.long.needsConfirmations} in più</span>
                                     )}
                                 </div>
-                                {/* ✅ Barra di progresso con indicatori visivi per ogni conferma */}
-                                <div className="progress-bar-container">
-                                    <div className="progress-bar">
-                                        <div 
-                                            className="progress-fill" 
-                                            style={{ 
-                                                width: `${Math.min(100, (requirements.long.currentConfirmations / requirements.long.minConfirmations) * 100)}%`,
-                                                transition: 'width 0.5s ease-in-out'
-                                            }}
-                                        />
-                                    </div>
-                                    {/* Indicatori visivi per ogni conferma */}
-                                    <div className="confirmation-indicators">
-                                        {Array.from({ length: requirements.long.minConfirmations }).map((_, index) => {
-                                            const isActive = index < requirements.long.currentConfirmations;
-                                            return (
-                                                <div 
-                                                    key={index}
-                                                    className={`confirmation-dot ${isActive ? 'active' : 'inactive'}`}
-                                                    title={`Conferma ${index + 1}${isActive ? ' ✓' : ''}`}
-                                                />
-                                            );
-                                        })}
-                                    </div>
+                                <div className="progress-bar">
+                                    <div 
+                                        className="progress-fill" 
+                                        style={{ 
+                                            width: `${Math.min(100, (requirements.long.currentConfirmations / requirements.long.minConfirmations) * 100)}%`,
+                                            transition: 'width 0.5s ease-in-out'
+                                        }}
+                                    />
                                 </div>
                             </div>
                             <div className="requirement-reason">
@@ -288,30 +272,14 @@ const BotAnalysisPage = () => {
                                         <span className="needs">{requirements.short.needsConfirmations} in più</span>
                                     )}
                                 </div>
-                                {/* ✅ Barra di progresso con indicatori visivi per ogni conferma */}
-                                <div className="progress-bar-container">
-                                    <div className="progress-bar">
-                                        <div 
-                                            className="progress-fill" 
-                                            style={{ 
-                                                width: `${Math.min(100, (requirements.short.currentConfirmations / requirements.short.minConfirmations) * 100)}%`,
-                                                transition: 'width 0.5s ease-in-out'
-                                            }}
-                                        />
-                                    </div>
-                                    {/* Indicatori visivi per ogni conferma */}
-                                    <div className="confirmation-indicators">
-                                        {Array.from({ length: requirements.short.minConfirmations }).map((_, index) => {
-                                            const isActive = index < requirements.short.currentConfirmations;
-                                            return (
-                                                <div 
-                                                    key={index}
-                                                    className={`confirmation-dot ${isActive ? 'active' : 'inactive'}`}
-                                                    title={`Conferma ${index + 1}${isActive ? ' ✓' : ''}`}
-                                                />
-                                            );
-                                        })}
-                                    </div>
+                                <div className="progress-bar">
+                                    <div 
+                                        className="progress-fill" 
+                                        style={{ 
+                                            width: `${Math.min(100, (requirements.short.currentConfirmations / requirements.short.minConfirmations) * 100)}%`,
+                                            transition: 'width 0.5s ease-in-out'
+                                        }}
+                                    />
                                 </div>
                             </div>
                             <div className="requirement-reason">

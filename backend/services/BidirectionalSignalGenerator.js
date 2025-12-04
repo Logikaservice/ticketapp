@@ -640,6 +640,17 @@ class BidirectionalSignalGenerator {
                 strength: longSignal.strength,
                 reasons: longSignal.reasons,
                 confirmations: longSignal.confirmations,
+                // ✅ FIX: Restituisci anche longSignal e shortSignal per consistenza
+                longSignal: {
+                    strength: longSignal.strength,
+                    confirmations: longSignal.confirmations,
+                    reasons: longSignal.reasons
+                },
+                shortSignal: {
+                    strength: shortSignal.strength,
+                    confirmations: shortSignal.confirmations,
+                    reasons: shortSignal.reasons
+                },
                 indicators: {
                     rsi: rsi,
                     rsiDivergence: rsiDivergence,
@@ -662,6 +673,17 @@ class BidirectionalSignalGenerator {
                 strength: shortSignal.strength,
                 reasons: shortSignal.reasons,
                 confirmations: shortSignal.confirmations,
+                // ✅ FIX: Restituisci anche longSignal e shortSignal per consistenza
+                longSignal: {
+                    strength: longSignal.strength,
+                    confirmations: longSignal.confirmations,
+                    reasons: longSignal.reasons
+                },
+                shortSignal: {
+                    strength: shortSignal.strength,
+                    confirmations: shortSignal.confirmations,
+                    reasons: shortSignal.reasons
+                },
                 indicators: {
                     rsi: rsi,
                     rsiDivergence: rsiDivergence,
