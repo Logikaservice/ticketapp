@@ -273,7 +273,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
         }
     }, [priceHistory]);
 
-    // Add markers for trades - CON RAGGRUPPAMENTO per evitare sovrapposizioni
+    // Add markers for trades - CON NUMERI IDENTIFICATIVI
     useEffect(() => {
         if (!candlestickSeriesRef.current) return;
 
@@ -286,55 +286,44 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                 new Date(a.timestamp) - new Date(b.timestamp)
             );
 
-            // Raggruppa marker troppo vicini (entro 2 minuti = 120 secondi)
-            const GROUP_TIME_WINDOW = 120; // 2 minuti
-            const groupedMarkers = [];
-            let currentGroup = [];
+            // Crea un map per tracciare i numeri identificativi per ticket_id
+            const ticketIdMap = new Map();
+            let nextId = 1;
 
-            sortedTrades.forEach((trade, index) => {
-                const tradeTime = new Date(trade.timestamp).getTime() / 1000;
-                
-                if (currentGroup.length === 0) {
-                    // Primo trade del gruppo
-                    currentGroup.push({ trade, time: tradeTime, index });
-                } else {
-                    const lastTime = currentGroup[currentGroup.length - 1].time;
-                    
-                    if (tradeTime - lastTime < GROUP_TIME_WINDOW) {
-                        // Stesso gruppo - aggiungi
-                        currentGroup.push({ trade, time: tradeTime, index });
-                    } else {
-                        // Nuovo gruppo - salva il precedente e inizia nuovo
-                        groupedMarkers.push([...currentGroup]);
-                        currentGroup = [{ trade, time: tradeTime, index }];
-                    }
+            // Assegna numeri identificativi univoci basati su ticket_id o sequenziali
+            sortedTrades.forEach((trade) => {
+                if (trade.ticket_id && !ticketIdMap.has(trade.ticket_id)) {
+                    ticketIdMap.set(trade.ticket_id, nextId++);
+                } else if (!trade.ticket_id) {
+                    // Se non ha ticket_id, usa un ID basato sull'indice
+                    ticketIdMap.set(`trade-${trade.timestamp}`, nextId++);
                 }
             });
 
-            // Aggiungi l'ultimo gruppo
-            if (currentGroup.length > 0) {
-                groupedMarkers.push(currentGroup);
-            }
-
-            // Crea marker da gruppi (mostra solo il più recente di ogni gruppo)
-            const markers = groupedMarkers.map((group, groupIndex) => {
-                // Prendi il trade più recente del gruppo
-                const latestTrade = group[group.length - 1].trade;
-                const tradeTime = new Date(latestTrade.timestamp).getTime() / 1000;
-                const tradePrice = parseFloat(latestTrade.price);
+            // Crea marker con numeri identificativi
+            const markers = sortedTrades.map((trade) => {
+                const tradeTime = new Date(trade.timestamp).getTime() / 1000;
+                const tradePrice = parseFloat(trade.price);
                 
-                // Se ci sono più trade nel gruppo, mostra il count
-                const count = group.length;
-                const text = count > 1 ? `${latestTrade.type.toUpperCase()} (${count})` : latestTrade.type.toUpperCase();
+                // Ottieni il numero identificativo
+                let markerId;
+                if (trade.ticket_id && ticketIdMap.has(trade.ticket_id)) {
+                    markerId = ticketIdMap.get(trade.ticket_id);
+                } else {
+                    markerId = ticketIdMap.get(`trade-${trade.timestamp}`) || 1;
+                }
+
+                // Mostra solo il numero (il colore indica già buy/sell)
+                const text = `${markerId}`;
 
                 return {
                     time: tradeTime,
-                    position: latestTrade.type === 'buy' ? 'belowBar' : 'aboveBar',
-                    color: latestTrade.type === 'buy' ? '#4ade80' : '#f87171',
-                    shape: latestTrade.type === 'buy' ? 'arrowUp' : 'arrowDown',
+                    position: trade.type === 'buy' ? 'belowBar' : 'aboveBar',
+                    color: trade.type === 'buy' ? '#4ade80' : '#f87171',
+                    shape: trade.type === 'buy' ? 'arrowUp' : 'arrowDown',
                     text: text,
-                    size: count > 1 ? 3 : 2, // Marker più grande se raggruppato
-                    id: `marker-group-${groupIndex}`,
+                    size: 2,
+                    id: `marker-${trade.ticket_id || trade.timestamp}-${trade.type}`,
                 };
             });
 
@@ -377,7 +366,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
         }
     }, [currentPrice]);
 
-    // Update price line (only show if we have historical data)
+    // Update price lines: current price (blue) + entry lines for open BUY positions
     useEffect(() => {
         if (!candlestickSeriesRef.current || !currentPrice || priceHistory.length === 0) {
             // Rimuovi tutte le price lines se non ci sono dati
@@ -404,9 +393,9 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
         });
         priceLinesRef.current = [];
 
-        // Crea UNA SOLA price line per il prezzo corrente
+        // Crea price line per il prezzo corrente (linea blu)
         try {
-            const newPriceLine = candlestickSeriesRef.current.createPriceLine({
+            const currentPriceLine = candlestickSeriesRef.current.createPriceLine({
                 price: currentPrice,
                 color: '#3b82f6',
                 lineWidth: 2,
@@ -414,50 +403,38 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                 axisLabelVisible: true,
                 title: `€${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             });
-            priceLinesRef.current.push(newPriceLine);
+            priceLinesRef.current.push(currentPriceLine);
         } catch (e) {
             // Silent fail
         }
-    }, [currentPrice, priceHistory.length]);
+
+        // Aggiungi linee di entry per le posizioni BUY aperte
+        if (openPositions && openPositions.length > 0) {
+            openPositions.forEach((pos) => {
+                if (pos.type === 'buy' && pos.status === 'open' && pos.entry_price) {
+                    try {
+                        const entryPrice = parseFloat(pos.entry_price);
+                        const entryLine = candlestickSeriesRef.current.createPriceLine({
+                            price: entryPrice,
+                            color: '#4ade80',
+                            lineWidth: 1,
+                            lineStyle: 0, // Solid
+                            axisLabelVisible: true,
+                            title: `Entry: €${entryPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                        });
+                        priceLinesRef.current.push(entryLine);
+                    } catch (e) {
+                        // Silent fail
+                    }
+                }
+            });
+        }
+    }, [currentPrice, priceHistory.length, openPositions]);
 
     return (
         <div className="lightweight-chart-container">
-            {/* Trades Legend */}
-            {trades.length > 0 && (
-                <div className="trades-legend-top">
-                    <div className="legend-header">
-                        <h4>🤖 Operazioni Bot</h4>
-                        <span className="trade-count">{trades.length} operazioni</span>
-                    </div>
-                    <div className="trades-list-compact">
-                        {trades.slice(-8).reverse().map((trade, index) => (
-                            <div 
-                                key={index} 
-                                className={`trade-badge ${trade.type}`}
-                                title={`${trade.strategy || 'Bot'} - ${new Date(trade.timestamp).toLocaleString('it-IT')}`}
-                            >
-                                <span className="trade-icon">{trade.type === 'buy' ? '↑' : '↓'}</span>
-                                <span className="trade-type">{trade.type.toUpperCase()}</span>
-                                <span className="trade-price">
-                                    €{parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
-                                <span className="trade-amount">{parseFloat(trade.amount).toFixed(4)} BTC</span>
-                                <span className="trade-time">
-                                    {new Date(trade.timestamp).toLocaleTimeString('it-IT', { 
-                                        hour: '2-digit', 
-                                        minute: '2-digit',
-                                        day: '2-digit',
-                                        month: '2-digit'
-                                    })}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
             {/* Chart Container - Always render to allow initialization */}
-            <div ref={chartContainerRef} className="lightweight-chart-wrapper">
+            <div ref={chartContainerRef} className="lightweight-chart-wrapper" style={{ flex: 1, minWidth: 0 }}>
                 {priceHistory.length === 0 && (
                     <div className="chart-loading-overlay">
                         <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>
@@ -514,6 +491,47 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             {currentPrice > 0 && (
                 <div className="current-price-display">
                     1 BTC = €{currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+            )}
+            </div>
+
+            {/* Trades Legend - A DESTRA del grafico */}
+            {trades.length > 0 && (
+                <div className="trades-legend-right">
+                    <div className="legend-header">
+                        <h4>🤖 Operazioni Bot</h4>
+                        <span className="trade-count">{trades.length} operazioni</span>
+                    </div>
+                    <div className="trades-list-vertical">
+                        {trades.slice().reverse().map((trade, index) => (
+                            <div 
+                                key={index} 
+                                className={`trade-badge ${trade.type}`}
+                                title={`${trade.strategy || 'Bot'} - ${new Date(trade.timestamp).toLocaleString('it-IT')}`}
+                            >
+                                <span className="trade-icon">{trade.type === 'buy' ? '↑' : '↓'}</span>
+                                <div className="trade-details">
+                                    <div className="trade-row">
+                                        <span className="trade-type">{trade.type.toUpperCase()}</span>
+                                        <span className="trade-price">
+                                            €{parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                    </div>
+                                    <div className="trade-row">
+                                        <span className="trade-amount">{parseFloat(trade.amount).toFixed(4)} BTC</span>
+                                        <span className="trade-time">
+                                            {new Date(trade.timestamp).toLocaleTimeString('it-IT', { 
+                                                hour: '2-digit', 
+                                                minute: '2-digit',
+                                                day: '2-digit',
+                                                month: '2-digit'
+                                            })}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 

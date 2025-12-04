@@ -1693,6 +1693,7 @@ router.get('/statistics', async (req, res) => {
         const portfolio = await getPortfolio();
         const allTrades = await dbAll("SELECT * FROM trades ORDER BY timestamp ASC");
         const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status != 'open' ORDER BY closed_at ASC");
+        const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC");
         
         // Initial portfolio value (assumed starting balance)
         const initialBalance = 262.5; // Default starting balance in EUR
@@ -1714,7 +1715,7 @@ router.get('/statistics', async (req, res) => {
         const cryptoValue = bitcoinHoldings * currentPrice;
         const totalBalance = currentBalance + cryptoValue;
         
-        // 1. Total P&L
+        // 1. Total P&L - Include both closed and open positions
         let totalPnL = 0;
         let totalProfit = 0;
         let totalLoss = 0;
@@ -1722,7 +1723,7 @@ router.get('/statistics', async (req, res) => {
         let losingTrades = 0;
         let totalVolume = 0;
         
-        // Calculate from closed positions (more accurate)
+        // Calculate from closed positions (realized P&L)
         closedPositions.forEach(pos => {
             const pnl = pos.profit_loss || 0;
             totalPnL += pnl;
@@ -1733,14 +1734,36 @@ router.get('/statistics', async (req, res) => {
                 totalLoss += Math.abs(pnl);
                 losingTrades++;
             }
-            totalVolume += pos.volume * pos.entry_price;
+            totalVolume += (pos.volume || 0) * (pos.entry_price || 0);
         });
         
-        // Also include trades with profit_loss (from manual trades)
+        // Calculate unrealized P&L from open positions
+        openPositions.forEach(pos => {
+            const entryPrice = parseFloat(pos.entry_price) || 0;
+            const volume = parseFloat(pos.volume) || 0;
+            const unrealizedPnL = (currentPrice - entryPrice) * volume * (pos.type === 'buy' ? 1 : -1);
+            totalPnL += unrealizedPnL;
+            if (unrealizedPnL > 0) {
+                totalProfit += unrealizedPnL;
+            } else if (unrealizedPnL < 0) {
+                totalLoss += Math.abs(unrealizedPnL);
+            }
+            totalVolume += volume * entryPrice;
+        });
+        
+        // Also include trades with profit_loss (from manual trades) - but avoid double counting
+        const processedTicketIds = new Set();
+        closedPositions.forEach(pos => {
+            if (pos.ticket_id) processedTicketIds.add(pos.ticket_id);
+        });
+        openPositions.forEach(pos => {
+            if (pos.ticket_id) processedTicketIds.add(pos.ticket_id);
+        });
+        
         allTrades.forEach(trade => {
-            if (trade.profit_loss !== null && trade.profit_loss !== undefined) {
+            // Only count trades that are not part of a position (manual trades)
+            if (trade.profit_loss !== null && trade.profit_loss !== undefined && !processedTicketIds.has(trade.ticket_id)) {
                 const pnl = parseFloat(trade.profit_loss) || 0;
-                // Skip if already counted in closed positions
                 if (Math.abs(pnl) > 0.01) {
                     totalPnL += pnl;
                     if (pnl > 0) {
@@ -1752,7 +1775,7 @@ router.get('/statistics', async (req, res) => {
                     }
                 }
             }
-            // Count volume for all trades
+            // Count volume for all BUY trades
             if (trade.type === 'buy') {
                 totalVolume += (trade.amount || 0) * (trade.price || 0);
             }
@@ -1768,7 +1791,7 @@ router.get('/statistics', async (req, res) => {
         // P&L Percent
         const pnlPercent = initialBalance > 0 ? ((totalBalance - initialBalance) / initialBalance) * 100 : 0;
         
-        // Trade statistics by period
+        // Trade statistics by period - Count ALL trades, not just closed positions
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const weekAgo = new Date(today);
@@ -1780,12 +1803,13 @@ router.get('/statistics', async (req, res) => {
         let tradesThisWeek = 0;
         let tradesThisMonth = 0;
         
-        closedPositions.forEach(pos => {
-            if (pos.closed_at) {
-                const closedDate = new Date(pos.closed_at);
-                if (closedDate >= today) tradesToday++;
-                if (closedDate >= weekAgo) tradesThisWeek++;
-                if (closedDate >= monthAgo) tradesThisMonth++;
+        // Count trades by timestamp
+        allTrades.forEach(trade => {
+            if (trade.timestamp) {
+                const tradeDate = new Date(trade.timestamp);
+                if (tradeDate >= today) tradesToday++;
+                if (tradeDate >= weekAgo) tradesThisWeek++;
+                if (tradeDate >= monthAgo) tradesThisMonth++;
             }
         });
         

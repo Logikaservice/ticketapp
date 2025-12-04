@@ -346,7 +346,8 @@ const CryptoDashboard = () => {
                             timestamp: trade.timestamp,
                             price: typeof trade.price === 'number' ? trade.price : parseFloat(trade.price),
                             amount: typeof trade.amount === 'number' ? trade.amount : parseFloat(trade.amount),
-                            strategy: trade.strategy || 'Bot'
+                            strategy: trade.strategy || 'Bot',
+                            ticket_id: trade.ticket_id || null
                         }))}
                         currentPrice={currentPrice}
                         priceHistory={priceData || []}
