@@ -3023,6 +3023,14 @@ router.get('/bot-analysis', async (req, res) => {
         }
         
         console.log('🔍 [BOT-ANALYSIS] Preparing response...');
+        
+        // Verifica che tutte le variabili necessarie siano definite
+        if (typeof longActiveConfirmations === 'undefined') longActiveConfirmations = [];
+        if (typeof longInactiveConfirmations === 'undefined') longInactiveConfirmations = [];
+        if (typeof shortActiveConfirmations === 'undefined') shortActiveConfirmations = [];
+        if (typeof shortInactiveConfirmations === 'undefined') shortInactiveConfirmations = [];
+        if (typeof maxAvailableForNewPosition === 'undefined') maxAvailableForNewPosition = 0;
+        
         res.json({
             currentPrice,
             rsi: rsi || 0,
