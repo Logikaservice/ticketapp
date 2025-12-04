@@ -184,6 +184,25 @@ const BotAnalysisPage = () => {
                                     {Math.round((requirements.long.currentStrength / requirements.long.minStrength) * 100)}% del target raggiunto
                                 </div>
                             </div>
+                            {/* Lista dei contributi allo Strength */}
+                            {requirements.long.strengthContributions && requirements.long.strengthContributions.length > 0 && (
+                                <div className="strength-contributions-list">
+                                    <strong>Contributi allo Strength ({requirements.long.currentStrength}/100 punti):</strong>
+                                    <ul className="strength-contributions-items">
+                                        {requirements.long.strengthContributions.map((contribution, idx) => (
+                                            <li key={idx} className="strength-contribution-item">
+                                                <span className="strength-indicator-name">{contribution.indicator}</span>
+                                                <span className="strength-points">+{contribution.points} punti</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                            {requirements.long.currentStrength === 0 && (
+                                <div className="strength-contributions-list">
+                                    <span className="no-strength">Nessun contributo allo Strength ancora</span>
+                                </div>
+                            )}
                             <div className="requirement-progress">
                                 <div className="progress-item">
                                     <span>Conferme richieste:</span>
@@ -277,6 +296,25 @@ const BotAnalysisPage = () => {
                                     {Math.round((requirements.short.currentStrength / requirements.short.minStrength) * 100)}% del target raggiunto
                                 </div>
                             </div>
+                            {/* Lista dei contributi allo Strength */}
+                            {requirements.short.strengthContributions && requirements.short.strengthContributions.length > 0 && (
+                                <div className="strength-contributions-list">
+                                    <strong>Contributi allo Strength ({requirements.short.currentStrength}/100 punti):</strong>
+                                    <ul className="strength-contributions-items">
+                                        {requirements.short.strengthContributions.map((contribution, idx) => (
+                                            <li key={idx} className="strength-contribution-item">
+                                                <span className="strength-indicator-name">{contribution.indicator}</span>
+                                                <span className="strength-points">+{contribution.points} punti</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                            {requirements.short.currentStrength === 0 && (
+                                <div className="strength-contributions-list">
+                                    <span className="no-strength">Nessun contributo allo Strength ancora</span>
+                                </div>
+                            )}
                             <div className="requirement-progress">
                                 <div className="progress-item">
                                     <span>Conferme richieste:</span>

@@ -2877,6 +2877,10 @@ router.get('/bot-analysis', async (req, res) => {
         const longConfirmationsList = signal.longSignal && signal.longSignal.reasons ? signal.longSignal.reasons : [];
         const shortConfirmationsList = signal.shortSignal && signal.shortSignal.reasons ? signal.shortSignal.reasons : [];
         
+        // Estrai i contributi allo Strength per LONG e SHORT
+        const longStrengthContributions = signal.longSignal && signal.longSignal.strengthContributions ? signal.longSignal.strengthContributions : [];
+        const shortStrengthContributions = signal.shortSignal && signal.shortSignal.strengthContributions ? signal.shortSignal.strengthContributions : [];
+        
         res.json({
             currentPrice,
             rsi: rsi || 0,
@@ -2897,7 +2901,8 @@ router.get('/bot-analysis', async (req, res) => {
                     needsConfirmations: longNeedsConfirmations,
                     canOpen: longMeetsRequirements && canOpenCheck.allowed,
                     reason: longReason,
-                    confirmationsList: longConfirmationsList // Lista delle conferme ottenute
+                    confirmationsList: longConfirmationsList, // Lista delle conferme ottenute
+                    strengthContributions: longStrengthContributions // Lista dei contributi allo Strength con punti
                 },
                 short: {
                     minStrength: SHORT_MIN_STRENGTH,
@@ -2908,7 +2913,8 @@ router.get('/bot-analysis', async (req, res) => {
                     needsConfirmations: shortNeedsConfirmations,
                     canOpen: shortMeetsRequirements && canOpenCheck.allowed,
                     reason: shortReason,
-                    confirmationsList: shortConfirmationsList // Lista delle conferme ottenute
+                    confirmationsList: shortConfirmationsList, // Lista delle conferme ottenute
+                    strengthContributions: shortStrengthContributions // Lista dei contributi allo Strength con punti
                 }
             },
             risk: {
