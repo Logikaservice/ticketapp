@@ -57,15 +57,16 @@ const getPortfolio = () => {
 // GET /api/crypto/history (Get chart data)
 router.get('/history', async (req, res) => {
     try {
-        // Get interval from query parameter (default: 15m for TradingView, 1m for Lightweight Charts)
+        // Get interval and symbol from query parameters
         const interval = req.query.interval || '15m'; // Support: 1m, 15m, 1h, 1d, etc.
+        const symbol = req.query.symbol || 'bitcoin'; // Default to bitcoin for backward compatibility
         
         // Check if we have OHLC klines data first (preferred)
-        const klinesCountRows = await dbAll(`SELECT COUNT(*) as count FROM klines WHERE symbol = 'bitcoin' AND interval = ?`, [interval]);
+        const klinesCountRows = await dbAll(`SELECT COUNT(*) as count FROM klines WHERE symbol = ? AND interval = ?`, [symbol, interval]);
         const klinesCount = klinesCountRows && klinesCountRows.length > 0 ? klinesCountRows[0].count : 0;
         
         // Also check price_history for backward compatibility
-        const countRows = await dbAll("SELECT COUNT(*) as count FROM price_history WHERE symbol = 'bitcoin'");
+        const countRows = await dbAll("SELECT COUNT(*) as count FROM price_history WHERE symbol = ?", [symbol]);
         const count = countRows && countRows.length > 0 ? countRows[0].count : 0;
 
         console.log(`📊 Klines count: ${klinesCount}, Price history count: ${count}`);
@@ -104,7 +105,8 @@ router.get('/history', async (req, res) => {
             try {
                 // Load klines from Binance with specified interval
                 const https = require('https');
-                const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=BTCEUR&interval=${interval}&limit=${binanceLimit}`;
+                const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
+                const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=${interval}&limit=${binanceLimit}`;
                 
                 const binanceData = await new Promise((resolve, reject) => {
                     https.get(binanceUrl, (res) => {
@@ -138,7 +140,7 @@ router.get('/history', async (req, res) => {
                         // Save close price for backward compatibility
                         await dbRun(
                             "INSERT OR IGNORE INTO price_history (symbol, price, timestamp) VALUES (?, ?, ?)",
-                            ['bitcoin', close, timestamp]
+                            [symbol, close, timestamp]
                         );
                         saved++;
                         
@@ -147,7 +149,7 @@ router.get('/history', async (req, res) => {
                             `INSERT OR IGNORE INTO klines 
                             (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                            ['bitcoin', interval, openTime, open, high, low, close, volume, closeTime]
+                            [symbol, interval, openTime, open, high, low, close, volume, closeTime]
                         );
                         savedKlines++;
                     } catch (err) {
@@ -180,10 +182,10 @@ router.get('/history', async (req, res) => {
         const klinesRows = await dbAll(
             `SELECT open_time, open_price, high_price, low_price, close_price, volume 
              FROM klines 
-             WHERE symbol = 'bitcoin' AND interval = ? AND open_time >= ? 
+             WHERE symbol = ? AND interval = ? AND open_time >= ? 
              ORDER BY open_time ASC 
              LIMIT ?`,
-            [interval, minTime, limit]
+            [symbol, interval, minTime, limit]
         );
         
         if (klinesRows && klinesRows.length > 0) {
@@ -501,20 +503,69 @@ const DEFAULT_PARAMS = {
     take_profit_2_pct: 3.0
 };
 
-// Helper to get bot strategy parameters from database
-const getBotParameters = async () => {
+// Helper to get bot strategy parameters from database (supports multi-symbol)
+const getBotParameters = async (symbol = 'bitcoin') => {
     try {
-        const bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'");
+        const bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = ?", [symbol]);
         if (bot && bot.parameters) {
             const params = JSON.parse(bot.parameters);
             // Merge with defaults to ensure all parameters exist
             return { ...DEFAULT_PARAMS, ...params };
         }
     } catch (err) {
-        console.error('Error loading bot parameters:', err.message);
+        console.error(`Error loading bot parameters for ${symbol}:`, err.message);
     }
     // Return defaults if error or not found
     return DEFAULT_PARAMS;
+};
+
+// Symbol to Trading Pair mapping
+const SYMBOL_TO_PAIR = {
+    'bitcoin': 'BTCEUR',
+    'solana': 'SOLUSDT',
+    'ethereum': 'ETHEUR',
+    'cardano': 'ADAEUR',
+    'polkadot': 'DOTEUR',
+    'chainlink': 'LINKEUR',
+    'litecoin': 'LTCEUR',
+    'ripple': 'XRPUSDT'
+};
+
+// Symbol to CoinGecko ID mapping
+const SYMBOL_TO_COINGECKO = {
+    'bitcoin': 'bitcoin',
+    'solana': 'solana',
+    'ethereum': 'ethereum',
+    'cardano': 'cardano',
+    'polkadot': 'polkadot',
+    'chainlink': 'chainlink',
+    'litecoin': 'litecoin',
+    'ripple': 'ripple'
+};
+
+// Helper to get price for a symbol
+const getSymbolPrice = async (symbol) => {
+    const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
+    const coingeckoId = SYMBOL_TO_COINGECKO[symbol] || 'bitcoin';
+    
+    try {
+        const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=${tradingPair}`);
+        if (data && data.price) {
+            return parseFloat(data.price);
+        }
+        throw new Error("Invalid data from Binance");
+    } catch (e) {
+        console.error(`Error fetching ${symbol} price from Binance:`, e.message);
+        try {
+            const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=eur`);
+            if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].eur) {
+                return parseFloat(geckoData[coingeckoId].eur);
+            }
+        } catch (e2) {
+            console.error(`Error fetching ${symbol} price from CoinGecko:`, e2.message);
+        }
+        return 0;
+    }
 };
 
 // Load history from DB on startup
@@ -550,38 +601,25 @@ const calculateRSI = (prices, period = 14) => {
     return 100 - (100 / (1 + rs));
 };
 
-// Bot Loop Function - SERIOUS VERSION with Risk Manager and Bidirectional Signals
-const runBotCycle = async () => {
+// Bot Loop Function for a single symbol
+const runBotCycleForSymbol = async (symbol, botSettings) => {
     try {
-        // 1. Check if bot is active (we run price collection ANYWAY to keep history valid)
-        const bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'");
-        const isBotActive = bot && bot.is_active;
-
-        // 2. Get current price (BITCOIN)
-        const symbol = 'bitcoin';
-        let currentPrice = 0;
-
-        try {
-            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR`);
-            if (data && data.price) {
-                currentPrice = parseFloat(data.price);
-            } else {
-                throw new Error("Invalid data from Binance");
-            }
-        } catch (e) {
-            console.error('Error fetching price from Binance:', e.message);
-            try {
-                const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur');
-                if (geckoData && geckoData.bitcoin && geckoData.bitcoin.eur) {
-                    currentPrice = parseFloat(geckoData.bitcoin.eur);
-                }
-            } catch (e2) {
-                console.error('Error fetching price from CoinGecko:', e2.message);
-                if (currentPrice === 0) currentPrice = 120.00 + (Math.random() * 0.5);
-            }
+        const isBotActive = botSettings && botSettings.is_active === 1;
+        
+        // Get current price for this symbol
+        let currentPrice = await getSymbolPrice(symbol);
+        
+        if (currentPrice === 0) {
+            console.error(`⚠️ Could not fetch price for ${symbol}, skipping cycle`);
+            return;
         }
 
-        // 3. Update history (RAM + DB)
+        // 3. Update history (RAM + DB) - Load price history for this symbol
+        const symbolPriceHistory = await dbAll(
+            "SELECT price FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 50",
+            [symbol]
+        );
+        const priceHistory = symbolPriceHistory.reverse().map(r => parseFloat(r.price));
         priceHistory.push(currentPrice);
         if (priceHistory.length > 50) priceHistory.shift();
 
@@ -652,7 +690,7 @@ const runBotCycle = async () => {
             // Verifica se esiste già una candela per questo periodo
             const existingKline = await dbGet(
                 "SELECT * FROM klines WHERE symbol = ? AND interval = ? AND open_time = ?",
-                ['bitcoin', primaryInterval, candleStartTime]
+                [symbol, primaryInterval, candleStartTime]
             );
             
             if (existingKline) {
@@ -662,12 +700,12 @@ const runBotCycle = async () => {
                 
                 await dbRun(
                     "UPDATE klines SET high_price = ?, low_price = ?, close_price = ?, close_time = ? WHERE symbol = ? AND interval = ? AND open_time = ?",
-                    [newHigh, newLow, currentPrice, now, 'bitcoin', primaryInterval, candleStartTime]
+                    [newHigh, newLow, currentPrice, now, symbol, primaryInterval, candleStartTime]
                 );
                 
                 // Log solo ogni 10 aggiornamenti per non intasare i log
                 if (Math.random() < 0.1) {
-                    console.log(`📊 Kline ${primaryInterval} aggiornata: ${new Date(candleStartTime).toISOString()} | Price: €${currentPrice.toFixed(2)} | High: €${newHigh.toFixed(2)} | Low: €${newLow.toFixed(2)}`);
+                    console.log(`📊 [${symbol.toUpperCase()}] Kline ${primaryInterval} aggiornata: ${new Date(candleStartTime).toISOString()} | Price: €${currentPrice.toFixed(2)} | High: €${newHigh.toFixed(2)} | Low: €${newLow.toFixed(2)}`);
                 }
             } else {
                 // Crea nuova candela
@@ -675,9 +713,9 @@ const runBotCycle = async () => {
                     `INSERT INTO klines 
                     (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    ['bitcoin', primaryInterval, candleStartTime, currentPrice, currentPrice, currentPrice, currentPrice, 0, now]
+                    [symbol, primaryInterval, candleStartTime, currentPrice, currentPrice, currentPrice, currentPrice, 0, now]
                 );
-                console.log(`🆕 Nuova candela ${primaryInterval} creata: ${new Date(candleStartTime).toISOString()} | Price: €${currentPrice.toFixed(2)}`);
+                console.log(`🆕 [${symbol.toUpperCase()}] Nuova candela ${primaryInterval} creata: ${new Date(candleStartTime).toISOString()} | Price: €${currentPrice.toFixed(2)}`);
             }
         } catch (err) {
             console.error(`⚠️ Error updating kline for interval ${primaryInterval}:`, err.message);
@@ -694,7 +732,7 @@ const runBotCycle = async () => {
                     
                     const existingKline = await dbGet(
                         "SELECT * FROM klines WHERE symbol = ? AND interval = ? AND open_time = ?",
-                        ['bitcoin', interval, candleStartTime]
+                        [symbol, interval, candleStartTime]
                     );
                     
                     if (existingKline) {
@@ -703,14 +741,14 @@ const runBotCycle = async () => {
                         
                         await dbRun(
                             "UPDATE klines SET high_price = ?, low_price = ?, close_price = ?, close_time = ? WHERE symbol = ? AND interval = ? AND open_time = ?",
-                            [newHigh, newLow, currentPrice, now, 'bitcoin', interval, candleStartTime]
+                            [newHigh, newLow, currentPrice, now, symbol, interval, candleStartTime]
                         );
                     } else {
                         await dbRun(
                             `INSERT INTO klines 
                             (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                            ['bitcoin', interval, candleStartTime, currentPrice, currentPrice, currentPrice, currentPrice, 0, now]
+                            [symbol, interval, candleStartTime, currentPrice, currentPrice, currentPrice, currentPrice, 0, now]
                         );
                     }
                 } catch (err) {
@@ -727,13 +765,18 @@ const runBotCycle = async () => {
         // 4. Update all open positions P&L (this handles SL/TP/trailing stop automatically)
         await updatePositionsPnL(currentPrice, symbol);
 
-        // 5. Get bot parameters
-        const params = await getBotParameters();
+        // 5. Get bot parameters for this symbol
+        const params = await getBotParameters(symbol);
         const rsi = calculateRSI(priceHistory, params.rsi_period);
-        latestRSI = rsi;
+        
+        // Update latest RSI for dashboard (only for bitcoin for backward compatibility)
+        if (symbol === 'bitcoin') {
+            latestRSI = rsi;
+        }
 
+        const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase();
         if (rsi) {
-            console.log(`🤖 BOT: BTC/EUR=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);
+            console.log(`🤖 BOT [${symbol.toUpperCase()}]: ${tradingPair}=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);
         }
 
         if (!isBotActive || !rsi) return; // Stop here if bot is off
@@ -807,7 +850,7 @@ const runBotCycle = async () => {
             // ✅ FIX: Rimuovo controllo longPositions.length === 0 - permetto multiple posizioni
             if (canOpen.allowed) {
                 // Apri LONG position
-                const amount = positionSize / currentPrice;
+                const amount = maxAvailableForNewPosition / currentPrice;
                 const stopLoss = currentPrice * (1 - params.stop_loss_pct / 100);
                 const takeProfit = currentPrice * (1 + params.take_profit_pct / 100);
 
@@ -841,7 +884,7 @@ const runBotCycle = async () => {
             // ✅ FIX: Rimuovo controllo shortPositions.length === 0 - permetto multiple posizioni
             if (canOpen.allowed) {
                 // Apri SHORT position
-                const amount = positionSize / currentPrice;
+                const amount = maxAvailableForNewPosition / currentPrice;
                 const stopLoss = currentPrice * (1 + params.stop_loss_pct / 100); // Per SHORT, SL è sopra
                 const takeProfit = currentPrice * (1 - params.take_profit_pct / 100); // Per SHORT, TP è sotto
 
@@ -878,7 +921,35 @@ const runBotCycle = async () => {
         }
 
     } catch (error) {
-        console.error('❌ Bot Cycle Error:', error.message);
+        console.error(`❌ Bot Cycle Error for ${symbol}:`, error.message);
+        console.error(error.stack);
+    }
+};
+
+// Main Bot Loop Function - Iterates over all active symbols
+const runBotCycle = async () => {
+    try {
+        // Get all active bots
+        const activeBots = await dbAll(
+            "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND is_active = 1"
+        );
+        
+        if (activeBots.length === 0) {
+            // No active bots, but we still want to update prices for monitoring
+            // Update price for bitcoin at least (for backward compatibility)
+            const currentPrice = await getSymbolPrice('bitcoin');
+            if (currentPrice > 0) {
+                await dbRun("INSERT INTO price_history (symbol, price) VALUES (?, ?)", ['bitcoin', currentPrice]);
+            }
+            return;
+        }
+        
+        // Run bot cycle for each active symbol
+        for (const bot of activeBots) {
+            await runBotCycleForSymbol(bot.symbol, bot);
+        }
+    } catch (error) {
+        console.error('❌ Main Bot Cycle Error:', error.message);
         console.error(error.stack);
     }
 };
@@ -1913,26 +1984,100 @@ router.delete('/binance/order/:symbol/:orderId', async (req, res) => {
 // BOT CONFIGURATION ENDPOINTS
 // ==========================================
 
-// POST /api/crypto/bot/toggle - Toggle bot on/off
+// GET /api/crypto/bot/active - Get all active bots with their symbols
+router.get('/bot/active', async (req, res) => {
+    try {
+        const activeBots = await dbAll(
+            "SELECT * FROM bot_settings WHERE is_active = 1"
+        );
+        res.json({
+            success: true,
+            active_bots: activeBots.map(bot => ({
+                strategy_name: bot.strategy_name,
+                symbol: bot.symbol,
+                is_active: bot.is_active === 1,
+                parameters: bot.parameters ? JSON.parse(bot.parameters) : DEFAULT_PARAMS
+            }))
+        });
+    } catch (error) {
+        console.error('Error getting active bots:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/crypto/symbols/available - Get list of available trading symbols
+router.get('/symbols/available', async (req, res) => {
+    try {
+        // Common crypto symbols that can be traded
+        const availableSymbols = [
+            { symbol: 'bitcoin', name: 'Bitcoin', pair: 'BTCEUR', display: 'BTC/EUR' },
+            { symbol: 'solana', name: 'Solana', pair: 'SOLUSDT', display: 'SOL/USDT' },
+            { symbol: 'ethereum', name: 'Ethereum', pair: 'ETHEUR', display: 'ETH/EUR' },
+            { symbol: 'cardano', name: 'Cardano', pair: 'ADAEUR', display: 'ADA/EUR' },
+            { symbol: 'polkadot', name: 'Polkadot', pair: 'DOTEUR', display: 'DOT/EUR' },
+            { symbol: 'chainlink', name: 'Chainlink', pair: 'LINKEUR', display: 'LINK/EUR' },
+            { symbol: 'litecoin', name: 'Litecoin', pair: 'LTCEUR', display: 'LTC/EUR' },
+            { symbol: 'ripple', name: 'Ripple', pair: 'XRPUSDT', display: 'XRP/USDT' }
+        ];
+        
+        // Get active bots to show which symbols have bots running
+        const activeBots = await dbAll(
+            "SELECT symbol FROM bot_settings WHERE is_active = 1"
+        );
+        const activeSymbols = new Set(activeBots.map(b => b.symbol));
+        
+        res.json({
+            success: true,
+            symbols: availableSymbols.map(s => ({
+                ...s,
+                bot_active: activeSymbols.has(s.symbol)
+            }))
+        });
+    } catch (error) {
+        console.error('Error getting available symbols:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /api/crypto/bot/toggle - Toggle bot on/off (supports multi-symbol)
 router.post('/bot/toggle', async (req, res) => {
     try {
-        const { strategy_name, is_active } = req.body;
+        const { strategy_name, symbol, is_active } = req.body;
         
         if (!strategy_name) {
             return res.status(400).json({ error: 'strategy_name is required' });
         }
+        
+        const targetSymbol = symbol || 'bitcoin'; // Default to bitcoin for backward compatibility
 
         const activeValue = is_active ? 1 : 0;
-        await dbRun(
-            "UPDATE bot_settings SET is_active = ? WHERE strategy_name = ?",
-            [activeValue, strategy_name]
+        
+        // Check if bot settings exist for this symbol, if not create them
+        const existing = await dbGet(
+            "SELECT * FROM bot_settings WHERE strategy_name = ? AND symbol = ?",
+            [strategy_name, targetSymbol]
         );
+        
+        if (!existing) {
+            // Create new bot settings with default parameters
+            await dbRun(
+                "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES (?, ?, ?, ?)",
+                [strategy_name, targetSymbol, activeValue, JSON.stringify(DEFAULT_PARAMS)]
+            );
+        } else {
+            // Update existing
+            await dbRun(
+                "UPDATE bot_settings SET is_active = ? WHERE strategy_name = ? AND symbol = ?",
+                [activeValue, strategy_name, targetSymbol]
+            );
+        }
 
         res.json({
             success: true,
             strategy_name,
+            symbol: targetSymbol,
             is_active: activeValue === 1,
-            message: `Bot ${activeValue === 1 ? 'attivato' : 'disattivato'}`
+            message: `Bot ${activeValue === 1 ? 'attivato' : 'disattivato'} per ${targetSymbol.toUpperCase()}`
         });
     } catch (error) {
         console.error('Error toggling bot:', error);
@@ -2707,7 +2852,8 @@ router.get('/bot-analysis', async (req, res) => {
         
         console.log('🔍 [BOT-ANALYSIS] Tutte le dipendenze verificate OK');
         
-        const symbol = 'bitcoin';
+        // Get symbol from query parameter, default to bitcoin
+        const symbol = req.query.symbol || 'bitcoin';
         console.log('🔍 [BOT-ANALYSIS] Symbol:', symbol);
         
         // Get current price from Binance

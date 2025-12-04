@@ -8,6 +8,10 @@ const BotAnalysisPage = () => {
     const [loading, setLoading] = useState(true);
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
     
+    // Get symbol from URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const symbol = urlParams.get('symbol') || 'bitcoin';
+    
     const navigateToDashboard = () => {
         // Se siamo in una finestra popup, chiudila, altrimenti naviga
         if (window.opener) {
@@ -23,7 +27,7 @@ const BotAnalysisPage = () => {
         const fetchAnalysis = async () => {
             try {
                 setLoading(true);
-                const res = await fetch(`${apiBase}/api/crypto/bot-analysis`);
+                const res = await fetch(`${apiBase}/api/crypto/bot-analysis?symbol=${symbol}`);
                 if (res.ok) {
                     const data = await res.json();
                     setAnalysis(data);
@@ -39,7 +43,7 @@ const BotAnalysisPage = () => {
         const interval = setInterval(fetchAnalysis, 1000); // ✅ Aggiorna ogni 1 secondo per vedere cambiamenti in tempo reale
 
         return () => clearInterval(interval);
-    }, [apiBase]);
+    }, [apiBase, symbol]);
 
     if (loading && !analysis) {
         return (
@@ -78,7 +82,7 @@ const BotAnalysisPage = () => {
                             Torna al Dashboard
                         </button>
                     )}
-                    <h1>🤖 Analisi Bot in Tempo Reale</h1>
+                    <h1>🤖 Analisi Bot in Tempo Reale - {symbol.toUpperCase()}</h1>
                     <button 
                         className="refresh-button" 
                         onClick={() => window.location.reload()}

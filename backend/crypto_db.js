@@ -41,17 +41,41 @@ function initDb() {
       profit_loss REAL
     )`);
 
-        // Bot settings
+        // Bot settings - Supporta multi-simbolo
         db.run(`CREATE TABLE IF NOT EXISTS bot_settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      strategy_name TEXT UNIQUE,
+      strategy_name TEXT NOT NULL,
+      symbol TEXT NOT NULL DEFAULT 'bitcoin',
       is_active INTEGER DEFAULT 0,
-      parameters TEXT
+      parameters TEXT,
+      UNIQUE(strategy_name, symbol)
     )`);
 
-        // Insert default strategy if not exists with all configurable parameters
-        db.run(`INSERT OR IGNORE INTO bot_settings (strategy_name, is_active, parameters) 
-            VALUES ('RSI_Strategy', 0, '{
+        // Migrate existing bot_settings: add symbol column if it doesn't exist
+        db.all("PRAGMA table_info(bot_settings)", (err, columns) => {
+            if (!err && columns && columns.length > 0) {
+                const columnNames = columns.map(c => c.name);
+                
+                if (!columnNames.includes('symbol')) {
+                    // Add symbol column
+                    db.run(`ALTER TABLE bot_settings ADD COLUMN symbol TEXT NOT NULL DEFAULT 'bitcoin'`, (alterErr) => {
+                        if (alterErr) {
+                            console.error('Error adding symbol column to bot_settings:', alterErr.message);
+                        } else {
+                            console.log('✅ Added symbol column to bot_settings');
+                            // Update existing rows to have 'bitcoin' as default symbol
+                            db.run(`UPDATE bot_settings SET symbol = 'bitcoin' WHERE symbol IS NULL`);
+                            // Recreate table with UNIQUE constraint if needed
+                            // SQLite doesn't support adding UNIQUE constraint directly, so we'll handle it in queries
+                        }
+                    });
+                }
+            }
+        });
+
+        // Insert default strategy for bitcoin if not exists with all configurable parameters
+        db.run(`INSERT OR IGNORE INTO bot_settings (strategy_name, symbol, is_active, parameters) 
+            VALUES ('RSI_Strategy', 'bitcoin', 0, '{
                 "rsi_period": 14,
                 "rsi_oversold": 30,
                 "rsi_overbought": 70,

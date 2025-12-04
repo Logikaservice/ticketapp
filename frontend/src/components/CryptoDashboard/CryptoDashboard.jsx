@@ -16,6 +16,9 @@ const CryptoDashboard = () => {
     const [botStatus, setBotStatus] = useState({ active: false, strategy: 'RSI_Strategy' });
     const [priceData, setPriceData] = useState([]);
     const [currentPrice, setCurrentPrice] = useState(0);
+    const [currentSymbol, setCurrentSymbol] = useState('bitcoin'); // Current symbol being viewed
+    const [availableSymbols, setAvailableSymbols] = useState([]);
+    const [activeBots, setActiveBots] = useState([]);
 
     // Determine API base URL
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
@@ -72,7 +75,7 @@ const CryptoDashboard = () => {
                 setTrades(data.recent_trades || []);
                 setAllTrades(data.all_trades || []); // Store full history for chart
                 setOpenPositions(data.open_positions || []); // Store open positions
-                const bot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy');
+                const bot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy' && b.symbol === currentSymbol);
                 if (bot) setBotStatus({ active: bot.is_active === 1, strategy: bot.strategy_name });
                 // Load bot parameters for backtesting
                 if (data.bot_parameters) {
@@ -83,6 +86,30 @@ const CryptoDashboard = () => {
             }
         } catch (error) {
             console.error("❌ Error fetching dashboard:", error);
+        }
+    };
+
+    const fetchAvailableSymbols = async () => {
+        try {
+            const res = await fetch(`${apiBase}/api/crypto/symbols/available`);
+            if (res.ok) {
+                const data = await res.json();
+                setAvailableSymbols(data.symbols || []);
+            }
+        } catch (error) {
+            console.error("❌ Error fetching available symbols:", error);
+        }
+    };
+
+    const fetchActiveBots = async () => {
+        try {
+            const res = await fetch(`${apiBase}/api/crypto/bot/active`);
+            if (res.ok) {
+                const data = await res.json();
+                setActiveBots(data.active_bots || []);
+            }
+        } catch (error) {
+            console.error("❌ Error fetching active bots:", error);
         }
     };
 
@@ -155,8 +182,8 @@ const CryptoDashboard = () => {
 
     const fetchPrice = async () => {
         try {
-            // Fetch real Bitcoin price in EUR from Binance (same source as bot)
-            const res = await fetch(`${apiBase}/api/crypto/price/bitcoin?currency=eur`);
+            // Fetch real price for current symbol from Binance (same source as bot)
+            const res = await fetch(`${apiBase}/api/crypto/price/${currentSymbol}?currency=eur`);
             if (res.ok) {
                 const data = await res.json();
                 // Read price directly (EUR from Binance, same as bot uses)
@@ -174,7 +201,7 @@ const CryptoDashboard = () => {
 
     const fetchHistory = async (interval = '15m') => {
         try {
-            const res = await fetch(`${apiBase}/api/crypto/history?interval=${interval}`);
+            const res = await fetch(`${apiBase}/api/crypto/history?interval=${interval}&symbol=${currentSymbol}`);
             if (res.ok) {
                 const history = await res.json();
                 setPriceData(history);
@@ -191,7 +218,7 @@ const CryptoDashboard = () => {
     const [apexInterval, setApexInterval] = useState('15m'); // Default 15m per corrispondenza
     const fetchApexHistory = async (interval = '15m') => {
         try {
-            const res = await fetch(`${apiBase}/api/crypto/history?interval=${interval}`);
+            const res = await fetch(`${apiBase}/api/crypto/history?interval=${interval}&symbol=${currentSymbol}`);
             if (res.ok) {
                 const history = await res.json();
                 setApexHistory(history);
@@ -204,6 +231,8 @@ const CryptoDashboard = () => {
     };
 
     useEffect(() => {
+        fetchAvailableSymbols();
+        fetchActiveBots();
         fetchHistory(); // Load history first (15m for TradingView)
         fetchApexHistory(apexInterval); // Load history for ApexChart
         fetchData();
@@ -217,6 +246,7 @@ const CryptoDashboard = () => {
         // Update data (positions, trades) every 1.5 seconds for instant updates
         const dataInterval = setInterval(() => {
             fetchData();
+            fetchActiveBots(); // Also update active bots
         }, 1500);
         
         // Update history (candles) more frequently (every 5 seconds) for real-time updates
@@ -233,30 +263,82 @@ const CryptoDashboard = () => {
             clearInterval(dataInterval);
             clearInterval(historyInterval);
         };
-    }, []);
+    }, [currentSymbol]);
 
-    const toggleBot = async () => {
+    const toggleBot = async (symbol = null) => {
         try {
-            const newStatus = !botStatus.active;
+            const targetSymbol = symbol || currentSymbol;
+            const currentBot = activeBots.find(b => b.symbol === targetSymbol);
+            const newStatus = currentBot ? !currentBot.is_active : true;
+            
             await fetch(`${apiBase}/api/crypto/bot/toggle`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ strategy_name: 'RSI_Strategy', is_active: newStatus })
+                body: JSON.stringify({ 
+                    strategy_name: 'RSI_Strategy', 
+                    symbol: targetSymbol,
+                    is_active: newStatus 
+                })
             });
-            setBotStatus(prev => ({ ...prev, active: newStatus }));
+            
+            // Update local state
+            if (targetSymbol === currentSymbol) {
+                setBotStatus(prev => ({ ...prev, active: newStatus }));
+            }
+            
+            // Refresh active bots list
+            await fetchActiveBots();
         } catch (error) {
             console.error("Error toggling bot:", error);
         }
     };
 
-    // Calculate total balance (EUR + Crypto value)
-    const totalBalance = portfolio.balance_usd + ((portfolio.holdings['bitcoin'] || 0) * currentPrice);
+    // Calculate total balance (EUR + All Crypto values)
+    const [allSymbolPrices, setAllSymbolPrices] = useState({});
+    
+    // Fetch prices for all symbols in holdings
+    useEffect(() => {
+        const fetchAllPrices = async () => {
+            const holdings = portfolio.holdings || {};
+            const symbols = Object.keys(holdings).filter(s => holdings[s] > 0);
+            const prices = {};
+            
+            for (const symbol of symbols) {
+                try {
+                    const res = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=eur`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        prices[symbol] = parseFloat(data.price || 0);
+                    }
+                } catch (error) {
+                    console.error(`Error fetching price for ${symbol}:`, error);
+                }
+            }
+            
+            setAllSymbolPrices(prices);
+        };
+        
+        if (Object.keys(portfolio.holdings || {}).length > 0) {
+            fetchAllPrices();
+        }
+    }, [portfolio.holdings, apiBase]);
+    
+    // Calculate total balance including all holdings
+    const holdings = portfolio.holdings || {};
+    let totalCryptoValue = 0;
+    Object.keys(holdings).forEach(symbol => {
+        const amount = holdings[symbol] || 0;
+        const price = allSymbolPrices[symbol] || (symbol === currentSymbol ? currentPrice : 0);
+        totalCryptoValue += amount * price;
+    });
+    
+    const totalBalance = portfolio.balance_usd + totalCryptoValue;
 
-    // Calculate P&L
-    const holdings = portfolio.holdings['bitcoin'] || 0;
+    // Calculate P&L for current symbol only (for display)
+    const currentHoldings = holdings[currentSymbol] || 0;
     const avgPrice = portfolio.avg_buy_price || 0;
-    const investedValue = holdings * avgPrice;
-    const currentValue = holdings * currentPrice;
+    const investedValue = currentHoldings * avgPrice;
+    const currentValue = currentHoldings * currentPrice;
     const pnlValue = currentValue - investedValue;
     const pnlPercent = investedValue > 0 ? (pnlValue / investedValue) * 100 : 0;
 
@@ -345,10 +427,11 @@ const CryptoDashboard = () => {
                                 const url = new URL(window.location);
                                 url.searchParams.set('domain', 'crypto');
                                 url.searchParams.set('page', 'bot-analysis');
+                                url.searchParams.set('symbol', currentSymbol);
                                 window.open(url.toString(), 'BotAnalysis', 'width=1200,height=800,resizable=yes,scrollbars=yes');
                             }}
                             style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px', background: '#3b82f6' }}
-                            title="Analisi Bot in Tempo Reale - Apri in nuova finestra"
+                            title={`Analisi Bot in Tempo Reale per ${currentSymbol.toUpperCase()} - Apri in nuova finestra`}
                         >
                             🔍
                         </button>
@@ -364,16 +447,143 @@ const CryptoDashboard = () => {
                 </div>
             </div>
 
+            {/* ACTIVE BOTS PANEL */}
+            {activeBots.length > 0 && (
+                <div className="crypto-card" style={{ marginBottom: '20px' }}>
+                    <div className="card-title">
+                        <Activity size={20} className="text-green-500" />
+                        Bot Attivi ({activeBots.length})
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '15px' }}>
+                        {activeBots.map((bot, idx) => {
+                            const symbolInfo = availableSymbols.find(s => s.symbol === bot.symbol);
+                            return (
+                                <div
+                                    key={idx}
+                                    onClick={() => {
+                                        setCurrentSymbol(bot.symbol);
+                                        setPriceData([]);
+                                        setApexHistory([]);
+                                    }}
+                                    style={{
+                                        background: 'linear-gradient(145deg, #1c1c1e, #2a2a2d)',
+                                        border: '2px solid #4ade80',
+                                        borderRadius: '8px',
+                                        padding: '12px 16px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        minWidth: '150px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1.05)';
+                                        e.currentTarget.style.borderColor = '#22c55e';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.borderColor = '#4ade80';
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                        <div style={{
+                                            width: '10px',
+                                            height: '10px',
+                                            borderRadius: '50%',
+                                            background: '#4ade80',
+                                            animation: 'pulse 2s infinite'
+                                        }} />
+                                        <span style={{ fontWeight: 'bold', color: '#fff' }}>
+                                            {symbolInfo?.display || bot.symbol.toUpperCase()}
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: '0.85rem', color: '#9ca3af' }}>
+                                        {bot.strategy_name}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '4px' }}>
+                                        Clicca per visualizzare
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* ADVANCED STATISTICS PANEL */}
             <StatisticsPanel apiBase={apiBase} />
 
             {/* MAIN CRYPTO GRID - CHART & OPEN POSITIONS */}
             <div className="crypto-grid">
                 <div className="crypto-card">
-                    <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
                             <Activity size={20} className="text-blue-500" />
-                            Bitcoin / EUR Live Market
+                            <select
+                                value={currentSymbol}
+                                onChange={(e) => {
+                                    setCurrentSymbol(e.target.value);
+                                    // Reset price data when changing symbol
+                                    setPriceData([]);
+                                    setApexHistory([]);
+                                }}
+                                style={{
+                                    background: '#1f2937',
+                                    color: '#fff',
+                                    border: '1px solid #374151',
+                                    borderRadius: '6px',
+                                    padding: '6px 12px',
+                                    fontSize: '0.9rem',
+                                    cursor: 'pointer',
+                                    minWidth: '150px'
+                                }}
+                            >
+                                {availableSymbols.map(s => (
+                                    <option key={s.symbol} value={s.symbol}>
+                                        {s.display} {s.bot_active ? '🤖' : ''}
+                                    </option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={() => toggleBot(currentSymbol)}
+                                style={{
+                                    background: activeBots.find(b => b.symbol === currentSymbol) 
+                                        ? '#ef4444' 
+                                        : '#4ade80',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '6px 12px',
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    fontWeight: 'bold',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                }}
+                                title={activeBots.find(b => b.symbol === currentSymbol) 
+                                    ? 'Disattiva Bot per questo simbolo' 
+                                    : 'Attiva Bot per questo simbolo'}
+                            >
+                                {activeBots.find(b => b.symbol === currentSymbol) ? (
+                                    <>⏸️ Stop Bot</>
+                                ) : (
+                                    <>▶️ Start Bot</>
+                                )}
+                            </button>
+                            <span style={{ color: '#9ca3af', fontSize: '0.9rem' }}>
+                                {availableSymbols.find(s => s.symbol === currentSymbol)?.display || 'Live Market'}
+                            </span>
+                            {activeBots.find(b => b.symbol === currentSymbol) && (
+                                <span style={{ 
+                                    background: '#4ade80', 
+                                    color: '#fff', 
+                                    padding: '2px 8px', 
+                                    borderRadius: '4px', 
+                                    fontSize: '0.75rem',
+                                    fontWeight: 'bold'
+                                }}>
+                                    BOT ATTIVO
+                                </span>
+                            )}
                         </div>
                         <button
                             onClick={() => setUseApexChart(!useApexChart)}
@@ -395,8 +605,8 @@ const CryptoDashboard = () => {
                     </div>
                     {useApexChart ? (
                         <ApexChart
-                            symbol="BTCEUR"
-                            trades={(allTrades || []).map(trade => ({
+                            symbol={availableSymbols.find(s => s.symbol === currentSymbol)?.pair || 'BTCEUR'}
+                            trades={(allTrades || []).filter(t => t.symbol === currentSymbol).map(trade => ({
                                 type: trade.type,
                                 timestamp: trade.timestamp,
                                 price: typeof trade.price === 'number' ? trade.price : parseFloat(trade.price),
@@ -404,7 +614,7 @@ const CryptoDashboard = () => {
                                 strategy: trade.strategy || 'Bot',
                                 ticket_id: trade.ticket_id || null
                             }))}
-                            openPositions={openPositions || []}
+                            openPositions={(openPositions || []).filter(p => p.symbol === currentSymbol)}
                             currentPrice={currentPrice}
                             priceHistory={apexHistory.length > 0 ? apexHistory : priceData || []}
                             currentInterval={apexInterval}
@@ -415,8 +625,8 @@ const CryptoDashboard = () => {
                         />
                     ) : (
                         <TradingViewChart
-                            symbol="BTCEUR"
-                            trades={(allTrades || []).map(trade => ({
+                            symbol={availableSymbols.find(s => s.symbol === currentSymbol)?.pair || 'BTCEUR'}
+                            trades={(allTrades || []).filter(t => t.symbol === currentSymbol).map(trade => ({
                                 type: trade.type,
                                 timestamp: trade.timestamp,
                                 price: typeof trade.price === 'number' ? trade.price : parseFloat(trade.price),
@@ -424,7 +634,7 @@ const CryptoDashboard = () => {
                                 strategy: trade.strategy || 'Bot',
                                 ticket_id: trade.ticket_id || null
                             }))}
-                            openPositions={openPositions || []}
+                            openPositions={(openPositions || []).filter(p => p.symbol === currentSymbol)}
                             currentPrice={currentPrice}
                             priceHistory={priceData || []}
                         />
