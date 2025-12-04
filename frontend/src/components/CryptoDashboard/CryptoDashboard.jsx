@@ -219,13 +219,14 @@ const CryptoDashboard = () => {
             fetchData();
         }, 1500);
         
-        // Update history (candles) more frequently (every 15 seconds) for real-time updates
+        // Update history (candles) more frequently (every 5 seconds) for real-time updates
+        // ✅ FIX: Aggiornamento più frequente per vedere candele in tempo reale
         const historyInterval = setInterval(() => {
             fetchHistory();
             if (useLightweightChart) {
                 fetchLightweightHistory(lightweightInterval); // Update data when using Lightweight Charts
             }
-        }, 15000);
+        }, 5000); // Ridotto da 15s a 5s per aggiornamenti più frequenti
         
         return () => {
             clearInterval(priceInterval);

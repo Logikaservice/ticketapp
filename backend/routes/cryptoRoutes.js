@@ -502,6 +502,57 @@ const runBotCycle = async () => {
 
         await dbRun("INSERT INTO price_history (symbol, price) VALUES (?, ?)", [symbol, currentPrice]);
 
+        // ✅ FIX: Aggiorna candele klines in tempo reale per tutti gli intervalli
+        const intervalsToUpdate = ['1m', '5m', '15m', '30m', '1h', '4h', '1d'];
+        const now = Date.now();
+        
+        for (const interval of intervalsToUpdate) {
+            try {
+                // Calcola l'inizio della candela corrente per questo intervallo
+                let candleStartTime = 0;
+                const intervalMs = {
+                    '1m': 60 * 1000,
+                    '5m': 5 * 60 * 1000,
+                    '15m': 15 * 60 * 1000,
+                    '30m': 30 * 60 * 1000,
+                    '1h': 60 * 60 * 1000,
+                    '4h': 4 * 60 * 60 * 1000,
+                    '1d': 24 * 60 * 60 * 1000
+                };
+                
+                const intervalDuration = intervalMs[interval] || 15 * 60 * 1000;
+                candleStartTime = Math.floor(now / intervalDuration) * intervalDuration;
+                
+                // Verifica se esiste già una candela per questo periodo
+                const existingKline = await dbGet(
+                    "SELECT * FROM klines WHERE symbol = ? AND interval = ? AND open_time = ?",
+                    ['bitcoin', interval, candleStartTime]
+                );
+                
+                if (existingKline) {
+                    // Aggiorna candela esistente: aggiorna high, low, close
+                    const newHigh = Math.max(existingKline.high_price, currentPrice);
+                    const newLow = Math.min(existingKline.low_price, currentPrice);
+                    
+                    await dbRun(
+                        "UPDATE klines SET high_price = ?, low_price = ?, close_price = ?, close_time = ? WHERE symbol = ? AND interval = ? AND open_time = ?",
+                        [newHigh, newLow, currentPrice, now, 'bitcoin', interval, candleStartTime]
+                    );
+                } else {
+                    // Crea nuova candela
+                    await dbRun(
+                        `INSERT INTO klines 
+                        (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        ['bitcoin', interval, candleStartTime, currentPrice, currentPrice, currentPrice, currentPrice, 0, now]
+                    );
+                }
+            } catch (err) {
+                // Ignora errori per singoli intervalli, continua con gli altri
+                console.error(`⚠️ Error updating kline for interval ${interval}:`, err.message);
+            }
+        }
+
         // Optional: Cleanup old history
         if (Math.random() < 0.01) {
             await dbRun("DELETE FROM price_history WHERE id NOT IN (SELECT id FROM price_history ORDER BY timestamp DESC LIMIT 1000)");
