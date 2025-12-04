@@ -2667,11 +2667,14 @@ router.delete('/backtest/results/:id', async (req, res) => {
 
 // ✅ NUOVO ENDPOINT: Analisi bot in tempo reale - Mostra cosa sta valutando il bot
 router.get('/bot-analysis', async (req, res) => {
+    console.log('🔍 [BOT-ANALYSIS] Richiesta ricevuta');
     try {
         const symbol = 'bitcoin';
+        console.log('🔍 [BOT-ANALYSIS] Symbol:', symbol);
         
         // Get current price from Binance
         let currentPrice = 0;
+        console.log('🔍 [BOT-ANALYSIS] Fetching current price...');
         try {
             const binanceData = await httpsGet('https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR');
             currentPrice = parseFloat(binanceData.price);
@@ -2684,11 +2687,15 @@ router.get('/bot-analysis', async (req, res) => {
             }
         }
         
+        console.log('🔍 [BOT-ANALYSIS] Current price:', currentPrice);
+        
         if (!currentPrice || currentPrice === 0) {
+            console.error('❌ [BOT-ANALYSIS] Prezzo corrente non disponibile');
             return res.status(500).json({ error: 'Impossibile ottenere prezzo corrente' });
         }
 
         // Get price history for analysis (usa klines per dati più accurati)
+        console.log('🔍 [BOT-ANALYSIS] Fetching price history...');
         const priceHistoryData = await dbAll(
             "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
             [symbol]
@@ -2716,16 +2723,22 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         // Generate signal with full details
+        console.log('🔍 [BOT-ANALYSIS] History length:', historyForSignal ? historyForSignal.length : 0);
         if (!historyForSignal || historyForSignal.length === 0) {
+            console.error('❌ [BOT-ANALYSIS] Nessun dato storico disponibile');
             return res.status(500).json({ error: 'Nessun dato storico disponibile per l\'analisi' });
         }
         
+        console.log('🔍 [BOT-ANALYSIS] Generating signal...');
         const signal = signalGenerator.generateSignal(historyForSignal);
+        console.log('🔍 [BOT-ANALYSIS] Signal generated:', signal ? signal.direction : 'null');
         
         if (!signal || !signal.indicators) {
+            console.error('❌ [BOT-ANALYSIS] Errore nella generazione del segnale');
             return res.status(500).json({ error: 'Errore nella generazione del segnale' });
         }
         
+        console.log('🔍 [BOT-ANALYSIS] Calculating indicator details...');
         // ✅ Calcola indicatori dettagliati per mostrare cosa è attivo
         const indicators = signal.indicators || {};
         const rsi = indicators.rsi;
@@ -2912,8 +2925,8 @@ router.get('/bot-analysis', async (req, res) => {
             shortInactiveConfirmations.push({ name: 'Volume alto', points: 15, active: false, reason: volume ? `Volume ratio: ${volume.ratio?.toFixed(2)}x (serve > soglia)` : 'Volume non disponibile' });
         }
         } catch (indicatorError) {
-            console.error('❌ Error calculating indicator details:', indicatorError);
-            console.error('❌ Indicator error stack:', indicatorError.stack);
+            console.error('❌ [BOT-ANALYSIS] Error calculating indicator details:', indicatorError);
+            console.error('❌ [BOT-ANALYSIS] Indicator error stack:', indicatorError.stack);
             // Continua con array vuoti se c'è un errore nel calcolo degli indicatori
             longActiveConfirmations = [];
             longInactiveConfirmations = [];
@@ -2921,6 +2934,8 @@ router.get('/bot-analysis', async (req, res) => {
             shortInactiveConfirmations = [];
         }
         
+        console.log('🔍 [BOT-ANALYSIS] Indicator details calculated. Long active:', longActiveConfirmations.length, 'Short active:', shortActiveConfirmations.length);
+        console.log('🔍 [BOT-ANALYSIS] Getting risk check...');
         // Risk check
         const riskCheck = await riskManager.calculateMaxRisk();
         
@@ -3007,6 +3022,7 @@ router.get('/bot-analysis', async (req, res) => {
             shortReason = 'Nessun segnale SHORT attivo';
         }
         
+        console.log('🔍 [BOT-ANALYSIS] Preparing response...');
         res.json({
             currentPrice,
             rsi: rsi || 0,
