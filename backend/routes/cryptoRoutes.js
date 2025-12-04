@@ -275,12 +275,12 @@ router.get('/price/:symbol', async (req, res) => {
             console.error('Binance API failed:', e.message);
         }
 
-        // 2. Fallback to CoinGecko
+        // 2. Fallback to CoinGecko (for Bitcoin, not Solana!)
         if (!price) {
             try {
-                const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=eur');
-                if (geckoData && geckoData.solana && geckoData.solana.eur) {
-                    price = parseFloat(geckoData.solana.eur);
+                const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur');
+                if (geckoData && geckoData.bitcoin && geckoData.bitcoin.eur) {
+                    price = parseFloat(geckoData.bitcoin.eur);
                 }
             } catch (e) {
                 console.error('CoinGecko API failed:', e.message);
@@ -293,7 +293,14 @@ router.get('/price/:symbol', async (req, res) => {
             price = 120.00 + (Math.random() * 0.8); // Random between 120.00 and 120.80
         }
 
-        res.json({ data: { priceUsd: price } }); // Sending EUR value in priceUsd field to maintain frontend compatibility
+        // Return price in EUR (same format as bot uses from Binance)
+        res.json({ 
+            success: true,
+            price: price, // EUR price from Binance
+            currency: 'EUR',
+            source: price > 0 ? 'Binance' : 'Fallback',
+            timestamp: new Date().toISOString()
+        });
     } catch (error) {
         console.error('❌ Critical Error fetching price:', error.message);
         res.status(500).json({ error: error.message });

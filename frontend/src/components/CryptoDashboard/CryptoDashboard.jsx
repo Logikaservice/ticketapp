@@ -155,38 +155,20 @@ const CryptoDashboard = () => {
 
     const fetchPrice = async () => {
         try {
-            // Fetch real Bitcoin price in EUR
+            // Fetch real Bitcoin price in EUR from Binance (same source as bot)
             const res = await fetch(`${apiBase}/api/crypto/price/bitcoin?currency=eur`);
             if (res.ok) {
                 const data = await res.json();
-                const price = parseFloat(data.data.priceUsd);
-                setCurrentPrice(price);
-
-                setPriceData(prev => {
-                    const now = new Date();
-                    const newData = [...prev, {
-                        time: now.toLocaleTimeString(),
-                        price,
-                        timestamp: now.toISOString()
-                    }];
-                    if (newData.length > 500) newData.shift(); // Keep more history for chart
-                    return newData;
-                });
+                // Read price directly (EUR from Binance, same as bot uses)
+                const price = parseFloat(data.price || data.data?.priceUsd || 0);
+                if (price > 0) {
+                    setCurrentPrice(price);
+                    // NOTE: We don't add to priceData here - the chart uses OHLC data from /api/crypto/history
+                }
             }
         } catch (error) {
-            // Fallback mock data if API fails
-            const mockPrice = 200 + Math.random() * 5; // Mock SOL price
-            setCurrentPrice(mockPrice);
-            setPriceData(prev => {
-                const now = new Date();
-                const newData = [...prev, {
-                    time: now.toLocaleTimeString(),
-                    price: mockPrice,
-                    timestamp: now.toISOString()
-                }];
-                if (newData.length > 500) newData.shift();
-                return newData;
-            });
+            console.error('Error fetching price:', error);
+            // Don't set mock price - keep using last known price
         }
     };
 
