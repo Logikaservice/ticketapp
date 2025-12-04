@@ -543,6 +543,12 @@ const CryptoDashboard = () => {
                 currentBotParams={botParameters}
             />
 
+            {/* Bot Analysis Panel */}
+            <BotAnalysisPanel
+                isOpen={showBotAnalysis}
+                onClose={() => setShowBotAnalysis(false)}
+            />
+
             {/* Real-time Notifications */}
             <div className="crypto-notifications-container">
                 {notifications.map(notification => (
