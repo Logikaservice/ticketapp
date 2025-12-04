@@ -146,17 +146,15 @@ router.get('/history', async (req, res) => {
         }
 
         // Try to get OHLC klines first (more accurate) with specified interval
-        // ✅ FIX: Ordina per DESC e prendi le ultime N, poi riordina per ASC per il grafico
+        // ✅ FIX: Ordina per ASC per avere sequenza cronologica corretta (dal più vecchio al più recente)
         const klinesRows = await dbAll(
-            `SELECT open_time, open_price, high_price, low_price, close_price, volume FROM klines WHERE symbol = 'bitcoin' AND interval = ? ORDER BY open_time DESC LIMIT ?`,
+            `SELECT open_time, open_price, high_price, low_price, close_price, volume FROM klines WHERE symbol = 'bitcoin' AND interval = ? ORDER BY open_time ASC LIMIT ?`,
             [interval, limit]
         );
         
         if (klinesRows && klinesRows.length > 0) {
             // Return OHLC candlesticks (like TradingView)
-            // Riordina per ASC per il grafico (dal più vecchio al più recente)
             const candles = klinesRows
-                .reverse() // Riordina da DESC a ASC
                 .map(row => {
                     // open_time from Binance is in milliseconds, convert to seconds for Lightweight Charts
                     const timeSeconds = Math.floor(row.open_time / 1000);
@@ -169,13 +167,59 @@ router.get('/history', async (req, res) => {
                         volume: parseFloat(row.volume || 0)
                     };
                 })
-                .filter(candle => !isNaN(candle.time) && candle.time > 0); // Filter invalid data
+                .filter(candle => !isNaN(candle.time) && candle.time > 0) // Filter invalid data
+                .sort((a, b) => a.time - b.time); // Ordina per sicurezza
             
-            const firstTime = candles[0] ? new Date(candles[0].time * 1000).toISOString() : 'N/A';
-            const lastTime = candles[candles.length - 1] ? new Date(candles[candles.length - 1].time * 1000).toISOString() : 'N/A';
-            console.log(`📊 Returning ${candles.length} OHLC candlesticks from klines table (interval: ${interval})`);
-            console.log(`📊 Time range: ${firstTime} to ${lastTime}`);
-            res.json(candles);
+            // ✅ FIX: Verifica e riempi buchi nel grafico
+            if (candles.length > 1) {
+                const intervalSeconds = interval === '15m' ? 15 * 60 : 
+                                       interval === '1m' ? 60 :
+                                       interval === '5m' ? 5 * 60 :
+                                       interval === '30m' ? 30 * 60 :
+                                       interval === '1h' ? 60 * 60 :
+                                       interval === '4h' ? 4 * 60 * 60 :
+                                       interval === '1d' ? 24 * 60 * 60 : 15 * 60;
+                
+                const filledCandles = [];
+                for (let i = 0; i < candles.length - 1; i++) {
+                    filledCandles.push(candles[i]);
+                    
+                    // Verifica se c'è un buco tra questa candela e la successiva
+                    const currentTime = candles[i].time;
+                    const nextTime = candles[i + 1].time;
+                    const expectedNextTime = currentTime + intervalSeconds;
+                    
+                    // Se c'è un gap maggiore di 1.5x l'intervallo, riempi con candele vuote
+                    if (nextTime - currentTime > intervalSeconds * 1.5) {
+                        let gapTime = expectedNextTime;
+                        while (gapTime < nextTime - intervalSeconds / 2) {
+                            // Crea candela "vuota" (usa close della candela precedente)
+                            filledCandles.push({
+                                time: gapTime,
+                                open: candles[i].close,
+                                high: candles[i].close,
+                                low: candles[i].close,
+                                close: candles[i].close,
+                                volume: 0
+                            });
+                            gapTime += intervalSeconds;
+                        }
+                    }
+                }
+                filledCandles.push(candles[candles.length - 1]); // Aggiungi ultima candela
+                
+                const firstTime = filledCandles[0] ? new Date(filledCandles[0].time * 1000).toISOString() : 'N/A';
+                const lastTime = filledCandles[filledCandles.length - 1] ? new Date(filledCandles[filledCandles.length - 1].time * 1000).toISOString() : 'N/A';
+                console.log(`📊 Returning ${filledCandles.length} OHLC candlesticks from klines table (interval: ${interval}, original: ${candles.length}, filled gaps)`);
+                console.log(`📊 Time range: ${firstTime} to ${lastTime}`);
+                res.json(filledCandles);
+            } else {
+                const firstTime = candles[0] ? new Date(candles[0].time * 1000).toISOString() : 'N/A';
+                const lastTime = candles[candles.length - 1] ? new Date(candles[candles.length - 1].time * 1000).toISOString() : 'N/A';
+                console.log(`📊 Returning ${candles.length} OHLC candlesticks from klines table (interval: ${interval})`);
+                console.log(`📊 Time range: ${firstTime} to ${lastTime}`);
+                res.json(candles);
+            }
         } else {
             // Fallback to price_history points (backward compatibility)
             const historyRows = await dbAll("SELECT price, timestamp FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp ASC LIMIT 500");
@@ -513,24 +557,63 @@ const runBotCycle = async () => {
         const intervalsToUpdate = ['1m', '5m', '15m', '30m', '1h', '4h', '1d'];
         const now = Date.now();
         
+        // Helper function per calcolare candleStartTime allineato ai minuti naturali
+        const calculateAlignedCandleTime = (timestamp, interval) => {
+            const date = new Date(timestamp);
+            
+            if (interval === '1m') {
+                date.setSeconds(0, 0);
+                return date.getTime();
+            } else if (interval === '5m') {
+                const minutes = date.getMinutes();
+                const alignedMinutes = Math.floor(minutes / 5) * 5;
+                date.setMinutes(alignedMinutes, 0, 0);
+                return date.getTime();
+            } else if (interval === '15m') {
+                // ✅ FIX CRITICO: Allinea ai 15 minuti naturali (00:00, 00:15, 00:30, 00:45)
+                const minutes = date.getMinutes();
+                const alignedMinutes = Math.floor(minutes / 15) * 15;
+                date.setMinutes(alignedMinutes, 0, 0);
+                return date.getTime();
+            } else if (interval === '30m') {
+                const minutes = date.getMinutes();
+                const alignedMinutes = Math.floor(minutes / 30) * 30;
+                date.setMinutes(alignedMinutes, 0, 0);
+                return date.getTime();
+            } else if (interval === '1h') {
+                date.setMinutes(0, 0, 0);
+                return date.getTime();
+            } else if (interval === '4h') {
+                const hours = date.getHours();
+                const alignedHours = Math.floor(hours / 4) * 4;
+                date.setHours(alignedHours, 0, 0, 0);
+                return date.getTime();
+            } else if (interval === '1d') {
+                date.setHours(0, 0, 0, 0);
+                return date.getTime();
+            } else {
+                // Fallback
+                const intervalMs = {
+                    '1m': 60 * 1000,
+                    '5m': 5 * 60 * 1000,
+                    '15m': 15 * 60 * 1000,
+                    '30m': 30 * 60 * 1000,
+                    '1h': 60 * 60 * 1000,
+                    '4h': 4 * 60 * 60 * 1000,
+                    '1d': 24 * 60 * 60 * 1000
+                };
+                const intervalDuration = intervalMs[interval] || 15 * 60 * 1000;
+                return Math.floor(timestamp / intervalDuration) * intervalDuration;
+            }
+        };
+        
         // Aggiorna solo l'intervallo più importante (15m) per evitare troppe query
         // Gli altri intervalli verranno aggiornati quando necessario
         const primaryInterval = '15m';
         
         try {
-            // Calcola l'inizio della candela corrente per questo intervallo
-            const intervalMs = {
-                '1m': 60 * 1000,
-                '5m': 5 * 60 * 1000,
-                '15m': 15 * 60 * 1000,
-                '30m': 30 * 60 * 1000,
-                '1h': 60 * 60 * 1000,
-                '4h': 4 * 60 * 60 * 1000,
-                '1d': 24 * 60 * 60 * 1000
-            };
-            
-            const intervalDuration = intervalMs[primaryInterval] || 15 * 60 * 1000;
-            const candleStartTime = Math.floor(now / intervalDuration) * intervalDuration;
+            // ✅ FIX: Usa funzione helper per allineamento corretto
+            const candleStartTime = calculateAlignedCandleTime(now, primaryInterval);
             
             // Verifica se esiste già una candela per questo periodo
             const existingKline = await dbGet(
@@ -572,8 +655,8 @@ const runBotCycle = async () => {
                 if (interval === primaryInterval) continue; // Già aggiornato sopra
                 
                 try {
-                    const intervalDuration = intervalMs[interval] || 15 * 60 * 1000;
-                    const candleStartTime = Math.floor(now / intervalDuration) * intervalDuration;
+                    // ✅ FIX: Usa funzione helper per allineamento corretto
+                    const candleStartTime = calculateAlignedCandleTime(now, interval);
                     
                     const existingKline = await dbGet(
                         "SELECT * FROM klines WHERE symbol = ? AND interval = ? AND open_time = ?",

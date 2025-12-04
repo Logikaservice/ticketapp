@@ -364,11 +364,27 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
         candlestickSeriesRef.current.setMarkers(markers);
     }, [trades, openPositions]);
 
-    // Update last candle with live price (real-time candlestick update) - FORZATO OGNI 500ms
+    // Update last candle with live price (real-time candlestick update) - FORZATO OGNI 200ms per movimento fluido
     useEffect(() => {
-        if (!candlestickSeriesRef.current || !currentPrice || !lastCandleDataRef.current || priceHistory.length === 0) {
+        if (!candlestickSeriesRef.current || !currentPrice || priceHistory.length === 0) {
             return;
         }
+
+        // Se non c'è lastCandleDataRef, usa l'ultima candela da priceHistory
+        if (!lastCandleDataRef.current && priceHistory.length > 0) {
+            const lastCandle = priceHistory[priceHistory.length - 1];
+            if (lastCandle && 'time' in lastCandle) {
+                lastCandleDataRef.current = {
+                    time: lastCandle.time,
+                    open: lastCandle.open || currentPrice,
+                    high: lastCandle.high || currentPrice,
+                    low: lastCandle.low || currentPrice,
+                    close: lastCandle.close || currentPrice
+                };
+            }
+        }
+
+        if (!lastCandleDataRef.current) return;
 
         // Aggiorna immediatamente
         const updateCandle = () => {
@@ -381,8 +397,8 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                 const liveCandle = {
                     time: lastCandle.time,
                     open: lastCandle.open,
-                    high: Math.max(lastCandle.high, currentPrice),
-                    low: Math.min(lastCandle.low, currentPrice),
+                    high: Math.max(lastCandle.high || currentPrice, currentPrice),
+                    low: Math.min(lastCandle.low || currentPrice, currentPrice),
                     close: currentPrice // Update close with current price
                 };
 
@@ -397,11 +413,11 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
         // Aggiorna subito
         updateCandle();
 
-        // E poi ogni 500ms per movimento molto fluido e visibile
-        const interval = setInterval(updateCandle, 500);
+        // ✅ FIX: Aggiorna ogni 200ms per movimento molto fluido e visibile
+        const interval = setInterval(updateCandle, 200);
 
         return () => clearInterval(interval);
-    }, [currentPrice, priceHistory.length]);
+    }, [currentPrice, priceHistory]);
 
     // Update price lines: current price (blue) + entry lines for open BUY positions
     useEffect(() => {
