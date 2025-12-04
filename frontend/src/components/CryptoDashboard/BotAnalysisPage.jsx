@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, AlertCircle, CheckCircle, BarChart3, Shield, DollarSign } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, AlertCircle, CheckCircle, BarChart3, Shield, DollarSign, RefreshCw } from 'lucide-react';
+// Non usiamo react-router, usiamo window.location
 import './BotAnalysisPanel.css';
 
-const BotAnalysisPanel = ({ isCollapsed: initialCollapsed = false }) => {
+const BotAnalysisPage = () => {
     const [analysis, setAnalysis] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+    
+    const navigateToDashboard = () => {
+        const url = new URL(window.location);
+        url.searchParams.delete('page');
+        window.location.href = url.toString();
+    };
 
     useEffect(() => {
         const fetchAnalysis = async () => {
@@ -32,29 +38,45 @@ const BotAnalysisPanel = ({ isCollapsed: initialCollapsed = false }) => {
 
     if (loading && !analysis) {
         return (
-            <div className="bot-analysis-overlay">
-                <div className="bot-analysis-panel">
+            <div className="bot-analysis-page">
+                <div className="page-container">
                     <div className="loading-spinner">Caricamento analisi...</div>
                 </div>
             </div>
         );
     }
 
-    if (!analysis) return null;
+    if (!analysis) {
+        return (
+            <div className="bot-analysis-page">
+                <div className="page-container">
+                    <div className="error-message">Errore nel caricamento dei dati</div>
+                </div>
+            </div>
+        );
+    }
 
     const { signal, requirements, risk, positions, currentPrice, rsi, botParameters } = analysis;
 
     return (
-        <div className="bot-analysis-overlay" onClick={onClose}>
-            <div className="bot-analysis-panel" onClick={(e) => e.stopPropagation()}>
-                <div className="panel-header">
-                    <h2>🤖 Analisi Bot in Tempo Reale</h2>
-                    <button className="close-button" onClick={onClose}>
-                        <X size={20} />
+        <div className="bot-analysis-page">
+            <div className="page-container">
+                <div className="page-header">
+                    <button className="back-button" onClick={navigateToDashboard}>
+                        <ArrowLeft size={20} />
+                        Torna al Dashboard
+                    </button>
+                    <h1>🤖 Analisi Bot in Tempo Reale</h1>
+                    <button 
+                        className="refresh-button" 
+                        onClick={() => window.location.reload()}
+                        title="Aggiorna pagina"
+                    >
+                        <RefreshCw size={20} />
                     </button>
                 </div>
 
-                <div className="panel-content">
+                <div className="page-content">
                     {/* Prezzo e RSI Corrente */}
                     <div className="info-section">
                         <div className="info-card">
@@ -311,5 +333,5 @@ const BotAnalysisPanel = ({ isCollapsed: initialCollapsed = false }) => {
     );
 };
 
-export default BotAnalysisPanel;
+export default BotAnalysisPage;
 

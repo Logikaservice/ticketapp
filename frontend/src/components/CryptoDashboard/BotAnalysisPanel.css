@@ -1,3 +1,72 @@
+/* Stili per pagina separata */
+.bot-analysis-page {
+    min-height: 100vh;
+    background: #0f0f0f;
+    padding: 20px;
+}
+
+.page-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: #1c1c1e;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.page-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    border-bottom: 1px solid #374151;
+    background: #1c1c1e;
+}
+
+.page-header h1 {
+    flex: 1;
+    margin: 0;
+    color: #fff;
+    font-size: 28px;
+}
+
+.back-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #2d2d30;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.back-button:hover {
+    background: #374151;
+    border-color: #4b5563;
+}
+
+.refresh-button {
+    padding: 10px;
+    background: #2d2d30;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.refresh-button:hover {
+    background: #374151;
+}
+
+.page-content {
+    padding: 20px;
+}
+
+/* Stili per overlay (mantenuti per compatibilità) */
 .bot-analysis-overlay {
     position: fixed;
     top: 0;

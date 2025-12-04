@@ -7,7 +7,6 @@ import BotSettings from './BotSettings';
 import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
 import BacktestPanel from './BacktestPanel';
-import BotAnalysisPanel from './BotAnalysisPanel';
 import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
 import './CryptoLayout.css';
 
@@ -25,7 +24,6 @@ const CryptoDashboard = () => {
     const [openPositions, setOpenPositions] = useState([]);
     const [showBotSettings, setShowBotSettings] = useState(false);
     const [showBacktestPanel, setShowBacktestPanel] = useState(false);
-    const [showBotAnalysis, setShowBotAnalysis] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [botParameters, setBotParameters] = useState(null);
     const [useApexChart, setUseApexChart] = useState(false); // Toggle tra TradingView e ApexChart
@@ -343,7 +341,11 @@ const CryptoDashboard = () => {
                         </button>
                         <button 
                             className="toggle-btn" 
-                            onClick={() => setShowBotAnalysis(true)}
+                            onClick={() => {
+                                const url = new URL(window.location);
+                                url.searchParams.set('page', 'bot-analysis');
+                                window.location.href = url.toString();
+                            }}
                             style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px', background: '#3b82f6' }}
                             title="Analisi Bot in Tempo Reale - Vedi cosa sta valutando"
                         >
@@ -543,11 +545,6 @@ const CryptoDashboard = () => {
                 currentBotParams={botParameters}
             />
 
-            {/* Bot Analysis Panel */}
-            <BotAnalysisPanel
-                isOpen={showBotAnalysis}
-                onClose={() => setShowBotAnalysis(false)}
-            />
 
             {/* Real-time Notifications */}
             <div className="crypto-notifications-container">

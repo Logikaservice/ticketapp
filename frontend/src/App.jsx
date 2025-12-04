@@ -29,6 +29,7 @@ import VivaldiManager from './components/VivaldiManager';
 import PackVisionWithAuth from './components/PackVisionWithAuth';
 import PackVision from './components/PackVision';
 import CryptoDashboard from './components/CryptoDashboard/CryptoDashboard';
+import BotAnalysisPage from './components/CryptoDashboard/BotAnalysisPage';
 import { buildApiUrl } from './utils/apiConfig';
 
 const INITIAL_NEW_CLIENT_DATA = {
