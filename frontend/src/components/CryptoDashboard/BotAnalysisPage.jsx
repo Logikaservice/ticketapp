@@ -208,6 +208,25 @@ const BotAnalysisPage = () => {
                                     />
                                 </div>
                             </div>
+                            {/* Lista delle conferme ottenute */}
+                            {requirements.long.confirmationsList && requirements.long.confirmationsList.length > 0 && (
+                                <div className="confirmations-list">
+                                    <strong>Conferme ottenute ({requirements.long.currentConfirmations}/{requirements.long.minConfirmations}):</strong>
+                                    <ul className="confirmations-items">
+                                        {requirements.long.confirmationsList.map((confirmation, idx) => (
+                                            <li key={idx} className="confirmation-item">
+                                                <span className="confirmation-check">✓</span>
+                                                <span className="confirmation-text">{confirmation}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                            {requirements.long.currentConfirmations === 0 && (
+                                <div className="confirmations-list">
+                                    <span className="no-confirmations">Nessuna conferma ottenuta ancora</span>
+                                </div>
+                            )}
                             <div className="requirement-reason">
                                 <strong>Stato:</strong> {requirements.long.reason}
                             </div>
@@ -282,6 +301,25 @@ const BotAnalysisPage = () => {
                                     />
                                 </div>
                             </div>
+                            {/* Lista delle conferme ottenute */}
+                            {requirements.short.confirmationsList && requirements.short.confirmationsList.length > 0 && (
+                                <div className="confirmations-list">
+                                    <strong>Conferme ottenute ({requirements.short.currentConfirmations}/{requirements.short.minConfirmations}):</strong>
+                                    <ul className="confirmations-items">
+                                        {requirements.short.confirmationsList.map((confirmation, idx) => (
+                                            <li key={idx} className="confirmation-item">
+                                                <span className="confirmation-check">✓</span>
+                                                <span className="confirmation-text">{confirmation}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                            {requirements.short.currentConfirmations === 0 && (
+                                <div className="confirmations-list">
+                                    <span className="no-confirmations">Nessuna conferma ottenuta ancora</span>
+                                </div>
+                            )}
                             <div className="requirement-reason">
                                 <strong>Stato:</strong> {requirements.short.reason}
                             </div>

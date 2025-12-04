@@ -2873,6 +2873,10 @@ router.get('/bot-analysis', async (req, res) => {
         
         console.log('🔍 [BOT-ANALYSIS] Preparing response...');
         
+        // Estrai le conferme ottenute (reasons) per LONG e SHORT
+        const longConfirmationsList = signal.longSignal && signal.longSignal.reasons ? signal.longSignal.reasons : [];
+        const shortConfirmationsList = signal.shortSignal && signal.shortSignal.reasons ? signal.shortSignal.reasons : [];
+        
         res.json({
             currentPrice,
             rsi: rsi || 0,
@@ -2892,7 +2896,8 @@ router.get('/bot-analysis', async (req, res) => {
                     needsStrength: longNeedsStrength,
                     needsConfirmations: longNeedsConfirmations,
                     canOpen: longMeetsRequirements && canOpenCheck.allowed,
-                    reason: longReason
+                    reason: longReason,
+                    confirmationsList: longConfirmationsList // Lista delle conferme ottenute
                 },
                 short: {
                     minStrength: SHORT_MIN_STRENGTH,
@@ -2902,7 +2907,8 @@ router.get('/bot-analysis', async (req, res) => {
                     needsStrength: shortNeedsStrength,
                     needsConfirmations: shortNeedsConfirmations,
                     canOpen: shortMeetsRequirements && canOpenCheck.allowed,
-                    reason: shortReason
+                    reason: shortReason,
+                    confirmationsList: shortConfirmationsList // Lista delle conferme ottenute
                 }
             },
             risk: {
