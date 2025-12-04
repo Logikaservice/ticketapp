@@ -2782,6 +2782,9 @@ router.get('/bot-analysis', async (req, res) => {
         const rsi = indicators.rsi;
         
         console.log('🔍 [BOT-ANALYSIS] Getting risk check...');
+        // Get bot parameters
+        const params = await getBotParameters();
+        
         // Risk check
         const riskCheck = await riskManager.calculateMaxRisk();
         
