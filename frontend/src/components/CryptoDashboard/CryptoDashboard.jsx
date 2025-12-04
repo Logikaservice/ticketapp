@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet, Settings, BarChart2, RotateCcw } from 'lucide-react';
 import OpenPositions from './OpenPositions';
 import TradingViewChart from './TradingViewChart';
+import LightweightChart from './LightweightChart';
 import BotSettings from './BotSettings';
 import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
@@ -25,6 +26,7 @@ const CryptoDashboard = () => {
     const [showBacktestPanel, setShowBacktestPanel] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [botParameters, setBotParameters] = useState(null);
+    const [useLightweightChart, setUseLightweightChart] = useState(false); // Toggle tra TradingView e Lightweight Charts
     
     // WebSocket for real-time notifications
     const { connected: wsConnected } = useCryptoWebSocket(
@@ -333,24 +335,60 @@ const CryptoDashboard = () => {
             {/* MAIN CRYPTO GRID - CHART & OPEN POSITIONS */}
             <div className="crypto-grid">
                 <div className="crypto-card">
-                    <div className="card-title">
-                        <Activity size={20} className="text-blue-500" />
-                        Bitcoin / EUR Live Market
+                    <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Activity size={20} className="text-blue-500" />
+                            Bitcoin / EUR Live Market
+                        </div>
+                        <button
+                            onClick={() => setUseLightweightChart(!useLightweightChart)}
+                            style={{
+                                padding: '6px 12px',
+                                background: useLightweightChart ? '#4ade80' : '#3f3f46',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                                fontWeight: '500',
+                                transition: 'all 0.2s'
+                            }}
+                            title={useLightweightChart ? 'Passa a TradingView (con tool di disegno)' : 'Passa a Lightweight Charts (con marker precisi)'}
+                        >
+                            {useLightweightChart ? '📊 TradingView' : '📍 Marker Chart'}
+                        </button>
                     </div>
-                    <TradingViewChart
-                        symbol="BTCEUR"
-                        trades={(allTrades || []).map(trade => ({
-                            type: trade.type,
-                            timestamp: trade.timestamp,
-                            price: typeof trade.price === 'number' ? trade.price : parseFloat(trade.price),
-                            amount: typeof trade.amount === 'number' ? trade.amount : parseFloat(trade.amount),
-                            strategy: trade.strategy || 'Bot',
-                            ticket_id: trade.ticket_id || null
-                        }))}
-                        openPositions={openPositions || []}
-                        currentPrice={currentPrice}
-                        priceHistory={priceData || []}
-                    />
+                    {useLightweightChart ? (
+                        <LightweightChart
+                            symbol="BTCEUR"
+                            trades={(allTrades || []).map(trade => ({
+                                type: trade.type,
+                                timestamp: trade.timestamp,
+                                price: typeof trade.price === 'number' ? trade.price : parseFloat(trade.price),
+                                amount: typeof trade.amount === 'number' ? trade.amount : parseFloat(trade.amount),
+                                strategy: trade.strategy || 'Bot',
+                                ticket_id: trade.ticket_id || null
+                            }))}
+                            openPositions={openPositions || []}
+                            currentPrice={currentPrice}
+                            priceHistory={priceData || []}
+                        />
+                    ) : (
+                        <TradingViewChart
+                            symbol="BTCEUR"
+                            trades={(allTrades || []).map(trade => ({
+                                type: trade.type,
+                                timestamp: trade.timestamp,
+                                price: typeof trade.price === 'number' ? trade.price : parseFloat(trade.price),
+                                amount: typeof trade.amount === 'number' ? trade.amount : parseFloat(trade.amount),
+                                strategy: trade.strategy || 'Bot',
+                                ticket_id: trade.ticket_id || null
+                            }))}
+                            openPositions={openPositions || []}
+                            currentPrice={currentPrice}
+                            priceHistory={priceData || []}
+                        />
+                    )}
                 </div>
 
                 {/* MT5 Style Open Positions */}

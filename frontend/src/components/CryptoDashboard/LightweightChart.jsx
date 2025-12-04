@@ -280,60 +280,61 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
         // Clear previous markers
         markersRef.current = [];
 
-        // Filtra SOLO trades con posizioni APERTE
-        const openTrades = trades.filter(trade => {
-            if (!openPositions || openPositions.length === 0) return false;
-            if (!trade.ticket_id) return false;
-            
-            // Confronta ticket_id come stringhe
-            const tradeTicketId = String(trade.ticket_id);
-            return openPositions.some(
-                pos => String(pos.ticket_id) === tradeTicketId && pos.status === 'open'
-            );
+        // Usa direttamente le posizioni aperte invece di filtrare i trades
+        // Crea marker direttamente dalle posizioni per maggiore precisione
+        const positionsForMarkers = (openPositions || []).filter(pos => pos.status === 'open');
+        
+        if (positionsForMarkers.length === 0) {
+            candlestickSeriesRef.current.setMarkers([]);
+            return;
+        }
+        
+        // Trova i trades corrispondenti per ottenere il timestamp
+        const openTrades = positionsForMarkers.map(pos => {
+            const matchingTrade = trades.find(t => String(t.ticket_id) === String(pos.ticket_id));
+            return {
+                ...pos,
+                timestamp: matchingTrade?.timestamp || pos.opened_at || pos.timestamp,
+                type: pos.type
+            };
+        }).filter(t => t.timestamp);
+
+        // Ordina per timestamp
+        const sortedTrades = [...openTrades].sort((a, b) => 
+            new Date(a.timestamp) - new Date(b.timestamp)
+        );
+
+        // Crea un map per tracciare i numeri identificativi
+        const tradeIdMap = new Map();
+        let nextId = 1;
+
+        // Assegna numeri identificativi sequenziali
+        sortedTrades.forEach((trade) => {
+            const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
+            if (!tradeIdMap.has(uniqueKey)) {
+                tradeIdMap.set(uniqueKey, nextId++);
+            }
         });
 
-        if (openTrades.length > 0) {
-            // Ordina trades per timestamp
-            const sortedTrades = [...openTrades].sort((a, b) => 
-                new Date(a.timestamp) - new Date(b.timestamp)
-            );
+        // Crea marker usando entry_price e opened_at dalle posizioni
+        const markers = sortedTrades.map((trade, index) => {
+            const tradeTime = new Date(trade.timestamp).getTime() / 1000;
+            const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
+            const markerId = tradeIdMap.get(uniqueKey) || (index + 1);
 
-            // Crea un map per tracciare i numeri identificativi
-            const tradeIdMap = new Map();
-            let nextId = 1;
+            return {
+                time: tradeTime,
+                position: trade.type === 'buy' ? 'belowBar' : 'aboveBar',
+                color: trade.type === 'buy' ? '#4ade80' : '#f87171',
+                shape: trade.type === 'buy' ? 'arrowUp' : 'arrowDown',
+                text: `${markerId}`,
+                size: 2,
+                id: `marker-${trade.ticket_id || trade.timestamp}-${trade.type}-${index}`,
+            };
+        });
 
-            // Assegna numeri identificativi sequenziali
-            sortedTrades.forEach((trade) => {
-                const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
-                if (!tradeIdMap.has(uniqueKey)) {
-                    tradeIdMap.set(uniqueKey, nextId++);
-                }
-            });
-
-            // Crea marker SOLO per trades con posizioni aperte
-            const markers = sortedTrades.map((trade, index) => {
-                const tradeTime = new Date(trade.timestamp).getTime() / 1000;
-                const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
-                const markerId = tradeIdMap.get(uniqueKey) || (index + 1);
-
-                return {
-                    time: tradeTime,
-                    position: trade.type === 'buy' ? 'belowBar' : 'aboveBar',
-                    color: trade.type === 'buy' ? '#4ade80' : '#f87171',
-                    shape: trade.type === 'buy' ? 'arrowUp' : 'arrowDown',
-                    text: `${markerId}`,
-                    size: 2,
-                    id: `marker-${trade.ticket_id || trade.timestamp}-${trade.type}-${index}`,
-                };
-            });
-
-            markersRef.current = markers;
-            candlestickSeriesRef.current.setMarkers(markers);
-            
-        } else {
-            // Clear markers if no open trades
-            candlestickSeriesRef.current.setMarkers([]);
-        }
+        markersRef.current = markers;
+        candlestickSeriesRef.current.setMarkers(markers);
     }, [trades, openPositions]);
 
     // Update last candle with live price (real-time candlestick update) - FORZATO OGNI 500ms

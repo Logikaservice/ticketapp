@@ -37,6 +37,9 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
             "hide_legend": false,
             "save_image": false,
             "calendar": false,
+            "toolbar_bg": "#1c1c1e", // Colore toolbar
+            "withdateranges": true, // Abilita date ranges
+            "studies_overrides": {},
             "support_host": "https://www.tradingview.com",
             "height": 500,
             "width": "100%",
@@ -130,140 +133,7 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                 <div ref={containerRef} className="tradingview-chart-wrapper" style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'visible' }}>
                     {/* TradingView widget will be inserted here */}
                     
-                    {/* Overlay per marker - sopra il grafico con posizionamento intelligente */}
-                    {displayPositions.length > 0 && (() => {
-                        console.log('📍 Rendering markers da posizioni aperte:', displayPositions.length);
-                        
-                        // Calcola range di tempo e prezzo per posizionamento
-                        // Usa un range più ampio basato sui dati storici per migliorare la precisione
-                        const now = Date.now();
-                        const positionTimes = displayPositions.map(p => new Date(p.timestamp).getTime());
-                        const entryPrices = displayPositions.map(p => p.entry_price).filter(p => p > 0);
-                        
-                        // Range temporale: usa i dati storici se disponibili per calcolare range più preciso
-                        let minTime, maxTime;
-                        
-                        if (priceHistory && priceHistory.length > 0) {
-                            // Usa il range dei dati storici per allineare i marker al grafico
-                            const historyTimes = priceHistory
-                                .map(h => new Date(h.timestamp || h.time || h[0]).getTime())
-                                .filter(t => !isNaN(t));
-                            
-                            if (historyTimes.length > 0) {
-                                minTime = Math.min(...historyTimes);
-                                maxTime = Math.max(...historyTimes, now);
-                            } else {
-                                // Fallback: usa range delle posizioni
-                                const oldestPosition = positionTimes.length > 0 ? Math.min(...positionTimes) : now - (7 * 24 * 60 * 60 * 1000);
-                                const newestPosition = positionTimes.length > 0 ? Math.max(...positionTimes) : now;
-                                minTime = Math.max(oldestPosition - (24 * 60 * 60 * 1000), now - (7 * 24 * 60 * 60 * 1000));
-                                maxTime = Math.max(newestPosition, now);
-                            }
-                        } else {
-                            // Fallback: usa range delle posizioni
-                            const oldestPosition = positionTimes.length > 0 ? Math.min(...positionTimes) : now - (7 * 24 * 60 * 60 * 1000);
-                            const newestPosition = positionTimes.length > 0 ? Math.max(...positionTimes) : now;
-                            minTime = Math.max(oldestPosition - (24 * 60 * 60 * 1000), now - (7 * 24 * 60 * 60 * 1000));
-                            maxTime = Math.max(newestPosition, now);
-                        }
-                        
-                        const timeSpan = maxTime - minTime || 1;
-                        
-                        // Range di prezzo: usa i dati storici se disponibili per calcolare range più preciso
-                        let minPrice, maxPrice;
-                        
-                        if (priceHistory && priceHistory.length > 0) {
-                            // Estrai prezzi dai dati storici (supporta diversi formati)
-                            const historyPrices = priceHistory
-                                .map(h => {
-                                    if (Array.isArray(h)) {
-                                        // Formato OHLC: [time, open, high, low, close, ...]
-                                        return [h[1], h[2], h[3], h[4]].filter(p => typeof p === 'number' && p > 0);
-                                    } else if (h.high && h.low) {
-                                        return [h.high, h.low];
-                                    } else if (h.price) {
-                                        return [parseFloat(h.price)];
-                                    }
-                                    return [];
-                                })
-                                .flat()
-                                .filter(p => p > 0);
-                            
-                            if (historyPrices.length > 0) {
-                                const histMin = Math.min(...historyPrices);
-                                const histMax = Math.max(...historyPrices);
-                                const histRange = histMax - histMin;
-                                const padding = histRange * 0.1; // 10% padding
-                                minPrice = histMin - padding;
-                                maxPrice = histMax + padding;
-                            } else {
-                                // Fallback: usa entry prices
-                                const priceMin = entryPrices.length > 0 ? Math.min(...entryPrices) : currentPrice;
-                                const priceMax = entryPrices.length > 0 ? Math.max(...entryPrices) : currentPrice;
-                                const priceRange = priceMax - priceMin;
-                                const padding = Math.max(priceRange * 0.2, currentPrice * 0.1);
-                                minPrice = Math.max(priceMin - padding, currentPrice * 0.9);
-                                maxPrice = Math.min(priceMax + padding, currentPrice * 1.1);
-                            }
-                        } else {
-                            // Fallback: usa entry prices
-                            const priceMin = entryPrices.length > 0 ? Math.min(...entryPrices) : currentPrice;
-                            const priceMax = entryPrices.length > 0 ? Math.max(...entryPrices) : currentPrice;
-                            const priceRange = priceMax - priceMin;
-                            const padding = Math.max(priceRange * 0.2, currentPrice * 0.1);
-                            minPrice = Math.max(priceMin - padding, currentPrice * 0.9);
-                            maxPrice = Math.min(priceMax + padding, currentPrice * 1.1);
-                        }
-                        
-                        const priceSpan = maxPrice - minPrice || 1;
-                        
-                        return (
-                            <div className="markers-overlay">
-                                {displayPositions.map((pos, index) => {
-                                    const uniqueKey = pos.ticket_id ? `ticket-${pos.ticket_id}` : `pos-${pos.timestamp}`;
-                                    const markerId = positionIdMap.get(uniqueKey) || (index + 1);
-                                    const isBuy = pos.type === 'buy';
-                                    
-                                    // Calcola posizione X (tempo) - padding laterale ridotto per migliore precisione
-                                    const positionTime = new Date(pos.timestamp).getTime();
-                                    // Usa tutto lo spazio disponibile (2% - 98%) per migliore precisione
-                                    const timePercent = ((positionTime - minTime) / timeSpan) * 96 + 2; // 2% - 98%
-                                    
-                                    // Calcola posizione Y (prezzo) usando ENTRY_PRICE - invertito (top = prezzo alto)
-                                    // Usa tutto lo spazio disponibile per migliore precisione
-                                    const pricePercent = 100 - (((pos.entry_price - minPrice) / priceSpan) * 96 + 2); // 2% - 98% invertito
-                                    
-                                    console.log(`📍 Marker #${markerId}:`, {
-                                        ticket_id: pos.ticket_id,
-                                        type: pos.type,
-                                        entry_price: pos.entry_price,
-                                        timestamp: pos.timestamp,
-                                        position: { x: timePercent, y: pricePercent }
-                                    });
-                                    
-                                    return (
-                                        <div
-                                            key={`marker-${pos.ticket_id || pos.timestamp}-${index}`}
-                                            className={`chart-marker ${isBuy ? 'marker-buy' : 'marker-sell'}`}
-                                            style={{
-                                                position: 'absolute',
-                                                left: `${Math.max(2, Math.min(98, timePercent))}%`,
-                                                top: `${Math.max(2, Math.min(98, pricePercent))}%`,
-                                                zIndex: 10000,
-                                                transform: 'translate(-50%, -50%)'
-                                            }}
-                                            title={`${pos.type.toUpperCase()} #${markerId} - Entry: €${pos.entry_price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} - ${new Date(pos.timestamp).toLocaleString('it-IT')}`}
-                                        >
-                                            <div className="marker-arrow">
-                                                {isBuy ? '↑' : '↓'}
-                                            </div>
-                                            <div className="marker-number">{markerId}</div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        );
-                    })()}
+                    {/* Marker rimossi - usa Lightweight Charts per vedere i marker precisi */}
                 </div>
 
                 {/* Operazioni Bot - A DESTRA del grafico */}
