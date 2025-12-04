@@ -3117,5 +3117,15 @@ router.get('/bot-analysis', async (req, res) => {
     }
 });
 
+// ✅ ENDPOINT DI TEST per verificare che il routing funzioni
+router.get('/bot-analysis-test', (req, res) => {
+    console.log('✅ [TEST] Endpoint bot-analysis-test chiamato');
+    res.json({ 
+        success: true, 
+        message: 'Endpoint funziona!',
+        timestamp: new Date().toISOString()
+    });
+});
+
 module.exports = router;
 module.exports.setSocketIO = setSocketIO;
