@@ -718,6 +718,17 @@ class BidirectionalSignalGenerator {
             strength: maxStrength,
             reasons: [reason],
             confirmations: maxConfirmations,
+            // ✅ FIX: Restituisci anche longSignal e shortSignal per mostrare progresso anche quando NEUTRAL
+            longSignal: {
+                strength: longSignal.strength,
+                confirmations: longSignal.confirmations,
+                reasons: longSignal.reasons
+            },
+            shortSignal: {
+                strength: shortSignal.strength,
+                confirmations: shortSignal.confirmations,
+                reasons: shortSignal.reasons
+            },
             indicators: {
                 rsi: rsi,
                 trend: trend,
