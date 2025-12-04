@@ -146,28 +146,35 @@ router.get('/history', async (req, res) => {
         }
 
         // Try to get OHLC klines first (more accurate) with specified interval
+        // ✅ FIX: Ordina per DESC e prendi le ultime N, poi riordina per ASC per il grafico
         const klinesRows = await dbAll(
-            `SELECT open_time, open_price, high_price, low_price, close_price, volume FROM klines WHERE symbol = 'bitcoin' AND interval = ? ORDER BY open_time ASC LIMIT ?`,
+            `SELECT open_time, open_price, high_price, low_price, close_price, volume FROM klines WHERE symbol = 'bitcoin' AND interval = ? ORDER BY open_time DESC LIMIT ?`,
             [interval, limit]
         );
         
         if (klinesRows && klinesRows.length > 0) {
             // Return OHLC candlesticks (like TradingView)
-            const candles = klinesRows.map(row => {
-                // open_time from Binance is in milliseconds, convert to seconds for Lightweight Charts
-                const timeSeconds = Math.floor(row.open_time / 1000);
-                return {
-                    time: timeSeconds, // Unix timestamp in seconds
-                    open: parseFloat(row.open_price),
-                    high: parseFloat(row.high_price),
-                    low: parseFloat(row.low_price),
-                    close: parseFloat(row.close_price),
-                    volume: parseFloat(row.volume || 0)
-                };
-            }).filter(candle => !isNaN(candle.time) && candle.time > 0); // Filter invalid data
+            // Riordina per ASC per il grafico (dal più vecchio al più recente)
+            const candles = klinesRows
+                .reverse() // Riordina da DESC a ASC
+                .map(row => {
+                    // open_time from Binance is in milliseconds, convert to seconds for Lightweight Charts
+                    const timeSeconds = Math.floor(row.open_time / 1000);
+                    return {
+                        time: timeSeconds, // Unix timestamp in seconds
+                        open: parseFloat(row.open_price),
+                        high: parseFloat(row.high_price),
+                        low: parseFloat(row.low_price),
+                        close: parseFloat(row.close_price),
+                        volume: parseFloat(row.volume || 0)
+                    };
+                })
+                .filter(candle => !isNaN(candle.time) && candle.time > 0); // Filter invalid data
             
-            console.log(`📊 Returning ${candles.length} OHLC candlesticks from klines table (time range: ${candles[0]?.time} to ${candles[candles.length - 1]?.time})`);
-            console.log('📊 Sample candle structure:', candles[0]);
+            const firstTime = candles[0] ? new Date(candles[0].time * 1000).toISOString() : 'N/A';
+            const lastTime = candles[candles.length - 1] ? new Date(candles[candles.length - 1].time * 1000).toISOString() : 'N/A';
+            console.log(`📊 Returning ${candles.length} OHLC candlesticks from klines table (interval: ${interval})`);
+            console.log(`📊 Time range: ${firstTime} to ${lastTime}`);
             res.json(candles);
         } else {
             // Fallback to price_history points (backward compatibility)
@@ -506,50 +513,92 @@ const runBotCycle = async () => {
         const intervalsToUpdate = ['1m', '5m', '15m', '30m', '1h', '4h', '1d'];
         const now = Date.now();
         
-        for (const interval of intervalsToUpdate) {
-            try {
-                // Calcola l'inizio della candela corrente per questo intervallo
-                let candleStartTime = 0;
-                const intervalMs = {
-                    '1m': 60 * 1000,
-                    '5m': 5 * 60 * 1000,
-                    '15m': 15 * 60 * 1000,
-                    '30m': 30 * 60 * 1000,
-                    '1h': 60 * 60 * 1000,
-                    '4h': 4 * 60 * 60 * 1000,
-                    '1d': 24 * 60 * 60 * 1000
-                };
+        // Aggiorna solo l'intervallo più importante (15m) per evitare troppe query
+        // Gli altri intervalli verranno aggiornati quando necessario
+        const primaryInterval = '15m';
+        
+        try {
+            // Calcola l'inizio della candela corrente per questo intervallo
+            const intervalMs = {
+                '1m': 60 * 1000,
+                '5m': 5 * 60 * 1000,
+                '15m': 15 * 60 * 1000,
+                '30m': 30 * 60 * 1000,
+                '1h': 60 * 60 * 1000,
+                '4h': 4 * 60 * 60 * 1000,
+                '1d': 24 * 60 * 60 * 1000
+            };
+            
+            const intervalDuration = intervalMs[primaryInterval] || 15 * 60 * 1000;
+            const candleStartTime = Math.floor(now / intervalDuration) * intervalDuration;
+            
+            // Verifica se esiste già una candela per questo periodo
+            const existingKline = await dbGet(
+                "SELECT * FROM klines WHERE symbol = ? AND interval = ? AND open_time = ?",
+                ['bitcoin', primaryInterval, candleStartTime]
+            );
+            
+            if (existingKline) {
+                // Aggiorna candela esistente: aggiorna high, low, close
+                const newHigh = Math.max(existingKline.high_price, currentPrice);
+                const newLow = Math.min(existingKline.low_price, currentPrice);
                 
-                const intervalDuration = intervalMs[interval] || 15 * 60 * 1000;
-                candleStartTime = Math.floor(now / intervalDuration) * intervalDuration;
-                
-                // Verifica se esiste già una candela per questo periodo
-                const existingKline = await dbGet(
-                    "SELECT * FROM klines WHERE symbol = ? AND interval = ? AND open_time = ?",
-                    ['bitcoin', interval, candleStartTime]
+                await dbRun(
+                    "UPDATE klines SET high_price = ?, low_price = ?, close_price = ?, close_time = ? WHERE symbol = ? AND interval = ? AND open_time = ?",
+                    [newHigh, newLow, currentPrice, now, 'bitcoin', primaryInterval, candleStartTime]
                 );
                 
-                if (existingKline) {
-                    // Aggiorna candela esistente: aggiorna high, low, close
-                    const newHigh = Math.max(existingKline.high_price, currentPrice);
-                    const newLow = Math.min(existingKline.low_price, currentPrice);
-                    
-                    await dbRun(
-                        "UPDATE klines SET high_price = ?, low_price = ?, close_price = ?, close_time = ? WHERE symbol = ? AND interval = ? AND open_time = ?",
-                        [newHigh, newLow, currentPrice, now, 'bitcoin', interval, candleStartTime]
-                    );
-                } else {
-                    // Crea nuova candela
-                    await dbRun(
-                        `INSERT INTO klines 
-                        (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                        ['bitcoin', interval, candleStartTime, currentPrice, currentPrice, currentPrice, currentPrice, 0, now]
-                    );
+                // Log solo ogni 10 aggiornamenti per non intasare i log
+                if (Math.random() < 0.1) {
+                    console.log(`📊 Kline ${primaryInterval} aggiornata: ${new Date(candleStartTime).toISOString()} | Price: €${currentPrice.toFixed(2)} | High: €${newHigh.toFixed(2)} | Low: €${newLow.toFixed(2)}`);
                 }
-            } catch (err) {
-                // Ignora errori per singoli intervalli, continua con gli altri
-                console.error(`⚠️ Error updating kline for interval ${interval}:`, err.message);
+            } else {
+                // Crea nuova candela
+                await dbRun(
+                    `INSERT INTO klines 
+                    (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    ['bitcoin', primaryInterval, candleStartTime, currentPrice, currentPrice, currentPrice, currentPrice, 0, now]
+                );
+                console.log(`🆕 Nuova candela ${primaryInterval} creata: ${new Date(candleStartTime).toISOString()} | Price: €${currentPrice.toFixed(2)}`);
+            }
+        } catch (err) {
+            console.error(`⚠️ Error updating kline for interval ${primaryInterval}:`, err.message);
+        }
+        
+        // Aggiorna anche gli altri intervalli, ma meno frequentemente (ogni 10 cicli)
+        if (Math.random() < 0.1) {
+            for (const interval of intervalsToUpdate) {
+                if (interval === primaryInterval) continue; // Già aggiornato sopra
+                
+                try {
+                    const intervalDuration = intervalMs[interval] || 15 * 60 * 1000;
+                    const candleStartTime = Math.floor(now / intervalDuration) * intervalDuration;
+                    
+                    const existingKline = await dbGet(
+                        "SELECT * FROM klines WHERE symbol = ? AND interval = ? AND open_time = ?",
+                        ['bitcoin', interval, candleStartTime]
+                    );
+                    
+                    if (existingKline) {
+                        const newHigh = Math.max(existingKline.high_price, currentPrice);
+                        const newLow = Math.min(existingKline.low_price, currentPrice);
+                        
+                        await dbRun(
+                            "UPDATE klines SET high_price = ?, low_price = ?, close_price = ?, close_time = ? WHERE symbol = ? AND interval = ? AND open_time = ?",
+                            [newHigh, newLow, currentPrice, now, 'bitcoin', interval, candleStartTime]
+                        );
+                    } else {
+                        await dbRun(
+                            `INSERT INTO klines 
+                            (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                            ['bitcoin', interval, candleStartTime, currentPrice, currentPrice, currentPrice, currentPrice, 0, now]
+                        );
+                    }
+                } catch (err) {
+                    // Ignora errori per singoli intervalli
+                }
             }
         }
 
