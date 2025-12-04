@@ -670,18 +670,25 @@ const runBotCycle = async () => {
 
         console.log(`📊 OPEN POSITIONS: LONG=${longPositions.length} | SHORT=${shortPositions.length}`);
 
-        // 10. DECISION LOGIC - Solo se segnale forte
-        // ✅ FIX: Abbassata soglia da 50 a 40 per essere più reattivo (ma richiede comunque conferme)
-        const MIN_SIGNAL_STRENGTH = 40; // Era 50, ora 40 per essere più reattivo
+        // 10. DECISION LOGIC - Solo se segnale FORTISSIMO (90% certezza)
+        // ✅ STRATEGIA: 1000 posizioni piccole su analisi giuste > 1 posizione ogni tanto
+        // Permettiamo MULTIPLE posizioni se il segnale è forte e il risk manager lo permette
+        const MIN_SIGNAL_STRENGTH = 70; // Soglia alta per sicurezza 90%
         
         if (signal.direction === 'LONG' && signal.strength >= MIN_SIGNAL_STRENGTH) {
             // Verifica se possiamo aprire LONG
-            const positionSize = Math.min(params.trade_size_eur, riskCheck.maxPositionSize);
-            const canOpen = await riskManager.canOpenPosition(positionSize);
+            // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
+            const maxAvailableForNewPosition = Math.min(
+                params.trade_size_eur, 
+                riskCheck.maxPositionSize,
+                riskCheck.availableExposure * 0.1 // Max 10% dell'exposure disponibile per nuova posizione
+            );
+            const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
             
-            console.log(`🔍 LONG SIGNAL CHECK: Strength=${signal.strength} (>=${MIN_SIGNAL_STRENGTH}) | Confirmations=${signal.confirmations} (>=3) | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length}`);
+            console.log(`🔍 LONG SIGNAL CHECK: Strength=${signal.strength} (>=${MIN_SIGNAL_STRENGTH}) | Confirmations=${signal.confirmations} (>=3) | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
 
-            if (canOpen.allowed && longPositions.length === 0) {
+            // ✅ FIX: Rimuovo controllo longPositions.length === 0 - permetto multiple posizioni
+            if (canOpen.allowed) {
                 // Apri LONG position
                 const amount = positionSize / currentPrice;
                 const stopLoss = currentPrice * (1 - params.stop_loss_pct / 100);
@@ -696,22 +703,26 @@ const runBotCycle = async () => {
                 };
 
                 await openPosition(symbol, 'buy', amount, currentPrice, `LONG Signal (${signal.strength}/100)`, stopLoss, takeProfit, options);
-                console.log(`✅ BOT LONG: Opened position @ €${currentPrice.toFixed(2)} | Size: €${positionSize.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
+                console.log(`✅ BOT LONG: Opened position #${longPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
                 riskManager.invalidateCache(); // Invalida cache dopo operazione
             } else if (!canOpen.allowed) {
-                console.log(`⚠️ BOT LONG: Cannot open - ${canOpen.reason}`);
-            } else if (longPositions.length > 0) {
-                console.log(`ℹ️ BOT LONG: Already have ${longPositions.length} LONG position(s)`);
+                console.log(`⚠️ BOT LONG: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: €${riskCheck.availableExposure.toFixed(2)}`);
             }
         }
         else if (signal.direction === 'SHORT' && signal.strength >= MIN_SIGNAL_STRENGTH) {
             // Verifica se possiamo aprire SHORT
-            const positionSize = Math.min(params.trade_size_eur, riskCheck.maxPositionSize);
-            const canOpen = await riskManager.canOpenPosition(positionSize);
+            // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
+            const maxAvailableForNewPosition = Math.min(
+                params.trade_size_eur, 
+                riskCheck.maxPositionSize,
+                riskCheck.availableExposure * 0.1 // Max 10% dell'exposure disponibile per nuova posizione
+            );
+            const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
             
-            console.log(`🔍 SHORT SIGNAL CHECK: Strength=${signal.strength} (>=${MIN_SIGNAL_STRENGTH}) | Confirmations=${signal.confirmations} (>=4) | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length}`);
+            console.log(`🔍 SHORT SIGNAL CHECK: Strength=${signal.strength} (>=${MIN_SIGNAL_STRENGTH}) | Confirmations=${signal.confirmations} (>=5) | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
 
-            if (canOpen.allowed && shortPositions.length === 0) {
+            // ✅ FIX: Rimuovo controllo shortPositions.length === 0 - permetto multiple posizioni
+            if (canOpen.allowed) {
                 // Apri SHORT position
                 const amount = positionSize / currentPrice;
                 const stopLoss = currentPrice * (1 + params.stop_loss_pct / 100); // Per SHORT, SL è sopra
@@ -726,12 +737,10 @@ const runBotCycle = async () => {
                 };
 
                 await openPosition(symbol, 'sell', amount, currentPrice, `SHORT Signal (${signal.strength}/100)`, stopLoss, takeProfit, options);
-                console.log(`✅ BOT SHORT: Opened position @ €${currentPrice.toFixed(2)} | Size: €${positionSize.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
+                console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
                 riskManager.invalidateCache(); // Invalida cache dopo operazione
             } else if (!canOpen.allowed) {
-                console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason}`);
-            } else if (shortPositions.length > 0) {
-                console.log(`ℹ️ BOT SHORT: Already have ${shortPositions.length} SHORT position(s)`);
+                console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: €${riskCheck.availableExposure.toFixed(2)}`);
             }
         }
         else {

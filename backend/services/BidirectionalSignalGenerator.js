@@ -21,8 +21,9 @@
 class BidirectionalSignalGenerator {
     constructor() {
         // Soglia minima forza segnale (0-100)
-        // ✅ FIX: Abbassata da 50 a 40 per essere più reattivo (ma richiede comunque conferme)
-        this.MIN_SIGNAL_STRENGTH = 40;
+        // ✅ SICUREZZA 90%: Soglia alta per aprire solo quando siamo CERTI che la posizione possa fruttare
+        // Strength 70+ = ~90% di certezza basata su multiple conferme tecniche
+        this.MIN_SIGNAL_STRENGTH = 70; // Soglia alta per sicurezza massima
     }
 
     /**
@@ -620,16 +621,18 @@ class BidirectionalSignalGenerator {
             shortSignal.reasons.push(`High volume (${volume.ratio.toFixed(2)}x)`);
         }
 
-        // 5. DECISIONE FINALE - SISTEMA MULTI-CONFERMA
+        // 5. DECISIONE FINALE - SISTEMA MULTI-CONFERMA CON SICUREZZA 90%
         
-        // LONG: Richiede minimo 3 conferme + strength >= 50
-        const longMeetsRequirements = longSignal.confirmations >= 3 && longSignal.strength >= this.MIN_SIGNAL_STRENGTH;
+        // ✅ SICUREZZA 90%: Requisiti più rigidi per aprire solo quando siamo CERTI
+        // LONG: Richiede minimo 4 conferme + strength >= 70 (90% certezza)
+        const LONG_MIN_CONFIRMATIONS = 4; // Aumentato da 3 a 4 per maggiore sicurezza
+        const longMeetsRequirements = longSignal.confirmations >= LONG_MIN_CONFIRMATIONS && 
+                                      longSignal.strength >= this.MIN_SIGNAL_STRENGTH;
         
-        // SHORT: Richiede minimo 4 conferme + strength >= 60 (più rigoroso)
-        const SHORT_MIN_CONFIRMATIONS = 4;
-        const SHORT_MIN_STRENGTH = 60;
+        // SHORT: Richiede minimo 5 conferme + strength >= 70 (90% certezza, più rigoroso)
+        const SHORT_MIN_CONFIRMATIONS = 5; // Aumentato da 4 a 5 per maggiore sicurezza
         const shortMeetsRequirements = shortSignal.confirmations >= SHORT_MIN_CONFIRMATIONS && 
-                                       shortSignal.strength >= SHORT_MIN_STRENGTH;
+                                       shortSignal.strength >= this.MIN_SIGNAL_STRENGTH;
         
         if (longMeetsRequirements) {
             return {
@@ -680,12 +683,12 @@ class BidirectionalSignalGenerator {
         const maxConfirmations = Math.max(longSignal.confirmations, shortSignal.confirmations);
         
         let reason = 'Signal strength below threshold';
-        if (longSignal.strength > 0 && longSignal.confirmations < 3) {
-            reason = `LONG needs ${3 - longSignal.confirmations} more confirmations (has ${longSignal.confirmations}/3)`;
+        if (longSignal.strength > 0 && longSignal.confirmations < LONG_MIN_CONFIRMATIONS) {
+            reason = `LONG needs ${LONG_MIN_CONFIRMATIONS - longSignal.confirmations} more confirmations (has ${longSignal.confirmations}/${LONG_MIN_CONFIRMATIONS})`;
         } else if (shortSignal.strength > 0 && shortSignal.confirmations < SHORT_MIN_CONFIRMATIONS) {
             reason = `SHORT needs ${SHORT_MIN_CONFIRMATIONS - shortSignal.confirmations} more confirmations (has ${shortSignal.confirmations}/${SHORT_MIN_CONFIRMATIONS})`;
-        } else if (longSignal.strength < this.MIN_SIGNAL_STRENGTH && shortSignal.strength < SHORT_MIN_STRENGTH) {
-            reason = `Signal strength too low (LONG: ${longSignal.strength}, SHORT: ${shortSignal.strength})`;
+        } else if (longSignal.strength < this.MIN_SIGNAL_STRENGTH && shortSignal.strength < this.MIN_SIGNAL_STRENGTH) {
+            reason = `Signal strength too low (LONG: ${longSignal.strength}, SHORT: ${shortSignal.strength}) - need >= ${this.MIN_SIGNAL_STRENGTH} for 90% certainty`;
         }
 
         return {
