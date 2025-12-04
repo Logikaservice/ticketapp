@@ -67,10 +67,17 @@ const BotAnalysisPage = () => {
         <div className="bot-analysis-page">
             <div className="page-container">
                 <div className="page-header">
-                    <button className="back-button" onClick={navigateToDashboard}>
-                        <ArrowLeft size={20} />
-                        Torna al Dashboard
-                    </button>
+                    {window.opener ? (
+                        <button className="back-button" onClick={() => window.close()}>
+                            <ArrowLeft size={20} />
+                            Chiudi Finestra
+                        </button>
+                    ) : (
+                        <button className="back-button" onClick={navigateToDashboard}>
+                            <ArrowLeft size={20} />
+                            Torna al Dashboard
+                        </button>
+                    )}
                     <h1>🤖 Analisi Bot in Tempo Reale</h1>
                     <button 
                         className="refresh-button" 
