@@ -89,12 +89,54 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [] }
         );
     });
 
+    // Crea numeri identificativi per i marker
+    const tradeIdMap = new Map();
+    let nextId = 1;
+    openTrades.forEach(trade => {
+        const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
+        if (!tradeIdMap.has(uniqueKey)) {
+            tradeIdMap.set(uniqueKey, nextId++);
+        }
+    });
+
     return (
         <div className="tradingview-chart-container">
             <div className="chart-main-wrapper">
                 {/* TradingView Chart - stesso di Binance */}
-                <div ref={containerRef} className="tradingview-chart-wrapper" style={{ flex: 1, minWidth: 0 }}>
+                <div ref={containerRef} className="tradingview-chart-wrapper" style={{ flex: 1, minWidth: 0, position: 'relative' }}>
                     {/* TradingView widget will be inserted here */}
+                    
+                    {/* Overlay per marker - sopra il grafico */}
+                    {openTrades.length > 0 && (
+                        <div className="markers-overlay">
+                            {openTrades.map((trade, index) => {
+                                const uniqueKey = trade.ticket_id ? `ticket-${trade.ticket_id}` : `trade-${trade.timestamp}`;
+                                const markerId = tradeIdMap.get(uniqueKey) || (index + 1);
+                                const isBuy = trade.type === 'buy';
+                                
+                                return (
+                                    <div
+                                        key={`marker-${trade.ticket_id || trade.timestamp}-${index}`}
+                                        className={`chart-marker ${isBuy ? 'marker-buy' : 'marker-sell'}`}
+                                        style={{
+                                            position: 'absolute',
+                                            // Posizionamento approssimativo - TradingView non espone coordinate precise
+                                            // Useremo un posizionamento basato su timestamp relativo
+                                            left: `${(index % 10) * 10}%`, // Distribuzione temporanea
+                                            top: isBuy ? '85%' : '15%', // BUY in basso, SELL in alto
+                                            zIndex: 1000
+                                        }}
+                                        title={`${trade.type.toUpperCase()} #${markerId} - €${parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} - ${new Date(trade.timestamp).toLocaleString('it-IT')}`}
+                                    >
+                                        <div className="marker-arrow">
+                                            {isBuy ? '↑' : '↓'}
+                                        </div>
+                                        <div className="marker-number">{markerId}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 {/* Operazioni Bot - A DESTRA del grafico */}
