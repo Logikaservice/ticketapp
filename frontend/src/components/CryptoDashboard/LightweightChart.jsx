@@ -73,10 +73,9 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                                 symbol: symbol // Per sicurezza
                             };
                             localStorage.setItem(`chart_position_${symbol}`, JSON.stringify(positionData));
-                            console.log('💾 Grafico: Posizione salvata', { from: visibleRange.from, to: visibleRange.to });
                         }
                     } catch (e) {
-                        console.warn('Errore nel salvataggio posizione grafico:', e);
+                        // Silent fail
                     }
                 }
             }, 500); // Debounce: salva dopo 500ms di inattività
@@ -112,33 +111,17 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
     useEffect(() => {
         if (!candlestickSeriesRef.current) return;
 
-        console.log('📊 LightweightChart: priceHistory length:', priceHistory.length);
-        
         if (priceHistory.length === 0) {
-            console.warn('⚠️ LightweightChart: No price history data');
             return;
         }
 
-        // Debug: log first item to see structure
-        console.log('🔍 LightweightChart: First item structure:', {
-            keys: Object.keys(priceHistory[0] || {}),
-            firstItem: priceHistory[0],
-            hasOpen: 'open' in (priceHistory[0] || {}),
-            hasHigh: 'high' in (priceHistory[0] || {}),
-            hasLow: 'low' in (priceHistory[0] || {}),
-            hasClose: 'close' in (priceHistory[0] || {})
-        });
-
         // Check if we have OHLC candlesticks (from klines table) or price points
-        // Use 'in' operator instead of hasOwnProperty for better compatibility
         const firstItem = priceHistory[0] || {};
         const hasOHLC = priceHistory.length > 0 && 
                        ('open' in firstItem) && 
                        ('high' in firstItem) && 
                        ('low' in firstItem) && 
                        ('close' in firstItem);
-        
-        console.log('🔍 LightweightChart: hasOHLC check:', hasOHLC);
         
         if (hasOHLC) {
             // Use OHLC candlesticks directly (no grouping needed - already from Binance)
@@ -164,7 +147,6 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                 .sort((a, b) => a.time - b.time);
 
             if (candlestickData.length > 0) {
-                console.log('✅ LightweightChart: Setting OHLC candlestick data:', candlestickData.length, 'candles (from Binance klines)');
                 candlestickSeriesRef.current.setData(candlestickData);
                 
                 // Restore saved position after data is loaded
@@ -180,14 +162,11 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                                 if (from >= firstTime && to <= lastTime && from < to) {
                                     chartRef.current.timeScale().setVisibleRange({ from, to });
                                     hasRestoredPositionRef.current = true;
-                                    console.log('✅ Grafico: Posizione ripristinata', { from, to });
                                 } else if (attempt < 3) {
                                     setTimeout(() => restorePosition(attempt + 1), 500);
-                                } else {
-                                    console.log('⚠️ Grafico: Range salvato non valido, usando default');
                                 }
                             } catch (e) {
-                                console.warn('Errore nel ripristino posizione:', e);
+                                // Silent fail
                             }
                         } else if (attempt < 3) {
                             setTimeout(() => restorePosition(attempt + 1), 500);
@@ -214,7 +193,6 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             .sort((a, b) => a.time - b.time);
 
         if (validData.length === 0) {
-            console.warn('⚠️ LightweightChart: No valid data points');
             return;
         }
 
@@ -223,7 +201,6 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             time: point.time,
             value: point.price
         }));
-        console.log('✅ LightweightChart: Setting line data (fallback):', lineData.length, 'points');
         candlestickSeriesRef.current.setData(lineData);
         
         // Restore saved position
@@ -239,12 +216,11 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                         if (firstTime && lastTime && from >= firstTime && to <= lastTime && from < to) {
                             chartRef.current.timeScale().setVisibleRange({ from, to });
                             hasRestoredPositionRef.current = true;
-                            console.log('✅ Grafico: Posizione ripristinata (fallback)');
                         } else if (attempt < 3) {
                             setTimeout(() => restorePosition(attempt + 1), 500);
                         }
                     } catch (e) {
-                        console.warn('Errore nel ripristino posizione:', e);
+                        // Silent fail
                     }
                 } else if (attempt < 3) {
                     setTimeout(() => restorePosition(attempt + 1), 500);
@@ -322,9 +298,6 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             markersRef.current = markers;
             candlestickSeriesRef.current.setMarkers(markers);
             
-            if (groupedMarkers.some(g => g.length > 1)) {
-                console.log(`📊 Grafico: ${trades.length} trades raggruppati in ${markers.length} marker visibili`);
-            }
         } else {
             // Clear markers if no trades
             candlestickSeriesRef.current.setMarkers([]);
@@ -340,7 +313,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                     try {
                         candlestickSeriesRef.current?.removePriceLine(priceLine);
                     } catch (e) {
-                        console.warn('Error removing price line:', e);
+                        // Silent fail
                     }
                 });
                 priceLinesRef.current = [];
@@ -353,7 +326,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             try {
                 candlestickSeriesRef.current?.removePriceLine(priceLine);
             } catch (e) {
-                console.warn('Error removing old price line:', e);
+                // Silent fail
             }
         });
         priceLinesRef.current = [];
@@ -370,7 +343,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             });
             priceLinesRef.current.push(newPriceLine);
         } catch (e) {
-            console.error('Error creating price line:', e);
+            // Silent fail
         }
     }, [currentPrice, priceHistory.length]);
 
