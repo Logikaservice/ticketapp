@@ -349,6 +349,7 @@ const CryptoDashboard = () => {
                         }))}
                         openPositions={openPositions || []}
                         currentPrice={currentPrice}
+                        priceHistory={priceData || []}
                     />
                 </div>
 

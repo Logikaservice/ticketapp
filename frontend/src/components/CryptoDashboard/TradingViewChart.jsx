@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import './TradingViewChart.css';
 
-const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], currentPrice = 0 }) => {
+const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], currentPrice = 0, priceHistory = [] }) => {
     const containerRef = useRef(null);
     const widgetRef = useRef(null);
     const [markers, setMarkers] = useState([]);
@@ -133,20 +133,88 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                     {/* Overlay per marker - sopra il grafico con posizionamento intelligente */}
                     {displayPositions.length > 0 && (() => {
                         console.log('📍 Rendering markers da posizioni aperte:', displayPositions.length);
+                        
                         // Calcola range di tempo e prezzo per posizionamento
+                        // Usa un range più ampio basato sui dati storici per migliorare la precisione
                         const now = Date.now();
                         const positionTimes = displayPositions.map(p => new Date(p.timestamp).getTime());
                         const entryPrices = displayPositions.map(p => p.entry_price).filter(p => p > 0);
                         
-                        // Range temporale: ultime 24 ore o range delle posizioni
-                        const minTime = positionTimes.length > 0 ? Math.min(...positionTimes) : now - (24 * 60 * 60 * 1000);
-                        const maxTime = positionTimes.length > 0 ? Math.max(...positionTimes) : now;
+                        // Range temporale: usa i dati storici se disponibili per calcolare range più preciso
+                        let minTime, maxTime;
+                        
+                        if (priceHistory && priceHistory.length > 0) {
+                            // Usa il range dei dati storici per allineare i marker al grafico
+                            const historyTimes = priceHistory
+                                .map(h => new Date(h.timestamp || h.time || h[0]).getTime())
+                                .filter(t => !isNaN(t));
+                            
+                            if (historyTimes.length > 0) {
+                                minTime = Math.min(...historyTimes);
+                                maxTime = Math.max(...historyTimes, now);
+                            } else {
+                                // Fallback: usa range delle posizioni
+                                const oldestPosition = positionTimes.length > 0 ? Math.min(...positionTimes) : now - (7 * 24 * 60 * 60 * 1000);
+                                const newestPosition = positionTimes.length > 0 ? Math.max(...positionTimes) : now;
+                                minTime = Math.max(oldestPosition - (24 * 60 * 60 * 1000), now - (7 * 24 * 60 * 60 * 1000));
+                                maxTime = Math.max(newestPosition, now);
+                            }
+                        } else {
+                            // Fallback: usa range delle posizioni
+                            const oldestPosition = positionTimes.length > 0 ? Math.min(...positionTimes) : now - (7 * 24 * 60 * 60 * 1000);
+                            const newestPosition = positionTimes.length > 0 ? Math.max(...positionTimes) : now;
+                            minTime = Math.max(oldestPosition - (24 * 60 * 60 * 1000), now - (7 * 24 * 60 * 60 * 1000));
+                            maxTime = Math.max(newestPosition, now);
+                        }
+                        
                         const timeSpan = maxTime - minTime || 1;
                         
-                        // Range di prezzo: ±5% dal prezzo corrente o range degli entry prices
-                        const allPrices = [...entryPrices, currentPrice].filter(p => p > 0);
-                        const minPrice = allPrices.length > 0 ? Math.min(...allPrices) * 0.95 : currentPrice * 0.95;
-                        const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) * 1.05 : currentPrice * 1.05;
+                        // Range di prezzo: usa i dati storici se disponibili per calcolare range più preciso
+                        let minPrice, maxPrice;
+                        
+                        if (priceHistory && priceHistory.length > 0) {
+                            // Estrai prezzi dai dati storici (supporta diversi formati)
+                            const historyPrices = priceHistory
+                                .map(h => {
+                                    if (Array.isArray(h)) {
+                                        // Formato OHLC: [time, open, high, low, close, ...]
+                                        return [h[1], h[2], h[3], h[4]].filter(p => typeof p === 'number' && p > 0);
+                                    } else if (h.high && h.low) {
+                                        return [h.high, h.low];
+                                    } else if (h.price) {
+                                        return [parseFloat(h.price)];
+                                    }
+                                    return [];
+                                })
+                                .flat()
+                                .filter(p => p > 0);
+                            
+                            if (historyPrices.length > 0) {
+                                const histMin = Math.min(...historyPrices);
+                                const histMax = Math.max(...historyPrices);
+                                const histRange = histMax - histMin;
+                                const padding = histRange * 0.1; // 10% padding
+                                minPrice = histMin - padding;
+                                maxPrice = histMax + padding;
+                            } else {
+                                // Fallback: usa entry prices
+                                const priceMin = entryPrices.length > 0 ? Math.min(...entryPrices) : currentPrice;
+                                const priceMax = entryPrices.length > 0 ? Math.max(...entryPrices) : currentPrice;
+                                const priceRange = priceMax - priceMin;
+                                const padding = Math.max(priceRange * 0.2, currentPrice * 0.1);
+                                minPrice = Math.max(priceMin - padding, currentPrice * 0.9);
+                                maxPrice = Math.min(priceMax + padding, currentPrice * 1.1);
+                            }
+                        } else {
+                            // Fallback: usa entry prices
+                            const priceMin = entryPrices.length > 0 ? Math.min(...entryPrices) : currentPrice;
+                            const priceMax = entryPrices.length > 0 ? Math.max(...entryPrices) : currentPrice;
+                            const priceRange = priceMax - priceMin;
+                            const padding = Math.max(priceRange * 0.2, currentPrice * 0.1);
+                            minPrice = Math.max(priceMin - padding, currentPrice * 0.9);
+                            maxPrice = Math.min(priceMax + padding, currentPrice * 1.1);
+                        }
+                        
                         const priceSpan = maxPrice - minPrice || 1;
                         
                         return (
@@ -156,12 +224,14 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                                     const markerId = positionIdMap.get(uniqueKey) || (index + 1);
                                     const isBuy = pos.type === 'buy';
                                     
-                                    // Calcola posizione X (tempo) - 5% padding laterale
+                                    // Calcola posizione X (tempo) - padding laterale ridotto per migliore precisione
                                     const positionTime = new Date(pos.timestamp).getTime();
-                                    const timePercent = ((positionTime - minTime) / timeSpan) * 90 + 5; // 5% - 95%
+                                    // Usa tutto lo spazio disponibile (2% - 98%) per migliore precisione
+                                    const timePercent = ((positionTime - minTime) / timeSpan) * 96 + 2; // 2% - 98%
                                     
                                     // Calcola posizione Y (prezzo) usando ENTRY_PRICE - invertito (top = prezzo alto)
-                                    const pricePercent = 100 - (((pos.entry_price - minPrice) / priceSpan) * 90 + 5); // 5% - 95% invertito
+                                    // Usa tutto lo spazio disponibile per migliore precisione
+                                    const pricePercent = 100 - (((pos.entry_price - minPrice) / priceSpan) * 96 + 2); // 2% - 98% invertito
                                     
                                     console.log(`📍 Marker #${markerId}:`, {
                                         ticket_id: pos.ticket_id,
@@ -177,8 +247,8 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                                             className={`chart-marker ${isBuy ? 'marker-buy' : 'marker-sell'}`}
                                             style={{
                                                 position: 'absolute',
-                                                left: `${Math.max(5, Math.min(95, timePercent))}%`,
-                                                top: `${Math.max(5, Math.min(95, pricePercent))}%`,
+                                                left: `${Math.max(2, Math.min(98, timePercent))}%`,
+                                                top: `${Math.max(2, Math.min(98, pricePercent))}%`,
                                                 zIndex: 10000,
                                                 transform: 'translate(-50%, -50%)'
                                             }}
