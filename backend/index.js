@@ -1,4 +1,4 @@
-// index.js
+// index.js - Deploy test 2025-12-05 00:25
 
 // Carica variabili d'ambiente da .env
 // Specifica il percorso esplicito per funzionare anche con PM2
