@@ -408,19 +408,20 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             // Silent fail
         }
 
-        // Aggiungi linee di entry per le posizioni BUY aperte
+        // Aggiungi linee di entry per le posizioni BUY e SELL aperte
         if (openPositions && openPositions.length > 0) {
             openPositions.forEach((pos) => {
-                if (pos.type === 'buy' && pos.status === 'open' && pos.entry_price) {
+                if (pos.status === 'open' && pos.entry_price) {
                     try {
                         const entryPrice = parseFloat(pos.entry_price);
+                        const isBuy = pos.type === 'buy';
                         const entryLine = candlestickSeriesRef.current.createPriceLine({
                             price: entryPrice,
-                            color: '#4ade80',
+                            color: isBuy ? '#4ade80' : '#f87171', // Verde per BUY, rosso per SELL
                             lineWidth: 1,
                             lineStyle: 0, // Solid
                             axisLabelVisible: true,
-                            title: `Entry: €${entryPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                            title: `Entry ${isBuy ? 'BUY' : 'SELL'}: €${entryPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                         });
                         priceLinesRef.current.push(entryLine);
                     } catch (e) {

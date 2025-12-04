@@ -100,7 +100,7 @@
   padding-right: 0;
   padding-top: 0;
   padding-bottom: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .crypto-card:has(.lightweight-chart-container) .card-title {

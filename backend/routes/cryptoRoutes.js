@@ -1781,6 +1781,7 @@ router.get('/statistics', async (req, res) => {
             }
         });
         
+        // Total trades = posizioni chiuse (con P&L realizzato)
         const totalTrades = winningTrades + losingTrades;
         const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
         const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : (totalProfit > 0 ? Infinity : 0);
@@ -1791,7 +1792,7 @@ router.get('/statistics', async (req, res) => {
         // P&L Percent
         const pnlPercent = initialBalance > 0 ? ((totalBalance - initialBalance) / initialBalance) * 100 : 0;
         
-        // Trade statistics by period - Count ALL trades, not just closed positions
+        // Trade statistics by period - Count ALL trades by timestamp (non solo quelli chiusi)
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const weekAgo = new Date(today);
@@ -1803,7 +1804,7 @@ router.get('/statistics', async (req, res) => {
         let tradesThisWeek = 0;
         let tradesThisMonth = 0;
         
-        // Count trades by timestamp
+        // Count ALL trades by timestamp (per il conteggio operazioni)
         allTrades.forEach(trade => {
             if (trade.timestamp) {
                 const tradeDate = new Date(trade.timestamp);
