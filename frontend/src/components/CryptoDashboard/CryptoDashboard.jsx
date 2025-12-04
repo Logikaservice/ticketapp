@@ -172,9 +172,9 @@ const CryptoDashboard = () => {
         }
     };
 
-    const fetchHistory = async () => {
+    const fetchHistory = async (interval = '15m') => {
         try {
-            const res = await fetch(`${apiBase}/api/crypto/history`);
+            const res = await fetch(`${apiBase}/api/crypto/history?interval=${interval}`);
             if (res.ok) {
                 const history = await res.json();
                 setPriceData(history);
@@ -185,9 +185,26 @@ const CryptoDashboard = () => {
             console.error("❌ Error fetching history:", error);
         }
     };
+    
+    // Fetch history for Lightweight Charts (1m) when switching
+    const [lightweightHistory, setLightweightHistory] = useState([]);
+    const fetchLightweightHistory = async () => {
+        try {
+            const res = await fetch(`${apiBase}/api/crypto/history?interval=1m`);
+            if (res.ok) {
+                const history = await res.json();
+                setLightweightHistory(history);
+            } else {
+                console.error('❌ Lightweight history fetch failed:', res.status, res.statusText);
+            }
+        } catch (error) {
+            console.error("❌ Error fetching lightweight history:", error);
+        }
+    };
 
     useEffect(() => {
-        fetchHistory(); // Load history first
+        fetchHistory(); // Load history first (15m for TradingView)
+        fetchLightweightHistory(); // Load 1m history for Lightweight Charts
         fetchData();
         fetchPrice();
         
@@ -204,6 +221,9 @@ const CryptoDashboard = () => {
         // Update history (candles) more frequently (every 15 seconds) for real-time updates
         const historyInterval = setInterval(() => {
             fetchHistory();
+            if (useLightweightChart) {
+                fetchLightweightHistory(); // Update 1m data when using Lightweight Charts
+            }
         }, 15000);
         
         return () => {
@@ -371,7 +391,7 @@ const CryptoDashboard = () => {
                             }))}
                             openPositions={openPositions || []}
                             currentPrice={currentPrice}
-                            priceHistory={priceData || []}
+                            priceHistory={lightweightHistory.length > 0 ? lightweightHistory : priceData || []}
                         />
                     ) : (
                         <TradingViewChart

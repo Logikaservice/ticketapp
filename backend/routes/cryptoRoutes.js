@@ -57,8 +57,11 @@ const getPortfolio = () => {
 // GET /api/crypto/history (Get chart data)
 router.get('/history', async (req, res) => {
     try {
+        // Get interval from query parameter (default: 15m for TradingView, 1m for Lightweight Charts)
+        const interval = req.query.interval || '15m'; // Support: 1m, 15m, 1h, 1d, etc.
+        
         // Check if we have OHLC klines data first (preferred)
-        const klinesCountRows = await dbAll("SELECT COUNT(*) as count FROM klines WHERE symbol = 'bitcoin' AND interval = '15m'");
+        const klinesCountRows = await dbAll(`SELECT COUNT(*) as count FROM klines WHERE symbol = 'bitcoin' AND interval = ?`, [interval]);
         const klinesCount = klinesCountRows && klinesCountRows.length > 0 ? klinesCountRows[0].count : 0;
         
         // Also check price_history for backward compatibility
@@ -67,14 +70,25 @@ router.get('/history', async (req, res) => {
 
         console.log(`📊 Klines count: ${klinesCount}, Price history count: ${count}`);
 
-        // If we have less than 200 klines, try to load from Binance (even if price_history has data)
-        if (klinesCount < 200) {
-            console.log('⚠️ Klines data is sparse, loading from Binance...');
+        // Determine limit based on interval
+        let limit = 500;
+        if (interval === '1m') {
+            limit = 1440; // 1 day of 1-minute candles
+        } else if (interval === '1d') {
+            limit = 365; // 1 year of daily candles
+        } else if (interval === '1h') {
+            limit = 720; // 30 days of hourly candles
+        }
+        
+        // If we have less than required klines, try to load from Binance
+        const minRequired = interval === '1m' ? 1000 : 200;
+        if (klinesCount < minRequired) {
+            console.log(`⚠️ Klines data is sparse for ${interval}, loading from Binance...`);
             
             try {
-                // Load more klines from Binance (500 candles = ~5 days at 15min intervals)
+                // Load klines from Binance with specified interval
                 const https = require('https');
-                const binanceUrl = 'https://api.binance.com/api/v3/klines?symbol=BTCEUR&interval=15m&limit=500';
+                const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=BTCEUR&interval=${interval}&limit=${limit}`;
                 
                 const binanceData = await new Promise((resolve, reject) => {
                     https.get(binanceUrl, (res) => {
@@ -117,7 +131,7 @@ router.get('/history', async (req, res) => {
                             `INSERT OR IGNORE INTO klines 
                             (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                            ['bitcoin', '15m', openTime, open, high, low, close, volume, closeTime]
+                            ['bitcoin', interval, openTime, open, high, low, close, volume, closeTime]
                         );
                         savedKlines++;
                     } catch (err) {
@@ -131,9 +145,10 @@ router.get('/history', async (req, res) => {
             }
         }
 
-        // Try to get OHLC klines first (more accurate)
+        // Try to get OHLC klines first (more accurate) with specified interval
         const klinesRows = await dbAll(
-            "SELECT open_time, open_price, high_price, low_price, close_price, volume FROM klines WHERE symbol = 'bitcoin' AND interval = '15m' ORDER BY open_time ASC LIMIT 500"
+            `SELECT open_time, open_price, high_price, low_price, close_price, volume FROM klines WHERE symbol = 'bitcoin' AND interval = ? ORDER BY open_time ASC LIMIT ?`,
+            [interval, limit]
         );
         
         if (klinesRows && klinesRows.length > 0) {
