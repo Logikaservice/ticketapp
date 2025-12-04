@@ -33,24 +33,23 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
         containerRef.current.appendChild(container);
         widgetRef.current = container;
 
-        // Configurazione widget TradingView - parametri ottimizzati per mostrare toolbar completa
-        // NOTA: Il widget embedded TradingView mostra la toolbar di default se hide_top_toolbar è false
+        // Configurazione widget TradingView - configurazione minimale per mostrare toolbar completa
+        // IMPORTANTE: Non usare parametri che potrebbero nascondere la toolbar
+        // Il widget advanced-chart mostra la toolbar di default se non viene nascosta esplicitamente
         const widgetConfig = {
             "autosize": true,
             "symbol": tradingViewSymbol,
-            "interval": "15", // 15 minuti per corrispondenza con Lightweight Charts
+            "interval": "15",
             "timezone": "Europe/Rome",
             "theme": "dark",
-            "style": "1", // Candlestick (puoi cambiare dalla toolbar)
+            "style": "1", // Candlestick - può essere cambiato dalla toolbar
             "locale": "it",
             "enable_publishing": false,
-            "hide_top_toolbar": false, // IMPORTANTE: false = mostra toolbar con pulsanti tipo grafico
+            "hide_top_toolbar": false, // FALSE = mostra toolbar (pulsanti tipo grafico, indicatori, ecc.)
             "hide_legend": false,
             "save_image": false,
             "calendar": false,
             "withdateranges": true,
-            "range": "1D",
-            "studies_overrides": {},
             "support_host": "https://www.tradingview.com",
             "height": 500,
             "width": "100%",
@@ -58,15 +57,13 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
         };
         
         script.innerHTML = JSON.stringify(widgetConfig);
-        
-        console.log('📊 TradingView Widget Config:', {
-            hide_top_toolbar: widgetConfig.hide_top_toolbar,
-            style: widgetConfig.style,
-            symbol: widgetConfig.symbol,
-            container_id: widgetConfig.container_id
-        });
-
         container.appendChild(script);
+        
+        console.log('📊 TradingView Widget inizializzato:', {
+            container_id: uniqueId,
+            hide_top_toolbar: widgetConfig.hide_top_toolbar,
+            symbol: widgetConfig.symbol
+        });
 
         return () => {
             if (containerRef.current && container.parentNode) {
