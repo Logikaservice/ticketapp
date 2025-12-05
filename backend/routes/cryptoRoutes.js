@@ -3482,6 +3482,25 @@ router.get('/bot-analysis', async (req, res) => {
             }));
         }
 
+        // ✅ FIX: Sempre aggiorna l'ultima candela con il prezzo corrente per analisi in tempo reale
+        // Questo risolve il problema dei dati "bloccati" quando la candela 15m è ancora aperta
+        if (historyForSignal.length > 0) {
+            const lastCandle = historyForSignal[historyForSignal.length - 1];
+            const lastCandleTime = new Date(lastCandle.timestamp);
+            const now = new Date();
+            const timeSinceLastCandle = now - lastCandleTime;
+
+            // Se l'ultima candela è ancora aperta (< 15 minuti), aggiornala con il prezzo corrente
+            if (timeSinceLastCandle < 15 * 60 * 1000) {
+                console.log('🔍 [BOT-ANALYSIS] Aggiornamento ultima candela con prezzo corrente per analisi in tempo reale');
+                // Aggiorna high, low, close con il prezzo corrente
+                lastCandle.high = Math.max(lastCandle.high || lastCandle.close, currentPrice);
+                lastCandle.low = Math.min(lastCandle.low || lastCandle.close, currentPrice);
+                lastCandle.close = currentPrice;
+                lastCandle.price = currentPrice; // Per backward compatibility
+            }
+        }
+
         // ✅ FIX: Se i dati sono vecchi (bot inattivo) o mancanti, scarica da Binance in tempo reale
         const lastTimestamp = historyForSignal.length > 0 ? new Date(historyForSignal[historyForSignal.length - 1].timestamp) : new Date(0);
         const isStale = (new Date() - lastTimestamp) > 15 * 60 * 1000; // Più vecchio di 15 minuti
@@ -3506,6 +3525,21 @@ router.get('/bot-analysis', async (req, res) => {
                         volume: parseFloat(k[5])
                     }));
                     console.log(`✅ [BOT-ANALYSIS] Scaricate ${historyForSignal.length} candele da Binance`);
+
+                    // ✅ Aggiorna anche l'ultima candela scaricata da Binance con il prezzo corrente
+                    if (historyForSignal.length > 0) {
+                        const lastBinanceCandle = historyForSignal[historyForSignal.length - 1];
+                        const lastBinanceCandleTime = new Date(lastBinanceCandle.timestamp);
+                        const timeSinceBinanceCandle = new Date() - lastBinanceCandleTime;
+
+                        if (timeSinceBinanceCandle < 15 * 60 * 1000) {
+                            console.log('🔍 [BOT-ANALYSIS] Aggiornamento ultima candela Binance con prezzo corrente');
+                            lastBinanceCandle.high = Math.max(lastBinanceCandle.high, currentPrice);
+                            lastBinanceCandle.low = Math.min(lastBinanceCandle.low, currentPrice);
+                            lastBinanceCandle.close = currentPrice;
+                            lastBinanceCandle.price = currentPrice;
+                        }
+                    }
                 }
             } catch (binanceError) {
                 console.error('❌ [BOT-ANALYSIS] Errore scaricamento Binance:', binanceError.message);
@@ -3718,6 +3752,107 @@ router.get('/bot-analysis-test', (req, res) => {
         message: 'Endpoint funziona!',
         timestamp: new Date().toISOString()
     });
+});
+
+// GET /api/crypto/scanner - Scan all symbols for opportunities
+router.get('/scanner', async (req, res) => {
+    console.log('🔍 [SCANNER] Starting market scan...');
+    try {
+        // List of symbols to scan (same as available)
+        const symbolsToScan = [
+            { symbol: 'bitcoin', pair: 'BTCEUR', display: 'BTC/EUR' },
+            { symbol: 'ethereum', pair: 'ETHEUR', display: 'ETH/EUR' },
+            { symbol: 'solana', pair: 'SOLUSDT', display: 'SOL/USDT' },
+            { symbol: 'cardano', pair: 'ADAUSDT', display: 'ADA/USDT' },
+            { symbol: 'polkadot', pair: 'DOTUSDT', display: 'DOT/USDT' },
+            { symbol: 'chainlink', pair: 'LINKUSDT', display: 'LINK/USDT' },
+            { symbol: 'litecoin', pair: 'LTCUSDT', display: 'LTC/USDT' },
+            { symbol: 'ripple', pair: 'XRPUSDT', display: 'XRP/USDT' },
+            { symbol: 'binance_coin', pair: 'BNBUSDT', display: 'BNB/USDT' },
+            { symbol: 'pol_polygon', pair: 'POLUSDT', display: 'POL/USDT' },
+            { symbol: 'avalanche', pair: 'AVAXUSDT', display: 'AVAX/USDT' },
+            { symbol: 'uniswap', pair: 'UNIUSDT', display: 'UNI/USDT' },
+            { symbol: 'dogecoin', pair: 'DOGEUSDT', display: 'DOGE/USDT' },
+            { symbol: 'shiba', pair: 'SHIBUSDT', display: 'SHIB/USDT' }
+        ];
+
+        const results = await Promise.all(symbolsToScan.map(async (s) => {
+            try {
+                // 1. Get Price History (reuse logic from bot-analysis)
+                // Try DB first
+                let historyForSignal = [];
+                const priceHistoryData = await dbAll(
+                    "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
+                    [s.symbol]
+                );
+
+                if (priceHistoryData && priceHistoryData.length > 0) {
+                    historyForSignal = priceHistoryData.reverse().map(row => ({
+                        price: parseFloat(row.close_price),
+                        high: parseFloat(row.high_price),
+                        low: parseFloat(row.low_price),
+                        close: parseFloat(row.close_price),
+                        timestamp: new Date(row.open_time).toISOString()
+                    }));
+                }
+
+                // Check staleness
+                const lastTimestamp = historyForSignal.length > 0 ? new Date(historyForSignal[historyForSignal.length - 1].timestamp) : new Date(0);
+                const isStale = (new Date() - lastTimestamp) > 15 * 60 * 1000;
+
+                // Fetch from Binance if stale or empty
+                if (isStale || historyForSignal.length < 50) {
+                    const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${s.pair}&interval=15m&limit=100`;
+                    const klines = await httpsGet(binanceUrl);
+                    if (Array.isArray(klines)) {
+                        historyForSignal = klines.map(k => ({
+                            timestamp: new Date(k[0]).toISOString(),
+                            open: parseFloat(k[1]),
+                            high: parseFloat(k[2]),
+                            low: parseFloat(k[3]),
+                            close: parseFloat(k[4]),
+                            price: parseFloat(k[4]),
+                            volume: parseFloat(k[5])
+                        }));
+                    }
+                }
+
+                if (historyForSignal.length < 30) return null; // Not enough data
+
+                // 2. Generate Signal
+                const signal = signalGenerator.generateSignal(historyForSignal);
+
+                // 3. Get Current Price
+                const currentPrice = historyForSignal[historyForSignal.length - 1].close;
+
+                return {
+                    symbol: s.symbol,
+                    display: s.display,
+                    price: currentPrice,
+                    direction: signal.direction,
+                    strength: signal.strength,
+                    confirmations: signal.confirmations,
+                    reasons: signal.reasons,
+                    rsi: signal.indicators.rsi
+                };
+            } catch (err) {
+                console.error(`Scanner error for ${s.symbol}:`, err.message);
+                return null;
+            }
+        }));
+
+        // Filter nulls and sort by strength (descending)
+        const validResults = results.filter(r => r !== null).sort((a, b) => b.strength - a.strength);
+
+        res.json({
+            success: true,
+            timestamp: new Date().toISOString(),
+            scan_results: validResults
+        });
+    } catch (error) {
+        console.error('❌ Scanner Error:', error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 module.exports = router;
