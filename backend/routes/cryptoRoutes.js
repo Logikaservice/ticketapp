@@ -807,6 +807,49 @@ const calculateRSI = (prices, period = 14) => {
     return 100 - (100 / (1 + rs));
 };
 
+/**
+ * Rileva trend su un timeframe specifico per un simbolo
+ * @param {string} symbol - Simbolo crypto (es. 'bitcoin')
+ * @param {string} interval - Timeframe (es. '1h', '4h')
+ * @param {number} limit - Numero di candele da analizzare (default 50)
+ * @returns {Promise<string>} 'bullish', 'bearish', o 'neutral'
+ */
+const detectTrendOnTimeframe = async (symbol, interval, limit = 50) => {
+    try {
+        // Carica klines dal DB
+        const klines = await dbAll(
+            `SELECT close_price FROM klines 
+             WHERE symbol = ? AND interval = ? 
+             ORDER BY open_time DESC LIMIT ?`,
+            [symbol, interval, limit]
+        );
+
+        if (!klines || klines.length < 20) {
+            console.log(`⚠️ [MTF] Insufficient data for ${symbol} ${interval} (${klines?.length || 0} candles)`);
+            return 'neutral'; // Fallback se non ci sono dati
+        }
+
+        // Reverse per ordine cronologico (più vecchio → più recente)
+        const prices = klines.reverse().map(k => parseFloat(k.close_price));
+
+        // Calcola EMA 10 e EMA 20 usando la funzione del signalGenerator
+        const ema10 = signalGenerator.calculateEMA(prices, 10);
+        const ema20 = signalGenerator.calculateEMA(prices, 20);
+
+        if (!ema10 || !ema20) {
+            return 'neutral';
+        }
+
+        // Determina trend
+        if (ema10 > ema20 * 1.005) return 'bullish'; // EMA10 > EMA20 + 0.5%
+        if (ema10 < ema20 * 0.995) return 'bearish'; // EMA10 < EMA20 - 0.5%
+        return 'neutral';
+    } catch (err) {
+        console.error(`❌ [MTF] Error detecting trend for ${symbol} ${interval}:`, err.message);
+        return 'neutral'; // Fallback in caso di errore
+    }
+};
+
 // Bot Loop Function for a single symbol
 const runBotCycleForSymbol = async (symbol, botSettings) => {
     try {
@@ -1119,6 +1162,42 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         const MIN_SIGNAL_STRENGTH = 70; // Soglia alta per sicurezza 90%
 
         if (signal.direction === 'LONG' && signal.strength >= MIN_SIGNAL_STRENGTH) {
+            // ✅ MULTI-TIMEFRAME CONFIRMATION (con sistema a punteggio)
+            const trend1h = await detectTrendOnTimeframe(symbol, '1h', 50);
+            const trend4h = await detectTrendOnTimeframe(symbol, '4h', 50);
+
+            let mtfBonus = 0;
+            let mtfReason = '';
+
+            // Sistema a punteggio: bonus se allineati, malus se contrari
+            if (trend1h === 'bullish' && trend4h === 'bullish') {
+                mtfBonus = +10;
+                mtfReason = '✅ All timeframes bullish (+10 strength)';
+            } else if (trend1h === 'bullish' || trend4h === 'bullish') {
+                mtfBonus = +5;
+                mtfReason = '✅ Partial alignment (+5 strength)';
+            } else if (trend1h === 'bearish' || trend4h === 'bearish') {
+                mtfBonus = -15;
+                mtfReason = '⚠️ Higher timeframe bearish (-15 strength)';
+            } else {
+                mtfBonus = 0;
+                mtfReason = '➡️ Neutral timeframes (no bonus/malus)';
+            }
+
+            const adjustedStrength = signal.strength + mtfBonus;
+
+            console.log(`📊 [MTF] LONG Check for ${symbol}: 15m=LONG(${signal.strength}) | 1h=${trend1h} | 4h=${trend4h}`);
+            console.log(`   ${mtfReason} → Adjusted Strength: ${adjustedStrength}`);
+
+            // Verifica se la strength aggiustata è ancora sufficiente
+            if (adjustedStrength < MIN_SIGNAL_STRENGTH) {
+                console.log(`🛑 [MTF] LONG BLOCKED: Adjusted strength ${adjustedStrength} < ${MIN_SIGNAL_STRENGTH} (1h=${trend1h}, 4h=${trend4h})`);
+                console.log(`   → Waiting for higher timeframes to align or signal to strengthen`);
+                return; // NON aprire LONG
+            }
+
+            console.log(`✅ [MTF] LONG APPROVED: Adjusted strength ${adjustedStrength} >= ${MIN_SIGNAL_STRENGTH}`);
+
             // Verifica se possiamo aprire LONG
             // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
             const maxAvailableForNewPosition = Math.min(
@@ -1128,7 +1207,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             );
             const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
-            console.log(`🔍 LONG SIGNAL CHECK: Strength=${signal.strength} (>=${MIN_SIGNAL_STRENGTH}) | Confirmations=${signal.confirmations} (>=3) | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
+            console.log(`🔍 LONG SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
 
             // ✅ FIX: Rimuovo controllo longPositions.length === 0 - permetto multiple posizioni
             if (canOpen.allowed) {
@@ -1147,6 +1226,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                 // ✅ FIX: Salva dettagli segnale per analisi successiva
                 const signalDetails = JSON.stringify({
+                    mtf: {
+                        trend1h,
+                        trend4h,
+                        bonus: mtfBonus,
+                        adjustedStrength
+                    },
                     direction: signal.direction,
                     strength: signal.strength,
                     confirmations: signal.confirmations,
@@ -1187,6 +1272,42 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             } else {
                 // ✅ FIX: Solo se SHORT è supportato (DEMO o Futures), procedi con l'apertura SHORT
 
+                // ✅ MULTI-TIMEFRAME CONFIRMATION (con sistema a punteggio)
+                const trend1h = await detectTrendOnTimeframe(symbol, '1h', 50);
+                const trend4h = await detectTrendOnTimeframe(symbol, '4h', 50);
+
+                let mtfBonus = 0;
+                let mtfReason = '';
+
+                // Sistema a punteggio: bonus se allineati, malus se contrari
+                if (trend1h === 'bearish' && trend4h === 'bearish') {
+                    mtfBonus = +10;
+                    mtfReason = '✅ All timeframes bearish (+10 strength)';
+                } else if (trend1h === 'bearish' || trend4h === 'bearish') {
+                    mtfBonus = +5;
+                    mtfReason = '✅ Partial alignment (+5 strength)';
+                } else if (trend1h === 'bullish' || trend4h === 'bullish') {
+                    mtfBonus = -15;
+                    mtfReason = '⚠️ Higher timeframe bullish (-15 strength)';
+                } else {
+                    mtfBonus = 0;
+                    mtfReason = '➡️ Neutral timeframes (no bonus/malus)';
+                }
+
+                const adjustedStrength = signal.strength + mtfBonus;
+
+                console.log(`📊 [MTF] SHORT Check for ${symbol}: 15m=SHORT(${signal.strength}) | 1h=${trend1h} | 4h=${trend4h}`);
+                console.log(`   ${mtfReason} → Adjusted Strength: ${adjustedStrength}`);
+
+                // Verifica se la strength aggiustata è ancora sufficiente
+                if (adjustedStrength < MIN_SIGNAL_STRENGTH) {
+                    console.log(`🛑 [MTF] SHORT BLOCKED: Adjusted strength ${adjustedStrength} < ${MIN_SIGNAL_STRENGTH} (1h=${trend1h}, 4h=${trend4h})`);
+                    console.log(`   → Waiting for higher timeframes to align or signal to strengthen`);
+                    return; // NON aprire SHORT
+                }
+
+                console.log(`✅ [MTF] SHORT APPROVED: Adjusted strength ${adjustedStrength} >= ${MIN_SIGNAL_STRENGTH}`);
+
                 // Verifica se possiamo aprire SHORT
                 // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
                 const maxAvailableForNewPosition = Math.min(
@@ -1196,7 +1317,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 );
                 const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
-                console.log(`🔍 SHORT SIGNAL CHECK: Strength=${signal.strength} (>=${MIN_SIGNAL_STRENGTH}) | Confirmations=${signal.confirmations} (>=5) | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
+                console.log(`🔍 SHORT SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
 
                 // ✅ FIX: Rimuovo controllo shortPositions.length === 0 - permetto multiple posizioni
                 if (canOpen.allowed) {
@@ -1215,6 +1336,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                     // ✅ FIX: Salva dettagli segnale per analisi successiva
                     const signalDetails = JSON.stringify({
+                        mtf: {
+                            trend1h,
+                            trend4h,
+                            bonus: mtfBonus,
+                            adjustedStrength
+                        },
                         direction: signal.direction,
                         strength: signal.strength,
                         confirmations: signal.confirmations,
