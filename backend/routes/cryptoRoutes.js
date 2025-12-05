@@ -647,8 +647,8 @@ const SYMBOL_TO_PAIR = {
     'ripple_eur': 'XRPEUR',
     'binance_coin': 'BNBUSDT',
     'binance_coin_eur': 'BNBEUR',
-    'matic': 'MATICUSDT',
-    'matic_eur': 'MATICEUR',
+    'pol_polygon': 'POLUSDT', // Replaces MATIC
+    'pol_polygon_eur': 'POLEUR', // Replaces MATIC
     'avalanche': 'AVAXUSDT',
     'avalanche_eur': 'AVAXEUR',
     'uniswap': 'UNIUSDT',
@@ -679,8 +679,8 @@ const SYMBOL_TO_COINGECKO = {
     'ripple_eur': 'ripple',
     'binance_coin': 'binancecoin',
     'binance_coin_eur': 'binancecoin',
-    'matic': 'matic-network',
-    'matic_eur': 'matic-network',
+    'pol_polygon': 'polygon-ecosystem-token', // Replaces MATIC
+    'pol_polygon_eur': 'polygon-ecosystem-token', // Replaces MATIC
     'avalanche': 'avalanche-2',
     'avalanche_eur': 'avalanche-2',
     'uniswap': 'uniswap',
@@ -2441,9 +2441,9 @@ router.get('/symbols/available', async (req, res) => {
             // Binance Coin
             { symbol: 'binance_coin', name: 'Binance Coin', pair: 'BNBUSDT', display: 'BNB/USDT' },
             { symbol: 'binance_coin_eur', name: 'Binance Coin', pair: 'BNBEUR', display: 'BNB/EUR' },
-            // Polygon (MATIC)
-            { symbol: 'matic', name: 'Polygon', pair: 'MATICUSDT', display: 'MATIC/USDT' },
-            { symbol: 'matic_eur', name: 'Polygon', pair: 'MATICEUR', display: 'MATIC/EUR' },
+            // Polygon (POL) - Replaces MATIC
+            { symbol: 'pol_polygon', name: 'Polygon', pair: 'POLUSDT', display: 'POL/USDT' },
+            { symbol: 'pol_polygon_eur', name: 'Polygon', pair: 'POLEUR', display: 'POL/EUR' },
             // Avalanche
             { symbol: 'avalanche', name: 'Avalanche', pair: 'AVAXUSDT', display: 'AVAX/USDT' },
             { symbol: 'avalanche_eur', name: 'Avalanche', pair: 'AVAXEUR', display: 'AVAX/EUR' },

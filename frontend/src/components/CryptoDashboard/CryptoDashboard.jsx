@@ -31,7 +31,7 @@ const CryptoDashboard = () => {
     const [notifications, setNotifications] = useState([]);
     const [botParameters, setBotParameters] = useState(null);
     const [useApexChart, setUseApexChart] = useState(false); // Toggle tra TradingView e ApexChart
-    
+
     // WebSocket for real-time notifications
     const { connected: wsConnected } = useCryptoWebSocket(
         // onPositionOpened
@@ -138,7 +138,7 @@ const CryptoDashboard = () => {
             const res = await fetch(`${apiBase}/api/crypto/positions/close/${ticketId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     close_price: currentPrice,
                     symbol: 'bitcoin'
                 })
@@ -159,17 +159,17 @@ const CryptoDashboard = () => {
     const handleResetPortfolio = async () => {
         const allPositionsCount = openPositions.length + (trades?.length || 0);
         const confirmMessage = `⚠️ ATTENZIONE: Reset completo del portfolio!\n\nQuesto cancellerà:\n${openPositions.length > 0 ? `- ${openPositions.length} posizione/i aperta/e\n` : ''}- TUTTE le posizioni (aperte e chiuse)\n- TUTTI i trades (marker sul grafico e lista recenti)\n\nE poi:\n- Imposterà il saldo a €250\n- Resetterà tutte le holdings\n\nVuoi continuare?`;
-        
+
         if (!window.confirm(confirmMessage)) {
             return;
         }
-        
+
         try {
             const res = await fetch(`${apiBase}/api/crypto/reset`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
-            
+
             if (res.ok) {
                 const result = await res.json();
                 alert(result.message || 'Portfolio resettato completamente!');
@@ -217,7 +217,7 @@ const CryptoDashboard = () => {
             console.error("❌ Error fetching history:", error);
         }
     };
-    
+
     // Fetch history for ApexChart (15m di default, ma può cambiare)
     const [apexHistory, setApexHistory] = useState([]);
     const [apexInterval, setApexInterval] = useState('15m'); // Default 15m per corrispondenza
@@ -242,18 +242,18 @@ const CryptoDashboard = () => {
         fetchApexHistory(apexInterval); // Load history for ApexChart
         fetchData();
         fetchPrice();
-        
+
         // Update price frequently (every 1 second for real-time feel)
         const priceInterval = setInterval(() => {
             fetchPrice();
         }, 1000);
-        
+
         // Update data (positions, trades) every 1.5 seconds for instant updates
         const dataInterval = setInterval(() => {
             fetchData();
             fetchActiveBots(); // Also update active bots
         }, 1500);
-        
+
         // Update history (candles) more frequently (every 5 seconds) for real-time updates
         // ✅ FIX: Aggiornamento più frequente per vedere candele in tempo reale
         const historyInterval = setInterval(() => {
@@ -262,7 +262,7 @@ const CryptoDashboard = () => {
                 fetchApexHistory(apexInterval); // Update data when using ApexChart
             }
         }, 5000); // Ridotto da 15s a 5s per aggiornamenti più frequenti
-        
+
         return () => {
             clearInterval(priceInterval);
             clearInterval(dataInterval);
@@ -275,37 +275,37 @@ const CryptoDashboard = () => {
             const targetSymbol = symbol || currentSymbol;
             const currentBot = activeBots.find(b => b.symbol === targetSymbol);
             const newStatus = currentBot ? !currentBot.is_active : true;
-            
+
             console.log(`🤖 Toggling bot for ${targetSymbol}, new status: ${newStatus}`);
-            
+
             const response = await fetch(`${apiBase}/api/crypto/bot/toggle`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    strategy_name: 'RSI_Strategy', 
+                body: JSON.stringify({
+                    strategy_name: 'RSI_Strategy',
                     symbol: targetSymbol,
-                    is_active: newStatus 
+                    is_active: newStatus
                 })
             });
-            
+
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
                 console.error("❌ Error toggling bot:", errorData);
                 alert(`Errore nell'attivazione del bot: ${errorData.error || response.statusText}`);
                 return;
             }
-            
+
             const result = await response.json();
             console.log('✅ Bot toggle result:', result);
-            
+
             // Update local state
             if (targetSymbol === currentSymbol) {
                 setBotStatus(prev => ({ ...prev, active: newStatus }));
             }
-            
+
             // Refresh active bots list
             await fetchActiveBots();
-            
+
             // Show success message
             if (newStatus) {
                 const symbolInfo = availableSymbols.find(s => s.symbol === targetSymbol);
@@ -322,14 +322,14 @@ const CryptoDashboard = () => {
 
     // Calculate total balance (EUR + All Crypto values)
     const [allSymbolPrices, setAllSymbolPrices] = useState({});
-    
+
     // Fetch prices for all symbols in holdings
     useEffect(() => {
         const fetchAllPrices = async () => {
             const holdings = portfolio.holdings || {};
             const symbols = Object.keys(holdings).filter(s => holdings[s] > 0);
             const prices = {};
-            
+
             for (const symbol of symbols) {
                 try {
                     const res = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=eur`);
@@ -341,15 +341,15 @@ const CryptoDashboard = () => {
                     console.error(`Error fetching price for ${symbol}:`, error);
                 }
             }
-            
+
             setAllSymbolPrices(prices);
         };
-        
+
         if (Object.keys(portfolio.holdings || {}).length > 0) {
             fetchAllPrices();
         }
     }, [portfolio.holdings, apiBase]);
-    
+
     // Calculate total balance including all holdings
     const holdings = portfolio.holdings || {};
     let totalCryptoValue = 0;
@@ -358,7 +358,7 @@ const CryptoDashboard = () => {
         const price = allSymbolPrices[symbol] || (symbol === currentSymbol ? currentPrice : 0);
         totalCryptoValue += amount * price;
     });
-    
+
     const totalBalance = portfolio.balance_usd + totalCryptoValue;
 
     // Calculate P&L for current symbol only (for display)
@@ -425,31 +425,31 @@ const CryptoDashboard = () => {
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                        <button 
-                            className="toggle-btn" 
-                            onClick={toggleBot} 
+                        <button
+                            className="toggle-btn"
+                            onClick={toggleBot}
                             style={{ flex: 1, padding: '8px', fontSize: '0.9rem' }}
                         >
                             {botStatus.active ? "Stop Bot" : "Start Bot"}
                         </button>
-                        <button 
-                            className="toggle-btn" 
+                        <button
+                            className="toggle-btn"
                             onClick={() => setShowBotSettings(true)}
                             style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px' }}
                             title="Configurazione Bot"
                         >
                             <Settings size={18} />
                         </button>
-                        <button 
-                            className="toggle-btn" 
+                        <button
+                            className="toggle-btn"
                             onClick={() => setShowBacktestPanel(true)}
                             style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px' }}
                             title="Backtesting Strategia"
                         >
                             <BarChart2 size={18} />
                         </button>
-                        <button 
-                            className="toggle-btn" 
+                        <button
+                            className="toggle-btn"
                             onClick={() => {
                                 const url = new URL(window.location);
                                 url.searchParams.set('domain', 'crypto');
@@ -462,8 +462,8 @@ const CryptoDashboard = () => {
                         >
                             🔍
                         </button>
-                        <button 
-                            className="toggle-btn" 
+                        <button
+                            className="toggle-btn"
                             onClick={handleResetPortfolio}
                             style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px', background: '#ef4444', color: '#fff' }}
                             title="Reset Portfolio a €250"
@@ -568,12 +568,45 @@ const CryptoDashboard = () => {
                                         {s.display} {s.bot_active ? '🤖' : ''}
                                     </option>
                                 ))}
+                                {/* Fallback manual options if API fails or for new symbols */}
+                                {availableSymbols.length === 0 && (
+                                    <>
+                                        <option value="bitcoin">BTC/EUR</option>
+                                        <option value="bitcoin_usdt">BTC/USDT</option>
+                                        <option value="ethereum">ETH/EUR</option>
+                                        <option value="ethereum_usdt">ETH/USDT</option>
+                                        <option value="solana">SOL/USDT</option>
+                                        <option value="solana_eur">SOL/EUR</option>
+                                        <option value="cardano">ADA/EUR</option>
+                                        <option value="cardano_usdt">ADA/USDT</option>
+                                        <option value="polkadot">DOT/EUR</option>
+                                        <option value="polkadot_usdt">DOT/USDT</option>
+                                        <option value="chainlink">LINK/EUR</option>
+                                        <option value="chainlink_usdt">LINK/USDT</option>
+                                        <option value="litecoin">LTC/EUR</option>
+                                        <option value="litecoin_usdt">LTC/USDT</option>
+                                        <option value="ripple">XRP/USDT</option>
+                                        <option value="ripple_eur">XRP/EUR</option>
+                                        <option value="binance_coin">BNB/USDT</option>
+                                        <option value="binance_coin_eur">BNB/EUR</option>
+                                        <option value="pol_polygon">POL/USDT</option>
+                                        <option value="pol_polygon_eur">POL/EUR</option>
+                                        <option value="avalanche">AVAX/USDT</option>
+                                        <option value="avalanche_eur">AVAX/EUR</option>
+                                        <option value="uniswap">UNI/USDT</option>
+                                        <option value="uniswap_eur">UNI/EUR</option>
+                                        <option value="dogecoin">DOGE/USDT</option>
+                                        <option value="dogecoin_eur">DOGE/EUR</option>
+                                        <option value="shiba">SHIB/USDT</option>
+                                        <option value="shiba_eur">SHIB/EUR</option>
+                                    </>
+                                )}
                             </select>
                             <button
                                 onClick={() => toggleBot(currentSymbol)}
                                 style={{
-                                    background: activeBots.find(b => b.symbol === currentSymbol) 
-                                        ? '#ef4444' 
+                                    background: activeBots.find(b => b.symbol === currentSymbol)
+                                        ? '#ef4444'
                                         : '#4ade80',
                                     color: '#fff',
                                     border: 'none',
@@ -586,8 +619,8 @@ const CryptoDashboard = () => {
                                     alignItems: 'center',
                                     gap: '6px'
                                 }}
-                                title={activeBots.find(b => b.symbol === currentSymbol) 
-                                    ? 'Disattiva Bot per questo simbolo' 
+                                title={activeBots.find(b => b.symbol === currentSymbol)
+                                    ? 'Disattiva Bot per questo simbolo'
                                     : 'Attiva Bot per questo simbolo'}
                             >
                                 {activeBots.find(b => b.symbol === currentSymbol) ? (
@@ -600,11 +633,11 @@ const CryptoDashboard = () => {
                                 {availableSymbols.find(s => s.symbol === currentSymbol)?.display || 'Live Market'}
                             </span>
                             {activeBots.find(b => b.symbol === currentSymbol) && (
-                                <span style={{ 
-                                    background: '#4ade80', 
-                                    color: '#fff', 
-                                    padding: '2px 8px', 
-                                    borderRadius: '4px', 
+                                <span style={{
+                                    background: '#4ade80',
+                                    color: '#fff',
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
                                     fontSize: '0.75rem',
                                     fontWeight: 'bold'
                                 }}>
@@ -712,18 +745,18 @@ const CryptoDashboard = () => {
                                     // ✅ FIX: Se il trade ha un ticket_id, cerca la posizione corrispondente per ottenere il P&L
                                     if (pnl === null && trade.ticket_id) {
                                         const correspondingPosition = openPositions.find(pos => pos.ticket_id === trade.ticket_id) ||
-                                                                   closedPositions?.find(pos => pos.ticket_id === trade.ticket_id);
+                                            closedPositions?.find(pos => pos.ticket_id === trade.ticket_id);
                                         if (correspondingPosition && correspondingPosition.profit_loss !== null) {
                                             pnl = correspondingPosition.profit_loss;
                                         }
                                     }
 
                                     // Check if this trade has a corresponding open position
-                                    const hasOpenPosition = isBuy && openPositions.some(pos => 
+                                    const hasOpenPosition = isBuy && openPositions.some(pos =>
                                         (pos.ticket_id === trade.ticket_id) || // Match by ticket_id (preferito)
-                                        (pos.type === 'buy' && 
-                                         Math.abs(parseFloat(pos.entry_price) - parseFloat(trade.price)) < 0.01 &&
-                                         Math.abs(parseFloat(pos.volume) - parseFloat(trade.amount)) < 0.0001)
+                                        (pos.type === 'buy' &&
+                                            Math.abs(parseFloat(pos.entry_price) - parseFloat(trade.price)) < 0.01 &&
+                                            Math.abs(parseFloat(pos.volume) - parseFloat(trade.amount)) < 0.0001)
                                     );
 
                                     // ✅ FIX: Usa il prezzo corretto per il simbolo del trade, non sempre Bitcoin
@@ -741,12 +774,12 @@ const CryptoDashboard = () => {
                                     const theoreticalPnlPercent = (isBuy && hasOpenPosition) ? ((symbolCurrentPrice - trade.price) / trade.price) * 100 : 0;
 
                                     // Get symbol display name
-                                    const symbolDisplay = trade.symbol ? (trade.symbol === 'bitcoin' ? 'BTC/EUR' : 
+                                    const symbolDisplay = trade.symbol ? (trade.symbol === 'bitcoin' ? 'BTC/EUR' :
                                         trade.symbol === 'bitcoin_usdt' ? 'BTC/USDT' :
-                                        trade.symbol === 'solana' ? 'SOL/USDT' :
-                                        trade.symbol === 'solana_eur' ? 'SOL/EUR' :
-                                        trade.symbol.toUpperCase().replace('_', '/')) : '-';
-                                    
+                                            trade.symbol === 'solana' ? 'SOL/USDT' :
+                                                trade.symbol === 'solana_eur' ? 'SOL/EUR' :
+                                                    trade.symbol.toUpperCase().replace('_', '/')) : '-';
+
                                     // Show P&L if available (for both BUY and SELL)
                                     const displayPnl = pnl !== null && pnl !== undefined ? (
                                         <span style={{ color: pnl >= 0 ? '#4ade80' : '#ef4444', fontWeight: 'bold' }}>
@@ -802,8 +835,8 @@ const CryptoDashboard = () => {
                                                             try {
                                                                 let signalData = null;
                                                                 if (trade.signal_details) {
-                                                                    signalData = typeof trade.signal_details === 'string' 
-                                                                        ? JSON.parse(trade.signal_details) 
+                                                                    signalData = typeof trade.signal_details === 'string'
+                                                                        ? JSON.parse(trade.signal_details)
                                                                         : trade.signal_details;
                                                                 } else {
                                                                     const position = openPositions.find(pos => pos.ticket_id === trade.ticket_id);
@@ -813,7 +846,7 @@ const CryptoDashboard = () => {
                                                                             : position.signal_details;
                                                                     }
                                                                 }
-                                                                
+
                                                                 if (signalData) {
                                                                     const details = [
                                                                         `📊 SIGNAL DETAILS`,
@@ -826,7 +859,7 @@ const CryptoDashboard = () => {
                                                                         ...(signalData.reasons || []).map((r, i) => `${i + 1}. ${r}`),
                                                                         ``,
                                                                         `📈 LONG SIGNAL:`,
-                                                                        signalData.longSignal ? 
+                                                                        signalData.longSignal ?
                                                                             `  Strength: ${signalData.longSignal.strength || 0}/100\n  Confirmations: ${signalData.longSignal.confirmations || 0}\n  Reasons: ${(signalData.longSignal.reasons || []).join(', ')}` :
                                                                             '  N/A',
                                                                         ``,
@@ -838,7 +871,7 @@ const CryptoDashboard = () => {
                                                                         `📊 INDICATORS:`,
                                                                         `  RSI: ${signalData.indicators?.rsi?.toFixed(2) || 'N/A'}`,
                                                                         `  Trend: ${signalData.indicators?.trend || 'N/A'}`,
-                                                                        signalData.indicators?.macd ? 
+                                                                        signalData.indicators?.macd ?
                                                                             `  MACD: ${signalData.indicators.macd.macdLine?.toFixed(2) || 'N/A'} | Signal: ${signalData.indicators.macd.signalLine?.toFixed(2) || 'N/A'}` :
                                                                             '  MACD: N/A'
                                                                     ].join('\n');
