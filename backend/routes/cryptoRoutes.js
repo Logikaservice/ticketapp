@@ -56,6 +56,13 @@ const getPortfolio = () => {
 
 // GET /api/crypto/history (Get chart data)
 router.get('/history', async (req, res) => {
+    // ✅ FIX: Aggiungi timeout totale di 30 secondi per l'intera richiesta
+    const requestTimeout = setTimeout(() => {
+        if (!res.headersSent) {
+            res.status(504).json({ error: 'Request timeout: Historical data loading took too long' });
+        }
+    }, 30000); // 30 secondi
+    
     try {
         // Get interval and symbol from query parameters
         const interval = req.query.interval || '15m'; // Support: 1m, 15m, 1h, 1d, etc.
@@ -115,18 +122,43 @@ router.get('/history', async (req, res) => {
                 const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
                 const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=${interval}&limit=${binanceLimit}`;
                 
+                // ✅ FIX: Aggiungi timeout di 10 secondi per evitare 504 Gateway Timeout
+                const TIMEOUT_MS = 10000; // 10 secondi
+                
                 const binanceData = await new Promise((resolve, reject) => {
-                    https.get(binanceUrl, (res) => {
+                    const request = https.get(binanceUrl, (res) => {
+                        // Verifica status code
+                        if (res.statusCode !== 200) {
+                            reject(new Error(`Binance API returned status ${res.statusCode}`));
+                            return;
+                        }
+                        
                         let data = '';
                         res.on('data', chunk => data += chunk);
                         res.on('end', () => {
                             try {
-                                resolve(JSON.parse(data));
+                                const parsed = JSON.parse(data);
+                                // Verifica se Binance ha restituito un errore
+                                if (parsed.code && parsed.msg) {
+                                    reject(new Error(`Binance API error: ${parsed.msg}`));
+                                    return;
+                                }
+                                resolve(parsed);
                             } catch (e) {
-                                reject(e);
+                                reject(new Error(`Failed to parse Binance response: ${e.message}`));
                             }
                         });
-                    }).on('error', reject);
+                    });
+                    
+                    // ✅ FIX: Timeout per evitare richieste che si bloccano
+                    request.setTimeout(TIMEOUT_MS, () => {
+                        request.destroy();
+                        reject(new Error(`Binance API request timeout after ${TIMEOUT_MS}ms`));
+                    });
+                    
+                    request.on('error', (err) => {
+                        reject(new Error(`Binance API request failed: ${err.message}`));
+                    });
                 });
 
                 // Save OHLC klines to database (complete candlestick data)
@@ -264,12 +296,14 @@ router.get('/history', async (req, res) => {
                 const lastTime = filledCandles[filledCandles.length - 1] ? new Date(filledCandles[filledCandles.length - 1].time * 1000).toISOString() : 'N/A';
                 console.log(`📊 Returning ${filledCandles.length} OHLC candlesticks from klines table (interval: ${interval}, original: ${candles.length}, filled gaps)`);
                 console.log(`📊 Time range: ${firstTime} to ${lastTime}`);
+                clearTimeout(requestTimeout);
                 res.json(filledCandles);
             } else {
                 const firstTime = candles[0] ? new Date(candles[0].time * 1000).toISOString() : 'N/A';
                 const lastTime = candles[candles.length - 1] ? new Date(candles[candles.length - 1].time * 1000).toISOString() : 'N/A';
                 console.log(`📊 Returning ${candles.length} OHLC candlesticks from klines table (interval: ${interval})`);
                 console.log(`📊 Time range: ${firstTime} to ${lastTime}`);
+                clearTimeout(requestTimeout);
                 res.json(candles);
             }
         } else {
@@ -284,11 +318,15 @@ router.get('/history', async (req, res) => {
             }));
 
             console.log(`📊 Returning ${history.length} price history points (fallback)`);
+            clearTimeout(requestTimeout);
             res.json(history);
         }
     } catch (error) {
+        clearTimeout(requestTimeout);
         console.error('❌ Error fetching price history:', error);
-        res.status(500).json({ error: error.message });
+        if (!res.headersSent) {
+            res.status(500).json({ error: error.message || 'Internal server error' });
+        }
     }
 });
 
@@ -2147,8 +2185,24 @@ router.post('/bot/toggle', async (req, res) => {
         if (!tradingPair && targetSymbol !== 'bitcoin') {
             console.error(`❌ [BOT-TOGGLE] Invalid symbol: ${targetSymbol}, no trading pair found`);
             return res.status(400).json({ 
-                error: `Simbolo non valido: ${targetSymbol}. Trading pair non trovato.` 
+                error: `Simbolo non valido: ${targetSymbol}. Trading pair non trovato nel mapping.` 
             });
+        }
+        
+        // Test if we can get price for this symbol (verify trading pair exists on Binance)
+        if (tradingPair) {
+            try {
+                const testPrice = await getSymbolPrice(targetSymbol);
+                if (testPrice === 0) {
+                    console.warn(`⚠️ [BOT-TOGGLE] Could not fetch price for ${targetSymbol} (${tradingPair}), trading pair might not exist on Binance`);
+                    // Non blocchiamo l'attivazione, ma avvisiamo che potrebbe non funzionare
+                } else {
+                    console.log(`✅ [BOT-TOGGLE] Verified price fetch for ${targetSymbol} (${tradingPair}): €${testPrice}`);
+                }
+            } catch (priceError) {
+                console.error(`❌ [BOT-TOGGLE] Error testing price fetch for ${targetSymbol}:`, priceError.message);
+                // Non blocchiamo, ma loggiamo l'errore
+            }
         }
 
         const activeValue = is_active ? 1 : 0;
