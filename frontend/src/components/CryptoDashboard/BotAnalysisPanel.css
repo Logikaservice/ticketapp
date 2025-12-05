@@ -376,10 +376,13 @@
 }
 
 @keyframes pulse {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: scale(1);
         opacity: 1;
     }
+
     50% {
         transform: scale(1.1);
         opacity: 0.8;
@@ -905,4 +908,78 @@
     color: #9ca3af;
     text-align: center;
     font-style: italic;
+}
+
+/* ✅ LAYOUT COMPATTO - Griglia 3 colonne per indicatori */
+.strength-contributions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.strength-contribution-item-compact {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: #2a2a2d;
+    border-radius: 6px;
+    border-left: 3px solid #3b82f6;
+}
+
+.strength-contribution-item-compact .strength-indicator-name {
+    font-size: 11px;
+    color: #9ca3af;
+    flex: 1;
+}
+
+.strength-contribution-item-compact .strength-points {
+    font-size: 13px;
+    font-weight: bold;
+    color: #10b981;
+    margin-left: 8px;
+}
+
+/* Griglia 2 colonne per conferme */
+.confirmations-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.confirmation-item-compact {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: #2a2a2d;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.confirmation-item-compact .confirmation-check {
+    color: #10b981;
+    font-weight: bold;
+}
+
+.confirmation-item-compact .confirmation-text {
+    color: #e5e7eb;
+    flex: 1;
+}
+
+/* Responsive: 2 colonne su schermi piccoli */
+@media (max-width: 900px) {
+    .strength-contributions-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+
+    .strength-contributions-grid,
+    .confirmations-grid {
+        grid-template-columns: 1fr;
+    }
 }
