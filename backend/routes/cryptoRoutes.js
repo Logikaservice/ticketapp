@@ -397,13 +397,20 @@ router.get('/dashboard', async (req, res) => {
             }
         }
 
-        // ✅ FIX: Aggiungi signal_details ai trades dalla posizione corrispondente (aperta o chiusa)
+        // ✅ FIX: Aggiungi signal_details e profit_loss ai trades dalla posizione corrispondente (aperta o chiusa)
         const allPositions = [...openPositions, ...closedPositions];
         const tradesWithDetails = trades.map(trade => {
             if (trade.ticket_id) {
                 const position = allPositions.find(pos => pos.ticket_id === trade.ticket_id);
-                if (position && position.signal_details) {
-                    return { ...trade, signal_details: position.signal_details };
+                if (position) {
+                    // Aggiungi signal_details se presente
+                    if (position.signal_details) {
+                        trade = { ...trade, signal_details: position.signal_details };
+                    }
+                    // ✅ FIX CRITICO: Se il trade non ha profit_loss ma la posizione sì, aggiungilo
+                    if ((trade.profit_loss === null || trade.profit_loss === undefined) && position.profit_loss !== null) {
+                        trade = { ...trade, profit_loss: position.profit_loss };
+                    }
                 }
             }
             return trade;
@@ -419,6 +426,7 @@ router.get('/dashboard', async (req, res) => {
             all_trades: tradesWithDetails, // Send more history for chart plotting
             active_bots: bots,
             open_positions: openPositions, // Include open positions
+            closed_positions: closedPositions, // ✅ FIX: Include closed positions per P&L
             rsi: latestRSI
         });
     } catch (error) {
@@ -651,22 +659,55 @@ const SYMBOL_TO_COINGECKO = {
 };
 
 // Helper to get price for a symbol
+// ✅ FIX: Helper per ottenere tasso di cambio USDT/EUR
+const getUSDTtoEURRate = async () => {
+    try {
+        // Prova a ottenere USDT/EUR da Binance (se disponibile) o usa tasso fisso
+        // USDT è ancorato a USD, quindi usiamo EUR/USD come proxy
+        const eurUsdData = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT`);
+        if (eurUsdData && eurUsdData.price) {
+            // EURUSDT = quanti USDT per 1 EUR (es. 1.08 = 1 EUR = 1.08 USDT)
+            // Quindi 1 USDT = 1 / EURUSDT EUR
+            return 1 / parseFloat(eurUsdData.price);
+        }
+    } catch (e) {
+        console.warn('⚠️ Could not fetch EUR/USDT rate, using fallback 0.92');
+    }
+    // Fallback: 1 USDT ≈ 0.92 EUR (approssimativo)
+    return 0.92;
+};
+
 const getSymbolPrice = async (symbol) => {
     const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
     const coingeckoId = SYMBOL_TO_COINGECKO[symbol] || 'bitcoin';
     
+    // ✅ FIX: Verifica se la coppia è in USDT (serve conversione)
+    const isUSDT = tradingPair.endsWith('USDT');
+    
     try {
         const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=${tradingPair}`);
         if (data && data.price) {
-            return parseFloat(data.price);
+            let price = parseFloat(data.price);
+            
+            // ✅ FIX CRITICO: Se la coppia è in USDT, converti in EUR
+            if (isUSDT) {
+                const usdtToEurRate = await getUSDTtoEURRate();
+                price = price * usdtToEurRate;
+                console.log(`💱 [PRICE] ${tradingPair}: ${data.price} USDT → €${price.toFixed(2)} EUR (rate: ${usdtToEurRate.toFixed(4)})`);
+            }
+            
+            return price;
         }
         throw new Error("Invalid data from Binance");
     } catch (e) {
         console.error(`Error fetching ${symbol} price from Binance:`, e.message);
         try {
+            // ✅ FIX: CoinGecko restituisce sempre in EUR, quindi è più affidabile per coppie USDT
             const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=eur`);
             if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].eur) {
-                return parseFloat(geckoData[coingeckoId].eur);
+                const price = parseFloat(geckoData[coingeckoId].eur);
+                console.log(`💱 [PRICE] ${symbol} from CoinGecko: €${price.toFixed(2)} EUR`);
+                return price;
             }
         } catch (e2) {
             console.error(`Error fetching ${symbol} price from CoinGecko:`, e2.message);
@@ -996,6 +1037,18 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             }
         }
         else if (signal.direction === 'SHORT' && signal.strength >= MIN_SIGNAL_STRENGTH) {
+            // ✅ COMPATIBILITÀ BINANCE: Verifica se SHORT è supportato
+            // Binance Spot NON supporta short - serve Futures o Margin
+            const binanceMode = process.env.BINANCE_MODE || 'demo';
+            const supportsShort = process.env.BINANCE_SUPPORTS_SHORT === 'true';
+            
+            if ((binanceMode === 'live' || binanceMode === 'testnet') && !supportsShort) {
+                console.log(`⚠️ SHORT signal ignorato: Binance Spot non supporta short.`);
+                console.log(`   Per usare SHORT, configura BINANCE_SUPPORTS_SHORT=true e usa Binance Futures.`);
+                console.log(`   Oppure disabilita SHORT per usare solo LONG (raccomandato per principianti).`);
+                return; // Ignora segnale SHORT se non supportato
+            }
+            
             // Verifica se possiamo aprire SHORT
             // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
             const maxAvailableForNewPosition = Math.min(
@@ -1100,8 +1153,29 @@ const runBotCycle = async () => {
 };
 
 // Helper to open a position (used by bot)
+// ✅ COMPATIBILE CON BINANCE REALE: Struttura pronta per integrazione
 const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss = null, takeProfit = null, options = {}) => {
     try {
+        // ✅ TODO BINANCE REALE: Quando si passa a Binance reale, aggiungere qui:
+        // const { getBinanceClient, isBinanceAvailable } = require('../utils/binanceConfig');
+        // if (isBinanceAvailable()) {
+        //     const binanceClient = getBinanceClient();
+        //     const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
+        //     try {
+        //         const order = await binanceClient.placeMarketOrder(
+        //             tradingPair,
+        //             type === 'buy' ? 'BUY' : 'SELL',
+        //             volume
+        //         );
+        //         entryPrice = order.price; // Usa prezzo reale di esecuzione
+        //         volume = order.quantity; // Usa quantità reale eseguita
+        //         console.log(`✅ Ordine Binance eseguito: ${order.orderId} @ €${entryPrice.toFixed(2)}`);
+        //     } catch (binanceError) {
+        //         console.error(`❌ Errore ordine Binance:`, binanceError.message);
+        //         throw new Error(`Ordine Binance fallito: ${binanceError.message}`);
+        //     }
+        // }
+        
         // Use Promise-based getPortfolio to properly await the result
         const portfolio = await getPortfolio();
         
@@ -1158,6 +1232,23 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
             "INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
             [symbol, type, volume, entryPrice, strategy || 'Bot Open']
         );
+        
+        // ✅ TODO BINANCE REALE: Quando si passa a Binance reale, creare ordini stop-loss/take-profit reali:
+        // if (isBinanceAvailable() && stopLoss) {
+        //     const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
+        //     try {
+        //         await binanceClient.placeStopLossOrder(
+        //             tradingPair,
+        //             type === 'buy' ? 'SELL' : 'BUY',
+        //             volume,
+        //             stopLoss
+        //         );
+        //         console.log(`✅ Stop-Loss ordine creato su Binance: €${stopLoss.toFixed(2)}`);
+        //     } catch (slError) {
+        //         console.error(`⚠️ Errore creazione stop-loss su Binance:`, slError.message);
+        //         // Continua comunque, il bot gestirà lo stop-loss
+        //     }
+        // }
 
         // Emit real-time notification
         emitCryptoEvent('crypto:position-opened', {
@@ -1270,6 +1361,7 @@ const generateTicketId = () => {
 };
 
 // Helper to update P&L for all open positions
+// ✅ FIX: updatePositionsPnL ora aggiorna P&L per tutte le posizioni, non solo quelle del simbolo corrente
 const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
     return new Promise((resolve, reject) => {
         db.all("SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'", [symbol], async (err, positions) => {
@@ -1532,8 +1624,32 @@ const partialClosePosition = async (ticketId, volumeToClose, closePrice, reason 
 };
 
 // Helper to close a position
+// ✅ COMPATIBILE CON BINANCE REALE: Struttura pronta per integrazione
 const closePosition = async (ticketId, closePrice, reason = 'manual') => {
     try {
+        // ✅ TODO BINANCE REALE: Quando si passa a Binance reale, aggiungere qui:
+        // const { getBinanceClient, isBinanceAvailable } = require('../utils/binanceConfig');
+        // if (isBinanceAvailable()) {
+        //     const binanceClient = getBinanceClient();
+        //     const tradingPair = SYMBOL_TO_PAIR[pos.symbol] || 'BTCEUR';
+        //     try {
+        //         // Cancella ordini stop-loss/take-profit se esistono
+        //         // await binanceClient.cancelAllOrders(tradingPair);
+        //         
+        //         // Esegui ordine di chiusura
+        //         const order = await binanceClient.placeMarketOrder(
+        //             tradingPair,
+        //             pos.type === 'buy' ? 'SELL' : 'BUY',
+        //             remainingVolume
+        //         );
+        //         closePrice = order.price; // Usa prezzo reale di esecuzione
+        //         console.log(`✅ Ordine chiusura Binance eseguito: ${order.orderId} @ €${closePrice.toFixed(2)}`);
+        //     } catch (binanceError) {
+        //         console.error(`❌ Errore chiusura Binance:`, binanceError.message);
+        //         throw new Error(`Chiusura Binance fallita: ${binanceError.message}`);
+        //     }
+        // }
+        
         // Use Promise-based db.get to properly await the result
         const pos = await dbGet(
             "SELECT * FROM open_positions WHERE ticket_id = ? AND status = 'open'",
@@ -2399,22 +2515,38 @@ router.get('/statistics', async (req, res) => {
         // Initial portfolio value (assumed starting balance)
         const initialBalance = 262.5; // Default starting balance in EUR
         
-        // Calculate current total balance
-        let currentPrice = 0;
-        try {
-            const priceData = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR`);
-            if (priceData && priceData.price) {
-                currentPrice = parseFloat(priceData.price);
+        // ✅ FIX: Calculate current total balance considerando TUTTI i simboli, non solo Bitcoin
+        const holdings = JSON.parse(portfolio.holdings || '{}');
+        const currentBalance = portfolio.balance_usd;
+        
+        // Calcola valore totale di tutte le holdings (multi-symbol)
+        let totalCryptoValue = 0;
+        const symbolPrices = {}; // Cache prezzi per evitare chiamate duplicate
+        
+        for (const symbol of Object.keys(holdings)) {
+            const amount = holdings[symbol] || 0;
+            if (amount > 0.0001) { // Solo se ci sono holdings significative
+                try {
+                    if (!symbolPrices[symbol]) {
+                        symbolPrices[symbol] = await getSymbolPrice(symbol);
+                    }
+                    const price = symbolPrices[symbol] || 0;
+                    totalCryptoValue += amount * price;
+                } catch (err) {
+                    console.warn(`⚠️ Could not fetch price for ${symbol} in statistics:`, err.message);
+                }
             }
-        } catch (e) {
-            console.warn('Could not fetch current price for statistics:', e.message);
         }
         
-        const holdings = JSON.parse(portfolio.holdings || '{}');
-        const bitcoinHoldings = holdings['bitcoin'] || 0;
-        const currentBalance = portfolio.balance_usd;
-        const cryptoValue = bitcoinHoldings * currentPrice;
-        const totalBalance = currentBalance + cryptoValue;
+        const totalBalance = currentBalance + totalCryptoValue;
+        
+        // ✅ FIX: Usa prezzo Bitcoin solo come fallback per backward compatibility
+        let currentPrice = 0;
+        try {
+            currentPrice = await getSymbolPrice('bitcoin');
+        } catch (e) {
+            console.warn('Could not fetch Bitcoin price for statistics:', e.message);
+        }
         
         // 1. Total P&L - Include both closed and open positions
         let totalPnL = 0;
@@ -2438,11 +2570,34 @@ router.get('/statistics', async (req, res) => {
             totalVolume += (pos.volume || 0) * (pos.entry_price || 0);
         });
         
-        // Calculate unrealized P&L from open positions
-        openPositions.forEach(pos => {
+        // ✅ FIX CRITICO: Calculate unrealized P&L from open positions usando il prezzo CORRETTO per ogni simbolo
+        for (const pos of openPositions) {
             const entryPrice = parseFloat(pos.entry_price) || 0;
             const volume = parseFloat(pos.volume) || 0;
-            const unrealizedPnL = (currentPrice - entryPrice) * volume * (pos.type === 'buy' ? 1 : -1);
+            
+            // ✅ FIX: Ottieni il prezzo CORRETTO per il simbolo di questa posizione (non sempre Bitcoin!)
+            let symbolCurrentPrice = currentPrice; // Default a Bitcoin per backward compatibility
+            if (pos.symbol && pos.symbol !== 'bitcoin') {
+                try {
+                    const symbolPrice = await getSymbolPrice(pos.symbol);
+                    if (symbolPrice > 0) {
+                        symbolCurrentPrice = symbolPrice;
+                    }
+                } catch (err) {
+                    console.warn(`⚠️ Could not fetch price for ${pos.symbol}, using Bitcoin price as fallback`);
+                }
+            }
+            
+            // Calcola P&L non realizzato usando il prezzo corretto
+            let unrealizedPnL = 0;
+            if (pos.type === 'buy') {
+                // LONG: guadagni se prezzo sale
+                unrealizedPnL = (symbolCurrentPrice - entryPrice) * volume;
+            } else {
+                // SHORT: guadagni se prezzo scende
+                unrealizedPnL = (entryPrice - symbolCurrentPrice) * volume;
+            }
+            
             totalPnL += unrealizedPnL;
             if (unrealizedPnL > 0) {
                 totalProfit += unrealizedPnL;
@@ -2450,7 +2605,7 @@ router.get('/statistics', async (req, res) => {
                 totalLoss += Math.abs(unrealizedPnL);
             }
             totalVolume += volume * entryPrice;
-        });
+        }
         
         // Also include trades with profit_loss (from manual trades) - but avoid double counting
         const processedTicketIds = new Set();

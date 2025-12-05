@@ -25,6 +25,7 @@ const CryptoDashboard = () => {
 
     const [allTrades, setAllTrades] = useState([]); // For chart plotting
     const [openPositions, setOpenPositions] = useState([]);
+    const [closedPositions, setClosedPositions] = useState([]); // ✅ FIX: Aggiungi closed positions per recuperare P&L
     const [showBotSettings, setShowBotSettings] = useState(false);
     const [showBacktestPanel, setShowBacktestPanel] = useState(false);
     const [notifications, setNotifications] = useState([]);
@@ -75,6 +76,8 @@ const CryptoDashboard = () => {
                 setTrades(data.recent_trades || []);
                 setAllTrades(data.all_trades || []); // Store full history for chart
                 setOpenPositions(data.open_positions || []); // Store open positions
+                setClosedPositions(data.closed_positions || []); // ✅ FIX: Store closed positions per P&L
+                setClosedPositions(data.closed_positions || []); // ✅ FIX: Store closed positions per P&L
                 const bot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy' && b.symbol === currentSymbol);
                 if (bot) setBotStatus({ active: bot.is_active === 1, strategy: bot.strategy_name });
                 // Load bot parameters for backtesting
@@ -702,20 +705,41 @@ const CryptoDashboard = () => {
                             </thead>
                             <tbody>
                                 {trades.map((trade, i) => {
+                                    // ✅ FIX: closedPositions è ora disponibile nello scope
                                     const isBuy = trade.type === 'buy';
                                     const totalValue = trade.amount * trade.price;
-                                    const pnl = trade.profit_loss;
+                                    let pnl = trade.profit_loss;
+
+                                    // ✅ FIX: Se il trade ha un ticket_id, cerca la posizione corrispondente per ottenere il P&L
+                                    if (pnl === null && trade.ticket_id) {
+                                        const correspondingPosition = openPositions.find(pos => pos.ticket_id === trade.ticket_id) ||
+                                                                   closedPositions?.find(pos => pos.ticket_id === trade.ticket_id);
+                                        if (correspondingPosition && correspondingPosition.profit_loss !== null) {
+                                            pnl = correspondingPosition.profit_loss;
+                                        }
+                                    }
 
                                     // Check if this trade has a corresponding open position
                                     const hasOpenPosition = isBuy && openPositions.some(pos => 
-                                        pos.type === 'buy' && 
-                                        Math.abs(parseFloat(pos.entry_price) - parseFloat(trade.price)) < 0.01 &&
-                                        Math.abs(parseFloat(pos.volume) - parseFloat(trade.amount)) < 0.0001
+                                        (pos.ticket_id === trade.ticket_id) || // Match by ticket_id (preferito)
+                                        (pos.type === 'buy' && 
+                                         Math.abs(parseFloat(pos.entry_price) - parseFloat(trade.price)) < 0.01 &&
+                                         Math.abs(parseFloat(pos.volume) - parseFloat(trade.amount)) < 0.0001)
                                     );
 
+                                    // ✅ FIX: Usa il prezzo corretto per il simbolo del trade, non sempre Bitcoin
+                                    let symbolCurrentPrice = currentPrice; // Default
+                                    if (trade.symbol && trade.symbol !== 'bitcoin') {
+                                        // Prova a ottenere il prezzo dal portfolio o usa il prezzo corrente se disponibile
+                                        const symbolPrice = allSymbolPrices?.[trade.symbol];
+                                        if (symbolPrice) {
+                                            symbolCurrentPrice = symbolPrice;
+                                        }
+                                    }
+
                                     // Theoretical P&L for BUYs ONLY if position is still open
-                                    const theoreticalPnl = (isBuy && hasOpenPosition) ? (currentPrice - trade.price) * trade.amount : 0;
-                                    const theoreticalPnlPercent = (isBuy && hasOpenPosition) ? ((currentPrice - trade.price) / trade.price) * 100 : 0;
+                                    const theoreticalPnl = (isBuy && hasOpenPosition) ? (symbolCurrentPrice - trade.price) * trade.amount : 0;
+                                    const theoreticalPnlPercent = (isBuy && hasOpenPosition) ? ((symbolCurrentPrice - trade.price) / trade.price) * 100 : 0;
 
                                     // Get symbol display name
                                     const symbolDisplay = trade.symbol ? (trade.symbol === 'bitcoin' ? 'BTC/EUR' : 
