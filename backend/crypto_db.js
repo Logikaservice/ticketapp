@@ -41,7 +41,7 @@ function initDb() {
       profit_loss REAL,
       ticket_id TEXT
     )`);
-        
+
         // ✅ FIX: Aggiungi colonna ticket_id se non esiste (migrazione)
         db.all("PRAGMA table_info(trades)", (err, columns) => {
             if (!err && columns && columns.length > 0) {
@@ -73,17 +73,17 @@ function initDb() {
             if (!err && columns && columns.length > 0) {
                 const columnNames = columns.map(c => c.name);
                 const hasSymbolColumn = columnNames.includes('symbol');
-                
+
                 // Check if we need to migrate (either missing symbol column or old UNIQUE constraint)
                 db.all("SELECT sql FROM sqlite_master WHERE type='table' AND name='bot_settings'", (sqlErr, tableInfo) => {
                     if (!sqlErr && tableInfo && tableInfo.length > 0) {
                         const createSql = tableInfo[0].sql;
-                        const hasOldUnique = createSql.includes('strategy_name TEXT UNIQUE') || 
-                                           (createSql.includes('UNIQUE(strategy_name)') && !createSql.includes('UNIQUE(strategy_name, symbol)'));
-                        
+                        const hasOldUnique = createSql.includes('strategy_name TEXT UNIQUE') ||
+                            (createSql.includes('UNIQUE(strategy_name)') && !createSql.includes('UNIQUE(strategy_name, symbol)'));
+
                         if (!hasSymbolColumn || hasOldUnique) {
                             console.log('🔄 Migrating bot_settings table to support multi-symbol...');
-                            
+
                             // Step 1: Create temporary table with correct schema
                             db.run(`CREATE TABLE IF NOT EXISTS bot_settings_new (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,33 +97,58 @@ function initDb() {
                                     console.error('Error creating new bot_settings table:', createErr.message);
                                 } else {
                                     // Step 2: Copy existing data, defaulting symbol to 'bitcoin' if missing
-                                    db.run(`INSERT INTO bot_settings_new (id, strategy_name, symbol, is_active, parameters)
-                                        SELECT 
-                                            id,
-                                            strategy_name,
-                                            COALESCE(symbol, 'bitcoin') as symbol,
-                                            is_active,
-                                            parameters
-                                        FROM bot_settings`, (copyErr) => {
-                                        if (copyErr) {
-                                            console.error('Error copying data to new bot_settings table:', copyErr.message);
-                                        } else {
-                                            // Step 3: Drop old table
-                                            db.run(`DROP TABLE bot_settings`, (dropErr) => {
-                                                if (dropErr) {
-                                                    console.error('Error dropping old bot_settings table:', dropErr.message);
-                                                } else {
-                                                    // Step 4: Rename new table
-                                                    db.run(`ALTER TABLE bot_settings_new RENAME TO bot_settings`, (renameErr) => {
-                                                        if (renameErr) {
-                                                            console.error('Error renaming bot_settings table:', renameErr.message);
-                                                        } else {
-                                                            console.log('✅ Successfully migrated bot_settings table to support multi-symbol');
-                                                        }
-                                                    });
-                                                }
-                                            });
+                                    // Check if symbol column exists in old table first
+                                    db.all("PRAGMA table_info(bot_settings)", (colErr, oldColumns) => {
+                                        if (colErr) {
+                                            console.error('Error checking old table columns:', colErr.message);
+                                            return;
                                         }
+                                        const hasSymbolInOld = oldColumns.some(c => c.name === 'symbol');
+
+                                        let copyQuery;
+                                        if (hasSymbolInOld) {
+                                            // Old table has symbol column, use it
+                                            copyQuery = `INSERT INTO bot_settings_new (id, strategy_name, symbol, is_active, parameters)
+                                                SELECT 
+                                                    id,
+                                                    strategy_name,
+                                                    COALESCE(symbol, 'bitcoin') as symbol,
+                                                    is_active,
+                                                    parameters
+                                                FROM bot_settings`;
+                                        } else {
+                                            // Old table doesn't have symbol column, default to 'bitcoin'
+                                            copyQuery = `INSERT INTO bot_settings_new (id, strategy_name, symbol, is_active, parameters)
+                                                SELECT 
+                                                    id,
+                                                    strategy_name,
+                                                    'bitcoin' as symbol,
+                                                    is_active,
+                                                    parameters
+                                                FROM bot_settings`;
+                                        }
+
+                                        db.run(copyQuery, (copyErr) => {
+                                            if (copyErr) {
+                                                console.error('Error copying data to new bot_settings table:', copyErr.message);
+                                            } else {
+                                                // Step 3: Drop old table
+                                                db.run(`DROP TABLE bot_settings`, (dropErr) => {
+                                                    if (dropErr) {
+                                                        console.error('Error dropping old bot_settings table:', dropErr.message);
+                                                    } else {
+                                                        // Step 4: Rename new table
+                                                        db.run(`ALTER TABLE bot_settings_new RENAME TO bot_settings`, (renameErr) => {
+                                                            if (renameErr) {
+                                                                console.error('Error renaming bot_settings table:', renameErr.message);
+                                                            } else {
+                                                                console.log('✅ Successfully migrated bot_settings table to support multi-symbol');
+                                                            }
+                                                        });
+                                                    }
+                                                });
+                                            }
+                                        });
                                     });
                                 }
                             });
@@ -158,7 +183,7 @@ function initDb() {
             price REAL,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
-        
+
         // Klines OHLC complete per candele stabili (come TradingView)
         db.run(`CREATE TABLE IF NOT EXISTS klines (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -173,10 +198,10 @@ function initDb() {
             close_time INTEGER NOT NULL,
             UNIQUE(symbol, interval, open_time)
         )`);
-        
+
         // Indice per performance
         db.run(`CREATE INDEX IF NOT EXISTS idx_klines_lookup ON klines(symbol, interval, open_time DESC)`);
-        
+
         // Klines OHLC complete (per candele stabili come TradingView)
         db.run(`CREATE TABLE IF NOT EXISTS klines (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -191,7 +216,7 @@ function initDb() {
             close_time INTEGER NOT NULL,
             UNIQUE(symbol, interval, open_time)
         )`);
-        
+
         // Indici per performance
         db.run(`CREATE INDEX IF NOT EXISTS idx_klines_symbol_interval_time ON klines(symbol, interval, open_time)`);
 
@@ -224,13 +249,13 @@ function initDb() {
             take_profit_2 REAL,
             tp1_hit INTEGER DEFAULT 0
         )`);
-        
+
         // Migrate existing table: add new columns if they don't exist
         // SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we check first
         db.all("PRAGMA table_info(open_positions)", (err, columns) => {
             if (!err && columns && columns.length > 0) {
                 const columnNames = columns.map(c => c.name);
-                
+
                 const columnsToAdd = [
                     { name: 'trailing_stop_enabled', sql: 'INTEGER DEFAULT 0' },
                     { name: 'trailing_stop_distance_pct', sql: 'REAL DEFAULT 0' },
@@ -241,7 +266,7 @@ function initDb() {
                     { name: 'tp1_hit', sql: 'INTEGER DEFAULT 0' },
                     { name: 'signal_details', sql: 'TEXT' } // ✅ FIX: Salva dettagli segnale per analisi
                 ];
-                
+
                 columnsToAdd.forEach(col => {
                     if (!columnNames.includes(col.name)) {
                         db.run(`ALTER TABLE open_positions ADD COLUMN ${col.name} ${col.sql}`, (alterErr) => {
@@ -287,7 +312,7 @@ function initDb() {
         db.all("PRAGMA table_info(backtest_results)", (err, columns) => {
             if (!err && columns && columns.length > 0) {
                 const columnNames = columns.map(c => c.name);
-                
+
                 const columnsToAdd = [
                     { name: 'test_name', sql: 'TEXT' },
                     { name: 'strategy_params', sql: 'TEXT' },
@@ -308,7 +333,7 @@ function initDb() {
                     { name: 'results_data', sql: 'TEXT' },
                     { name: 'created_at', sql: 'DATETIME DEFAULT CURRENT_TIMESTAMP' }
                 ];
-                
+
                 columnsToAdd.forEach(col => {
                     if (!columnNames.includes(col.name)) {
                         db.run(`ALTER TABLE backtest_results ADD COLUMN ${col.name} ${col.sql}`, (alterErr) => {

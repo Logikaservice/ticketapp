@@ -28,18 +28,48 @@ const emitCryptoEvent = (eventName, data) => {
 const httpsGet = (url) => {
     return new Promise((resolve, reject) => {
         const req = https.get(url, (res) => {
+            // Check if response is JSON
+            const contentType = res.headers['content-type'] || '';
+            if (!contentType.includes('application/json') && !contentType.includes('text/json')) {
+                // If not JSON, check if it's HTML (error page)
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    if (data.trim().startsWith('<!DOCTYPE') || data.trim().startsWith('<html')) {
+                        reject(new Error(`Received HTML instead of JSON. Status: ${res.statusCode}. Response starts with: ${data.substring(0, 100)}`));
+                    } else {
+                        reject(new Error(`Unexpected content-type: ${contentType}. Status: ${res.statusCode}`));
+                    }
+                });
+                return;
+            }
+            
+            // Handle non-200 status codes
+            if (res.statusCode !== 200) {
+                let errorData = '';
+                res.on('data', (chunk) => errorData += chunk);
+                res.on('end', () => {
+                    reject(new Error(`HTTP ${res.statusCode}: ${errorData.substring(0, 200)}`));
+                });
+                return;
+            }
+            
             let data = '';
             res.on('data', (chunk) => data += chunk);
             res.on('end', () => {
                 try {
                     resolve(JSON.parse(data));
                 } catch (e) {
-                    reject(e);
+                    reject(new Error(`Failed to parse JSON: ${e.message}. Response: ${data.substring(0, 200)}`));
                 }
             });
         });
 
         req.on('error', (err) => reject(err));
+        req.setTimeout(10000, () => {
+            req.destroy();
+            reject(new Error('Request timeout'));
+        });
         req.end();
     });
 };
@@ -1132,8 +1162,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: €${riskCheck.availableExposure.toFixed(2)}`);
             }
             } // ✅ FIX: Chiude il blocco else per SHORT supportato
-        } // ✅ FIX: Chiude il blocco else per SHORT supportato
-        }
+        } // ✅ FIX: Chiude il blocco else if per SHORT
         else {
             // Segnale NEUTRAL o troppo debole
             if (signal.direction === 'NEUTRAL') {
