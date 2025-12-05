@@ -680,6 +680,11 @@ class BidirectionalSignalGenerator {
 
         // SHORT: Richiede minimo 5 conferme + strength >= 70 (90% certezza, più rigoroso)
         const SHORT_MIN_CONFIRMATIONS = 5; // Aumentato da 4 a 5 per maggiore sicurezza
+
+        // ✅ FIX CRITICO: Cappa strength a max 100 (evita valori impossibili come 130/100)
+        longSignal.strength = Math.min(100, longSignal.strength);
+        shortSignal.strength = Math.min(100, shortSignal.strength);
+
         const shortMeetsRequirements = shortSignal.confirmations >= SHORT_MIN_CONFIRMATIONS &&
             shortSignal.strength >= this.MIN_SIGNAL_STRENGTH;
 
