@@ -4124,6 +4124,24 @@ router.get('/bot-analysis-test', (req, res) => {
     });
 });
 
+// GET /api/crypto/symbols/available - Get all available symbols for frontend
+router.get('/symbols/available', async (req, res) => {
+    try {
+        // Return all symbols from SYMBOL_TO_PAIR
+        const symbols = Object.keys(SYMBOL_TO_PAIR).map(symbol => ({
+            symbol: symbol,
+            pair: SYMBOL_TO_PAIR[symbol],
+            display: SYMBOL_TO_PAIR[symbol].replace('USDT', '/USDT').replace('EUR', '/EUR'),
+            bot_active: false // Will be updated by frontend based on activeBots
+        }));
+
+        res.json({ symbols });
+    } catch (error) {
+        console.error('Error fetching available symbols:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // GET /api/crypto/scanner - Scan all symbols for opportunities
 router.get('/scanner', async (req, res) => {
     console.log('🔍 [SCANNER] Starting market scan...');
