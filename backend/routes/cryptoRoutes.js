@@ -670,16 +670,42 @@ const SYMBOL_TO_PAIR = {
     'sand_eur': 'SANDEUR',
     // Storage
     'fil': 'FILUSDT',
-    'fil_eur': 'FILEUR'
+    'fil_eur': 'FILEUR',
+    // Layer 1 / Payments
+    'trx': 'TRXUSDT',
+    'trx_eur': 'TRXEUR',
+    'xlm': 'XLMUSDT',
+    'xlm_eur': 'XLMEUR',
+    'eos': 'EOSUSDT',
+    'eos_eur': 'EOSEUR',
+    // Layer 2 / Scaling
+    'arb': 'ARBUSDT',
+    'arb_eur': 'ARBEUR',
+    'op': 'OPUSDT',
+    'op_eur': 'OPEUR',
+    'matic': 'MATICUSDT',
+    'matic_eur': 'MATICEUR',
+    // DeFi Blue Chips
+    'crv': 'CRVUSDT',
+    'crv_eur': 'CRVEUR',
+    'ldo': 'LDOUSDT',
+    'ldo_eur': 'LDOEUR',
+    // Gaming/Metaverse
+    'mana': 'MANAUSDT',
+    'mana_eur': 'MANAEUR',
+    'axs': 'AXSUSDT',
+    'axs_eur': 'AXSEUR'
 };
 
 // ✅ CORRELATION GROUPS - Strategia Ibrida per Diversificazione Intelligente
 // Raggruppa crypto correlate per evitare posizioni ridondanti durante crash
 const CORRELATION_GROUPS = {
     'BTC_MAJOR': ['bitcoin', 'bitcoin_usdt', 'ethereum', 'ethereum_usdt', 'solana', 'solana_eur', 'cardano', 'cardano_usdt', 'polkadot', 'polkadot_usdt'],
-    'DEFI': ['chainlink', 'chainlink_usdt', 'uniswap', 'uniswap_eur', 'avalanche', 'avalanche_eur', 'aave', 'aave_eur'],
+    'DEFI': ['chainlink', 'chainlink_usdt', 'uniswap', 'uniswap_eur', 'avalanche', 'avalanche_eur', 'aave', 'aave_eur', 'crv', 'crv_eur', 'ldo', 'ldo_eur'],
     'LAYER1_ALT': ['near', 'near_eur', 'atom', 'atom_eur'],
-    'GAMING': ['sand', 'sand_eur'],
+    'PAYMENTS': ['trx', 'trx_eur', 'xlm', 'xlm_eur', 'eos', 'eos_eur'],
+    'LAYER2': ['arb', 'arb_eur', 'op', 'op_eur', 'matic', 'matic_eur'],
+    'GAMING': ['sand', 'sand_eur', 'mana', 'mana_eur', 'axs', 'axs_eur'],
     'STORAGE': ['fil', 'fil_eur'],
     'MEME': ['dogecoin', 'dogecoin_eur', 'shiba', 'shiba_eur'],
     'INDEPENDENT': ['ripple', 'ripple_eur', 'litecoin', 'litecoin_usdt', 'binance_coin', 'binance_coin_eur', 'pol_polygon', 'pol_polygon_eur']
@@ -4161,7 +4187,37 @@ router.get('/scanner', async (req, res) => {
             { symbol: 'sand_eur', pair: 'SANDEUR', display: 'SAND/EUR' },
             // Filecoin
             { symbol: 'fil', pair: 'FILUSDT', display: 'FIL/USDT' },
-            { symbol: 'fil_eur', pair: 'FILEUR', display: 'FIL/EUR' }
+            { symbol: 'fil_eur', pair: 'FILEUR', display: 'FIL/EUR' },
+            // Tron
+            { symbol: 'trx', pair: 'TRXUSDT', display: 'TRX/USDT' },
+            { symbol: 'trx_eur', pair: 'TRXEUR', display: 'TRX/EUR' },
+            // Stellar
+            { symbol: 'xlm', pair: 'XLMUSDT', display: 'XLM/USDT' },
+            { symbol: 'xlm_eur', pair: 'XLMEUR', display: 'XLM/EUR' },
+            // EOS
+            { symbol: 'eos', pair: 'EOSUSDT', display: 'EOS/USDT' },
+            { symbol: 'eos_eur', pair: 'EOSEUR', display: 'EOS/EUR' },
+            // Arbitrum
+            { symbol: 'arb', pair: 'ARBUSDT', display: 'ARB/USDT' },
+            { symbol: 'arb_eur', pair: 'ARBEUR', display: 'ARB/EUR' },
+            // Optimism
+            { symbol: 'op', pair: 'OPUSDT', display: 'OP/USDT' },
+            { symbol: 'op_eur', pair: 'OPEUR', display: 'OP/EUR' },
+            // Polygon (MATIC)
+            { symbol: 'matic', pair: 'MATICUSDT', display: 'MATIC/USDT' },
+            { symbol: 'matic_eur', pair: 'MATICEUR', display: 'MATIC/EUR' },
+            // Curve
+            { symbol: 'crv', pair: 'CRVUSDT', display: 'CRV/USDT' },
+            { symbol: 'crv_eur', pair: 'CRVEUR', display: 'CRV/EUR' },
+            // Lido
+            { symbol: 'ldo', pair: 'LDOUSDT', display: 'LDO/USDT' },
+            { symbol: 'ldo_eur', pair: 'LDOEUR', display: 'LDO/EUR' },
+            // Decentraland
+            { symbol: 'mana', pair: 'MANAUSDT', display: 'MANA/USDT' },
+            { symbol: 'mana_eur', pair: 'MANAEUR', display: 'MANA/EUR' },
+            // Axie Infinity
+            { symbol: 'axs', pair: 'AXSUSDT', display: 'AXS/USDT' },
+            { symbol: 'axs_eur', pair: 'AXSEUR', display: 'AXS/EUR' }
         ];
 
         const results = await Promise.all(symbolsToScan.map(async (s) => {
