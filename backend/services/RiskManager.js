@@ -30,10 +30,10 @@ class SeriousRiskManager {
         // LIMITI ASSOLUTI (non negoziabili)
         this.MAX_DAILY_LOSS_PCT = 0.05;        // 5% capitale
         this.MAX_TOTAL_EXPOSURE_PCT = 0.40;    // 40% capitale
-        this.MAX_POSITION_SIZE_PCT = 0.02;     // 2% capitale per posizione
+        this.MAX_POSITION_SIZE_PCT = 0.10;     // 10% capitale per posizione (aumentato per conti piccoli)
         this.MAX_DRAWDOWN_PCT = 0.10;          // 10% drawdown
         this.BASE_CAPITAL = 250;                // Protezione capitale base
-        
+
         // Cache per performance
         this.lastCheck = null;
         this.cacheDuration = 5000; // 5 secondi
@@ -68,36 +68,36 @@ class SeriousRiskManager {
 
             const currentCapital = portfolio.balance_usd;
             const holdings = JSON.parse(portfolio.holdings || '{}');
-            
+
             // 2. Calcola esposizione corrente (valore posizioni aperte)
             const openPositions = await dbAll(
                 "SELECT * FROM open_positions WHERE status = 'open'"
             );
-            
+
             let currentExposure = 0;
             for (const pos of openPositions) {
                 // Per LONG: volume * entry_price
                 // Per SHORT: volume * entry_price (stesso calcolo)
                 currentExposure += pos.volume * pos.entry_price;
             }
-            
+
             const currentExposurePct = currentCapital > 0 ? currentExposure / currentCapital : 0;
 
             // 3. Calcola perdita giornaliera
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const todayStart = today.toISOString();
-            
+
             const todayTrades = await dbAll(
                 "SELECT * FROM trades WHERE timestamp >= ? AND profit_loss < 0",
                 [todayStart]
             );
-            
+
             let dailyLoss = 0;
             for (const trade of todayTrades) {
                 dailyLoss += Math.abs(trade.profit_loss || 0);
             }
-            
+
             const dailyLossPct = currentCapital > 0 ? dailyLoss / currentCapital : 0;
 
             // 4. Calcola drawdown (serve picco capitale)
@@ -168,7 +168,7 @@ class SeriousRiskManager {
             // 6. CALCOLA RISCHIO RESIDUO DISPONIBILE
             const availableExposurePct = this.MAX_TOTAL_EXPOSURE_PCT - currentExposurePct;
             const availableExposure = currentCapital * availableExposurePct;
-            
+
             // Max position size: min tra 2% capitale e 10% dell'exposure disponibile
             const maxPositionSizePct = Math.min(
                 this.MAX_POSITION_SIZE_PCT,
@@ -188,7 +188,7 @@ class SeriousRiskManager {
                 drawdown: drawdown,
                 currentCapital: currentCapital
             };
-            
+
             this.lastCheck = now;
             return this.cachedResult;
         } catch (error) {
@@ -212,7 +212,7 @@ class SeriousRiskManager {
      */
     async canOpenPosition(positionSize) {
         const risk = await this.calculateMaxRisk();
-        
+
         if (!risk.canTrade) {
             return {
                 allowed: false,
