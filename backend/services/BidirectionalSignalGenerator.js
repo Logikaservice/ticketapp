@@ -63,7 +63,7 @@ class BidirectionalSignalGenerator {
         if (prices.length < period + 1) return [];
 
         const rsiValues = [];
-        
+
         // Calcola RSI per ogni punto disponibile (rolling window)
         for (let i = period + 1; i <= prices.length; i++) {
             const priceSlice = prices.slice(0, i);
@@ -74,7 +74,7 @@ class BidirectionalSignalGenerator {
                 rsiValues.push(null);
             }
         }
-        
+
         return rsiValues;
     }
 
@@ -83,14 +83,14 @@ class BidirectionalSignalGenerator {
      */
     calculateEMA(prices, period) {
         if (prices.length < period) return null;
-        
+
         const multiplier = 2 / (period + 1);
         let ema = prices.slice(0, period).reduce((a, b) => a + b, 0) / period;
-        
+
         for (let i = period; i < prices.length; i++) {
             ema = (prices[i] * multiplier) + (ema * (1 - multiplier));
         }
-        
+
         return ema;
     }
 
@@ -107,11 +107,11 @@ class BidirectionalSignalGenerator {
      */
     calculateStdDev(prices, period) {
         if (prices.length < period) return null;
-        
+
         const sma = this.calculateSMA(prices, period);
         const slice = prices.slice(-period);
         const variance = slice.reduce((sum, price) => sum + Math.pow(price - sma, 2), 0) / period;
-        
+
         return Math.sqrt(variance);
     }
 
@@ -123,13 +123,13 @@ class BidirectionalSignalGenerator {
 
         const shortEMA = this.calculateEMA(prices, shortPeriod);
         const longEMA = this.calculateEMA(prices, longPeriod);
-        
+
         if (!shortEMA || !longEMA) {
             // Fallback a SMA se EMA non disponibile
             const shortSMA = this.calculateSMA(prices, shortPeriod);
             const longSMA = this.calculateSMA(prices, longPeriod);
             if (!shortSMA || !longSMA) return 'neutral';
-            
+
             if (shortSMA > longSMA * 1.01) return 'bullish';
             if (shortSMA < longSMA * 0.99) return 'bearish';
             return 'neutral';
@@ -139,18 +139,18 @@ class BidirectionalSignalGenerator {
         if (shortEMA < longEMA * 0.99) return 'bearish';
         return 'neutral';
     }
-    
+
     /**
      * Rileva trend su multiple timeframe (EMA 50/200 per Golden/Death Cross)
      */
     detectMajorTrend(prices) {
         if (prices.length < 200) return 'neutral';
-        
+
         const ema50 = this.calculateEMA(prices, 50);
         const ema200 = this.calculateEMA(prices, 200);
-        
+
         if (!ema50 || !ema200) return 'neutral';
-        
+
         if (ema50 > ema200 * 1.01) return 'bullish'; // Golden Cross
         if (ema50 < ema200 * 0.99) return 'bearish'; // Death Cross
         return 'neutral';
@@ -184,12 +184,12 @@ class BidirectionalSignalGenerator {
 
         const recent = prices.slice(-5);
         const older = prices.slice(-20, -5);
-        
+
         const recentVolatility = this.calculateVolatility(recent);
         const olderVolatility = this.calculateVolatility(older);
-        
+
         const ratio = olderVolatility > 0 ? recentVolatility / olderVolatility : 1.0;
-        
+
         return {
             isHigh: ratio > 1.5,
             ratio: ratio
@@ -211,15 +211,15 @@ class BidirectionalSignalGenerator {
      */
     findPeaksAndValleys(values, lookback = 5) {
         if (values.length < lookback * 2 + 1) return { peaks: [], valleys: [] };
-        
+
         const peaks = [];
         const valleys = [];
-        
+
         for (let i = lookback; i < values.length - lookback; i++) {
             const current = values[i];
             let isPeak = true;
             let isValley = true;
-            
+
             // Controlla se è un picco (tutti i valori intorno sono più bassi)
             for (let j = i - lookback; j <= i + lookback; j++) {
                 if (j !== i) {
@@ -227,7 +227,7 @@ class BidirectionalSignalGenerator {
                     if (values[j] <= current) isValley = false;
                 }
             }
-            
+
             if (isPeak) {
                 peaks.push({ index: i, value: current });
             }
@@ -235,7 +235,7 @@ class BidirectionalSignalGenerator {
                 valleys.push({ index: i, value: current });
             }
         }
-        
+
         return { peaks, valleys };
     }
 
@@ -249,31 +249,31 @@ class BidirectionalSignalGenerator {
         if (!prices || !rsiValues || prices.length < 30 || rsiValues.length < 30) {
             return { type: null, strength: 0 };
         }
-        
+
         // Usa solo gli ultimi 30-50 punti per divergenza recente
         const lookback = Math.min(30, Math.floor(prices.length * 0.6));
         const recentPrices = prices.slice(-lookback);
         const recentRSI = rsiValues.slice(-lookback);
-        
+
         // Trova picchi e valli
         const pricePeaksValleys = this.findPeaksAndValleys(recentPrices, 3);
         const rsiPeaksValleys = this.findPeaksAndValleys(recentRSI, 3);
-        
+
         // BULLISH DIVERGENCE: Prezzo fa minimi più bassi, RSI fa minimi più alti
         if (pricePeaksValleys.valleys.length >= 2 && rsiPeaksValleys.valleys.length >= 2) {
             const recentValleys = pricePeaksValleys.valleys.slice(-2);
             const recentRSIValleys = rsiPeaksValleys.valleys.slice(-2);
-            
+
             if (recentValleys.length === 2 && recentRSIValleys.length === 2) {
                 const priceLower = recentValleys[0].value > recentValleys[1].value; // Prezzo più basso
                 const rsiHigher = recentRSIValleys[0].value < recentRSIValleys[1].value; // RSI più alto
-                
+
                 if (priceLower && rsiHigher) {
                     // Calcola strength basata su quanto è evidente la divergenza
                     const priceChange = Math.abs(recentValleys[0].value - recentValleys[1].value) / recentValleys[1].value;
                     const rsiChange = Math.abs(recentRSIValleys[0].value - recentRSIValleys[1].value);
                     const strength = Math.min(100, Math.floor((priceChange * 1000) + (rsiChange * 2)));
-                    
+
                     return {
                         type: 'bullish',
                         strength: Math.max(60, Math.min(100, strength)),
@@ -283,21 +283,21 @@ class BidirectionalSignalGenerator {
                 }
             }
         }
-        
+
         // BEARISH DIVERGENCE: Prezzo fa massimi più alti, RSI fa massimi più bassi
         if (pricePeaksValleys.peaks.length >= 2 && rsiPeaksValleys.peaks.length >= 2) {
             const recentPeaks = pricePeaksValleys.peaks.slice(-2);
             const recentRSIPeaks = rsiPeaksValleys.peaks.slice(-2);
-            
+
             if (recentPeaks.length === 2 && recentRSIPeaks.length === 2) {
                 const priceHigher = recentPeaks[0].value < recentPeaks[1].value; // Prezzo più alto
                 const rsiLower = recentRSIPeaks[0].value > recentRSIPeaks[1].value; // RSI più basso
-                
+
                 if (priceHigher && rsiLower) {
                     const priceChange = Math.abs(recentPeaks[1].value - recentPeaks[0].value) / recentPeaks[0].value;
                     const rsiChange = Math.abs(recentRSIPeaks[0].value - recentRSIPeaks[1].value);
                     const strength = Math.min(100, Math.floor((priceChange * 1000) + (rsiChange * 2)));
-                    
+
                     return {
                         type: 'bearish',
                         strength: Math.max(60, Math.min(100, strength)),
@@ -307,7 +307,7 @@ class BidirectionalSignalGenerator {
                 }
             }
         }
-        
+
         return { type: null, strength: 0 };
     }
 
@@ -321,45 +321,45 @@ class BidirectionalSignalGenerator {
      */
     calculateMACD(prices, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
         if (prices.length < slowPeriod + signalPeriod) return null;
-        
+
         // Calcola EMA veloce e lenta per ogni punto
         const fastEMAs = [];
         const slowEMAs = [];
         const macdLine = [];
-        
+
         for (let i = slowPeriod; i <= prices.length; i++) {
             const priceSlice = prices.slice(0, i);
             const fastEMA = this.calculateEMA(priceSlice, fastPeriod);
             const slowEMA = this.calculateEMA(priceSlice, slowPeriod);
-            
+
             if (fastEMA && slowEMA) {
                 fastEMAs.push(fastEMA);
                 slowEMAs.push(slowEMA);
                 macdLine.push(fastEMA - slowEMA);
             }
         }
-        
+
         if (macdLine.length < signalPeriod) return null;
-        
+
         // Calcola Signal Line (EMA di MACD Line)
         const signalLine = this.calculateEMA(macdLine, signalPeriod);
         if (!signalLine) return null;
-        
+
         const currentMACD = macdLine[macdLine.length - 1];
         const histogram = currentMACD - signalLine;
-        
+
         // Calcola valori storici per trend analysis
         const prevMACD = macdLine.length > 1 ? macdLine[macdLine.length - 2] : null;
-        const prevSignal = macdLine.length > signalPeriod ? 
+        const prevSignal = macdLine.length > signalPeriod ?
             this.calculateEMA(macdLine.slice(0, -1), signalPeriod) : null;
-        
+
         return {
             macdLine: currentMACD,
             signalLine: signalLine,
             histogram: histogram,
             macdAboveSignal: currentMACD > signalLine,
             macdAboveZero: currentMACD > 0,
-            histogramGrowing: prevMACD && prevSignal ? 
+            histogramGrowing: prevMACD && prevSignal ?
                 (histogram > (prevMACD - prevSignal)) : false,
             values: {
                 current: currentMACD,
@@ -379,21 +379,21 @@ class BidirectionalSignalGenerator {
      */
     calculateBollingerBands(prices, period = 20, stdDev = 2) {
         if (prices.length < period) return null;
-        
+
         const sma = this.calculateSMA(prices, period);
         if (!sma) return null;
-        
+
         const std = this.calculateStdDev(prices, period);
         if (!std) return null;
-        
+
         const upper = sma + (stdDev * std);
         const middle = sma;
         const lower = sma - (stdDev * std);
         const width = (stdDev * std * 2) / sma; // Bollinger Band Width (%)
-        
+
         const currentPrice = prices[prices.length - 1];
         const percentB = (currentPrice - lower) / (upper - lower); // %B (0-1)
-        
+
         return {
             upper: upper,
             middle: middle,
@@ -435,16 +435,16 @@ class BidirectionalSignalGenerator {
         const avgPrice = prices.slice(-20).reduce((a, b) => a + b, 0) / Math.min(20, prices.length);
         const volatility = atr ? atr / currentPrice : 0.02; // Default 2%
         const avgVolatility = this.calculateVolatility(prices.slice(-30)) / avgPrice || 0.02;
-        
+
         // 2. Calcola RSI storico per divergenze
         const rsiHistory = this.calculateRSIHistory(prices, 14);
-        const rsiDivergence = rsiHistory.length >= 15 ? 
+        const rsiDivergence = rsiHistory.length >= 15 ?
             this.detectRSIDivergence(prices, rsiHistory) : { type: null, strength: 0 };
-        
+
         // 3. Calcola indicatori PROFESSIONALI
         const macd = this.calculateMACD(prices, 12, 26, 9);
         const bollinger = this.calculateBollingerBands(prices, 20, 2);
-        
+
         // 4. Calcola EMA multiple per trend analysis
         const ema10 = this.calculateEMA(prices, 10);
         const ema20 = this.calculateEMA(prices, 20);
@@ -523,7 +523,7 @@ class BidirectionalSignalGenerator {
         }
 
         // CONFERMA 7: Volume alto (movimento forte) - SOLO se prezzo sale o è stabile
-        const priceChangeForVolume = prices.length >= 3 
+        const priceChangeForVolume = prices.length >= 3
             ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
             : 0;
         if (volume.isHigh && priceChangeForVolume >= -0.2) { // Volume alto + prezzo sale/stabile (non scende)
@@ -535,7 +535,7 @@ class BidirectionalSignalGenerator {
         }
 
         // CONFERMA 8: Prezzo NON scende (ultimi periodi) - SOLO se prezzo sale o è stabile
-        const priceChangeLong = prices.length >= 5 
+        const priceChangeLong = prices.length >= 5
             ? (prices[prices.length - 1] - prices[prices.length - 5]) / prices[prices.length - 5] * 100
             : 0;
         if (priceChangeLong >= 0) { // Prezzo sale o è stabile (NON scende)
@@ -552,12 +552,12 @@ class BidirectionalSignalGenerator {
             confirmations: 0, // Contatore conferme
             strengthContributions: [] // Array per tracciare i punti di ogni indicatore
         };
-        
+
         // Verifica che il prezzo stia effettivamente scendendo (PREREQUISITO)
-        const priceChange = prices.length >= 3 
+        const priceChange = prices.length >= 3
             ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
             : 0;
-        
+
         // BLOCCA SHORT se prezzo sta ancora salendo (CRITICO!)
         if (priceChange > 0.1) {
             return {
@@ -579,6 +579,14 @@ class BidirectionalSignalGenerator {
                     ema200: ema200
                 }
             };
+        }
+
+        // ⚠️ PANIC SELL EXCEPTION: Se c'è un crollo violento, ignora RSI Oversold
+        // Normalmente RSI < 30 bloccherebbe lo SHORT, ma in un crash il prezzo può scendere con RSI a 5
+        const isPanicSell = priceChange < -3.0 && volume.isHigh; // Crollo > 3% e volume alto
+        if (isPanicSell) {
+            shortSignal.reasons.push(`⚠️ PANIC SELL DETECTED: Ignoring RSI oversold due to crash (${priceChange.toFixed(2)}%)`);
+            shortSignal.strength += 20; // Bonus forza per il crash
         }
 
         // CONFERMA 1: RSI overbought + downtrend CONFERMATO
@@ -663,18 +671,18 @@ class BidirectionalSignalGenerator {
         }
 
         // 5. DECISIONE FINALE - SISTEMA MULTI-CONFERMA CON SICUREZZA 90%
-        
+
         // ✅ SICUREZZA 90%: Requisiti più rigidi per aprire solo quando siamo CERTI
         // LONG: Richiede minimo 4 conferme + strength >= 70 (90% certezza)
         const LONG_MIN_CONFIRMATIONS = 4; // Aumentato da 3 a 4 per maggiore sicurezza
-        const longMeetsRequirements = longSignal.confirmations >= LONG_MIN_CONFIRMATIONS && 
-                                      longSignal.strength >= this.MIN_SIGNAL_STRENGTH;
-        
+        const longMeetsRequirements = longSignal.confirmations >= LONG_MIN_CONFIRMATIONS &&
+            longSignal.strength >= this.MIN_SIGNAL_STRENGTH;
+
         // SHORT: Richiede minimo 5 conferme + strength >= 70 (90% certezza, più rigoroso)
         const SHORT_MIN_CONFIRMATIONS = 5; // Aumentato da 4 a 5 per maggiore sicurezza
-        const shortMeetsRequirements = shortSignal.confirmations >= SHORT_MIN_CONFIRMATIONS && 
-                                       shortSignal.strength >= this.MIN_SIGNAL_STRENGTH;
-        
+        const shortMeetsRequirements = shortSignal.confirmations >= SHORT_MIN_CONFIRMATIONS &&
+            shortSignal.strength >= this.MIN_SIGNAL_STRENGTH;
+
         if (longMeetsRequirements) {
             return {
                 direction: 'LONG',
@@ -748,7 +756,7 @@ class BidirectionalSignalGenerator {
         // Nessun segnale valido
         const maxStrength = Math.max(longSignal.strength, shortSignal.strength);
         const maxConfirmations = Math.max(longSignal.confirmations, shortSignal.confirmations);
-        
+
         let reason = 'Signal strength below threshold';
         if (longSignal.strength > 0 && longSignal.confirmations < LONG_MIN_CONFIRMATIONS) {
             reason = `LONG needs ${LONG_MIN_CONFIRMATIONS - longSignal.confirmations} more confirmations (has ${longSignal.confirmations}/${LONG_MIN_CONFIRMATIONS})`;
