@@ -38,8 +38,25 @@ function initDb() {
       price REAL,
       timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
       strategy TEXT,
-      profit_loss REAL
+      profit_loss REAL,
+      ticket_id TEXT
     )`);
+        
+        // ✅ FIX: Aggiungi colonna ticket_id se non esiste (migrazione)
+        db.all("PRAGMA table_info(trades)", (err, columns) => {
+            if (!err && columns && columns.length > 0) {
+                const columnNames = columns.map(c => c.name);
+                if (!columnNames.includes('ticket_id')) {
+                    db.run(`ALTER TABLE trades ADD COLUMN ticket_id TEXT`, (alterErr) => {
+                        if (alterErr) {
+                            console.error('Error adding ticket_id column to trades:', alterErr.message);
+                        } else {
+                            console.log('✅ Added ticket_id column to trades');
+                        }
+                    });
+                }
+            }
+        });
 
         // Bot settings - Supporta multi-simbolo
         db.run(`CREATE TABLE IF NOT EXISTS bot_settings (
@@ -221,7 +238,8 @@ function initDb() {
                     { name: 'volume_closed', sql: 'REAL DEFAULT 0' },
                     { name: 'take_profit_1', sql: 'REAL' },
                     { name: 'take_profit_2', sql: 'REAL' },
-                    { name: 'tp1_hit', sql: 'INTEGER DEFAULT 0' }
+                    { name: 'tp1_hit', sql: 'INTEGER DEFAULT 0' },
+                    { name: 'signal_details', sql: 'TEXT' } // ✅ FIX: Salva dettagli segnale per analisi
                 ];
                 
                 columnsToAdd.forEach(col => {

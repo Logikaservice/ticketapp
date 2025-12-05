@@ -691,11 +691,13 @@ const CryptoDashboard = () => {
                             <thead>
                                 <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
                                     <th style={{ padding: '10px', textAlign: 'left' }}>Time</th>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Symbol</th>
                                     <th style={{ padding: '10px', textAlign: 'left' }}>Type</th>
                                     <th style={{ padding: '10px', textAlign: 'right' }}>Price</th>
                                     <th style={{ padding: '10px', textAlign: 'right' }}>Amount</th>
                                     <th style={{ padding: '10px', textAlign: 'right' }}>Total</th>
-                                    <th style={{ padding: '10px', textAlign: 'right' }}>P&L / Status</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>P&L</th>
+                                    <th style={{ padding: '10px', textAlign: 'center' }}>Details</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -715,10 +717,39 @@ const CryptoDashboard = () => {
                                     const theoreticalPnl = (isBuy && hasOpenPosition) ? (currentPrice - trade.price) * trade.amount : 0;
                                     const theoreticalPnlPercent = (isBuy && hasOpenPosition) ? ((currentPrice - trade.price) / trade.price) * 100 : 0;
 
+                                    // Get symbol display name
+                                    const symbolDisplay = trade.symbol ? (trade.symbol === 'bitcoin' ? 'BTC/EUR' : 
+                                        trade.symbol === 'bitcoin_usdt' ? 'BTC/USDT' :
+                                        trade.symbol === 'solana' ? 'SOL/USDT' :
+                                        trade.symbol === 'solana_eur' ? 'SOL/EUR' :
+                                        trade.symbol.toUpperCase().replace('_', '/')) : '-';
+                                    
+                                    // Show P&L if available (for both BUY and SELL)
+                                    const displayPnl = pnl !== null && pnl !== undefined ? (
+                                        <span style={{ color: pnl >= 0 ? '#4ade80' : '#ef4444', fontWeight: 'bold' }}>
+                                            {pnl >= 0 ? '+' : ''}€{pnl.toFixed(2)}
+                                        </span>
+                                    ) : isBuy && hasOpenPosition ? (
+                                        <span style={{ color: theoreticalPnl >= 0 ? '#4ade80' : '#ef4444', fontSize: '0.85rem' }}>
+                                            {theoreticalPnl >= 0 ? '+' : ''}€{theoreticalPnl.toFixed(2)} ({theoreticalPnlPercent.toFixed(2)}%)
+                                            <br />
+                                            <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>Unrealized</span>
+                                        </span>
+                                    ) : isBuy ? (
+                                        <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+                                            Chiusa
+                                        </span>
+                                    ) : (
+                                        <span style={{ color: '#6b7280' }}>-</span>
+                                    );
+
                                     return (
                                         <tr key={i} style={{ borderBottom: '1px solid #1f2937' }}>
                                             <td style={{ padding: '10px', color: '#9ca3af' }}>
                                                 {new Date(trade.timestamp).toLocaleTimeString()}
+                                            </td>
+                                            <td style={{ padding: '10px', color: '#e5e7eb', fontWeight: '500' }}>
+                                                {symbolDisplay}
                                             </td>
                                             <td style={{ padding: '10px' }}>
                                                 <span style={{
@@ -739,22 +770,80 @@ const CryptoDashboard = () => {
                                                 €{totalValue.toFixed(2)}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right' }}>
-                                                {!isBuy && pnl !== null ? (
-                                                    <span style={{ color: pnl >= 0 ? '#4ade80' : '#ef4444', fontWeight: 'bold' }}>
-                                                        {pnl >= 0 ? '+' : ''}€{pnl.toFixed(2)}
-                                                    </span>
-                                                ) : isBuy && hasOpenPosition ? (
-                                                    <span style={{ color: theoreticalPnl >= 0 ? '#4ade80' : '#ef4444', fontSize: '0.85rem' }}>
-                                                        {theoreticalPnl >= 0 ? '+' : ''}€{theoreticalPnl.toFixed(2)} ({theoreticalPnlPercent.toFixed(2)}%)
-                                                        <br />
-                                                        <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>Unrealized</span>
-                                                    </span>
-                                                ) : isBuy ? (
-                                                    <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>
-                                                        Chiusa
-                                                    </span>
+                                                {displayPnl}
+                                            </td>
+                                            <td style={{ padding: '10px', textAlign: 'center' }}>
+                                                {trade.signal_details || trade.ticket_id ? (
+                                                    <button
+                                                        onClick={() => {
+                                                            try {
+                                                                let signalData = null;
+                                                                if (trade.signal_details) {
+                                                                    signalData = typeof trade.signal_details === 'string' 
+                                                                        ? JSON.parse(trade.signal_details) 
+                                                                        : trade.signal_details;
+                                                                } else {
+                                                                    const position = openPositions.find(pos => pos.ticket_id === trade.ticket_id);
+                                                                    if (position && position.signal_details) {
+                                                                        signalData = typeof position.signal_details === 'string'
+                                                                            ? JSON.parse(position.signal_details)
+                                                                            : position.signal_details;
+                                                                    }
+                                                                }
+                                                                
+                                                                if (signalData) {
+                                                                    const details = [
+                                                                        `📊 SIGNAL DETAILS`,
+                                                                        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+                                                                        `Direction: ${signalData.direction || 'N/A'}`,
+                                                                        `Strength: ${signalData.strength || 0}/100`,
+                                                                        `Confirmations: ${signalData.confirmations || 0}`,
+                                                                        ``,
+                                                                        `📋 REASONS:`,
+                                                                        ...(signalData.reasons || []).map((r, i) => `${i + 1}. ${r}`),
+                                                                        ``,
+                                                                        `📈 LONG SIGNAL:`,
+                                                                        signalData.longSignal ? 
+                                                                            `  Strength: ${signalData.longSignal.strength || 0}/100\n  Confirmations: ${signalData.longSignal.confirmations || 0}\n  Reasons: ${(signalData.longSignal.reasons || []).join(', ')}` :
+                                                                            '  N/A',
+                                                                        ``,
+                                                                        `📉 SHORT SIGNAL:`,
+                                                                        signalData.shortSignal ?
+                                                                            `  Strength: ${signalData.shortSignal.strength || 0}/100\n  Confirmations: ${signalData.shortSignal.confirmations || 0}\n  Reasons: ${(signalData.shortSignal.reasons || []).join(', ')}` :
+                                                                            '  N/A',
+                                                                        ``,
+                                                                        `📊 INDICATORS:`,
+                                                                        `  RSI: ${signalData.indicators?.rsi?.toFixed(2) || 'N/A'}`,
+                                                                        `  Trend: ${signalData.indicators?.trend || 'N/A'}`,
+                                                                        signalData.indicators?.macd ? 
+                                                                            `  MACD: ${signalData.indicators.macd.macdLine?.toFixed(2) || 'N/A'} | Signal: ${signalData.indicators.macd.signalLine?.toFixed(2) || 'N/A'}` :
+                                                                            '  MACD: N/A'
+                                                                    ].join('\n');
+                                                                    alert(details);
+                                                                } else {
+                                                                    alert(`Trade Details:\n\nSymbol: ${symbolDisplay}\nType: ${trade.type}\nPrice: €${trade.price.toFixed(2)}\nAmount: ${trade.amount.toFixed(4)}\nStrategy: ${trade.strategy || 'N/A'}\nP&L: ${pnl !== null ? (pnl >= 0 ? '+' : '') + '€' + pnl.toFixed(2) : 'N/A'}`);
+                                                                }
+                                                            } catch (err) {
+                                                                console.error('Error parsing signal details:', err);
+                                                                alert(`Trade Details:\n\nSymbol: ${symbolDisplay}\nType: ${trade.type}\nPrice: €${trade.price.toFixed(2)}\nAmount: ${trade.amount.toFixed(4)}\nStrategy: ${trade.strategy || 'N/A'}\nP&L: ${pnl !== null ? (pnl >= 0 ? '+' : '') + '€' + pnl.toFixed(2) : 'N/A'}`);
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            background: 'transparent',
+                                                            border: '1px solid #4b5563',
+                                                            color: '#9ca3af',
+                                                            padding: '4px 8px',
+                                                            borderRadius: '4px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.75rem'
+                                                        }}
+                                                        onMouseEnter={(e) => e.target.style.background = '#374151'}
+                                                        onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                                                    >
+                                                        View
+                                                    </button>
                                                 ) : (
-                                                    <span style={{ color: '#6b7280' }}>-</span>
+                                                    <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>-</span>
                                                 )}
                                             </td>
                                         </tr>

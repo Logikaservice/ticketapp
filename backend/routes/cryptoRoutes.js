@@ -366,10 +366,11 @@ router.get('/dashboard', async (req, res) => {
         const portfolio = await getPortfolio();
 
         // Run queries in parallel for speed
-        const [trades, bots, openPositions] = await Promise.all([
+        const [trades, bots, openPositions, closedPositions] = await Promise.all([
             dbAll("SELECT * FROM trades ORDER BY timestamp DESC LIMIT 50"), // Increased limit for calculation
             dbAll("SELECT * FROM bot_settings"),
-            dbAll("SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC")
+            dbAll("SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC"),
+            dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 100") // ✅ FIX: Recupera anche posizioni chiuse per signal_details
         ]);
 
         // Calculate Average Buy Price for current holdings
@@ -396,14 +397,26 @@ router.get('/dashboard', async (req, res) => {
             }
         }
 
+        // ✅ FIX: Aggiungi signal_details ai trades dalla posizione corrispondente (aperta o chiusa)
+        const allPositions = [...openPositions, ...closedPositions];
+        const tradesWithDetails = trades.map(trade => {
+            if (trade.ticket_id) {
+                const position = allPositions.find(pos => pos.ticket_id === trade.ticket_id);
+                if (position && position.signal_details) {
+                    return { ...trade, signal_details: position.signal_details };
+                }
+            }
+            return trade;
+        });
+        
         res.json({
             portfolio: {
                 balance_usd: portfolio.balance_usd,
                 holdings: JSON.parse(portfolio.holdings || '{}'),
                 avg_buy_price: avgBuyPrice // Send calculated avg price
             },
-            recent_trades: trades.slice(0, 10), // Send only 10 to frontend list
-            all_trades: trades, // Send more history for chart plotting
+            recent_trades: tradesWithDetails.slice(0, 10), // Send only 10 to frontend list
+            all_trades: tradesWithDetails, // Send more history for chart plotting
             active_bots: bots,
             open_positions: openPositions, // Include open positions
             rsi: latestRSI
@@ -956,7 +969,26 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     take_profit_2_pct: params.take_profit_2_pct || 3.0
                 };
 
-                await openPosition(symbol, 'buy', amount, currentPrice, `LONG Signal (${signal.strength}/100)`, stopLoss, takeProfit, options);
+                // ✅ FIX: Salva dettagli segnale per analisi successiva
+                const signalDetails = JSON.stringify({
+                    direction: signal.direction,
+                    strength: signal.strength,
+                    confirmations: signal.confirmations,
+                    reasons: signal.reasons,
+                    longSignal: signal.longSignal,
+                    shortSignal: signal.shortSignal,
+                    indicators: {
+                        rsi: signal.indicators?.rsi,
+                        trend: signal.indicators?.trend,
+                        macd: signal.indicators?.macd ? {
+                            macdLine: signal.indicators.macd.macdLine,
+                            signalLine: signal.indicators.macd.signalLine,
+                            histogram: signal.indicators.macd.histogram
+                        } : null
+                    }
+                });
+                
+                await openPosition(symbol, 'buy', amount, currentPrice, `LONG Signal (${signal.strength}/100)`, stopLoss, takeProfit, { ...options, signal_details: signalDetails });
                 console.log(`✅ BOT LONG: Opened position #${longPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
                 riskManager.invalidateCache(); // Invalida cache dopo operazione
             } else if (!canOpen.allowed) {
@@ -990,7 +1022,26 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     take_profit_2_pct: params.take_profit_2_pct || 3.0
                 };
 
-                await openPosition(symbol, 'sell', amount, currentPrice, `SHORT Signal (${signal.strength}/100)`, stopLoss, takeProfit, options);
+                // ✅ FIX: Salva dettagli segnale per analisi successiva
+                const signalDetails = JSON.stringify({
+                    direction: signal.direction,
+                    strength: signal.strength,
+                    confirmations: signal.confirmations,
+                    reasons: signal.reasons,
+                    longSignal: signal.longSignal,
+                    shortSignal: signal.shortSignal,
+                    indicators: {
+                        rsi: signal.indicators?.rsi,
+                        trend: signal.indicators?.trend,
+                        macd: signal.indicators?.macd ? {
+                            macdLine: signal.indicators.macd.macdLine,
+                            signalLine: signal.indicators.macd.signalLine,
+                            histogram: signal.indicators.macd.histogram
+                        } : null
+                    }
+                });
+                
+                await openPosition(symbol, 'sell', amount, currentPrice, `SHORT Signal (${signal.strength}/100)`, stopLoss, takeProfit, { ...options, signal_details: signalDetails });
                 console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
                 riskManager.invalidateCache(); // Invalida cache dopo operazione
             } else if (!canOpen.allowed) {
@@ -1090,14 +1141,17 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
         const takeProfit1 = tp1Enabled ? entryPrice * (1 + (type === 'buy' ? options.take_profit_1_pct : -options.take_profit_1_pct) / 100) : null;
         const takeProfit2 = tp1Enabled && options.take_profit_2_pct ? entryPrice * (1 + (type === 'buy' ? options.take_profit_2_pct : -options.take_profit_2_pct) / 100) : null;
 
+        // ✅ FIX: Estrai signal_details dalle options se presente
+        const signalDetails = options.signal_details || null;
+        
         await dbRun(
             `INSERT INTO open_positions 
             (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status,
              trailing_stop_enabled, trailing_stop_distance_pct, highest_price,
-             take_profit_1, take_profit_2)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?)`,
+             take_profit_1, take_profit_2, signal_details)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)`,
             [ticketId, symbol, type, volume, entryPrice, entryPrice, stopLoss, takeProfit, strategy || 'Bot',
-             trailingStopEnabled, trailingStopDistance, entryPrice, takeProfit1, takeProfit2]
+             trailingStopEnabled, trailingStopDistance, entryPrice, takeProfit1, takeProfit2, signalDetails]
         );
 
         await dbRun(
@@ -1559,9 +1613,10 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
         );
 
         // Record in trades history (use remaining volume, not full volume)
+        // ✅ FIX: Salva anche signal_details e ticket_id per tracciare la posizione originale
         await dbRun(
-            "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES (?, ?, ?, ?, ?, ?)",
-            [pos.symbol, pos.type === 'buy' ? 'sell' : 'buy', remainingVolume, closePrice, pos.strategy || 'Manual Close', finalPnl]
+            "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss, ticket_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [pos.symbol, pos.type === 'buy' ? 'sell' : 'buy', remainingVolume, closePrice, pos.strategy || 'Manual Close', finalPnl, pos.ticket_id]
         );
         
         console.log(`✅ POSITION CLOSED: ${ticketId} | P&L: €${finalPnl.toFixed(2)} | Status: ${status} | Reason: ${reason}`);
