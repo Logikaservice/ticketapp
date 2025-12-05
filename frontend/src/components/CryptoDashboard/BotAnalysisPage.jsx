@@ -7,11 +7,11 @@ const BotAnalysisPage = () => {
     const [analysis, setAnalysis] = useState(null);
     const [loading, setLoading] = useState(true);
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
-    
+
     // Get symbol from URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     const symbol = urlParams.get('symbol') || 'bitcoin';
-    
+
     const navigateToDashboard = () => {
         // Se siamo in una finestra popup, chiudila, altrimenti naviga
         if (window.opener) {
@@ -65,7 +65,7 @@ const BotAnalysisPage = () => {
         );
     }
 
-    const { signal, requirements, risk, positions, currentPrice, rsi, botParameters } = analysis;
+    const { signal, requirements, risk, positions, currentPrice, rsi, botParameters, mtf } = analysis;
 
     return (
         <div className="bot-analysis-page">
@@ -83,8 +83,8 @@ const BotAnalysisPage = () => {
                         </button>
                     )}
                     <h1>🤖 Analisi Bot in Tempo Reale - {symbol.toUpperCase()}</h1>
-                    <button 
-                        className="refresh-button" 
+                    <button
+                        className="refresh-button"
                         onClick={() => window.location.reload()}
                         title="Aggiorna pagina"
                     >
@@ -105,9 +105,9 @@ const BotAnalysisPage = () => {
                                 {rsi.toFixed(2)}
                             </div>
                             <div className="info-hint">
-                                {rsi < 30 ? 'Oversold (possibile rialzo)' : 
-                                 rsi > 70 ? 'Overbought (possibile calo)' : 
-                                 'Neutrale'}
+                                {rsi < 30 ? 'Oversold (possibile rialzo)' :
+                                    rsi > 70 ? 'Overbought (possibile calo)' :
+                                        'Neutrale'}
                             </div>
                         </div>
                     </div>
@@ -118,9 +118,9 @@ const BotAnalysisPage = () => {
                         <div className={`signal-card ${signal.direction.toLowerCase()}`}>
                             <div className="signal-header">
                                 <span className="signal-direction">
-                                    {signal.direction === 'LONG' ? <TrendingUp size={24} /> : 
-                                     signal.direction === 'SHORT' ? <TrendingDown size={24} /> : 
-                                     <BarChart3 size={24} />}
+                                    {signal.direction === 'LONG' ? <TrendingUp size={24} /> :
+                                        signal.direction === 'SHORT' ? <TrendingDown size={24} /> :
+                                            <BarChart3 size={24} />}
                                     {signal.direction || 'NEUTRAL'}
                                 </span>
                                 <span className="signal-strength">
@@ -143,6 +143,103 @@ const BotAnalysisPage = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* Multi-Timeframe Confirmation */}
+                    {mtf && (
+                        <div className="mtf-section">
+                            <h3>🔭 Multi-Timeframe Confirmation (1h / 4h)</h3>
+                            <div className="mtf-card">
+                                <div className="mtf-trends">
+                                    <div className="mtf-trend-item">
+                                        <span className="mtf-label">Trend 1h:</span>
+                                        <span className={`mtf-value ${mtf.trend1h}`}>
+                                            {mtf.trend1h === 'bullish' ? '📈 Bullish' :
+                                                mtf.trend1h === 'bearish' ? '📉 Bearish' :
+                                                    '➡️ Neutral'}
+                                        </span>
+                                    </div>
+                                    <div className="mtf-trend-item">
+                                        <span className="mtf-label">Trend 4h:</span>
+                                        <span className={`mtf-value ${mtf.trend4h}`}>
+                                            {mtf.trend4h === 'bullish' ? '📈 Bullish' :
+                                                mtf.trend4h === 'bearish' ? '📉 Bearish' :
+                                                    '➡️ Neutral'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="mtf-adjustments">
+                                    <div className="mtf-adjustment-card long">
+                                        <h4>📈 LONG Adjustment</h4>
+                                        <div className="mtf-strength-comparison">
+                                            <div className="mtf-strength-row">
+                                                <span>Original Strength:</span>
+                                                <span className="value">{mtf.long.originalStrength}/100</span>
+                                            </div>
+                                            <div className="mtf-strength-row mtf-bonus">
+                                                <span>MTF Bonus:</span>
+                                                <span className={`value ${mtf.long.bonus >= 0 ? 'positive' : 'negative'}`}>
+                                                    {mtf.long.bonus >= 0 ? '+' : ''}{mtf.long.bonus}
+                                                </span>
+                                            </div>
+                                            <div className="mtf-strength-row mtf-final">
+                                                <span>Adjusted Strength:</span>
+                                                <span className={`value ${mtf.long.adjustedStrength >= 70 ? 'ready' : 'waiting'}`}>
+                                                    {mtf.long.adjustedStrength}/100
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="mtf-progress-bar">
+                                            <div
+                                                className="mtf-progress-fill"
+                                                style={{
+                                                    width: `${Math.min(100, (mtf.long.adjustedStrength / 70) * 100)}%`,
+                                                    background: mtf.long.adjustedStrength >= 70
+                                                        ? 'linear-gradient(90deg, #10b981, #059669)'
+                                                        : 'linear-gradient(90deg, #3b82f6, #2563eb)'
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="mtf-reason">{mtf.long.reason}</div>
+                                    </div>
+
+                                    <div className="mtf-adjustment-card short">
+                                        <h4>📉 SHORT Adjustment</h4>
+                                        <div className="mtf-strength-comparison">
+                                            <div className="mtf-strength-row">
+                                                <span>Original Strength:</span>
+                                                <span className="value">{mtf.short.originalStrength}/100</span>
+                                            </div>
+                                            <div className="mtf-strength-row mtf-bonus">
+                                                <span>MTF Bonus:</span>
+                                                <span className={`value ${mtf.short.bonus >= 0 ? 'positive' : 'negative'}`}>
+                                                    {mtf.short.bonus >= 0 ? '+' : ''}{mtf.short.bonus}
+                                                </span>
+                                            </div>
+                                            <div className="mtf-strength-row mtf-final">
+                                                <span>Adjusted Strength:</span>
+                                                <span className={`value ${mtf.short.adjustedStrength >= 70 ? 'ready' : 'waiting'}`}>
+                                                    {mtf.short.adjustedStrength}/100
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="mtf-progress-bar">
+                                            <div
+                                                className="mtf-progress-fill"
+                                                style={{
+                                                    width: `${Math.min(100, (mtf.short.adjustedStrength / 70) * 100)}%`,
+                                                    background: mtf.short.adjustedStrength >= 70
+                                                        ? 'linear-gradient(90deg, #10b981, #059669)'
+                                                        : 'linear-gradient(90deg, #3b82f6, #2563eb)'
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="mtf-reason">{mtf.short.reason}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Requisiti per LONG */}
                     <div className="requirements-section">
@@ -172,13 +269,13 @@ const BotAnalysisPage = () => {
                                     )}
                                 </div>
                                 <div className="progress-bar">
-                                    <div 
-                                        className="progress-fill" 
-                                        style={{ 
+                                    <div
+                                        className="progress-fill"
+                                        style={{
                                             width: `${Math.min(100, (requirements.long.currentStrength / requirements.long.minStrength) * 100)}%`,
                                             transition: 'width 0.5s ease-in-out',
-                                            background: requirements.long.currentStrength >= requirements.long.minStrength 
-                                                ? 'linear-gradient(90deg, #10b981, #059669)' 
+                                            background: requirements.long.currentStrength >= requirements.long.minStrength
+                                                ? 'linear-gradient(90deg, #10b981, #059669)'
                                                 : 'linear-gradient(90deg, #3b82f6, #2563eb)'
                                         }}
                                     />
@@ -222,9 +319,9 @@ const BotAnalysisPage = () => {
                                     )}
                                 </div>
                                 <div className="progress-bar">
-                                    <div 
-                                        className="progress-fill" 
-                                        style={{ 
+                                    <div
+                                        className="progress-fill"
+                                        style={{
                                             width: `${Math.min(100, (requirements.long.currentConfirmations / requirements.long.minConfirmations) * 100)}%`,
                                             transition: 'width 0.5s ease-in-out'
                                         }}
@@ -284,13 +381,13 @@ const BotAnalysisPage = () => {
                                     )}
                                 </div>
                                 <div className="progress-bar">
-                                    <div 
-                                        className="progress-fill" 
-                                        style={{ 
+                                    <div
+                                        className="progress-fill"
+                                        style={{
                                             width: `${Math.min(100, (requirements.short.currentStrength / requirements.short.minStrength) * 100)}%`,
                                             transition: 'width 0.5s ease-in-out',
-                                            background: requirements.short.currentStrength >= requirements.short.minStrength 
-                                                ? 'linear-gradient(90deg, #10b981, #059669)' 
+                                            background: requirements.short.currentStrength >= requirements.short.minStrength
+                                                ? 'linear-gradient(90deg, #10b981, #059669)'
                                                 : 'linear-gradient(90deg, #3b82f6, #2563eb)'
                                         }}
                                     />
@@ -334,9 +431,9 @@ const BotAnalysisPage = () => {
                                     )}
                                 </div>
                                 <div className="progress-bar">
-                                    <div 
-                                        className="progress-fill" 
-                                        style={{ 
+                                    <div
+                                        className="progress-fill"
+                                        style={{
                                             width: `${Math.min(100, (requirements.short.currentConfirmations / requirements.short.minConfirmations) * 100)}%`,
                                             transition: 'width 0.5s ease-in-out'
                                         }}
@@ -365,7 +462,7 @@ const BotAnalysisPage = () => {
                             <div className="requirement-reason">
                                 <strong>Stato:</strong> {requirements.short.reason}
                             </div>
-                            
+
                         </div>
                     </div>
 
@@ -441,7 +538,7 @@ const BotAnalysisPage = () => {
                                 <li><strong>Risk Manager:</strong> Anche se il segnale è perfetto, il bot non apre se ha già perso troppo oggi o se l'exposure è troppo alta.</li>
                             </ul>
                             <p className="explanation-footer">
-                                <strong>In pratica:</strong> Il bot aspetta che TUTTI gli indicatori siano d'accordo e che il segnale sia FORTISSIMO (90% certezza) prima di aprire. 
+                                <strong>In pratica:</strong> Il bot aspetta che TUTTI gli indicatori siano d'accordo e che il segnale sia FORTISSIMO (90% certezza) prima di aprire.
                                 Questo significa che potrebbe aspettare anche molto tempo, ma quando apre, è perché è QUASI SICURO che la posizione possa fruttare.
                             </p>
                         </div>

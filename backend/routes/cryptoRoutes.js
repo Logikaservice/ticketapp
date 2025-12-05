@@ -3735,6 +3735,55 @@ router.get('/bot-analysis', async (req, res) => {
             signal.strength >= SHORT_MIN_STRENGTH &&
             signal.confirmations >= SHORT_MIN_CONFIRMATIONS;
 
+        // ✅ MULTI-TIMEFRAME CONFIRMATION - Calcola trend e adjusted strength
+        console.log('🔍 [BOT-ANALYSIS] Calculating MTF...');
+        const trend1h = await detectTrendOnTimeframe(symbol, '1h', 50);
+        const trend4h = await detectTrendOnTimeframe(symbol, '4h', 50);
+
+        // Calcola MTF bonus per LONG
+        let longMtfBonus = 0;
+        let longMtfReason = '';
+        if (signal.direction === 'LONG' || longCurrentStrength > 0) {
+            if (trend1h === 'bullish' && trend4h === 'bullish') {
+                longMtfBonus = +10;
+                longMtfReason = '✅ All timeframes bullish (+10)';
+            } else if (trend1h === 'bullish' || trend4h === 'bullish') {
+                longMtfBonus = +5;
+                longMtfReason = '✅ Partial alignment (+5)';
+            } else if (trend1h === 'bearish' || trend4h === 'bearish') {
+                longMtfBonus = -15;
+                longMtfReason = '⚠️ Higher timeframe bearish (-15)';
+            } else {
+                longMtfBonus = 0;
+                longMtfReason = '➡️ Neutral timeframes (0)';
+            }
+        }
+
+        // Calcola MTF bonus per SHORT
+        let shortMtfBonus = 0;
+        let shortMtfReason = '';
+        if (signal.direction === 'SHORT' || shortCurrentStrength > 0) {
+            if (trend1h === 'bearish' && trend4h === 'bearish') {
+                shortMtfBonus = +10;
+                shortMtfReason = '✅ All timeframes bearish (+10)';
+            } else if (trend1h === 'bearish' || trend4h === 'bearish') {
+                shortMtfBonus = +5;
+                shortMtfReason = '✅ Partial alignment (+5)';
+            } else if (trend1h === 'bullish' || trend4h === 'bullish') {
+                shortMtfBonus = -15;
+                shortMtfReason = '⚠️ Higher timeframe bullish (-15)';
+            } else {
+                shortMtfBonus = 0;
+                shortMtfReason = '➡️ Neutral timeframes (0)';
+            }
+        }
+
+        const longAdjustedStrength = longCurrentStrength + longMtfBonus;
+        const shortAdjustedStrength = shortCurrentStrength + shortMtfBonus;
+
+        console.log(`📊 [MTF] LONG: ${longCurrentStrength} + ${longMtfBonus} = ${longAdjustedStrength} | SHORT: ${shortCurrentStrength} + ${shortMtfBonus} = ${shortAdjustedStrength}`);
+        console.log(`📊 [MTF] Trends: 1h=${trend1h}, 4h=${trend4h}`);
+
         // Calculate max position size
         const maxAvailableForNewPosition = Math.min(
             params.trade_size_eur,
@@ -3829,6 +3878,22 @@ router.get('/bot-analysis', async (req, res) => {
                     reason: shortReason,
                     confirmationsList: shortConfirmationsList, // Lista delle conferme ottenute
                     strengthContributions: shortStrengthContributions // Lista dei contributi allo Strength con punti
+                }
+            },
+            mtf: {
+                trend1h,
+                trend4h,
+                long: {
+                    bonus: longMtfBonus,
+                    reason: longMtfReason,
+                    adjustedStrength: longAdjustedStrength,
+                    originalStrength: longCurrentStrength
+                },
+                short: {
+                    bonus: shortMtfBonus,
+                    reason: shortMtfReason,
+                    adjustedStrength: shortAdjustedStrength,
+                    originalStrength: shortCurrentStrength
                 }
             },
             risk: {
