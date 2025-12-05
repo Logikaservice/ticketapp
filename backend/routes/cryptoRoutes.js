@@ -656,14 +656,31 @@ const SYMBOL_TO_PAIR = {
     'dogecoin': 'DOGEUSDT',
     'dogecoin_eur': 'DOGEEUR',
     'shiba': 'SHIBUSDT',
-    'shiba_eur': 'SHIBEUR'
+    'shiba_eur': 'SHIBEUR',
+    // Layer 1 Alternatives
+    'near': 'NEARUSDT',
+    'near_eur': 'NEAREUR',
+    'atom': 'ATOMUSDT',
+    'atom_eur': 'ATOMEUR',
+    // DeFi Blue Chips
+    'aave': 'AAVEUSDT',
+    'aave_eur': 'AAVEEUR',
+    // Gaming/Metaverse
+    'sand': 'SANDUSDT',
+    'sand_eur': 'SANDEUR',
+    // Storage
+    'fil': 'FILUSDT',
+    'fil_eur': 'FILEUR'
 };
 
 // ✅ CORRELATION GROUPS - Strategia Ibrida per Diversificazione Intelligente
 // Raggruppa crypto correlate per evitare posizioni ridondanti durante crash
 const CORRELATION_GROUPS = {
     'BTC_MAJOR': ['bitcoin', 'bitcoin_usdt', 'ethereum', 'ethereum_usdt', 'solana', 'solana_eur', 'cardano', 'cardano_usdt', 'polkadot', 'polkadot_usdt'],
-    'DEFI': ['chainlink', 'chainlink_usdt', 'uniswap', 'uniswap_eur', 'avalanche', 'avalanche_eur'],
+    'DEFI': ['chainlink', 'chainlink_usdt', 'uniswap', 'uniswap_eur', 'avalanche', 'avalanche_eur', 'aave', 'aave_eur'],
+    'LAYER1_ALT': ['near', 'near_eur', 'atom', 'atom_eur'],
+    'GAMING': ['sand', 'sand_eur'],
+    'STORAGE': ['fil', 'fil_eur'],
     'MEME': ['dogecoin', 'dogecoin_eur', 'shiba', 'shiba_eur'],
     'INDEPENDENT': ['ripple', 'ripple_eur', 'litecoin', 'litecoin_usdt', 'binance_coin', 'binance_coin_eur', 'pol_polygon', 'pol_polygon_eur']
 };
@@ -4129,7 +4146,22 @@ router.get('/scanner', async (req, res) => {
             { symbol: 'dogecoin_eur', pair: 'DOGEEUR', display: 'DOGE/EUR' },
             // Shiba Inu
             { symbol: 'shiba', pair: 'SHIBUSDT', display: 'SHIB/USDT' },
-            { symbol: 'shiba_eur', pair: 'SHIBEUR', display: 'SHIB/EUR' }
+            { symbol: 'shiba_eur', pair: 'SHIBEUR', display: 'SHIB/EUR' },
+            // Near Protocol
+            { symbol: 'near', pair: 'NEARUSDT', display: 'NEAR/USDT' },
+            { symbol: 'near_eur', pair: 'NEAREUR', display: 'NEAR/EUR' },
+            // Cosmos
+            { symbol: 'atom', pair: 'ATOMUSDT', display: 'ATOM/USDT' },
+            { symbol: 'atom_eur', pair: 'ATOMEUR', display: 'ATOM/EUR' },
+            // Aave
+            { symbol: 'aave', pair: 'AAVEUSDT', display: 'AAVE/USDT' },
+            { symbol: 'aave_eur', pair: 'AAVEEUR', display: 'AAVE/EUR' },
+            // The Sandbox
+            { symbol: 'sand', pair: 'SANDUSDT', display: 'SAND/USDT' },
+            { symbol: 'sand_eur', pair: 'SANDEUR', display: 'SAND/EUR' },
+            // Filecoin
+            { symbol: 'fil', pair: 'FILUSDT', display: 'FIL/USDT' },
+            { symbol: 'fil_eur', pair: 'FILEUR', display: 'FIL/EUR' }
         ];
 
         const results = await Promise.all(symbolsToScan.map(async (s) => {
