@@ -659,6 +659,22 @@ const SYMBOL_TO_PAIR = {
     'shiba_eur': 'SHIBEUR'
 };
 
+// ✅ CORRELATION GROUPS - Strategia Ibrida per Diversificazione Intelligente
+// Raggruppa crypto correlate per evitare posizioni ridondanti durante crash
+const CORRELATION_GROUPS = {
+    'BTC_MAJOR': ['bitcoin', 'bitcoin_usdt', 'ethereum', 'ethereum_usdt', 'solana', 'solana_eur', 'cardano', 'cardano_usdt', 'polkadot', 'polkadot_usdt'],
+    'DEFI': ['chainlink', 'chainlink_usdt', 'uniswap', 'uniswap_eur', 'avalanche', 'avalanche_eur'],
+    'MEME': ['dogecoin', 'dogecoin_eur', 'shiba', 'shiba_eur'],
+    'INDEPENDENT': ['ripple', 'ripple_eur', 'litecoin', 'litecoin_usdt', 'binance_coin', 'binance_coin_eur', 'pol_polygon', 'pol_polygon_eur']
+};
+
+// Config Strategia Ibrida
+const HYBRID_STRATEGY_CONFIG = {
+    MAX_POSITIONS_PER_GROUP: 2, // Max 2 posizioni per gruppo correlato
+    MAX_TOTAL_POSITIONS: 6, // Max 6 posizioni totali
+    MAX_EXPOSURE_PER_GROUP_PCT: 0.25, // Max 25% del capitale per gruppo
+};
+
 // Symbol to CoinGecko ID mapping
 const SYMBOL_TO_COINGECKO = {
     'bitcoin': 'bitcoin',
@@ -878,6 +894,65 @@ const get24hVolume = async (symbol) => {
         console.error(`❌ [VOLUME] Error fetching 24h volume for ${symbol}:`, err.message);
         return 0;
     }
+};
+
+/**
+ * Trova il gruppo di correlazione di un simbolo
+ * @param {string} symbol - Simbolo crypto
+ * @returns {string|null} Nome del gruppo o null se non trovato
+ */
+const getCorrelationGroup = (symbol) => {
+    for (const [groupName, symbols] of Object.entries(CORRELATION_GROUPS)) {
+        if (symbols.includes(symbol)) {
+            return groupName;
+        }
+    }
+    return null;
+};
+
+/**
+ * Verifica se può aprire una posizione secondo la strategia ibrida
+ * @param {string} symbol - Simbolo da aprire
+ * @param {Array} openPositions - Posizioni già aperte
+ * @returns {Object} { allowed: boolean, reason: string, groupPositions: number }
+ */
+const canOpenPositionHybridStrategy = async (symbol, openPositions) => {
+    const group = getCorrelationGroup(symbol);
+
+    if (!group) {
+        // Simbolo non in nessun gruppo, permetti sempre
+        return { allowed: true, reason: 'Symbol not in correlation groups', groupPositions: 0 };
+    }
+
+    // Conta posizioni nello stesso gruppo
+    const groupSymbols = CORRELATION_GROUPS[group];
+    const groupPositions = openPositions.filter(p =>
+        groupSymbols.includes(p.symbol) && p.status === 'open'
+    );
+
+    // Verifica limite posizioni per gruppo
+    if (groupPositions.length >= HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP) {
+        return {
+            allowed: false,
+            reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP} positions per group ${group} (current: ${groupPositions.length})`,
+            groupPositions: groupPositions.length
+        };
+    }
+
+    // Verifica limite totale posizioni
+    if (openPositions.length >= HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS) {
+        return {
+            allowed: false,
+            reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS} total positions (current: ${openPositions.length})`,
+            groupPositions: groupPositions.length
+        };
+    }
+
+    return {
+        allowed: true,
+        reason: `OK - Group ${group}: ${groupPositions.length}/${HYBRID_STRATEGY_CONFIG.MAX_POSITIONS_PER_GROUP} positions`,
+        groupPositions: groupPositions.length
+    };
 };
 
 // Bot Loop Function for a single symbol
@@ -1240,6 +1315,17 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
             console.log(`✅ [MTF] LONG APPROVED: Adjusted strength ${adjustedStrength} >= ${MIN_SIGNAL_STRENGTH}`);
 
+            // ✅ HYBRID STRATEGY - Verifica limiti correlazione
+            const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions);
+
+            if (!hybridCheck.allowed) {
+                console.log(`🛑 [HYBRID-STRATEGY] LONG BLOCKED: ${hybridCheck.reason}`);
+                console.log(`   → Diversification protection: avoiding over-exposure to correlated assets`);
+                return; // NON aprire LONG
+            }
+
+            console.log(`✅ [HYBRID-STRATEGY] LONG APPROVED: ${hybridCheck.reason}`);
+
             // Verifica se possiamo aprire LONG
             // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
             const maxAvailableForNewPosition = Math.min(
@@ -1349,6 +1435,17 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 }
 
                 console.log(`✅ [MTF] SHORT APPROVED: Adjusted strength ${adjustedStrength} >= ${MIN_SIGNAL_STRENGTH}`);
+
+                // ✅ HYBRID STRATEGY - Verifica limiti correlazione
+                const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions);
+
+                if (!hybridCheck.allowed) {
+                    console.log(`🛑 [HYBRID-STRATEGY] SHORT BLOCKED: ${hybridCheck.reason}`);
+                    console.log(`   → Diversification protection: avoiding over-exposure to correlated assets`);
+                    return; // NON aprire SHORT
+                }
+
+                console.log(`✅ [HYBRID-STRATEGY] SHORT APPROVED: ${hybridCheck.reason}`);
 
                 // Verifica se possiamo aprire SHORT
                 // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
