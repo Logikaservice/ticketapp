@@ -475,67 +475,6 @@ const CryptoDashboard = () => {
                 </div>
             </div>
 
-            {/* ACTIVE BOTS PANEL */}
-            {activeBots.length > 0 && (
-                <div className="crypto-card" style={{ marginBottom: '20px' }}>
-                    <div className="card-title">
-                        <Activity size={20} className="text-green-500" />
-                        Bot Attivi ({activeBots.length})
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '15px' }}>
-                        {activeBots.map((bot, idx) => {
-                            const symbolInfo = availableSymbols.find(s => s.symbol === bot.symbol);
-                            return (
-                                <div
-                                    key={idx}
-                                    onClick={() => {
-                                        setCurrentSymbol(bot.symbol);
-                                        setPriceData([]);
-                                        setApexHistory([]);
-                                    }}
-                                    style={{
-                                        background: 'linear-gradient(145deg, #1c1c1e, #2a2a2d)',
-                                        border: '2px solid #4ade80',
-                                        borderRadius: '8px',
-                                        padding: '12px 16px',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        minWidth: '150px'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform = 'scale(1.05)';
-                                        e.currentTarget.style.borderColor = '#22c55e';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = 'scale(1)';
-                                        e.currentTarget.style.borderColor = '#4ade80';
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                        <div style={{
-                                            width: '10px',
-                                            height: '10px',
-                                            borderRadius: '50%',
-                                            background: '#4ade80',
-                                            animation: 'pulse 2s infinite'
-                                        }} />
-                                        <span style={{ fontWeight: 'bold', color: '#fff' }}>
-                                            {symbolInfo?.display || bot.symbol.toUpperCase()}
-                                        </span>
-                                    </div>
-                                    <div style={{ fontSize: '0.85rem', color: '#9ca3af' }}>
-                                        {bot.strategy_name}
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '4px' }}>
-                                        Clicca per visualizzare
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-
             {/* ADVANCED STATISTICS PANEL */}
             <StatisticsPanel apiBase={apiBase} />
 
@@ -603,48 +542,9 @@ const CryptoDashboard = () => {
                                     </>
                                 )}
                             </select>
-                            <button
-                                onClick={() => toggleBot(currentSymbol)}
-                                style={{
-                                    background: activeBots.find(b => b.symbol === currentSymbol)
-                                        ? '#ef4444'
-                                        : '#4ade80',
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    padding: '6px 12px',
-                                    fontSize: '0.85rem',
-                                    cursor: 'pointer',
-                                    fontWeight: 'bold',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px'
-                                }}
-                                title={activeBots.find(b => b.symbol === currentSymbol)
-                                    ? 'Disattiva Bot per questo simbolo'
-                                    : 'Attiva Bot per questo simbolo'}
-                            >
-                                {activeBots.find(b => b.symbol === currentSymbol) ? (
-                                    <>⏸️ Stop Bot</>
-                                ) : (
-                                    <>▶️ Start Bot</>
-                                )}
-                            </button>
                             <span style={{ color: '#9ca3af', fontSize: '0.9rem' }}>
                                 {availableSymbols.find(s => s.symbol === currentSymbol)?.display || 'Live Market'}
                             </span>
-                            {activeBots.find(b => b.symbol === currentSymbol) && (
-                                <span style={{
-                                    background: '#4ade80',
-                                    color: '#fff',
-                                    padding: '2px 8px',
-                                    borderRadius: '4px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 'bold'
-                                }}>
-                                    BOT ATTIVO
-                                </span>
-                            )}
                         </div>
                         <button
                             onClick={() => setUseApexChart(!useApexChart)}
