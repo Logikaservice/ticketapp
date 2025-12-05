@@ -3819,21 +3819,49 @@ router.get('/scanner', async (req, res) => {
 
                 if (historyForSignal.length < 30) return null; // Not enough data
 
-                // 2. Generate Signal
-                const signal = signalGenerator.generateSignal(historyForSignal);
+                // ✅ FIX: Aggiorna sempre l'ultima candela con il prezzo corrente (stessa logica di /bot-analysis)
+                // Questo garantisce che RSI e altri indicatori siano calcolati con dati in tempo reale
+                let currentPrice = historyForSignal[historyForSignal.length - 1].close;
+                try {
+                    // Prova a ottenere il prezzo corrente da Binance
+                    const priceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${s.pair}`;
+                    const priceData = await httpsGet(priceUrl);
+                    if (priceData && priceData.price) {
+                        currentPrice = parseFloat(priceData.price);
+                    }
+                } catch (err) {
+                    console.log(`[SCANNER] Errore fetch prezzo corrente per ${s.symbol}, uso ultimo close`);
+                }
 
-                // 3. Get Current Price
-                const currentPrice = historyForSignal[historyForSignal.length - 1].close;
+                // Aggiorna l'ultima candela con il prezzo corrente se è ancora aperta
+                if (historyForSignal.length > 0) {
+                    const lastCandle = historyForSignal[historyForSignal.length - 1];
+                    const lastCandleTime = new Date(lastCandle.timestamp);
+                    const now = new Date();
+                    const timeSinceLastCandle = now - lastCandleTime;
+
+                    // Se l'ultima candela è ancora aperta (< 15 minuti), aggiornala con il prezzo corrente
+                    if (timeSinceLastCandle < 15 * 60 * 1000) {
+                        // Aggiorna high, low, close con il prezzo corrente
+                        lastCandle.high = Math.max(lastCandle.high || lastCandle.close, currentPrice);
+                        lastCandle.low = Math.min(lastCandle.low || lastCandle.close, currentPrice);
+                        lastCandle.close = currentPrice;
+                        lastCandle.price = currentPrice; // Per backward compatibility
+                    }
+                }
+
+                // 2. Generate Signal (ora con dati aggiornati in tempo reale)
+                const signal = signalGenerator.generateSignal(historyForSignal);
 
                 return {
                     symbol: s.symbol,
                     display: s.display,
-                    price: currentPrice,
+                    price: currentPrice, // Prezzo corrente aggiornato in tempo reale
                     direction: signal.direction,
                     strength: signal.strength,
                     confirmations: signal.confirmations,
                     reasons: signal.reasons,
-                    rsi: signal.indicators.rsi
+                    rsi: signal.indicators.rsi // RSI calcolato con ultima candela aggiornata
                 };
             } catch (err) {
                 console.error(`Scanner error for ${s.symbol}:`, err.message);
