@@ -503,43 +503,14 @@ const CryptoDashboard = () => {
                                     minWidth: '150px'
                                 }}
                             >
-                                {availableSymbols.map(s => (
-                                    <option key={s.symbol} value={s.symbol}>
-                                        {s.display} {s.bot_active ? '🤖' : ''}
-                                    </option>
-                                ))}
-                                {/* Fallback manual options if API fails or for new symbols */}
-                                {availableSymbols.length === 0 && (
-                                    <>
-                                        <option value="bitcoin">BTC/EUR</option>
-                                        <option value="bitcoin_usdt">BTC/USDT</option>
-                                        <option value="ethereum">ETH/EUR</option>
-                                        <option value="ethereum_usdt">ETH/USDT</option>
-                                        <option value="solana">SOL/USDT</option>
-                                        <option value="solana_eur">SOL/EUR</option>
-                                        <option value="cardano">ADA/EUR</option>
-                                        <option value="cardano_usdt">ADA/USDT</option>
-                                        <option value="polkadot">DOT/EUR</option>
-                                        <option value="polkadot_usdt">DOT/USDT</option>
-                                        <option value="chainlink">LINK/EUR</option>
-                                        <option value="chainlink_usdt">LINK/USDT</option>
-                                        <option value="litecoin">LTC/EUR</option>
-                                        <option value="litecoin_usdt">LTC/USDT</option>
-                                        <option value="ripple">XRP/USDT</option>
-                                        <option value="ripple_eur">XRP/EUR</option>
-                                        <option value="binance_coin">BNB/USDT</option>
-                                        <option value="binance_coin_eur">BNB/EUR</option>
-                                        <option value="pol_polygon">POL/USDT</option>
-                                        <option value="pol_polygon_eur">POL/EUR</option>
-                                        <option value="avalanche">AVAX/USDT</option>
-                                        <option value="avalanche_eur">AVAX/EUR</option>
-                                        <option value="uniswap">UNI/USDT</option>
-                                        <option value="uniswap_eur">UNI/EUR</option>
-                                        <option value="dogecoin">DOGE/USDT</option>
-                                        <option value="dogecoin_eur">DOGE/EUR</option>
-                                        <option value="shiba">SHIB/USDT</option>
-                                        <option value="shiba_eur">SHIB/EUR</option>
-                                    </>
+                                {availableSymbols.length > 0 ? (
+                                    availableSymbols.map(s => (
+                                        <option key={s.symbol} value={s.symbol}>
+                                            {s.display}
+                                        </option>
+                                    ))
+                                ) : (
+                                    <option value="bitcoin">Loading symbols...</option>
                                 )}
                             </select>
                             <span style={{ color: '#9ca3af', fontSize: '0.9rem' }}>
