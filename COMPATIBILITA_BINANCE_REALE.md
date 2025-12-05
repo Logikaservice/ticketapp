@@ -233,3 +233,4 @@ Quando aggiungi nuove funzionalità, verifica:
 - Per principianti: **Disabilita SHORT**, usa solo LONG con Binance Spot
 - Il resto del sistema è già compatibile e pronto per Binance reale
 
+

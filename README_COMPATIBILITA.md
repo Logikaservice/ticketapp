@@ -110,3 +110,4 @@ Prima di commitare nuove funzionalità:
 
 **Regola d'oro**: Se non sei sicuro se una funzionalità è compatibile, chiedi o verifica la documentazione Binance prima di implementare.
 
+

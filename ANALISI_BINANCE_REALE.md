@@ -257,3 +257,4 @@ Il sistema **funziona bene in modalità DEMO**, ma per usare **Binance reale con
 
 **Rischio**: ALTO - Trading automatico con capitale reale può causare perdite significative se non testato accuratamente.
 
+

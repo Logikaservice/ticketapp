@@ -3482,6 +3482,37 @@ router.get('/bot-analysis', async (req, res) => {
             }));
         }
 
+        // ✅ FIX: Se i dati sono vecchi (bot inattivo) o mancanti, scarica da Binance in tempo reale
+        const lastTimestamp = historyForSignal.length > 0 ? new Date(historyForSignal[historyForSignal.length - 1].timestamp) : new Date(0);
+        const isStale = (new Date() - lastTimestamp) > 15 * 60 * 1000; // Più vecchio di 15 minuti
+
+        if (isStale || historyForSignal.length < 50) {
+            console.log('🔍 [BOT-ANALYSIS] Dati locali vecchi o insufficienti. Scarico da Binance...');
+            try {
+                const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
+                const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
+                console.log(`🔍 [BOT-ANALYSIS] Fetching klines from ${binanceUrl}`);
+
+                const klines = await httpsGet(binanceUrl);
+
+                if (Array.isArray(klines) && klines.length > 0) {
+                    historyForSignal = klines.map(k => ({
+                        timestamp: new Date(k[0]).toISOString(),
+                        open: parseFloat(k[1]),
+                        high: parseFloat(k[2]),
+                        low: parseFloat(k[3]),
+                        close: parseFloat(k[4]),
+                        price: parseFloat(k[4]), // compatibilità
+                        volume: parseFloat(k[5])
+                    }));
+                    console.log(`✅ [BOT-ANALYSIS] Scaricate ${historyForSignal.length} candele da Binance`);
+                }
+            } catch (binanceError) {
+                console.error('❌ [BOT-ANALYSIS] Errore scaricamento Binance:', binanceError.message);
+                // Continua con i dati vecchi se fallisce
+            }
+        }
+
         // Generate signal with full details
         console.log('🔍 [BOT-ANALYSIS] History length:', historyForSignal ? historyForSignal.length : 0);
         if (!historyForSignal || historyForSignal.length === 0) {
