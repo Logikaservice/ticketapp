@@ -77,7 +77,6 @@ const CryptoDashboard = () => {
                 setAllTrades(data.all_trades || []); // Store full history for chart
                 setOpenPositions(data.open_positions || []); // Store open positions
                 setClosedPositions(data.closed_positions || []); // ✅ FIX: Store closed positions per P&L
-                setClosedPositions(data.closed_positions || []); // ✅ FIX: Store closed positions per P&L
                 const bot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy' && b.symbol === currentSymbol);
                 if (bot) setBotStatus({ active: bot.is_active === 1, strategy: bot.strategy_name });
                 // Load bot parameters for backtesting

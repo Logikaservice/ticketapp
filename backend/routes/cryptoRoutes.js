@@ -372,6 +372,9 @@ router.get('/dashboard', async (req, res) => {
             dbAll("SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC"),
             dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 100") // ✅ FIX: Recupera anche posizioni chiuse per signal_details
         ]);
+        
+        // ✅ FIX: Log per debug
+        console.log(`📊 Dashboard: ${openPositions?.length || 0} open positions, ${closedPositions?.length || 0} closed positions, ${trades?.length || 0} trades`);
 
         // Calculate Average Buy Price for current holdings
         let avgBuyPrice = 0;
@@ -660,21 +663,37 @@ const SYMBOL_TO_COINGECKO = {
 
 // Helper to get price for a symbol
 // ✅ FIX: Helper per ottenere tasso di cambio USDT/EUR
+// Cache del tasso per evitare troppe chiamate API
+let cachedUSDTtoEURRate = null;
+let cacheTimestamp = 0;
+const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minuti
+
 const getUSDTtoEURRate = async () => {
+    // ✅ FIX: Usa cache se disponibile e recente
+    const now = Date.now();
+    if (cachedUSDTtoEURRate && (now - cacheTimestamp) < CACHE_DURATION_MS) {
+        return cachedUSDTtoEURRate;
+    }
+    
     try {
-        // Prova a ottenere USDT/EUR da Binance (se disponibile) o usa tasso fisso
-        // USDT è ancorato a USD, quindi usiamo EUR/USD come proxy
+        // Prova a ottenere EUR/USDT da Binance (se disponibile) o usa tasso fisso
+        // EURUSDT = quanti USDT per 1 EUR (es. 1.08 = 1 EUR = 1.08 USDT)
+        // Quindi 1 USDT = 1 / EURUSDT EUR
         const eurUsdData = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT`);
         if (eurUsdData && eurUsdData.price) {
-            // EURUSDT = quanti USDT per 1 EUR (es. 1.08 = 1 EUR = 1.08 USDT)
-            // Quindi 1 USDT = 1 / EURUSDT EUR
-            return 1 / parseFloat(eurUsdData.price);
+            const rate = 1 / parseFloat(eurUsdData.price);
+            cachedUSDTtoEURRate = rate;
+            cacheTimestamp = now;
+            return rate;
         }
     } catch (e) {
         console.warn('⚠️ Could not fetch EUR/USDT rate, using fallback 0.92');
     }
     // Fallback: 1 USDT ≈ 0.92 EUR (approssimativo)
-    return 0.92;
+    const fallbackRate = 0.92;
+    cachedUSDTtoEURRate = fallbackRate;
+    cacheTimestamp = now;
+    return fallbackRate;
 };
 
 const getSymbolPrice = async (symbol) => {
@@ -691,9 +710,18 @@ const getSymbolPrice = async (symbol) => {
             
             // ✅ FIX CRITICO: Se la coppia è in USDT, converti in EUR
             if (isUSDT) {
-                const usdtToEurRate = await getUSDTtoEURRate();
-                price = price * usdtToEurRate;
-                console.log(`💱 [PRICE] ${tradingPair}: ${data.price} USDT → €${price.toFixed(2)} EUR (rate: ${usdtToEurRate.toFixed(4)})`);
+                try {
+                    const usdtToEurRate = await getUSDTtoEURRate();
+                    price = price * usdtToEurRate;
+                    // Log solo occasionalmente per non intasare i log
+                    if (Math.random() < 0.1) {
+                        console.log(`💱 [PRICE] ${tradingPair}: ${data.price} USDT → €${price.toFixed(2)} EUR (rate: ${usdtToEurRate.toFixed(4)})`);
+                    }
+                } catch (rateError) {
+                    console.error(`⚠️ Error converting USDT to EUR for ${tradingPair}:`, rateError.message);
+                    // Usa fallback rate se la conversione fallisce
+                    price = price * 0.92;
+                }
             }
             
             return price;
@@ -1042,12 +1070,15 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             const binanceMode = process.env.BINANCE_MODE || 'demo';
             const supportsShort = process.env.BINANCE_SUPPORTS_SHORT === 'true';
             
+            // ✅ FIX CRITICO: Se SHORT non è supportato, salta tutto il blocco SHORT ma continua il ciclo
             if ((binanceMode === 'live' || binanceMode === 'testnet') && !supportsShort) {
-                console.log(`⚠️ SHORT signal ignorato: Binance Spot non supporta short.`);
+                console.log(`⚠️ SHORT signal ignorato per ${symbol}: Binance Spot non supporta short.`);
                 console.log(`   Per usare SHORT, configura BINANCE_SUPPORTS_SHORT=true e usa Binance Futures.`);
                 console.log(`   Oppure disabilita SHORT per usare solo LONG (raccomandato per principianti).`);
-                return; // Ignora segnale SHORT se non supportato
-            }
+                // ✅ FIX: NON fare return - il ciclo continua per aggiornare posizioni esistenti e processare altri segnali
+                // Il bot deve continuare a funzionare anche se SHORT non è supportato
+            } else {
+                // ✅ FIX: Solo se SHORT è supportato (DEMO o Futures), procedi con l'apertura SHORT
             
             // Verifica se possiamo aprire SHORT
             // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
@@ -1100,6 +1131,8 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             } else if (!canOpen.allowed) {
                 console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: €${riskCheck.availableExposure.toFixed(2)}`);
             }
+            } // ✅ FIX: Chiude il blocco else per SHORT supportato
+        } // ✅ FIX: Chiude il blocco else per SHORT supportato
         }
         else {
             // Segnale NEUTRAL o troppo debole
@@ -2523,19 +2556,39 @@ router.get('/statistics', async (req, res) => {
         let totalCryptoValue = 0;
         const symbolPrices = {}; // Cache prezzi per evitare chiamate duplicate
         
-        for (const symbol of Object.keys(holdings)) {
-            const amount = holdings[symbol] || 0;
-            if (amount > 0.0001) { // Solo se ci sono holdings significative
-                try {
-                    if (!symbolPrices[symbol]) {
-                        symbolPrices[symbol] = await getSymbolPrice(symbol);
+        // ✅ FIX: Valida che holdings sia un oggetto
+        if (holdings && typeof holdings === 'object') {
+            for (const symbol of Object.keys(holdings)) {
+                // ✅ FIX: Valida il simbolo
+                if (!symbol || typeof symbol !== 'string') {
+                    console.warn(`⚠️ Skipping invalid symbol in holdings:`, symbol);
+                    continue;
+                }
+                
+                const amount = holdings[symbol] || 0;
+                if (amount > 0.0001) { // Solo se ci sono holdings significative
+                    try {
+                        if (!symbolPrices[symbol]) {
+                            const price = await getSymbolPrice(symbol);
+                            if (price > 0) {
+                                symbolPrices[symbol] = price;
+                            } else {
+                                console.warn(`⚠️ Invalid price (${price}) for ${symbol} in statistics, skipping`);
+                                continue; // Salta questo simbolo se prezzo non valido
+                            }
+                        }
+                        const price = symbolPrices[symbol] || 0;
+                        if (price > 0) {
+                            totalCryptoValue += amount * price;
+                        }
+                    } catch (err) {
+                        console.warn(`⚠️ Could not fetch price for ${symbol} in statistics:`, err.message);
+                        // Continua con altri simboli invece di bloccare tutto
                     }
-                    const price = symbolPrices[symbol] || 0;
-                    totalCryptoValue += amount * price;
-                } catch (err) {
-                    console.warn(`⚠️ Could not fetch price for ${symbol} in statistics:`, err.message);
                 }
             }
+        } else {
+            console.warn(`⚠️ Holdings is not a valid object in statistics:`, typeof holdings);
         }
         
         const totalBalance = currentBalance + totalCryptoValue;
@@ -2557,54 +2610,84 @@ router.get('/statistics', async (req, res) => {
         let totalVolume = 0;
         
         // Calculate from closed positions (realized P&L)
-        closedPositions.forEach(pos => {
-            const pnl = pos.profit_loss || 0;
-            totalPnL += pnl;
-            if (pnl > 0) {
-                totalProfit += pnl;
-                winningTrades++;
-            } else if (pnl < 0) {
-                totalLoss += Math.abs(pnl);
-                losingTrades++;
-            }
-            totalVolume += (pos.volume || 0) * (pos.entry_price || 0);
-        });
+        // ✅ FIX: Valida che closedPositions sia un array
+        if (Array.isArray(closedPositions)) {
+            closedPositions.forEach(pos => {
+                if (!pos) return; // Salta posizioni null/undefined
+                const pnl = parseFloat(pos.profit_loss) || 0;
+                totalPnL += pnl;
+                if (pnl > 0) {
+                    totalProfit += pnl;
+                    winningTrades++;
+                } else if (pnl < 0) {
+                    totalLoss += Math.abs(pnl);
+                    losingTrades++;
+                }
+                totalVolume += (parseFloat(pos.volume) || 0) * (parseFloat(pos.entry_price) || 0);
+            });
+        } else {
+            console.warn(`⚠️ closedPositions is not an array in statistics:`, typeof closedPositions);
+        }
         
         // ✅ FIX CRITICO: Calculate unrealized P&L from open positions usando il prezzo CORRETTO per ogni simbolo
-        for (const pos of openPositions) {
-            const entryPrice = parseFloat(pos.entry_price) || 0;
-            const volume = parseFloat(pos.volume) || 0;
-            
-            // ✅ FIX: Ottieni il prezzo CORRETTO per il simbolo di questa posizione (non sempre Bitcoin!)
-            let symbolCurrentPrice = currentPrice; // Default a Bitcoin per backward compatibility
-            if (pos.symbol && pos.symbol !== 'bitcoin') {
-                try {
-                    const symbolPrice = await getSymbolPrice(pos.symbol);
-                    if (symbolPrice > 0) {
-                        symbolCurrentPrice = symbolPrice;
-                    }
-                } catch (err) {
-                    console.warn(`⚠️ Could not fetch price for ${pos.symbol}, using Bitcoin price as fallback`);
+        // ✅ FIX: Assicurati che openPositions sia un array
+        if (Array.isArray(openPositions)) {
+            for (const pos of openPositions) {
+                // ✅ FIX: Valida che la posizione abbia i campi necessari
+                if (!pos || !pos.symbol) {
+                    console.warn(`⚠️ Skipping invalid position in statistics:`, pos);
+                    continue;
                 }
+                
+                const entryPrice = parseFloat(pos.entry_price) || 0;
+                const volume = parseFloat(pos.volume) || 0;
+                
+                // ✅ FIX: Salta posizioni con dati invalidi
+                if (entryPrice <= 0 || volume <= 0) {
+                    console.warn(`⚠️ Skipping position with invalid entryPrice (${entryPrice}) or volume (${volume})`);
+                    continue;
+                }
+                
+                // ✅ FIX: Ottieni il prezzo CORRETTO per il simbolo di questa posizione (non sempre Bitcoin!)
+                let symbolCurrentPrice = currentPrice; // Default a Bitcoin per backward compatibility
+                if (pos.symbol && pos.symbol !== 'bitcoin') {
+                    try {
+                        const symbolPrice = await getSymbolPrice(pos.symbol);
+                        if (symbolPrice > 0) {
+                            symbolCurrentPrice = symbolPrice;
+                        } else {
+                            console.warn(`⚠️ Could not fetch valid price for ${pos.symbol} (got ${symbolPrice}), using entry price as fallback`);
+                            symbolCurrentPrice = entryPrice; // Usa entry price come fallback se prezzo non disponibile
+                        }
+                    } catch (err) {
+                        console.warn(`⚠️ Could not fetch price for ${pos.symbol} in statistics:`, err.message);
+                        symbolCurrentPrice = entryPrice; // Usa entry price come fallback
+                    }
+                }
+                
+                // Calcola P&L non realizzato usando il prezzo corretto
+                let unrealizedPnL = 0;
+                if (pos.type === 'buy') {
+                    // LONG: guadagni se prezzo sale
+                    unrealizedPnL = (symbolCurrentPrice - entryPrice) * volume;
+                } else if (pos.type === 'sell') {
+                    // SHORT: guadagni se prezzo scende
+                    unrealizedPnL = (entryPrice - symbolCurrentPrice) * volume;
+                } else {
+                    console.warn(`⚠️ Unknown position type: ${pos.type}, skipping P&L calculation`);
+                    continue;
+                }
+                
+                totalPnL += unrealizedPnL;
+                if (unrealizedPnL > 0) {
+                    totalProfit += unrealizedPnL;
+                } else if (unrealizedPnL < 0) {
+                    totalLoss += Math.abs(unrealizedPnL);
+                }
+                totalVolume += volume * entryPrice;
             }
-            
-            // Calcola P&L non realizzato usando il prezzo corretto
-            let unrealizedPnL = 0;
-            if (pos.type === 'buy') {
-                // LONG: guadagni se prezzo sale
-                unrealizedPnL = (symbolCurrentPrice - entryPrice) * volume;
-            } else {
-                // SHORT: guadagni se prezzo scende
-                unrealizedPnL = (entryPrice - symbolCurrentPrice) * volume;
-            }
-            
-            totalPnL += unrealizedPnL;
-            if (unrealizedPnL > 0) {
-                totalProfit += unrealizedPnL;
-            } else if (unrealizedPnL < 0) {
-                totalLoss += Math.abs(unrealizedPnL);
-            }
-            totalVolume += volume * entryPrice;
+        } else {
+            console.warn(`⚠️ openPositions is not an array in statistics:`, typeof openPositions);
         }
         
         // Also include trades with profit_loss (from manual trades) - but avoid double counting
@@ -2708,16 +2791,18 @@ router.get('/statistics', async (req, res) => {
                 trades_this_week: tradesThisWeek,
                 trades_this_month: tradesThisMonth,
                 
-                // Current Holdings
-                bitcoin_holdings: bitcoinHoldings,
-                current_bitcoin_price: currentPrice,
-                crypto_value: cryptoValue,
+                // Current Holdings (multi-symbol)
+                total_crypto_value: totalCryptoValue,
                 cash_balance: currentBalance
             }
         });
     } catch (error) {
-        console.error('Error calculating statistics:', error);
-        res.status(500).json({ error: error.message });
+        console.error('❌ Error calculating statistics:', error);
+        console.error('❌ Stack:', error.stack);
+        res.status(500).json({ 
+            error: error.message || 'Errore nel calcolo delle statistiche',
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
