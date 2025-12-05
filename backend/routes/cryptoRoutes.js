@@ -43,7 +43,7 @@ const httpsGet = (url) => {
                 });
                 return;
             }
-            
+
             // Handle non-200 status codes
             if (res.statusCode !== 200) {
                 let errorData = '';
@@ -53,7 +53,7 @@ const httpsGet = (url) => {
                 });
                 return;
             }
-            
+
             let data = '';
             res.on('data', (chunk) => data += chunk);
             res.on('end', () => {
@@ -92,16 +92,16 @@ router.get('/history', async (req, res) => {
             res.status(504).json({ error: 'Request timeout: Historical data loading took too long' });
         }
     }, 30000); // 30 secondi
-    
+
     try {
         // Get interval and symbol from query parameters
         const interval = req.query.interval || '15m'; // Support: 1m, 15m, 1h, 1d, etc.
         const symbol = req.query.symbol || 'bitcoin'; // Default to bitcoin for backward compatibility
-        
+
         // Check if we have OHLC klines data first (preferred)
         const klinesCountRows = await dbAll(`SELECT COUNT(*) as count FROM klines WHERE symbol = ? AND interval = ?`, [symbol, interval]);
         const klinesCount = klinesCountRows && klinesCountRows.length > 0 ? klinesCountRows[0].count : 0;
-        
+
         // Also check price_history for backward compatibility
         const countRows = await dbAll("SELECT COUNT(*) as count FROM price_history WHERE symbol = ?", [symbol]);
         const count = countRows && countRows.length > 0 ? countRows[0].count : 0;
@@ -123,38 +123,38 @@ router.get('/history', async (req, res) => {
         } else if (interval === '30m') {
             limit = 1000; // ~20 giorni di candele 30m
         }
-        
+
         // If we have less than required klines, try to load from Binance
         // ✅ FIX: Carica sempre almeno 24 ore di candele per copertura completa
         const minRequired = interval === '1m' ? 1000 : 200;
         const shouldLoadFromBinance = klinesCount < minRequired;
-        
+
         // ✅ FIX: Calcola sempre almeno 7 giorni di candele per avere dati sufficienti per il grafico
         const candlesNeededFor7Days = interval === '15m' ? 672 : // 7 days (4 candles/hour * 24 * 7)
-                                      interval === '1m' ? 10080 : // 7 days (60 candles/hour * 24 * 7)
-                                      interval === '5m' ? 2016 : // 7 days (12 candles/hour * 24 * 7)
-                                      interval === '30m' ? 336 : // 7 days (2 candles/hour * 24 * 7)
-                                      interval === '1h' ? 168 : // 7 days
-                                      interval === '4h' ? 42 : // 7 days
-                                      interval === '1d' ? 30 : // 30 days
-                                      672; // Default: 7 days
-        
+            interval === '1m' ? 10080 : // 7 days (60 candles/hour * 24 * 7)
+                interval === '5m' ? 2016 : // 7 days (12 candles/hour * 24 * 7)
+                    interval === '30m' ? 336 : // 7 days (2 candles/hour * 24 * 7)
+                        interval === '1h' ? 168 : // 7 days
+                            interval === '4h' ? 42 : // 7 days
+                                interval === '1d' ? 30 : // 30 days
+                                    672; // Default: 7 days
+
         // ✅ FIX: Usa sempre almeno 7 giorni, o il limite richiesto se maggiore
         const binanceLimit = Math.max(limit, candlesNeededFor7Days);
-        
+
         // Carica sempre da Binance se abbiamo meno del minimo richiesto o se è un simbolo nuovo
         if (shouldLoadFromBinance || klinesCount < candlesNeededFor7Days) {
             console.log(`📥 Loading ${binanceLimit} klines from Binance for interval ${interval} (current count: ${klinesCount})...`);
-            
+
             try {
                 // Load klines from Binance with specified interval
                 const https = require('https');
                 const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
                 const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=${interval}&limit=${binanceLimit}`;
-                
+
                 // ✅ FIX: Aggiungi timeout di 10 secondi per evitare 504 Gateway Timeout
                 const TIMEOUT_MS = 10000; // 10 secondi
-                
+
                 const binanceData = await new Promise((resolve, reject) => {
                     const request = https.get(binanceUrl, (res) => {
                         // Verifica status code
@@ -162,7 +162,7 @@ router.get('/history', async (req, res) => {
                             reject(new Error(`Binance API returned status ${res.statusCode}`));
                             return;
                         }
-                        
+
                         let data = '';
                         res.on('data', chunk => data += chunk);
                         res.on('end', () => {
@@ -179,13 +179,13 @@ router.get('/history', async (req, res) => {
                             }
                         });
                     });
-                    
+
                     // ✅ FIX: Timeout per evitare richieste che si bloccano
                     request.setTimeout(TIMEOUT_MS, () => {
                         request.destroy();
                         reject(new Error(`Binance API request timeout after ${TIMEOUT_MS}ms`));
                     });
-                    
+
                     request.on('error', (err) => {
                         reject(new Error(`Binance API request failed: ${err.message}`));
                     });
@@ -204,7 +204,7 @@ router.get('/history', async (req, res) => {
                     const volume = parseFloat(kline[5]);
                     const closeTime = parseInt(kline[6]);
                     const timestamp = new Date(openTime).toISOString();
-                    
+
                     try {
                         // Save close price for backward compatibility
                         await dbRun(
@@ -212,7 +212,7 @@ router.get('/history', async (req, res) => {
                             [symbol, close, timestamp]
                         );
                         saved++;
-                        
+
                         // Save complete OHLC kline
                         await dbRun(
                             `INSERT OR IGNORE INTO klines 
@@ -225,7 +225,7 @@ router.get('/history', async (req, res) => {
                         // Ignore duplicate errors
                     }
                 }
-                
+
                 console.log(`✅ Loaded ${saved} historical prices and ${savedKlines} klines from Binance`);
             } catch (err) {
                 console.error('⚠️ Error loading from Binance, using existing data:', err.message);
@@ -249,14 +249,14 @@ router.get('/history', async (req, res) => {
         // Aumenta il periodo per avere più dati: 7 giorni invece di solo 24 ore
         const daysToLoad = interval === '1d' ? 30 : interval === '1h' ? 7 : interval === '15m' ? 7 : 7;
         const candlesForPeriod = interval === '15m' ? daysToLoad * 24 * 4 : // 4 candele/ora per 15m
-                                 interval === '5m' ? daysToLoad * 24 * 12 : // 12 candele/ora per 5m
-                                 interval === '30m' ? daysToLoad * 24 * 2 : // 2 candele/ora per 30m
-                                 interval === '1h' ? daysToLoad * 24 : // 24 candele/giorno per 1h
-                                 interval === '4h' ? daysToLoad * 6 : // 6 candele/giorno per 4h
-                                 interval === '1d' ? daysToLoad : // 1 candela/giorno
-                                 limit;
+            interval === '5m' ? daysToLoad * 24 * 12 : // 12 candele/ora per 5m
+                interval === '30m' ? daysToLoad * 24 * 2 : // 2 candele/ora per 30m
+                    interval === '1h' ? daysToLoad * 24 : // 24 candele/giorno per 1h
+                        interval === '4h' ? daysToLoad * 6 : // 6 candele/giorno per 4h
+                            interval === '1d' ? daysToLoad : // 1 candela/giorno
+                                limit;
         const minTime = now - (candlesForPeriod * intervalDuration); // Timestamp minimo per le ultime N candele
-        
+
         const klinesRows = await dbAll(
             `SELECT open_time, open_price, high_price, low_price, close_price, volume 
              FROM klines 
@@ -265,7 +265,7 @@ router.get('/history', async (req, res) => {
              LIMIT ?`,
             [symbol, interval, minTime, Math.max(limit, candlesForPeriod)]
         );
-        
+
         if (klinesRows && klinesRows.length > 0) {
             // Return OHLC candlesticks (like TradingView)
             const candles = klinesRows
@@ -283,26 +283,26 @@ router.get('/history', async (req, res) => {
                 })
                 .filter(candle => !isNaN(candle.time) && candle.time > 0) // Filter invalid data
                 .sort((a, b) => a.time - b.time); // Ordina per sicurezza
-            
+
             // ✅ FIX: Verifica e riempi buchi nel grafico
             if (candles.length > 1) {
-                const intervalSeconds = interval === '15m' ? 15 * 60 : 
-                                       interval === '1m' ? 60 :
-                                       interval === '5m' ? 5 * 60 :
-                                       interval === '30m' ? 30 * 60 :
-                                       interval === '1h' ? 60 * 60 :
-                                       interval === '4h' ? 4 * 60 * 60 :
-                                       interval === '1d' ? 24 * 60 * 60 : 15 * 60;
-                
+                const intervalSeconds = interval === '15m' ? 15 * 60 :
+                    interval === '1m' ? 60 :
+                        interval === '5m' ? 5 * 60 :
+                            interval === '30m' ? 30 * 60 :
+                                interval === '1h' ? 60 * 60 :
+                                    interval === '4h' ? 4 * 60 * 60 :
+                                        interval === '1d' ? 24 * 60 * 60 : 15 * 60;
+
                 const filledCandles = [];
                 for (let i = 0; i < candles.length - 1; i++) {
                     filledCandles.push(candles[i]);
-                    
+
                     // Verifica se c'è un buco tra questa candela e la successiva
                     const currentTime = candles[i].time;
                     const nextTime = candles[i + 1].time;
                     const expectedNextTime = currentTime + intervalSeconds;
-                    
+
                     // Se c'è un gap maggiore di 1.5x l'intervallo, riempi con candele vuote
                     if (nextTime - currentTime > intervalSeconds * 1.5) {
                         let gapTime = expectedNextTime;
@@ -321,7 +321,7 @@ router.get('/history', async (req, res) => {
                     }
                 }
                 filledCandles.push(candles[candles.length - 1]); // Aggiungi ultima candela
-                
+
                 const firstTime = filledCandles[0] ? new Date(filledCandles[0].time * 1000).toISOString() : 'N/A';
                 const lastTime = filledCandles[filledCandles.length - 1] ? new Date(filledCandles[filledCandles.length - 1].time * 1000).toISOString() : 'N/A';
                 console.log(`📊 Returning ${filledCandles.length} OHLC candlesticks from klines table (interval: ${interval}, original: ${candles.length}, filled gaps)`);
@@ -339,7 +339,7 @@ router.get('/history', async (req, res) => {
         } else {
             // Fallback to price_history points (backward compatibility)
             const historyRows = await dbAll("SELECT price, timestamp FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp ASC LIMIT 500");
-            
+
             // Convert to format expected by frontend
             const history = (historyRows || []).map(row => ({
                 time: new Date(row.timestamp).getTime() / 1000, // Unix timestamp in seconds
@@ -383,7 +383,7 @@ const dbGet = (query, params = []) => {
 // Helper for db.run using Promises
 const dbRun = (query, params = []) => {
     return new Promise((resolve, reject) => {
-        db.run(query, params, function(err) {
+        db.run(query, params, function (err) {
             if (err) reject(err);
             else resolve({ lastID: this.lastID, changes: this.changes });
         });
@@ -402,7 +402,7 @@ router.get('/dashboard', async (req, res) => {
             dbAll("SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC"),
             dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 100") // ✅ FIX: Recupera anche posizioni chiuse per signal_details
         ]);
-        
+
         // ✅ FIX: Log per debug
         console.log(`📊 Dashboard: ${openPositions?.length || 0} open positions, ${closedPositions?.length || 0} closed positions, ${trades?.length || 0} trades`);
 
@@ -448,7 +448,7 @@ router.get('/dashboard', async (req, res) => {
             }
             return trade;
         });
-        
+
         res.json({
             portfolio: {
                 balance_usd: portfolio.balance_usd,
@@ -504,7 +504,7 @@ router.get('/price/:symbol', async (req, res) => {
         }
 
         // Return price in EUR (same format as bot uses from Binance)
-        res.json({ 
+        res.json({
             success: true,
             price: price, // EUR price from Binance
             currency: 'EUR',
@@ -523,26 +523,26 @@ router.post('/reset', async (req, res) => {
         // 1. Conta posizioni e trades prima di cancellarli
         const positionCountRows = await dbAll("SELECT COUNT(*) as count FROM open_positions");
         const positionCount = positionCountRows && positionCountRows.length > 0 ? positionCountRows[0].count : 0;
-        
+
         const tradeCountRows = await dbAll("SELECT COUNT(*) as count FROM trades");
         const tradeCount = tradeCountRows && tradeCountRows.length > 0 ? tradeCountRows[0].count : 0;
-        
+
         // 2. Cancella TUTTE le posizioni (aperte e chiuse) - questo rimuove anche dal grafico
         await dbRun("DELETE FROM open_positions");
         console.log(`🗑️ Cancellate ${positionCount} posizione/i (aperte e chiuse)`);
-        
+
         // 3. Cancella TUTTI i trades - questo rimuove marker dal grafico e lista recenti
         await dbRun("DELETE FROM trades");
         console.log(`🗑️ Cancellati ${tradeCount} trade/i`);
-        
+
         // 4. Reset portfolio a €250
         await dbRun("UPDATE portfolio SET balance_usd = 250, holdings = '{}' WHERE id = 1");
-        
+
         // 5. Invalida cache Risk Manager
         riskManager.invalidateCache();
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             message: `Portfolio resettato completamente a €250. Cancellate ${positionCount} posizione/i e ${tradeCount} trade/i. Grafico e lista recenti puliti.`,
             deleted_positions: positionCount,
             deleted_trades: tradeCount
@@ -704,7 +704,7 @@ const getUSDTtoEURRate = async () => {
     if (cachedUSDTtoEURRate && (now - cacheTimestamp) < CACHE_DURATION_MS) {
         return cachedUSDTtoEURRate;
     }
-    
+
     try {
         // Prova a ottenere EUR/USDT da Binance (se disponibile) o usa tasso fisso
         // EURUSDT = quanti USDT per 1 EUR (es. 1.08 = 1 EUR = 1.08 USDT)
@@ -729,15 +729,15 @@ const getUSDTtoEURRate = async () => {
 const getSymbolPrice = async (symbol) => {
     const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
     const coingeckoId = SYMBOL_TO_COINGECKO[symbol] || 'bitcoin';
-    
+
     // ✅ FIX: Verifica se la coppia è in USDT (serve conversione)
     const isUSDT = tradingPair.endsWith('USDT');
-    
+
     try {
         const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=${tradingPair}`);
         if (data && data.price) {
             let price = parseFloat(data.price);
-            
+
             // ✅ FIX CRITICO: Se la coppia è in USDT, converti in EUR
             if (isUSDT) {
                 try {
@@ -753,7 +753,7 @@ const getSymbolPrice = async (symbol) => {
                     price = price * 0.92;
                 }
             }
-            
+
             return price;
         }
         throw new Error("Invalid data from Binance");
@@ -811,16 +811,20 @@ const calculateRSI = (prices, period = 14) => {
 const runBotCycleForSymbol = async (symbol, botSettings) => {
     try {
         const isBotActive = botSettings && botSettings.is_active === 1;
-        
+
         // Get current price for this symbol
         let currentPrice = await getSymbolPrice(symbol);
-        
+
         if (currentPrice === 0) {
             console.error(`⚠️ Could not fetch price for ${symbol}, skipping cycle`);
             return;
         }
 
-        // 3. Update history (RAM + DB) - Load price history for this symbol
+        // ✅ REFACTORING: Manteniamo price_history per backward compatibility (dashboard, RSI legacy)
+        // ma non lo usiamo più per i segnali del bot
+        await dbRun("INSERT INTO price_history (symbol, price) VALUES (?, ?)", [symbol, currentPrice]);
+
+        // Carica price_history per RSI legacy (backward compatibility)
         const symbolPriceHistory = await dbAll(
             "SELECT price FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 50",
             [symbol]
@@ -829,16 +833,14 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         priceHistory.push(currentPrice);
         if (priceHistory.length > 50) priceHistory.shift();
 
-        await dbRun("INSERT INTO price_history (symbol, price) VALUES (?, ?)", [symbol, currentPrice]);
-
         // ✅ FIX: Aggiorna candele klines in tempo reale per tutti gli intervalli
         const intervalsToUpdate = ['1m', '5m', '15m', '30m', '1h', '4h', '1d'];
         const now = Date.now();
-        
+
         // Helper function per calcolare candleStartTime allineato ai minuti naturali
         const calculateAlignedCandleTime = (timestamp, interval) => {
             const date = new Date(timestamp);
-            
+
             if (interval === '1m') {
                 date.setSeconds(0, 0);
                 return date.getTime();
@@ -884,31 +886,31 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 return Math.floor(timestamp / intervalDuration) * intervalDuration;
             }
         };
-        
+
         // Aggiorna solo l'intervallo più importante (15m) per evitare troppe query
         // Gli altri intervalli verranno aggiornati quando necessario
         const primaryInterval = '15m';
-        
+
         try {
             // ✅ FIX: Usa funzione helper per allineamento corretto
             const candleStartTime = calculateAlignedCandleTime(now, primaryInterval);
-            
+
             // Verifica se esiste già una candela per questo periodo
             const existingKline = await dbGet(
                 "SELECT * FROM klines WHERE symbol = ? AND interval = ? AND open_time = ?",
                 [symbol, primaryInterval, candleStartTime]
             );
-            
+
             if (existingKline) {
                 // Aggiorna candela esistente: aggiorna high, low, close
                 const newHigh = Math.max(existingKline.high_price, currentPrice);
                 const newLow = Math.min(existingKline.low_price, currentPrice);
-                
+
                 await dbRun(
                     "UPDATE klines SET high_price = ?, low_price = ?, close_price = ?, close_time = ? WHERE symbol = ? AND interval = ? AND open_time = ?",
                     [newHigh, newLow, currentPrice, now, symbol, primaryInterval, candleStartTime]
                 );
-                
+
                 // Log solo ogni 10 aggiornamenti per non intasare i log
                 if (Math.random() < 0.1) {
                     console.log(`📊 [${symbol.toUpperCase()}] Kline ${primaryInterval} aggiornata: ${new Date(candleStartTime).toISOString()} | Price: €${currentPrice.toFixed(2)} | High: €${newHigh.toFixed(2)} | Low: €${newLow.toFixed(2)}`);
@@ -926,25 +928,25 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         } catch (err) {
             console.error(`⚠️ Error updating kline for interval ${primaryInterval}:`, err.message);
         }
-        
+
         // Aggiorna anche gli altri intervalli, ma meno frequentemente (ogni 10 cicli)
         if (Math.random() < 0.1) {
             for (const interval of intervalsToUpdate) {
                 if (interval === primaryInterval) continue; // Già aggiornato sopra
-                
+
                 try {
                     // ✅ FIX: Usa funzione helper per allineamento corretto
                     const candleStartTime = calculateAlignedCandleTime(now, interval);
-                    
+
                     const existingKline = await dbGet(
                         "SELECT * FROM klines WHERE symbol = ? AND interval = ? AND open_time = ?",
                         [symbol, interval, candleStartTime]
                     );
-                    
+
                     if (existingKline) {
                         const newHigh = Math.max(existingKline.high_price, currentPrice);
                         const newLow = Math.min(existingKline.low_price, currentPrice);
-                        
+
                         await dbRun(
                             "UPDATE klines SET high_price = ?, low_price = ?, close_price = ?, close_time = ? WHERE symbol = ? AND interval = ? AND open_time = ?",
                             [newHigh, newLow, currentPrice, now, symbol, interval, candleStartTime]
@@ -974,7 +976,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         // 5. Get bot parameters for this symbol
         const params = await getBotParameters(symbol);
         const rsi = calculateRSI(priceHistory, params.rsi_period);
-        
+
         // Update latest RSI for dashboard (only for bitcoin for backward compatibility)
         if (symbol === 'bitcoin') {
             latestRSI = rsi;
@@ -989,7 +991,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
         // 6. RISK CHECK - Protezione PRIMA di tutto
         const riskCheck = await riskManager.calculateMaxRisk();
-        
+
         if (!riskCheck.canTrade) {
             console.log(`🛑 RISK MANAGER: Trading blocked - ${riskCheck.reason}`);
             console.log(`   Daily Loss: ${(riskCheck.dailyLoss * 100).toFixed(2)}% | Exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Drawdown: ${(riskCheck.drawdown * 100).toFixed(2)}%`);
@@ -998,22 +1000,97 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
         console.log(`✅ RISK MANAGER: OK - Max Position: €${riskCheck.maxPositionSize.toFixed(2)} | Available Exposure: ${(riskCheck.availableExposurePct * 100).toFixed(2)}%`);
 
-        // 7. Get price history for signal generation
-        const priceHistoryData = await dbAll(
-            "SELECT price, timestamp FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 50",
-            [symbol]
+        // ✅ REFACTORING: Usa candele reali (15m) invece di price_history per segnali affidabili
+        // 7. Carica ultime 100 candele complete 15m per analisi trend reali
+        const timeframe = '15m'; // Timeframe principale per analisi
+        const klinesData = await dbAll(
+            `SELECT open_time, open_price, high_price, low_price, close_price, volume, close_time 
+             FROM klines 
+             WHERE symbol = ? AND interval = ? 
+             ORDER BY open_time DESC 
+             LIMIT 100`,
+            [symbol, timeframe]
         );
-        
-        // Reverse to chronological order
-        const historyForSignal = priceHistoryData.reverse().map(row => ({
-            price: row.price,
-            timestamp: row.timestamp
-        }));
 
-        // 8. Generate bidirectional signal
-        const signal = signalGenerator.generateSignal(historyForSignal);
+        // Verifica se abbiamo candele sufficienti
+        let signal;
+        if (!klinesData || klinesData.length < 20) {
+            console.log(`⚠️ BOT [${symbol.toUpperCase()}]: Insufficient klines data (${klinesData?.length || 0} < 20). Using price_history fallback.`);
+            // Fallback a price_history se non ci sono abbastanza candele
+            const priceHistoryData = await dbAll(
+                "SELECT price, timestamp FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 50",
+                [symbol]
+            );
+            const historyForSignal = priceHistoryData.reverse().map(row => ({
+                price: row.price,
+                timestamp: row.timestamp
+            }));
+            signal = signalGenerator.generateSignal(historyForSignal);
+        } else {
+            // Reverse to chronological order (oldest first)
+            const klinesChronological = klinesData.reverse();
 
-        // ✅ LOGGING DETTAGLIATO per debug
+            // Formatta come array di oggetti { close, high, low, volume, price } per signalGenerator
+            const historyForSignal = klinesChronological.map(kline => ({
+                close: parseFloat(kline.close_price),
+                high: parseFloat(kline.high_price),
+                low: parseFloat(kline.low_price),
+                volume: parseFloat(kline.volume || 0),
+                price: parseFloat(kline.close_price), // Per backward compatibility
+                open: parseFloat(kline.open_price),
+                timestamp: kline.open_time
+            }));
+
+            // ✅ FILTRO VOLATILITÀ: Calcola ATR e blocca trade se volatilità anomala
+            const highs = historyForSignal.map(k => k.high);
+            const lows = historyForSignal.map(k => k.low);
+            const closes = historyForSignal.map(k => k.close);
+            const atr = signalGenerator.calculateATR(highs, lows, closes, 14);
+
+            if (atr) {
+                const currentPrice = historyForSignal[historyForSignal.length - 1].close;
+                const atrPct = (atr / currentPrice) * 100; // ATR come % del prezzo
+
+                // Blocca trade se volatilità troppo bassa (mercato piatto) o troppo alta (news event)
+                const MIN_ATR_PCT = 0.3; // Minimo 0.3% ATR (mercato troppo piatto)
+                const MAX_ATR_PCT = 5.0; // Massimo 5% ATR (evento improvviso, troppo rischioso)
+
+                if (atrPct < MIN_ATR_PCT) {
+                    console.log(`⚠️ BOT [${symbol.toUpperCase()}]: Trading blocked - ATR too low (${atrPct.toFixed(2)}% < ${MIN_ATR_PCT}%) - Market too flat`);
+                    return; // Non tradare in mercato piatto
+                }
+
+                if (atrPct > MAX_ATR_PCT) {
+                    console.log(`⚠️ BOT [${symbol.toUpperCase()}]: Trading blocked - ATR too high (${atrPct.toFixed(2)}% > ${MAX_ATR_PCT}%) - Possible news event`);
+                    return; // Non tradare durante eventi improvvisi
+                }
+
+                console.log(`📊 BOT [${symbol.toUpperCase()}]: ATR: ${atrPct.toFixed(2)}% (OK for trading)`);
+            }
+
+            // ✅ LOGICA: Ricalcola segnali solo quando chiude una nuova candela 15m
+            // Tracking dell'ultima candela processata per evitare ricalcoli inutili
+            const lastProcessedCandleKey = `lastProcessedCandle_${symbol}_${timeframe}`;
+            const currentCandleOpenTime = calculateAlignedCandleTime(now, timeframe);
+            const lastProcessedCandle = global[lastProcessedCandleKey] || 0;
+
+            // Se la candela corrente è la stessa dell'ultima processata, usa il segnale cached
+            // Ricalcola solo quando chiude una nuova candela (open_time cambia)
+            if (currentCandleOpenTime === lastProcessedCandle && global[`cachedSignal_${symbol}`]) {
+                signal = global[`cachedSignal_${symbol}`];
+                console.log(`🔄 BOT [${symbol.toUpperCase()}]: Using cached signal (candle not closed yet)`);
+            } else {
+                // Nuova candela chiusa o prima volta - ricalcola segnale
+                console.log(`🆕 BOT [${symbol.toUpperCase()}]: New candle closed - Recalculating signal from ${klinesData.length} klines`);
+                signal = signalGenerator.generateSignal(historyForSignal);
+
+                // Cache il segnale e l'open_time della candela corrente
+                global[`cachedSignal_${symbol}`] = signal;
+                global[lastProcessedCandleKey] = currentCandleOpenTime;
+            }
+        }
+
+        // ✅ LOGGING DETTAGLIATO per debug (dopo generazione segnale, sia da klines che fallback)
         console.log(`📡 SIGNAL ANALYSIS:`);
         console.log(`   Direction: ${signal.direction}`);
         console.log(`   Strength: ${signal.strength}/100`);
@@ -1040,17 +1117,17 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         // ✅ STRATEGIA: 1000 posizioni piccole su analisi giuste > 1 posizione ogni tanto
         // Permettiamo MULTIPLE posizioni se il segnale è forte e il risk manager lo permette
         const MIN_SIGNAL_STRENGTH = 70; // Soglia alta per sicurezza 90%
-        
+
         if (signal.direction === 'LONG' && signal.strength >= MIN_SIGNAL_STRENGTH) {
             // Verifica se possiamo aprire LONG
             // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
             const maxAvailableForNewPosition = Math.min(
-                params.trade_size_eur, 
+                params.trade_size_eur,
                 riskCheck.maxPositionSize,
                 riskCheck.availableExposure * 0.1 // Max 10% dell'exposure disponibile per nuova posizione
             );
             const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
-            
+
             console.log(`🔍 LONG SIGNAL CHECK: Strength=${signal.strength} (>=${MIN_SIGNAL_STRENGTH}) | Confirmations=${signal.confirmations} (>=3) | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
 
             // ✅ FIX: Rimuovo controllo longPositions.length === 0 - permetto multiple posizioni
@@ -1086,7 +1163,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         } : null
                     }
                 });
-                
+
                 await openPosition(symbol, 'buy', amount, currentPrice, `LONG Signal (${signal.strength}/100)`, stopLoss, takeProfit, { ...options, signal_details: signalDetails });
                 console.log(`✅ BOT LONG: Opened position #${longPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
                 riskManager.invalidateCache(); // Invalida cache dopo operazione
@@ -1099,7 +1176,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             // Binance Spot NON supporta short - serve Futures o Margin
             const binanceMode = process.env.BINANCE_MODE || 'demo';
             const supportsShort = process.env.BINANCE_SUPPORTS_SHORT === 'true';
-            
+
             // ✅ FIX CRITICO: Se SHORT non è supportato, salta tutto il blocco SHORT ma continua il ciclo
             if ((binanceMode === 'live' || binanceMode === 'testnet') && !supportsShort) {
                 console.log(`⚠️ SHORT signal ignorato per ${symbol}: Binance Spot non supporta short.`);
@@ -1109,58 +1186,58 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 // Il bot deve continuare a funzionare anche se SHORT non è supportato
             } else {
                 // ✅ FIX: Solo se SHORT è supportato (DEMO o Futures), procedi con l'apertura SHORT
-            
-            // Verifica se possiamo aprire SHORT
-            // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
-            const maxAvailableForNewPosition = Math.min(
-                params.trade_size_eur, 
-                riskCheck.maxPositionSize,
-                riskCheck.availableExposure * 0.1 // Max 10% dell'exposure disponibile per nuova posizione
-            );
-            const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
-            
-            console.log(`🔍 SHORT SIGNAL CHECK: Strength=${signal.strength} (>=${MIN_SIGNAL_STRENGTH}) | Confirmations=${signal.confirmations} (>=5) | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
 
-            // ✅ FIX: Rimuovo controllo shortPositions.length === 0 - permetto multiple posizioni
-            if (canOpen.allowed) {
-                // Apri SHORT position
-                const amount = maxAvailableForNewPosition / currentPrice;
-                const stopLoss = currentPrice * (1 + params.stop_loss_pct / 100); // Per SHORT, SL è sopra
-                const takeProfit = currentPrice * (1 - params.take_profit_pct / 100); // Per SHORT, TP è sotto
+                // Verifica se possiamo aprire SHORT
+                // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
+                const maxAvailableForNewPosition = Math.min(
+                    params.trade_size_eur,
+                    riskCheck.maxPositionSize,
+                    riskCheck.availableExposure * 0.1 // Max 10% dell'exposure disponibile per nuova posizione
+                );
+                const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
-                const options = {
-                    trailing_stop_enabled: params.trailing_stop_enabled || false,
-                    trailing_stop_distance_pct: params.trailing_stop_distance_pct || 1.0,
-                    partial_close_enabled: params.partial_close_enabled || false,
-                    take_profit_1_pct: params.take_profit_1_pct || 1.5,
-                    take_profit_2_pct: params.take_profit_2_pct || 3.0
-                };
+                console.log(`🔍 SHORT SIGNAL CHECK: Strength=${signal.strength} (>=${MIN_SIGNAL_STRENGTH}) | Confirmations=${signal.confirmations} (>=5) | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
 
-                // ✅ FIX: Salva dettagli segnale per analisi successiva
-                const signalDetails = JSON.stringify({
-                    direction: signal.direction,
-                    strength: signal.strength,
-                    confirmations: signal.confirmations,
-                    reasons: signal.reasons,
-                    longSignal: signal.longSignal,
-                    shortSignal: signal.shortSignal,
-                    indicators: {
-                        rsi: signal.indicators?.rsi,
-                        trend: signal.indicators?.trend,
-                        macd: signal.indicators?.macd ? {
-                            macdLine: signal.indicators.macd.macdLine,
-                            signalLine: signal.indicators.macd.signalLine,
-                            histogram: signal.indicators.macd.histogram
-                        } : null
-                    }
-                });
-                
-                await openPosition(symbol, 'sell', amount, currentPrice, `SHORT Signal (${signal.strength}/100)`, stopLoss, takeProfit, { ...options, signal_details: signalDetails });
-                console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
-                riskManager.invalidateCache(); // Invalida cache dopo operazione
-            } else if (!canOpen.allowed) {
-                console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: €${riskCheck.availableExposure.toFixed(2)}`);
-            }
+                // ✅ FIX: Rimuovo controllo shortPositions.length === 0 - permetto multiple posizioni
+                if (canOpen.allowed) {
+                    // Apri SHORT position
+                    const amount = maxAvailableForNewPosition / currentPrice;
+                    const stopLoss = currentPrice * (1 + params.stop_loss_pct / 100); // Per SHORT, SL è sopra
+                    const takeProfit = currentPrice * (1 - params.take_profit_pct / 100); // Per SHORT, TP è sotto
+
+                    const options = {
+                        trailing_stop_enabled: params.trailing_stop_enabled || false,
+                        trailing_stop_distance_pct: params.trailing_stop_distance_pct || 1.0,
+                        partial_close_enabled: params.partial_close_enabled || false,
+                        take_profit_1_pct: params.take_profit_1_pct || 1.5,
+                        take_profit_2_pct: params.take_profit_2_pct || 3.0
+                    };
+
+                    // ✅ FIX: Salva dettagli segnale per analisi successiva
+                    const signalDetails = JSON.stringify({
+                        direction: signal.direction,
+                        strength: signal.strength,
+                        confirmations: signal.confirmations,
+                        reasons: signal.reasons,
+                        longSignal: signal.longSignal,
+                        shortSignal: signal.shortSignal,
+                        indicators: {
+                            rsi: signal.indicators?.rsi,
+                            trend: signal.indicators?.trend,
+                            macd: signal.indicators?.macd ? {
+                                macdLine: signal.indicators.macd.macdLine,
+                                signalLine: signal.indicators.macd.signalLine,
+                                histogram: signal.indicators.macd.histogram
+                            } : null
+                        }
+                    });
+
+                    await openPosition(symbol, 'sell', amount, currentPrice, `SHORT Signal (${signal.strength}/100)`, stopLoss, takeProfit, { ...options, signal_details: signalDetails });
+                    console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
+                    riskManager.invalidateCache(); // Invalida cache dopo operazione
+                } else if (!canOpen.allowed) {
+                    console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: €${riskCheck.availableExposure.toFixed(2)}`);
+                }
             } // ✅ FIX: Chiude il blocco else per SHORT supportato
         } // ✅ FIX: Chiude il blocco else if per SHORT
         else {
@@ -1193,7 +1270,7 @@ const runBotCycle = async () => {
         const activeBots = await dbAll(
             "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND is_active = 1"
         );
-        
+
         if (activeBots.length === 0) {
             // No active bots, but we still want to update prices for monitoring
             // Update price for bitcoin at least (for backward compatibility)
@@ -1203,7 +1280,7 @@ const runBotCycle = async () => {
             }
             return;
         }
-        
+
         // Run bot cycle for each active symbol
         for (const bot of activeBots) {
             await runBotCycleForSymbol(bot.symbol, bot);
@@ -1237,16 +1314,16 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
         //         throw new Error(`Ordine Binance fallito: ${binanceError.message}`);
         //     }
         // }
-        
+
         // Use Promise-based getPortfolio to properly await the result
         const portfolio = await getPortfolio();
-        
+
         const cost = volume * entryPrice;
         let balance = portfolio.balance_usd;
         let holdings = JSON.parse(portfolio.holdings || '{}');
 
         const balanceBefore = balance;
-        
+
         if (type === 'buy') {
             if (balance < cost) {
                 throw new Error('Insufficient funds');
@@ -1269,7 +1346,7 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
             "UPDATE portfolio SET balance_usd = ?, holdings = ?",
             [balance, JSON.stringify(holdings)]
         );
-        
+
         // Prepare additional fields for trailing stop and partial close
         const trailingStopEnabled = options.trailing_stop_enabled ? 1 : 0;
         const trailingStopDistance = options.trailing_stop_distance_pct || 0;
@@ -1279,7 +1356,7 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
 
         // ✅ FIX: Estrai signal_details dalle options se presente
         const signalDetails = options.signal_details || null;
-        
+
         await dbRun(
             `INSERT INTO open_positions 
             (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status,
@@ -1287,14 +1364,14 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
              take_profit_1, take_profit_2, signal_details)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)`,
             [ticketId, symbol, type, volume, entryPrice, entryPrice, stopLoss, takeProfit, strategy || 'Bot',
-             trailingStopEnabled, trailingStopDistance, entryPrice, takeProfit1, takeProfit2, signalDetails]
+                trailingStopEnabled, trailingStopDistance, entryPrice, takeProfit1, takeProfit2, signalDetails]
         );
 
         await dbRun(
             "INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
             [symbol, type, volume, entryPrice, strategy || 'Bot Open']
         );
-        
+
         // ✅ TODO BINANCE REALE: Quando si passa a Binance reale, creare ordini stop-loss/take-profit reali:
         // if (isBinanceAvailable() && stopLoss) {
         //     const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
@@ -1326,7 +1403,7 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
         });
 
         console.log(`✅ POSITION OPENED: ${ticketId} | ${type.toUpperCase()} ${volume.toFixed(8)} ${symbol} @ €${entryPrice.toFixed(2)} | SL: €${stopLoss?.toFixed(2) || 'N/A'} | TP: €${takeProfit?.toFixed(2) || 'N/A'}`);
-        
+
         return ticketId;
     } catch (err) {
         console.error('Error in openPosition:', err.message);
@@ -1345,7 +1422,7 @@ const executeTrade = async (symbol, type, amount, price, strategy, realizedPnl =
             const TAKE_PROFIT_PCT = params.take_profit_pct / 100;
             const stopLoss = price * (1 - STOP_LOSS_PCT);
             const takeProfit = price * (1 + TAKE_PROFIT_PCT);
-            
+
             // Prepare options for trailing stop and partial close
             const options = {
                 trailing_stop_enabled: params.trailing_stop_enabled || false,
@@ -1354,7 +1431,7 @@ const executeTrade = async (symbol, type, amount, price, strategy, realizedPnl =
                 take_profit_1_pct: params.take_profit_1_pct || 1.5,
                 take_profit_2_pct: params.take_profit_2_pct || 3.0
             };
-            
+
             await openPosition(symbol, type, amount, price, strategy, stopLoss, takeProfit, options);
             console.log(`✅ Position opened: ${type.toUpperCase()} ${amount} ${symbol} @ ${price} | TS: ${options.trailing_stop_enabled ? 'ON' : 'OFF'} | PC: ${options.partial_close_enabled ? 'ON' : 'OFF'}`);
         } catch (err) {
@@ -1711,7 +1788,7 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
         //         throw new Error(`Chiusura Binance fallita: ${binanceError.message}`);
         //     }
         // }
-        
+
         // Use Promise-based db.get to properly await the result
         const pos = await dbGet(
             "SELECT * FROM open_positions WHERE ticket_id = ? AND status = 'open'",
@@ -1724,7 +1801,7 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
 
         // ✅ FIX CRITICO: Calcola volume rimanente (considera partial closes)
         const remainingVolume = pos.volume - (pos.volume_closed || 0);
-        
+
         if (remainingVolume <= 0.0001) {
             console.log(`⚠️ closePosition: Position ${ticketId} already fully closed (volume_closed: ${pos.volume_closed || 0})`);
             // Mark as closed if not already
@@ -1796,7 +1873,7 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
             "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss, ticket_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [pos.symbol, pos.type === 'buy' ? 'sell' : 'buy', remainingVolume, closePrice, pos.strategy || 'Manual Close', finalPnl, pos.ticket_id]
         );
-        
+
         console.log(`✅ POSITION CLOSED: ${ticketId} | P&L: €${finalPnl.toFixed(2)} | Status: ${status} | Reason: ${reason}`);
 
         // Emit real-time notification
@@ -1823,10 +1900,10 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
 // GET /api/crypto/positions - Get all open positions
 router.get('/positions', (req, res) => {
     const { status } = req.query;
-    const query = status 
+    const query = status
         ? "SELECT * FROM open_positions WHERE status = ? ORDER BY opened_at DESC"
         : "SELECT * FROM open_positions ORDER BY opened_at DESC";
-    
+
     const params = status ? [status] : [];
 
     db.all(query, params, (err, rows) => {
@@ -1920,7 +1997,7 @@ router.post('/positions/close/:ticketId', async (req, res) => {
                 const tradingPair = (symbol === 'bitcoin' || !symbol) ? 'BTCEUR' : 'SOLEUR';
                 const priceData = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=${tradingPair}`);
                 finalPrice = parseFloat(priceData.price);
-                
+
                 if (!finalPrice || isNaN(finalPrice)) {
                     throw new Error('Invalid price received from Binance');
                 }
@@ -1999,8 +2076,8 @@ router.get('/binance/mode', (req, res) => {
     res.json({
         mode: getMode(),
         available: isBinanceAvailable(),
-        message: isBinanceAvailable() 
-            ? `Modalità attiva: ${getMode().toUpperCase()}` 
+        message: isBinanceAvailable()
+            ? `Modalità attiva: ${getMode().toUpperCase()}`
             : 'Modalità DEMO: usando simulazione locale'
     });
 });
@@ -2072,7 +2149,7 @@ router.get('/binance/symbols', async (req, res) => {
 
         const client = getBinanceClient();
         const baseUrl = client.getBaseUrl();
-        
+
         const https = require('https');
         const exchangeInfo = await new Promise((resolve, reject) => {
             const req = https.get(`${baseUrl}/api/v3/exchangeInfo`, (res) => {
@@ -2163,7 +2240,7 @@ router.post('/binance/order/market', async (req, res) => {
             statusCode: error.statusCode,
             response: error.response || 'N/A'
         });
-        
+
         res.status(error.statusCode || 500).json({
             error: error.message || 'Errore nella creazione dell\'ordine',
             code: error.code,
@@ -2380,13 +2457,13 @@ router.get('/symbols/available', async (req, res) => {
             { symbol: 'shiba', name: 'Shiba Inu', pair: 'SHIBUSDT', display: 'SHIB/USDT' },
             { symbol: 'shiba_eur', name: 'Shiba Inu', pair: 'SHIBEUR', display: 'SHIB/EUR' }
         ];
-        
+
         // Get active bots to show which symbols have bots running
         const activeBots = await dbAll(
             "SELECT symbol FROM bot_settings WHERE is_active = 1"
         );
         const activeSymbols = new Set(activeBots.map(b => b.symbol));
-        
+
         res.json({
             success: true,
             symbols: availableSymbols.map(s => ({
@@ -2404,24 +2481,24 @@ router.get('/symbols/available', async (req, res) => {
 router.post('/bot/toggle', async (req, res) => {
     try {
         const { strategy_name, symbol, is_active } = req.body;
-        
+
         console.log(`🤖 [BOT-TOGGLE] Request received:`, { strategy_name, symbol, is_active });
-        
+
         if (!strategy_name) {
             return res.status(400).json({ error: 'strategy_name is required' });
         }
-        
+
         const targetSymbol = symbol || 'bitcoin'; // Default to bitcoin for backward compatibility
 
         // Verify symbol is valid (check if trading pair exists)
         const tradingPair = SYMBOL_TO_PAIR[targetSymbol];
         if (!tradingPair && targetSymbol !== 'bitcoin') {
             console.error(`❌ [BOT-TOGGLE] Invalid symbol: ${targetSymbol}, no trading pair found`);
-            return res.status(400).json({ 
-                error: `Simbolo non valido: ${targetSymbol}. Trading pair non trovato nel mapping.` 
+            return res.status(400).json({
+                error: `Simbolo non valido: ${targetSymbol}. Trading pair non trovato nel mapping.`
             });
         }
-        
+
         // Test if we can get price for this symbol (verify trading pair exists on Binance)
         if (tradingPair) {
             try {
@@ -2439,15 +2516,15 @@ router.post('/bot/toggle', async (req, res) => {
         }
 
         const activeValue = is_active ? 1 : 0;
-        
+
         console.log(`🤖 [BOT-TOGGLE] Toggling bot for ${targetSymbol} (${tradingPair || 'BTCEUR'}) to ${activeValue === 1 ? 'ACTIVE' : 'INACTIVE'}`);
-        
+
         // Check if bot settings exist for this symbol, if not create them
         const existing = await dbGet(
             "SELECT * FROM bot_settings WHERE strategy_name = ? AND symbol = ?",
             [strategy_name, targetSymbol]
         );
-        
+
         if (!existing) {
             console.log(`📝 [BOT-TOGGLE] Creating new bot settings for ${targetSymbol}`);
             // Create new bot settings with default parameters
@@ -2471,7 +2548,7 @@ router.post('/bot/toggle', async (req, res) => {
             "SELECT * FROM bot_settings WHERE strategy_name = ? AND symbol = ?",
             [strategy_name, targetSymbol]
         );
-        
+
         if (!verify) {
             console.error(`❌ [BOT-TOGGLE] Failed to save bot settings for ${targetSymbol}`);
             return res.status(500).json({ error: 'Errore nel salvataggio delle impostazioni del bot' });
@@ -2533,15 +2610,15 @@ router.put('/bot/parameters', async (req, res) => {
 
         // Ensure oversold < overbought
         if (validParams.rsi_oversold >= validParams.rsi_overbought) {
-            return res.status(400).json({ 
-                error: 'rsi_oversold must be less than rsi_overbought' 
+            return res.status(400).json({
+                error: 'rsi_oversold must be less than rsi_overbought'
             });
         }
 
         // Ensure TP1 < TP2 when partial close is enabled
         if (validParams.partial_close_enabled && validParams.take_profit_1_pct >= validParams.take_profit_2_pct) {
-            return res.status(400).json({ 
-                error: 'take_profit_1_pct must be less than take_profit_2_pct when partial close is enabled' 
+            return res.status(400).json({
+                error: 'take_profit_1_pct must be less than take_profit_2_pct when partial close is enabled'
             });
         }
 
@@ -2573,18 +2650,18 @@ router.get('/statistics', async (req, res) => {
         const allTrades = await dbAll("SELECT * FROM trades ORDER BY timestamp ASC");
         const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status != 'open' ORDER BY closed_at ASC");
         const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC");
-        
+
         // Initial portfolio value (assumed starting balance)
         const initialBalance = 262.5; // Default starting balance in EUR
-        
+
         // ✅ FIX: Calculate current total balance considerando TUTTI i simboli, non solo Bitcoin
         const holdings = JSON.parse(portfolio.holdings || '{}');
         const currentBalance = portfolio.balance_usd;
-        
+
         // Calcola valore totale di tutte le holdings (multi-symbol)
         let totalCryptoValue = 0;
         const symbolPrices = {}; // Cache prezzi per evitare chiamate duplicate
-        
+
         // ✅ FIX: Valida che holdings sia un oggetto
         if (holdings && typeof holdings === 'object') {
             for (const symbol of Object.keys(holdings)) {
@@ -2593,7 +2670,7 @@ router.get('/statistics', async (req, res) => {
                     console.warn(`⚠️ Skipping invalid symbol in holdings:`, symbol);
                     continue;
                 }
-                
+
                 const amount = holdings[symbol] || 0;
                 if (amount > 0.0001) { // Solo se ci sono holdings significative
                     try {
@@ -2619,9 +2696,9 @@ router.get('/statistics', async (req, res) => {
         } else {
             console.warn(`⚠️ Holdings is not a valid object in statistics:`, typeof holdings);
         }
-        
+
         const totalBalance = currentBalance + totalCryptoValue;
-        
+
         // ✅ FIX: Usa prezzo Bitcoin solo come fallback per backward compatibility
         let currentPrice = 0;
         try {
@@ -2629,7 +2706,7 @@ router.get('/statistics', async (req, res) => {
         } catch (e) {
             console.warn('Could not fetch Bitcoin price for statistics:', e.message);
         }
-        
+
         // 1. Total P&L - Include both closed and open positions
         let totalPnL = 0;
         let totalProfit = 0;
@@ -2637,7 +2714,7 @@ router.get('/statistics', async (req, res) => {
         let winningTrades = 0;
         let losingTrades = 0;
         let totalVolume = 0;
-        
+
         // Calculate from closed positions (realized P&L)
         // ✅ FIX: Valida che closedPositions sia un array
         if (Array.isArray(closedPositions)) {
@@ -2657,7 +2734,7 @@ router.get('/statistics', async (req, res) => {
         } else {
             console.warn(`⚠️ closedPositions is not an array in statistics:`, typeof closedPositions);
         }
-        
+
         // ✅ FIX CRITICO: Calculate unrealized P&L from open positions usando il prezzo CORRETTO per ogni simbolo
         // ✅ FIX: Assicurati che openPositions sia un array
         if (Array.isArray(openPositions)) {
@@ -2667,16 +2744,16 @@ router.get('/statistics', async (req, res) => {
                     console.warn(`⚠️ Skipping invalid position in statistics:`, pos);
                     continue;
                 }
-                
+
                 const entryPrice = parseFloat(pos.entry_price) || 0;
                 const volume = parseFloat(pos.volume) || 0;
-                
+
                 // ✅ FIX: Salta posizioni con dati invalidi
                 if (entryPrice <= 0 || volume <= 0) {
                     console.warn(`⚠️ Skipping position with invalid entryPrice (${entryPrice}) or volume (${volume})`);
                     continue;
                 }
-                
+
                 // ✅ FIX: Ottieni il prezzo CORRETTO per il simbolo di questa posizione (non sempre Bitcoin!)
                 let symbolCurrentPrice = currentPrice; // Default a Bitcoin per backward compatibility
                 if (pos.symbol && pos.symbol !== 'bitcoin') {
@@ -2693,7 +2770,7 @@ router.get('/statistics', async (req, res) => {
                         symbolCurrentPrice = entryPrice; // Usa entry price come fallback
                     }
                 }
-                
+
                 // Calcola P&L non realizzato usando il prezzo corretto
                 let unrealizedPnL = 0;
                 if (pos.type === 'buy') {
@@ -2706,7 +2783,7 @@ router.get('/statistics', async (req, res) => {
                     console.warn(`⚠️ Unknown position type: ${pos.type}, skipping P&L calculation`);
                     continue;
                 }
-                
+
                 totalPnL += unrealizedPnL;
                 if (unrealizedPnL > 0) {
                     totalProfit += unrealizedPnL;
@@ -2718,7 +2795,7 @@ router.get('/statistics', async (req, res) => {
         } else {
             console.warn(`⚠️ openPositions is not an array in statistics:`, typeof openPositions);
         }
-        
+
         // Also include trades with profit_loss (from manual trades) - but avoid double counting
         const processedTicketIds = new Set();
         closedPositions.forEach(pos => {
@@ -2727,7 +2804,7 @@ router.get('/statistics', async (req, res) => {
         openPositions.forEach(pos => {
             if (pos.ticket_id) processedTicketIds.add(pos.ticket_id);
         });
-        
+
         allTrades.forEach(trade => {
             // Only count trades that are not part of a position (manual trades)
             if (trade.profit_loss !== null && trade.profit_loss !== undefined && !processedTicketIds.has(trade.ticket_id)) {
@@ -2748,21 +2825,21 @@ router.get('/statistics', async (req, res) => {
                 totalVolume += (trade.amount || 0) * (trade.price || 0);
             }
         });
-        
+
         // Total trades = posizioni chiuse (con P&L realizzato) per win rate
         const closedTradesForWinRate = winningTrades + losingTrades;
         const winRate = closedTradesForWinRate > 0 ? (winningTrades / closedTradesForWinRate) * 100 : 0;
-        
+
         // Total trades = tutti i trades (per display)
         const totalTrades = allTrades.length;
         const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : (totalProfit > 0 ? Infinity : 0);
-        
+
         // ROI calculation
         const roi = initialBalance > 0 ? ((totalBalance - initialBalance) / initialBalance) * 100 : 0;
-        
+
         // P&L Percent
         const pnlPercent = initialBalance > 0 ? ((totalBalance - initialBalance) / initialBalance) * 100 : 0;
-        
+
         // Trade statistics by period - Count ALL trades by timestamp (non solo quelli chiusi)
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -2770,11 +2847,11 @@ router.get('/statistics', async (req, res) => {
         weekAgo.setDate(weekAgo.getDate() - 7);
         const monthAgo = new Date(today);
         monthAgo.setMonth(monthAgo.getMonth() - 1);
-        
+
         let tradesToday = 0;
         let tradesThisWeek = 0;
         let tradesThisMonth = 0;
-        
+
         // Count ALL trades by timestamp (per il conteggio operazioni)
         allTrades.forEach(trade => {
             if (trade.timestamp) {
@@ -2784,11 +2861,11 @@ router.get('/statistics', async (req, res) => {
                 if (tradeDate >= monthAgo) tradesThisMonth++;
             }
         });
-        
+
         // Average profit per winning trade
         const avgWin = winningTrades > 0 ? totalProfit / winningTrades : 0;
         const avgLoss = losingTrades > 0 ? totalLoss / losingTrades : 0;
-        
+
         res.json({
             success: true,
             statistics: {
@@ -2798,28 +2875,28 @@ router.get('/statistics', async (req, res) => {
                 pnl_total: totalPnL,
                 pnl_percent: pnlPercent,
                 roi: roi,
-                
+
                 // Trade Performance
                 total_trades: totalTrades,
                 winning_trades: winningTrades,
                 losing_trades: losingTrades,
                 win_rate: winRate,
                 profit_factor: profitFactor === Infinity ? null : profitFactor,
-                
+
                 // Profit/Loss Breakdown
                 total_profit: totalProfit,
                 total_loss: totalLoss,
                 avg_win: avgWin,
                 avg_loss: avgLoss,
-                
+
                 // Volume
                 total_volume_eur: totalVolume,
-                
+
                 // Period Stats
                 trades_today: tradesToday,
                 trades_this_week: tradesThisWeek,
                 trades_this_month: tradesThisMonth,
-                
+
                 // Current Holdings (multi-symbol)
                 total_crypto_value: totalCryptoValue,
                 cash_balance: currentBalance
@@ -2828,7 +2905,7 @@ router.get('/statistics', async (req, res) => {
     } catch (error) {
         console.error('❌ Error calculating statistics:', error);
         console.error('❌ Stack:', error.stack);
-        res.status(500).json({ 
+        res.status(500).json({
             error: error.message || 'Errore nel calcolo delle statistiche',
             details: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
@@ -2844,8 +2921,8 @@ router.get('/statistics', async (req, res) => {
 router.post('/websocket/join', (req, res) => {
     // This endpoint is just for documentation/logging
     // Actual room join happens via Socket.io client connection
-    res.json({ 
-        success: true, 
+    res.json({
+        success: true,
         message: 'Join crypto:dashboard room via Socket.io client',
         room: 'crypto:dashboard'
     });
@@ -2860,7 +2937,7 @@ const runBacktest = async (params, startDate, endDate, initialBalance = 10000) =
     try {
         // Load historical prices from database or Binance
         let historicalPrices = [];
-        
+
         // Try to load from database first
         const dbPrices = await dbAll(
             "SELECT price, timestamp FROM price_history WHERE symbol = 'bitcoin' AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC",
@@ -2877,7 +2954,7 @@ const runBacktest = async (params, startDate, endDate, initialBalance = 10000) =
             // Load from Binance if DB doesn't have enough data
             console.log('📊 Backtest: Loading historical data from Binance...');
             const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=BTCEUR&interval=15m&startTime=${new Date(startDate).getTime()}&endTime=${new Date(endDate).getTime()}&limit=1000`;
-            
+
             try {
                 const binanceData = await new Promise((resolve, reject) => {
                     https.get(binanceUrl, (res) => {
@@ -2930,7 +3007,7 @@ const runBacktest = async (params, startDate, endDate, initialBalance = 10000) =
         for (let i = 0; i < historicalPrices.length; i++) {
             const { price, timestamp } = historicalPrices[i];
             priceHistoryWindow.push(price);
-            
+
             // Keep only last 50 prices for RSI calculation
             if (priceHistoryWindow.length > 50) {
                 priceHistoryWindow.shift();
@@ -2976,7 +3053,7 @@ const runBacktest = async (params, startDate, endDate, initialBalance = 10000) =
                 const pnl = (closePrice - pos.entryPrice) * pos.volume;
                 balance += closePrice * pos.volume;
                 holdings -= pos.volume;
-                
+
                 trades.push({
                     type: 'sell',
                     price: closePrice,
@@ -3040,7 +3117,7 @@ const runBacktest = async (params, startDate, endDate, initialBalance = 10000) =
                 // Sell signal (close all positions)
                 const pnl = (price - lastBuyPrice) * holdings;
                 balance += price * holdings;
-                
+
                 trades.push({
                     type: 'sell',
                     price,
@@ -3055,11 +3132,11 @@ const runBacktest = async (params, startDate, endDate, initialBalance = 10000) =
                 lastBuyPrice = 0;
             } else if (holdings > 0.01 && lastBuyPrice > 0) {
                 const pnlPercent = (price - lastBuyPrice) / lastBuyPrice;
-                
+
                 if (pnlPercent >= TAKE_PROFIT_PCT) {
                     const pnl = (price - lastBuyPrice) * holdings;
                     balance += price * holdings;
-                    
+
                     trades.push({
                         type: 'sell',
                         price,
@@ -3075,7 +3152,7 @@ const runBacktest = async (params, startDate, endDate, initialBalance = 10000) =
                 } else if (pnlPercent <= -STOP_LOSS_PCT) {
                     const pnl = (price - lastBuyPrice) * holdings;
                     balance += price * holdings;
-                    
+
                     trades.push({
                         type: 'sell',
                         price,
@@ -3111,13 +3188,13 @@ const runBacktest = async (params, startDate, endDate, initialBalance = 10000) =
         const finalBalance = balance;
         const totalPnl = finalBalance - initialBalance;
         const totalPnlPct = (totalPnl / initialBalance) * 100;
-        
+
         const completedTrades = trades.filter(t => t.profit_loss !== null);
         const winningTrades = completedTrades.filter(t => t.profit_loss > 0);
         const losingTrades = completedTrades.filter(t => t.profit_loss < 0);
-        
+
         const winRate = completedTrades.length > 0 ? (winningTrades.length / completedTrades.length) * 100 : 0;
-        
+
         const totalWinning = winningTrades.reduce((sum, t) => sum + t.profit_loss, 0);
         const totalLosing = Math.abs(losingTrades.reduce((sum, t) => sum + t.profit_loss, 0));
         const profitFactor = totalLosing > 0 ? totalWinning / totalLosing : (totalWinning > 0 ? Infinity : 0);
@@ -3127,7 +3204,7 @@ const runBacktest = async (params, startDate, endDate, initialBalance = 10000) =
         if (equityCurve.length > 1) {
             const returns = [];
             for (let i = 1; i < equityCurve.length; i++) {
-                const ret = (equityCurve[i].balance - equityCurve[i-1].balance) / equityCurve[i-1].balance;
+                const ret = (equityCurve[i].balance - equityCurve[i - 1].balance) / equityCurve[i - 1].balance;
                 returns.push(ret);
             }
             const avgReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
@@ -3313,7 +3390,7 @@ router.delete('/backtest/results/:id', async (req, res) => {
 router.get('/bot-analysis', async (req, res) => {
     console.log('🔍 [BOT-ANALYSIS] ========== RICHIESTA RICEVUTA ==========');
     console.log('🔍 [BOT-ANALYSIS] Timestamp:', new Date().toISOString());
-    
+
     try {
         // ✅ FIX: Verifica che le dipendenze siano disponibili
         console.log('🔍 [BOT-ANALYSIS] Verifica dipendenze...');
@@ -3323,7 +3400,7 @@ router.get('/bot-analysis', async (req, res) => {
         console.log('🔍 [BOT-ANALYSIS] signalGenerator:', typeof signalGenerator);
         console.log('🔍 [BOT-ANALYSIS] riskManager:', typeof riskManager);
         console.log('🔍 [BOT-ANALYSIS] getBotParameters:', typeof getBotParameters);
-        
+
         if (typeof httpsGet === 'undefined') {
             console.error('❌ [BOT-ANALYSIS] httpsGet non definito');
             return res.status(500).json({ error: 'httpsGet non disponibile' });
@@ -3348,19 +3425,19 @@ router.get('/bot-analysis', async (req, res) => {
             console.error('❌ [BOT-ANALYSIS] getBotParameters non definito');
             return res.status(500).json({ error: 'getBotParameters non disponibile' });
         }
-        
+
         console.log('🔍 [BOT-ANALYSIS] Tutte le dipendenze verificate OK');
-        
+
         // Get symbol from query parameter, default to bitcoin
         const symbol = req.query.symbol || 'bitcoin';
         console.log('🔍 [BOT-ANALYSIS] Symbol:', symbol);
-        
+
         // Get current price from Binance
+        // Get current price using the helper function that handles correct symbol mapping and USDT conversion
         let currentPrice = 0;
-        console.log('🔍 [BOT-ANALYSIS] Fetching current price...');
+        console.log('🔍 [BOT-ANALYSIS] Fetching current price for', symbol);
         try {
-            const binanceData = await httpsGet('https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR');
-            currentPrice = parseFloat(binanceData.price);
+            currentPrice = await getSymbolPrice(symbol);
         } catch (err) {
             console.error('Error fetching current price:', err);
             // Fallback: get last price from DB
@@ -3369,9 +3446,9 @@ router.get('/bot-analysis', async (req, res) => {
                 currentPrice = parseFloat(lastPrice.price);
             }
         }
-        
+
         console.log('🔍 [BOT-ANALYSIS] Current price:', currentPrice);
-        
+
         if (!currentPrice || currentPrice === 0) {
             console.error('❌ [BOT-ANALYSIS] Prezzo corrente non disponibile');
             return res.status(500).json({ error: 'Impossibile ottenere prezzo corrente' });
@@ -3383,7 +3460,7 @@ router.get('/bot-analysis', async (req, res) => {
             "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
             [symbol]
         );
-        
+
         // Se non ci sono klines, usa price_history
         let historyForSignal = [];
         if (priceHistoryData && priceHistoryData.length > 0) {
@@ -3411,37 +3488,37 @@ router.get('/bot-analysis', async (req, res) => {
             console.error('❌ [BOT-ANALYSIS] Nessun dato storico disponibile');
             return res.status(500).json({ error: 'Nessun dato storico disponibile per l\'analisi' });
         }
-        
+
         console.log('🔍 [BOT-ANALYSIS] Generating signal...');
         const signal = signalGenerator.generateSignal(historyForSignal);
         console.log('🔍 [BOT-ANALYSIS] Signal generated:', signal ? signal.direction : 'null');
-        
+
         if (!signal || !signal.indicators) {
             console.error('❌ [BOT-ANALYSIS] Errore nella generazione del segnale');
             return res.status(500).json({ error: 'Errore nella generazione del segnale' });
         }
-        
+
         console.log('🔍 [BOT-ANALYSIS] Getting indicators...');
         // ✅ Calcola indicatori base
         const indicators = signal.indicators || {};
         const rsi = indicators.rsi;
-        
+
         console.log('🔍 [BOT-ANALYSIS] Getting risk check...');
         // Get bot parameters
         const params = await getBotParameters();
-        
+
         // Risk check
         const riskCheck = await riskManager.calculateMaxRisk();
-        
+
         // Get open positions
         const openPositions = await dbAll(
             "SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'",
             [symbol]
         );
-        
+
         const longPositions = openPositions.filter(p => p.type === 'buy');
         const shortPositions = openPositions.filter(p => p.type === 'sell');
-        
+
         // Calculate what's needed for LONG
         const LONG_MIN_CONFIRMATIONS = 4;
         const LONG_MIN_STRENGTH = 70;
@@ -3450,10 +3527,10 @@ router.get('/bot-analysis', async (req, res) => {
         const longCurrentConfirmations = signal.longSignal ? signal.longSignal.confirmations : (signal.direction === 'LONG' ? signal.confirmations : 0);
         const longNeedsConfirmations = Math.max(0, LONG_MIN_CONFIRMATIONS - longCurrentConfirmations);
         const longNeedsStrength = Math.max(0, LONG_MIN_STRENGTH - longCurrentStrength);
-        const longMeetsRequirements = signal.direction === 'LONG' && 
-                                     signal.strength >= LONG_MIN_STRENGTH && 
-                                     signal.confirmations >= LONG_MIN_CONFIRMATIONS;
-        
+        const longMeetsRequirements = signal.direction === 'LONG' &&
+            signal.strength >= LONG_MIN_STRENGTH &&
+            signal.confirmations >= LONG_MIN_CONFIRMATIONS;
+
         // Calculate what's needed for SHORT
         const SHORT_MIN_CONFIRMATIONS = 5;
         const SHORT_MIN_STRENGTH = 70;
@@ -3462,23 +3539,23 @@ router.get('/bot-analysis', async (req, res) => {
         const shortCurrentConfirmations = signal.shortSignal ? signal.shortSignal.confirmations : (signal.direction === 'SHORT' ? signal.confirmations : 0);
         const shortNeedsConfirmations = Math.max(0, SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations);
         const shortNeedsStrength = Math.max(0, SHORT_MIN_STRENGTH - shortCurrentStrength);
-        const shortMeetsRequirements = signal.direction === 'SHORT' && 
-                                      signal.strength >= SHORT_MIN_STRENGTH && 
-                                      signal.confirmations >= SHORT_MIN_CONFIRMATIONS;
-        
+        const shortMeetsRequirements = signal.direction === 'SHORT' &&
+            signal.strength >= SHORT_MIN_STRENGTH &&
+            signal.confirmations >= SHORT_MIN_CONFIRMATIONS;
+
         // Calculate max position size
         const maxAvailableForNewPosition = Math.min(
             params.trade_size_eur,
             riskCheck.maxPositionSize,
             riskCheck.availableExposure * 0.25
         );
-        
+
         const canOpenCheck = await riskManager.canOpenPosition(maxAvailableForNewPosition);
-        
+
         // Determine why it can't open
         let longReason = '';
         let shortReason = '';
-        
+
         if (signal.direction === 'LONG') {
             if (longMeetsRequirements && canOpenCheck.allowed) {
                 longReason = '✅ PRONTO AD APRIRE LONG';
@@ -3515,17 +3592,17 @@ router.get('/bot-analysis', async (req, res) => {
             longReason = 'Nessun segnale LONG attivo';
             shortReason = 'Nessun segnale SHORT attivo';
         }
-        
+
         console.log('🔍 [BOT-ANALYSIS] Preparing response...');
-        
+
         // Estrai le conferme ottenute (reasons) per LONG e SHORT
         const longConfirmationsList = signal.longSignal && signal.longSignal.reasons ? signal.longSignal.reasons : [];
         const shortConfirmationsList = signal.shortSignal && signal.shortSignal.reasons ? signal.shortSignal.reasons : [];
-        
+
         // Estrai i contributi allo Strength per LONG e SHORT
         const longStrengthContributions = signal.longSignal && signal.longSignal.strengthContributions ? signal.longSignal.strengthContributions : [];
         const shortStrengthContributions = signal.shortSignal && signal.shortSignal.strengthContributions ? signal.shortSignal.strengthContributions : [];
-        
+
         res.json({
             currentPrice,
             rsi: rsi || 0,
@@ -3590,9 +3667,9 @@ router.get('/bot-analysis', async (req, res) => {
         console.error('❌ [BOT-ANALYSIS] Error code:', error.code);
         console.error('❌ [BOT-ANALYSIS] Error stack:', error.stack);
         console.error('❌ [BOT-ANALYSIS] ======================================');
-        
+
         // Invia risposta di errore più dettagliata
-        res.status(500).json({ 
+        res.status(500).json({
             error: error.message || 'Internal Server Error',
             name: error.name,
             code: error.code,
@@ -3605,8 +3682,8 @@ router.get('/bot-analysis', async (req, res) => {
 // ✅ ENDPOINT DI TEST per verificare che il routing funzioni
 router.get('/bot-analysis-test', (req, res) => {
     console.log('✅ [TEST] Endpoint bot-analysis-test chiamato');
-    res.json({ 
-        success: true, 
+    res.json({
+        success: true,
         message: 'Endpoint funziona!',
         timestamp: new Date().toISOString()
     });
