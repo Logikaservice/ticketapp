@@ -51,25 +51,70 @@ function initDb() {
       UNIQUE(strategy_name, symbol)
     )`);
 
-        // Migrate existing bot_settings: add symbol column if it doesn't exist
+        // Migrate existing bot_settings: add symbol column and fix UNIQUE constraint
         db.all("PRAGMA table_info(bot_settings)", (err, columns) => {
             if (!err && columns && columns.length > 0) {
                 const columnNames = columns.map(c => c.name);
+                const hasSymbolColumn = columnNames.includes('symbol');
                 
-                if (!columnNames.includes('symbol')) {
-                    // Add symbol column
-                    db.run(`ALTER TABLE bot_settings ADD COLUMN symbol TEXT NOT NULL DEFAULT 'bitcoin'`, (alterErr) => {
-                        if (alterErr) {
-                            console.error('Error adding symbol column to bot_settings:', alterErr.message);
+                // Check if we need to migrate (either missing symbol column or old UNIQUE constraint)
+                db.all("SELECT sql FROM sqlite_master WHERE type='table' AND name='bot_settings'", (sqlErr, tableInfo) => {
+                    if (!sqlErr && tableInfo && tableInfo.length > 0) {
+                        const createSql = tableInfo[0].sql;
+                        const hasOldUnique = createSql.includes('strategy_name TEXT UNIQUE') || 
+                                           (createSql.includes('UNIQUE(strategy_name)') && !createSql.includes('UNIQUE(strategy_name, symbol)'));
+                        
+                        if (!hasSymbolColumn || hasOldUnique) {
+                            console.log('🔄 Migrating bot_settings table to support multi-symbol...');
+                            
+                            // Step 1: Create temporary table with correct schema
+                            db.run(`CREATE TABLE IF NOT EXISTS bot_settings_new (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                strategy_name TEXT NOT NULL,
+                                symbol TEXT NOT NULL DEFAULT 'bitcoin',
+                                is_active INTEGER DEFAULT 0,
+                                parameters TEXT,
+                                UNIQUE(strategy_name, symbol)
+                            )`, (createErr) => {
+                                if (createErr) {
+                                    console.error('Error creating new bot_settings table:', createErr.message);
+                                } else {
+                                    // Step 2: Copy existing data, defaulting symbol to 'bitcoin' if missing
+                                    db.run(`INSERT INTO bot_settings_new (id, strategy_name, symbol, is_active, parameters)
+                                        SELECT 
+                                            id,
+                                            strategy_name,
+                                            COALESCE(symbol, 'bitcoin') as symbol,
+                                            is_active,
+                                            parameters
+                                        FROM bot_settings`, (copyErr) => {
+                                        if (copyErr) {
+                                            console.error('Error copying data to new bot_settings table:', copyErr.message);
+                                        } else {
+                                            // Step 3: Drop old table
+                                            db.run(`DROP TABLE bot_settings`, (dropErr) => {
+                                                if (dropErr) {
+                                                    console.error('Error dropping old bot_settings table:', dropErr.message);
+                                                } else {
+                                                    // Step 4: Rename new table
+                                                    db.run(`ALTER TABLE bot_settings_new RENAME TO bot_settings`, (renameErr) => {
+                                                        if (renameErr) {
+                                                            console.error('Error renaming bot_settings table:', renameErr.message);
+                                                        } else {
+                                                            console.log('✅ Successfully migrated bot_settings table to support multi-symbol');
+                                                        }
+                                                    });
+                                                }
+                                            });
+                                        }
+                                    });
+                                }
+                            });
                         } else {
-                            console.log('✅ Added symbol column to bot_settings');
-                            // Update existing rows to have 'bitcoin' as default symbol
-                            db.run(`UPDATE bot_settings SET symbol = 'bitcoin' WHERE symbol IS NULL`);
-                            // Recreate table with UNIQUE constraint if needed
-                            // SQLite doesn't support adding UNIQUE constraint directly, so we'll handle it in queries
+                            console.log('✅ bot_settings table already has correct schema');
                         }
-                    });
-                }
+                    }
+                });
             }
         });
 
