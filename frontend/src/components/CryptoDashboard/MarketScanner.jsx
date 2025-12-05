@@ -54,6 +54,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                         <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
                             <th style={{ padding: '10px', textAlign: 'left' }}>Symbol</th>
                             <th style={{ padding: '10px', textAlign: 'right' }}>Price</th>
+                            <th style={{ padding: '10px', textAlign: 'right' }}>Volume 24h</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Signal</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Strength</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>RSI</th>
@@ -75,6 +76,28 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                     </td>
                                     <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
                                         €{item.price.toFixed(4)}
+                                    </td>
+                                    <td style={{ padding: '10px', textAlign: 'right' }}>
+                                        {(() => {
+                                            const vol = item.volume24h || 0;
+                                            const MIN_VOLUME = 500_000;
+                                            const volumeColor = vol >= MIN_VOLUME * 2 ? '#22c55e' : vol >= MIN_VOLUME ? '#eab308' : '#ef4444';
+
+                                            let formatted = '';
+                                            if (vol >= 1_000_000) {
+                                                formatted = `€${(vol / 1_000_000).toFixed(1)}M`;
+                                            } else if (vol >= 1_000) {
+                                                formatted = `€${(vol / 1_000).toFixed(0)}K`;
+                                            } else {
+                                                formatted = `€${vol.toFixed(0)}`;
+                                            }
+
+                                            return (
+                                                <span style={{ color: volumeColor, fontWeight: '500', fontSize: '0.85rem' }}>
+                                                    {formatted}
+                                                </span>
+                                            );
+                                        })()}
                                     </td>
                                     <td style={{ padding: '10px', textAlign: 'center' }}>
                                         <span style={{

@@ -850,6 +850,36 @@ const detectTrendOnTimeframe = async (symbol, interval, limit = 50) => {
     }
 };
 
+/**
+ * Ottiene il volume di trading 24h per un simbolo
+ * @param {string} symbol - Simbolo crypto (es. 'bitcoin')
+ * @returns {Promise<number>} Volume 24h in quote currency (EUR o USDT)
+ */
+const get24hVolume = async (symbol) => {
+    try {
+        const tradingPair = SYMBOL_TO_PAIR[symbol];
+        if (!tradingPair) {
+            console.warn(`⚠️ [VOLUME] No trading pair found for ${symbol}`);
+            return 0;
+        }
+
+        const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${tradingPair}`;
+        const data = await httpsGet(url);
+
+        if (!data || !data.quoteVolume) {
+            console.warn(`⚠️ [VOLUME] Invalid response for ${symbol}`);
+            return 0;
+        }
+
+        // Volume in quote currency (EUR o USDT)
+        const volumeQuote = parseFloat(data.quoteVolume);
+        return volumeQuote;
+    } catch (err) {
+        console.error(`❌ [VOLUME] Error fetching 24h volume for ${symbol}:`, err.message);
+        return 0;
+    }
+};
+
 // Bot Loop Function for a single symbol
 const runBotCycleForSymbol = async (symbol, botSettings) => {
     try {
@@ -1031,6 +1061,18 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         }
 
         if (!isBotActive || !rsi) return; // Stop here if bot is off
+
+        // ✅ VOLUME FILTER - Evita coin illiquide (pump & dump, spread alti)
+        const volume24h = await get24hVolume(symbol);
+        const MIN_VOLUME = 500_000; // 500K EUR/USDT minimo (personalizzabile)
+
+        if (volume24h < MIN_VOLUME) {
+            console.log(`⚠️ [VOLUME-FILTER] ${symbol.toUpperCase()} skipped: Volume 24h €${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })} < €${MIN_VOLUME.toLocaleString('it-IT')}`);
+            console.log(`   → Coin troppo illiquida. Rischio: spread alto, difficoltà chiusura posizioni, pump & dump.`);
+            return; // Salta questo ciclo
+        }
+
+        console.log(`✅ [VOLUME-FILTER] ${symbol.toUpperCase()} OK: Volume 24h €${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })}`);
 
         // 6. RISK CHECK - Protezione PRIMA di tutto
         const riskCheck = await riskManager.calculateMaxRisk();
@@ -4074,10 +4116,14 @@ router.get('/scanner', async (req, res) => {
                 // 2. Generate Signal (ora con dati aggiornati in tempo reale)
                 const signal = signalGenerator.generateSignal(historyForSignal);
 
+                // 3. Get 24h volume
+                const volume24h = await get24hVolume(s.symbol);
+
                 return {
                     symbol: s.symbol,
                     display: s.display,
                     price: currentPrice, // Prezzo corrente aggiornato in tempo reale
+                    volume24h, // Volume 24h in EUR/USDT
                     direction: signal.direction,
                     strength: signal.strength,
                     confirmations: signal.confirmations,
