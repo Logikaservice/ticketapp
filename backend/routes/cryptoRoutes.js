@@ -3670,50 +3670,46 @@ router.get('/bot-analysis', async (req, res) => {
             }
         }
 
-        // ✅ FIX: Se i dati sono vecchi (bot inattivo) o mancanti, scarica da Binance in tempo reale
-        const lastTimestamp = historyForSignal.length > 0 ? new Date(historyForSignal[historyForSignal.length - 1].timestamp) : new Date(0);
-        const isStale = (new Date() - lastTimestamp) > 15 * 60 * 1000; // Più vecchio di 15 minuti
+        // ✅ FIX CRITICO: SEMPRE scarica da Binance per analisi in tempo reale
+        // Non usare dati vecchi dal DB, altrimenti i valori restano bloccati
+        console.log('🔍 [BOT-ANALYSIS] Scarico SEMPRE dati freschi da Binance per analisi in tempo reale...');
+        try {
+            const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
+            const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
+            console.log(`🔍 [BOT-ANALYSIS] Fetching klines from ${binanceUrl}`);
 
-        if (isStale || historyForSignal.length < 50) {
-            console.log('🔍 [BOT-ANALYSIS] Dati locali vecchi o insufficienti. Scarico da Binance...');
-            try {
-                const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
-                const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
-                console.log(`🔍 [BOT-ANALYSIS] Fetching klines from ${binanceUrl}`);
+            const klines = await httpsGet(binanceUrl);
 
-                const klines = await httpsGet(binanceUrl);
+            if (Array.isArray(klines) && klines.length > 0) {
+                historyForSignal = klines.map(k => ({
+                    timestamp: new Date(k[0]).toISOString(),
+                    open: parseFloat(k[1]),
+                    high: parseFloat(k[2]),
+                    low: parseFloat(k[3]),
+                    close: parseFloat(k[4]),
+                    price: parseFloat(k[4]), // compatibilità
+                    volume: parseFloat(k[5])
+                }));
+                console.log(`✅ [BOT-ANALYSIS] Scaricate ${historyForSignal.length} candele FRESCHE da Binance`);
 
-                if (Array.isArray(klines) && klines.length > 0) {
-                    historyForSignal = klines.map(k => ({
-                        timestamp: new Date(k[0]).toISOString(),
-                        open: parseFloat(k[1]),
-                        high: parseFloat(k[2]),
-                        low: parseFloat(k[3]),
-                        close: parseFloat(k[4]),
-                        price: parseFloat(k[4]), // compatibilità
-                        volume: parseFloat(k[5])
-                    }));
-                    console.log(`✅ [BOT-ANALYSIS] Scaricate ${historyForSignal.length} candele da Binance`);
+                // ✅ Aggiorna anche l'ultima candela scaricata da Binance con il prezzo corrente
+                if (historyForSignal.length > 0) {
+                    const lastBinanceCandle = historyForSignal[historyForSignal.length - 1];
+                    const lastBinanceCandleTime = new Date(lastBinanceCandle.timestamp);
+                    const timeSinceBinanceCandle = new Date() - lastBinanceCandleTime;
 
-                    // ✅ Aggiorna anche l'ultima candela scaricata da Binance con il prezzo corrente
-                    if (historyForSignal.length > 0) {
-                        const lastBinanceCandle = historyForSignal[historyForSignal.length - 1];
-                        const lastBinanceCandleTime = new Date(lastBinanceCandle.timestamp);
-                        const timeSinceBinanceCandle = new Date() - lastBinanceCandleTime;
-
-                        if (timeSinceBinanceCandle < 15 * 60 * 1000) {
-                            console.log('🔍 [BOT-ANALYSIS] Aggiornamento ultima candela Binance con prezzo corrente');
-                            lastBinanceCandle.high = Math.max(lastBinanceCandle.high, currentPrice);
-                            lastBinanceCandle.low = Math.min(lastBinanceCandle.low, currentPrice);
-                            lastBinanceCandle.close = currentPrice;
-                            lastBinanceCandle.price = currentPrice;
-                        }
+                    if (timeSinceBinanceCandle < 15 * 60 * 1000) {
+                        console.log('🔍 [BOT-ANALYSIS] Aggiornamento ultima candela Binance con prezzo corrente');
+                        lastBinanceCandle.high = Math.max(lastBinanceCandle.high, currentPrice);
+                        lastBinanceCandle.low = Math.min(lastBinanceCandle.low, currentPrice);
+                        lastBinanceCandle.close = currentPrice;
+                        lastBinanceCandle.price = currentPrice;
                     }
                 }
-            } catch (binanceError) {
-                console.error('❌ [BOT-ANALYSIS] Errore scaricamento Binance:', binanceError.message);
-                // Continua con i dati vecchi se fallisce
             }
+        } catch (binanceError) {
+            console.error('❌ [BOT-ANALYSIS] Errore scaricamento Binance:', binanceError.message);
+            // Continua con i dati vecchi se fallisce
         }
 
         // Generate signal with full details
