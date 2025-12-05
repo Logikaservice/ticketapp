@@ -2134,13 +2134,26 @@ router.post('/bot/toggle', async (req, res) => {
     try {
         const { strategy_name, symbol, is_active } = req.body;
         
+        console.log(`🤖 [BOT-TOGGLE] Request received:`, { strategy_name, symbol, is_active });
+        
         if (!strategy_name) {
             return res.status(400).json({ error: 'strategy_name is required' });
         }
         
         const targetSymbol = symbol || 'bitcoin'; // Default to bitcoin for backward compatibility
 
+        // Verify symbol is valid (check if trading pair exists)
+        const tradingPair = SYMBOL_TO_PAIR[targetSymbol];
+        if (!tradingPair && targetSymbol !== 'bitcoin') {
+            console.error(`❌ [BOT-TOGGLE] Invalid symbol: ${targetSymbol}, no trading pair found`);
+            return res.status(400).json({ 
+                error: `Simbolo non valido: ${targetSymbol}. Trading pair non trovato.` 
+            });
+        }
+
         const activeValue = is_active ? 1 : 0;
+        
+        console.log(`🤖 [BOT-TOGGLE] Toggling bot for ${targetSymbol} (${tradingPair || 'BTCEUR'}) to ${activeValue === 1 ? 'ACTIVE' : 'INACTIVE'}`);
         
         // Check if bot settings exist for this symbol, if not create them
         const existing = await dbGet(
@@ -2149,18 +2162,35 @@ router.post('/bot/toggle', async (req, res) => {
         );
         
         if (!existing) {
+            console.log(`📝 [BOT-TOGGLE] Creating new bot settings for ${targetSymbol}`);
             // Create new bot settings with default parameters
             await dbRun(
                 "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES (?, ?, ?, ?)",
                 [strategy_name, targetSymbol, activeValue, JSON.stringify(DEFAULT_PARAMS)]
             );
+            console.log(`✅ [BOT-TOGGLE] Created bot settings for ${targetSymbol}`);
         } else {
+            console.log(`📝 [BOT-TOGGLE] Updating existing bot settings for ${targetSymbol}`);
             // Update existing
             await dbRun(
                 "UPDATE bot_settings SET is_active = ? WHERE strategy_name = ? AND symbol = ?",
                 [activeValue, strategy_name, targetSymbol]
             );
+            console.log(`✅ [BOT-TOGGLE] Updated bot settings for ${targetSymbol}`);
         }
+
+        // Verify the bot was saved correctly
+        const verify = await dbGet(
+            "SELECT * FROM bot_settings WHERE strategy_name = ? AND symbol = ?",
+            [strategy_name, targetSymbol]
+        );
+        
+        if (!verify) {
+            console.error(`❌ [BOT-TOGGLE] Failed to save bot settings for ${targetSymbol}`);
+            return res.status(500).json({ error: 'Errore nel salvataggio delle impostazioni del bot' });
+        }
+
+        console.log(`✅ [BOT-TOGGLE] Bot ${activeValue === 1 ? 'attivato' : 'disattivato'} con successo per ${targetSymbol}`);
 
         res.json({
             success: true,
@@ -2170,8 +2200,9 @@ router.post('/bot/toggle', async (req, res) => {
             message: `Bot ${activeValue === 1 ? 'attivato' : 'disattivato'} per ${targetSymbol.toUpperCase()}`
         });
     } catch (error) {
-        console.error('Error toggling bot:', error);
-        res.status(500).json({ error: error.message });
+        console.error('❌ [BOT-TOGGLE] Error toggling bot:', error);
+        console.error('❌ [BOT-TOGGLE] Stack:', error.stack);
+        res.status(500).json({ error: error.message || 'Errore sconosciuto nell\'attivazione del bot' });
     }
 });
 

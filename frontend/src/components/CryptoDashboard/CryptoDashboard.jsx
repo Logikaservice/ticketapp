@@ -274,7 +274,9 @@ const CryptoDashboard = () => {
             const currentBot = activeBots.find(b => b.symbol === targetSymbol);
             const newStatus = currentBot ? !currentBot.is_active : true;
             
-            await fetch(`${apiBase}/api/crypto/bot/toggle`, {
+            console.log(`🤖 Toggling bot for ${targetSymbol}, new status: ${newStatus}`);
+            
+            const response = await fetch(`${apiBase}/api/crypto/bot/toggle`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -284,6 +286,16 @@ const CryptoDashboard = () => {
                 })
             });
             
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                console.error("❌ Error toggling bot:", errorData);
+                alert(`Errore nell'attivazione del bot: ${errorData.error || response.statusText}`);
+                return;
+            }
+            
+            const result = await response.json();
+            console.log('✅ Bot toggle result:', result);
+            
             // Update local state
             if (targetSymbol === currentSymbol) {
                 setBotStatus(prev => ({ ...prev, active: newStatus }));
@@ -291,8 +303,18 @@ const CryptoDashboard = () => {
             
             // Refresh active bots list
             await fetchActiveBots();
+            
+            // Show success message
+            if (newStatus) {
+                const symbolInfo = availableSymbols.find(s => s.symbol === targetSymbol);
+                alert(`Bot attivato per ${symbolInfo?.display || targetSymbol.toUpperCase()}`);
+            } else {
+                const symbolInfo = availableSymbols.find(s => s.symbol === targetSymbol);
+                alert(`Bot disattivato per ${symbolInfo?.display || targetSymbol.toUpperCase()}`);
+            }
         } catch (error) {
-            console.error("Error toggling bot:", error);
+            console.error("❌ Error toggling bot:", error);
+            alert(`Errore nell'attivazione del bot: ${error.message || 'Errore di connessione'}`);
         }
     };
 
