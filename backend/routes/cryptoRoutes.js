@@ -3759,21 +3759,50 @@ router.get('/scanner', async (req, res) => {
     console.log('🔍 [SCANNER] Starting market scan...');
     try {
         // List of symbols to scan (same as available)
+        // List of symbols to scan (ALL available symbols)
         const symbolsToScan = [
+            // Bitcoin
             { symbol: 'bitcoin', pair: 'BTCEUR', display: 'BTC/EUR' },
+            { symbol: 'bitcoin_usdt', pair: 'BTCUSDT', display: 'BTC/USDT' },
+            // Ethereum
             { symbol: 'ethereum', pair: 'ETHEUR', display: 'ETH/EUR' },
+            { symbol: 'ethereum_usdt', pair: 'ETHUSDT', display: 'ETH/USDT' },
+            // Solana
             { symbol: 'solana', pair: 'SOLUSDT', display: 'SOL/USDT' },
-            { symbol: 'cardano', pair: 'ADAUSDT', display: 'ADA/USDT' },
-            { symbol: 'polkadot', pair: 'DOTUSDT', display: 'DOT/USDT' },
-            { symbol: 'chainlink', pair: 'LINKUSDT', display: 'LINK/USDT' },
-            { symbol: 'litecoin', pair: 'LTCUSDT', display: 'LTC/USDT' },
+            { symbol: 'solana_eur', pair: 'SOLEUR', display: 'SOL/EUR' },
+            // Cardano
+            { symbol: 'cardano', pair: 'ADAEUR', display: 'ADA/EUR' },
+            { symbol: 'cardano_usdt', pair: 'ADAUSDT', display: 'ADA/USDT' },
+            // Polkadot
+            { symbol: 'polkadot', pair: 'DOTEUR', display: 'DOT/EUR' },
+            { symbol: 'polkadot_usdt', pair: 'DOTUSDT', display: 'DOT/USDT' },
+            // Chainlink
+            { symbol: 'chainlink', pair: 'LINKEUR', display: 'LINK/EUR' },
+            { symbol: 'chainlink_usdt', pair: 'LINKUSDT', display: 'LINK/USDT' },
+            // Litecoin
+            { symbol: 'litecoin', pair: 'LTCEUR', display: 'LTC/EUR' },
+            { symbol: 'litecoin_usdt', pair: 'LTCUSDT', display: 'LTC/USDT' },
+            // Ripple
             { symbol: 'ripple', pair: 'XRPUSDT', display: 'XRP/USDT' },
+            { symbol: 'ripple_eur', pair: 'XRPEUR', display: 'XRP/EUR' },
+            // Binance Coin
             { symbol: 'binance_coin', pair: 'BNBUSDT', display: 'BNB/USDT' },
+            { symbol: 'binance_coin_eur', pair: 'BNBEUR', display: 'BNB/EUR' },
+            // Polygon (POL)
             { symbol: 'pol_polygon', pair: 'POLUSDT', display: 'POL/USDT' },
+            { symbol: 'pol_polygon_eur', pair: 'POLEUR', display: 'POL/EUR' },
+            // Avalanche
             { symbol: 'avalanche', pair: 'AVAXUSDT', display: 'AVAX/USDT' },
+            { symbol: 'avalanche_eur', pair: 'AVAXEUR', display: 'AVAX/EUR' },
+            // Uniswap
             { symbol: 'uniswap', pair: 'UNIUSDT', display: 'UNI/USDT' },
+            { symbol: 'uniswap_eur', pair: 'UNIEUR', display: 'UNI/EUR' },
+            // Dogecoin
             { symbol: 'dogecoin', pair: 'DOGEUSDT', display: 'DOGE/USDT' },
-            { symbol: 'shiba', pair: 'SHIBUSDT', display: 'SHIB/USDT' }
+            { symbol: 'dogecoin_eur', pair: 'DOGEEUR', display: 'DOGE/EUR' },
+            // Shiba Inu
+            { symbol: 'shiba', pair: 'SHIBUSDT', display: 'SHIB/USDT' },
+            { symbol: 'shiba_eur', pair: 'SHIBEUR', display: 'SHIB/EUR' }
         ];
 
         const results = await Promise.all(symbolsToScan.map(async (s) => {

@@ -48,7 +48,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                 </button>
             </div>
 
-            <div className="scanner-table-container" style={{ overflowX: 'auto', marginTop: '15px' }}>
+            <div className="scanner-table-container" style={{ overflowX: 'auto', overflowY: 'auto', marginTop: '15px', maxHeight: '600px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
                     <thead>
                         <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
