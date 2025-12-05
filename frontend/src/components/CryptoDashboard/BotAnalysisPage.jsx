@@ -289,14 +289,14 @@ const BotAnalysisPage = () => {
                             {requirements.long.strengthContributions && requirements.long.strengthContributions.length > 0 && (
                                 <div className="strength-contributions-list">
                                     <strong>Contributi allo Strength ({requirements.long.currentStrength}/100 punti):</strong>
-                                    <ul className="strength-contributions-items">
+                                    <div className="strength-contributions-grid">
                                         {requirements.long.strengthContributions.map((contribution, idx) => (
-                                            <li key={idx} className="strength-contribution-item">
+                                            <div key={idx} className="strength-contribution-item-compact">
                                                 <span className="strength-indicator-name">{contribution.indicator}</span>
-                                                <span className="strength-points">+{contribution.points} punti</span>
-                                            </li>
+                                                <span className="strength-points">+{contribution.points}</span>
+                                            </div>
                                         ))}
-                                    </ul>
+                                    </div>
                                 </div>
                             )}
                             {requirements.long.currentStrength === 0 && (
@@ -332,14 +332,14 @@ const BotAnalysisPage = () => {
                             {requirements.long.confirmationsList && requirements.long.confirmationsList.length > 0 && (
                                 <div className="confirmations-list">
                                     <strong>Conferme ottenute ({requirements.long.currentConfirmations}/{requirements.long.minConfirmations}):</strong>
-                                    <ul className="confirmations-items">
+                                    <div className="confirmations-grid">
                                         {requirements.long.confirmationsList.map((confirmation, idx) => (
-                                            <li key={idx} className="confirmation-item">
+                                            <div key={idx} className="confirmation-item-compact">
                                                 <span className="confirmation-check">✓</span>
                                                 <span className="confirmation-text">{confirmation}</span>
-                                            </li>
+                                            </div>
                                         ))}
-                                    </ul>
+                                    </div>
                                 </div>
                             )}
                             {requirements.long.currentConfirmations === 0 && (
@@ -401,14 +401,14 @@ const BotAnalysisPage = () => {
                             {requirements.short.strengthContributions && requirements.short.strengthContributions.length > 0 && (
                                 <div className="strength-contributions-list">
                                     <strong>Contributi allo Strength ({requirements.short.currentStrength}/100 punti):</strong>
-                                    <ul className="strength-contributions-items">
+                                    <div className="strength-contributions-grid">
                                         {requirements.short.strengthContributions.map((contribution, idx) => (
-                                            <li key={idx} className="strength-contribution-item">
+                                            <div key={idx} className="strength-contribution-item-compact">
                                                 <span className="strength-indicator-name">{contribution.indicator}</span>
-                                                <span className="strength-points">+{contribution.points} punti</span>
-                                            </li>
+                                                <span className="strength-points">+{contribution.points}</span>
+                                            </div>
                                         ))}
-                                    </ul>
+                                    </div>
                                 </div>
                             )}
                             {requirements.short.currentStrength === 0 && (
@@ -444,14 +444,14 @@ const BotAnalysisPage = () => {
                             {requirements.short.confirmationsList && requirements.short.confirmationsList.length > 0 && (
                                 <div className="confirmations-list">
                                     <strong>Conferme ottenute ({requirements.short.currentConfirmations}/{requirements.short.minConfirmations}):</strong>
-                                    <ul className="confirmations-items">
+                                    <div className="confirmations-grid">
                                         {requirements.short.confirmationsList.map((confirmation, idx) => (
-                                            <li key={idx} className="confirmation-item">
+                                            <div key={idx} className="confirmation-item-compact">
                                                 <span className="confirmation-check">✓</span>
                                                 <span className="confirmation-text">{confirmation}</span>
-                                            </li>
+                                            </div>
                                         ))}
-                                    </ul>
+                                    </div>
                                 </div>
                             )}
                             {requirements.short.currentConfirmations === 0 && (
@@ -533,8 +533,8 @@ const BotAnalysisPage = () => {
                                 <li><strong>RSI:</strong> Se è sotto 30, il prezzo è "sottovalutato" (possibile rialzo). Se è sopra 70, è "sopravvalutato" (possibile calo).</li>
                                 <li><strong>Conferme:</strong> Il bot non si fida di un solo indicatore. Serve che MULTIPLI indicatori (RSI, MACD, Bollinger Bands, Trend) siano d'accordo.</li>
                                 <li><strong>Strength:</strong> Quanto è forte il segnale (0-100). Serve almeno 70 per avere ~90% di certezza.</li>
-                                <li><strong>LONG:</strong> Serve 4 conferme + strength >= 70 per comprare.</li>
-                                <li><strong>SHORT:</strong> Serve 5 conferme + strength >= 70 per vendere (più rigoroso).</li>
+                                <li><strong>LONG:</strong> Serve 4 conferme + strength {'>'}= 70 per comprare.</li>
+                                <li><strong>SHORT:</strong> Serve 5 conferme + strength {'>'}= 70 per vendere (più rigoroso).</li>
                                 <li><strong>Risk Manager:</strong> Anche se il segnale è perfetto, il bot non apre se ha già perso troppo oggi o se l'exposure è troppo alta.</li>
                             </ul>
                             <p className="explanation-footer">
