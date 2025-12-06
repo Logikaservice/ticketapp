@@ -4127,9 +4127,22 @@ router.get('/bot-analysis', async (req, res) => {
         // Calculate what's needed for LONG
         const LONG_MIN_CONFIRMATIONS = 4;
         const LONG_MIN_STRENGTH = 70;
-        // ✅ FIX: Usa longSignal se disponibile (anche quando direction è NEUTRAL), altrimenti usa signal.strength solo se direction è LONG
-        const longCurrentStrength = signal.longSignal ? signal.longSignal.strength : (signal.direction === 'LONG' ? signal.strength : 0);
-        const longCurrentConfirmations = signal.longSignal ? signal.longSignal.confirmations : (signal.direction === 'LONG' ? signal.confirmations : 0);
+        // ✅ FIX: Mostra longSignal SOLO quando direction è effettivamente LONG
+        // Se direction è NEUTRAL o SHORT, resetta longSignal a 0 (evita valori falsi positivi)
+        let longCurrentStrength = 0;
+        let longCurrentConfirmations = 0;
+        
+        if (signal.direction === 'LONG') {
+            // Segnale principale è LONG: usa i valori del segnale principale (più accurati)
+            longCurrentStrength = signal.strength || 0;
+            longCurrentConfirmations = signal.confirmations || 0;
+        } else {
+            // ✅ FIX: Se direction è SHORT o NEUTRAL, resetta longSignal a 0
+            // NEUTRAL = nessun movimento significativo, quindi non mostrare valori LONG
+            // SHORT = trend opposto, quindi non mostrare valori LONG
+            longCurrentStrength = 0;
+            longCurrentConfirmations = 0;
+        }
         const longNeedsConfirmations = Math.max(0, LONG_MIN_CONFIRMATIONS - longCurrentConfirmations);
         const longNeedsStrength = Math.max(0, LONG_MIN_STRENGTH - longCurrentStrength);
         // ✅ FIX: Calcola MTF PRIMA e poi verifica requirements con adjusted strength
@@ -4141,10 +4154,10 @@ router.get('/bot-analysis', async (req, res) => {
         // Calculate what's needed for SHORT
         const SHORT_MIN_CONFIRMATIONS = 5;
         const SHORT_MIN_STRENGTH = 70;
-        // ✅ FIX CRITICO: Usa shortSignal.strength SOLO se direction è SHORT o se shortSignal ha conferme valide
-        // Altrimenti usa 0 per evitare valori fissi errati quando il segnale è LONG o NEUTRAL
-        // Se direction è SHORT, usa sempre signal.strength (più accurato)
-        // Se direction è NEUTRAL o LONG, usa shortSignal.strength SOLO se ha almeno 1 conferma valida
+        // ✅ FIX CRITICO: Mostra shortSignal SOLO quando direction è effettivamente SHORT
+        // Se direction è NEUTRAL o LONG, resetta shortSignal a 0 (evita valori falsi positivi)
+        // Il motivo: quando direction è NEUTRAL significa nessun movimento significativo,
+        // quindi non ha senso mostrare valori SHORT anche se shortSignal è stato calcolato
         let shortCurrentStrength = 0;
         let shortCurrentConfirmations = 0;
         
@@ -4152,16 +4165,12 @@ router.get('/bot-analysis', async (req, res) => {
             // Segnale principale è SHORT: usa i valori del segnale principale (più accurati)
             shortCurrentStrength = signal.strength || 0;
             shortCurrentConfirmations = signal.confirmations || 0;
-        } else if (signal.shortSignal) {
-            // Segnale principale NON è SHORT ma esiste shortSignal: usa shortSignal SOLO se ha conferme valide
-            // Questo evita di mostrare valori alti quando il segnale non è realmente SHORT
-            if (signal.shortSignal.confirmations > 0 && signal.shortSignal.strength > 0) {
-                shortCurrentStrength = signal.shortSignal.strength;
-                shortCurrentConfirmations = signal.shortSignal.confirmations;
-            } else {
-                shortCurrentStrength = 0;
-                shortCurrentConfirmations = 0;
-            }
+        } else {
+            // ✅ FIX: Se direction è LONG o NEUTRAL, resetta shortSignal a 0
+            // NEUTRAL = nessun movimento significativo, quindi non mostrare valori SHORT
+            // LONG = trend opposto, quindi non mostrare valori SHORT
+            shortCurrentStrength = 0;
+            shortCurrentConfirmations = 0;
         }
         const shortNeedsConfirmations = Math.max(0, SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations);
         const shortNeedsStrength = Math.max(0, SHORT_MIN_STRENGTH - shortCurrentStrength);
