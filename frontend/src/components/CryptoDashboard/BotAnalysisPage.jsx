@@ -28,16 +28,32 @@ const BotAnalysisPage = () => {
 
         const fetchAnalysis = async () => {
             try {
-                const res = await fetch(`${apiBase}/api/crypto/bot-analysis?symbol=${symbol}`);
+                // ✅ FIX: Aggiungi timestamp alla query per evitare cache del browser
+                const timestamp = Date.now();
+                const res = await fetch(`${apiBase}/api/crypto/bot-analysis?symbol=${symbol}&_t=${timestamp}`, {
+                    cache: 'no-cache',
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                });
                 if (res.ok) {
                     const data = await res.json();
                     if (isMounted) {
-                        setAnalysis(data);
+                        // ✅ FIX: Crea nuovo oggetto per forzare re-render di React
+                        // Aggiungi timestamp per assicurare che React rilevi il cambiamento
+                        const dataWithTimestamp = {
+                            ...data,
+                            _lastUpdate: timestamp,
+                            _updateTime: new Date().toISOString()
+                        };
+                        setAnalysis(dataWithTimestamp);
                         setLoading(false);
                         console.log(`✅ Bot Analysis updated for ${symbol}:`, {
                             signal: data.signal?.direction,
                             strength: data.signal?.strength,
-                            timestamp: new Date().toLocaleTimeString()
+                            timestamp: new Date().toLocaleTimeString(),
+                            updateId: timestamp
                         });
                     }
                 } else {
@@ -84,7 +100,11 @@ const BotAnalysisPage = () => {
         );
     }
 
-    const { signal, requirements, risk, positions, currentPrice, rsi, botParameters, mtf } = analysis;
+    // ✅ FIX: Estrai dati e aggiungi key per forzare re-render quando cambiano
+    const { signal, requirements, risk, positions, currentPrice, rsi, botParameters, mtf, _lastUpdate } = analysis;
+    
+    // ✅ FIX: Usa _lastUpdate come key per componenti critici per forzare aggiornamento
+    const updateKey = _lastUpdate || Date.now();
 
     return (
         <div className="bot-analysis-page">
@@ -113,14 +133,16 @@ const BotAnalysisPage = () => {
 
                 <div className="page-content">
                     {/* Prezzo e RSI Corrente */}
-                    <div className="info-section">
+                    <div className="info-section" key={`info-${updateKey}`}>
                         <div className="info-card">
                             <div className="info-label">Prezzo Corrente</div>
-                            <div className="info-value">€{currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="info-value" key={`price-${updateKey}`}>
+                                €{currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
                         </div>
                         <div className="info-card">
                             <div className="info-label">RSI (14 periodi)</div>
-                            <div className={`info-value ${rsi < 30 ? 'oversold' : rsi > 70 ? 'overbought' : ''}`}>
+                            <div className={`info-value ${rsi < 30 ? 'oversold' : rsi > 70 ? 'overbought' : ''}`} key={`rsi-${updateKey}`}>
                                 {rsi.toFixed(2)}
                             </div>
                             <div className="info-hint">
@@ -132,9 +154,9 @@ const BotAnalysisPage = () => {
                     </div>
 
                     {/* Segnale Attuale */}
-                    <div className="signal-section">
+                    <div className="signal-section" key={`signal-${updateKey}`}>
                         <h3>📡 Segnale Attuale</h3>
-                        <div className={`signal-card ${signal.direction.toLowerCase()}`}>
+                        <div className={`signal-card ${signal.direction.toLowerCase()}`} key={`signal-card-${updateKey}`}>
                             <div className="signal-header">
                                 <span className="signal-direction">
                                     {signal.direction === 'LONG' ? <TrendingUp size={24} /> :
@@ -261,9 +283,9 @@ const BotAnalysisPage = () => {
                     )}
 
                     {/* Requisiti per LONG */}
-                    <div className="requirements-section">
+                    <div className="requirements-section" key={`long-req-${updateKey}`}>
                         <h3>📈 Requisiti per APRIRE LONG (Compra)</h3>
-                        <div className={`requirement-card ${requirements.long.canOpen ? 'ready' : 'waiting'}`}>
+                        <div className={`requirement-card ${requirements.long.canOpen ? 'ready' : 'waiting'}`} key={`long-card-${updateKey}`}>
                             <div className="requirement-header">
                                 <span className="requirement-status">
                                     {requirements.long.canOpen ? (
@@ -373,9 +395,9 @@ const BotAnalysisPage = () => {
                     </div>
 
                     {/* Requisiti per SHORT */}
-                    <div className="requirements-section">
+                    <div className="requirements-section" key={`short-req-${updateKey}`}>
                         <h3>📉 Requisiti per APRIRE SHORT (Vendi)</h3>
-                        <div className={`requirement-card ${requirements.short.canOpen ? 'ready' : 'waiting'}`}>
+                        <div className={`requirement-card ${requirements.short.canOpen ? 'ready' : 'waiting'}`} key={`short-card-${updateKey}`}>
                             <div className="requirement-header">
                                 <span className="requirement-status">
                                     {requirements.short.canOpen ? (

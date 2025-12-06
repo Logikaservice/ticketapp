@@ -4089,7 +4089,9 @@ router.get('/bot-analysis', async (req, res) => {
         const longCurrentConfirmations = signal.longSignal ? signal.longSignal.confirmations : (signal.direction === 'LONG' ? signal.confirmations : 0);
         const longNeedsConfirmations = Math.max(0, LONG_MIN_CONFIRMATIONS - longCurrentConfirmations);
         const longNeedsStrength = Math.max(0, LONG_MIN_STRENGTH - longCurrentStrength);
-        const longMeetsRequirements = signal.direction === 'LONG' &&
+        // ✅ FIX: Calcola MTF PRIMA e poi verifica requirements con adjusted strength
+        // (Questo viene ricalcolato più in basso dopo il calcolo MTF)
+        const longMeetsRequirementsInitial = signal.direction === 'LONG' &&
             signal.strength >= LONG_MIN_STRENGTH &&
             signal.confirmations >= LONG_MIN_CONFIRMATIONS;
 
@@ -4101,7 +4103,9 @@ router.get('/bot-analysis', async (req, res) => {
         const shortCurrentConfirmations = signal.shortSignal ? signal.shortSignal.confirmations : (signal.direction === 'SHORT' ? signal.confirmations : 0);
         const shortNeedsConfirmations = Math.max(0, SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations);
         const shortNeedsStrength = Math.max(0, SHORT_MIN_STRENGTH - shortCurrentStrength);
-        const shortMeetsRequirements = signal.direction === 'SHORT' &&
+        // ✅ FIX: Calcola MTF PRIMA e poi verifica requirements con adjusted strength
+        // (Questo viene spostato più in basso dopo il calcolo MTF)
+        const shortMeetsRequirementsInitial = signal.direction === 'SHORT' &&
             signal.strength >= SHORT_MIN_STRENGTH &&
             signal.confirmations >= SHORT_MIN_CONFIRMATIONS;
 
@@ -4121,46 +4125,32 @@ router.get('/bot-analysis', async (req, res) => {
             trend4h = 'neutral';
         }
 
-        // Calcola MTF bonus per LONG
-        let longMtfBonus = 0;
+        // ✅ FIX: MTF bonus già calcolato sopra, ora aggiungiamo i reason per display
         let longMtfReason = '';
         if (signal.direction === 'LONG' || longCurrentStrength > 0) {
             if (trend1h === 'bullish' && trend4h === 'bullish') {
-                longMtfBonus = +10;
                 longMtfReason = '✅ All timeframes bullish (+10)';
             } else if (trend1h === 'bullish' || trend4h === 'bullish') {
-                longMtfBonus = +5;
                 longMtfReason = '✅ Partial alignment (+5)';
             } else if (trend1h === 'bearish' || trend4h === 'bearish') {
-                longMtfBonus = -15;
                 longMtfReason = '⚠️ Higher timeframe bearish (-15)';
             } else {
-                longMtfBonus = 0;
                 longMtfReason = '➡️ Neutral timeframes (0)';
             }
         }
 
-        // Calcola MTF bonus per SHORT
-        let shortMtfBonus = 0;
         let shortMtfReason = '';
         if (signal.direction === 'SHORT' || shortCurrentStrength > 0) {
             if (trend1h === 'bearish' && trend4h === 'bearish') {
-                shortMtfBonus = +10;
                 shortMtfReason = '✅ All timeframes bearish (+10)';
             } else if (trend1h === 'bearish' || trend4h === 'bearish') {
-                shortMtfBonus = +5;
                 shortMtfReason = '✅ Partial alignment (+5)';
             } else if (trend1h === 'bullish' || trend4h === 'bullish') {
-                shortMtfBonus = -15;
                 shortMtfReason = '⚠️ Higher timeframe bullish (-15)';
             } else {
-                shortMtfBonus = 0;
                 shortMtfReason = '➡️ Neutral timeframes (0)';
             }
         }
-
-        const longAdjustedStrength = longCurrentStrength + longMtfBonus;
-        const shortAdjustedStrength = shortCurrentStrength + shortMtfBonus;
 
         console.log(`📊 [MTF] LONG: ${longCurrentStrength} + ${longMtfBonus} = ${longAdjustedStrength} | SHORT: ${shortCurrentStrength} + ${shortMtfBonus} = ${shortAdjustedStrength}`);
         console.log(`📊 [MTF] Trends: 1h=${trend1h}, 4h=${trend4h}`);
@@ -4195,8 +4185,13 @@ router.get('/bot-analysis', async (req, res) => {
                 longReason = canOpenCheck.reason || 'Risk manager blocca';
             }
         } else if (signal.direction === 'SHORT') {
+            // ✅ FIX: Verifica anche ATR blocking e MTF adjustment
             if (shortMeetsRequirements && canOpenCheck.allowed) {
                 shortReason = '✅ PRONTO AD APRIRE SHORT';
+            } else if (signal.atrBlocked) {
+                shortReason = `ATR blocca trading (${signal.atrPct?.toFixed(2)}% ${signal.atrPct < signal.minAtrRequired ? '<' : '>'} ${signal.minAtrRequired}%)`;
+            } else if (shortAdjustedStrength < MIN_SIGNAL_STRENGTH) {
+                shortReason = `Strength aggiustata insufficiente: ${shortAdjustedStrength} < ${MIN_SIGNAL_STRENGTH} (original: ${shortCurrentStrength}, MTF: ${shortMtfBonus >= 0 ? '+' : ''}${shortMtfBonus})`;
             } else if (!shortMeetsRequirements) {
                 if (shortNeedsStrength > 0 && shortNeedsConfirmations > 0) {
                     shortReason = `Serve strength +${shortNeedsStrength} e ${shortNeedsConfirmations} conferme in più`;
