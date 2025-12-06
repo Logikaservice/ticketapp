@@ -553,6 +553,45 @@ router.post('/reset', async (req, res) => {
     }
 });
 
+// POST /api/crypto/add-funds (Add Funds to Portfolio - Simulation)
+router.post('/add-funds', async (req, res) => {
+    try {
+        const { amount } = req.body;
+
+        // Validate amount
+        if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
+            return res.status(400).json({ error: 'Importo non valido. Deve essere maggiore di 0.' });
+        }
+
+        const fundsToAdd = parseFloat(amount);
+
+        // Get current portfolio
+        const portfolio = await dbGet("SELECT * FROM portfolio WHERE id = 1");
+        if (!portfolio) {
+            return res.status(404).json({ error: 'Portfolio non trovato' });
+        }
+
+        const currentBalance = parseFloat(portfolio.balance_usd) || 0;
+        const newBalance = currentBalance + fundsToAdd;
+
+        // Update portfolio balance
+        await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [newBalance]);
+
+        console.log(`💰 Fondi aggiunti: €${fundsToAdd.toFixed(2)} | Saldo precedente: €${currentBalance.toFixed(2)} | Nuovo saldo: €${newBalance.toFixed(2)}`);
+
+        res.json({
+            success: true,
+            message: `Fondi aggiunti con successo!`,
+            added_amount: fundsToAdd,
+            previous_balance: currentBalance,
+            new_balance: newBalance
+        });
+    } catch (err) {
+        console.error('Error adding funds:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // POST /api/crypto/trade (Simulation)
 router.post('/trade', async (req, res) => {
     const { symbol, type, amount, price, strategy } = req.body;
@@ -4411,6 +4450,165 @@ router.get('/scanner', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Scanner Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/crypto/debug/balance - Debug endpoint per verificare da dove viene il guadagno
+router.get('/debug/balance', async (req, res) => {
+    try {
+        const portfolio = await getPortfolio();
+        const holdings = JSON.parse(portfolio.holdings || '{}');
+
+        // Get all closed positions with P&L
+        const closedPositions = await dbAll(
+            "SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC"
+        );
+
+        // Get all open positions
+        const openPositions = await dbAll(
+            "SELECT * FROM open_positions WHERE status = 'open'"
+        );
+
+        // Get all trades (with and without profit_loss)
+        const allTrades = await dbAll(
+            "SELECT * FROM trades ORDER BY timestamp DESC"
+        );
+
+        // Get trades with profit_loss
+        const tradesWithPnL = allTrades.filter(t => t.profit_loss !== null && parseFloat(t.profit_loss) !== 0);
+
+        // Calculate total P&L from closed positions
+        let totalPnLFromPositions = 0;
+        closedPositions.forEach(pos => {
+            const pnl = parseFloat(pos.profit_loss) || 0;
+            totalPnLFromPositions += pnl;
+        });
+
+        // Calculate total P&L from trades
+        let totalPnLFromTrades = 0;
+        tradesWithPnL.forEach(trade => {
+            const pnl = parseFloat(trade.profit_loss) || 0;
+            totalPnLFromTrades += pnl;
+        });
+
+        // Calculate total spent on buys (from all trades)
+        let totalSpentOnBuys = 0;
+        let totalReceivedFromSells = 0;
+        allTrades.forEach(trade => {
+            const cost = parseFloat(trade.amount) * parseFloat(trade.price);
+            if (trade.type === 'buy') {
+                totalSpentOnBuys += cost;
+            } else if (trade.type === 'sell') {
+                totalReceivedFromSells += cost;
+            }
+        });
+
+        // Calculate current holdings value (approximate, using last known prices)
+        let holdingsValue = 0;
+        const holdingsDetails = {};
+        for (const [symbol, amount] of Object.entries(holdings)) {
+            if (amount > 0) {
+                try {
+                    const price = await getSymbolPrice(symbol);
+                    const value = amount * price;
+                    holdingsValue += value;
+                    holdingsDetails[symbol] = {
+                        amount: amount,
+                        estimated_price: price,
+                        estimated_value: value
+                    };
+                } catch (err) {
+                    holdingsDetails[symbol] = {
+                        amount: amount,
+                        estimated_price: 'N/A',
+                        estimated_value: 0
+                    };
+                }
+            }
+        }
+
+        // Calculate expected balance (starting balance + total P&L from closed positions)
+        const startingBalance = 250.0;
+        const expectedBalanceFromPositions = startingBalance + totalPnLFromPositions;
+
+        // Alternative calculation: starting balance - buys + sells
+        const expectedBalanceFromTrades = startingBalance - totalSpentOnBuys + totalReceivedFromSells;
+
+        const actualBalance = portfolio.balance_usd;
+        const totalBalance = actualBalance + holdingsValue; // Balance + holdings value
+
+        // Find trades without associated positions
+        const tradesWithoutPositions = allTrades.filter(trade => {
+            if (!trade.ticket_id) return true; // Trade senza ticket_id
+            const hasPosition = [...closedPositions, ...openPositions].some(pos => pos.ticket_id === trade.ticket_id);
+            return !hasPosition;
+        });
+
+        res.json({
+            debug: {
+                starting_balance: startingBalance,
+                actual_balance: actualBalance,
+                holdings_value: holdingsValue,
+                total_balance_including_holdings: totalBalance,
+                expected_balance_from_closed_positions: expectedBalanceFromPositions,
+                expected_balance_from_trades: expectedBalanceFromTrades,
+                difference_from_positions: actualBalance - expectedBalanceFromPositions,
+                difference_from_trades: actualBalance - expectedBalanceFromTrades,
+                total_pnl_from_closed_positions: totalPnLFromPositions,
+                total_pnl_from_trades: totalPnLFromTrades,
+                total_spent_on_buys: totalSpentOnBuys,
+                total_received_from_sells: totalReceivedFromSells,
+                closed_positions_count: closedPositions.length,
+                open_positions_count: openPositions.length,
+                trades_with_pnl_count: tradesWithPnL.length,
+                total_trades_count: allTrades.length,
+                trades_without_positions_count: tradesWithoutPositions.length
+            },
+            holdings: holdingsDetails,
+            closed_positions: closedPositions.map(pos => ({
+                ticket_id: pos.ticket_id,
+                symbol: pos.symbol,
+                type: pos.type,
+                entry_price: pos.entry_price,
+                closed_at: pos.closed_at,
+                profit_loss: pos.profit_loss,
+                status: pos.status,
+                volume: pos.volume
+            })),
+            open_positions: openPositions.map(pos => ({
+                ticket_id: pos.ticket_id,
+                symbol: pos.symbol,
+                type: pos.type,
+                entry_price: pos.entry_price,
+                volume: pos.volume,
+                opened_at: pos.opened_at
+            })),
+            trades_with_pnl: tradesWithPnL.map(trade => ({
+                id: trade.id,
+                ticket_id: trade.ticket_id,
+                symbol: trade.symbol,
+                type: trade.type,
+                amount: trade.amount,
+                price: trade.price,
+                profit_loss: trade.profit_loss,
+                timestamp: trade.timestamp,
+                strategy: trade.strategy
+            })),
+            trades_without_positions: tradesWithoutPositions.map(trade => ({
+                id: trade.id,
+                ticket_id: trade.ticket_id,
+                symbol: trade.symbol,
+                type: trade.type,
+                amount: trade.amount,
+                price: trade.price,
+                profit_loss: trade.profit_loss,
+                timestamp: trade.timestamp,
+                strategy: trade.strategy
+            }))
+        });
+    } catch (error) {
+        console.error('❌ Debug balance error:', error);
         res.status(500).json({ error: error.message });
     }
 });

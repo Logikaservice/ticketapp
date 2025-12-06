@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet, Settings, BarChart2, RotateCcw } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Wallet, Settings, BarChart2, RotateCcw, ChevronDown, DollarSign } from 'lucide-react';
 import OpenPositions from './OpenPositions';
 import TradingViewChart from './TradingViewChart';
 import ApexChart from './ApexChart';
@@ -32,6 +32,8 @@ const CryptoDashboard = () => {
     const [notifications, setNotifications] = useState([]);
     const [botParameters, setBotParameters] = useState(null);
     const [useApexChart, setUseApexChart] = useState(false); // Toggle tra TradingView e ApexChart
+    const [showPortfolioMenu, setShowPortfolioMenu] = useState(false); // Menu dropdown per gestione portfolio
+    const [showAddFundsModal, setShowAddFundsModal] = useState(false); // Modal per aggiungere fondi
 
     // WebSocket for real-time notifications
     const { connected: wsConnected } = useCryptoWebSocket(
@@ -158,6 +160,8 @@ const CryptoDashboard = () => {
     };
 
     const handleResetPortfolio = async () => {
+        setShowPortfolioMenu(false); // Chiudi il menu
+
         const allPositionsCount = openPositions.length + (trades?.length || 0);
         const confirmMessage = `⚠️ ATTENZIONE: Reset completo del portfolio!\n\nQuesto cancellerà:\n${openPositions.length > 0 ? `- ${openPositions.length} posizione/i aperta/e\n` : ''}- TUTTE le posizioni (aperte e chiuse)\n- TUTTI i trades (marker sul grafico e lista recenti)\n\nE poi:\n- Imposterà il saldo a €250\n- Resetterà tutte le holdings\n\nVuoi continuare?`;
 
@@ -183,6 +187,30 @@ const CryptoDashboard = () => {
         } catch (error) {
             console.error("Error resetting portfolio:", error);
             alert('Errore nel reset del portfolio');
+        }
+    };
+
+    const handleAddFunds = async (amount) => {
+        try {
+            const res = await fetch(`${apiBase}/api/crypto/add-funds`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: parseFloat(amount) })
+            });
+
+            if (res.ok) {
+                const result = await res.json();
+                alert(`✅ Fondi aggiunti con successo!\n\nImporto: €${amount}\nNuovo saldo: €${result.new_balance.toFixed(2)}`);
+                // Refresh data
+                fetchData();
+                setShowAddFundsModal(false);
+            } else {
+                const error = await res.json();
+                alert(error.error || 'Errore nell\'aggiunta dei fondi');
+            }
+        } catch (error) {
+            console.error("Error adding funds:", error);
+            alert('Errore nell\'aggiunta dei fondi');
         }
     };
 
@@ -463,14 +491,101 @@ const CryptoDashboard = () => {
                         >
                             🔍
                         </button>
-                        <button
-                            className="toggle-btn"
-                            onClick={handleResetPortfolio}
-                            style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px', background: '#ef4444', color: '#fff' }}
-                            title="Reset Portfolio a €250"
-                        >
-                            <RotateCcw size={18} />
-                        </button>
+                        {/* Portfolio Management Dropdown */}
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                className="toggle-btn"
+                                onClick={() => setShowPortfolioMenu(!showPortfolioMenu)}
+                                style={{
+                                    padding: '8px 12px',
+                                    fontSize: '0.9rem',
+                                    minWidth: '40px',
+                                    background: '#6366f1',
+                                    color: '#fff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                }}
+                                title="Gestione Portfolio"
+                            >
+                                <Wallet size={18} />
+                                <ChevronDown size={14} />
+                            </button>
+
+                            {/* Dropdown Menu */}
+                            {showPortfolioMenu && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '100%',
+                                    right: 0,
+                                    marginTop: '4px',
+                                    background: '#1f2937',
+                                    border: '1px solid #374151',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
+                                    zIndex: 1000,
+                                    minWidth: '200px',
+                                    overflow: 'hidden'
+                                }}>
+                                    <button
+                                        onClick={() => {
+                                            setShowPortfolioMenu(false);
+                                            setShowAddFundsModal(true);
+                                        }}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px 16px',
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: '#fff',
+                                            textAlign: 'left',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            fontSize: '0.9rem',
+                                            transition: 'background 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.background = '#374151'}
+                                        onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                                    >
+                                        <DollarSign size={18} className="text-green-500" />
+                                        <div>
+                                            <div style={{ fontWeight: '500' }}>Aggiungi Fondi</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Deposita capitale</div>
+                                        </div>
+                                    </button>
+
+                                    <div style={{ height: '1px', background: '#374151' }}></div>
+
+                                    <button
+                                        onClick={handleResetPortfolio}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px 16px',
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: '#fff',
+                                            textAlign: 'left',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            fontSize: '0.9rem',
+                                            transition: 'background 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => e.target.style.background = '#7f1d1d'}
+                                        onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                                    >
+                                        <RotateCcw size={18} className="text-red-500" />
+                                        <div>
+                                            <div style={{ fontWeight: '500' }}>Reset Portfolio</div>
+                                            <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Torna a €250</div>
+                                        </div>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -808,6 +923,177 @@ const CryptoDashboard = () => {
                 apiBase={apiBase}
                 currentBotParams={botParameters}
             />
+
+            {/* Add Funds Modal */}
+            {showAddFundsModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0, 0, 0, 0.8)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 2000
+                }}>
+                    <div style={{
+                        background: 'linear-gradient(145deg, #1f2937, #111827)',
+                        borderRadius: '16px',
+                        padding: '30px',
+                        maxWidth: '500px',
+                        width: '90%',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+                        border: '1px solid #374151'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <DollarSign size={24} className="text-green-500" />
+                                Aggiungi Fondi
+                            </h2>
+                            <button
+                                onClick={() => setShowAddFundsModal(false)}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#9ca3af',
+                                    fontSize: '1.5rem',
+                                    cursor: 'pointer',
+                                    padding: '0',
+                                    width: '30px',
+                                    height: '30px'
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div style={{ color: '#9ca3af', marginBottom: '20px', fontSize: '0.9rem' }}>
+                            Simula un deposito di fondi nel tuo portfolio. L'importo verrà aggiunto al saldo attuale.
+                        </div>
+
+                        <div style={{ marginBottom: '20px' }}>
+                            <label style={{ color: '#e5e7eb', fontSize: '0.9rem', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                                Importo da aggiungere (€)
+                            </label>
+                            <input
+                                type="number"
+                                id="addFundsAmount"
+                                min="1"
+                                step="0.01"
+                                placeholder="Inserisci importo..."
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    background: '#111827',
+                                    border: '1px solid #374151',
+                                    borderRadius: '8px',
+                                    color: '#fff',
+                                    fontSize: '1.1rem',
+                                    fontWeight: 'bold'
+                                }}
+                                onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                        const amount = document.getElementById('addFundsAmount').value;
+                                        if (amount && parseFloat(amount) > 0) {
+                                            handleAddFunds(amount);
+                                        }
+                                    }
+                                }}
+                            />
+                        </div>
+
+                        {/* Quick Amount Buttons */}
+                        <div style={{ marginBottom: '25px' }}>
+                            <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '10px' }}>Importi rapidi:</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                                {[50, 100, 250, 500].map(amount => (
+                                    <button
+                                        key={amount}
+                                        onClick={() => {
+                                            document.getElementById('addFundsAmount').value = amount;
+                                        }}
+                                        style={{
+                                            padding: '10px',
+                                            background: '#374151',
+                                            border: '1px solid #4b5563',
+                                            borderRadius: '8px',
+                                            color: '#fff',
+                                            cursor: 'pointer',
+                                            fontSize: '0.9rem',
+                                            fontWeight: '500',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.target.style.background = '#4b5563';
+                                            e.target.style.borderColor = '#6366f1';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.target.style.background = '#374151';
+                                            e.target.style.borderColor = '#4b5563';
+                                        }}
+                                    >
+                                        €{amount}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                onClick={() => setShowAddFundsModal(false)}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px',
+                                    background: '#374151',
+                                    border: '1px solid #4b5563',
+                                    borderRadius: '8px',
+                                    color: '#fff',
+                                    cursor: 'pointer',
+                                    fontSize: '1rem',
+                                    fontWeight: '500'
+                                }}
+                            >
+                                Annulla
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const amount = document.getElementById('addFundsAmount').value;
+                                    if (!amount || parseFloat(amount) <= 0) {
+                                        alert('⚠️ Inserisci un importo valido maggiore di 0');
+                                        return;
+                                    }
+                                    handleAddFunds(amount);
+                                }}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px',
+                                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    color: '#fff',
+                                    cursor: 'pointer',
+                                    fontSize: '1rem',
+                                    fontWeight: 'bold',
+                                    boxShadow: '0 4px 6px rgba(16, 185, 129, 0.3)'
+                                }}
+                            >
+                                Conferma Deposito
+                            </button>
+                        </div>
+
+                        <div style={{ marginTop: '20px', padding: '12px', background: '#1f2937', borderRadius: '8px', border: '1px solid #374151' }}>
+                            <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '6px' }}>
+                                💡 <strong>Nota:</strong> Questa è una simulazione
+                            </div>
+                            <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
+                                I fondi aggiunti sono virtuali e servono solo per testare la strategia di trading.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
 
             {/* Real-time Notifications */}
