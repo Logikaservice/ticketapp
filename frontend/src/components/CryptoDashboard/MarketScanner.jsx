@@ -167,14 +167,36 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                             </button>
                                             <button
                                                 onClick={() => {
+                                                    const timestamp = Date.now();
                                                     const url = new URL(window.location);
                                                     url.searchParams.set('domain', 'crypto');
                                                     url.searchParams.set('page', 'bot-analysis');
                                                     url.searchParams.set('symbol', item.symbol);
                                                     url.searchParams.set('_new', 'true');
-                                                    url.searchParams.set('_v', Date.now());
+                                                    url.searchParams.set('_v', timestamp);
                                                     url.searchParams.set('_cache', 'no');
-                                                    window.open(url.toString(), 'BotAnalysisNew', 'width=1200,height=800,resizable=yes,scrollbars=yes');
+                                                    url.searchParams.set('_force', timestamp.toString());
+                                                    // Forza reload completo del bundle JavaScript
+                                                    const newWindow = window.open('', 'BotAnalysisNew', 'width=1200,height=800,resizable=yes,scrollbars=yes');
+                                                    if (newWindow) {
+                                                        // Scrivi un HTML che forza il reload completo
+                                                        newWindow.document.write(`
+                                                            <!DOCTYPE html>
+                                                            <html>
+                                                            <head>
+                                                                <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+                                                                <meta http-equiv="Pragma" content="no-cache">
+                                                                <meta http-equiv="Expires" content="0">
+                                                                <script>
+                                                                    // Forza reload completo bypassando cache
+                                                                    window.location.replace('${url.toString()}');
+                                                                </script>
+                                                            </head>
+                                                            <body>Caricamento...</body>
+                                                            </html>
+                                                        `);
+                                                        newWindow.document.close();
+                                                    }
                                                 }}
                                                 style={{
                                                     background: '#10b981',

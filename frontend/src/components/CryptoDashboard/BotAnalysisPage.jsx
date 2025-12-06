@@ -62,12 +62,34 @@ const BotAnalysisPage = () => {
     // ✅ Forza reload completo se è la nuova versione
     useEffect(() => {
         if (isNewVersion) {
+            // Verifica se il componente è stato caricato correttamente
+            const checkVersion = () => {
+                // Cerca un marker nel DOM che indica la nuova versione
+                const newVersionMarker = document.querySelector('[data-new-version="true"]');
+                if (!newVersionMarker) {
+                    // Se non troviamo il marker, forziamo un hard reload
+                    console.log('🔄 Forzando hard reload per caricare nuova versione...');
+                    window.location.reload(true); // Deprecated ma funziona in molti browser
+                    // Fallback per browser moderni
+                    setTimeout(() => {
+                        window.location.href = window.location.href.split('?')[0] + '?' + new URLSearchParams({
+                            ...Object.fromEntries(new URLSearchParams(window.location.search)),
+                            _force_reload: Date.now().toString()
+                        }).toString();
+                    }, 100);
+                }
+            };
+            
             // Forza il browser a non usare cache per questa pagina
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.getRegistrations().then(registrations => {
                     registrations.forEach(registration => registration.unregister());
                 });
             }
+            
+            // Verifica dopo un breve delay per dare tempo al componente di renderizzare
+            setTimeout(checkVersion, 500);
+            
             // Aggiorna il timestamp nell'URL per forzare reload
             const url = new URL(window.location);
             url.searchParams.set('_loaded', Date.now().toString());
@@ -126,7 +148,7 @@ const BotAnalysisPage = () => {
     const updateKey = data._timestamp || Date.now(); // Key per forzare re-render
 
     return (
-        <div className="bot-analysis-page">
+        <div className="bot-analysis-page" data-new-version={isNewVersion ? "true" : undefined}>
             <div className="page-container">
                 <div className="page-header">
                     {isNewVersion && (
