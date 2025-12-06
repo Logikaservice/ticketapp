@@ -903,7 +903,7 @@ const getUSDTtoEURRate = async () => {
 
 // ✅ CACHE AGGRESSIVA per evitare rate limit Binance
 const priceCache = new Map();
-const PRICE_CACHE_TTL = 10000; // 10 secondi - cache molto aggressiva
+const PRICE_CACHE_TTL = 60000; // 60 secondi - cache MOLTO aggressiva per evitare rate limit Binance
 
 const getSymbolPrice = async (symbol) => {
     // ✅ Controlla cache prima di chiamare Binance
