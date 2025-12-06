@@ -716,8 +716,8 @@ const SYMBOL_TO_PAIR = {
     'trx_eur': 'TRXEUR',
     'xlm': 'XLMUSDT',
     'xlm_eur': 'XLMEUR',
-    'eos': 'EOSUSDT',
-    'eos_eur': 'EOSEUR',
+    // ❌ 'eos': 'EOSUSDT', // Delisted from Binance
+    // ❌ 'eos_eur': 'EOSEUR', // Not available on Binance
     // Layer 2 / Scaling
     'arb': 'ARBUSDT',
     'arb_eur': 'ARBEUR',
@@ -783,7 +783,7 @@ const CORRELATION_GROUPS = {
     'BTC_MAJOR': ['bitcoin', 'bitcoin_usdt', 'ethereum', 'ethereum_usdt', 'solana', 'solana_eur', 'cardano', 'cardano_usdt', 'polkadot', 'polkadot_usdt'],
     'DEFI': ['chainlink', 'chainlink_usdt', 'uniswap', 'uniswap_eur', 'avalanche', 'avalanche_eur', 'aave', 'crv', 'ldo', 'mkr', 'comp', 'snx'],
     'LAYER1_ALT': ['near', 'near_eur', 'atom', 'atom_eur', 'sui', 'sui_eur', 'apt', 'sei', 'ton', 'inj', 'algo', 'vet', 'icp'],
-    'PAYMENTS': ['trx', 'trx_eur', 'xlm', 'xlm_eur', 'eos', 'eos_eur'],
+    'PAYMENTS': ['trx', 'trx_eur', 'xlm', 'xlm_eur'], // ❌ Removed 'eos', 'eos_eur' - Delisted from Binance
     'LAYER2': ['arb', 'arb_eur', 'op', 'op_eur', 'matic', 'matic_eur'],
     'GAMING': ['sand', 'mana', 'axs', 'imx', 'gala', 'enj', 'enj_eur'],
     'STORAGE': ['fil', 'ar'],
@@ -4059,9 +4059,9 @@ router.get('/bot-analysis', async (req, res) => {
         } catch (signalError) {
             console.error('❌ [BOT-ANALYSIS] Errore nella generazione del segnale:', signalError.message);
             console.error('❌ [BOT-ANALYSIS] Stack trace:', signalError.stack);
-            return res.status(500).json({ 
+            return res.status(500).json({
                 error: 'Errore nella generazione del segnale',
-                details: signalError.message 
+                details: signalError.message
             });
         }
 
@@ -4143,7 +4143,7 @@ router.get('/bot-analysis', async (req, res) => {
         // SHORT: resetta a 0 (trend opposto)
         let longCurrentStrength = 0;
         let longCurrentConfirmations = 0;
-        
+
         if (signal.direction === 'LONG') {
             // Segnale principale è LONG: usa i valori del segnale principale (più accurati)
             longCurrentStrength = signal.strength || 0;
@@ -4175,7 +4175,7 @@ router.get('/bot-analysis', async (req, res) => {
         // LONG: resetta a 0 (trend opposto)
         let shortCurrentStrength = 0;
         let shortCurrentConfirmations = 0;
-        
+
         if (signal.direction === 'SHORT') {
             // Segnale principale è SHORT: usa i valori del segnale principale (più accurati)
             shortCurrentStrength = signal.strength || 0;
@@ -4190,7 +4190,7 @@ router.get('/bot-analysis', async (req, res) => {
                 ? (historyForSignal[historyForSignal.length - 1].close - historyForSignal[historyForSignal.length - 5].close) / historyForSignal[historyForSignal.length - 5].close * 100
                 : 0;
             const isPriceActivelyFalling = priceChange < -0.3 || priceChange5 < -0.5;
-            
+
             if (isPriceActivelyFalling) {
                 // Prezzo sta scendendo: mostra valori parziali SHORT
                 shortCurrentStrength = signal.shortSignal.strength || 0;
@@ -4349,12 +4349,12 @@ router.get('/bot-analysis', async (req, res) => {
         // Estrai i contributi allo Strength per LONG e SHORT
         // ✅ FIX: Mostra contributi SOLO se longCurrentStrength > 0 (altrimenti sono fuorvianti)
         // Se longCurrentStrength è 0, non mostrare contributi anche se esistono in longSignal
-        const longStrengthContributions = (longCurrentStrength > 0 && signal.longSignal && signal.longSignal.strengthContributions) 
-            ? signal.longSignal.strengthContributions 
+        const longStrengthContributions = (longCurrentStrength > 0 && signal.longSignal && signal.longSignal.strengthContributions)
+            ? signal.longSignal.strengthContributions
             : [];
         // ✅ FIX: Mostra contributi SOLO se shortCurrentStrength > 0 (altrimenti sono fuorvianti)
-        const shortStrengthContributions = (shortCurrentStrength > 0 && signal.shortSignal && signal.shortSignal.strengthContributions) 
-            ? signal.shortSignal.strengthContributions 
+        const shortStrengthContributions = (shortCurrentStrength > 0 && signal.shortSignal && signal.shortSignal.strengthContributions)
+            ? signal.shortSignal.strengthContributions
             : [];
 
         res.json({
@@ -4547,8 +4547,8 @@ router.get('/scanner', async (req, res) => {
             // Stellar
             { symbol: 'xlm', pair: 'XLMUSDT', display: 'XLM/USDT' },
             { symbol: 'xlm_eur', pair: 'XLMEUR', display: 'XLM/EUR' },
-            // EOS
-            { symbol: 'eos', pair: 'EOSUSDT', display: 'EOS/USDT' },
+            // EOS - ❌ Delisted from Binance
+            // ❌ { symbol: 'eos', pair: 'EOSUSDT', display: 'EOS/USDT' }, // Delisted from Binance
             // ❌ { symbol: 'eos_eur', pair: 'EOSEUR', display: 'EOS/EUR' }, // Non disponibile su Binance
             // Arbitrum
             { symbol: 'arb', pair: 'ARBUSDT', display: 'ARB/USDT' },
@@ -4669,12 +4669,12 @@ router.get('/scanner', async (req, res) => {
                 // Questo permette di vedere TUTTI i simboli e capire perché non generano segnali
                 let displayDirection = signal?.direction || 'NEUTRAL';
                 let displayStrength = signal?.strength || 0;
-                
+
                 // Se è NEUTRAL, controlla se ci sono segnali parziali da mostrare
                 if (signal?.direction === 'NEUTRAL' && signal?.longSignal && signal?.shortSignal) {
                     const longStrength = signal.longSignal.strength || 0;
                     const shortStrength = signal.shortSignal.strength || 0;
-                    
+
                     // ✅ Mostra SEMPRE il segnale migliore, anche se strength è molto bassa (>= 1)
                     // Questo permette di vedere TUTTI i segnali in sviluppo
                     if (longStrength > shortStrength && longStrength >= 1) {
@@ -4739,7 +4739,7 @@ router.get('/scanner', async (req, res) => {
                 if (a.direction === 'NEUTRAL' && b.direction !== 'NEUTRAL') return 1;
                 return b.strength - a.strength;
             });
-        
+
         console.log(`📊 [SCANNER] Totale risultati: ${results.length}, Validi (non-null): ${results.filter(r => r !== null).length}, Con segnali: ${validResults.length}`);
 
         res.json({
