@@ -5,13 +5,25 @@ import './BotAnalysisPanel.css';
 // ✅ COMPONENTE PRINCIPALE - BotAnalysisPage (sostituisce il vecchio)
 const BotAnalysisPageNew = () => {
     const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false); // ✅ Inizia con false - non caricare automaticamente
     const [error, setError] = useState(null);
+    const [analysisStarted, setAnalysisStarted] = useState(false); // ✅ Flag per controllare se analisi è partita
     const counterRef = React.useRef(0);
     
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
     const urlParams = new URLSearchParams(window.location.search);
     const symbol = urlParams.get('symbol') || 'bitcoin';
+
+    // ✅ RESET dati quando si apre il componente
+    useEffect(() => {
+        // Reset completo quando si carica la pagina
+        setData(null);
+        setLoading(false);
+        setError(null);
+        setAnalysisStarted(false);
+        counterRef.current = 0;
+        console.log('🔄 [RESET] Dati resettati - pronto per nuova analisi');
+    }, [symbol]); // Reset quando cambia il simbolo
 
     // ✅ Fetch semplice e affidabile - sempre nuovi dati
     const fetchData = useCallback(async () => {
@@ -65,12 +77,25 @@ const BotAnalysisPageNew = () => {
         }
     }, [symbol, apiBase]);
 
+    // ✅ Avvia analisi automatica SOLO se analysisStarted è true
     useEffect(() => {
+        if (analysisStarted) {
+            fetchData();
+            const interval = setInterval(fetchData, 2000); // Aggiorna ogni 2 secondi
+            
+            return () => clearInterval(interval);
+        }
+    }, [fetchData, analysisStarted]);
+
+    // ✅ Funzione per avviare l'analisi manualmente
+    const startAnalysis = () => {
+        console.log('🚀 [ANALISI] Avvio analisi manuale per', symbol);
+        setAnalysisStarted(true);
+        setLoading(true);
+        setError(null);
+        setData(null); // Reset prima di iniziare
         fetchData();
-        const interval = setInterval(fetchData, 2000); // Aggiorna ogni 2 secondi
-        
-        return () => clearInterval(interval);
-    }, [fetchData]);
+    };
 
     const handleRefresh = () => {
         setLoading(true);
@@ -86,6 +111,106 @@ const BotAnalysisPageNew = () => {
             window.location.href = url.toString();
         }
     };
+
+    // ✅ Mostra pulsante "Analizza" se l'analisi non è ancora partita
+    if (!analysisStarted && !loading && !data) {
+        return (
+            <div className="bot-analysis-page" data-new-version="true">
+                <div className="page-container">
+                    <div className="page-header">
+                        <div style={{
+                            position: 'absolute',
+                            top: '10px',
+                            right: '10px',
+                            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                            color: '#fff',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            fontSize: '1rem',
+                            fontWeight: 'bold',
+                            boxShadow: '0 4px 12px rgba(245, 158, 11, 0.6)',
+                            zIndex: 1000,
+                            border: '2px solid #fff',
+                            animation: 'pulse 2s infinite'
+                        }}>
+                            🚀 VERSIONE 3.0 - BUILD {new Date().toLocaleDateString('it-IT')} - AGGIORNAMENTO AUTOMATICO ATTIVO
+                        </div>
+                        {window.opener ? (
+                            <button className="back-button" onClick={() => window.close()}>
+                                <ArrowLeft size={20} />
+                                Chiudi Finestra
+                            </button>
+                        ) : (
+                            <button className="back-button" onClick={navigateToDashboard}>
+                                <ArrowLeft size={20} />
+                                Torna al Dashboard
+                            </button>
+                        )}
+                        <h1>🤖 Analisi Bot in Tempo Reale - {symbol.toUpperCase()}</h1>
+                    </div>
+                    <style>{`
+                        @keyframes pulse {
+                            0%, 100% { opacity: 1; }
+                            50% { opacity: 0.8; }
+                        }
+                    `}</style>
+                    
+                    <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minHeight: '60vh',
+                        padding: '40px',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{
+                            background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)',
+                            border: '2px solid #3b82f6',
+                            borderRadius: '16px',
+                            padding: '60px 40px',
+                            maxWidth: '600px',
+                            boxShadow: '0 8px 32px rgba(59, 130, 246, 0.3)'
+                        }}>
+                            <BarChart3 size={64} style={{ margin: '0 auto 20px', color: '#3b82f6' }} />
+                            <h2 style={{ fontSize: '1.5rem', marginBottom: '15px', color: '#fff' }}>
+                                Analisi Bot Pronta
+                            </h2>
+                            <p style={{ color: '#9ca3af', marginBottom: '30px', fontSize: '1rem' }}>
+                                I dati sono stati resettati. Clicca il pulsante per avviare una nuova analisi in tempo reale per <strong style={{ color: '#fff' }}>{symbol.toUpperCase()}</strong>.
+                            </p>
+                            <button
+                                onClick={startAnalysis}
+                                style={{
+                                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '16px 32px',
+                                    fontSize: '1.1rem',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)',
+                                    transition: 'all 0.3s ease',
+                                    minWidth: '200px'
+                                }}
+                                onMouseOver={(e) => {
+                                    e.target.style.transform = 'scale(1.05)';
+                                    e.target.style.boxShadow = '0 6px 16px rgba(16, 185, 129, 0.6)';
+                                }}
+                                onMouseOut={(e) => {
+                                    e.target.style.transform = 'scale(1)';
+                                    e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.4)';
+                                }}
+                            >
+                                ▶️ Avvia Analisi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     if (loading && !data) {
         return (
