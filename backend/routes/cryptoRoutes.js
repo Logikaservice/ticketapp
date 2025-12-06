@@ -1462,78 +1462,79 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             if (adjustedStrength < MIN_SIGNAL_STRENGTH) {
                 console.log(`🛑 [MTF] LONG BLOCKED: Adjusted strength ${adjustedStrength} < ${MIN_SIGNAL_STRENGTH} (1h=${trend1h}, 4h=${trend4h})`);
                 console.log(`   → Waiting for higher timeframes to align or signal to strengthen`);
-                return; // NON aprire LONG
-            }
+                // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti e dati
+            } else {
 
-            console.log(`✅ [MTF] LONG APPROVED: Adjusted strength ${adjustedStrength} >= ${MIN_SIGNAL_STRENGTH}`);
+                console.log(`✅ [MTF] LONG APPROVED: Adjusted strength ${adjustedStrength} >= ${MIN_SIGNAL_STRENGTH}`);
 
-            // ✅ HYBRID STRATEGY - Verifica limiti correlazione
-            const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions);
+                // ✅ HYBRID STRATEGY - Verifica limiti correlazione
+                const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions);
 
-            if (!hybridCheck.allowed) {
-                console.log(`🛑 [HYBRID-STRATEGY] LONG BLOCKED: ${hybridCheck.reason}`);
-                console.log(`   → Diversification protection: avoiding over-exposure to correlated assets`);
-                return; // NON aprire LONG
-            }
+                if (!hybridCheck.allowed) {
+                    console.log(`🛑 [HYBRID-STRATEGY] LONG BLOCKED: ${hybridCheck.reason}`);
+                    console.log(`   → Diversification protection: avoiding over-exposure to correlated assets`);
+                    // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti
+                } else {
+                    console.log(`✅ [HYBRID-STRATEGY] LONG APPROVED: ${hybridCheck.reason}`);
 
-            console.log(`✅ [HYBRID-STRATEGY] LONG APPROVED: ${hybridCheck.reason}`);
+                    // Verifica se possiamo aprire LONG
+                    // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
+                    const maxAvailableForNewPosition = Math.min(
+                        params.trade_size_eur,
+                        riskCheck.maxPositionSize,
+                        riskCheck.availableExposure * 0.1 // Max 10% dell'exposure disponibile per nuova posizione
+                    );
+                    const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
-            // Verifica se possiamo aprire LONG
-            // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
-            const maxAvailableForNewPosition = Math.min(
-                params.trade_size_eur,
-                riskCheck.maxPositionSize,
-                riskCheck.availableExposure * 0.1 // Max 10% dell'exposure disponibile per nuova posizione
-            );
-            const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
+                    console.log(`🔍 LONG SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
 
-            console.log(`🔍 LONG SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
+                    // ✅ FIX: Rimuovo controllo longPositions.length === 0 - permetto multiple posizioni
+                    if (canOpen.allowed) {
+                        // Apri LONG position
+                        const amount = maxAvailableForNewPosition / currentPrice;
+                        const stopLoss = currentPrice * (1 - params.stop_loss_pct / 100);
+                        const takeProfit = currentPrice * (1 + params.take_profit_pct / 100);
 
-            // ✅ FIX: Rimuovo controllo longPositions.length === 0 - permetto multiple posizioni
-            if (canOpen.allowed) {
-                // Apri LONG position
-                const amount = maxAvailableForNewPosition / currentPrice;
-                const stopLoss = currentPrice * (1 - params.stop_loss_pct / 100);
-                const takeProfit = currentPrice * (1 + params.take_profit_pct / 100);
+                        const options = {
+                            trailing_stop_enabled: params.trailing_stop_enabled || false,
+                            trailing_stop_distance_pct: params.trailing_stop_distance_pct || 1.0,
+                            partial_close_enabled: params.partial_close_enabled || false,
+                            take_profit_1_pct: params.take_profit_1_pct || 1.5,
+                            take_profit_2_pct: params.take_profit_2_pct || 3.0
+                        };
 
-                const options = {
-                    trailing_stop_enabled: params.trailing_stop_enabled || false,
-                    trailing_stop_distance_pct: params.trailing_stop_distance_pct || 1.0,
-                    partial_close_enabled: params.partial_close_enabled || false,
-                    take_profit_1_pct: params.take_profit_1_pct || 1.5,
-                    take_profit_2_pct: params.take_profit_2_pct || 3.0
-                };
+                        // ✅ FIX: Salva dettagli segnale per analisi successiva
+                        const signalDetails = JSON.stringify({
+                            mtf: {
+                                trend1h,
+                                trend4h,
+                                bonus: mtfBonus,
+                                adjustedStrength
+                            },
+                            direction: signal.direction,
+                            strength: signal.strength,
+                            confirmations: signal.confirmations,
+                            reasons: signal.reasons,
+                            longSignal: signal.longSignal,
+                            shortSignal: signal.shortSignal,
+                            indicators: {
+                                rsi: signal.indicators?.rsi,
+                                trend: signal.indicators?.trend,
+                                macd: signal.indicators?.macd ? {
+                                    macdLine: signal.indicators.macd.macdLine,
+                                    signalLine: signal.indicators.macd.signalLine,
+                                    histogram: signal.indicators.macd.histogram
+                                } : null
+                            }
+                        });
 
-                // ✅ FIX: Salva dettagli segnale per analisi successiva
-                const signalDetails = JSON.stringify({
-                    mtf: {
-                        trend1h,
-                        trend4h,
-                        bonus: mtfBonus,
-                        adjustedStrength
-                    },
-                    direction: signal.direction,
-                    strength: signal.strength,
-                    confirmations: signal.confirmations,
-                    reasons: signal.reasons,
-                    longSignal: signal.longSignal,
-                    shortSignal: signal.shortSignal,
-                    indicators: {
-                        rsi: signal.indicators?.rsi,
-                        trend: signal.indicators?.trend,
-                        macd: signal.indicators?.macd ? {
-                            macdLine: signal.indicators.macd.macdLine,
-                            signalLine: signal.indicators.macd.signalLine,
-                            histogram: signal.indicators.macd.histogram
-                        } : null
+                        await openPosition(symbol, 'buy', amount, currentPrice, `LONG Signal (${signal.strength}/100)`, stopLoss, takeProfit, { ...options, signal_details: signalDetails });
+                        console.log(`✅ BOT LONG: Opened position #${longPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
+                        riskManager.invalidateCache(); // Invalida cache dopo operazione
+                    } else if (!canOpen.allowed) {
+                        console.log(`⚠️ BOT LONG: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: €${riskCheck.availableExposure.toFixed(2)}`);
                     }
-                });
-
-                await openPosition(symbol, 'buy', amount, currentPrice, `LONG Signal (${signal.strength}/100)`, stopLoss, takeProfit, { ...options, signal_details: signalDetails });
-                console.log(`✅ BOT LONG: Opened position #${longPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
-                riskManager.invalidateCache(); // Invalida cache dopo operazione
-            } else if (!canOpen.allowed) {
-                console.log(`⚠️ BOT LONG: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: €${riskCheck.availableExposure.toFixed(2)}`);
+                }
             }
         }
         else if (signal.direction === 'SHORT' && signal.strength >= MIN_SIGNAL_STRENGTH) {
@@ -1583,78 +1584,79 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 if (adjustedStrength < MIN_SIGNAL_STRENGTH) {
                     console.log(`🛑 [MTF] SHORT BLOCKED: Adjusted strength ${adjustedStrength} < ${MIN_SIGNAL_STRENGTH} (1h=${trend1h}, 4h=${trend4h})`);
                     console.log(`   → Waiting for higher timeframes to align or signal to strengthen`);
-                    return; // NON aprire SHORT
-                }
+                    // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti e dati
+                } else {
 
-                console.log(`✅ [MTF] SHORT APPROVED: Adjusted strength ${adjustedStrength} >= ${MIN_SIGNAL_STRENGTH}`);
+                    console.log(`✅ [MTF] SHORT APPROVED: Adjusted strength ${adjustedStrength} >= ${MIN_SIGNAL_STRENGTH}`);
 
-                // ✅ HYBRID STRATEGY - Verifica limiti correlazione
-                const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions);
+                    // ✅ HYBRID STRATEGY - Verifica limiti correlazione
+                    const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions);
 
-                if (!hybridCheck.allowed) {
-                    console.log(`🛑 [HYBRID-STRATEGY] SHORT BLOCKED: ${hybridCheck.reason}`);
-                    console.log(`   → Diversification protection: avoiding over-exposure to correlated assets`);
-                    return; // NON aprire SHORT
-                }
+                    if (!hybridCheck.allowed) {
+                        console.log(`🛑 [HYBRID-STRATEGY] SHORT BLOCKED: ${hybridCheck.reason}`);
+                        console.log(`   → Diversification protection: avoiding over-exposure to correlated assets`);
+                        // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti
+                    } else {
+                        console.log(`✅ [HYBRID-STRATEGY] SHORT APPROVED: ${hybridCheck.reason}`);
 
-                console.log(`✅ [HYBRID-STRATEGY] SHORT APPROVED: ${hybridCheck.reason}`);
+                        // Verifica se possiamo aprire SHORT
+                        // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
+                        const maxAvailableForNewPosition = Math.min(
+                            params.trade_size_eur,
+                            riskCheck.maxPositionSize,
+                            riskCheck.availableExposure * 0.1 // Max 10% dell'exposure disponibile per nuova posizione
+                        );
+                        const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
-                // Verifica se possiamo aprire SHORT
-                // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
-                const maxAvailableForNewPosition = Math.min(
-                    params.trade_size_eur,
-                    riskCheck.maxPositionSize,
-                    riskCheck.availableExposure * 0.1 // Max 10% dell'exposure disponibile per nuova posizione
-                );
-                const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
+                        console.log(`🔍 SHORT SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
 
-                console.log(`🔍 SHORT SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
+                        // ✅ FIX: Rimuovo controllo shortPositions.length === 0 - permetto multiple posizioni
+                        if (canOpen.allowed) {
+                            // Apri SHORT position
+                            const amount = maxAvailableForNewPosition / currentPrice;
+                            const stopLoss = currentPrice * (1 + params.stop_loss_pct / 100); // Per SHORT, SL è sopra
+                            const takeProfit = currentPrice * (1 - params.take_profit_pct / 100); // Per SHORT, TP è sotto
 
-                // ✅ FIX: Rimuovo controllo shortPositions.length === 0 - permetto multiple posizioni
-                if (canOpen.allowed) {
-                    // Apri SHORT position
-                    const amount = maxAvailableForNewPosition / currentPrice;
-                    const stopLoss = currentPrice * (1 + params.stop_loss_pct / 100); // Per SHORT, SL è sopra
-                    const takeProfit = currentPrice * (1 - params.take_profit_pct / 100); // Per SHORT, TP è sotto
+                            const options = {
+                                trailing_stop_enabled: params.trailing_stop_enabled || false,
+                                trailing_stop_distance_pct: params.trailing_stop_distance_pct || 1.0,
+                                partial_close_enabled: params.partial_close_enabled || false,
+                                take_profit_1_pct: params.take_profit_1_pct || 1.5,
+                                take_profit_2_pct: params.take_profit_2_pct || 3.0
+                            };
 
-                    const options = {
-                        trailing_stop_enabled: params.trailing_stop_enabled || false,
-                        trailing_stop_distance_pct: params.trailing_stop_distance_pct || 1.0,
-                        partial_close_enabled: params.partial_close_enabled || false,
-                        take_profit_1_pct: params.take_profit_1_pct || 1.5,
-                        take_profit_2_pct: params.take_profit_2_pct || 3.0
-                    };
+                            // ✅ FIX: Salva dettagli segnale per analisi successiva
+                            const signalDetails = JSON.stringify({
+                                mtf: {
+                                    trend1h,
+                                    trend4h,
+                                    bonus: mtfBonus,
+                                    adjustedStrength
+                                },
+                                direction: signal.direction,
+                                strength: signal.strength,
+                                confirmations: signal.confirmations,
+                                reasons: signal.reasons,
+                                longSignal: signal.longSignal,
+                                shortSignal: signal.shortSignal,
+                                indicators: {
+                                    rsi: signal.indicators?.rsi,
+                                    trend: signal.indicators?.trend,
+                                    macd: signal.indicators?.macd ? {
+                                        macdLine: signal.indicators.macd.macdLine,
+                                        signalLine: signal.indicators.macd.signalLine,
+                                        histogram: signal.indicators.macd.histogram
+                                    } : null
+                                }
+                            });
 
-                    // ✅ FIX: Salva dettagli segnale per analisi successiva
-                    const signalDetails = JSON.stringify({
-                        mtf: {
-                            trend1h,
-                            trend4h,
-                            bonus: mtfBonus,
-                            adjustedStrength
-                        },
-                        direction: signal.direction,
-                        strength: signal.strength,
-                        confirmations: signal.confirmations,
-                        reasons: signal.reasons,
-                        longSignal: signal.longSignal,
-                        shortSignal: signal.shortSignal,
-                        indicators: {
-                            rsi: signal.indicators?.rsi,
-                            trend: signal.indicators?.trend,
-                            macd: signal.indicators?.macd ? {
-                                macdLine: signal.indicators.macd.macdLine,
-                                signalLine: signal.indicators.macd.signalLine,
-                                histogram: signal.indicators.macd.histogram
-                            } : null
+                            await openPosition(symbol, 'sell', amount, currentPrice, `SHORT Signal (${signal.strength}/100)`, stopLoss, takeProfit, { ...options, signal_details: signalDetails });
+                            console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
+                            riskManager.invalidateCache(); // Invalida cache dopo operazione
+                        } else if (!canOpen.allowed) {
+                            console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: €${riskCheck.availableExposure.toFixed(2)}`);
                         }
-                    });
-
-                    await openPosition(symbol, 'sell', amount, currentPrice, `SHORT Signal (${signal.strength}/100)`, stopLoss, takeProfit, { ...options, signal_details: signalDetails });
-                    console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
-                    riskManager.invalidateCache(); // Invalida cache dopo operazione
-                } else if (!canOpen.allowed) {
-                    console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: €${riskCheck.availableExposure.toFixed(2)}`);
+                    }
                 }
             } // ✅ FIX: Chiude il blocco else per SHORT supportato
         } // ✅ FIX: Chiude il blocco else if per SHORT
