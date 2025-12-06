@@ -4640,35 +4640,53 @@ router.get('/scanner', async (req, res) => {
                 // 3. Get 24h volume
                 const volume24h = await get24hVolume(s.symbol);
 
-                // ✅ FIX: Mostra anche segnali parziali nel Market Scanner (per tracking)
-                // Se il segnale è NEUTRAL ma ha strength > 0, considera il segnale migliore tra LONG e SHORT
+                // ✅ FIX: Mostra SEMPRE tutti i simboli nel Market Scanner (anche NEUTRAL con strength 0)
+                // Questo permette di vedere TUTTI i simboli e capire perché non generano segnali
                 let displayDirection = signal.direction;
                 let displayStrength = signal.strength;
                 
+                // Se è NEUTRAL, controlla se ci sono segnali parziali da mostrare
                 if (signal.direction === 'NEUTRAL' && signal.longSignal && signal.shortSignal) {
-                    // Se NEUTRAL ma ci sono segnali parziali, mostra il migliore
                     const longStrength = signal.longSignal.strength || 0;
                     const shortStrength = signal.shortSignal.strength || 0;
                     
-                    if (longStrength > shortStrength && longStrength >= 30) {
+                    // ✅ Mostra SEMPRE il segnale migliore, anche se strength è molto bassa (>= 1)
+                    // Questo permette di vedere TUTTI i segnali in sviluppo
+                    if (longStrength > shortStrength && longStrength >= 1) {
                         displayDirection = 'LONG';
                         displayStrength = longStrength;
-                    } else if (shortStrength > longStrength && shortStrength >= 30) {
+                    } else if (shortStrength > longStrength && shortStrength >= 1) {
                         displayDirection = 'SHORT';
                         displayStrength = shortStrength;
+                    } else if (longStrength > 0 || shortStrength > 0) {
+                        // Mostra il migliore anche se entrambi sono bassi
+                        if (longStrength >= shortStrength) {
+                            displayDirection = 'LONG';
+                            displayStrength = longStrength;
+                        } else {
+                            displayDirection = 'SHORT';
+                            displayStrength = shortStrength;
+                        }
                     }
                 }
 
+                // ✅ LOG per debug (sempre, anche per NEUTRAL)
+                console.log(`[SCANNER] ${s.display}: direction=${displayDirection}, strength=${displayStrength}, original=${signal.direction}/${signal.strength}, long=${signal.longSignal?.strength || 0}, short=${signal.shortSignal?.strength || 0}`);
+                    console.log(`📊 [SCANNER] ${s.display}: ${displayDirection} strength=${displayStrength}, long=${signal.longSignal?.strength || 0}, short=${signal.shortSignal?.strength || 0}`);
+                }
+
+                // ✅ IMPORTANTE: Restituisci SEMPRE il risultato, anche se NEUTRAL con strength 0
+                // Questo permette di vedere TUTTI i simboli nel Market Scanner per debug
                 return {
                     symbol: s.symbol,
                     display: s.display,
                     price: currentPrice, // Prezzo corrente aggiornato in tempo reale
                     volume24h, // Volume 24h in EUR/USDT
                     direction: displayDirection, // Usa direzione migliorata per display
-                    strength: displayStrength, // Usa strength migliorata per display
-                    confirmations: signal.confirmations,
-                    reasons: signal.reasons,
-                    rsi: signal.indicators.rsi // RSI calcolato con ultima candela aggiornata
+                    strength: displayStrength || 0, // Usa strength migliorata per display (almeno 0)
+                    confirmations: signal.confirmations || 0,
+                    reasons: signal.reasons || [],
+                    rsi: signal.indicators?.rsi || null // RSI calcolato con ultima candela aggiornata
                 };
             } catch (err) {
                 console.error(`Scanner error for ${s.symbol}:`, err.message);
@@ -4676,8 +4694,19 @@ router.get('/scanner', async (req, res) => {
             }
         }));
 
-        // Filter nulls and sort by strength (descending)
-        const validResults = results.filter(r => r !== null).sort((a, b) => b.strength - a.strength);
+        // ✅ FIX CRITICO: Mostra TUTTI i risultati, anche NEUTRAL con strength 0
+        // Questo permette di vedere TUTTI i simboli nel Market Scanner per debug
+        // Solo filtra null/undefined, NON filtra per direction o strength
+        const validResults = results
+            .filter(r => r !== null && r !== undefined)
+            .sort((a, b) => {
+                // Prima ordina per direzione (LONG/SHORT prima di NEUTRAL), poi per strength
+                if (a.direction !== 'NEUTRAL' && b.direction === 'NEUTRAL') return -1;
+                if (a.direction === 'NEUTRAL' && b.direction !== 'NEUTRAL') return 1;
+                return b.strength - a.strength;
+            });
+        
+        console.log(`📊 [SCANNER] Totale risultati: ${results.length}, Validi (non-null): ${results.filter(r => r !== null).length}, Con segnali: ${validResults.length}`);
 
         res.json({
             success: true,
