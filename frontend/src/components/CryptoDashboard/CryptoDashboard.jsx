@@ -515,8 +515,9 @@ const CryptoDashboard = () => {
                         {/* Portfolio Management Dropdown */}
                         <div id="portfolio-menu-container" style={{ position: 'relative' }}>
                             <button
+                                id="portfolio-menu-button"
                                 className="toggle-btn"
-                                onClick={() => {
+                                onClick={(e) => {
                                     console.log('🔵 Portfolio button clicked! Current state:', showPortfolioMenu);
                                     setShowPortfolioMenu(!showPortfolioMenu);
                                     console.log('🔵 New state will be:', !showPortfolioMenu);
@@ -537,86 +538,91 @@ const CryptoDashboard = () => {
                                 <ChevronDown size={14} />
                             </button>
 
-                            {/* Dropdown Menu */}
-                            {showPortfolioMenu && (
-                                <div
-                                    onClick={(e) => e.stopPropagation()}
-                                    style={{
-                                        position: 'absolute',
-                                        top: '100%',
-                                        right: 0,
-                                        marginTop: '4px',
-                                        background: '#1f2937',
-                                        border: '1px solid #374151',
-                                        borderRadius: '8px',
-                                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
-                                        zIndex: 9999,
-                                        minWidth: '200px',
-                                        overflow: 'visible'
-                                    }}
-                                >
-                                    <button
-                                        onClick={() => {
-                                            console.log('✅ Aggiungi Fondi clicked');
-                                            setShowPortfolioMenu(false);
-                                            setShowAddFundsModal(true);
-                                        }}
-                                        style={{
-                                            width: '100%',
-                                            padding: '12px 16px',
-                                            background: 'transparent',
-                                            border: 'none',
-                                            color: '#fff',
-                                            textAlign: 'left',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '10px',
-                                            fontSize: '0.9rem',
-                                            transition: 'background 0.2s'
-                                        }}
-                                        onMouseEnter={(e) => e.target.style.background = '#374151'}
-                                        onMouseLeave={(e) => e.target.style.background = 'transparent'}
-                                    >
-                                        <DollarSign size={18} className="text-green-500" />
-                                        <div>
-                                            <div style={{ fontWeight: '500' }}>Aggiungi Fondi</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Deposita capitale</div>
-                                        </div>
-                                    </button>
+                            {/* Dropdown Menu - Using Fixed Position */}
+                            {showPortfolioMenu && (() => {
+                                // Get button position
+                                const button = document.getElementById('portfolio-menu-button');
+                                const rect = button?.getBoundingClientRect();
 
-                                    <div style={{ height: '1px', background: '#374151' }}></div>
-
-                                    <button
-                                        onClick={() => {
-                                            console.log('✅ Reset Portfolio clicked');
-                                            handleResetPortfolio();
-                                        }}
+                                return (
+                                    <div
+                                        onClick={(e) => e.stopPropagation()}
                                         style={{
-                                            width: '100%',
-                                            padding: '12px 16px',
-                                            background: 'transparent',
-                                            border: 'none',
-                                            color: '#fff',
-                                            textAlign: 'left',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '10px',
-                                            fontSize: '0.9rem',
-                                            transition: 'background 0.2s'
+                                            position: 'fixed',
+                                            top: rect ? `${rect.bottom + 4}px` : '100%',
+                                            right: rect ? `${window.innerWidth - rect.right}px` : '0',
+                                            background: '#1f2937',
+                                            border: '1px solid #374151',
+                                            borderRadius: '8px',
+                                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
+                                            zIndex: 9999,
+                                            minWidth: '200px',
+                                            overflow: 'visible'
                                         }}
-                                        onMouseEnter={(e) => e.target.style.background = '#7f1d1d'}
-                                        onMouseLeave={(e) => e.target.style.background = 'transparent'}
                                     >
-                                        <RotateCcw size={18} className="text-red-500" />
-                                        <div>
-                                            <div style={{ fontWeight: '500' }}>Reset Portfolio</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Torna a €250</div>
-                                        </div>
-                                    </button>
-                                </div>
-                            )}
+                                        <button
+                                            onClick={() => {
+                                                console.log('✅ Aggiungi Fondi clicked');
+                                                setShowPortfolioMenu(false);
+                                                setShowAddFundsModal(true);
+                                            }}
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px 16px',
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: '#fff',
+                                                textAlign: 'left',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '10px',
+                                                fontSize: '0.9rem',
+                                                transition: 'background 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.background = '#374151'}
+                                            onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                                        >
+                                            <DollarSign size={18} className="text-green-500" />
+                                            <div>
+                                                <div style={{ fontWeight: '500' }}>Aggiungi Fondi</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Deposita capitale</div>
+                                            </div>
+                                        </button>
+
+                                        <div style={{ height: '1px', background: '#374151' }}></div>
+
+                                        <button
+                                            onClick={() => {
+                                                console.log('✅ Reset Portfolio clicked');
+                                                handleResetPortfolio();
+                                            }}
+                                            style={{
+                                                width: '100%',
+                                                padding: '12px 16px',
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: '#fff',
+                                                textAlign: 'left',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '10px',
+                                                fontSize: '0.9rem',
+                                                transition: 'background 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.background = '#7f1d1d'}
+                                            onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                                        >
+                                            <RotateCcw size={18} className="text-red-500" />
+                                            <div>
+                                                <div style={{ fontWeight: '500' }}>Reset Portfolio</div>
+                                                <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Torna a €250</div>
+                                            </div>
+                                        </button>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
