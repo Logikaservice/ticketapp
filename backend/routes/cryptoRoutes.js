@@ -4060,6 +4060,49 @@ router.get('/bot-analysis', async (req, res) => {
             return res.status(500).json({ error: 'Errore nella generazione del segnale' });
         }
 
+        // ✅ FIX CRITICO: Calcola ATR e signal.atrBlocked anche nell'endpoint bot-analysis
+        // Questo è necessario perché alcuni segnali potrebbero avere ATR che blocca il trading
+        // e senza questo calcolo, signal.atrBlocked sarebbe undefined causando UI bloccata
+        try {
+            const highs = historyForSignal.map(k => k.high || k.price || 0);
+            const lows = historyForSignal.map(k => k.low || k.price || 0);
+            const closes = historyForSignal.map(k => k.close || k.price || 0);
+            const atr = signalGenerator.calculateATR(highs, lows, closes, 14);
+
+            if (atr && historyForSignal.length > 0) {
+                const lastCandle = historyForSignal[historyForSignal.length - 1];
+                const currentPriceForATR = lastCandle.close || lastCandle.price || currentPrice;
+                if (currentPriceForATR > 0) {
+                    const atrPct = (atr / currentPriceForATR) * 100;
+
+                    // ✅ SMART ATR FILTERING: Stessa logica del bot reale
+                    const MIN_ATR_FOR_STRONG_SIGNAL = 0.2;
+                    const MIN_ATR_FOR_NORMAL_SIGNAL = 0.3;
+                    const MAX_ATR_PCT = 5.0;
+                    const STRONG_SIGNAL_THRESHOLD = 90;
+
+                    const isStrongSignal = signal.strength >= STRONG_SIGNAL_THRESHOLD;
+                    const minAtrRequired = isStrongSignal ? MIN_ATR_FOR_STRONG_SIGNAL : MIN_ATR_FOR_NORMAL_SIGNAL;
+
+                    signal.atrBlocked = atrPct < minAtrRequired || atrPct > MAX_ATR_PCT;
+                    signal.atrPct = atrPct;
+                    signal.minAtrRequired = minAtrRequired;
+
+                    console.log(`🔍 [BOT-ANALYSIS] ATR calculated: ${atrPct.toFixed(2)}%, Blocked: ${signal.atrBlocked}, Min required: ${minAtrRequired}%`);
+                } else {
+                    signal.atrBlocked = false;
+                    signal.atrPct = 0;
+                }
+            } else {
+                signal.atrBlocked = false;
+                signal.atrPct = 0;
+            }
+        } catch (atrError) {
+            console.error('❌ [BOT-ANALYSIS] Error calculating ATR:', atrError.message);
+            signal.atrBlocked = false;
+            signal.atrPct = 0;
+        }
+
         console.log('🔍 [BOT-ANALYSIS] Getting indicators...');
         // ✅ Calcola indicatori base
         const indicators = signal.indicators || {};

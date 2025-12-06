@@ -1,19 +1,74 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, TrendingUp, TrendingDown, AlertCircle, CheckCircle, BarChart3, Shield, DollarSign, RefreshCw } from 'lucide-react';
-// Non usiamo react-router, usiamo window.location
 import './BotAnalysisPanel.css';
 
 const BotAnalysisPage = () => {
-    const [analysis, setAnalysis] = useState(null);
+    const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [updateCounter, setUpdateCounter] = useState(0);
+    
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
-
-    // Get symbol from URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     const symbol = urlParams.get('symbol') || 'bitcoin';
 
+    // ✅ Fetch semplice e affidabile - sempre nuovi dati
+    const fetchData = useCallback(async () => {
+        try {
+            const timestamp = Date.now();
+            const url = `${apiBase}/api/crypto/bot-analysis?symbol=${symbol}&_t=${timestamp}`;
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const jsonData = await response.json();
+            
+            // ✅ FORZA AGGIORNAMENTO: Aggiungi sempre timestamp unico per forzare re-render
+            const freshData = {
+                ...jsonData,
+                _timestamp: timestamp,
+                _counter: updateCounter + 1
+            };
+            
+            setData(freshData);
+            setUpdateCounter(prev => prev + 1);
+            setError(null);
+            setLoading(false);
+            
+            console.log(`✅ [${symbol}] Data fetched at ${new Date().toLocaleTimeString()}`, {
+                signal: jsonData.signal?.direction,
+                strength: jsonData.signal?.strength
+            });
+        } catch (err) {
+            console.error(`❌ [${symbol}] Fetch error:`, err);
+            setError(err.message);
+            setLoading(false);
+        }
+    }, [symbol, apiBase, updateCounter]);
+
+    useEffect(() => {
+        fetchData();
+        const interval = setInterval(fetchData, 2000); // Aggiorna ogni 2 secondi
+        
+        return () => clearInterval(interval);
+    }, [fetchData]);
+
+    const handleRefresh = () => {
+        setLoading(true);
+        fetchData();
+    };
+
     const navigateToDashboard = () => {
-        // Se siamo in una finestra popup, chiudila, altrimenti naviga
         if (window.opener) {
             window.close();
         } else {
@@ -23,64 +78,7 @@ const BotAnalysisPage = () => {
         }
     };
 
-    useEffect(() => {
-        let isMounted = true; // Track if component is still mounted
-
-        const fetchAnalysis = async () => {
-            try {
-                // ✅ FIX: Aggiungi timestamp alla query per evitare cache del browser
-                const timestamp = Date.now();
-                const res = await fetch(`${apiBase}/api/crypto/bot-analysis?symbol=${symbol}&_t=${timestamp}`, {
-                    cache: 'no-cache',
-                    headers: {
-                        'Cache-Control': 'no-cache',
-                        'Pragma': 'no-cache'
-                    }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (isMounted) {
-                        // ✅ FIX: Crea nuovo oggetto per forzare re-render di React
-                        // Aggiungi timestamp per assicurare che React rilevi il cambiamento
-                        const dataWithTimestamp = {
-                            ...data,
-                            _lastUpdate: timestamp,
-                            _updateTime: new Date().toISOString()
-                        };
-                        setAnalysis(dataWithTimestamp);
-                        setLoading(false);
-                        console.log(`✅ Bot Analysis updated for ${symbol}:`, {
-                            signal: data.signal?.direction,
-                            strength: data.signal?.strength,
-                            timestamp: new Date().toLocaleTimeString(),
-                            updateId: timestamp
-                        });
-                    }
-                } else {
-                    console.error(`❌ Bot Analysis fetch failed: ${res.status} ${res.statusText}`);
-                    if (isMounted) {
-                        setLoading(false);
-                    }
-                }
-            } catch (error) {
-                console.error('❌ Error fetching bot analysis:', error);
-                if (isMounted) {
-                    setLoading(false);
-                }
-            }
-        };
-
-        fetchAnalysis(); // Initial fetch
-        const interval = setInterval(fetchAnalysis, 2000); // ✅ Aggiorna ogni 2 secondi (ridotto da 1s per evitare sovraccarico)
-
-        return () => {
-            isMounted = false; // Prevent state updates after unmount
-            clearInterval(interval);
-            console.log(`🔄 Bot Analysis cleanup for ${symbol}`);
-        };
-    }, [apiBase, symbol]);
-
-    if (loading && !analysis) {
+    if (loading && !data) {
         return (
             <div className="bot-analysis-page">
                 <div className="page-container">
@@ -90,21 +88,23 @@ const BotAnalysisPage = () => {
         );
     }
 
-    if (!analysis) {
+    if (error || !data) {
         return (
             <div className="bot-analysis-page">
                 <div className="page-container">
-                    <div className="error-message">Errore nel caricamento dei dati</div>
+                    <div className="error-message">
+                        Errore nel caricamento dei dati: {error || 'Dati non disponibili'}
+                    </div>
+                    <button onClick={handleRefresh} style={{ marginTop: '20px', padding: '10px 20px' }}>
+                        Riprova
+                    </button>
                 </div>
             </div>
         );
     }
 
-    // ✅ FIX: Estrai dati e aggiungi key per forzare re-render quando cambiano
-    const { signal, requirements, risk, positions, currentPrice, rsi, botParameters, mtf, _lastUpdate } = analysis;
-    
-    // ✅ FIX: Usa _lastUpdate come key per componenti critici per forzare aggiornamento
-    const updateKey = _lastUpdate || Date.now();
+    const { signal, requirements, risk, positions, currentPrice, rsi, mtf } = data;
+    const updateKey = data._timestamp || Date.now(); // Key per forzare re-render
 
     return (
         <div className="bot-analysis-page">
@@ -124,26 +124,26 @@ const BotAnalysisPage = () => {
                     <h1>🤖 Analisi Bot in Tempo Reale - {symbol.toUpperCase()}</h1>
                     <button
                         className="refresh-button"
-                        onClick={() => window.location.reload()}
-                        title="Aggiorna pagina"
+                        onClick={handleRefresh}
+                        title="Aggiorna manualmente"
                     >
                         <RefreshCw size={20} />
                     </button>
                 </div>
 
                 <div className="page-content">
-                    {/* Prezzo e RSI Corrente */}
+                    {/* Prezzo e RSI */}
                     <div className="info-section" key={`info-${updateKey}`}>
                         <div className="info-card">
                             <div className="info-label">Prezzo Corrente</div>
-                            <div className="info-value" key={`price-${updateKey}`}>
-                                €{currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <div className="info-value">
+                                €{currentPrice?.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                             </div>
                         </div>
                         <div className="info-card">
                             <div className="info-label">RSI (14 periodi)</div>
-                            <div className={`info-value ${rsi < 30 ? 'oversold' : rsi > 70 ? 'overbought' : ''}`} key={`rsi-${updateKey}`}>
-                                {rsi.toFixed(2)}
+                            <div className={`info-value ${rsi < 30 ? 'oversold' : rsi > 70 ? 'overbought' : ''}`}>
+                                {rsi?.toFixed(2) || '0.00'}
                             </div>
                             <div className="info-hint">
                                 {rsi < 30 ? 'Oversold (possibile rialzo)' :
@@ -156,27 +156,27 @@ const BotAnalysisPage = () => {
                     {/* Segnale Attuale */}
                     <div className="signal-section" key={`signal-${updateKey}`}>
                         <h3>📡 Segnale Attuale</h3>
-                        <div className={`signal-card ${signal.direction.toLowerCase()}`} key={`signal-card-${updateKey}`}>
+                        <div className={`signal-card ${signal?.direction?.toLowerCase() || 'neutral'}`}>
                             <div className="signal-header">
                                 <span className="signal-direction">
-                                    {signal.direction === 'LONG' ? <TrendingUp size={24} /> :
-                                        signal.direction === 'SHORT' ? <TrendingDown size={24} /> :
+                                    {signal?.direction === 'LONG' ? <TrendingUp size={24} /> :
+                                        signal?.direction === 'SHORT' ? <TrendingDown size={24} /> :
                                             <BarChart3 size={24} />}
-                                    {signal.direction || 'NEUTRAL'}
+                                    {signal?.direction || 'NEUTRAL'}
                                 </span>
                                 <span className="signal-strength">
-                                    Strength: {signal.strength}/100
+                                    Strength: {signal?.strength || 0}/100
                                 </span>
                             </div>
                             <div className="signal-details">
                                 <div className="signal-item">
                                     <span>Conferme ottenute:</span>
-                                    <span className="highlight">{signal.confirmations}</span>
+                                    <span className="highlight">{signal?.confirmations || 0}</span>
                                 </div>
                                 <div className="signal-reasons">
                                     <strong>Motivi del segnale:</strong>
                                     <ul>
-                                        {signal.reasons.map((reason, idx) => (
+                                        {(signal?.reasons || []).map((reason, idx) => (
                                             <li key={idx}>{reason}</li>
                                         ))}
                                     </ul>
@@ -187,7 +187,7 @@ const BotAnalysisPage = () => {
 
                     {/* Multi-Timeframe Confirmation */}
                     {mtf && (
-                        <div className="mtf-section">
+                        <div className="mtf-section" key={`mtf-${updateKey}`}>
                             <h3>🔭 Multi-Timeframe Confirmation (1h / 4h)</h3>
                             <div className="mtf-card">
                                 <div className="mtf-trends">
@@ -215,18 +215,18 @@ const BotAnalysisPage = () => {
                                         <div className="mtf-strength-comparison">
                                             <div className="mtf-strength-row">
                                                 <span>Original Strength:</span>
-                                                <span className="value">{mtf.long.originalStrength}/100</span>
+                                                <span className="value">{mtf.long?.originalStrength || 0}/100</span>
                                             </div>
                                             <div className="mtf-strength-row mtf-bonus">
                                                 <span>MTF Bonus:</span>
-                                                <span className={`value ${mtf.long.bonus >= 0 ? 'positive' : 'negative'}`}>
-                                                    {mtf.long.bonus >= 0 ? '+' : ''}{mtf.long.bonus}
+                                                <span className={`value ${mtf.long?.bonus >= 0 ? 'positive' : 'negative'}`}>
+                                                    {mtf.long?.bonus >= 0 ? '+' : ''}{mtf.long?.bonus || 0}
                                                 </span>
                                             </div>
                                             <div className="mtf-strength-row mtf-final">
                                                 <span>Adjusted Strength:</span>
-                                                <span className={`value ${mtf.long.adjustedStrength >= 70 ? 'ready' : 'waiting'}`}>
-                                                    {mtf.long.adjustedStrength}/100
+                                                <span className={`value ${(mtf.long?.adjustedStrength || 0) >= 70 ? 'ready' : 'waiting'}`}>
+                                                    {mtf.long?.adjustedStrength || 0}/100
                                                 </span>
                                             </div>
                                         </div>
@@ -234,14 +234,14 @@ const BotAnalysisPage = () => {
                                             <div
                                                 className="mtf-progress-fill"
                                                 style={{
-                                                    width: `${Math.min(100, (mtf.long.adjustedStrength / 70) * 100)}%`,
-                                                    background: mtf.long.adjustedStrength >= 70
+                                                    width: `${Math.min(100, ((mtf.long?.adjustedStrength || 0) / 70) * 100)}%`,
+                                                    background: (mtf.long?.adjustedStrength || 0) >= 70
                                                         ? 'linear-gradient(90deg, #10b981, #059669)'
                                                         : 'linear-gradient(90deg, #3b82f6, #2563eb)'
                                                 }}
                                             />
                                         </div>
-                                        <div className="mtf-reason">{mtf.long.reason}</div>
+                                        <div className="mtf-reason">{mtf.long?.reason || 'Neutral timeframes (0)'}</div>
                                     </div>
 
                                     <div className="mtf-adjustment-card short">
@@ -249,18 +249,18 @@ const BotAnalysisPage = () => {
                                         <div className="mtf-strength-comparison">
                                             <div className="mtf-strength-row">
                                                 <span>Original Strength:</span>
-                                                <span className="value">{mtf.short.originalStrength}/100</span>
+                                                <span className="value">{mtf.short?.originalStrength || 0}/100</span>
                                             </div>
                                             <div className="mtf-strength-row mtf-bonus">
                                                 <span>MTF Bonus:</span>
-                                                <span className={`value ${mtf.short.bonus >= 0 ? 'positive' : 'negative'}`}>
-                                                    {mtf.short.bonus >= 0 ? '+' : ''}{mtf.short.bonus}
+                                                <span className={`value ${mtf.short?.bonus >= 0 ? 'positive' : 'negative'}`}>
+                                                    {mtf.short?.bonus >= 0 ? '+' : ''}{mtf.short?.bonus || 0}
                                                 </span>
                                             </div>
                                             <div className="mtf-strength-row mtf-final">
                                                 <span>Adjusted Strength:</span>
-                                                <span className={`value ${mtf.short.adjustedStrength >= 70 ? 'ready' : 'waiting'}`}>
-                                                    {mtf.short.adjustedStrength}/100
+                                                <span className={`value ${(mtf.short?.adjustedStrength || 0) >= 70 ? 'ready' : 'waiting'}`}>
+                                                    {mtf.short?.adjustedStrength || 0}/100
                                                 </span>
                                             </div>
                                         </div>
@@ -268,14 +268,14 @@ const BotAnalysisPage = () => {
                                             <div
                                                 className="mtf-progress-fill"
                                                 style={{
-                                                    width: `${Math.min(100, (mtf.short.adjustedStrength / 70) * 100)}%`,
-                                                    background: mtf.short.adjustedStrength >= 70
+                                                    width: `${Math.min(100, ((mtf.short?.adjustedStrength || 0) / 70) * 100)}%`,
+                                                    background: (mtf.short?.adjustedStrength || 0) >= 70
                                                         ? 'linear-gradient(90deg, #10b981, #059669)'
                                                         : 'linear-gradient(90deg, #3b82f6, #2563eb)'
                                                 }}
                                             />
                                         </div>
-                                        <div className="mtf-reason">{mtf.short.reason}</div>
+                                        <div className="mtf-reason">{mtf.short?.reason || 'Neutral timeframes (0)'}</div>
                                     </div>
                                 </div>
                             </div>
@@ -285,10 +285,10 @@ const BotAnalysisPage = () => {
                     {/* Requisiti per LONG */}
                     <div className="requirements-section" key={`long-req-${updateKey}`}>
                         <h3>📈 Requisiti per APRIRE LONG (Compra)</h3>
-                        <div className={`requirement-card ${requirements.long.canOpen ? 'ready' : 'waiting'}`} key={`long-card-${updateKey}`}>
+                        <div className={`requirement-card ${requirements?.long?.canOpen ? 'ready' : 'waiting'}`}>
                             <div className="requirement-header">
                                 <span className="requirement-status">
-                                    {requirements.long.canOpen ? (
+                                    {requirements?.long?.canOpen ? (
                                         <><CheckCircle size={20} /> PRONTO AD APRIRE</>
                                     ) : (
                                         <><AlertCircle size={20} /> IN ATTESA</>
@@ -298,14 +298,14 @@ const BotAnalysisPage = () => {
                             <div className="requirement-progress">
                                 <div className="progress-item">
                                     <span>Strength richiesto:</span>
-                                    <span className="value">{requirements.long.minStrength}/100</span>
+                                    <span className="value">{requirements?.long?.minStrength || 70}/100</span>
                                 </div>
                                 <div className="progress-item">
                                     <span>Strength attuale:</span>
-                                    <span className={`value ${requirements.long.currentStrength >= requirements.long.minStrength ? 'ok' : 'missing'}`}>
-                                        {requirements.long.currentStrength}/100
+                                    <span className={`value ${(requirements?.long?.currentStrength || 0) >= (requirements?.long?.minStrength || 70) ? 'ok' : 'missing'}`}>
+                                        {requirements?.long?.currentStrength || 0}/100
                                     </span>
-                                    {requirements.long.needsStrength > 0 && (
+                                    {(requirements?.long?.needsStrength || 0) > 0 && (
                                         <span className="needs">+{requirements.long.needsStrength} punti</span>
                                     )}
                                 </div>
@@ -313,21 +313,19 @@ const BotAnalysisPage = () => {
                                     <div
                                         className="progress-fill"
                                         style={{
-                                            width: `${Math.min(100, (requirements.long.currentStrength / requirements.long.minStrength) * 100)}%`,
+                                            width: `${Math.min(100, ((requirements?.long?.currentStrength || 0) / (requirements?.long?.minStrength || 70)) * 100)}%`,
                                             transition: 'width 0.5s ease-in-out',
-                                            background: requirements.long.currentStrength >= requirements.long.minStrength
+                                            background: (requirements?.long?.currentStrength || 0) >= (requirements?.long?.minStrength || 70)
                                                 ? 'linear-gradient(90deg, #10b981, #059669)'
                                                 : 'linear-gradient(90deg, #3b82f6, #2563eb)'
                                         }}
                                     />
                                 </div>
-                                {/* Indicatore visivo percentuale */}
                                 <div className="strength-percentage">
-                                    {Math.round((requirements.long.currentStrength / requirements.long.minStrength) * 100)}% del target raggiunto
+                                    {Math.round(((requirements?.long?.currentStrength || 0) / (requirements?.long?.minStrength || 70)) * 100)}% del target raggiunto
                                 </div>
                             </div>
-                            {/* Lista dei contributi allo Strength */}
-                            {requirements.long.strengthContributions && requirements.long.strengthContributions.length > 0 && (
+                            {requirements?.long?.strengthContributions && requirements.long.strengthContributions.length > 0 && (
                                 <div className="strength-contributions-list">
                                     <strong>Contributi allo Strength ({requirements.long.currentStrength}/100 punti):</strong>
                                     <div className="strength-contributions-grid">
@@ -340,22 +338,17 @@ const BotAnalysisPage = () => {
                                     </div>
                                 </div>
                             )}
-                            {requirements.long.currentStrength === 0 && (
-                                <div className="strength-contributions-list">
-                                    <span className="no-strength">Nessun contributo allo Strength ancora</span>
-                                </div>
-                            )}
                             <div className="requirement-progress">
                                 <div className="progress-item">
                                     <span>Conferme richieste:</span>
-                                    <span className="value">{requirements.long.minConfirmations}</span>
+                                    <span className="value">{requirements?.long?.minConfirmations || 4}</span>
                                 </div>
                                 <div className="progress-item">
                                     <span>Conferme attuali:</span>
-                                    <span className={`value ${requirements.long.currentConfirmations >= requirements.long.minConfirmations ? 'ok' : 'missing'}`}>
-                                        {requirements.long.currentConfirmations}/{requirements.long.minConfirmations}
+                                    <span className={`value ${(requirements?.long?.currentConfirmations || 0) >= (requirements?.long?.minConfirmations || 4) ? 'ok' : 'missing'}`}>
+                                        {requirements?.long?.currentConfirmations || 0}/{requirements?.long?.minConfirmations || 4}
                                     </span>
-                                    {requirements.long.needsConfirmations > 0 && (
+                                    {(requirements?.long?.needsConfirmations || 0) > 0 && (
                                         <span className="needs">{requirements.long.needsConfirmations} in più</span>
                                     )}
                                 </div>
@@ -363,14 +356,13 @@ const BotAnalysisPage = () => {
                                     <div
                                         className="progress-fill"
                                         style={{
-                                            width: `${Math.min(100, (requirements.long.currentConfirmations / requirements.long.minConfirmations) * 100)}%`,
+                                            width: `${Math.min(100, ((requirements?.long?.currentConfirmations || 0) / (requirements?.long?.minConfirmations || 4)) * 100)}%`,
                                             transition: 'width 0.5s ease-in-out'
                                         }}
                                     />
                                 </div>
                             </div>
-                            {/* Lista delle conferme ottenute */}
-                            {requirements.long.confirmationsList && requirements.long.confirmationsList.length > 0 && (
+                            {requirements?.long?.confirmationsList && requirements.long.confirmationsList.length > 0 && (
                                 <div className="confirmations-list">
                                     <strong>Conferme ottenute ({requirements.long.currentConfirmations}/{requirements.long.minConfirmations}):</strong>
                                     <div className="confirmations-grid">
@@ -383,13 +375,8 @@ const BotAnalysisPage = () => {
                                     </div>
                                 </div>
                             )}
-                            {requirements.long.currentConfirmations === 0 && (
-                                <div className="confirmations-list">
-                                    <span className="no-confirmations">Nessuna conferma ottenuta ancora</span>
-                                </div>
-                            )}
                             <div className="requirement-reason">
-                                <strong>Stato:</strong> {requirements.long.reason}
+                                <strong>Stato:</strong> {requirements?.long?.reason || 'Nessun segnale LONG attivo'}
                             </div>
                         </div>
                     </div>
@@ -397,10 +384,10 @@ const BotAnalysisPage = () => {
                     {/* Requisiti per SHORT */}
                     <div className="requirements-section" key={`short-req-${updateKey}`}>
                         <h3>📉 Requisiti per APRIRE SHORT (Vendi)</h3>
-                        <div className={`requirement-card ${requirements.short.canOpen ? 'ready' : 'waiting'}`} key={`short-card-${updateKey}`}>
+                        <div className={`requirement-card ${requirements?.short?.canOpen ? 'ready' : 'waiting'}`}>
                             <div className="requirement-header">
                                 <span className="requirement-status">
-                                    {requirements.short.canOpen ? (
+                                    {requirements?.short?.canOpen ? (
                                         <><CheckCircle size={20} /> PRONTO AD APRIRE</>
                                     ) : (
                                         <><AlertCircle size={20} /> IN ATTESA</>
@@ -410,14 +397,14 @@ const BotAnalysisPage = () => {
                             <div className="requirement-progress">
                                 <div className="progress-item">
                                     <span>Strength richiesto:</span>
-                                    <span className="value">{requirements.short.minStrength}/100</span>
+                                    <span className="value">{requirements?.short?.minStrength || 70}/100</span>
                                 </div>
                                 <div className="progress-item">
                                     <span>Strength attuale:</span>
-                                    <span className={`value ${requirements.short.currentStrength >= requirements.short.minStrength ? 'ok' : 'missing'}`}>
-                                        {requirements.short.currentStrength}/100
+                                    <span className={`value ${(requirements?.short?.currentStrength || 0) >= (requirements?.short?.minStrength || 70) ? 'ok' : 'missing'}`}>
+                                        {requirements?.short?.currentStrength || 0}/100
                                     </span>
-                                    {requirements.short.needsStrength > 0 && (
+                                    {(requirements?.short?.needsStrength || 0) > 0 && (
                                         <span className="needs">+{requirements.short.needsStrength} punti</span>
                                     )}
                                 </div>
@@ -425,21 +412,19 @@ const BotAnalysisPage = () => {
                                     <div
                                         className="progress-fill"
                                         style={{
-                                            width: `${Math.min(100, (requirements.short.currentStrength / requirements.short.minStrength) * 100)}%`,
+                                            width: `${Math.min(100, ((requirements?.short?.currentStrength || 0) / (requirements?.short?.minStrength || 70)) * 100)}%`,
                                             transition: 'width 0.5s ease-in-out',
-                                            background: requirements.short.currentStrength >= requirements.short.minStrength
+                                            background: (requirements?.short?.currentStrength || 0) >= (requirements?.short?.minStrength || 70)
                                                 ? 'linear-gradient(90deg, #10b981, #059669)'
                                                 : 'linear-gradient(90deg, #3b82f6, #2563eb)'
                                         }}
                                     />
                                 </div>
-                                {/* Indicatore visivo percentuale */}
                                 <div className="strength-percentage">
-                                    {Math.round((requirements.short.currentStrength / requirements.short.minStrength) * 100)}% del target raggiunto
+                                    {Math.round(((requirements?.short?.currentStrength || 0) / (requirements?.short?.minStrength || 70)) * 100)}% del target raggiunto
                                 </div>
                             </div>
-                            {/* Lista dei contributi allo Strength */}
-                            {requirements.short.strengthContributions && requirements.short.strengthContributions.length > 0 && (
+                            {requirements?.short?.strengthContributions && requirements.short.strengthContributions.length > 0 && (
                                 <div className="strength-contributions-list">
                                     <strong>Contributi allo Strength ({requirements.short.currentStrength}/100 punti):</strong>
                                     <div className="strength-contributions-grid">
@@ -452,22 +437,17 @@ const BotAnalysisPage = () => {
                                     </div>
                                 </div>
                             )}
-                            {requirements.short.currentStrength === 0 && (
-                                <div className="strength-contributions-list">
-                                    <span className="no-strength">Nessun contributo allo Strength ancora</span>
-                                </div>
-                            )}
                             <div className="requirement-progress">
                                 <div className="progress-item">
                                     <span>Conferme richieste:</span>
-                                    <span className="value">{requirements.short.minConfirmations}</span>
+                                    <span className="value">{requirements?.short?.minConfirmations || 5}</span>
                                 </div>
                                 <div className="progress-item">
                                     <span>Conferme attuali:</span>
-                                    <span className={`value ${requirements.short.currentConfirmations >= requirements.short.minConfirmations ? 'ok' : 'missing'}`}>
-                                        {requirements.short.currentConfirmations}/{requirements.short.minConfirmations}
+                                    <span className={`value ${(requirements?.short?.currentConfirmations || 0) >= (requirements?.short?.minConfirmations || 5) ? 'ok' : 'missing'}`}>
+                                        {requirements?.short?.currentConfirmations || 0}/{requirements?.short?.minConfirmations || 5}
                                     </span>
-                                    {requirements.short.needsConfirmations > 0 && (
+                                    {(requirements?.short?.needsConfirmations || 0) > 0 && (
                                         <span className="needs">{requirements.short.needsConfirmations} in più</span>
                                     )}
                                 </div>
@@ -475,14 +455,13 @@ const BotAnalysisPage = () => {
                                     <div
                                         className="progress-fill"
                                         style={{
-                                            width: `${Math.min(100, (requirements.short.currentConfirmations / requirements.short.minConfirmations) * 100)}%`,
+                                            width: `${Math.min(100, ((requirements?.short?.currentConfirmations || 0) / (requirements?.short?.minConfirmations || 5)) * 100)}%`,
                                             transition: 'width 0.5s ease-in-out'
                                         }}
                                     />
                                 </div>
                             </div>
-                            {/* Lista delle conferme ottenute */}
-                            {requirements.short.confirmationsList && requirements.short.confirmationsList.length > 0 && (
+                            {requirements?.short?.confirmationsList && requirements.short.confirmationsList.length > 0 && (
                                 <div className="confirmations-list">
                                     <strong>Conferme ottenute ({requirements.short.currentConfirmations}/{requirements.short.minConfirmations}):</strong>
                                     <div className="confirmations-grid">
@@ -495,93 +474,69 @@ const BotAnalysisPage = () => {
                                     </div>
                                 </div>
                             )}
-                            {requirements.short.currentConfirmations === 0 && (
-                                <div className="confirmations-list">
-                                    <span className="no-confirmations">Nessuna conferma ottenuta ancora</span>
-                                </div>
-                            )}
                             <div className="requirement-reason">
-                                <strong>Stato:</strong> {requirements.short.reason}
+                                <strong>Stato:</strong> {requirements?.short?.reason || 'Nessun segnale SHORT attivo'}
                             </div>
-
                         </div>
                     </div>
 
                     {/* Risk Manager */}
-                    <div className="risk-section">
-                        <h3><Shield size={20} /> Risk Manager</h3>
-                        <div className={`risk-card ${risk.canTrade ? 'ok' : 'blocked'}`}>
-                            <div className="risk-status">
-                                {risk.canTrade ? (
-                                    <><CheckCircle size={20} /> Trading Permesso</>
-                                ) : (
-                                    <><AlertCircle size={20} /> Trading Bloccato</>
-                                )}
-                            </div>
-                            <div className="risk-details">
-                                <div className="risk-item">
-                                    <span>Perdita giornaliera:</span>
-                                    <span className={risk.dailyLoss < 5 ? 'ok' : 'warning'}>
-                                        {risk.dailyLoss.toFixed(2)}% (max 5%)
-                                    </span>
+                    {risk && (
+                        <div className="risk-section" key={`risk-${updateKey}`}>
+                            <h3><Shield size={20} /> Risk Manager</h3>
+                            <div className={`risk-card ${risk.canTrade ? 'ok' : 'blocked'}`}>
+                                <div className="risk-status">
+                                    {risk.canTrade ? (
+                                        <><CheckCircle size={20} /> Trading Permesso</>
+                                    ) : (
+                                        <><AlertCircle size={20} /> Trading Bloccato</>
+                                    )}
                                 </div>
-                                <div className="risk-item">
-                                    <span>Exposure corrente:</span>
-                                    <span>{risk.currentExposure.toFixed(2)}% (max 40%)</span>
-                                </div>
-                                <div className="risk-item">
-                                    <span>Exposure disponibile:</span>
-                                    <span className="highlight">€{risk.availableExposure.toFixed(2)}</span>
-                                </div>
-                                <div className="risk-item">
-                                    <span>Dimensione max posizione:</span>
-                                    <span className="highlight">€{risk.maxAvailableForNewPosition.toFixed(2)}</span>
-                                </div>
-                                {!risk.canTrade && (
-                                    <div className="risk-reason">
-                                        <strong>Motivo blocco:</strong> {risk.reason}
+                                <div className="risk-details">
+                                    <div className="risk-item">
+                                        <span>Perdita giornaliera:</span>
+                                        <span className={risk.dailyLoss < 5 ? 'ok' : 'warning'}>
+                                            {risk.dailyLoss?.toFixed(2) || '0.00'}% (max 5%)
+                                        </span>
                                     </div>
-                                )}
+                                    <div className="risk-item">
+                                        <span>Exposure corrente:</span>
+                                        <span>{risk.currentExposure?.toFixed(2) || '0.00'}% (max 40%)</span>
+                                    </div>
+                                    <div className="risk-item">
+                                        <span>Exposure disponibile:</span>
+                                        <span className="highlight">€{risk.availableExposure?.toFixed(2) || '0.00'}</span>
+                                    </div>
+                                    <div className="risk-item">
+                                        <span>Dimensione max posizione:</span>
+                                        <span className="highlight">€{risk.maxAvailableForNewPosition?.toFixed(2) || '0.00'}</span>
+                                    </div>
+                                    {!risk.canTrade && (
+                                        <div className="risk-reason">
+                                            <strong>Motivo blocco:</strong> {risk.reason || 'N/A'}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Posizioni Aperte */}
-                    <div className="positions-section">
+                    <div className="positions-section" key={`positions-${updateKey}`}>
                         <h3><DollarSign size={20} /> Posizioni Aperte</h3>
                         <div className="positions-card">
                             <div className="position-item">
                                 <span>LONG:</span>
-                                <span className="highlight">{positions.long}</span>
+                                <span className="highlight">{positions?.long || 0}</span>
                             </div>
                             <div className="position-item">
                                 <span>SHORT:</span>
-                                <span className="highlight">{positions.short}</span>
+                                <span className="highlight">{positions?.short || 0}</span>
                             </div>
                             <div className="position-item">
                                 <span>Totale:</span>
-                                <span className="highlight">{positions.total}</span>
+                                <span className="highlight">{positions?.total || 0}</span>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Spiegazione Semplice */}
-                    <div className="explanation-section">
-                        <h3>💡 Come Funziona (Spiegazione Semplice)</h3>
-                        <div className="explanation-card">
-                            <p><strong>Il bot analizza il mercato come un trader professionale:</strong></p>
-                            <ul>
-                                <li><strong>RSI:</strong> Se è sotto 30, il prezzo è "sottovalutato" (possibile rialzo). Se è sopra 70, è "sopravvalutato" (possibile calo).</li>
-                                <li><strong>Conferme:</strong> Il bot non si fida di un solo indicatore. Serve che MULTIPLI indicatori (RSI, MACD, Bollinger Bands, Trend) siano d'accordo.</li>
-                                <li><strong>Strength:</strong> Quanto è forte il segnale (0-100). Serve almeno 70 per avere ~90% di certezza.</li>
-                                <li><strong>LONG:</strong> Serve 4 conferme + strength {'>'}= 70 per comprare.</li>
-                                <li><strong>SHORT:</strong> Serve 5 conferme + strength {'>'}= 70 per vendere (più rigoroso).</li>
-                                <li><strong>Risk Manager:</strong> Anche se il segnale è perfetto, il bot non apre se ha già perso troppo oggi o se l'exposure è troppo alta.</li>
-                            </ul>
-                            <p className="explanation-footer">
-                                <strong>In pratica:</strong> Il bot aspetta che TUTTI gli indicatori siano d'accordo e che il segnale sia FORTISSIMO (90% certezza) prima di aprire.
-                                Questo significa che potrebbe aspettare anche molto tempo, ma quando apre, è perché è QUASI SICURO che la posizione possa fruttare.
-                            </p>
                         </div>
                     </div>
                 </div>
@@ -591,4 +546,3 @@ const BotAnalysisPage = () => {
 };
 
 export default BotAnalysisPage;
-
