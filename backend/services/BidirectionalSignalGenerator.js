@@ -576,91 +576,28 @@ class BidirectionalSignalGenerator {
                                (priceChange5 > -1.0 && priceChange5 < 1.0) ||
                                (priceChange10 > -1.5 && priceChange10 < 1.5);
         
-        // ✅ FIX CRITICO: Se mercato è neutrale, resetta completamente shortSignal e ritorna NEUTRAL
-        if (isPriceNeutral) {
-            console.log(`🚫 [${symbol || 'UNKNOWN'}] SHORT blocked: Market is neutral/lateral (priceChange: ${priceChange.toFixed(2)}%, priceChange5: ${priceChange5.toFixed(2)}%, priceChange10: ${priceChange10.toFixed(2)}%)`);
-            return {
-                direction: 'NEUTRAL',
-                strength: 0,
-                reasons: [`SHORT blocked: Market is neutral/lateral - no significant movement`],
-                confirmations: 0,
-                longSignal: {
-                    strength: longSignal.strength,
-                    confirmations: longSignal.confirmations,
-                    reasons: longSignal.reasons,
-                    strengthContributions: longSignal.strengthContributions
-                },
-                shortSignal: {
-                    strength: 0,
-                    confirmations: 0,
-                    reasons: [],
-                    strengthContributions: []
-                },
-                indicators: {
-                    rsi: rsi,
-                    rsiDivergence: rsiDivergence,
-                    trend: trend,
-                    majorTrend: majorTrend,
-                    volume: volume,
-                    macd: macd,
-                    bollinger: bollinger,
-                    ema10: ema10,
-                    ema20: ema20,
-                    ema50: ema50,
-                    ema200: ema200
-                }
-            };
-        }
-        
-        if (isPriceRising) {
-            return {
-                direction: 'NEUTRAL',
-                strength: 0,
-                reasons: [`SHORT blocked: Price still rising (+${priceChange.toFixed(2)}%) - waiting for reversal`],
-                confirmations: 0,
-                longSignal: {
-                    strength: longSignal.strength,
-                    confirmations: longSignal.confirmations,
-                    reasons: longSignal.reasons,
-                    strengthContributions: longSignal.strengthContributions
-                },
-                shortSignal: {
-                    strength: 0,
-                    confirmations: 0,
-                    reasons: [],
-                    strengthContributions: []
-                },
-                indicators: {
-                    rsi: rsi,
-                    rsiDivergence: rsiDivergence,
-                    trend: trend,
-                    majorTrend: majorTrend,
-                    volume: volume,
-                    macd: macd,
-                    bollinger: bollinger,
-                    ema10: ema10,
-                    ema20: ema20,
-                    ema50: ema50,
-                    ema200: ema200
-                }
-            };
-        }
-        
         // ✅ FIX CRITICO: Verifica se prezzo sta scendendo attivamente E in modo consistente
         // Se il prezzo è neutrale o laterale, NON generare segnali SHORT
         // Questo previene SHORT su mercati neutri/laterali (es. MANA/USDT senza movimento)
         // Verifica movimento CONSISTENTE: deve scendere sia su 3 che su 5 periodi
         const isPriceActivelyFalling = priceChange < -0.5 && priceChange5 < -0.8;
         
-        // ✅ LOG per debug MANA/USDT
-        console.log(`🔍 [${symbol || 'UNKNOWN'}] SHORT Signal Check:`, {
-            priceChange: priceChange.toFixed(2) + '%',
-            priceChange5: priceChange5.toFixed(2) + '%',
-            priceChange10: priceChange10.toFixed(2) + '%',
-            isPriceNeutral,
-            isPriceActivelyFalling,
-            willCalculateShort: isPriceActivelyFalling && !isPriceNeutral
-        });
+        // ✅ FIX CRITICO: Se mercato è neutrale O prezzo sta salendo, BLOCCA solo SHORT ma continua a calcolare LONG
+        // NON fare return early per permettere ai segnali LONG di essere generati
+        if (isPriceNeutral || isPriceRising) {
+            const reason = isPriceNeutral 
+                ? `Market is neutral/lateral (priceChange: ${priceChange.toFixed(2)}%, priceChange5: ${priceChange5.toFixed(2)}%, priceChange10: ${priceChange10.toFixed(2)}%)`
+                : `Price still rising (+${priceChange.toFixed(2)}%) - waiting for reversal`;
+            console.log(`🚫 [${symbol || 'UNKNOWN'}] SHORT blocked: ${reason}`);
+            // Resetta shortSignal ma continua il calcolo per permettere LONG
+            shortSignal.strength = 0;
+            shortSignal.confirmations = 0;
+            shortSignal.reasons = [`SHORT blocked: ${reason}`];
+            shortSignal.strengthContributions = [];
+        }
+        
+        // Procedi con calcolo SHORT solo se prezzo sta scendendo attivamente
+        
         
         // ⚠️ PANIC SELL EXCEPTION: Se c'è un crollo violento, ignora RSI Oversold
         // Normalmente RSI < 30 bloccherebbe lo SHORT, ma in un crash il prezzo può scendere con RSI a 5
