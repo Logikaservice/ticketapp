@@ -6,6 +6,7 @@ const https = require('https');
 // Import new services
 const riskManager = require('../services/RiskManager');
 const signalGenerator = require('../services/BidirectionalSignalGenerator');
+const { sendCryptoEmail } = require('../services/CryptoEmailNotifications');
 
 // Socket.io instance (will be set from index.js)
 let ioInstance = null;
@@ -1819,6 +1820,18 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
             timestamp: new Date().toISOString()
         });
 
+        // Send email notification
+        sendCryptoEmail('position_opened', {
+            type,
+            symbol,
+            entry_price: entryPrice,
+            volume,
+            stop_loss: stopLoss,
+            take_profit: takeProfit,
+            timestamp: new Date().toISOString(),
+            signal_details: signalDetails ? JSON.parse(signalDetails) : null
+        }).catch(err => console.error('Email notification error:', err));
+
         console.log(`✅ POSITION OPENED: ${ticketId} | ${type.toUpperCase()} ${volume.toFixed(8)} ${symbol} @ €${entryPrice.toFixed(2)} | SL: €${stopLoss?.toFixed(2) || 'N/A'} | TP: €${takeProfit?.toFixed(2) || 'N/A'}`);
 
         return ticketId;
@@ -2306,6 +2319,30 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
             strategy: pos.strategy || 'Bot',
             timestamp: new Date().toISOString()
         });
+
+        // Calculate duration
+        const openedAt = new Date(pos.opened_at);
+        const closedAt = new Date();
+        const durationMs = closedAt - openedAt;
+        const hours = Math.floor(durationMs / (1000 * 60 * 60));
+        const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+        const duration = `${hours}h ${minutes}m`;
+
+        // Calculate profit/loss percentage
+        const profitLossPercent = ((closePrice - pos.entry_price) / pos.entry_price) * 100;
+
+        // Send email notification
+        sendCryptoEmail('position_closed', {
+            symbol: pos.symbol,
+            type: pos.type,
+            entry_price: pos.entry_price,
+            close_price: closePrice,
+            volume: pos.volume,
+            profit_loss: finalPnl,
+            profit_loss_percent: profitLossPercent,
+            close_time: closedAt.toISOString(),
+            duration
+        }).catch(err => console.error('Email notification error:', err));
 
         return { success: true, pnl: finalPnl };
     } catch (err) {

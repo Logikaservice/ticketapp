@@ -8,6 +8,7 @@ import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
 import BacktestPanel from './BacktestPanel';
 import MarketScanner from './MarketScanner';
+import cryptoSounds from '../../utils/cryptoSounds';
 import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
 import './CryptoLayout.css';
 
@@ -41,6 +42,8 @@ const CryptoDashboard = () => {
         (data) => {
             console.log('📈 Position opened via WebSocket:', data);
             addNotification({ ...data, type: 'opened' });
+            // Play sound
+            cryptoSounds.positionOpened();
             // Refresh data immediately (no delay for instant updates)
             fetchData();
             fetchPrice(); // Also update price immediately
@@ -49,6 +52,12 @@ const CryptoDashboard = () => {
         (data) => {
             console.log('📉 Position closed via WebSocket:', data);
             addNotification({ ...data, type: 'closed' });
+            // Play sound based on profit/loss
+            if (data.profit_loss >= 0) {
+                cryptoSounds.positionClosedProfit();
+            } else {
+                cryptoSounds.positionClosedLoss();
+            }
             // Refresh data immediately (no delay for instant updates)
             fetchData();
             fetchPrice(); // Also update price immediately
