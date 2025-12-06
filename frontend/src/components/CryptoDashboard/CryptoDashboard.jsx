@@ -516,7 +516,11 @@ const CryptoDashboard = () => {
                         <div id="portfolio-menu-container" style={{ position: 'relative' }}>
                             <button
                                 className="toggle-btn"
-                                onClick={() => setShowPortfolioMenu(!showPortfolioMenu)}
+                                onClick={() => {
+                                    console.log('🔵 Portfolio button clicked! Current state:', showPortfolioMenu);
+                                    setShowPortfolioMenu(!showPortfolioMenu);
+                                    console.log('🔵 New state will be:', !showPortfolioMenu);
+                                }}
                                 style={{
                                     padding: '8px 12px',
                                     fontSize: '0.9rem',
@@ -535,21 +539,25 @@ const CryptoDashboard = () => {
 
                             {/* Dropdown Menu */}
                             {showPortfolioMenu && (
-                                <div style={{
-                                    position: 'absolute',
-                                    top: '100%',
-                                    right: 0,
-                                    marginTop: '4px',
-                                    background: '#1f2937',
-                                    border: '1px solid #374151',
-                                    borderRadius: '8px',
-                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
-                                    zIndex: 1000,
-                                    minWidth: '200px',
-                                    overflow: 'hidden'
-                                }}>
+                                <div
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        right: 0,
+                                        marginTop: '4px',
+                                        background: '#1f2937',
+                                        border: '1px solid #374151',
+                                        borderRadius: '8px',
+                                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
+                                        zIndex: 9999,
+                                        minWidth: '200px',
+                                        overflow: 'visible'
+                                    }}
+                                >
                                     <button
                                         onClick={() => {
+                                            console.log('✅ Aggiungi Fondi clicked');
                                             setShowPortfolioMenu(false);
                                             setShowAddFundsModal(true);
                                         }}
@@ -580,7 +588,10 @@ const CryptoDashboard = () => {
                                     <div style={{ height: '1px', background: '#374151' }}></div>
 
                                     <button
-                                        onClick={handleResetPortfolio}
+                                        onClick={() => {
+                                            console.log('✅ Reset Portfolio clicked');
+                                            handleResetPortfolio();
+                                        }}
                                         style={{
                                             width: '100%',
                                             padding: '12px 16px',
