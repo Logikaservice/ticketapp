@@ -4141,9 +4141,28 @@ router.get('/bot-analysis', async (req, res) => {
         // Calculate what's needed for SHORT
         const SHORT_MIN_CONFIRMATIONS = 5;
         const SHORT_MIN_STRENGTH = 70;
-        // ✅ FIX: Usa shortSignal se disponibile (anche quando direction è NEUTRAL), altrimenti usa signal.strength solo se direction è SHORT
-        const shortCurrentStrength = signal.shortSignal ? signal.shortSignal.strength : (signal.direction === 'SHORT' ? signal.strength : 0);
-        const shortCurrentConfirmations = signal.shortSignal ? signal.shortSignal.confirmations : (signal.direction === 'SHORT' ? signal.confirmations : 0);
+        // ✅ FIX CRITICO: Usa shortSignal.strength SOLO se direction è SHORT o se shortSignal ha conferme valide
+        // Altrimenti usa 0 per evitare valori fissi errati quando il segnale è LONG o NEUTRAL
+        // Se direction è SHORT, usa sempre signal.strength (più accurato)
+        // Se direction è NEUTRAL o LONG, usa shortSignal.strength SOLO se ha almeno 1 conferma valida
+        let shortCurrentStrength = 0;
+        let shortCurrentConfirmations = 0;
+        
+        if (signal.direction === 'SHORT') {
+            // Segnale principale è SHORT: usa i valori del segnale principale (più accurati)
+            shortCurrentStrength = signal.strength || 0;
+            shortCurrentConfirmations = signal.confirmations || 0;
+        } else if (signal.shortSignal) {
+            // Segnale principale NON è SHORT ma esiste shortSignal: usa shortSignal SOLO se ha conferme valide
+            // Questo evita di mostrare valori alti quando il segnale non è realmente SHORT
+            if (signal.shortSignal.confirmations > 0 && signal.shortSignal.strength > 0) {
+                shortCurrentStrength = signal.shortSignal.strength;
+                shortCurrentConfirmations = signal.shortSignal.confirmations;
+            } else {
+                shortCurrentStrength = 0;
+                shortCurrentConfirmations = 0;
+            }
+        }
         const shortNeedsConfirmations = Math.max(0, SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations);
         const shortNeedsStrength = Math.max(0, SHORT_MIN_STRENGTH - shortCurrentStrength);
         // ✅ FIX: Calcola MTF PRIMA e poi verifica requirements con adjusted strength
