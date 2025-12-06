@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Settings, BarChart2, Wallet } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Settings, BarChart2, Wallet, Maximize2, Minimize2 } from 'lucide-react';
 import OpenPositions from './OpenPositions';
 import TradingViewChart from './TradingViewChart';
 import ApexChart from './ApexChart';
@@ -12,9 +12,11 @@ import GeneralSettings from './GeneralSettings';
 import cryptoSounds from '../../utils/cryptoSounds';
 import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
 import './CryptoLayout.css';
+import './CryptoStandalone.css';
 
 const CryptoDashboard = () => {
     const [portfolio, setPortfolio] = useState({ balance_usd: 10000, holdings: {}, rsi: null }); // balance_usd is now treated as EUR
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const [trades, setTrades] = useState([]);
     const [botStatus, setBotStatus] = useState({ active: false, strategy: 'RSI_Strategy' });
     const [priceData, setPriceData] = useState([]);
