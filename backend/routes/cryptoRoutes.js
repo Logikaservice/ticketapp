@@ -4169,6 +4169,18 @@ router.get('/bot-analysis', async (req, res) => {
         console.log(`📊 [MTF] LONG: ${longCurrentStrength} + ${longMtfBonus} = ${longAdjustedStrength} | SHORT: ${shortCurrentStrength} + ${shortMtfBonus} = ${shortAdjustedStrength}`);
         console.log(`📊 [MTF] Trends: 1h=${trend1h}, 4h=${trend4h}`);
 
+        // ✅ FIX CRITICO: Ricalcola requirements con adjusted strength e controllo ATR (stessa logica del bot reale)
+        const MIN_SIGNAL_STRENGTH = 70; // Stessa soglia del bot reale
+        const longMeetsRequirements = signal.direction === 'LONG' &&
+            longAdjustedStrength >= MIN_SIGNAL_STRENGTH &&
+            signal.confirmations >= LONG_MIN_CONFIRMATIONS &&
+            !(signal.atrBlocked || false);
+
+        const shortMeetsRequirements = signal.direction === 'SHORT' &&
+            shortAdjustedStrength >= MIN_SIGNAL_STRENGTH &&
+            signal.confirmations >= SHORT_MIN_CONFIRMATIONS &&
+            !(signal.atrBlocked || false);
+
         // Calculate max position size
         const maxAvailableForNewPosition = Math.min(
             params.trade_size_eur,
