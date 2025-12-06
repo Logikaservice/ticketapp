@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Settings, BarChart2, Wallet } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Settings, BarChart2, Wallet, Maximize2, Minimize2 } from 'lucide-react';
 import OpenPositions from './OpenPositions';
 import TradingViewChart from './TradingViewChart';
 import ApexChart from './ApexChart';
@@ -311,6 +311,40 @@ const CryptoDashboard = () => {
         };
     }, [currentSymbol]);
 
+    // Add/remove crypto-standalone class to body
+    useEffect(() => {
+        document.body.classList.add('crypto-standalone');
+        return () => {
+            document.body.classList.remove('crypto-standalone');
+        };
+    }, []);
+
+    // Fullscreen toggle function
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().then(() => {
+                setIsFullscreen(true);
+            }).catch(err => {
+                console.error('Error attempting to enable fullscreen:', err);
+            });
+        } else {
+            document.exitFullscreen().then(() => {
+                setIsFullscreen(false);
+            });
+        }
+    };
+
+    // Listen for fullscreen changes
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+        };
+    }, []);
+
     // ✅ FIX: Close portfolio menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -440,6 +474,34 @@ const CryptoDashboard = () => {
                     <span style={{ color: '#fff' }}>Revolut</span> <span style={{ color: '#3b82f6' }}>X</span> Clone
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#9ca3af' }}>
+                    <button
+                        onClick={toggleFullscreen}
+                        style={{
+                            padding: '6px 10px',
+                            background: '#374151',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: '#9ca3af',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '0.85rem',
+                            transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#4b5563';
+                            e.currentTarget.style.color = '#fff';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = '#374151';
+                            e.currentTarget.style.color = '#9ca3af';
+                        }}
+                        title={isFullscreen ? "Esci da Fullscreen" : "Fullscreen"}
+                    >
+                        {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                        {isFullscreen ? "Esci" : "Fullscreen"}
+                    </button>
                     <Wallet size={18} /> Demo Account
                 </div>
             </div>
