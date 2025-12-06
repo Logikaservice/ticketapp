@@ -885,10 +885,16 @@ const getUSDTtoEURRate = async () => {
             return rate;
         }
     } catch (e) {
-        console.warn('⚠️ Could not fetch EUR/USDT rate, using fallback 0.92');
+        console.warn('⚠️ Could not fetch EUR/USDT rate from Binance');
+        // ✅ FIX: Se abbiamo un valore in cache (anche vecchio), usalo invece del fallback fisso
+        if (cachedUSDTtoEURRate) {
+            console.log(`💾 Using cached USDT/EUR rate: ${cachedUSDTtoEURRate.toFixed(4)} (age: ${((now - cacheTimestamp) / 1000).toFixed(0)}s)`);
+            return cachedUSDTtoEURRate;
+        }
     }
-    // Fallback: 1 USDT ≈ 0.92 EUR (approssimativo)
+    // Fallback: 1 USDT ≈ 0.92 EUR (approssimativo) - solo se non c'è cache
     const fallbackRate = 0.92;
+    console.log('⚠️ Using fallback USDT/EUR rate: 0.92');
     cachedUSDTtoEURRate = fallbackRate;
     cacheTimestamp = now;
     return fallbackRate;
