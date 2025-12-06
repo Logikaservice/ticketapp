@@ -1415,8 +1415,24 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             const currentPriceForATR = historyForSignal[historyForSignal.length - 1]?.close || currentPrice;
             if (atr && currentPriceForATR > 0) {
                 const atrPct = (atr / currentPriceForATR) * 100;
-                signal.atrBlocked = atrPct < MIN_ATR_PCT || atrPct > MAX_ATR_PCT;
+
+                // ✅ SMART ATR FILTERING: Soglia dinamica basata sulla forza del segnale
+                // Segnali FORTI (90-100%) → ATR minimo 0.2% (più permissivo)
+                // Segnali NORMALI (70-89%) → ATR minimo 0.3% (standard, più sicuro)
+                const MIN_ATR_FOR_STRONG_SIGNAL = 0.2; // Per segnali 90-100%
+                const MIN_ATR_FOR_NORMAL_SIGNAL = 0.3; // Per segnali 70-89%
+                const STRONG_SIGNAL_THRESHOLD = 90;
+
+                const isStrongSignal = signal.strength >= STRONG_SIGNAL_THRESHOLD;
+                const minAtrRequired = isStrongSignal ? MIN_ATR_FOR_STRONG_SIGNAL : MIN_ATR_FOR_NORMAL_SIGNAL;
+
+                signal.atrBlocked = atrPct < minAtrRequired || atrPct > MAX_ATR_PCT;
                 signal.atrPct = atrPct;
+                signal.minAtrRequired = minAtrRequired; // Per logging
+
+                if (signal.atrBlocked && atrPct < minAtrRequired) {
+                    console.log(`⚠️ BOT [${symbol.toUpperCase()}]: ATR ${atrPct.toFixed(2)}% < ${minAtrRequired}% (${isStrongSignal ? 'STRONG' : 'NORMAL'} signal threshold)`);
+                }
             } else {
                 signal.atrBlocked = false; // Se non c'è ATR, non bloccare
             }
