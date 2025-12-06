@@ -477,15 +477,8 @@ const CryptoDashboard = () => {
                     <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                         <button
                             className="toggle-btn"
-                            onClick={toggleBot}
-                            style={{ flex: 1, padding: '8px', fontSize: '0.9rem' }}
-                        >
-                            {botStatus.active ? "Stop Bot" : "Start Bot"}
-                        </button>
-                        <button
-                            className="toggle-btn"
                             onClick={() => setShowBotSettings(true)}
-                            style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px' }}
+                            style={{ flex: 1, padding: '8px', fontSize: '0.9rem' }}
                             title="Configurazione Bot"
                         >
                             <Settings size={18} />
@@ -493,7 +486,7 @@ const CryptoDashboard = () => {
                         <button
                             className="toggle-btn"
                             onClick={() => setShowBacktestPanel(true)}
-                            style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px' }}
+                            style={{ flex: 1, padding: '8px', fontSize: '0.9rem' }}
                             title="Backtesting Strategia"
                         >
                             <BarChart2 size={18} />
@@ -507,7 +500,7 @@ const CryptoDashboard = () => {
                                 url.searchParams.set('symbol', currentSymbol);
                                 window.open(url.toString(), 'BotAnalysis', 'width=1200,height=800,resizable=yes,scrollbars=yes');
                             }}
-                            style={{ padding: '8px', fontSize: '0.9rem', minWidth: '40px', background: '#3b82f6' }}
+                            style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: '#3b82f6' }}
                             title={`Analisi Bot in Tempo Reale per ${currentSymbol.toUpperCase()} - Apri in nuova finestra`}
                         >
                             🔍
