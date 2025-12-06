@@ -4062,8 +4062,19 @@ router.get('/bot-analysis', async (req, res) => {
 
         // ✅ MULTI-TIMEFRAME CONFIRMATION - Calcola trend e adjusted strength
         console.log('🔍 [BOT-ANALYSIS] Calculating MTF...');
-        const trend1h = await detectTrendOnTimeframe(symbol, '1h', 50);
-        const trend4h = await detectTrendOnTimeframe(symbol, '4h', 50);
+        let trend1h = 'neutral';
+        let trend4h = 'neutral';
+
+        try {
+            trend1h = await detectTrendOnTimeframe(symbol, '1h', 50);
+            trend4h = await detectTrendOnTimeframe(symbol, '4h', 50);
+            console.log('✅ [BOT-ANALYSIS] MTF calculated:', { trend1h, trend4h });
+        } catch (mtfError) {
+            console.error('❌ [BOT-ANALYSIS] MTF calculation failed, using neutral:', mtfError.message);
+            // Fallback: usa neutral per non bloccare l'analisi
+            trend1h = 'neutral';
+            trend4h = 'neutral';
+        }
 
         // Calcola MTF bonus per LONG
         let longMtfBonus = 0;
