@@ -8,6 +8,7 @@ import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
 import BacktestPanel from './BacktestPanel';
 import MarketScanner from './MarketScanner';
+import GeneralSettings from './GeneralSettings';
 import cryptoSounds from '../../utils/cryptoSounds';
 import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
 import './CryptoLayout.css';
