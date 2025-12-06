@@ -36,7 +36,6 @@ const CryptoDashboard = () => {
     const [notifications, setNotifications] = useState([]);
     const [botParameters, setBotParameters] = useState(null);
     const [useApexChart, setUseApexChart] = useState(false); // Toggle tra TradingView e ApexChart
-    const [showPortfolioMenu, setShowPortfolioMenu] = useState(false); // Menu dropdown per gestione portfolio
     const [showAddFundsModal, setShowAddFundsModal] = useState(false); // Modal per aggiungere fondi
     const [showGeneralSettings, setShowGeneralSettings] = useState(false); // Modal per impostazioni generali
 
@@ -173,8 +172,6 @@ const CryptoDashboard = () => {
     };
 
     const handleResetPortfolio = async () => {
-        setShowPortfolioMenu(false); // Chiudi il menu
-
         const allPositionsCount = openPositions.length + (trades?.length || 0);
         const confirmMessage = `⚠️ ATTENZIONE: Reset completo del portfolio!\n\nQuesto cancellerà:\n${openPositions.length > 0 ? `- ${openPositions.length} posizione/i aperta/e\n` : ''}- TUTTE le posizioni (aperte e chiuse)\n- TUTTI i trades (marker sul grafico e lista recenti)\n\nE poi:\n- Imposterà il saldo a €250\n- Resetterà tutte le holdings\n\nVuoi continuare?`;
 
@@ -346,26 +343,6 @@ const CryptoDashboard = () => {
         };
     }, []);
 
-    // ✅ FIX: Close portfolio menu when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            // Check if click is outside the portfolio menu
-            const portfolioMenu = document.getElementById('portfolio-menu-container');
-            if (portfolioMenu && !portfolioMenu.contains(event.target)) {
-                setShowPortfolioMenu(false);
-            }
-        };
-
-        if (showPortfolioMenu) {
-            // Add event listener when menu is open
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-
-        return () => {
-            // Cleanup event listener
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [showPortfolioMenu]);
 
     const toggleBot = async (symbol = null) => {
         try {
