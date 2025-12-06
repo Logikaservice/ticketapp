@@ -693,21 +693,63 @@ const SYMBOL_TO_PAIR = {
     // Gaming/Metaverse (solo USDT disponibile)
     'mana': 'MANAUSDT',
     // ❌ 'mana_eur': 'MANAEUR', // Non disponibile su Binance
-    'axs': 'AXSUSDT'
-    // ❌ 'axs_eur': 'AXSEUR' // Non disponibile su Binance
+    'axs': 'AXSUSDT',
+    // ❌ 'axs_eur': 'AXSEUR', // Non disponibile su Binance
+
+    // ✅ NEW ADDITIONS - Verified on Binance (Dec 2025)
+    // Stablecoins
+    'usdc': 'USDCUSDT', // Volume: €1343M/day
+
+    // Layer 1 Emergenti (High Volume)
+    'sui': 'SUIUSDT', // Volume: €81M/day
+    'sui_eur': 'SUIEUR',
+    'apt': 'APTUSDT', // Aptos - Volume: €18.88M/day
+    'sei': 'SEIUSDT', // Volume: €8.92M/day
+    'ton': 'TONUSDT', // Telegram Open Network - Volume: €7.60M/day
+    'inj': 'INJUSDT', // Injective - Volume: €4.20M/day
+    'algo': 'ALGOUSDT', // Algorand - Volume: €3.38M/day
+    'vet': 'VETUSDT', // VeChain - Volume: €3.13M/day
+    'icp': 'ICPUSDT', // Internet Computer - Volume: €14.43M/day
+
+    // DeFi Blue Chips
+    'mkr': 'MKRUSDT', // Maker - Volume: €0.44M/day
+    'comp': 'COMPUSDT', // Compound - Volume: €3.94M/day
+    'snx': 'SNXUSDT', // Synthetix - Volume: €2.58M/day
+
+    // AI/Data Sector
+    'fet': 'FETUSDT', // Fetch.ai - Volume: €13.15M/day
+    'render': 'RENDERUSDT', // Render Network - Volume: €3.73M/day
+    'grt': 'GRTUSDT', // The Graph - Volume: €2.44M/day
+
+    // Gaming/Metaverse
+    'imx': 'IMXUSDT', // Immutable X - Volume: €1.38M/day
+    'gala': 'GALAUSDT', // Gala Games - Volume: €3.46M/day
+    'enj': 'ENJUSDT', // Enjin Coin - Volume: €0.45M/day
+    'enj_eur': 'ENJEUR',
+
+    // Meme Coins (High Volume)
+    'pepe': 'PEPEUSDT', // Volume: €32.29M/day
+    'pepe_eur': 'PEPEEUR',
+    'floki': 'FLOKIUSDT', // Volume: €5.71M/day
+    'bonk': 'BONKUSDT', // Volume: €8.79M/day
+
+    // Storage/Infrastructure
+    'ar': 'ARUSDT' // Arweave - Volume: €3.52M/day
 };
 
 // ✅ CORRELATION GROUPS - Strategia Ibrida per Diversificazione Intelligente
 // Raggruppa crypto correlate per evitare posizioni ridondanti durante crash
 const CORRELATION_GROUPS = {
     'BTC_MAJOR': ['bitcoin', 'bitcoin_usdt', 'ethereum', 'ethereum_usdt', 'solana', 'solana_eur', 'cardano', 'cardano_usdt', 'polkadot', 'polkadot_usdt'],
-    'DEFI': ['chainlink', 'chainlink_usdt', 'uniswap', 'uniswap_eur', 'avalanche', 'avalanche_eur', 'aave', 'aave_eur', 'crv', 'crv_eur', 'ldo', 'ldo_eur'],
-    'LAYER1_ALT': ['near', 'near_eur', 'atom', 'atom_eur'],
+    'DEFI': ['chainlink', 'chainlink_usdt', 'uniswap', 'uniswap_eur', 'avalanche', 'avalanche_eur', 'aave', 'crv', 'ldo', 'mkr', 'comp', 'snx'],
+    'LAYER1_ALT': ['near', 'near_eur', 'atom', 'atom_eur', 'sui', 'sui_eur', 'apt', 'sei', 'ton', 'inj', 'algo', 'vet', 'icp'],
     'PAYMENTS': ['trx', 'trx_eur', 'xlm', 'xlm_eur', 'eos', 'eos_eur'],
     'LAYER2': ['arb', 'arb_eur', 'op', 'op_eur', 'matic', 'matic_eur'],
-    'GAMING': ['sand', 'sand_eur', 'mana', 'mana_eur', 'axs', 'axs_eur'],
-    'STORAGE': ['fil', 'fil_eur'],
-    'MEME': ['dogecoin', 'dogecoin_eur', 'shiba', 'shiba_eur'],
+    'GAMING': ['sand', 'mana', 'axs', 'imx', 'gala', 'enj', 'enj_eur'],
+    'STORAGE': ['fil', 'ar'],
+    'MEME': ['dogecoin', 'dogecoin_eur', 'shiba', 'shiba_eur', 'pepe', 'pepe_eur', 'floki', 'bonk'],
+    'AI_DATA': ['fet', 'render', 'grt'],
+    'STABLECOINS': ['usdc'],
     'INDEPENDENT': ['ripple', 'ripple_eur', 'litecoin', 'litecoin_usdt', 'binance_coin', 'binance_coin_eur', 'pol_polygon', 'pol_polygon_eur']
 };
 
@@ -747,7 +789,34 @@ const SYMBOL_TO_COINGECKO = {
     'dogecoin': 'dogecoin',
     'dogecoin_eur': 'dogecoin',
     'shiba': 'shiba-inu',
-    'shiba_eur': 'shiba-inu'
+    'shiba_eur': 'shiba-inu',
+
+    // ✅ NEW ADDITIONS - CoinGecko IDs
+    'usdc': 'usd-coin',
+    'sui': 'sui',
+    'sui_eur': 'sui',
+    'apt': 'aptos',
+    'sei': 'sei-network',
+    'ton': 'the-open-network',
+    'inj': 'injective-protocol',
+    'algo': 'algorand',
+    'vet': 'vechain',
+    'icp': 'internet-computer',
+    'mkr': 'maker',
+    'comp': 'compound-governance-token',
+    'snx': 'synthetix-network-token',
+    'fet': 'fetch-ai',
+    'render': 'render-token',
+    'grt': 'the-graph',
+    'imx': 'immutable-x',
+    'gala': 'gala',
+    'enj': 'enjincoin',
+    'enj_eur': 'enjincoin',
+    'pepe': 'pepe',
+    'pepe_eur': 'pepe',
+    'floki': 'floki',
+    'bonk': 'bonk',
+    'ar': 'arweave'
 };
 
 // Helper to get price for a symbol
