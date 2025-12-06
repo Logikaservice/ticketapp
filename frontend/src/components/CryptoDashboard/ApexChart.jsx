@@ -16,6 +16,8 @@ const ApexChart = ({
     const [chartOptions, setChartOptions] = useState(null);
     const [chartSeries, setChartSeries] = useState([]);
     const lastUpdateRef = useRef(Date.now());
+    const zoomRangeRef = useRef(null); // Salva lo zoom corrente
+    const isUserZoomedRef = useRef(false); // Traccia se l'utente ha zoomato
 
     const intervals = [
         { value: '1m', label: '1 Min' },
@@ -194,7 +196,7 @@ const ApexChart = ({
             name: 'Bitcoin/EUR',
             data: candlestickData,
         }]);
-    }, [priceHistory, currentInterval, openPositions]); // ✅ Rimosso currentPrice per evitare reset
+    }, [currentInterval]); // ✅ RIMOSSO priceHistory e openPositions - aggiorna SOLO quando cambi interval!
 
     // ✅ Aggiorna solo l'ultima candela quando cambia il prezzo (senza reset)
     useEffect(() => {
