@@ -4672,8 +4672,6 @@ router.get('/scanner', async (req, res) => {
 
                 // ✅ LOG per debug (sempre, anche per NEUTRAL)
                 console.log(`[SCANNER] ${s.display}: direction=${displayDirection}, strength=${displayStrength}, original=${signal.direction}/${signal.strength}, long=${signal.longSignal?.strength || 0}, short=${signal.shortSignal?.strength || 0}`);
-                    console.log(`📊 [SCANNER] ${s.display}: ${displayDirection} strength=${displayStrength}, long=${signal.longSignal?.strength || 0}, short=${signal.shortSignal?.strength || 0}`);
-                }
 
                 // ✅ IMPORTANTE: Restituisci SEMPRE il risultato, anche se NEUTRAL con strength 0
                 // Questo permette di vedere TUTTI i simboli nel Market Scanner per debug
