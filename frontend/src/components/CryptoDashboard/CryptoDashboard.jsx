@@ -299,6 +299,27 @@ const CryptoDashboard = () => {
         };
     }, [currentSymbol]);
 
+    // ✅ FIX: Close portfolio menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            // Check if click is outside the portfolio menu
+            const portfolioMenu = document.getElementById('portfolio-menu-container');
+            if (portfolioMenu && !portfolioMenu.contains(event.target)) {
+                setShowPortfolioMenu(false);
+            }
+        };
+
+        if (showPortfolioMenu) {
+            // Add event listener when menu is open
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            // Cleanup event listener
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showPortfolioMenu]);
+
     const toggleBot = async (symbol = null) => {
         try {
             const targetSymbol = symbol || currentSymbol;
@@ -492,7 +513,7 @@ const CryptoDashboard = () => {
                             🔍
                         </button>
                         {/* Portfolio Management Dropdown */}
-                        <div style={{ position: 'relative' }}>
+                        <div id="portfolio-menu-container" style={{ position: 'relative' }}>
                             <button
                                 className="toggle-btn"
                                 onClick={() => setShowPortfolioMenu(!showPortfolioMenu)}
