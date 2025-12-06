@@ -4309,7 +4309,7 @@ router.get('/bot-analysis', async (req, res) => {
                     needsConfirmations: longNeedsConfirmations,
                     canOpen: longMeetsRequirements && canOpenCheck.allowed,
                     reason: longReason,
-                    confirmationsList: longConfirmationsList, // Lista delle conferme ottenute
+                    confirmationsList: [], // Lista delle conferme ottenute - RIMOSSA
                     strengthContributions: longStrengthContributions // Lista dei contributi allo Strength con punti
                 },
                 short: {
@@ -4321,7 +4321,7 @@ router.get('/bot-analysis', async (req, res) => {
                     needsConfirmations: shortNeedsConfirmations,
                     canOpen: shortMeetsRequirements && canOpenCheck.allowed,
                     reason: shortReason,
-                    confirmationsList: shortConfirmationsList, // Lista delle conferme ottenute
+                    confirmationsList: [], // Lista delle conferme ottenute - RIMOSSA
                     strengthContributions: shortStrengthContributions // Lista dei contributi allo Strength con punti
                 }
             },

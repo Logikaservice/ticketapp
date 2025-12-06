@@ -394,19 +394,6 @@ const BotAnalysisPageNew = () => {
                                     />
                                 </div>
                             </div>
-                            {requirements?.long?.confirmationsList && requirements.long.confirmationsList.length > 0 && (
-                                <div className="confirmations-list">
-                                    <strong>Conferme ottenute ({requirements.long.currentConfirmations}/{requirements.long.minConfirmations}):</strong>
-                                    <div className="confirmations-grid">
-                                        {requirements.long.confirmationsList.map((confirmation, idx) => (
-                                            <div key={idx} className="confirmation-item-compact">
-                                                <span className="confirmation-check">✓</span>
-                                                <span className="confirmation-text">{confirmation}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                             <div className="requirement-reason">
                                 <strong>Stato:</strong> {requirements?.long?.reason || 'Nessun segnale LONG attivo'}
                             </div>
@@ -493,19 +480,6 @@ const BotAnalysisPageNew = () => {
                                     />
                                 </div>
                             </div>
-                            {requirements?.short?.confirmationsList && requirements.short.confirmationsList.length > 0 && (
-                                <div className="confirmations-list">
-                                    <strong>Conferme ottenute ({requirements.short.currentConfirmations}/{requirements.short.minConfirmations}):</strong>
-                                    <div className="confirmations-grid">
-                                        {requirements.short.confirmationsList.map((confirmation, idx) => (
-                                            <div key={idx} className="confirmation-item-compact">
-                                                <span className="confirmation-check">✓</span>
-                                                <span className="confirmation-text">{confirmation}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                             <div className="requirement-reason">
                                 <strong>Stato:</strong> {requirements?.short?.reason || 'Nessun segnale SHORT attivo'}
                             </div>
