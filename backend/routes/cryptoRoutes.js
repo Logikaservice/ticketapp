@@ -894,7 +894,18 @@ const getUSDTtoEURRate = async () => {
     return fallbackRate;
 };
 
+
+// ✅ CACHE AGGRESSIVA per evitare rate limit Binance
+const priceCache = new Map();
+const PRICE_CACHE_TTL = 10000; // 10 secondi - cache molto aggressiva
+
 const getSymbolPrice = async (symbol) => {
+    // ✅ Controlla cache prima di chiamare Binance
+    const cached = priceCache.get(symbol);
+    if (cached && (Date.now() - cached.timestamp) < PRICE_CACHE_TTL) {
+        return cached.price;
+    }
+
     const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
     const coingeckoId = SYMBOL_TO_COINGECKO[symbol] || 'bitcoin';
 
@@ -922,6 +933,8 @@ const getSymbolPrice = async (symbol) => {
                 }
             }
 
+            // ✅ Salva in cache
+            priceCache.set(symbol, { price, timestamp: Date.now() });
             return price;
         }
         throw new Error("Invalid data from Binance");
@@ -933,6 +946,8 @@ const getSymbolPrice = async (symbol) => {
             if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].eur) {
                 const price = parseFloat(geckoData[coingeckoId].eur);
                 console.log(`💱 [PRICE] ${symbol} from CoinGecko: €${price.toFixed(2)} EUR`);
+                // ✅ Salva in cache anche per CoinGecko
+                priceCache.set(symbol, { price, timestamp: Date.now() });
                 return price;
             }
         } catch (e2) {
