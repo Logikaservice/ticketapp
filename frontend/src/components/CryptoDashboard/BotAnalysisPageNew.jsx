@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, TrendingUp, TrendingDown, AlertCircle, CheckCircle, BarChart3, Shield, DollarSign, RefreshCw } from 'lucide-react';
 import './BotAnalysisPanel.css';
 
-// ✅ NUOVO COMPONENTE - BotAnalysisPageNew
+// ✅ COMPONENTE PRINCIPALE - BotAnalysisPage (sostituisce il vecchio)
 const BotAnalysisPageNew = () => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);

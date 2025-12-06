@@ -550,30 +550,13 @@ const CryptoDashboard = () => {
                                 url.searchParams.set('domain', 'crypto');
                                 url.searchParams.set('page', 'bot-analysis');
                                 url.searchParams.set('symbol', currentSymbol);
-                                // ✅ FIX: Aggiungi timestamp per forzare reload della nuova versione
                                 url.searchParams.set('_v', Date.now());
                                 window.open(url.toString(), 'BotAnalysis', 'width=1200,height=800,resizable=yes,scrollbars=yes');
                             }}
-                            style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: '#3b82f6' }}
-                            title={`Analisi Bot in Tempo Reale per ${currentSymbol.toUpperCase()} - Apri in nuova finestra`}
+                            style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: '#10b981' }}
+                            title={`Analisi Bot in Tempo Reale per ${currentSymbol.toUpperCase()} - Nuova Versione`}
                         >
-                            🔍
-                        </button>
-                        <button
-                            className="toggle-btn"
-                            onClick={() => {
-                                const url = new URL(window.location);
-                                url.searchParams.set('domain', 'crypto');
-                                url.searchParams.set('page', 'bot-analysis');
-                                url.searchParams.set('symbol', currentSymbol);
-                                url.searchParams.set('_new', 'true');
-                                url.searchParams.set('_v', Date.now());
-                                window.open(url.toString(), 'BotAnalysisNew', 'width=1200,height=800,resizable=yes,scrollbars=yes');
-                            }}
-                            style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: '#10b981', marginLeft: '5px' }}
-                            title={`NUOVA Analisi Bot - Versione Aggiornata per ${currentSymbol.toUpperCase()}`}
-                        >
-                            ✨ Nuova Analisi
+                            🔍 Analisi Bot
                         </button>
                     </div>
                 </div>

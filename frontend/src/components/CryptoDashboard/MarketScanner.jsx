@@ -148,32 +148,8 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                                     url.searchParams.set('domain', 'crypto');
                                                     url.searchParams.set('page', 'bot-analysis');
                                                     url.searchParams.set('symbol', item.symbol);
-                                                    // ✅ FIX: Aggiungi timestamp per forzare reload della nuova versione
                                                     url.searchParams.set('_v', Date.now());
                                                     window.open(url.toString(), 'BotAnalysis', 'width=1200,height=800,resizable=yes,scrollbars=yes');
-                                                }}
-                                                style={{
-                                                    background: '#8b5cf6',
-                                                    color: '#fff',
-                                                    border: 'none',
-                                                    borderRadius: '4px',
-                                                    padding: '4px 8px',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.75rem'
-                                                }}
-                                                title="Deep Analysis"
-                                            >
-                                                🔍
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    const url = new URL(window.location);
-                                                    url.searchParams.set('domain', 'crypto');
-                                                    url.searchParams.set('page', 'bot-analysis');
-                                                    url.searchParams.set('symbol', item.symbol);
-                                                    url.searchParams.set('_new', 'true');
-                                                    url.searchParams.set('_v', Date.now());
-                                                    window.open(url.toString(), 'BotAnalysisNew', 'width=1200,height=800,resizable=yes,scrollbars=yes');
                                                 }}
                                                 style={{
                                                     background: '#10b981',
@@ -182,12 +158,11 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                                     borderRadius: '4px',
                                                     padding: '4px 8px',
                                                     cursor: 'pointer',
-                                                    fontSize: '0.75rem',
-                                                    marginLeft: '3px'
+                                                    fontSize: '0.75rem'
                                                 }}
-                                                title="NUOVA Analisi - Versione Aggiornata"
+                                                title="Deep Analysis - Nuova Versione"
                                             >
-                                                ✨ Nuova
+                                                🔍
                                             </button>
                                         </div>
                                     </td>

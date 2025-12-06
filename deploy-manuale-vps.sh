@@ -40,11 +40,17 @@ echo ""
 # 4. Frontend - Build
 echo "4️⃣ Frontend - Build..."
 cd /var/www/ticketapp/frontend
-echo "Pulizia build vecchi..."
+echo "Pulizia build vecchi e cache..."
+# Pulisci TUTTO: build, cache, node_modules/.cache
 rm -rf build
+rm -rf node_modules/.cache
+rm -rf .cache
+rm -f .eslintcache
+# Forza pulizia cache React
+find . -name "*.map" -type f -delete 2>/dev/null || true
 echo "Installazione dipendenze..."
 npm install
-echo "Build frontend..."
+echo "Build frontend (nuovo build completo)..."
 npm run build
 if [ ! -d "build" ]; then
   echo "❌ Build fallito - directory build non creata!"
