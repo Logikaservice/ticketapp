@@ -4125,32 +4125,46 @@ router.get('/bot-analysis', async (req, res) => {
             trend4h = 'neutral';
         }
 
-        // ✅ FIX: MTF bonus già calcolato sopra, ora aggiungiamo i reason per display
+        // ✅ Calcola MTF bonus per LONG
+        let longMtfBonus = 0;
         let longMtfReason = '';
         if (signal.direction === 'LONG' || longCurrentStrength > 0) {
             if (trend1h === 'bullish' && trend4h === 'bullish') {
+                longMtfBonus = +10;
                 longMtfReason = '✅ All timeframes bullish (+10)';
             } else if (trend1h === 'bullish' || trend4h === 'bullish') {
+                longMtfBonus = +5;
                 longMtfReason = '✅ Partial alignment (+5)';
             } else if (trend1h === 'bearish' || trend4h === 'bearish') {
+                longMtfBonus = -15;
                 longMtfReason = '⚠️ Higher timeframe bearish (-15)';
             } else {
+                longMtfBonus = 0;
                 longMtfReason = '➡️ Neutral timeframes (0)';
             }
         }
 
+        // ✅ Calcola MTF bonus per SHORT
+        let shortMtfBonus = 0;
         let shortMtfReason = '';
         if (signal.direction === 'SHORT' || shortCurrentStrength > 0) {
             if (trend1h === 'bearish' && trend4h === 'bearish') {
+                shortMtfBonus = +10;
                 shortMtfReason = '✅ All timeframes bearish (+10)';
             } else if (trend1h === 'bearish' || trend4h === 'bearish') {
+                shortMtfBonus = +5;
                 shortMtfReason = '✅ Partial alignment (+5)';
             } else if (trend1h === 'bullish' || trend4h === 'bullish') {
+                shortMtfBonus = -15;
                 shortMtfReason = '⚠️ Higher timeframe bullish (-15)';
             } else {
+                shortMtfBonus = 0;
                 shortMtfReason = '➡️ Neutral timeframes (0)';
             }
         }
+
+        const longAdjustedStrength = longCurrentStrength + longMtfBonus;
+        const shortAdjustedStrength = shortCurrentStrength + shortMtfBonus;
 
         console.log(`📊 [MTF] LONG: ${longCurrentStrength} + ${longMtfBonus} = ${longAdjustedStrength} | SHORT: ${shortCurrentStrength} + ${shortMtfBonus} = ${shortAdjustedStrength}`);
         console.log(`📊 [MTF] Trends: 1h=${trend1h}, 4h=${trend4h}`);
