@@ -165,6 +165,31 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                             >
                                                 🔍
                                             </button>
+                                            <button
+                                                onClick={() => {
+                                                    const url = new URL(window.location);
+                                                    url.searchParams.set('domain', 'crypto');
+                                                    url.searchParams.set('page', 'bot-analysis');
+                                                    url.searchParams.set('symbol', item.symbol);
+                                                    url.searchParams.set('_new', 'true');
+                                                    url.searchParams.set('_v', Date.now());
+                                                    url.searchParams.set('_cache', 'no');
+                                                    window.open(url.toString(), 'BotAnalysisNew', 'width=1200,height=800,resizable=yes,scrollbars=yes');
+                                                }}
+                                                style={{
+                                                    background: '#10b981',
+                                                    color: '#fff',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    padding: '4px 8px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.75rem',
+                                                    marginLeft: '3px'
+                                                }}
+                                                title="NUOVA Analisi - Versione Aggiornata"
+                                            >
+                                                ✨ Nuova
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>

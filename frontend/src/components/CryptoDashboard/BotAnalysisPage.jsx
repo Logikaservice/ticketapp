@@ -11,19 +11,22 @@ const BotAnalysisPage = () => {
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
     const urlParams = new URLSearchParams(window.location.search);
     const symbol = urlParams.get('symbol') || 'bitcoin';
+    const isNewVersion = urlParams.get('_new') === 'true';
 
     // ✅ Fetch semplice e affidabile - sempre nuovi dati
     const fetchData = useCallback(async () => {
         try {
             const timestamp = Date.now();
-            const url = `${apiBase}/api/crypto/bot-analysis?symbol=${symbol}&_t=${timestamp}`;
+            const randomId = Math.random().toString(36).substring(7);
+            const url = `${apiBase}/api/crypto/bot-analysis?symbol=${symbol}&_t=${timestamp}&_r=${randomId}${isNewVersion ? '&_new=true' : ''}`;
             
             const response = await fetch(url, {
                 method: 'GET',
                 cache: 'no-store',
                 headers: {
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache'
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
                 }
             });
 
@@ -54,7 +57,23 @@ const BotAnalysisPage = () => {
             setError(err.message);
             setLoading(false);
         }
-    }, [symbol, apiBase, updateCounter]);
+    }, [symbol, apiBase, updateCounter, isNewVersion]);
+
+    // ✅ Forza reload completo se è la nuova versione
+    useEffect(() => {
+        if (isNewVersion) {
+            // Forza il browser a non usare cache per questa pagina
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(registrations => {
+                    registrations.forEach(registration => registration.unregister());
+                });
+            }
+            // Aggiorna il timestamp nell'URL per forzare reload
+            const url = new URL(window.location);
+            url.searchParams.set('_loaded', Date.now().toString());
+            window.history.replaceState({}, '', url);
+        }
+    }, [isNewVersion]);
 
     useEffect(() => {
         fetchData();
@@ -110,6 +129,23 @@ const BotAnalysisPage = () => {
         <div className="bot-analysis-page">
             <div className="page-container">
                 <div className="page-header">
+                    {isNewVersion && (
+                        <div style={{
+                            position: 'absolute',
+                            top: '10px',
+                            right: '10px',
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            color: '#fff',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            fontSize: '0.85rem',
+                            fontWeight: 'bold',
+                            boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
+                            zIndex: 1000
+                        }}>
+                            ✨ NUOVA VERSIONE
+                        </div>
+                    )}
                     {window.opener ? (
                         <button className="back-button" onClick={() => window.close()}>
                             <ArrowLeft size={20} />

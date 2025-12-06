@@ -1,0 +1,37 @@
+=== COMANDI PER DEPLOY ===
+
+Apri il Prompt dei comandi (CMD) ed esegui questi comandi in sequenza:
+
+1. Vai nella directory del progetto:
+   cd c:\TicketApp
+
+2. Verifica lo stato:
+   git status
+
+3. Aggiungi tutti i file modificati:
+   git add .
+
+4. Crea un commit:
+   git commit -m "Deploy: Aggiunto pulsante Nuova Analisi con badge versione aggiornata"
+
+5. Push su GitHub:
+   git push origin main
+
+========================================
+
+DOPO IL PUSH:
+
+Se GitHub Actions funziona, il deploy parte automaticamente.
+Controlla su: https://github.com/Logikaservice/ticketapp/actions
+
+Se GitHub Actions non funziona, fai deploy manuale sulla VPS:
+- Connettiti via SSH alla VPS
+- Esegui questi comandi:
+
+   cd /var/www/ticketapp
+   git pull origin main
+   cd frontend
+   npm run build
+   cd ..
+   pm2 restart all
+   sudo systemctl restart nginx
