@@ -642,7 +642,14 @@ const CryptoDashboard = () => {
                     </div>
                     {useApexChart ? (
                         <ApexChart
-                            symbol={availableSymbols.find(s => s.symbol === currentSymbol)?.pair || 'BTCEUR'}
+                            symbol={(() => {
+                                const found = availableSymbols.find(s => s.symbol === currentSymbol);
+                                if (found) return found.pair;
+
+                                // ✅ FIX: Auto-generate pair if not found
+                                const upperSymbol = currentSymbol.toUpperCase().replace(/_/g, '');
+                                return `${upperSymbol}USDT`;
+                            })()}
                             trades={(allTrades || []).filter(t => t.symbol === currentSymbol).map(trade => ({
                                 type: trade.type,
                                 timestamp: trade.timestamp,
@@ -662,7 +669,15 @@ const CryptoDashboard = () => {
                         />
                     ) : (
                         <TradingViewChart
-                            symbol={availableSymbols.find(s => s.symbol === currentSymbol)?.pair || 'BTCEUR'}
+                            symbol={(() => {
+                                const found = availableSymbols.find(s => s.symbol === currentSymbol);
+                                if (found) return found.pair;
+
+                                // ✅ FIX: Auto-generate pair if not found
+                                // Prova prima USDT, poi EUR come fallback
+                                const upperSymbol = currentSymbol.toUpperCase().replace(/_/g, '');
+                                return `${upperSymbol}USDT`;
+                            })()}
                             trades={(allTrades || []).filter(t => t.symbol === currentSymbol).map(trade => ({
                                 type: trade.type,
                                 timestamp: trade.timestamp,
