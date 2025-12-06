@@ -1385,41 +1385,40 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 const atrPct = (atr / currentPrice) * 100; // ATR come % del prezzo
 
                 // Blocca trade se volatilità troppo bassa (mercato piatto) o troppo alta (news event)
-                const MIN_ATR_PCT = 0.3; // Minimo 0.3% ATR (mercato troppo piatto)
+                const MIN_ATR_PCT = 0.2; // Minimo 0.2% ATR (abbassato per permettere trading in mercati meno volatili)
                 const MAX_ATR_PCT = 5.0; // Massimo 5% ATR (evento improvviso, troppo rischioso)
 
                 if (atrPct < MIN_ATR_PCT) {
                     console.log(`⚠️ BOT [${symbol.toUpperCase()}]: Trading blocked - ATR too low (${atrPct.toFixed(2)}% < ${MIN_ATR_PCT}%) - Market too flat`);
-                    return; // Non tradare in mercato piatto
-                }
-
-                if (atrPct > MAX_ATR_PCT) {
+                    // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti e dati
+                    // Non apriamo nuove posizioni ma continuiamo ad aggiornare
+                } else if (atrPct > MAX_ATR_PCT) {
                     console.log(`⚠️ BOT [${symbol.toUpperCase()}]: Trading blocked - ATR too high (${atrPct.toFixed(2)}% > ${MAX_ATR_PCT}%) - Possible news event`);
-                    return; // Non tradare durante eventi improvvisi
+                    // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti e dati
+                    // Non apriamo nuove posizioni ma continuiamo ad aggiornare
+                } else {
+                    console.log(`📊 BOT [${symbol.toUpperCase()}]: ATR: ${atrPct.toFixed(2)}% (OK for trading)`);
                 }
-
-                console.log(`📊 BOT [${symbol.toUpperCase()}]: ATR: ${atrPct.toFixed(2)}% (OK for trading)`);
             }
 
-            // ✅ LOGICA: Ricalcola segnali solo quando chiude una nuova candela 15m
-            // Tracking dell'ultima candela processata per evitare ricalcoli inutili
+            // ✅ FIX CRITICO: SEMPRE ricalcola segnali per evitare analisi bloccate
+            // Rimossa cache per garantire analisi sempre aggiornate in tempo reale
+            console.log(`🆕 BOT [${symbol.toUpperCase()}]: Recalculating signal from ${klinesData.length} klines (cache disabled for real-time updates)`);
+            signal = signalGenerator.generateSignal(historyForSignal);
+
+            // ✅ Salva timestamp per logging ma non bloccare ricalcolo
             const lastProcessedCandleKey = `lastProcessedCandle_${symbol}_${timeframe}`;
             const currentCandleOpenTime = calculateAlignedCandleTime(now, timeframe);
-            const lastProcessedCandle = global[lastProcessedCandleKey] || 0;
+            global[lastProcessedCandleKey] = currentCandleOpenTime;
 
-            // Se la candela corrente è la stessa dell'ultima processata, usa il segnale cached
-            // Ricalcola solo quando chiude una nuova candela (open_time cambia)
-            if (currentCandleOpenTime === lastProcessedCandle && global[`cachedSignal_${symbol}`]) {
-                signal = global[`cachedSignal_${symbol}`];
-                console.log(`🔄 BOT [${symbol.toUpperCase()}]: Using cached signal (candle not closed yet)`);
+            // ✅ FIX: Salva info ATR nel segnale per verificare se trading è bloccato
+            const currentPriceForATR = historyForSignal[historyForSignal.length - 1]?.close || currentPrice;
+            if (atr && currentPriceForATR > 0) {
+                const atrPct = (atr / currentPriceForATR) * 100;
+                signal.atrBlocked = atrPct < MIN_ATR_PCT || atrPct > MAX_ATR_PCT;
+                signal.atrPct = atrPct;
             } else {
-                // Nuova candela chiusa o prima volta - ricalcola segnale
-                console.log(`🆕 BOT [${symbol.toUpperCase()}]: New candle closed - Recalculating signal from ${klinesData.length} klines`);
-                signal = signalGenerator.generateSignal(historyForSignal);
-
-                // Cache il segnale e l'open_time della candela corrente
-                global[`cachedSignal_${symbol}`] = signal;
-                global[lastProcessedCandleKey] = currentCandleOpenTime;
+                signal.atrBlocked = false; // Se non c'è ATR, non bloccare
             }
         }
 
@@ -1447,11 +1446,18 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         console.log(`📊 OPEN POSITIONS: LONG=${longPositions.length} | SHORT=${shortPositions.length}`);
 
         // 10. DECISION LOGIC - Solo se segnale FORTISSIMO (90% certezza)
-        // ✅ STRATEGIA: 1000 posizioni piccole su analisi giuste > 1 posizione ogni tanto
+        // ✅ STRATEGY: 1000 posizioni piccole su analisi giuste > 1 posizione ogni tanto
         // Permettiamo MULTIPLE posizioni se il segnale è forte e il risk manager lo permette
         const MIN_SIGNAL_STRENGTH = 70; // Soglia alta per sicurezza 90%
 
-        if (signal.direction === 'LONG' && signal.strength >= MIN_SIGNAL_STRENGTH) {
+        // ✅ FIX: Log dettagliato per capire perché il bot non apre posizioni
+        console.log(`🔍 [BOT-DECISION] Signal: ${signal.direction}, Strength: ${signal.strength}, ATR Blocked: ${signal.atrBlocked || false}, ATR: ${signal.atrPct?.toFixed(2) || 'N/A'}%`);
+
+        // ✅ FIX: Non aprire posizioni se ATR blocca il trading
+        if (signal.atrBlocked) {
+            console.log(`⚠️ BOT [${symbol.toUpperCase()}]: Trading blocked by ATR filter (${signal.atrPct?.toFixed(2)}%) - Skipping position opening but continuing cycle`);
+            // Continua il ciclo per aggiornare posizioni esistenti
+        } else if (signal.direction === 'LONG' && signal.strength >= MIN_SIGNAL_STRENGTH) {
             // ✅ MULTI-TIMEFRAME CONFIRMATION (con sistema a punteggio)
             const trend1h = await detectTrendOnTimeframe(symbol, '1h', 50);
             const trend4h = await detectTrendOnTimeframe(symbol, '4h', 50);
@@ -1511,6 +1517,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                     // ✅ FIX: Rimuovo controllo longPositions.length === 0 - permetto multiple posizioni
                     if (canOpen.allowed) {
+                        console.log(`✅ [BOT-OPEN-LONG] Opening position for ${symbol} - Price: ${currentPrice.toFixed(2)}, Size: ${maxAvailableForNewPosition.toFixed(2)}€`);
                         // Apri LONG position
                         const amount = maxAvailableForNewPosition / currentPrice;
                         const stopLoss = currentPrice * (1 - params.stop_loss_pct / 100);
@@ -1558,7 +1565,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 }
             }
         }
-        else if (signal.direction === 'SHORT' && signal.strength >= MIN_SIGNAL_STRENGTH) {
+        else if (!signal.atrBlocked && signal.direction === 'SHORT' && signal.strength >= MIN_SIGNAL_STRENGTH) {
             // ✅ COMPATIBILITÀ BINANCE: Verifica se SHORT è supportato
             // Binance Spot NON supporta short - serve Futures o Margin
             const binanceMode = process.env.BINANCE_MODE || 'demo';
@@ -1633,6 +1640,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                         // ✅ FIX: Rimuovo controllo shortPositions.length === 0 - permetto multiple posizioni
                         if (canOpen.allowed) {
+                            console.log(`✅ [BOT-OPEN-SHORT] Opening position for ${symbol} - Price: ${currentPrice.toFixed(2)}, Size: ${maxAvailableForNewPosition.toFixed(2)}€`);
                             // Apri SHORT position
                             const amount = maxAvailableForNewPosition / currentPrice;
                             const stopLoss = currentPrice * (1 + params.stop_loss_pct / 100); // Per SHORT, SL è sopra
