@@ -1,0 +1,50 @@
+                    {/* Trade History on Chart */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            marginBottom: '8px'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <BarChart2 size={18} style={{ color: '#8b5cf6' }} />
+                                <span style={{ color: '#fff', fontWeight: '500' }}>
+                                    Storico Trade su Grafico
+                                </span>
+                            </div>
+                            <label style={{ position: 'relative', display: 'inline-block', width: '50px', height: '24px' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={settings.showTradeHistory}
+                                    onChange={(e) => updateSetting('showTradeHistory', e.target.checked)}
+                                    style={{ opacity: 0, width: 0, height: 0 }}
+                                />
+                                <span style={{
+                                    position: 'absolute',
+                                    cursor: 'pointer',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    background: settings.showTradeHistory ? '#8b5cf6' : '#374151',
+                                    borderRadius: '24px',
+                                    transition: '0.3s'
+                                }}>
+                                    <span style={{
+                                        position: 'absolute',
+                                        content: '',
+                                        height: '18px',
+                                        width: '18px',
+                                        left: settings.showTradeHistory ? '28px' : '3px',
+                                        bottom: '3px',
+                                        background: 'white',
+                                        borderRadius: '50%',
+                                        transition: '0.3s'
+                                    }}></span>
+                                </span>
+                            </label>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.8rem', color: '#9ca3af', paddingLeft: '26px' }}>
+                            Mostra marker degli ultimi 10 trade chiusi sul grafico
+                        </p>
+                    </div>

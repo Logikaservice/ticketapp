@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Mail, Volume2, VolumeX, Wallet, Bell, Moon, Sun, RefreshCw, X } from 'lucide-react';
+import { Settings, Mail, Volume2, VolumeX, Wallet, Bell, Moon, Sun, RefreshCw, X, BarChart2 } from 'lucide-react';
 import cryptoSounds from '../../utils/cryptoSounds';
 import './GeneralSettings.css';
 

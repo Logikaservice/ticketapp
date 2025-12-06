@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
+import TradingViewOverlay from './TradingViewOverlay';
 import './TradingViewChart.css';
 
-const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], currentPrice = 0, priceHistory = [] }) => {
+const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], currentPrice = 0, priceHistory = [], closedTrades = [] }) => {
     const containerRef = useRef(null);
     const widgetRef = useRef(null);
     const [markers, setMarkers] = useState([]);
@@ -20,9 +21,9 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
         script.type = 'text/javascript';
         script.async = true;
         // Map symbol to TradingView format
-        const tradingViewSymbol = symbol === 'BTCEUR' ? 'BINANCE:BTCEUR' : 
-                                 symbol === 'BTCUSDT' ? 'BINANCE:BTCUSDT' :
-                                 `BINANCE:${symbol}`;
+        const tradingViewSymbol = symbol === 'BTCEUR' ? 'BINANCE:BTCEUR' :
+            symbol === 'BTCUSDT' ? 'BINANCE:BTCUSDT' :
+                `BINANCE:${symbol}`;
 
         // Crea container univoco per evitare conflitti
         const uniqueId = `tradingview_chart_${Date.now()}`;
@@ -55,10 +56,10 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
             "width": "100%",
             "container_id": uniqueId
         };
-        
+
         script.innerHTML = JSON.stringify(widgetConfig);
         container.appendChild(script);
-        
+
         console.log('📊 TradingView Widget inizializzato:', {
             container_id: uniqueId,
             hide_top_toolbar: widgetConfig.hide_top_toolbar,
@@ -93,7 +94,7 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
             console.log('🔍 TradingViewChart: Nessuna posizione aperta');
             return [];
         }
-        
+
         // Filtra solo posizioni aperte e crea oggetti per display
         const positions = openPositions
             .filter(pos => pos.status === 'open')
@@ -105,7 +106,7 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                 timestamp: pos.opened_at || pos.timestamp || new Date().toISOString(),
                 strategy: pos.strategy || 'Bot'
             }));
-        
+
         console.log('🔍 TradingViewChart - Posizioni aperte:', {
             totalOpenPositions: positions.length,
             positions: positions.map(p => ({
@@ -115,7 +116,7 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                 timestamp: p.timestamp
             }))
         });
-        
+
         return positions;
     }, [openPositions]);
 
@@ -135,8 +136,14 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                 {/* TradingView Chart - stesso di Binance */}
                 <div ref={containerRef} className="tradingview-chart-wrapper" style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'visible' }}>
                     {/* TradingView widget will be inserted here */}
-                    
-                    {/* Marker rimossi - usa Lightweight Charts per vedere i marker precisi */}
+
+                    {/* Overlay con marker posizioni e SL/TP */}
+                    <TradingViewOverlay
+                        openPositions={openPositions}
+                        closedTrades={closedTrades}
+                        currentPrice={currentPrice}
+                        showHistory={localStorage.getItem('crypto_general_settings') ? JSON.parse(localStorage.getItem('crypto_general_settings')).showTradeHistory : true}
+                    />
                 </div>
 
                 {/* Operazioni Bot - A DESTRA del grafico */}
@@ -150,33 +157,33 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                             {displayPositions
                                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) // Più recenti in alto
                                 .map((pos, index) => (
-                                <div 
-                                    key={pos.ticket_id || index} 
-                                    className={`trade-badge ${pos.type}`}
-                                    title={`${pos.strategy || 'Bot'} - ${new Date(pos.timestamp).toLocaleString('it-IT')}`}
-                                >
-                                    <span className="trade-icon">{pos.type === 'buy' ? '↑' : '↓'}</span>
-                                    <div className="trade-details">
-                                        <div className="trade-row">
-                                            <span className="trade-type">{pos.type.toUpperCase()}</span>
-                                            <span className="trade-price">
-                                                €{pos.entry_price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                            </span>
-                                        </div>
-                                        <div className="trade-row">
-                                            <span className="trade-amount">{pos.volume.toFixed(4)} BTC</span>
-                                            <span className="trade-time">
-                                                {new Date(pos.timestamp).toLocaleTimeString('it-IT', { 
-                                                    hour: '2-digit', 
-                                                    minute: '2-digit',
-                                                    day: '2-digit',
-                                                    month: '2-digit'
-                                                })}
-                                            </span>
+                                    <div
+                                        key={pos.ticket_id || index}
+                                        className={`trade-badge ${pos.type}`}
+                                        title={`${pos.strategy || 'Bot'} - ${new Date(pos.timestamp).toLocaleString('it-IT')}`}
+                                    >
+                                        <span className="trade-icon">{pos.type === 'buy' ? '↑' : '↓'}</span>
+                                        <div className="trade-details">
+                                            <div className="trade-row">
+                                                <span className="trade-type">{pos.type.toUpperCase()}</span>
+                                                <span className="trade-price">
+                                                    €{pos.entry_price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </span>
+                                            </div>
+                                            <div className="trade-row">
+                                                <span className="trade-amount">{pos.volume.toFixed(4)} BTC</span>
+                                                <span className="trade-time">
+                                                    {new Date(pos.timestamp).toLocaleTimeString('it-IT', {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                        day: '2-digit',
+                                                        month: '2-digit'
+                                                    })}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
                         </div>
                     ) : (
                         <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>

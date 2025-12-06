@@ -2,14 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import Chart from 'react-apexcharts';
 import './ApexChart.css';
 
-const ApexChart = ({ 
-    symbol = 'BTCEUR', 
-    trades = [], 
-    currentPrice = 0, 
-    priceHistory = [], 
-    openPositions = [], 
-    onIntervalChange, 
-    currentInterval = '15m' 
+const ApexChart = ({
+    symbol = 'BTCEUR',
+    trades = [],
+    currentPrice = 0,
+    priceHistory = [],
+    openPositions = [],
+    onIntervalChange,
+    currentInterval = '15m'
 }) => {
     const chartRef = useRef(null);
     const [selectedInterval, setSelectedInterval] = useState(currentInterval);
@@ -36,7 +36,7 @@ const ApexChart = ({
         if (!trades || !openPositions || openPositions.length === 0) {
             return [];
         }
-        
+
         const openTicketIds = new Set(openPositions.map(pos => String(pos.ticket_id || pos.id)));
         return trades.filter(trade => {
             const ticketId = String(trade.ticket_id || trade.id || '');
@@ -74,10 +74,10 @@ const ApexChart = ({
         // Prepare markers for open positions (entry points)
         const markers = [];
         openPositions.forEach((pos, index) => {
-            const entryTime = pos.entry_time ? new Date(pos.entry_time).getTime() : 
-                            pos.timestamp ? new Date(pos.timestamp).getTime() : 
-                            Date.now();
-            
+            const entryTime = pos.entry_time ? new Date(pos.entry_time).getTime() :
+                pos.timestamp ? new Date(pos.timestamp).getTime() :
+                    Date.now();
+
             const entryPrice = parseFloat(pos.entry_price || pos.price || 0);
             if (entryPrice > 0) {
                 markers.push({
@@ -102,32 +102,6 @@ const ApexChart = ({
             }
         });
 
-        // Update last candle with current price in real-time
-        if (candlestickData.length > 0 && currentPrice > 0) {
-            const lastCandle = candlestickData[candlestickData.length - 1];
-            const now = Date.now();
-            
-            // Update last candle if it's within the current interval
-            const intervalMs = {
-                '1m': 60 * 1000,
-                '5m': 5 * 60 * 1000,
-                '15m': 15 * 60 * 1000,
-                '30m': 30 * 60 * 1000,
-                '1h': 60 * 60 * 1000,
-                '4h': 4 * 60 * 60 * 1000,
-                '1d': 24 * 60 * 60 * 1000
-            };
-            const intervalDuration = intervalMs[currentInterval] || 15 * 60 * 1000;
-            const candleStartTime = Math.floor(now / intervalDuration) * intervalDuration;
-            
-            if (lastCandle.x >= candleStartTime - intervalDuration && lastCandle.x <= candleStartTime) {
-                // Update last candle with current price
-                lastCandle.y[1] = Math.max(lastCandle.y[1], currentPrice); // High
-                lastCandle.y[2] = Math.min(lastCandle.y[2], currentPrice); // Low
-                lastCandle.y[3] = currentPrice; // Close
-            }
-        }
-
         const options = {
             chart: {
                 type: 'candlestick',
@@ -145,9 +119,7 @@ const ApexChart = ({
                     },
                 },
                 animations: {
-                    enabled: true,
-                    easing: 'easeinout',
-                    speed: 800,
+                    enabled: false, // Disabilita animazioni per evitare reset
                 },
                 zoom: {
                     enabled: true,
@@ -186,7 +158,7 @@ const ApexChart = ({
                 x: {
                     format: 'dd MMM yyyy HH:mm',
                 },
-                custom: function({ seriesIndex, dataPointIndex, w }) {
+                custom: function ({ seriesIndex, dataPointIndex, w }) {
                     const data = w.globals.initialSeries[seriesIndex].data[dataPointIndex];
                     const [open, high, low, close] = data.y;
                     return `
@@ -222,7 +194,53 @@ const ApexChart = ({
             name: 'Bitcoin/EUR',
             data: candlestickData,
         }]);
-    }, [priceHistory, currentPrice, currentInterval, openPositions]);
+    }, [priceHistory, currentInterval, openPositions]); // ✅ Rimosso currentPrice per evitare reset
+
+    // ✅ Aggiorna solo l'ultima candela quando cambia il prezzo (senza reset)
+    useEffect(() => {
+        if (!chartRef.current || !currentPrice || !chartSeries.length) return;
+
+        const series = chartSeries[0].data;
+        if (!series || series.length === 0) return;
+
+        const lastCandle = series[series.length - 1];
+        const now = Date.now();
+
+        // Verifica se l'ultima candela è nell'intervallo corrente
+        const intervalMs = {
+            '1m': 60 * 1000,
+            '5m': 5 * 60 * 1000,
+            '15m': 15 * 60 * 1000,
+            '30m': 30 * 60 * 1000,
+            '1h': 60 * 60 * 1000,
+            '4h': 4 * 60 * 60 * 1000,
+            '1d': 24 * 60 * 60 * 1000
+        };
+        const intervalDuration = intervalMs[currentInterval] || 15 * 60 * 1000;
+        const candleStartTime = Math.floor(now / intervalDuration) * intervalDuration;
+
+        if (lastCandle.x >= candleStartTime - intervalDuration && lastCandle.x <= candleStartTime) {
+            // Aggiorna l'ultima candela con il prezzo corrente
+            const updatedCandle = {
+                ...lastCandle,
+                y: [
+                    lastCandle.y[0], // Open (non cambia)
+                    Math.max(lastCandle.y[1], currentPrice), // High
+                    Math.min(lastCandle.y[2], currentPrice), // Low
+                    currentPrice // Close (prezzo corrente)
+                ]
+            };
+
+            const updatedSeries = [...series];
+            updatedSeries[updatedSeries.length - 1] = updatedCandle;
+
+            // Aggiorna solo i dati senza ricreare il grafico
+            setChartSeries([{
+                name: 'Bitcoin/EUR',
+                data: updatedSeries,
+            }]);
+        }
+    }, [currentPrice, currentInterval, chartSeries]);
 
     const handleIntervalButtonClick = (interval) => {
         setSelectedInterval(interval);
@@ -249,7 +267,7 @@ const ApexChart = ({
 
                     {/* Current Price Line */}
                     {currentPrice > 0 && (
-                        <div 
+                        <div
                             className="current-price-line"
                             style={{
                                 position: 'absolute',
@@ -295,10 +313,10 @@ const ApexChart = ({
                                     {botOperations.map((trade, index) => {
                                         const isBuy = trade.type === 'buy' || trade.side === 'buy';
                                         const entryPrice = parseFloat(trade.price || trade.entry_price || 0);
-                                        const currentPnL = openPositions.find(pos => 
+                                        const currentPnL = openPositions.find(pos =>
                                             String(pos.ticket_id || pos.id) === String(trade.ticket_id || trade.id)
                                         )?.current_pnl || 0;
-                                        const pnlPct = openPositions.find(pos => 
+                                        const pnlPct = openPositions.find(pos =>
                                             String(pos.ticket_id || pos.id) === String(trade.ticket_id || trade.id)
                                         )?.pnl_percent || 0;
 
