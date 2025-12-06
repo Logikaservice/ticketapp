@@ -4371,7 +4371,7 @@ router.get('/bot-analysis', async (req, res) => {
                 long: {
                     minStrength: LONG_MIN_STRENGTH,
                     minConfirmations: LONG_MIN_CONFIRMATIONS,
-                    currentStrength: longCurrentStrength,
+                    currentStrength: longAdjustedStrength, // ✅ FIX: Usa adjusted strength (con MTF bonus) invece di raw strength
                     currentConfirmations: longCurrentConfirmations,
                     needsStrength: longNeedsStrength,
                     needsConfirmations: longNeedsConfirmations,
@@ -4383,7 +4383,7 @@ router.get('/bot-analysis', async (req, res) => {
                 short: {
                     minStrength: SHORT_MIN_STRENGTH,
                     minConfirmations: SHORT_MIN_CONFIRMATIONS,
-                    currentStrength: shortCurrentStrength,
+                    currentStrength: shortAdjustedStrength, // ✅ FIX: Usa adjusted strength (con MTF bonus) invece di raw strength
                     currentConfirmations: shortCurrentConfirmations,
                     needsStrength: shortNeedsStrength,
                     needsConfirmations: shortNeedsConfirmations,
