@@ -690,21 +690,23 @@ class BidirectionalSignalGenerator {
 
         // 5. DECISIONE FINALE - SISTEMA MULTI-CONFERMA CON SICUREZZA 90%
 
-        // ✅ SICUREZZA 90%: Requisiti più rigidi per aprire solo quando siamo CERTI
-        // LONG: Richiede minimo 4 conferme + strength >= 70 (90% certezza)
-        const LONG_MIN_CONFIRMATIONS = 4; // Aumentato da 3 a 4 per maggiore sicurezza
+        // ✅ Requisiti bilanciati per mostrare segnali validi senza essere troppo restrittivi
+        // LONG: Richiede minimo 3 conferme + strength >= 50 (bilanciato tra sicurezza e opportunità)
+        const LONG_MIN_CONFIRMATIONS = 3;
+        const LONG_MIN_STRENGTH = 50; // Abbassato da 70 per mostrare più segnali
         const longMeetsRequirements = longSignal.confirmations >= LONG_MIN_CONFIRMATIONS &&
-            longSignal.strength >= this.MIN_SIGNAL_STRENGTH;
+            longSignal.strength >= LONG_MIN_STRENGTH;
 
-        // SHORT: Richiede minimo 5 conferme + strength >= 70 (90% certezza, più rigoroso)
-        const SHORT_MIN_CONFIRMATIONS = 5; // Aumentato da 4 a 5 per maggiore sicurezza
+        // SHORT: Richiede minimo 4 conferme + strength >= 50 (leggermente più rigoroso di LONG)
+        const SHORT_MIN_CONFIRMATIONS = 4; // Abbassato da 5 per mostrare più segnali
+        const SHORT_MIN_STRENGTH = 50; // Abbassato da 70 per mostrare più segnali
 
         // ✅ FIX CRITICO: Cappa strength a max 100 (evita valori impossibili come 130/100)
         longSignal.strength = Math.min(100, longSignal.strength);
         shortSignal.strength = Math.min(100, shortSignal.strength);
 
         const shortMeetsRequirements = shortSignal.confirmations >= SHORT_MIN_CONFIRMATIONS &&
-            shortSignal.strength >= this.MIN_SIGNAL_STRENGTH;
+            shortSignal.strength >= SHORT_MIN_STRENGTH;
 
         if (longMeetsRequirements) {
             return {
@@ -785,8 +787,8 @@ class BidirectionalSignalGenerator {
             reason = `LONG needs ${LONG_MIN_CONFIRMATIONS - longSignal.confirmations} more confirmations (has ${longSignal.confirmations}/${LONG_MIN_CONFIRMATIONS})`;
         } else if (shortSignal.strength > 0 && shortSignal.confirmations < SHORT_MIN_CONFIRMATIONS) {
             reason = `SHORT needs ${SHORT_MIN_CONFIRMATIONS - shortSignal.confirmations} more confirmations (has ${shortSignal.confirmations}/${SHORT_MIN_CONFIRMATIONS})`;
-        } else if (longSignal.strength < this.MIN_SIGNAL_STRENGTH && shortSignal.strength < this.MIN_SIGNAL_STRENGTH) {
-            reason = `Signal strength too low (LONG: ${longSignal.strength}, SHORT: ${shortSignal.strength}) - need >= ${this.MIN_SIGNAL_STRENGTH} for 90% certainty`;
+        } else if (longSignal.strength < LONG_MIN_STRENGTH && shortSignal.strength < SHORT_MIN_STRENGTH) {
+            reason = `Signal strength too low (LONG: ${longSignal.strength}/${LONG_MIN_STRENGTH}, SHORT: ${shortSignal.strength}/${SHORT_MIN_STRENGTH})`;
         }
 
         return {

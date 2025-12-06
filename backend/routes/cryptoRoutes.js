@@ -4640,13 +4640,32 @@ router.get('/scanner', async (req, res) => {
                 // 3. Get 24h volume
                 const volume24h = await get24hVolume(s.symbol);
 
+                // ✅ FIX: Mostra anche segnali parziali nel Market Scanner (per tracking)
+                // Se il segnale è NEUTRAL ma ha strength > 0, considera il segnale migliore tra LONG e SHORT
+                let displayDirection = signal.direction;
+                let displayStrength = signal.strength;
+                
+                if (signal.direction === 'NEUTRAL' && signal.longSignal && signal.shortSignal) {
+                    // Se NEUTRAL ma ci sono segnali parziali, mostra il migliore
+                    const longStrength = signal.longSignal.strength || 0;
+                    const shortStrength = signal.shortSignal.strength || 0;
+                    
+                    if (longStrength > shortStrength && longStrength >= 30) {
+                        displayDirection = 'LONG';
+                        displayStrength = longStrength;
+                    } else if (shortStrength > longStrength && shortStrength >= 30) {
+                        displayDirection = 'SHORT';
+                        displayStrength = shortStrength;
+                    }
+                }
+
                 return {
                     symbol: s.symbol,
                     display: s.display,
                     price: currentPrice, // Prezzo corrente aggiornato in tempo reale
                     volume24h, // Volume 24h in EUR/USDT
-                    direction: signal.direction,
-                    strength: signal.strength,
+                    direction: displayDirection, // Usa direzione migliorata per display
+                    strength: displayStrength, // Usa strength migliorata per display
                     confirmations: signal.confirmations,
                     reasons: signal.reasons,
                     rsi: signal.indicators.rsi // RSI calcolato con ultima candela aggiornata
