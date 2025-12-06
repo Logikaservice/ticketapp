@@ -4127,8 +4127,10 @@ router.get('/bot-analysis', async (req, res) => {
         // Calculate what's needed for LONG
         const LONG_MIN_CONFIRMATIONS = 4;
         const LONG_MIN_STRENGTH = 70;
-        // ✅ FIX: Mostra longSignal SOLO quando direction è effettivamente LONG
-        // Se direction è NEUTRAL o SHORT, resetta longSignal a 0 (evita valori falsi positivi)
+        // ✅ FIX: Mostra longSignal in base alla direction
+        // LONG: usa signal.strength (valore principale)
+        // NEUTRAL: mostra signal.longSignal.strength se esiste (segnali parziali)
+        // SHORT: resetta a 0 (trend opposto)
         let longCurrentStrength = 0;
         let longCurrentConfirmations = 0;
         
@@ -4136,10 +4138,13 @@ router.get('/bot-analysis', async (req, res) => {
             // Segnale principale è LONG: usa i valori del segnale principale (più accurati)
             longCurrentStrength = signal.strength || 0;
             longCurrentConfirmations = signal.confirmations || 0;
+        } else if (signal.direction === 'NEUTRAL' && signal.longSignal) {
+            // ✅ FIX: Se direction è NEUTRAL, mostra i valori parziali di longSignal
+            // Questo permette di vedere i progressi verso un segnale LONG anche quando non è ancora completo
+            longCurrentStrength = signal.longSignal.strength || 0;
+            longCurrentConfirmations = signal.longSignal.confirmations || 0;
         } else {
-            // ✅ FIX: Se direction è SHORT o NEUTRAL, resetta longSignal a 0
-            // NEUTRAL = nessun movimento significativo, quindi non mostrare valori LONG
-            // SHORT = trend opposto, quindi non mostrare valori LONG
+            // ✅ FIX: Se direction è SHORT, resetta longSignal a 0 (trend opposto)
             longCurrentStrength = 0;
             longCurrentConfirmations = 0;
         }
@@ -4154,10 +4159,10 @@ router.get('/bot-analysis', async (req, res) => {
         // Calculate what's needed for SHORT
         const SHORT_MIN_CONFIRMATIONS = 5;
         const SHORT_MIN_STRENGTH = 70;
-        // ✅ FIX CRITICO: Mostra shortSignal SOLO quando direction è effettivamente SHORT
-        // Se direction è NEUTRAL o LONG, resetta shortSignal a 0 (evita valori falsi positivi)
-        // Il motivo: quando direction è NEUTRAL significa nessun movimento significativo,
-        // quindi non ha senso mostrare valori SHORT anche se shortSignal è stato calcolato
+        // ✅ FIX CRITICO: Mostra shortSignal in base alla direction
+        // SHORT: usa signal.strength (valore principale)
+        // NEUTRAL: mostra signal.shortSignal SOLO se prezzo sta scendendo attivamente
+        // LONG: resetta a 0 (trend opposto)
         let shortCurrentStrength = 0;
         let shortCurrentConfirmations = 0;
         
@@ -4165,10 +4170,28 @@ router.get('/bot-analysis', async (req, res) => {
             // Segnale principale è SHORT: usa i valori del segnale principale (più accurati)
             shortCurrentStrength = signal.strength || 0;
             shortCurrentConfirmations = signal.confirmations || 0;
+        } else if (signal.direction === 'NEUTRAL' && signal.shortSignal) {
+            // ✅ FIX: Se direction è NEUTRAL, mostra shortSignal SOLO se prezzo sta scendendo
+            // Verifica movimento prezzo (stessa logica del generatore)
+            const priceChange = historyForSignal && historyForSignal.length >= 3
+                ? (historyForSignal[historyForSignal.length - 1].close - historyForSignal[historyForSignal.length - 3].close) / historyForSignal[historyForSignal.length - 3].close * 100
+                : 0;
+            const priceChange5 = historyForSignal && historyForSignal.length >= 5
+                ? (historyForSignal[historyForSignal.length - 1].close - historyForSignal[historyForSignal.length - 5].close) / historyForSignal[historyForSignal.length - 5].close * 100
+                : 0;
+            const isPriceActivelyFalling = priceChange < -0.3 || priceChange5 < -0.5;
+            
+            if (isPriceActivelyFalling) {
+                // Prezzo sta scendendo: mostra valori parziali SHORT
+                shortCurrentStrength = signal.shortSignal.strength || 0;
+                shortCurrentConfirmations = signal.shortSignal.confirmations || 0;
+            } else {
+                // Prezzo neutrale: non mostrare valori SHORT (mercato laterale)
+                shortCurrentStrength = 0;
+                shortCurrentConfirmations = 0;
+            }
         } else {
-            // ✅ FIX: Se direction è LONG o NEUTRAL, resetta shortSignal a 0
-            // NEUTRAL = nessun movimento significativo, quindi non mostrare valori SHORT
-            // LONG = trend opposto, quindi non mostrare valori SHORT
+            // ✅ FIX: Se direction è LONG, resetta shortSignal a 0 (trend opposto)
             shortCurrentStrength = 0;
             shortCurrentConfirmations = 0;
         }
@@ -4314,8 +4337,15 @@ router.get('/bot-analysis', async (req, res) => {
         const shortConfirmationsList = signal.shortSignal && signal.shortSignal.reasons ? signal.shortSignal.reasons : [];
 
         // Estrai i contributi allo Strength per LONG e SHORT
-        const longStrengthContributions = signal.longSignal && signal.longSignal.strengthContributions ? signal.longSignal.strengthContributions : [];
-        const shortStrengthContributions = signal.shortSignal && signal.shortSignal.strengthContributions ? signal.shortSignal.strengthContributions : [];
+        // ✅ FIX: Mostra contributi SOLO se longCurrentStrength > 0 (altrimenti sono fuorvianti)
+        // Se longCurrentStrength è 0, non mostrare contributi anche se esistono in longSignal
+        const longStrengthContributions = (longCurrentStrength > 0 && signal.longSignal && signal.longSignal.strengthContributions) 
+            ? signal.longSignal.strengthContributions 
+            : [];
+        // ✅ FIX: Mostra contributi SOLO se shortCurrentStrength > 0 (altrimenti sono fuorvianti)
+        const shortStrengthContributions = (shortCurrentStrength > 0 && signal.shortSignal && signal.shortSignal.strengthContributions) 
+            ? signal.shortSignal.strengthContributions 
+            : [];
 
         res.json({
             currentPrice,
