@@ -24,25 +24,44 @@ const BotAnalysisPage = () => {
     };
 
     useEffect(() => {
+        let isMounted = true; // Track if component is still mounted
+
         const fetchAnalysis = async () => {
             try {
-                setLoading(true);
                 const res = await fetch(`${apiBase}/api/crypto/bot-analysis?symbol=${symbol}`);
                 if (res.ok) {
                     const data = await res.json();
-                    setAnalysis(data);
+                    if (isMounted) {
+                        setAnalysis(data);
+                        setLoading(false);
+                        console.log(`✅ Bot Analysis updated for ${symbol}:`, {
+                            signal: data.signal?.direction,
+                            strength: data.signal?.strength,
+                            timestamp: new Date().toLocaleTimeString()
+                        });
+                    }
+                } else {
+                    console.error(`❌ Bot Analysis fetch failed: ${res.status} ${res.statusText}`);
+                    if (isMounted) {
+                        setLoading(false);
+                    }
                 }
             } catch (error) {
-                console.error('Error fetching bot analysis:', error);
-            } finally {
-                setLoading(false);
+                console.error('❌ Error fetching bot analysis:', error);
+                if (isMounted) {
+                    setLoading(false);
+                }
             }
         };
 
-        fetchAnalysis();
-        const interval = setInterval(fetchAnalysis, 1000); // ✅ Aggiorna ogni 1 secondo per vedere cambiamenti in tempo reale
+        fetchAnalysis(); // Initial fetch
+        const interval = setInterval(fetchAnalysis, 2000); // ✅ Aggiorna ogni 2 secondi (ridotto da 1s per evitare sovraccarico)
 
-        return () => clearInterval(interval);
+        return () => {
+            isMounted = false; // Prevent state updates after unmount
+            clearInterval(interval);
+            console.log(`🔄 Bot Analysis cleanup for ${symbol}`);
+        };
     }, [apiBase, symbol]);
 
     if (loading && !analysis) {
