@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Settings, BarChart2, Wallet, Maximize2, Minimize2 } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Settings, BarChart2, Wallet } from 'lucide-react';
 import OpenPositions from './OpenPositions';
 import TradingViewChart from './TradingViewChart';
 import ApexChart from './ApexChart';
