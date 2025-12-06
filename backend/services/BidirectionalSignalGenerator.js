@@ -408,9 +408,10 @@ class BidirectionalSignalGenerator {
     /**
      * Genera segnale bidirezionale
      * @param {Array} priceHistory - Array di {price, timestamp}
+     * @param {string} symbol - Simbolo (opzionale, per logging)
      * @returns {Object} { direction: 'LONG'|'SHORT'|'NEUTRAL', strength: 0-100, reasons: [] }
      */
-    generateSignal(priceHistory) {
+    generateSignal(priceHistory, symbol = null) {
         if (!priceHistory || priceHistory.length < 20) {
             return {
                 direction: 'NEUTRAL',
@@ -588,7 +589,10 @@ class BidirectionalSignalGenerator {
             const reason = isPriceNeutral 
                 ? `Market is neutral/lateral (priceChange: ${priceChange.toFixed(2)}%, priceChange5: ${priceChange5.toFixed(2)}%, priceChange10: ${priceChange10.toFixed(2)}%)`
                 : `Price still rising (+${priceChange.toFixed(2)}%) - waiting for reversal`;
-            console.log(`🚫 [${symbol || 'UNKNOWN'}] SHORT blocked: ${reason}`);
+            // Log solo se symbol è disponibile (non sempre presente)
+            if (symbol) {
+                console.log(`🚫 [${symbol}] SHORT blocked: ${reason}`);
+            }
             // Resetta shortSignal ma continua il calcolo per permettere LONG
             shortSignal.strength = 0;
             shortSignal.confirmations = 0;

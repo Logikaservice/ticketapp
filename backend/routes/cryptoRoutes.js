@@ -4052,12 +4052,22 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         console.log('🔍 [BOT-ANALYSIS] Generating signal...');
-        const signal = signalGenerator.generateSignal(historyForSignal);
-        console.log('🔍 [BOT-ANALYSIS] Signal generated:', signal ? signal.direction : 'null');
+        let signal;
+        try {
+            signal = signalGenerator.generateSignal(historyForSignal);
+            console.log('🔍 [BOT-ANALYSIS] Signal generated:', signal ? signal.direction : 'null');
+        } catch (signalError) {
+            console.error('❌ [BOT-ANALYSIS] Errore nella generazione del segnale:', signalError.message);
+            console.error('❌ [BOT-ANALYSIS] Stack trace:', signalError.stack);
+            return res.status(500).json({ 
+                error: 'Errore nella generazione del segnale',
+                details: signalError.message 
+            });
+        }
 
         if (!signal || !signal.indicators) {
-            console.error('❌ [BOT-ANALYSIS] Errore nella generazione del segnale');
-            return res.status(500).json({ error: 'Errore nella generazione del segnale' });
+            console.error('❌ [BOT-ANALYSIS] Segnale generato ma incompleto:', signal);
+            return res.status(500).json({ error: 'Errore nella generazione del segnale: dati incompleti' });
         }
 
         // ✅ FIX CRITICO: Calcola ATR e signal.atrBlocked anche nell'endpoint bot-analysis
