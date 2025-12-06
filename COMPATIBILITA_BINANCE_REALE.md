@@ -234,3 +234,4 @@ Quando aggiungi nuove funzionalità, verifica:
 - Il resto del sistema è già compatibile e pronto per Binance reale
 
 
+

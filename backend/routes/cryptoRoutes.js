@@ -4184,7 +4184,7 @@ router.get('/scanner', async (req, res) => {
             { symbol: 'avalanche_eur', pair: 'AVAXEUR', display: 'AVAX/EUR' },
             // Uniswap
             { symbol: 'uniswap', pair: 'UNIUSDT', display: 'UNI/USDT' },
-            { symbol: 'uniswap_eur', pair: 'UNIEUR', display: 'UNI/EUR' },
+            // ❌ { symbol: 'uniswap_eur', pair: 'UNIEUR', display: 'UNI/EUR' }, // Non disponibile su Binance
             // Dogecoin
             { symbol: 'dogecoin', pair: 'DOGEUSDT', display: 'DOGE/USDT' },
             { symbol: 'dogecoin_eur', pair: 'DOGEEUR', display: 'DOGE/EUR' },
@@ -4193,10 +4193,10 @@ router.get('/scanner', async (req, res) => {
             { symbol: 'shiba_eur', pair: 'SHIBEUR', display: 'SHIB/EUR' },
             // Near Protocol
             { symbol: 'near', pair: 'NEARUSDT', display: 'NEAR/USDT' },
-            { symbol: 'near_eur', pair: 'NEAREUR', display: 'NEAR/EUR' },
+            // ❌ { symbol: 'near_eur', pair: 'NEAREUR', display: 'NEAR/EUR' }, // Non disponibile su Binance
             // Cosmos
             { symbol: 'atom', pair: 'ATOMUSDT', display: 'ATOM/USDT' },
-            { symbol: 'atom_eur', pair: 'ATOMEUR', display: 'ATOM/EUR' },
+            // ❌ { symbol: 'atom_eur', pair: 'ATOMEUR', display: 'ATOM/EUR' }, // Non disponibile su Binance
             // Aave
             { symbol: 'aave', pair: 'AAVEUSDT', display: 'AAVE/USDT' },
             // ❌ { symbol: 'aave_eur', pair: 'AAVEEUR', display: 'AAVE/EUR' }, // Non disponibile su Binance
@@ -4214,16 +4214,16 @@ router.get('/scanner', async (req, res) => {
             { symbol: 'xlm_eur', pair: 'XLMEUR', display: 'XLM/EUR' },
             // EOS
             { symbol: 'eos', pair: 'EOSUSDT', display: 'EOS/USDT' },
-            { symbol: 'eos_eur', pair: 'EOSEUR', display: 'EOS/EUR' },
+            // ❌ { symbol: 'eos_eur', pair: 'EOSEUR', display: 'EOS/EUR' }, // Non disponibile su Binance
             // Arbitrum
             { symbol: 'arb', pair: 'ARBUSDT', display: 'ARB/USDT' },
-            { symbol: 'arb_eur', pair: 'ARBEUR', display: 'ARB/EUR' },
+            // ❌ { symbol: 'arb_eur', pair: 'ARBEUR', display: 'ARB/EUR' }, // Non disponibile su Binance
             // Optimism
             { symbol: 'op', pair: 'OPUSDT', display: 'OP/USDT' },
-            { symbol: 'op_eur', pair: 'OPEUR', display: 'OP/EUR' },
-            // Polygon (MATIC)
-            { symbol: 'matic', pair: 'MATICUSDT', display: 'MATIC/USDT' },
-            { symbol: 'matic_eur', pair: 'MATICEUR', display: 'MATIC/EUR' },
+            // ❌ { symbol: 'op_eur', pair: 'OPEUR', display: 'OP/EUR' }, // Non disponibile su Binance
+            // Polygon (MATIC) - Deprecato, usa POL
+            // ❌ { symbol: 'matic', pair: 'MATICUSDT', display: 'MATIC/USDT' }, // Deprecato, usa POL
+            // ❌ { symbol: 'matic_eur', pair: 'MATICEUR', display: 'MATIC/EUR' }, // Non disponibile su Binance
             // DeFi Blue Chips (solo USDT disponibile)
             { symbol: 'crv', pair: 'CRVUSDT', display: 'CRV/USDT' },
             { symbol: 'ldo', pair: 'LDOUSDT', display: 'LDO/USDT' },
@@ -4231,6 +4231,7 @@ router.get('/scanner', async (req, res) => {
             { symbol: 'mana', pair: 'MANAUSDT', display: 'MANA/USDT' },
             { symbol: 'axs', pair: 'AXSUSDT', display: 'AXS/USDT' }
             // ❌ Simboli EUR non disponibili su Binance rimossi:
+            // EOSEUR, ARBEUR, ATOMEUR, UNIEUR, NEAREUR, OPEUR, MATICEUR
             // FILEUR, SANDEUR, AAVEEUR, CRVEUR, LDOEUR, MANAEUR, AXSEUR
         ];
 
