@@ -2869,14 +2869,16 @@ export default function TicketApp() {
         ))}
       </div>
       <div className="app-zoom-wrapper">
-        <Header
-          {...{
-            currentUser,
-            handleLogout,
-            openNewTicketModal,
-            openNewClientModal,
-            openSettings,
-            openManageClientsModal,
+        {/* Nascondi Header quando domain=crypto */}
+        {!(requestedDomain === 'crypto' || isCryptoHostname) && (
+          <Header
+            {...{
+              currentUser,
+              handleLogout,
+              openNewTicketModal,
+              openNewClientModal,
+              openSettings,
+              openManageClientsModal,
             openAlertsHistory,
             openImportKeepass,
             openAnalytics,
@@ -2888,6 +2890,7 @@ export default function TicketApp() {
             isOrariDomain: isOrariDomain
           }}
         />
+        )}
 
         {showOrariTurni && !isOrariHostname && (
           <div

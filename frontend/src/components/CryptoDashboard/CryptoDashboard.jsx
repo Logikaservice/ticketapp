@@ -38,6 +38,7 @@ const CryptoDashboard = () => {
     const [useApexChart, setUseApexChart] = useState(false); // Toggle tra TradingView e ApexChart
     const [showPortfolioMenu, setShowPortfolioMenu] = useState(false); // Menu dropdown per gestione portfolio
     const [showAddFundsModal, setShowAddFundsModal] = useState(false); // Modal per aggiungere fondi
+    const [showGeneralSettings, setShowGeneralSettings] = useState(false); // Modal per impostazioni generali
 
     // WebSocket for real-time notifications
     const { connected: wsConnected } = useCryptoWebSocket(
@@ -506,8 +507,8 @@ const CryptoDashboard = () => {
                 </div>
             </div>
 
-            {/* TOP STATS GRID - 3 COLUMNS */}
-            <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.8fr', gap: '20px', marginBottom: '20px' }}>
+            {/* TOP STATS GRID - 4 COLUMNS (separato Impostazioni) */}
+            <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.8fr 0.6fr', gap: '20px', marginBottom: '20px' }}>
                 <div className="balance-card" style={{ marginBottom: 0 }}>
                     <div className="balance-label">Total Balance</div>
                     <div className="balance-amount">€{totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
@@ -579,14 +580,25 @@ const CryptoDashboard = () => {
                         >
                             🔍
                         </button>
+                    </div>
+                </div>
 
-                        {/* General Settings */}
-                        <GeneralSettings
-                            onResetPortfolio={handleResetPortfolio}
-                            onAddFunds={() => setShowAddFundsModal(true)}
-                            showPortfolioMenu={showPortfolioMenu}
-                            setShowPortfolioMenu={setShowPortfolioMenu}
-                        />
+                {/* Impostazioni Generali - Quadrato separato a destra */}
+                <div className="balance-card" style={{ marginBottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div className="balance-label">Impostazioni</div>
+                        <Settings size={20} className="text-blue-500" />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                        <button
+                            className="toggle-btn"
+                            onClick={() => setShowGeneralSettings(true)}
+                            style={{ width: '100%', padding: '10px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            title="Impostazioni Generali"
+                        >
+                            <Settings size={18} />
+                            <span>Impostazioni</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -915,6 +927,17 @@ const CryptoDashboard = () => {
                 isOpen={showBotSettings}
                 onClose={() => setShowBotSettings(false)}
                 apiBase={apiBase}
+            />
+
+            {/* General Settings Modal */}
+            <GeneralSettings
+                isOpen={showGeneralSettings}
+                onClose={() => setShowGeneralSettings(false)}
+                onResetPortfolio={handleResetPortfolio}
+                onAddFunds={() => {
+                    setShowGeneralSettings(false);
+                    setShowAddFundsModal(true);
+                }}
             />
 
             {/* Backtest Panel Modal */}

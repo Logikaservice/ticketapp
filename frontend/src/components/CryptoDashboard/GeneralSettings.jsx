@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Mail, Volume2, VolumeX, Wallet, Bell, Moon, Sun, RefreshCw } from 'lucide-react';
+import { Settings, Mail, Volume2, VolumeX, Wallet, Bell, Moon, Sun, RefreshCw, X } from 'lucide-react';
 import cryptoSounds from '../../utils/cryptoSounds';
+import './GeneralSettings.css';
 
 const GeneralSettings = ({
+    isOpen,
+    onClose,
     onResetPortfolio,
-    onAddFunds,
-    showPortfolioMenu,
-    setShowPortfolioMenu
+    onAddFunds
 }) => {
-    const [showSettings, setShowSettings] = useState(false);
     const [settings, setSettings] = useState({
         emailNotifications: true,
         soundEnabled: true,
@@ -46,61 +46,24 @@ const GeneralSettings = ({
         cryptoSounds.positionOpened();
     };
 
+    if (!isOpen) return null;
+
     return (
-        <div style={{ position: 'relative' }}>
-            {/* Settings Button */}
-            <button
-                className="toggle-btn"
-                onClick={() => setShowSettings(!showSettings)}
-                style={{
-                    padding: '8px 12px',
-                    fontSize: '0.9rem',
-                    minWidth: '40px',
-                    background: showSettings ? '#6366f1' : '#374151',
-                    color: '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s'
-                }}
-                title="Impostazioni Generali"
-            >
-                <Settings size={18} />
-                <span style={{ fontSize: '0.85rem' }}>Impostazioni</span>
-            </button>
-
-            {/* Settings Panel */}
-            {showSettings && (
-                <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    marginTop: '8px',
-                    background: '#1f2937',
-                    border: '1px solid #374151',
-                    borderRadius: '12px',
-                    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.4)',
-                    zIndex: 9999,
-                    minWidth: '350px',
-                    maxHeight: '600px',
-                    overflowY: 'auto'
-                }}>
-                    {/* Header */}
-                    <div style={{
-                        padding: '16px',
-                        borderBottom: '1px solid #374151',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px'
-                    }}>
-                        <Settings size={20} style={{ color: '#6366f1' }} />
-                        <h3 style={{ margin: 0, color: '#fff', fontSize: '1.1rem' }}>
-                            Impostazioni Generali
-                        </h3>
+        <div className="general-settings-overlay" onClick={onClose}>
+            <div className="general-settings-modal" onClick={(e) => e.stopPropagation()}>
+                {/* Header */}
+                <div className="general-settings-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Settings size={24} className="text-blue-500" />
+                        <h2>Impostazioni Generali</h2>
                     </div>
+                    <button className="close-btn" onClick={onClose}>
+                        <X size={20} />
+                    </button>
+                </div>
 
-                    {/* Settings Content */}
-                    <div style={{ padding: '16px' }}>
+                {/* Settings Content */}
+                <div className="general-settings-content">
 
                         {/* Email Notifications */}
                         <div style={{ marginBottom: '20px' }}>
@@ -320,7 +283,7 @@ const GeneralSettings = ({
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '26px' }}>
                                 <button
                                     onClick={() => {
-                                        setShowSettings(false);
+                                        onClose();
                                         onAddFunds();
                                     }}
                                     style={{
@@ -346,7 +309,7 @@ const GeneralSettings = ({
 
                                 <button
                                     onClick={() => {
-                                        setShowSettings(false);
+                                        onClose();
                                         onResetPortfolio();
                                     }}
                                     style={{
@@ -417,22 +380,15 @@ const GeneralSettings = ({
                             </div>
                         </div>
 
-                    </div>
-
-                    {/* Footer */}
-                    <div style={{
-                        padding: '12px 16px',
-                        borderTop: '1px solid #374151',
-                        background: '#111827',
-                        borderBottomLeftRadius: '12px',
-                        borderBottomRightRadius: '12px'
-                    }}>
-                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#6b7280', textAlign: 'center' }}>
-                            ✅ Impostazioni salvate automaticamente
-                        </p>
-                    </div>
                 </div>
-            )}
+
+                {/* Footer */}
+                <div className="general-settings-footer">
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#6b7280', textAlign: 'center' }}>
+                        ✅ Impostazioni salvate automaticamente
+                    </p>
+                </div>
+            </div>
         </div>
     );
 };
