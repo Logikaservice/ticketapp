@@ -557,9 +557,23 @@ class BidirectionalSignalGenerator {
         const priceChange = prices.length >= 3
             ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
             : 0;
-
-        // BLOCCA SHORT se prezzo sta ancora salendo (CRITICO!)
-        if (priceChange > 0.1) {
+        
+        // ✅ FIX CRITICO: Verifica movimento prezzo su più periodi per evitare SHORT su mercati neutri
+        const priceChange5 = prices.length >= 5
+            ? (prices[prices.length - 1] - prices[prices.length - 5]) / prices[prices.length - 5] * 100
+            : 0;
+        const priceChange10 = prices.length >= 10
+            ? (prices[prices.length - 1] - prices[prices.length - 10]) / prices[prices.length - 10] * 100
+            : 0;
+        
+        // BLOCCA SHORT se:
+        // 1. Prezzo sta ancora salendo significativamente (>0.1%)
+        // 2. Prezzo è stabile/neutrale (non scende in modo significativo su più timeframe)
+        // Questo evita di generare SHORT su mercati laterali/neutri
+        const isPriceRising = priceChange > 0.1;
+        const isPriceNeutral = priceChange > -0.3 && priceChange5 > -0.5 && priceChange10 > -1.0;
+        
+        if (isPriceRising) {
             return {
                 direction: 'NEUTRAL',
                 strength: 0,
@@ -579,6 +593,14 @@ class BidirectionalSignalGenerator {
                     ema200: ema200
                 }
             };
+        }
+        
+        // ✅ FIX: Se prezzo è neutrale (nessun movimento significativo), resetta shortSignal
+        if (isPriceNeutral) {
+            shortSignal.strength = 0;
+            shortSignal.confirmations = 0;
+            shortSignal.reasons = [];
+            shortSignal.strengthContributions = [];
         }
 
         // ⚠️ PANIC SELL EXCEPTION: Se c'è un crollo violento, ignora RSI Oversold
