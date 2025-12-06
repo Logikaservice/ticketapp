@@ -234,13 +234,15 @@ const ApexChart = ({
             const updatedSeries = [...series];
             updatedSeries[updatedSeries.length - 1] = updatedCandle;
 
-            // Aggiorna solo i dati senza ricreare il grafico
-            setChartSeries([{
-                name: 'Bitcoin/EUR',
-                data: updatedSeries,
-            }]);
+            // ✅ USA updateSeries INVECE DI setState per evitare re-render
+            if (chartRef.current.chart) {
+                chartRef.current.chart.updateSeries([{
+                    name: 'Bitcoin/EUR',
+                    data: updatedSeries,
+                }], false); // false = non animare, non resettare zoom
+            }
         }
-    }, [currentPrice, currentInterval, chartSeries]);
+    }, [currentPrice]); // ✅ SOLO currentPrice! Rimosso chartSeries e currentInterval
 
     const handleIntervalButtonClick = (interval) => {
         setSelectedInterval(interval);
