@@ -30,6 +30,7 @@ import PackVisionWithAuth from './components/PackVisionWithAuth';
 import PackVision from './components/PackVision';
 import CryptoDashboard from './components/CryptoDashboard/CryptoDashboard';
 import BotAnalysisPage from './components/CryptoDashboard/BotAnalysisPage';
+import BotAnalysisPageNew from './components/CryptoDashboard/BotAnalysisPageNew';
 import { buildApiUrl } from './utils/apiConfig';
 
 const INITIAL_NEW_CLIENT_DATA = {
@@ -2973,10 +2974,11 @@ export default function TicketApp() {
                 const urlParams = new URLSearchParams(window.location.search);
                 const page = urlParams.get('page');
                 const isBotAnalysisPage = page === 'bot-analysis';
+                const isNewVersion = urlParams.get('_new') === 'true';
                 
                 return isBotAnalysisPage ? (
                   <div className="animate-slideInRight">
-                    <BotAnalysisPage />
+                    {isNewVersion ? <BotAnalysisPageNew /> : <BotAnalysisPage />}
                   </div>
                 ) : (
                   <>
