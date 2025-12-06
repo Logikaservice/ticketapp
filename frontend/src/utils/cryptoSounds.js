@@ -5,7 +5,7 @@ class CryptoNotificationSounds {
     constructor() {
         this.audioContext = null;
         this.enabled = true;
-        this.volume = 0.3; // 30% volume by default
+        this.volume = 0.25; // 25% volume by default - più discreto
     }
 
     init() {
@@ -36,7 +36,7 @@ class CryptoNotificationSounds {
         }
     }
 
-    playTone(frequency, duration, type = 'sine') {
+    playTone(frequency, duration, type = 'sine', fadeIn = 0.05) {
         if (!this.enabled) return;
 
         this.init();
@@ -50,19 +50,25 @@ class CryptoNotificationSounds {
         oscillator.frequency.value = frequency;
         oscillator.type = type;
 
-        gainNode.gain.setValueAtTime(this.volume, this.audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+        const now = this.audioContext.currentTime;
+        // Fade in morbido per evitare "click" fastidiosi
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(this.volume, now + fadeIn);
+        // Fade out esponenziale morbido
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
-        oscillator.start(this.audioContext.currentTime);
-        oscillator.stop(this.audioContext.currentTime + duration);
+        oscillator.start(now);
+        oscillator.stop(now + duration);
     }
 
-    // 📈 Position Opened - Ascending chime
+    // 📈 Position Opened - Suono morbido e discreto, tipo notifica professionale
     positionOpened() {
         if (!this.enabled) return;
-        this.playTone(523.25, 0.1); // C5
-        setTimeout(() => this.playTone(659.25, 0.1), 100); // E5
-        setTimeout(() => this.playTone(783.99, 0.15), 200); // G5
+        // Suono più basso e caldo, meno stridulo - tipo "ping" discreto ma riconoscibile
+        // Usa frequenze più basse e melodia più breve
+        this.playTone(440.00, 0.08, 'sine', 0.03); // A4 - nota calda
+        setTimeout(() => this.playTone(523.25, 0.1, 'sine', 0.03), 90); // C5 - nota più alta ma morbida
+        setTimeout(() => this.playTone(659.25, 0.12, 'sine', 0.03), 180); // E5 - finale delicato
     }
 
     // 📉 Position Closed with Profit - Success sound
