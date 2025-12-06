@@ -664,13 +664,13 @@ const SYMBOL_TO_PAIR = {
     'atom_eur': 'ATOMEUR',
     // DeFi Blue Chips
     'aave': 'AAVEUSDT',
-    'aave_eur': 'AAVEEUR',
+    // ❌ 'aave_eur': 'AAVEEUR', // Non disponibile su Binance
     // Gaming/Metaverse
     'sand': 'SANDUSDT',
-    'sand_eur': 'SANDEUR',
+    // ❌ 'sand_eur': 'SANDEUR', // Non disponibile su Binance
     // Storage
     'fil': 'FILUSDT',
-    'fil_eur': 'FILEUR',
+    // ❌ 'fil_eur': 'FILEUR', // Non disponibile su Binance
     // Layer 1 / Payments
     'trx': 'TRXUSDT',
     'trx_eur': 'TRXEUR',
@@ -685,16 +685,16 @@ const SYMBOL_TO_PAIR = {
     'op_eur': 'OPEUR',
     'matic': 'MATICUSDT',
     'matic_eur': 'MATICEUR',
-    // DeFi Blue Chips
+    // DeFi Blue Chips (solo USDT disponibile)
     'crv': 'CRVUSDT',
-    'crv_eur': 'CRVEUR',
+    // ❌ 'crv_eur': 'CRVEUR', // Non disponibile su Binance
     'ldo': 'LDOUSDT',
-    'ldo_eur': 'LDOEUR',
-    // Gaming/Metaverse
+    // ❌ 'ldo_eur': 'LDOEUR', // Non disponibile su Binance
+    // Gaming/Metaverse (solo USDT disponibile)
     'mana': 'MANAUSDT',
-    'mana_eur': 'MANAEUR',
-    'axs': 'AXSUSDT',
-    'axs_eur': 'AXSEUR'
+    // ❌ 'mana_eur': 'MANAEUR', // Non disponibile su Binance
+    'axs': 'AXSUSDT'
+    // ❌ 'axs_eur': 'AXSEUR' // Non disponibile su Binance
 };
 
 // ✅ CORRELATION GROUPS - Strategia Ibrida per Diversificazione Intelligente
@@ -4199,13 +4199,13 @@ router.get('/scanner', async (req, res) => {
             { symbol: 'atom_eur', pair: 'ATOMEUR', display: 'ATOM/EUR' },
             // Aave
             { symbol: 'aave', pair: 'AAVEUSDT', display: 'AAVE/USDT' },
-            { symbol: 'aave_eur', pair: 'AAVEEUR', display: 'AAVE/EUR' },
+            // ❌ { symbol: 'aave_eur', pair: 'AAVEEUR', display: 'AAVE/EUR' }, // Non disponibile su Binance
             // The Sandbox
             { symbol: 'sand', pair: 'SANDUSDT', display: 'SAND/USDT' },
-            { symbol: 'sand_eur', pair: 'SANDEUR', display: 'SAND/EUR' },
+            // ❌ { symbol: 'sand_eur', pair: 'SANDEUR', display: 'SAND/EUR' }, // Non disponibile su Binance
             // Filecoin
             { symbol: 'fil', pair: 'FILUSDT', display: 'FIL/USDT' },
-            { symbol: 'fil_eur', pair: 'FILEUR', display: 'FIL/EUR' },
+            // ❌ { symbol: 'fil_eur', pair: 'FILEUR', display: 'FIL/EUR' }, // Non disponibile su Binance
             // Tron
             { symbol: 'trx', pair: 'TRXUSDT', display: 'TRX/USDT' },
             { symbol: 'trx_eur', pair: 'TRXEUR', display: 'TRX/EUR' },
@@ -4224,18 +4224,14 @@ router.get('/scanner', async (req, res) => {
             // Polygon (MATIC)
             { symbol: 'matic', pair: 'MATICUSDT', display: 'MATIC/USDT' },
             { symbol: 'matic_eur', pair: 'MATICEUR', display: 'MATIC/EUR' },
-            // Curve
+            // DeFi Blue Chips (solo USDT disponibile)
             { symbol: 'crv', pair: 'CRVUSDT', display: 'CRV/USDT' },
-            { symbol: 'crv_eur', pair: 'CRVEUR', display: 'CRV/EUR' },
-            // Lido
             { symbol: 'ldo', pair: 'LDOUSDT', display: 'LDO/USDT' },
-            { symbol: 'ldo_eur', pair: 'LDOEUR', display: 'LDO/EUR' },
-            // Decentraland
+            // Gaming/Metaverse (solo USDT disponibile)
             { symbol: 'mana', pair: 'MANAUSDT', display: 'MANA/USDT' },
-            { symbol: 'mana_eur', pair: 'MANAEUR', display: 'MANA/EUR' },
-            // Axie Infinity
-            { symbol: 'axs', pair: 'AXSUSDT', display: 'AXS/USDT' },
-            { symbol: 'axs_eur', pair: 'AXSEUR', display: 'AXS/EUR' }
+            { symbol: 'axs', pair: 'AXSUSDT', display: 'AXS/USDT' }
+            // ❌ Simboli EUR non disponibili su Binance rimossi:
+            // FILEUR, SANDEUR, AAVEEUR, CRVEUR, LDOEUR, MANAEUR, AXSEUR
         ];
 
         const results = await Promise.all(symbolsToScan.map(async (s) => {
