@@ -7,7 +7,7 @@ const BotAnalysisPageNew = () => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [updateCounter, setUpdateCounter] = useState(0);
+    const counterRef = React.useRef(0);
     
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
     const urlParams = new URLSearchParams(window.location.search);
@@ -37,27 +37,33 @@ const BotAnalysisPageNew = () => {
             const jsonData = await response.json();
             
             // ✅ FORZA AGGIORNAMENTO: Aggiungi sempre timestamp unico per forzare re-render
+            counterRef.current += 1;
             const freshData = {
                 ...jsonData,
                 _timestamp: timestamp,
-                _counter: updateCounter + 1
+                _counter: counterRef.current
             };
             
-            setData(freshData);
-            setUpdateCounter(prev => prev + 1);
+            // ✅ FORZA RE-RENDER: Crea sempre un nuovo oggetto per forzare React a ri-renderizzare
+            setData(prevData => {
+                // Se i dati sono identici, forziamo comunque un update con nuovo timestamp
+                return freshData;
+            });
             setError(null);
             setLoading(false);
             
-            console.log(`✅ [NUOVA VERSIONE] [${symbol}] Data fetched at ${new Date().toLocaleTimeString()}`, {
+            console.log(`🚀 [VERSIONE 3.0 - BUILD ${new Date().toLocaleDateString('it-IT')}] [${symbol}] Data fetched at ${new Date().toLocaleTimeString()} - Counter: ${counterRef.current} - AGGIORNAMENTO AUTOMATICO`, {
                 signal: jsonData.signal?.direction,
-                strength: jsonData.signal?.strength
+                strength: jsonData.signal?.strength,
+                price: jsonData.currentPrice,
+                timestamp: new Date().toISOString()
             });
         } catch (err) {
             console.error(`❌ [NUOVA VERSIONE] [${symbol}] Fetch error:`, err);
             setError(err.message);
             setLoading(false);
         }
-    }, [symbol, apiBase, updateCounter]);
+    }, [symbol, apiBase]);
 
     useEffect(() => {
         fetchData();
@@ -117,17 +123,25 @@ const BotAnalysisPageNew = () => {
                         position: 'absolute',
                         top: '10px',
                         right: '10px',
-                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                         color: '#fff',
-                        padding: '6px 12px',
-                        borderRadius: '6px',
-                        fontSize: '0.85rem',
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        fontSize: '1rem',
                         fontWeight: 'bold',
-                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
-                        zIndex: 1000
+                        boxShadow: '0 4px 12px rgba(245, 158, 11, 0.6)',
+                        zIndex: 1000,
+                        border: '2px solid #fff',
+                        animation: 'pulse 2s infinite'
                     }}>
-                        ✨ NUOVA VERSIONE v2.0
+                        🚀 VERSIONE 3.0 - BUILD {new Date().toLocaleDateString('it-IT')} - AGGIORNAMENTO AUTOMATICO ATTIVO
                     </div>
+                    <style>{`
+                        @keyframes pulse {
+                            0%, 100% { opacity: 1; }
+                            50% { opacity: 0.8; }
+                        }
+                    `}</style>
                     {window.opener ? (
                         <button className="back-button" onClick={() => window.close()}>
                             <ArrowLeft size={20} />
