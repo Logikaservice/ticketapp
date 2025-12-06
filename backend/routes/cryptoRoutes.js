@@ -4635,18 +4635,33 @@ router.get('/scanner', async (req, res) => {
                 }
 
                 // 2. Generate Signal (ora con dati aggiornati in tempo reale)
-                const signal = signalGenerator.generateSignal(historyForSignal);
+                let signal;
+                try {
+                    signal = signalGenerator.generateSignal(historyForSignal);
+                } catch (signalErr) {
+                    console.error(`[SCANNER] Errore generazione segnale per ${s.symbol}:`, signalErr.message);
+                    // Fallback: crea segnale NEUTRAL di default
+                    signal = {
+                        direction: 'NEUTRAL',
+                        strength: 0,
+                        confirmations: 0,
+                        reasons: ['Errore generazione segnale'],
+                        longSignal: { strength: 0, confirmations: 0, reasons: [], strengthContributions: [] },
+                        shortSignal: { strength: 0, confirmations: 0, reasons: [], strengthContributions: [] },
+                        indicators: { rsi: null }
+                    };
+                }
 
                 // 3. Get 24h volume
-                const volume24h = await get24hVolume(s.symbol);
+                const volume24h = await get24hVolume(s.symbol).catch(() => 0);
 
                 // ✅ FIX: Mostra SEMPRE tutti i simboli nel Market Scanner (anche NEUTRAL con strength 0)
                 // Questo permette di vedere TUTTI i simboli e capire perché non generano segnali
-                let displayDirection = signal.direction;
-                let displayStrength = signal.strength;
+                let displayDirection = signal?.direction || 'NEUTRAL';
+                let displayStrength = signal?.strength || 0;
                 
                 // Se è NEUTRAL, controlla se ci sono segnali parziali da mostrare
-                if (signal.direction === 'NEUTRAL' && signal.longSignal && signal.shortSignal) {
+                if (signal?.direction === 'NEUTRAL' && signal?.longSignal && signal?.shortSignal) {
                     const longStrength = signal.longSignal.strength || 0;
                     const shortStrength = signal.shortSignal.strength || 0;
                     
@@ -4671,7 +4686,7 @@ router.get('/scanner', async (req, res) => {
                 }
 
                 // ✅ LOG per debug (sempre, anche per NEUTRAL)
-                console.log(`[SCANNER] ${s.display}: direction=${displayDirection}, strength=${displayStrength}, original=${signal.direction}/${signal.strength}, long=${signal.longSignal?.strength || 0}, short=${signal.shortSignal?.strength || 0}`);
+                console.log(`[SCANNER] ${s.display}: direction=${displayDirection}, strength=${displayStrength}, original=${signal?.direction || 'ERROR'}/${signal?.strength || 0}`);
 
                 // ✅ IMPORTANTE: Restituisci SEMPRE il risultato, anche se NEUTRAL con strength 0
                 // Questo permette di vedere TUTTI i simboli nel Market Scanner per debug
@@ -4679,16 +4694,27 @@ router.get('/scanner', async (req, res) => {
                     symbol: s.symbol,
                     display: s.display,
                     price: currentPrice, // Prezzo corrente aggiornato in tempo reale
-                    volume24h, // Volume 24h in EUR/USDT
+                    volume24h: volume24h || 0, // Volume 24h in EUR/USDT
                     direction: displayDirection, // Usa direzione migliorata per display
                     strength: displayStrength || 0, // Usa strength migliorata per display (almeno 0)
-                    confirmations: signal.confirmations || 0,
-                    reasons: signal.reasons || [],
-                    rsi: signal.indicators?.rsi || null // RSI calcolato con ultima candela aggiornata
+                    confirmations: signal?.confirmations || 0,
+                    reasons: signal?.reasons || ['Nessun segnale'],
+                    rsi: signal?.indicators?.rsi || null // RSI calcolato con ultima candela aggiornata
                 };
             } catch (err) {
-                console.error(`Scanner error for ${s.symbol}:`, err.message);
-                return null;
+                console.error(`[SCANNER] Errore completo per ${s.symbol}:`, err.message);
+                // ✅ FALLBACK: Restituisci almeno i dati base anche in caso di errore
+                return {
+                    symbol: s.symbol,
+                    display: s.display,
+                    price: 0,
+                    volume24h: 0,
+                    direction: 'NEUTRAL',
+                    strength: 0,
+                    confirmations: 0,
+                    reasons: [`Errore: ${err.message}`],
+                    rsi: null
+                };
             }
         }));
 
