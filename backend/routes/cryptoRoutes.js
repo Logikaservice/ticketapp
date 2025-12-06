@@ -4145,9 +4145,10 @@ router.get('/bot-analysis', async (req, res) => {
         let longCurrentConfirmations = 0;
 
         if (signal.direction === 'LONG') {
-            // Segnale principale è LONG: usa i valori del segnale principale (più accurati)
-            longCurrentStrength = signal.strength || 0;
-            longCurrentConfirmations = signal.confirmations || 0;
+            // ✅ FIX: Usa longSignal.strength invece di signal.strength per consistenza con Market Scanner
+            // signal.strength è cappato a 100, mentre longSignal.strength contiene il valore reale
+            longCurrentStrength = signal.longSignal?.strength || signal.strength || 0;
+            longCurrentConfirmations = signal.longSignal?.confirmations || signal.confirmations || 0;
         } else if (signal.direction === 'NEUTRAL' && signal.longSignal) {
             // ✅ FIX: Se direction è NEUTRAL, mostra i valori parziali di longSignal
             // Questo permette di vedere i progressi verso un segnale LONG anche quando non è ancora completo
