@@ -8,7 +8,6 @@ import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
 import BacktestPanel from './BacktestPanel';
 import MarketScanner from './MarketScanner';
-import BotAnalysisPage from './BotAnalysisPage';
 import GeneralSettings from './GeneralSettings';
 import cryptoSounds from '../../utils/cryptoSounds';
 import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
@@ -445,14 +444,6 @@ const CryptoDashboard = () => {
     const pnlPercent = investedValue > 0 ? (pnlValue / investedValue) * 100 : 0;
 
     // TradingView Chart doesn't need chartData preparation anymore
-
-    // ✅ Check if we should render BotAnalysisPage
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentPage = urlParams.get('page');
-
-    if (currentPage === 'bot-analysis') {
-        return <BotAnalysisPage />;
-    }
 
     return (
         <div className="crypto-dashboard">
