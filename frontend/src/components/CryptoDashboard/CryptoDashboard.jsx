@@ -550,6 +550,8 @@ const CryptoDashboard = () => {
                                 url.searchParams.set('domain', 'crypto');
                                 url.searchParams.set('page', 'bot-analysis');
                                 url.searchParams.set('symbol', currentSymbol);
+                                // ✅ FIX: Aggiungi timestamp per forzare reload della nuova versione
+                                url.searchParams.set('_v', Date.now());
                                 window.open(url.toString(), 'BotAnalysis', 'width=1200,height=800,resizable=yes,scrollbars=yes');
                             }}
                             style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: '#3b82f6' }}

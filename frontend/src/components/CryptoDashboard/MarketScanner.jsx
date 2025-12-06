@@ -148,6 +148,8 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                                     url.searchParams.set('domain', 'crypto');
                                                     url.searchParams.set('page', 'bot-analysis');
                                                     url.searchParams.set('symbol', item.symbol);
+                                                    // ✅ FIX: Aggiungi timestamp per forzare reload della nuova versione
+                                                    url.searchParams.set('_v', Date.now());
                                                     window.open(url.toString(), 'BotAnalysis', 'width=1200,height=800,resizable=yes,scrollbars=yes');
                                                 }}
                                                 style={{
