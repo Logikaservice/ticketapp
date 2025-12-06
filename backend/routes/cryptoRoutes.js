@@ -1541,7 +1541,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             // ✅ COMPATIBILITÀ BINANCE: Verifica se SHORT è supportato
             // Binance Spot NON supporta short - serve Futures o Margin
             const binanceMode = process.env.BINANCE_MODE || 'demo';
-            const supportsShort = process.env.BINANCE_SUPPORTS_SHORT === 'true';
+            const supportsShort = binanceMode === 'demo' || process.env.BINANCE_SUPPORTS_SHORT === 'true'; // ✅ FIX: Demo mode supporta sempre SHORT
 
             // ✅ FIX CRITICO: Se SHORT non è supportato, salta tutto il blocco SHORT ma continua il ciclo
             if ((binanceMode === 'live' || binanceMode === 'testnet') && !supportsShort) {
