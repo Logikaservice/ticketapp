@@ -2034,6 +2034,59 @@ const generateTicketId = () => {
     return `T${Date.now()}${Math.floor(Math.random() * 1000)}`;
 };
 
+/**
+ * Calculate Average True Range (ATR) for dynamic trailing stop
+ * @param {Array} klines - Array of OHLC klines data
+ * @param {number} period - ATR period (default 14)
+ * @returns {number} ATR value
+ */
+const calculateATR = (klines, period = 14) => {
+    if (!klines || klines.length < period + 1) {
+        return 0;
+    }
+
+    let atrSum = 0;
+    const startIndex = Math.max(0, klines.length - period - 1);
+
+    for (let i = startIndex + 1; i < klines.length; i++) {
+        const high = parseFloat(klines[i].high_price);
+        const low = parseFloat(klines[i].low_price);
+        const prevClose = parseFloat(klines[i - 1].close_price);
+
+        // True Range = max(high-low, |high-prevClose|, |low-prevClose|)
+        const tr = Math.max(
+            high - low,
+            Math.abs(high - prevClose),
+            Math.abs(low - prevClose)
+        );
+        atrSum += tr;
+    }
+
+    return atrSum / period;
+};
+
+/**
+ * Calculate dynamic trailing stop distance based on ATR
+ * @param {number} atr - Average True Range
+ * @param {number} currentPrice - Current asset price
+ * @param {number} multiplier - ATR multiplier (default 1.5)
+ * @returns {number} Dynamic trailing stop distance percentage
+ */
+const calculateDynamicTrailingDistance = (atr, currentPrice, multiplier = 1.5) => {
+    if (!atr || !currentPrice || currentPrice === 0) {
+        return 1.5; // Fallback to default 1.5%
+    }
+
+    // Convert ATR to percentage of current price
+    const atrPct = (atr / currentPrice) * 100;
+
+    // Apply multiplier and clamp between 0.5% and 3%
+    const dynamicDistance = Math.max(0.5, Math.min(3.0, atrPct * multiplier));
+
+    return dynamicDistance;
+};
+
+
 // Helper to update P&L for all open positions
 // ✅ FIX: updatePositionsPnL ora aggiorna P&L per tutte le posizioni, non solo quelle del simbolo corrente
 const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
@@ -2081,17 +2134,37 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
                     }
                 }
 
-                // Trailing Stop Loss Logic
+                // Trailing Stop Loss Logic - ✅ DYNAMIC ATR-BASED
                 if (pos.trailing_stop_enabled && pos.trailing_stop_distance_pct > 0) {
+                    // Load recent klines for ATR calculation
+                    let dynamicDistance = pos.trailing_stop_distance_pct; // Fallback to configured value
+
+                    try {
+                        const recentKlines = await dbAll(
+                            "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 20",
+                            [pos.symbol]
+                        );
+
+                        if (recentKlines && recentKlines.length >= 15) {
+                            const atr = calculateATR(recentKlines.reverse(), 14);
+                            dynamicDistance = calculateDynamicTrailingDistance(atr, currentPrice, 1.5);
+
+                            console.log(`📊 [ATR-TRAILING] ${pos.ticket_id} | ATR: ${atr.toFixed(4)} | Dynamic Distance: ${dynamicDistance.toFixed(2)}% (was ${pos.trailing_stop_distance_pct.toFixed(2)}%)`);
+                        }
+                    } catch (atrError) {
+                        console.warn(`⚠️ ATR calculation failed for ${pos.symbol}, using fixed distance:`, atrError.message);
+                    }
+
                     if (pos.type === 'buy') {
                         // For long positions, trailing stop moves up as price increases
                         if (currentPrice > highestPrice) {
-                            // Calculate new trailing stop loss
-                            const trailingStopPrice = highestPrice * (1 - pos.trailing_stop_distance_pct / 100);
+                            // Calculate new trailing stop loss with dynamic distance
+                            const trailingStopPrice = highestPrice * (1 - dynamicDistance / 100);
                             // Only update if new stop loss is higher than current
                             if (!stopLoss || trailingStopPrice > stopLoss) {
                                 stopLoss = trailingStopPrice;
                                 shouldUpdateStopLoss = true;
+                                console.log(`📈 TRAILING STOP UPDATE (LONG): ${pos.ticket_id} | Highest: €${highestPrice.toFixed(2)} | New SL: €${trailingStopPrice.toFixed(2)} | Distance: ${dynamicDistance.toFixed(2)}%`);
                             }
                         }
                     } else {
@@ -2101,12 +2174,12 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
                         if (currentPrice < lowestPrice) {
                             // Trailing stop for SHORT: SL = lowest_price * (1 + distance%)
                             // This moves the SL DOWN as price goes DOWN (protecting profit)
-                            const trailingStopPrice = currentPrice * (1 + pos.trailing_stop_distance_pct / 100);
+                            const trailingStopPrice = currentPrice * (1 + dynamicDistance / 100);
                             // Only update if new stop loss is LOWER than current (for SHORT, lower SL = better)
                             if (!stopLoss || trailingStopPrice < stopLoss) {
                                 stopLoss = trailingStopPrice;
                                 shouldUpdateStopLoss = true;
-                                console.log(`📈 TRAILING STOP UPDATE (SHORT): ${pos.ticket_id} | Lowest: €${currentPrice.toFixed(2)} | New SL: €${trailingStopPrice.toFixed(2)}`);
+                                console.log(`📈 TRAILING STOP UPDATE (SHORT): ${pos.ticket_id} | Lowest: €${currentPrice.toFixed(2)} | New SL: €${trailingStopPrice.toFixed(2)} | Distance: ${dynamicDistance.toFixed(2)}%`);
                             }
                         }
                     }
@@ -2410,6 +2483,40 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
         );
 
         console.log(`✅ POSITION CLOSED: ${ticketId} | P&L: €${finalPnl.toFixed(2)} | Status: ${status} | Reason: ${reason}`);
+
+        // ✅ UPDATE PERFORMANCE STATS for Kelly Criterion
+        try {
+            if (finalPnl > 0) {
+                // Winning trade
+                await dbRun(`
+                    UPDATE performance_stats SET 
+                        total_trades = total_trades + 1,
+                        winning_trades = winning_trades + 1,
+                        total_profit = total_profit + ?,
+                        avg_win = total_profit / NULLIF(winning_trades, 0),
+                        win_rate = CAST(winning_trades AS REAL) / NULLIF(total_trades, 0),
+                        last_updated = CURRENT_TIMESTAMP
+                    WHERE id = 1
+                `, [finalPnl]);
+                console.log(`📊 [STATS] Win recorded: +€${finalPnl.toFixed(2)}`);
+            } else {
+                // Losing trade
+                await dbRun(`
+                    UPDATE performance_stats SET 
+                        total_trades = total_trades + 1,
+                        losing_trades = losing_trades + 1,
+                        total_loss = total_loss + ?,
+                        avg_loss = ABS(total_loss) / NULLIF(losing_trades, 0),
+                        win_rate = CAST(winning_trades AS REAL) / NULLIF(total_trades, 0),
+                        last_updated = CURRENT_TIMESTAMP
+                    WHERE id = 1
+                `, [finalPnl]);
+                console.log(`📊 [STATS] Loss recorded: €${finalPnl.toFixed(2)}`);
+            }
+        } catch (statsError) {
+            console.error('⚠️ Failed to update performance stats:', statsError.message);
+        }
+
 
         // Emit real-time notification
         emitCryptoEvent('crypto:position-closed', {

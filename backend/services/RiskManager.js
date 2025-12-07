@@ -177,10 +177,48 @@ class SeriousRiskManager {
 
             // Max position size: min tra 10% capitale e 50% dell'exposure disponibile
             // Aumentato da 0.1 a 0.5 per permettere operatività su conti piccoli (< €1000)
-            const maxPositionSizePct = Math.min(
+            // ✅ KELLY CRITERION: Dynamic position sizing based on performance
+            let maxPositionSizePct = Math.min(
                 this.MAX_POSITION_SIZE_PCT,
                 availableExposurePct * 0.5
             );
+
+            // Try to apply Kelly Criterion if we have enough trading history
+            try {
+                const db = require('../crypto_db');
+                const stats = await new Promise((resolve, reject) => {
+                    db.get("SELECT * FROM performance_stats WHERE id = 1", (err, row) => {
+                        if (err) reject(err);
+                        else resolve(row);
+                    });
+                });
+
+                if (stats && stats.total_trades >= 10) { // Minimum 10 trades for Kelly
+                    const winRate = stats.total_trades > 0 ? stats.winning_trades / stats.total_trades : 0.5;
+                    const avgWin = stats.winning_trades > 0 ? stats.total_profit / stats.winning_trades : 3;
+                    const avgLoss = stats.losing_trades > 0 ? Math.abs(stats.total_loss) / stats.losing_trades : 2;
+
+                    // Kelly Formula: f = (p * b - q) / b
+                    // where p = win rate, q = 1 - p, b = avg_win / avg_loss
+                    const p = winRate;
+                    const q = 1 - p;
+                    const b = avgLoss > 0 ? avgWin / avgLoss : 1.5;
+
+                    const kellyFraction = (p * b - q) / b;
+
+                    // Use Half-Kelly for safety (reduces risk of ruin)
+                    const safeKelly = Math.max(0.01, Math.min(0.15, kellyFraction / 2));
+
+                    console.log(`📊 [KELLY] Win Rate: ${(winRate * 100).toFixed(1)}% | Avg W/L: ${avgWin.toFixed(2)}/${avgLoss.toFixed(2)} | Kelly: ${(safeKelly * 100).toFixed(2)}%`);
+
+                    maxPositionSizePct = safeKelly;
+                } else {
+                    console.log(`📊 [KELLY] Insufficient data (${stats?.total_trades || 0} trades), using default sizing`);
+                }
+            } catch (kellyError) {
+                console.warn(`⚠️ Kelly Criterion calculation failed, using default sizing:`, kellyError.message);
+            }
+
             // Limit trade size to available cash to avoid negative balance
             const maxPositionSize = Math.min(totalEquity * maxPositionSizePct, cashBalance);
 

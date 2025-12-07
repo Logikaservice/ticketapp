@@ -349,6 +349,28 @@ function initDb() {
         });
 
         db.run(`CREATE INDEX IF NOT EXISTS idx_backtest_results_created ON backtest_results(created_at DESC)`);
+
+        // Performance Statistics Table for Kelly Criterion
+        db.run(`CREATE TABLE IF NOT EXISTS performance_stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            total_trades INTEGER DEFAULT 0,
+            winning_trades INTEGER DEFAULT 0,
+            losing_trades INTEGER DEFAULT 0,
+            total_profit REAL DEFAULT 0,
+            total_loss REAL DEFAULT 0,
+            avg_win REAL DEFAULT 0,
+            avg_loss REAL DEFAULT 0,
+            win_rate REAL DEFAULT 0,
+            last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        // Initialize performance stats if not exists
+        db.get("SELECT count(*) as count FROM performance_stats", (err, row) => {
+            if (!err && row.count === 0) {
+                db.run("INSERT INTO performance_stats (total_trades, winning_trades, losing_trades) VALUES (0, 0, 0)");
+                console.log("✅ Initialized performance_stats table");
+            }
+        });
     });
 }
 
