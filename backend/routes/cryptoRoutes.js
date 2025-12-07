@@ -4314,12 +4314,25 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         console.log('🔍 [BOT-ANALYSIS] Getting indicators...');
-        // ✅ Calcola indicatori base
+        // ✅ FIX: Ricalcola RSI FRESH (stessa logica di Market Scanner) invece di usare cache
+        // Questo garantisce che RSI sia identico tra Market Scanner e Bot Analysis
         const indicators = signal.indicators || {};
-        const rsi = indicators.rsi;
 
-        // ✅ LOG per confronto con Market Scanner
-        console.log(`📊 [BOT-ANALYSIS] RSI calcolato: ${rsi?.toFixed(2) || 'N/A'} (periodo 14, stessa logica di Market Scanner)`);
+        // Ricalcola RSI con dati aggiornati
+        let rsi = indicators.rsi; // Fallback
+        try {
+            const prices = historyForSignal.map(h => h.close || h.price);
+            if (prices.length >= 15) {
+                rsi = calculateRSI(prices, 14);
+                console.log(`📊 [BOT-ANALYSIS] RSI ricalcolato FRESH: ${rsi?.toFixed(2) || 'N/A'} (identico a Market Scanner)`);
+            } else {
+                console.warn(`⚠️ [BOT-ANALYSIS] Dati insufficienti per RSI (${prices.length} candele), uso cache`);
+            }
+        } catch (rsiError) {
+            console.error('❌ [BOT-ANALYSIS] Errore ricalcolo RSI:', rsiError.message);
+            // Usa RSI dalla cache se ricalcolo fallisce
+        }
+
 
         console.log('🔍 [BOT-ANALYSIS] Getting risk check...');
         // Get bot parameters (pass symbol for specific config)
