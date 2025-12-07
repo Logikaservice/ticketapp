@@ -109,6 +109,8 @@ const TradingViewOverlay = ({
         return 100 - Math.max(0, Math.min(100, normalized));
     };
 
+    return null; // Markers disabled as per user request
+    /*
     return (
         <div ref={containerRef} className="tradingview-overlay">
             {visibleMarkers.map(marker => {
@@ -173,6 +175,7 @@ const TradingViewOverlay = ({
             })}
         </div>
     );
+    */
 };
 
 export default TradingViewOverlay;
