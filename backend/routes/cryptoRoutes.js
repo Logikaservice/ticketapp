@@ -1595,7 +1595,10 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             const supportsShort = binanceMode === 'demo' || process.env.BINANCE_SUPPORTS_SHORT === 'true'; // ✅ FIX: Demo mode supporta sempre SHORT
 
             // ✅ FIX CRITICO: Se SHORT non è supportato, salta tutto il blocco SHORT ma continua il ciclo
-            if ((binanceMode === 'live' || binanceMode === 'testnet') && !supportsShort) {
+            // In DEMO mode, simuliamo sempre che lo short sia supportato per testare la strategia
+            const isDemo = binanceMode === 'demo';
+
+            if (!isDemo && (binanceMode === 'live' || binanceMode === 'testnet') && !supportsShort) {
                 console.log(`⚠️ SHORT signal ignorato per ${symbol}: Binance Spot non supporta short.`);
                 console.log(`   Per usare SHORT, configura BINANCE_SUPPORTS_SHORT=true e usa Binance Futures.`);
                 console.log(`   Oppure disabilita SHORT per usare solo LONG (raccomandato per principianti).`);
@@ -4622,11 +4625,13 @@ router.get('/bot-analysis', async (req, res) => {
 
                     // ✅ Binance Short Check
                     const binanceMode = process.env.BINANCE_MODE || 'demo';
+                    // In DEMO mode, ignoriamo il controllo "supportsShort" per permettere testing
                     const supportsShort = binanceMode === 'demo' || process.env.BINANCE_SUPPORTS_SHORT === 'true';
-                    if (!supportsShort && binanceMode !== 'demo') {
+
+                    if (binanceMode !== 'demo' && !supportsShort) {
                         blocks.push({
                             type: 'SHORT non supportato',
-                            reason: 'Binance Spot non supporta vendite allo scoperto. Usa Futures o Demo.',
+                            reason: 'Binance Spot non supporta vendite allo scoperto. Usa Futures o Demo per testare.',
                             severity: 'high'
                         });
                     }
