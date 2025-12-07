@@ -1450,11 +1450,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             console.log(`   MACD: ${signal.indicators.macd ? 'Present' : 'N/A'}`);
         }
 
-        // 9. Get current open positions
-        const openPositions = await dbAll(
-            "SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'",
-            [symbol]
+        // 9. Get ALL open positions (Fix for Hybrid Strategy)
+        const allOpenPositions = await dbAll(
+            "SELECT * FROM open_positions WHERE status = 'open'"
         );
+        // Filter for current symbol
+        const openPositions = allOpenPositions.filter(p => p.symbol === symbol);
 
         const longPositions = openPositions.filter(p => p.type === 'buy');
         const shortPositions = openPositions.filter(p => p.type === 'sell');
@@ -1511,7 +1512,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 console.log(`✅ [MTF] LONG APPROVED: Adjusted strength ${adjustedStrength} >= ${MIN_SIGNAL_STRENGTH}`);
 
                 // ✅ HYBRID STRATEGY - Verifica limiti correlazione
-                const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions);
+                const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions);
 
                 if (!hybridCheck.allowed) {
                     console.log(`🛑 [HYBRID-STRATEGY] LONG BLOCKED: ${hybridCheck.reason}`);
@@ -4401,7 +4402,7 @@ router.get('/bot-analysis', async (req, res) => {
         const maxAvailableForNewPosition = Math.min(
             params.trade_size_eur,
             riskCheck.maxPositionSize,
-            riskCheck.availableExposure * 0.25
+            riskCheck.availableExposure * 0.1 // ✅ FIX: Allineato a 10% come nel bot reale (era 0.25)
         );
 
         const canOpenCheck = await riskManager.canOpenPosition(maxAvailableForNewPosition);
@@ -4618,6 +4619,17 @@ router.get('/bot-analysis', async (req, res) => {
                     // Check if requirements are met
                     const meetsRequirements = shortAdjustedStrength >= SHORT_MIN_STRENGTH &&
                         shortCurrentConfirmations >= SHORT_MIN_CONFIRMATIONS;
+
+                    // ✅ Binance Short Check
+                    const binanceMode = process.env.BINANCE_MODE || 'demo';
+                    const supportsShort = binanceMode === 'demo' || process.env.BINANCE_SUPPORTS_SHORT === 'true';
+                    if (!supportsShort && binanceMode !== 'demo') {
+                        blocks.push({
+                            type: 'SHORT non supportato',
+                            reason: 'Binance Spot non supporta vendite allo scoperto. Usa Futures o Demo.',
+                            severity: 'high'
+                        });
+                    }
 
                     if (!meetsRequirements) {
                         return []; // No blockers to show if requirements not met
