@@ -141,7 +141,10 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL }
                                         {volume.toFixed(4)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#9ca3af' }}>
-                                        €{entryPrice.toFixed(2)}
+                                        <span title="Prezzo in EUR (convertito da USDT)">€{entryPrice.toFixed(2)}</span>
+                                        {pos.symbol && pos.symbol.includes('_usdt') && (
+                                            <span style={{ fontSize: '10px', color: '#6b7280', marginLeft: '4px' }} title="Prezzo convertito da USDT a EUR">(EUR)</span>
+                                        )}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600' }}>
                                         €{currentPriceValue.toFixed(2)}

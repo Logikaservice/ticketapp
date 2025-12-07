@@ -558,7 +558,7 @@ class BidirectionalSignalGenerator {
         const priceChange = prices.length >= 3
             ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
             : 0;
-        
+
         // ✅ FIX CRITICO: Verifica movimento prezzo su più periodi per evitare SHORT su mercati neutri
         const priceChange5 = prices.length >= 5
             ? (prices[prices.length - 1] - prices[prices.length - 5]) / prices[prices.length - 5] * 100
@@ -602,7 +602,7 @@ class BidirectionalSignalGenerator {
         
         // Procedi con calcolo SHORT solo se prezzo sta scendendo attivamente
         
-        
+
         // ⚠️ PANIC SELL EXCEPTION: Se c'è un crollo violento, ignora RSI Oversold
         // Normalmente RSI < 30 bloccherebbe lo SHORT, ma in un crash il prezzo può scendere con RSI a 5
         const isPanicSell = priceChange < -3.0 && volume.isHigh; // Crollo > 3% e volume alto

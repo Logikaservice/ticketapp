@@ -2871,14 +2871,14 @@ export default function TicketApp() {
       <div className="app-zoom-wrapper">
         {/* Nascondi Header quando domain=crypto */}
         {!(requestedDomain === 'crypto' || isCryptoHostname) && (
-          <Header
-            {...{
-              currentUser,
-              handleLogout,
-              openNewTicketModal,
-              openNewClientModal,
-              openSettings,
-              openManageClientsModal,
+        <Header
+          {...{
+            currentUser,
+            handleLogout,
+            openNewTicketModal,
+            openNewClientModal,
+            openSettings,
+            openManageClientsModal,
             openAlertsHistory,
             openImportKeepass,
             openAnalytics,
