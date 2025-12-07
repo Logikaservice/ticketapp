@@ -753,6 +753,9 @@ const CryptoDashboard = () => {
                         currentPrice={currentPrice}
                         onClosePosition={handleClosePosition}
                         onUpdatePnL={handleUpdatePnL}
+                        availableSymbols={availableSymbols}
+                        onSelectSymbol={setCurrentSymbol}
+                        apiBase={apiBase}
                     />
                 </div>
             </div>
