@@ -4002,16 +4002,17 @@ router.get('/bot-analysis', async (req, res) => {
             }
         }
 
-        // ✅ FIX CRITICO: SEMPRE scarica da Binance per analisi in tempo reale
-        // Non usare dati vecchi dal DB, altrimenti i valori restano bloccati
-        console.log('🔍 [BOT-ANALYSIS] Scarico SEMPRE dati freschi da Binance per analisi in tempo reale...');
+        // ❌ DISABILITATO: Scaricamento da Binance causa rate limit 503 per simboli USDT
+        // Usa invece i dati dal DB che vengono aggiornati dal bot ogni 15 minuti
+        console.log('🔍 [BOT-ANALYSIS] Uso dati dal DB (aggiornati dal bot ogni 15min) per evitare rate limit Binance');
+        /* COMMENTATO PER EVITARE RATE LIMIT
         try {
             const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
             const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
             console.log(`🔍 [BOT-ANALYSIS] Fetching klines from ${binanceUrl}`);
-
+        
             const klines = await httpsGet(binanceUrl);
-
+        
             if (Array.isArray(klines) && klines.length > 0) {
                 historyForSignal = klines.map(k => ({
                     timestamp: new Date(k[0]).toISOString(),
@@ -4023,13 +4024,13 @@ router.get('/bot-analysis', async (req, res) => {
                     volume: parseFloat(k[5])
                 }));
                 console.log(`✅ [BOT-ANALYSIS] Scaricate ${historyForSignal.length} candele FRESCHE da Binance`);
-
+        
                 // ✅ Aggiorna anche l'ultima candela scaricata da Binance con il prezzo corrente
                 if (historyForSignal.length > 0) {
                     const lastBinanceCandle = historyForSignal[historyForSignal.length - 1];
                     const lastBinanceCandleTime = new Date(lastBinanceCandle.timestamp);
                     const timeSinceBinanceCandle = new Date() - lastBinanceCandleTime;
-
+        
                     if (timeSinceBinanceCandle < 15 * 60 * 1000) {
                         console.log('🔍 [BOT-ANALYSIS] Aggiornamento ultima candela Binance con prezzo corrente');
                         lastBinanceCandle.high = Math.max(lastBinanceCandle.high, currentPrice);
@@ -4043,6 +4044,7 @@ router.get('/bot-analysis', async (req, res) => {
             console.error('❌ [BOT-ANALYSIS] Errore scaricamento Binance:', binanceError.message);
             // Continua con i dati vecchi se fallisce
         }
+        */  // FINE BLOCCO COMMENTATO
 
         // Generate signal with full details
         console.log('🔍 [BOT-ANALYSIS] History length:', historyForSignal ? historyForSignal.length : 0);
