@@ -4476,6 +4476,105 @@ router.get('/bot-analysis', async (req, res) => {
                 takeProfitPct: params.take_profit_pct,
                 tradeSizeEur: params.trade_size_eur
             },
+            blockers: {
+                long: (() => {
+                    const blocks = [];
+                    // Check if requirements are met
+                    const meetsRequirements = longAdjustedStrength >= LONG_MIN_STRENGTH &&
+                        longCurrentConfirmations >= LONG_MIN_CONFIRMATIONS;
+
+                    if (!meetsRequirements) {
+                        return []; // No blockers to show if requirements not met
+                    }
+
+                    // ATR block
+                    if (signal.atrBlocked) {
+                        blocks.push({
+                            type: 'ATR',
+                            reason: `Mercato troppo ${signal.atrPct < signal.minAtrRequired ? 'piatto' : 'volatile'} (ATR: ${signal.atrPct?.toFixed(2)}%, richiesto: ${signal.minAtrRequired}%)`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Risk Manager block
+                    if (!riskCheck.canTrade) {
+                        blocks.push({
+                            type: 'Risk Manager',
+                            reason: riskCheck.reason || 'Esposizione massima raggiunta',
+                            severity: 'high'
+                        });
+                    }
+
+                    // Existing positions
+                    if (longPositions.length > 0) {
+                        blocks.push({
+                            type: 'Posizioni esistenti',
+                            reason: `Già ${longPositions.length} posizione/i LONG aperta/e su ${symbol}`,
+                            severity: 'medium'
+                        });
+                    }
+
+                    // Balance check
+                    if (maxAvailableForNewPosition < 10) {
+                        blocks.push({
+                            type: 'Balance insufficiente',
+                            reason: `Solo €${maxAvailableForNewPosition.toFixed(2)} disponibili (minimo €10)`,
+                            severity: 'high'
+                        });
+                    }
+
+                    return blocks;
+                })(),
+                short: (() => {
+                    const blocks = [];
+                    // Check if requirements are met
+                    const meetsRequirements = shortAdjustedStrength >= SHORT_MIN_STRENGTH &&
+                        shortCurrentConfirmations >= SHORT_MIN_CONFIRMATIONS;
+
+                    if (!meetsRequirements) {
+                        return []; // No blockers to show if requirements not met
+                    }
+
+                    // ATR block
+                    if (signal.atrBlocked) {
+                        blocks.push({
+                            type: 'ATR',
+                            reason: `Mercato troppo ${signal.atrPct < signal.minAtrRequired ? 'piatto' : 'volatile'} (ATR: ${signal.atrPct?.toFixed(2)}%, richiesto: ${signal.minAtrRequired}%)`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Risk Manager block
+                    if (!riskCheck.canTrade) {
+                        blocks.push({
+                            type: 'Risk Manager',
+                            reason: riskCheck.reason || 'Esposizione massima raggiunta',
+                            severity: 'high'
+                        });
+                    }
+
+                    // Existing positions
+                    if (shortPositions.length > 0) {
+                        blocks.push({
+                            type: 'Posizioni esistenti',
+                            reason: `Già ${shortPositions.length} posizione/i SHORT aperta/e su ${symbol}`,
+                            severity: 'medium'
+                        });
+                    }
+
+                    // Balance check
+                    if (maxAvailableForNewPosition < 10) {
+                        blocks.push({
+                            type: 'Balance insufficiente',
+                            reason: `Solo €${maxAvailableForNewPosition.toFixed(2)} disponibili (minimo €10)`,
+                            severity: 'high'
+                        });
+                    }
+
+                    return blocks;
+                })()
+            }
+
         });
     } catch (error) {
         console.error('❌ [BOT-ANALYSIS] ========== ERRORE CRITICO ==========');
