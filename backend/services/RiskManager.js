@@ -29,7 +29,7 @@ class SeriousRiskManager {
     constructor() {
         // LIMITI ASSOLUTI (non negoziabili)
         this.MAX_DAILY_LOSS_PCT = 0.05;        // 5% capitale
-        this.MAX_TOTAL_EXPOSURE_PCT = 0.40;    // 40% capitale
+        this.MAX_TOTAL_EXPOSURE_PCT = 0.80;    // 80% capitale (aggressivo - sistema di alta qualità)
         this.MAX_POSITION_SIZE_PCT = 0.10;     // 10% capitale per posizione (aumentato per conti piccoli)
         this.MAX_DRAWDOWN_PCT = 0.10;          // 10% drawdown
         this.BASE_CAPITAL = 250;                // Protezione capitale base
