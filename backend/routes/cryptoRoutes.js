@@ -470,7 +470,9 @@ router.get('/dashboard', async (req, res) => {
             active_bots: bots,
             open_positions: openPositions, // Include open positions
             closed_positions: closedPositions, // ✅ FIX: Include closed positions per P&L
-            rsi: latestRSI
+            rsi: latestRSI,
+            // ✅ KELLY CRITERION: Performance statistics
+            performance_stats: await dbGet("SELECT * FROM performance_stats WHERE id = 1") || null
         });
     } catch (error) {
         console.error("Dashboard Error:", error);

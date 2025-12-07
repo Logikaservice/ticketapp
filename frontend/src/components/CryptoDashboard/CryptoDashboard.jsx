@@ -9,6 +9,7 @@ import CryptoNotification from './CryptoNotification';
 import BacktestPanel from './BacktestPanel';
 import MarketScanner from './MarketScanner';
 import GeneralSettings from './GeneralSettings';
+import KellyStatsPanel from './KellyStatsPanel';
 import cryptoSounds from '../../utils/cryptoSounds';
 import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
 import './CryptoLayout.css';
@@ -38,6 +39,7 @@ const CryptoDashboard = () => {
     const [useApexChart, setUseApexChart] = useState(false); // Toggle tra TradingView e ApexChart
     const [showAddFundsModal, setShowAddFundsModal] = useState(false); // Modal per aggiungere fondi
     const [showGeneralSettings, setShowGeneralSettings] = useState(false); // Modal per impostazioni generali
+    const [performanceStats, setPerformanceStats] = useState(null); // Kelly Criterion stats
 
     // WebSocket for real-time notifications
     const { connected: wsConnected } = useCryptoWebSocket(
@@ -97,6 +99,10 @@ const CryptoDashboard = () => {
                 // Load bot parameters for backtesting
                 if (data.bot_parameters) {
                     setBotParameters(data.bot_parameters);
+                }
+                // Load performance stats for Kelly Criterion
+                if (data.performance_stats) {
+                    setPerformanceStats(data.performance_stats);
                 }
             } else {
                 console.error('❌ Dashboard fetch failed:', res.status, res.statusText);
@@ -770,6 +776,11 @@ const CryptoDashboard = () => {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
             />
+
+            {/* KELLY CRITERION STATISTICS */}
+            <div style={{ marginTop: '20px' }}>
+                <KellyStatsPanel stats={performanceStats} />
+            </div>
 
             {/* RECENT TRADES HISTORY */}
             <div className="crypto-card" style={{ marginTop: '20px' }}>
