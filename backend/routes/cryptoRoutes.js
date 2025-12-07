@@ -795,9 +795,9 @@ const CORRELATION_GROUPS = {
 
 // Config Strategia Ibrida
 const HYBRID_STRATEGY_CONFIG = {
-    MAX_POSITIONS_PER_GROUP: 2, // Max 2 posizioni per gruppo correlato
-    MAX_TOTAL_POSITIONS: 6, // Max 6 posizioni totali
-    MAX_EXPOSURE_PER_GROUP_PCT: 0.25, // Max 25% del capitale per gruppo
+    MAX_POSITIONS_PER_GROUP: 20, // Aumentato drasticamente per permettere pyramiding
+    MAX_TOTAL_POSITIONS: 50, // Aumentato per permettere molte posizioni
+    MAX_EXPOSURE_PER_GROUP_PCT: 1.0, // Rimosso limite esposizione per gruppo (gestito dal Risk Manager globale)
 };
 
 // Symbol to CoinGecko ID mapping
