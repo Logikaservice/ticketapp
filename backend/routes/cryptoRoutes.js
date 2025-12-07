@@ -4320,6 +4320,56 @@ router.get('/bot-analysis', async (req, res) => {
             }
         }
 
+        // ✅ CHECK DATA FRESHNESS (Diagnostic Discrepancy)
+        const last15m = await dbGet("SELECT MAX(open_time) as last FROM klines WHERE symbol = ? AND interval = '15m'", [symbol]);
+        const last1h = await dbGet("SELECT MAX(open_time) as last FROM klines WHERE symbol = ? AND interval = '1h'", [symbol]);
+
+        const now = Date.now();
+        const freshnessBlockers = [];
+
+        // Check if Bot is Active in DB
+        const botSettings = await dbGet("SELECT is_active FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = ?", [symbol]);
+        const isBotActive = botSettings && botSettings.is_active === 1;
+
+        if (!isBotActive) {
+            freshnessBlockers.push({
+                type: 'Bot Disabilitato',
+                reason: 'Il bot non è attivo su questa moneta. Attivalo dalla Dashboard.',
+                severity: 'high'
+            });
+        } else {
+            // Check 15m freshness (Cycle heartbeat)
+            // Should be within last 30 mins (2 candles)
+            if (last15m && last15m.last) {
+                const ageMinutes = (now - last15m.last) / 1000 / 60;
+                if (ageMinutes > 45) {
+                    freshnessBlockers.push({
+                        type: 'Dati Obsoleti (15m)',
+                        reason: `Il bot non aggiorna i dati da ${ageMinutes.toFixed(0)} minuti. Possibile blocco del ciclo.`,
+                        severity: 'high'
+                    });
+                }
+            } else {
+                freshnessBlockers.push({
+                    type: 'Dati Mancanti',
+                    reason: 'Nessun dato storico a 15m trovato. Il bot deve ancora avviarsi.',
+                    severity: 'high'
+                });
+            }
+
+            // Check 1h freshness (Trend analysis)
+            if (last1h && last1h.last) {
+                const ageMinutes = (now - last1h.last) / 1000 / 60;
+                if (ageMinutes > 150) { // > 2.5 hours
+                    freshnessBlockers.push({
+                        type: 'Dati Obsoleti (1h)',
+                        reason: `Trend 1h basato su dati vecchi di ${ageMinutes.toFixed(0)} minuti. Analisi inaffidabile.`,
+                        severity: 'medium'
+                    });
+                }
+            }
+        }
+
         // ✅ Check Volume
         const volume24h = await get24hVolume(symbol).catch(() => 0);
         const MIN_VOLUME = 500_000;
@@ -4500,6 +4550,11 @@ router.get('/bot-analysis', async (req, res) => {
 
                     if (!meetsRequirements) {
                         return []; // No blockers to show if requirements not met
+                    }
+
+                    // Freshness Blockers
+                    if (freshnessBlockers.length > 0) {
+                        blocks.push(...freshnessBlockers);
                     }
 
                     // ATR block
