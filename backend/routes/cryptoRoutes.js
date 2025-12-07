@@ -646,6 +646,8 @@ router.post('/trade', async (req, res) => {
 let priceHistory = [];
 let latestRSI = null; // Store latest RSI for frontend display
 const CHECK_INTERVAL_MS = 10000; // Check every 10 seconds
+const MAX_ATR_PCT = 5.0; // Maximum ATR percentage to block trading (volatility too high)
+
 
 // Default strategy parameters (fallback if not configured)
 const DEFAULT_PARAMS = {
