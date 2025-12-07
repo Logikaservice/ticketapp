@@ -31,8 +31,8 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
     }
 
     const totalPnL = positions.reduce((sum, pos) => sum + (parseFloat(pos.profit_loss) || 0), 0);
-    const totalPnLPercent = positions.length > 0 
-        ? positions.reduce((sum, pos) => sum + (parseFloat(pos.profit_loss_pct) || 0), 0) / positions.length 
+    const totalPnLPercent = positions.length > 0
+        ? positions.reduce((sum, pos) => sum + (parseFloat(pos.profit_loss_pct) || 0), 0) / positions.length
         : 0;
 
     return (
@@ -87,6 +87,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                             <th style={{ padding: '8px', textAlign: 'left', fontWeight: '500', fontSize: '11px' }}>Simbolo</th>
                             <th style={{ padding: '8px', textAlign: 'left', fontWeight: '500', fontSize: '11px' }}>Tipo</th>
                             <th style={{ padding: '8px', textAlign: 'right', fontWeight: '500', fontSize: '11px' }}>Volume</th>
+                            <th style={{ padding: '8px', textAlign: 'right', fontWeight: '500', fontSize: '11px' }}>Investito</th>
                             <th style={{ padding: '8px', textAlign: 'right', fontWeight: '500', fontSize: '11px' }}>Entry</th>
                             <th style={{ padding: '8px', textAlign: 'right', fontWeight: '500', fontSize: '11px' }}>Prezzo</th>
                             <th style={{ padding: '8px', textAlign: 'right', fontWeight: '500', fontSize: '11px' }}>S/L</th>
@@ -106,7 +107,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                             const volume = parseFloat(pos.volume);
 
                             return (
-                                <tr 
+                                <tr
                                     key={pos.ticket_id}
                                     style={{
                                         borderBottom: '1px solid #2d2d2d',
@@ -206,6 +207,9 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace' }}>
                                         {volume.toFixed(4)}
                                     </td>
+                                    <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600', color: '#fbbf24' }}>
+                                        €{(entryPrice * volume).toFixed(2)}
+                                    </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#9ca3af' }}>
                                         <span title="Prezzo in EUR (convertito da USDT)">€{entryPrice.toFixed(2)}</span>
                                         {pos.symbol && pos.symbol.includes('_usdt') && (
@@ -221,18 +225,18 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#10b981' }}>
                                         {pos.take_profit ? `€${parseFloat(pos.take_profit).toFixed(2)}` : '-'}
                                     </td>
-                                    <td style={{ 
-                                        padding: '10px 8px', 
-                                        textAlign: 'right', 
+                                    <td style={{
+                                        padding: '10px 8px',
+                                        textAlign: 'right',
                                         fontFamily: 'monospace',
                                         fontWeight: '600',
                                         color: pnl >= 0 ? '#10b981' : '#ef4444'
                                     }}>
                                         {pnl >= 0 ? '+' : ''}€{pnl.toFixed(2)}
                                     </td>
-                                    <td style={{ 
-                                        padding: '10px 8px', 
-                                        textAlign: 'right', 
+                                    <td style={{
+                                        padding: '10px 8px',
+                                        textAlign: 'right',
                                         fontFamily: 'monospace',
                                         fontWeight: '600',
                                         color: pnlPct >= 0 ? '#10b981' : '#ef4444'
