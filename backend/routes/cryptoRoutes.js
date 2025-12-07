@@ -4172,7 +4172,32 @@ router.get('/bot-analysis', async (req, res) => {
 
         console.log('🔍 [BOT-ANALYSIS] Getting risk check...');
         // Get bot parameters (pass symbol for specific config)
-        const params = await getBotParameters(symbol);
+        // ✅ FIX: Se il simbolo non ha bot_settings, crea entry di default con bot ATTIVO
+        let params = await getBotParameters(symbol);
+        
+        // Verifica se esiste entry in bot_settings, se non c'è creala
+        const botSettingsCheck = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = ?", [symbol]);
+        if (!botSettingsCheck) {
+            console.log(`📝 [BOT-ANALYSIS] Creazione bot_settings per ${symbol} (default: ATTIVO)`);
+            const DEFAULT_PARAMS = {
+                rsi_period: 14,
+                rsi_oversold: 30,
+                rsi_overbought: 70,
+                stop_loss_pct: 2.0,
+                take_profit_pct: 3.0,
+                trade_size_eur: 50,
+                trailing_stop_enabled: false,
+                trailing_stop_distance_pct: 1.0,
+                partial_close_enabled: false,
+                take_profit_1_pct: 1.5,
+                take_profit_2_pct: 3.0
+            };
+            await dbRun(
+                "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES (?, ?, ?, ?)",
+                ['RSI_Strategy', symbol, 1, JSON.stringify(DEFAULT_PARAMS)] // Default: ATTIVO (1)
+            );
+            console.log(`✅ [BOT-ANALYSIS] Bot settings creati per ${symbol} (ATTIVO di default)`);
+        }
 
         // Risk check
         const riskCheck = await riskManager.calculateMaxRisk();
@@ -4332,9 +4357,11 @@ router.get('/bot-analysis', async (req, res) => {
         const freshnessBlockers = [];
 
         // Check if Bot is Active in DB
+        // ✅ FIX: Se non c'è entry in bot_settings, considera il bot ATTIVO di default (per nuovi simboli)
+        // Questo permette ai nuovi simboli di funzionare senza doverli attivare manualmente
         const botSettings = await dbGet("SELECT is_active FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = ?", [symbol]);
-        const isBotActive = botSettings && botSettings.is_active === 1;
-
+        const isBotActive = botSettings ? (botSettings.is_active === 1) : true; // Default: attivo se non esiste entry
+        
         if (!isBotActive) {
             freshnessBlockers.push({
                 type: 'Bot Disabilitato',
