@@ -66,8 +66,8 @@ class SeriousRiskManager {
                 };
             }
 
-            const currentCapital = portfolio.balance_usd;
-            const holdings = JSON.parse(portfolio.holdings || '{}');
+            const cashBalance = parseFloat(portfolio.balance_usd) || 0;
+            const holdings = JSON.parse(portfolio.holdings || '{}')['bitcoin'] || 0; // Legacy holding check, not main driver
 
             // 2. Calcola esposizione corrente (valore posizioni aperte)
             const openPositions = await dbAll(
@@ -77,11 +77,14 @@ class SeriousRiskManager {
             let currentExposure = 0;
             for (const pos of openPositions) {
                 // Per LONG: volume * entry_price
-                // Per SHORT: volume * entry_price (stesso calcolo)
-                currentExposure += pos.volume * pos.entry_price;
+                // Per SHORT: volume * entry_price (stesso calcolo approssimativo)
+                currentExposure += (parseFloat(pos.volume) || 0) * (parseFloat(pos.entry_price) || 0);
             }
 
-            const currentExposurePct = currentCapital > 0 ? currentExposure / currentCapital : 0;
+            // ✅ FIX: Calcola Equity Totale (Cash + Esposizione)
+            // Il rischio va calcolato sul totale del conto, non solo sul cash disponibile!
+            const totalEquity = cashBalance + currentExposure;
+            const currentExposurePct = totalEquity > 0 ? currentExposure / totalEquity : 0;
 
             // 3. Calcola perdita giornaliera
             const today = new Date();
@@ -98,21 +101,23 @@ class SeriousRiskManager {
                 dailyLoss += Math.abs(trade.profit_loss || 0);
             }
 
-            const dailyLossPct = currentCapital > 0 ? dailyLoss / currentCapital : 0;
+            // ✅ FIX: Usa Equity per % Daily Loss
+            const dailyLossPct = totalEquity > 0 ? dailyLoss / totalEquity : 0;
 
             // 4. Calcola drawdown (serve picco capitale)
-            // Per ora usiamo un approccio semplificato: se capitale < base, c'è drawdown
             const peakCapital = await dbGet(
-                "SELECT MAX(balance_usd) as peak FROM portfolio"
+                "SELECT MAX(balance_usd) as peak FROM portfolio" // Nota: questo traccia solo picco cash storico, approssimazione accettabile per ora
+                // TODO: In futuro tracciare Equity Peak
             );
-            const peak = peakCapital?.peak || currentCapital;
-            const drawdown = peak > 0 ? (peak - currentCapital) / peak : 0;
+            const peak = Math.max(parseFloat(peakCapital?.peak || 0), totalEquity); // Usa max tra storico e attuale
+            const drawdown = peak > 0 ? (peak - totalEquity) / peak : 0;
 
             // 5. VERIFICA LIMITI ASSOLUTI
-            if (currentCapital < this.BASE_CAPITAL) {
+            // ✅ FIX: Base capital a €50 e check su Equity
+            if (totalEquity < 50) {
                 this.cachedResult = {
                     canTrade: false,
-                    reason: 'Capital below base protection (€250)',
+                    reason: 'Equity below base protection (€50)',
                     maxPositionSize: 0,
                     availableExposure: 0,
                     dailyLoss: dailyLossPct,
@@ -166,8 +171,9 @@ class SeriousRiskManager {
             }
 
             // 6. CALCOLA RISCHIO RESIDUO DISPONIBILE
-            const availableExposurePct = this.MAX_TOTAL_EXPOSURE_PCT - currentExposurePct;
-            const availableExposure = currentCapital * availableExposurePct;
+            const availableExposurePct = Math.max(0, this.MAX_TOTAL_EXPOSURE_PCT - currentExposurePct);
+            // Available Exposure in EUR = Total Equity * Available %
+            const availableExposure = totalEquity * availableExposurePct;
 
             // Max position size: min tra 10% capitale e 50% dell'exposure disponibile
             // Aumentato da 0.1 a 0.5 per permettere operatività su conti piccoli (< €1000)
@@ -175,7 +181,8 @@ class SeriousRiskManager {
                 this.MAX_POSITION_SIZE_PCT,
                 availableExposurePct * 0.5
             );
-            const maxPositionSize = currentCapital * maxPositionSizePct;
+            // Limit trade size to available cash to avoid negative balance
+            const maxPositionSize = Math.min(totalEquity * maxPositionSizePct, cashBalance);
 
             this.cachedResult = {
                 canTrade: true,
@@ -187,7 +194,8 @@ class SeriousRiskManager {
                 dailyLoss: dailyLossPct,
                 currentExposure: currentExposurePct,
                 drawdown: drawdown,
-                currentCapital: currentCapital
+                currentCapital: cashBalance, // Maintain for compatibility
+                totalEquity: totalEquity
             };
 
             this.lastCheck = now;
