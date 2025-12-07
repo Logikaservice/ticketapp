@@ -819,8 +819,8 @@ const CryptoDashboard = () => {
                                 {closedPositions.map((trade, i) => {
                                     // ✅ FIX: closedPositions è ora disponibile nello scope
                                     const isBuy = trade.type === 'buy';
-                                    const totalValue = trade.amount * trade.price;
-                                    let pnl = trade.profit_loss;
+                                    const totalValue = (parseFloat(trade.amount) || 0) * (parseFloat(trade.price) || 0);
+                                    let pnl = parseFloat(trade.profit_loss) || 0;
 
                                     // ✅ FIX: Se il trade ha un ticket_id, cerca la posizione corrispondente per ottenere il P&L
                                     if (pnl === null && trade.ticket_id) {
@@ -850,8 +850,8 @@ const CryptoDashboard = () => {
                                     }
 
                                     // Theoretical P&L for BUYs ONLY if position is still open
-                                    const theoreticalPnl = (isBuy && hasOpenPosition) ? (symbolCurrentPrice - trade.price) * trade.amount : 0;
-                                    const theoreticalPnlPercent = (isBuy && hasOpenPosition) ? ((symbolCurrentPrice - trade.price) / trade.price) * 100 : 0;
+                                    const theoreticalPnl = (isBuy && hasOpenPosition) ? ((symbolCurrentPrice || 0) - (parseFloat(trade.price) || 0)) * (parseFloat(trade.amount) || 0) : 0;
+                                    const theoreticalPnlPercent = (isBuy && hasOpenPosition) ? (((symbolCurrentPrice || 0) - (parseFloat(trade.price) || 0)) / (parseFloat(trade.price) || 1)) * 100 : 0;
 
                                     // Get symbol display name
                                     const symbolDisplay = trade.symbol ? (trade.symbol === 'bitcoin' ? 'BTC/EUR' :
@@ -863,11 +863,11 @@ const CryptoDashboard = () => {
                                     // Show P&L if available (for both BUY and SELL)
                                     const displayPnl = pnl !== null && pnl !== undefined ? (
                                         <span style={{ color: pnl >= 0 ? '#4ade80' : '#ef4444', fontWeight: 'bold' }}>
-                                            {pnl >= 0 ? '+' : ''}€{pnl.toFixed(2)}
+                                            {pnl >= 0 ? '+' : ''}€{(pnl || 0).toFixed(2)}
                                         </span>
                                     ) : isBuy && hasOpenPosition ? (
                                         <span style={{ color: theoreticalPnl >= 0 ? '#4ade80' : '#ef4444', fontSize: '0.85rem' }}>
-                                            {theoreticalPnl >= 0 ? '+' : ''}€{theoreticalPnl.toFixed(2)} ({theoreticalPnlPercent.toFixed(2)}%)
+                                            {theoreticalPnl >= 0 ? '+' : ''}€{(theoreticalPnl || 0).toFixed(2)} ({(theoreticalPnlPercent || 0).toFixed(2)}%)
                                             <br />
                                             <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>Unrealized</span>
                                         </span>
@@ -897,13 +897,13 @@ const CryptoDashboard = () => {
                                                 </span>
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
-                                                €{trade.price.toFixed(2)}
+                                                €{(parseFloat(trade.price) || 0).toFixed(2)}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
-                                                {trade.amount.toFixed(4)}
+                                                {(parseFloat(trade.amount) || 0).toFixed(4)}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#9ca3af' }}>
-                                                €{totalValue.toFixed(2)}
+                                                €{(totalValue || 0).toFixed(2)}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right' }}>
                                                 {displayPnl}
