@@ -4002,6 +4002,37 @@ router.get('/bot-analysis', async (req, res) => {
             }
         }
 
+        // ✅ FALLBACK: Se DB non ha abbastanza dati, scarica da Binance
+        if (!historyForSignal || historyForSignal.length < 20) {
+            console.log(`⚠️ [BOT-ANALYSIS] DB has only ${historyForSignal ? historyForSignal.length : 0} candles, downloading from Binance as fallback...`);
+            try {
+                const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
+                const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
+                const klines = await httpsGet(binanceUrl);
+                if (Array.isArray(klines) && klines.length > 0) {
+                    historyForSignal = klines.map(k => ({
+                        timestamp: new Date(k[0]).toISOString(),
+                        open: parseFloat(k[1]),
+                        high: parseFloat(k[2]),
+                        low: parseFloat(k[3]),
+                        close: parseFloat(k[4]),
+                        price: parseFloat(k[4]),
+                        volume: parseFloat(k[5])
+                    }));
+                    console.log(`✅ [BOT-ANALYSIS] Downloaded ${historyForSignal.length} candles from Binance`);
+                    if (historyForSignal.length > 0) {
+                        const lastCandle = historyForSignal[historyForSignal.length - 1];
+                        lastCandle.high = Math.max(lastCandle.high, currentPrice);
+                        lastCandle.low = Math.min(lastCandle.low, currentPrice);
+                        lastCandle.close = currentPrice;
+                        lastCandle.price = currentPrice;
+                    }
+                }
+            } catch (binanceError) {
+                console.error('❌ [BOT-ANALYSIS] Binance fallback failed:', binanceError.message);
+            }
+        }
+
         // ❌ DISABILITATO: Scaricamento da Binance causa rate limit 503 per simboli USDT
         // Usa invece i dati dal DB che vengono aggiornati dal bot ogni 15 minuti
         console.log('🔍 [BOT-ANALYSIS] Uso dati dal DB (aggiornati dal bot ogni 15min) per evitare rate limit Binance');
