@@ -424,24 +424,75 @@ const CryptoDashboard = () => {
         }
     }, [portfolio.holdings, apiBase]);
 
-    // Calculate total balance including all holdings
+    // Calculate total balance (EUR + All Crypto values - Short Liabilities)
     const holdings = portfolio.holdings || {};
-    let totalCryptoValue = 0;
+    let totalLongValue = 0;
     Object.keys(holdings).forEach(symbol => {
         const amount = holdings[symbol] || 0;
         const price = allSymbolPrices[symbol] || (symbol === currentSymbol ? currentPrice : 0);
-        totalCryptoValue += amount * price;
+        totalLongValue += amount * price;
     });
 
-    const totalBalance = portfolio.balance_usd + totalCryptoValue;
+    // Calculate Short Liabilities (cost to close shorts)
+    let totalShortLiability = 0;
+    if (openPositions && openPositions.length > 0) {
+        openPositions.forEach(pos => {
+            if (pos.type === 'sell' && pos.status === 'open') {
+                const volume = parseFloat(pos.volume) || 0;
+                const volumeClosed = parseFloat(pos.volume_closed) || 0;
+                const remainingVolume = volume - volumeClosed;
+                const price = allSymbolPrices[pos.symbol] || (pos.symbol === currentSymbol ? currentPrice : parseFloat(pos.current_price) || 0);
+                totalShortLiability += remainingVolume * price;
+            }
+        });
+    }
 
-    // Calculate P&L for current symbol only (for display)
-    const currentHoldings = holdings[currentSymbol] || 0;
-    const avgPrice = portfolio.avg_buy_price || 0;
-    const investedValue = currentHoldings * avgPrice;
-    const currentValue = currentHoldings * currentPrice;
-    const pnlValue = currentValue - investedValue;
-    const pnlPercent = investedValue > 0 ? (pnlValue / investedValue) * 100 : 0;
+    // Equity = Cash + Longs - Short Liabilities
+    const totalBalance = portfolio.balance_usd + totalLongValue - totalShortLiability;
+
+    // ✅ FIX: Calculate P&L ONLY from OPEN positions (not all holdings)
+    // This prevents showing unrealized P&L from old closed positions' residual holdings
+    const openPositionsForCurrentSymbol = (openPositions || []).filter(p => p.symbol === currentSymbol);
+    let pnlValue = 0;
+    let pnlPercent = 0;
+    let totalInvestedValue = 0;
+    let totalCurrentValue = 0;
+    let avgPrice = 0;
+
+    if (openPositionsForCurrentSymbol.length > 0) {
+        // Calculate P&L from actual open positions
+        openPositionsForCurrentSymbol.forEach(pos => {
+            const entryPrice = parseFloat(pos.entry_price) || 0;
+            const volume = parseFloat(pos.volume) || 0;
+            const volumeClosed = parseFloat(pos.volume_closed) || 0;
+            const remainingVolume = volume - volumeClosed;
+
+            if (remainingVolume > 0 && entryPrice > 0) {
+                const invested = remainingVolume * entryPrice;
+                const current = remainingVolume * currentPrice;
+                totalInvestedValue += invested;
+                totalCurrentValue += current;
+            }
+        });
+
+        pnlValue = totalCurrentValue - totalInvestedValue;
+        pnlPercent = totalInvestedValue > 0 ? (pnlValue / totalInvestedValue) * 100 : 0;
+        avgPrice = totalInvestedValue > 0 && openPositionsForCurrentSymbol.length > 0
+            ? totalInvestedValue / openPositionsForCurrentSymbol.reduce((sum, pos) => {
+                const vol = parseFloat(pos.volume) || 0;
+                const volClosed = parseFloat(pos.volume_closed) || 0;
+                return sum + (vol - volClosed);
+            }, 0)
+            : 0;
+    } else {
+        // Fallback: use old calculation if no open positions (for backward compatibility)
+        const currentHoldings = holdings[currentSymbol] || 0;
+        avgPrice = portfolio.avg_buy_price || 0;
+        const investedValue = currentHoldings * avgPrice;
+        const currentValue = currentHoldings * currentPrice;
+        pnlValue = currentValue - investedValue;
+        pnlPercent = investedValue > 0 ? (pnlValue / investedValue) * 100 : 0;
+    }
 
     // TradingView Chart doesn't need chartData preparation anymore
 
