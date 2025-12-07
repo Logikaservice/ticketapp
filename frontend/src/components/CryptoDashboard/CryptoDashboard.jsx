@@ -796,11 +796,11 @@ const CryptoDashboard = () => {
             <div className="crypto-card" style={{ marginTop: '20px' }}>
                 <div className="card-title">
                     <RefreshCw size={20} className="text-gray-400" />
-                    Recent Trades History
+                    Closed Positions History
                 </div>
                 <div className="trades-list">
-                    {trades.length === 0 ? (
-                        <div style={{ color: '#555', textAlign: 'center', padding: '20px' }}>No trades yet. Start the bot!</div>
+                    {closedPositions.length === 0 ? (
+                        <div style={{ color: '#555', textAlign: 'center', padding: '20px' }}>Nessuna posizione chiusa ancora</div>
                     ) : (
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
                             <thead>
@@ -816,7 +816,7 @@ const CryptoDashboard = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {trades.map((trade, i) => {
+                                {closedPositions.map((trade, i) => {
                                     // ✅ FIX: closedPositions è ora disponibile nello scope
                                     const isBuy = trade.type === 'buy';
                                     const totalValue = trade.amount * trade.price;
