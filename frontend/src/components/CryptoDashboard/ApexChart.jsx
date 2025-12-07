@@ -33,22 +33,18 @@ const ApexChart = ({
         setSelectedInterval(currentInterval);
     }, [currentInterval]);
 
-    // Filter bot operations: only show trades with open positions
+    // Filter bot operations: show open positions directly
     const botOperations = React.useMemo(() => {
-        if (!trades || !openPositions || openPositions.length === 0) {
+        if (!openPositions || openPositions.length === 0) {
             return [];
         }
 
-        const openTicketIds = new Set(openPositions.map(pos => String(pos.ticket_id || pos.id)));
-        return trades.filter(trade => {
-            const ticketId = String(trade.ticket_id || trade.id || '');
-            return openTicketIds.has(ticketId);
-        }).sort((a, b) => {
-            const timeA = new Date(a.timestamp || a.time || 0).getTime();
-            const timeB = new Date(b.timestamp || b.time || 0).getTime();
+        return [...openPositions].sort((a, b) => {
+            const timeA = new Date(a.entry_time || a.timestamp || Date.now()).getTime();
+            const timeB = new Date(b.entry_time || b.timestamp || Date.now()).getTime();
             return timeB - timeA; // Most recent first
         });
-    }, [trades, openPositions]);
+    }, [openPositions]);
 
     // Prepare candlestick data
     useEffect(() => {
@@ -314,18 +310,14 @@ const ApexChart = ({
                                     {botOperations.length} operazioni aperte
                                 </div>
                                 <div className="trades-list">
-                                    {botOperations.map((trade, index) => {
-                                        const isBuy = trade.type === 'buy' || trade.side === 'buy';
-                                        const entryPrice = parseFloat(trade.price || trade.entry_price || 0);
-                                        const currentPnL = openPositions.find(pos =>
-                                            String(pos.ticket_id || pos.id) === String(trade.ticket_id || trade.id)
-                                        )?.current_pnl || 0;
-                                        const pnlPct = openPositions.find(pos =>
-                                            String(pos.ticket_id || pos.id) === String(trade.ticket_id || trade.id)
-                                        )?.pnl_percent || 0;
+                                    {botOperations.map((position, index) => {
+                                        const isBuy = position.type === 'buy' || position.side === 'buy';
+                                        const entryPrice = parseFloat(position.entry_price || position.price || 0);
+                                        const currentPnL = position.current_pnl || position.profit_loss || 0;
+                                        const pnlPct = position.pnl_percent || 0;
 
                                         return (
-                                            <div key={trade.ticket_id || trade.id || index} className="trade-item">
+                                            <div key={position.ticket_id || position.id || index} className="trade-item">
                                                 <div className="trade-header">
                                                     <span className={`trade-type ${isBuy ? 'buy' : 'sell'}`}>
                                                         {isBuy ? 'BUY' : 'SELL'}
@@ -338,7 +330,7 @@ const ApexChart = ({
                                                         P&L: {currentPnL >= 0 ? '+' : ''}€{currentPnL.toFixed(2)} ({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%)
                                                     </div>
                                                     <div className="trade-time">
-                                                        {new Date(trade.timestamp || trade.time || Date.now()).toLocaleString('it-IT')}
+                                                        {new Date(position.entry_time || position.timestamp || Date.now()).toLocaleString('it-IT')}
                                                     </div>
                                                 </div>
                                             </div>
