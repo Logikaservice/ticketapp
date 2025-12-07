@@ -1314,7 +1314,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             console.log(`📊 [${symbol.toUpperCase()}] Bot disattivo - aggiorno solo dati, nessun segnale`);
             return; // Aggiorna klines ma non processa segnali
         }
-        
+
         if (!rsi) return; // Stop here if no RSI data
 
         // ✅ VOLUME FILTER - Evita coin illiquide (pump & dump, spread alti)
@@ -1533,7 +1533,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     const maxAvailableForNewPosition = Math.min(
                         params.trade_size_eur,
                         riskCheck.maxPositionSize,
-                        riskCheck.availableExposure * 0.1 // Max 10% dell'exposure disponibile per nuova posizione
+                        riskCheck.availableExposure * 0.5 // Max 50% dell'exposure disponibile per nuova posizione (Sblocco conti piccoli)
                     );
                     const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
@@ -1772,11 +1772,11 @@ const runBotCycle = async () => {
         // ✅ FIX: Aggiorna dati anche per simboli senza entry in bot_settings (per Market Scanner)
         // Questo garantisce che i dati siano sempre freschi anche se il bot non è attivo per quel simbolo
         const allScannedSymbols = new Set(activeBots.map(b => b.symbol));
-        
+
         // Lista simboli comuni da scansionare (per aggiornare dati anche se bot non attivo)
-        const commonSymbols = ['bitcoin', 'ethereum', 'solana', 'cardano', 'polkadot', 'chainlink', 
-                               'litecoin', 'ripple', 'binance_coin', 'dogecoin', 'shiba', 'mana', 'eos'];
-        
+        const commonSymbols = ['bitcoin', 'ethereum', 'solana', 'cardano', 'polkadot', 'chainlink',
+            'litecoin', 'ripple', 'binance_coin', 'dogecoin', 'shiba', 'mana', 'eos'];
+
         // Aggiungi simboli comuni che non sono già nella lista attiva
         for (const symbol of commonSymbols) {
             if (!allScannedSymbols.has(symbol)) {
@@ -4207,7 +4207,7 @@ router.get('/bot-analysis', async (req, res) => {
         // Get bot parameters (pass symbol for specific config)
         // ✅ FIX: Se il simbolo non ha bot_settings, crea entry di default con bot ATTIVO
         let params = await getBotParameters(symbol);
-        
+
         // Verifica se esiste entry in bot_settings, se non c'è creala
         const botSettingsCheck = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = ?", [symbol]);
         if (!botSettingsCheck) {
@@ -4394,7 +4394,7 @@ router.get('/bot-analysis', async (req, res) => {
         // Questo permette ai nuovi simboli di funzionare senza doverli attivare manualmente
         const botSettings = await dbGet("SELECT is_active FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = ?", [symbol]);
         const isBotActive = botSettings ? (botSettings.is_active === 1) : true; // Default: attivo se non esiste entry
-        
+
         if (!isBotActive) {
             freshnessBlockers.push({
                 type: 'Bot Disabilitato',
@@ -4469,7 +4469,7 @@ router.get('/bot-analysis', async (req, res) => {
         const maxAvailableForNewPosition = Math.min(
             params.trade_size_eur,
             riskCheck.maxPositionSize,
-            riskCheck.availableExposure * 0.1 // ✅ FIX: Allineato a 10% come nel bot reale (era 0.25)
+            riskCheck.availableExposure * 0.5 // ✅ FIX: Aumentato a 50% per sbloccare conti piccoli
         );
 
         const canOpenCheck = await riskManager.canOpenPosition(maxAvailableForNewPosition);
@@ -4619,7 +4619,7 @@ router.get('/bot-analysis', async (req, res) => {
                     // ✅ FIX CRITICO: Mostra blocker anche se requirements sono soddisfatti ma canOpen è false
                     // Questo permette di vedere PERCHÉ non apre anche quando segnale è READY
                     const canOpen = meetsRequirements && canOpenCheck.allowed && !signal.atrBlocked;
-                    
+
                     // Se requirements NON sono soddisfatti, non mostrare blocker (mostra solo nel "Top Reason")
                     if (!meetsRequirements) {
                         return []; // No blockers to show if requirements not met
@@ -4728,7 +4728,7 @@ router.get('/bot-analysis', async (req, res) => {
 
                     // ✅ FIX CRITICO: Mostra blocker anche se requirements sono soddisfatti ma canOpen è false
                     const canOpen = meetsRequirements && canOpenCheck.allowed && !signal.atrBlocked && supportsShort;
-                    
+
                     if (!meetsRequirements) {
                         return []; // No blockers to show if requirements not met
                     }

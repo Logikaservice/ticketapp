@@ -169,10 +169,11 @@ class SeriousRiskManager {
             const availableExposurePct = this.MAX_TOTAL_EXPOSURE_PCT - currentExposurePct;
             const availableExposure = currentCapital * availableExposurePct;
 
-            // Max position size: min tra 2% capitale e 10% dell'exposure disponibile
+            // Max position size: min tra 10% capitale e 50% dell'exposure disponibile
+            // Aumentato da 0.1 a 0.5 per permettere operatività su conti piccoli (< €1000)
             const maxPositionSizePct = Math.min(
                 this.MAX_POSITION_SIZE_PCT,
-                availableExposurePct * 0.1
+                availableExposurePct * 0.5
             );
             const maxPositionSize = currentCapital * maxPositionSizePct;
 
