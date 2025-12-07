@@ -425,23 +425,23 @@ const CryptoDashboard = () => {
     }, [portfolio.holdings, apiBase]);
 
     // Calculate total balance (EUR + All Crypto values - Short Liabilities)
-    const holdings = portfolio.holdings || {};
+    // Calculate total balance (EUR + All Crypto values - Short Liabilities)
+    // ✅ FIX: Use ONLY open positions effectively ignoring 'portfolio.holdings' which might be corrupted
+    // This ensures Total Balance strictly reflects Cash + Open Positions Value
     let totalLongValue = 0;
-    Object.keys(holdings).forEach(symbol => {
-        const amount = holdings[symbol] || 0;
-        const price = allSymbolPrices[symbol] || (symbol === currentSymbol ? currentPrice : 0);
-        totalLongValue += amount * price;
-    });
-
-    // Calculate Short Liabilities (cost to close shorts)
     let totalShortLiability = 0;
+
     if (openPositions && openPositions.length > 0) {
         openPositions.forEach(pos => {
-            if (pos.type === 'sell' && pos.status === 'open') {
-                const volume = parseFloat(pos.volume) || 0;
-                const volumeClosed = parseFloat(pos.volume_closed) || 0;
-                const remainingVolume = volume - volumeClosed;
-                const price = allSymbolPrices[pos.symbol] || (pos.symbol === currentSymbol ? currentPrice : parseFloat(pos.current_price) || 0);
+            const volume = parseFloat(pos.volume) || 0;
+            const volumeClosed = parseFloat(pos.volume_closed) || 0;
+            const remainingVolume = volume - volumeClosed;
+            // Use live price if available, otherwise try currentSymbol price or position's last known price
+            const price = allSymbolPrices[pos.symbol] || (pos.symbol === currentSymbol ? currentPrice : parseFloat(pos.current_price) || 0);
+
+            if (pos.type === 'buy' && pos.status === 'open') {
+                totalLongValue += remainingVolume * price;
+            } else if (pos.type === 'sell' && pos.status === 'open') {
                 totalShortLiability += remainingVolume * price;
             }
         });
