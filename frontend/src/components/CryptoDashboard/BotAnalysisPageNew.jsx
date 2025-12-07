@@ -8,7 +8,7 @@ const BotAnalysisPageNew = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const counterRef = React.useRef(0);
-    
+
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
     const urlParams = new URLSearchParams(window.location.search);
     const symbol = urlParams.get('symbol') || 'bitcoin';
@@ -19,7 +19,7 @@ const BotAnalysisPageNew = () => {
             const timestamp = Date.now();
             const randomId = Math.random().toString(36).substring(7);
             const url = `${apiBase}/api/crypto/bot-analysis?symbol=${symbol}&_t=${timestamp}&_r=${randomId}&_new=true`;
-            
+
             const response = await fetch(url, {
                 method: 'GET',
                 cache: 'no-store',
@@ -35,7 +35,7 @@ const BotAnalysisPageNew = () => {
             }
 
             const jsonData = await response.json();
-            
+
             // ✅ FORZA AGGIORNAMENTO: Aggiungi sempre timestamp unico per forzare re-render
             counterRef.current += 1;
             const freshData = {
@@ -43,7 +43,7 @@ const BotAnalysisPageNew = () => {
                 _timestamp: timestamp,
                 _counter: counterRef.current
             };
-            
+
             // ✅ FORZA RE-RENDER: Crea sempre un nuovo oggetto per forzare React a ri-renderizzare
             setData(prevData => {
                 // Se i dati sono identici, forziamo comunque un update con nuovo timestamp
@@ -51,7 +51,7 @@ const BotAnalysisPageNew = () => {
             });
             setError(null);
             setLoading(false);
-            
+
             console.log(`🚀 [VERSIONE 3.0 - BUILD ${new Date().toLocaleDateString('it-IT')}] [${symbol}] Data fetched at ${new Date().toLocaleTimeString()} - Counter: ${counterRef.current} - AGGIORNAMENTO AUTOMATICO`, {
                 signal: jsonData.signal?.direction,
                 strength: jsonData.signal?.strength,
@@ -68,7 +68,7 @@ const BotAnalysisPageNew = () => {
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 2000); // Aggiorna ogni 2 secondi
-        
+
         return () => clearInterval(interval);
     }, [fetchData]);
 
@@ -545,6 +545,57 @@ const BotAnalysisPageNew = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* Blocchi Attivi */}
+                    {data.blockers && (data.blockers.long.length > 0 || data.blockers.short.length > 0) && (
+                        <div className="blockers-section" key={`blockers-${updateKey}`} style={{ marginTop: '20px' }}>
+                            <h3 style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                🚫 Blocchi Attivi - Perché il bot non sta aprendo?
+                            </h3>
+
+                            {data.blockers.long.length > 0 && (
+                                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid #ef4444', borderRadius: '12px', padding: '20px', marginBottom: '15px' }}>
+                                    <h4 style={{ color: '#10b981', marginBottom: '15px' }}>📈 LONG Bloccato</h4>
+                                    {data.blockers.long.map((blocker, idx) => (
+                                        <div key={idx} style={{
+                                            background: blocker.severity === 'high' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(251, 191, 36, 0.2)',
+                                            border: `1px solid ${blocker.severity === 'high' ? '#ef4444' : '#fbbf24'}`,
+                                            borderRadius: '8px',
+                                            padding: '12px',
+                                            marginBottom: '10px',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}>
+                                            <span style={{ fontWeight: 'bold', color: '#fff' }}>⚠️ {blocker.type}</span>
+                                            <span style={{ color: '#d1d5db' }}>{blocker.reason}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {data.blockers.short.length > 0 && (
+                                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid #ef4444', borderRadius: '12px', padding: '20px' }}>
+                                    <h4 style={{ color: '#ef4444', marginBottom: '15px' }}>📉 SHORT Bloccato</h4>
+                                    {data.blockers.short.map((blocker, idx) => (
+                                        <div key={idx} style={{
+                                            background: blocker.severity === 'high' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(251, 191, 36, 0.2)',
+                                            border: `1px solid ${blocker.severity === 'high' ? '#ef4444' : '#fbbf24'}`,
+                                            borderRadius: '8px',
+                                            padding: '12px',
+                                            marginBottom: '10px',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}>
+                                            <span style={{ fontWeight: 'bold', color: '#fff' }}>⚠️ {blocker.type}</span>
+                                            <span style={{ color: '#d1d5db' }}>{blocker.reason}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
