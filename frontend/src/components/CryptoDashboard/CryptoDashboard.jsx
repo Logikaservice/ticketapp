@@ -428,6 +428,7 @@ const CryptoDashboard = () => {
     // Calculate total balance (EUR + All Crypto values - Short Liabilities)
     // ✅ FIX: Use ONLY open positions effectively ignoring 'portfolio.holdings' which might be corrupted
     // This ensures Total Balance strictly reflects Cash + Open Positions Value
+    const holdings = portfolio.holdings || {}; // Restore this for fallback logic
     let totalLongValue = 0;
     let totalShortLiability = 0;
 
