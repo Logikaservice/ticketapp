@@ -22,3 +22,8 @@ Thumbs.db
 backend/backups/
 *.sql
 *.backup
+
+# SQLite Database (Local)
+backend/crypto.db
+backend/crypto.db-journal
+backend/crypto.db-wal
