@@ -546,6 +546,60 @@ class BidirectionalSignalGenerator {
             longSignal.strengthContributions.push({ indicator: 'Price stable/rising', points, reason: `Price stable/rising (${priceChangeLong.toFixed(2)}%)` });
         }
 
+        // ✅ CONFERMA 9: MOMENTUM TREND - Prezzo sale consistentemente (trend forte in corso)
+        const priceChange3 = prices.length >= 3
+            ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
+            : 0;
+        const priceChange10 = prices.length >= 10
+            ? (prices[prices.length - 1] - prices[prices.length - 10]) / prices[prices.length - 10] * 100
+            : 0;
+        // Se prezzo sale consistentemente su più timeframe, è un trend forte
+        if (priceChange3 > 1.0 && priceChange10 > 1.5) { // Sale >1% su 3 periodi e >1.5% su 10 periodi
+            const points = 25;
+            longSignal.strength += points;
+            longSignal.confirmations++;
+            longSignal.reasons.push(`Strong momentum trend (+${priceChange3.toFixed(2)}% short, +${priceChange10.toFixed(2)}% medium)`);
+            longSignal.strengthContributions.push({ indicator: 'Strong momentum trend', points, reason: `Strong momentum trend (+${priceChange3.toFixed(2)}% short, +${priceChange10.toFixed(2)}% medium)` });
+        }
+
+        // ✅ CONFERMA 10: RSI FORTE in trend positivo (60-85) - NON solo oversold!
+        // RSI 60-85 in un uptrend indica forza, non solo overbought
+        if (rsi !== null && rsi >= 60 && rsi <= 85 && trend === 'bullish' && priceChange3 > 0.5) {
+            const points = 20;
+            longSignal.strength += points;
+            longSignal.confirmations++;
+            longSignal.reasons.push(`RSI strong in uptrend (${rsi.toFixed(1)} - momentum signal)`);
+            longSignal.strengthContributions.push({ indicator: 'RSI strong in uptrend', points, reason: `RSI strong in uptrend (${rsi.toFixed(1)} - momentum signal)` });
+        }
+
+        // ✅ CONFERMA 11: PREZZO SOPRA MULTIPLE EMA (trend molto forte)
+        if (ema10 && ema20 && ema50 && currentPrice > ema10 && ema10 > ema20 && ema20 > ema50) {
+            const points = 20;
+            longSignal.strength += points;
+            longSignal.confirmations++;
+            longSignal.reasons.push(`Price above all key EMAs (strong trend alignment)`);
+            longSignal.strengthContributions.push({ indicator: 'Price above all EMAs', points, reason: `Price above all key EMAs (strong trend alignment)` });
+        }
+
+        // ✅ CONFERMA 12: BREAKOUT PATTERN - Prezzo rompe upper Bollinger Band (breakout)
+        if (bollinger && currentPrice > bollinger.upper && priceChange3 > 0.8) {
+            const points = 20;
+            longSignal.strength += points;
+            longSignal.confirmations++;
+            longSignal.reasons.push(`Breakout above upper Bollinger Band (+${priceChange3.toFixed(2)}%)`);
+            longSignal.strengthContributions.push({ indicator: 'Breakout pattern', points, reason: `Breakout above upper Bollinger Band (+${priceChange3.toFixed(2)}%)` });
+        }
+
+        // ✅ CONFERMA 13: VOLUME CRESCENTE in trend positivo
+        const volumeTrend = prices.length >= 10 ? volume.ratio : 1.0;
+        if (volumeTrend > 1.5 && priceChange3 > 0.5 && trend === 'bullish') {
+            const points = 15;
+            longSignal.strength += points;
+            longSignal.confirmations++;
+            longSignal.reasons.push(`Increasing volume in uptrend (${volumeTrend.toFixed(2)}x)`);
+            longSignal.strengthContributions.push({ indicator: 'Increasing volume', points, reason: `Increasing volume in uptrend (${volumeTrend.toFixed(2)}x)` });
+        }
+
         // 4. SHORT SIGNAL (vendi) - SISTEMA MULTI-CONFERMA (PIÙ RIGOROSO)
         const shortSignal = {
             strength: 0,
