@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
+import { X, TrendingUp, TrendingDown, AlertCircle, BarChart2 } from 'lucide-react';
 
-const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL }) => {
+const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, availableSymbols = [], onSelectSymbol, apiBase }) => {
     const [isUpdating, setIsUpdating] = useState(false);
 
     // Update P&L periodically (more frequently for instant updates)
@@ -83,7 +83,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL }
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
                         <tr style={{ borderBottom: '1px solid #2d2d2d', color: '#9ca3af' }}>
-                            <th style={{ padding: '8px', textAlign: 'left', fontWeight: '500', fontSize: '11px' }}>Ticket</th>
+                            <th style={{ padding: '8px', textAlign: 'center', fontWeight: '500', fontSize: '11px' }}>Azioni</th>
                             <th style={{ padding: '8px', textAlign: 'left', fontWeight: '500', fontSize: '11px' }}>Simbolo</th>
                             <th style={{ padding: '8px', textAlign: 'left', fontWeight: '500', fontSize: '11px' }}>Tipo</th>
                             <th style={{ padding: '8px', textAlign: 'right', fontWeight: '500', fontSize: '11px' }}>Volume</th>
@@ -115,11 +115,77 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL }
                                     onMouseEnter={(e) => e.currentTarget.style.background = '#252525'}
                                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                 >
-                                    <td style={{ padding: '10px 8px', color: '#9ca3af', fontFamily: 'monospace', fontSize: '11px' }}>
-                                        {pos.ticket_id.substring(0, 8)}...
+                                    <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                        <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
+                                            <button
+                                                onClick={() => onSelectSymbol && onSelectSymbol(pos.symbol)}
+                                                style={{
+                                                    background: '#3b82f6',
+                                                    color: '#fff',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    padding: '4px 8px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.75rem',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    transition: 'opacity 0.2s'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                                                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                                                title="View Chart"
+                                            >
+                                                <BarChart2 size={14} />
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    const url = new URL(window.location);
+                                                    url.searchParams.set('domain', 'crypto');
+                                                    url.searchParams.set('page', 'bot-analysis');
+                                                    url.searchParams.set('symbol', pos.symbol);
+                                                    url.searchParams.set('_v', Date.now());
+                                                    window.open(url.toString(), 'BotAnalysis', 'width=1200,height=800,resizable=yes,scrollbars=yes');
+                                                }}
+                                                style={{
+                                                    background: '#10b981',
+                                                    color: '#fff',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    padding: '4px 8px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.75rem',
+                                                    display: 'inline-flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    transition: 'opacity 0.2s'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                                                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                                                title="Deep Analysis"
+                                            >
+                                                🔍
+                                            </button>
+                                        </div>
                                     </td>
                                     <td style={{ padding: '10px 8px', fontWeight: '600' }}>
-                                        {pos.symbol.toUpperCase()}
+                                        {(() => {
+                                            // Cerca il simbolo in availableSymbols per ottenere il display corretto
+                                            const symbolInfo = availableSymbols.find(s => s.symbol === pos.symbol);
+                                            if (symbolInfo && symbolInfo.display) {
+                                                return symbolInfo.display;
+                                            }
+                                            // Fallback: formatta manualmente se non trovato
+                                            if (pos.symbol.includes('_usdt')) {
+                                                const baseSymbol = pos.symbol.replace('_usdt', '').toUpperCase();
+                                                return `${baseSymbol}/USDT`;
+                                            } else if (pos.symbol.includes('_eur')) {
+                                                const baseSymbol = pos.symbol.replace('_eur', '').toUpperCase();
+                                                return `${baseSymbol}/EUR`;
+                                            }
+                                            // Fallback finale: uppercase semplice
+                                            return pos.symbol.toUpperCase().replace(/_/g, '/');
+                                        })()}
                                     </td>
                                     <td style={{ padding: '10px 8px' }}>
                                         <div style={{
