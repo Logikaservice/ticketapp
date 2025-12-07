@@ -4167,17 +4167,20 @@ router.get('/bot-analysis', async (req, res) => {
         console.log(`📊 [BOT-ANALYSIS] RSI calcolato: ${rsi?.toFixed(2) || 'N/A'} (periodo 14, stessa logica di Market Scanner)`);
 
         console.log('🔍 [BOT-ANALYSIS] Getting risk check...');
-        // Get bot parameters
-        const params = await getBotParameters();
+        // Get bot parameters (pass symbol for specific config)
+        const params = await getBotParameters(symbol);
 
         // Risk check
         const riskCheck = await riskManager.calculateMaxRisk();
 
-        // Get open positions
-        const openPositions = await dbAll(
-            "SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'",
-            [symbol]
+        // Get ALL open positions to check global limits (Hybrid Strategy)
+        const allOpenPositions = await dbAll(
+            "SELECT * FROM open_positions WHERE status = 'open'"
         );
+        console.log(`📊 [BOT-ANALYSIS] Global Open Positions: ${allOpenPositions.length}`);
+
+        // Filter for current symbol stats
+        const openPositions = allOpenPositions.filter(p => p.symbol === symbol);
 
         const longPositions = openPositions.filter(p => p.type === 'buy');
         const shortPositions = openPositions.filter(p => p.type === 'sell');
@@ -4322,8 +4325,9 @@ router.get('/bot-analysis', async (req, res) => {
         const MIN_VOLUME = 500_000;
         const volumeBlocked = volume24h < MIN_VOLUME;
 
-        // ✅ Check Hybrid Strategy
-        const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions);
+        // ✅ Check Hybrid Strategy (pass ALL positions)
+        const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions);
+        console.log(`📊 [BOT-ANALYSIS] Hybrid Check: ${hybridCheck.allowed ? 'OK' : 'BLOCKED'} (${hybridCheck.reason})`);
 
         const longAdjustedStrength = longCurrentStrength + longMtfBonus;
         const shortAdjustedStrength = shortCurrentStrength + shortMtfBonus;
