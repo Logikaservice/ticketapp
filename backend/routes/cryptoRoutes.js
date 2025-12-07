@@ -1308,7 +1308,14 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             console.log(`🤖 BOT [${symbol.toUpperCase()}]: ${tradingPair}=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);
         }
 
-        if (!isBotActive || !rsi) return; // Stop here if bot is off
+        // ✅ FIX: Se bot è disattivo, aggiorna comunque i dati (klines) ma non processa segnali
+        // Questo garantisce che i dati siano sempre freschi per l'analisi
+        if (!isBotActive) {
+            console.log(`📊 [${symbol.toUpperCase()}] Bot disattivo - aggiorno solo dati, nessun segnale`);
+            return; // Aggiorna klines ma non processa segnali
+        }
+        
+        if (!rsi) return; // Stop here if no RSI data
 
         // ✅ VOLUME FILTER - Evita coin illiquide (pump & dump, spread alti)
         const volume24h = await get24hVolume(symbol);
@@ -1762,7 +1769,33 @@ const runBotCycle = async () => {
             return;
         }
 
-        // Run bot cycle for each active symbol
+        // ✅ FIX: Aggiorna dati anche per simboli senza entry in bot_settings (per Market Scanner)
+        // Questo garantisce che i dati siano sempre freschi anche se il bot non è attivo per quel simbolo
+        const allScannedSymbols = new Set(activeBots.map(b => b.symbol));
+        
+        // Lista simboli comuni da scansionare (per aggiornare dati anche se bot non attivo)
+        const commonSymbols = ['bitcoin', 'ethereum', 'solana', 'cardano', 'polkadot', 'chainlink', 
+                               'litecoin', 'ripple', 'binance_coin', 'dogecoin', 'shiba', 'mana', 'eos'];
+        
+        // Aggiungi simboli comuni che non sono già nella lista attiva
+        for (const symbol of commonSymbols) {
+            if (!allScannedSymbols.has(symbol)) {
+                // Crea entry temporanea con bot disattivato solo per aggiornare dati
+                const tempBotSettings = { symbol, is_active: 0 };
+                // Aggiorna solo i dati (klines) senza processare segnali
+                try {
+                    const currentPrice = await getSymbolPrice(symbol);
+                    if (currentPrice > 0) {
+                        // Aggiorna solo klines, non processare segnali (bot disattivo)
+                        await runBotCycleForSymbol(symbol, tempBotSettings);
+                    }
+                } catch (err) {
+                    // Ignora errori per simboli non disponibili
+                }
+            }
+        }
+
+        // Run bot cycle for each active symbol (processa segnali solo per bot attivi)
         for (const bot of activeBots) {
             await runBotCycleForSymbol(bot.symbol, bot);
         }
@@ -4370,21 +4403,25 @@ router.get('/bot-analysis', async (req, res) => {
             });
         } else {
             // Check 15m freshness (Cycle heartbeat)
-            // Should be within last 30 mins (2 candles)
+            // ✅ FIX: Soglia più permissiva - il bot aggiorna ogni 15 minuti, quindi 60 minuti è accettabile
+            // (considera che potrebbe esserci un ritardo o che il bot non è ancora partito per questo simbolo)
             if (last15m && last15m.last) {
                 const ageMinutes = (now - last15m.last) / 1000 / 60;
-                if (ageMinutes > 45) {
+                // ✅ Soglia aumentata a 90 minuti (6 candele) invece di 45
+                // Questo evita falsi positivi quando il bot non ha ancora processato il simbolo
+                if (ageMinutes > 90) {
                     freshnessBlockers.push({
                         type: 'Dati Obsoleti (15m)',
-                        reason: `Il bot non aggiorna i dati da ${ageMinutes.toFixed(0)} minuti. Possibile blocco del ciclo.`,
-                        severity: 'high'
+                        reason: `Il bot non aggiorna i dati da ${ageMinutes.toFixed(0)} minuti. Verifica che il bot sia attivo per questo simbolo.`,
+                        severity: 'medium' // ✅ Cambiato da 'high' a 'medium' - non blocca, solo avvisa
                     });
                 }
             } else {
+                // ✅ Non è un blocker critico se non ci sono dati - potrebbe essere un nuovo simbolo
                 freshnessBlockers.push({
                     type: 'Dati Mancanti',
-                    reason: 'Nessun dato storico a 15m trovato. Il bot deve ancora avviarsi.',
-                    severity: 'high'
+                    reason: 'Nessun dato storico a 15m trovato. Il bot creerà i dati al prossimo ciclo.',
+                    severity: 'medium' // ✅ Cambiato da 'high' a 'medium'
                 });
             }
 
@@ -4579,10 +4616,16 @@ router.get('/bot-analysis', async (req, res) => {
                     const meetsRequirements = longAdjustedStrength >= LONG_MIN_STRENGTH &&
                         longCurrentConfirmations >= LONG_MIN_CONFIRMATIONS;
 
+                    // ✅ FIX CRITICO: Mostra blocker anche se requirements sono soddisfatti ma canOpen è false
+                    // Questo permette di vedere PERCHÉ non apre anche quando segnale è READY
+                    const canOpen = meetsRequirements && canOpenCheck.allowed && !signal.atrBlocked;
+                    
+                    // Se requirements NON sono soddisfatti, non mostrare blocker (mostra solo nel "Top Reason")
                     if (!meetsRequirements) {
                         return []; // No blockers to show if requirements not met
                     }
 
+                    // ✅ IMPORTANTE: Se requirements sono OK ma canOpen è false, mostra TUTTI i blocker
                     // Freshness Blockers
                     if (freshnessBlockers.length > 0) {
                         blocks.push(...freshnessBlockers);
@@ -4597,11 +4640,21 @@ router.get('/bot-analysis', async (req, res) => {
                         });
                     }
 
-                    // Risk Manager block
+                    // Risk Manager block (GLOBALE - blocca tutto il trading)
                     if (!riskCheck.canTrade) {
                         blocks.push({
-                            type: 'Risk Manager',
+                            type: 'Risk Manager (Globale)',
                             reason: riskCheck.reason || 'Esposizione massima raggiunta',
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX CRITICO: Risk Manager block per questa specifica posizione
+                    // Questo è diverso da riskCheck.canTrade - controlla se può aprire questa specifica posizione
+                    if (!canOpenCheck.allowed) {
+                        blocks.push({
+                            type: 'Risk Manager',
+                            reason: canOpenCheck.reason || `Esposizione insufficiente o limite raggiunto (disponibile: €${maxAvailableForNewPosition.toFixed(2)})`,
                             severity: 'high'
                         });
                     }
@@ -4642,6 +4695,16 @@ router.get('/bot-analysis', async (req, res) => {
                         });
                     }
 
+                    // ✅ FIX: Se non ci sono blocker ma canOpen è false, aggiungi un blocker generico
+                    // Questo garantisce che SEMPRE si veda perché non apre quando requirements sono OK
+                    if (blocks.length === 0 && !canOpen) {
+                        blocks.push({
+                            type: 'Blocco sconosciuto',
+                            reason: `Requirements soddisfatti ma posizione non può essere aperta. Verifica log backend per dettagli.`,
+                            severity: 'medium'
+                        });
+                    }
+
                     return blocks;
                 })(),
                 short: (() => {
@@ -4663,6 +4726,9 @@ router.get('/bot-analysis', async (req, res) => {
                         });
                     }
 
+                    // ✅ FIX CRITICO: Mostra blocker anche se requirements sono soddisfatti ma canOpen è false
+                    const canOpen = meetsRequirements && canOpenCheck.allowed && !signal.atrBlocked && supportsShort;
+                    
                     if (!meetsRequirements) {
                         return []; // No blockers to show if requirements not met
                     }
@@ -4718,6 +4784,24 @@ router.get('/bot-analysis', async (req, res) => {
                             type: 'Strategia Ibrida',
                             reason: hybridCheck.reason,
                             severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Risk Manager block per questa specifica posizione SHORT
+                    if (!canOpenCheck.allowed) {
+                        blocks.push({
+                            type: 'Risk Manager',
+                            reason: canOpenCheck.reason || `Esposizione insufficiente o limite raggiunto (disponibile: €${maxAvailableForNewPosition.toFixed(2)})`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Se non ci sono blocker ma canOpen è false, aggiungi un blocker generico
+                    if (blocks.length === 0 && !canOpen) {
+                        blocks.push({
+                            type: 'Blocco sconosciuto',
+                            reason: `Requirements soddisfatti ma posizione SHORT non può essere aperta. Verifica log backend per dettagli.`,
+                            severity: 'medium'
                         });
                     }
 
