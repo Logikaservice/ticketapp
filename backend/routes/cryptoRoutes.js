@@ -1572,7 +1572,13 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                             }
                         });
 
-                        await openPosition(symbol, 'buy', amount, currentPrice, `LONG Signal (${signal.strength}/100)`, stopLoss, takeProfit, { ...options, signal_details: signalDetails });
+
+                        await openPosition(symbol, 'buy', amount, currentPrice, `LONG Signal (${signal.strength}/100)`, stopLoss, takeProfit, {
+                            ...options,
+                            signal_details: signalDetails,
+                            trailing_stop_enabled: true,
+                            trailing_stop_distance_pct: 1.5 // Trailing stop a 1.5% dal massimo raggiunto
+                        });
                         console.log(`✅ BOT LONG: Opened position #${longPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
                         riskManager.invalidateCache(); // Invalida cache dopo operazione
                     } else if (!canOpen.allowed) {
@@ -1695,7 +1701,13 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                                 }
                             });
 
-                            await openPosition(symbol, 'sell', amount, currentPrice, `SHORT Signal (${signal.strength}/100)`, stopLoss, takeProfit, { ...options, signal_details: signalDetails });
+
+                            await openPosition(symbol, 'sell', amount, currentPrice, `SHORT Signal (${signal.strength}/100)`, stopLoss, takeProfit, {
+                                ...options,
+                                signal_details: signalDetails,
+                                trailing_stop_enabled: true,
+                                trailing_stop_distance_pct: 1.5 // Trailing stop a 1.5% dal minimo raggiunto
+                            });
                             console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
                             riskManager.invalidateCache(); // Invalida cache dopo operazione
                         } else if (!canOpen.allowed) {
@@ -4168,8 +4180,8 @@ router.get('/bot-analysis', async (req, res) => {
         const shortPositions = openPositions.filter(p => p.type === 'sell');
 
         // Calculate what's needed for LONG
-        const LONG_MIN_CONFIRMATIONS = 4;
-        const LONG_MIN_STRENGTH = 70;
+        const LONG_MIN_CONFIRMATIONS = 3; // Abbassato da 4 per più opportunità
+        const LONG_MIN_STRENGTH = 60; // Abbassato da 70 per più opportunità
         // ✅ FIX: Mostra longSignal in base alla direction
         // LONG: usa signal.strength (valore principale)
         // NEUTRAL: mostra signal.longSignal.strength se esiste (segnali parziali)
@@ -4201,8 +4213,8 @@ router.get('/bot-analysis', async (req, res) => {
             signal.confirmations >= LONG_MIN_CONFIRMATIONS;
 
         // Calculate what's needed for SHORT
-        const SHORT_MIN_CONFIRMATIONS = 5;
-        const SHORT_MIN_STRENGTH = 70;
+        const SHORT_MIN_CONFIRMATIONS = 4; // Abbassato da 5 per più opportunità
+        const SHORT_MIN_STRENGTH = 60; // Abbassato da 70 per più opportunità
         // ✅ FIX CRITICO: Mostra shortSignal in base alla direction
         // SHORT: usa signal.strength (valore principale)
         // NEUTRAL: mostra signal.shortSignal SOLO se prezzo sta scendendo attivamente
