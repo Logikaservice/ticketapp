@@ -4163,6 +4163,9 @@ router.get('/bot-analysis', async (req, res) => {
         const indicators = signal.indicators || {};
         const rsi = indicators.rsi;
 
+        // ✅ LOG per confronto con Market Scanner
+        console.log(`📊 [BOT-ANALYSIS] RSI calcolato: ${rsi?.toFixed(2) || 'N/A'} (periodo 14, stessa logica di Market Scanner)`);
+
         console.log('🔍 [BOT-ANALYSIS] Getting risk check...');
         // Get bot parameters
         const params = await getBotParameters();
@@ -4313,6 +4316,14 @@ router.get('/bot-analysis', async (req, res) => {
                 shortMtfReason = '➡️ Neutral timeframes (0)';
             }
         }
+
+        // ✅ Check Volume
+        const volume24h = await get24hVolume(symbol).catch(() => 0);
+        const MIN_VOLUME = 500_000;
+        const volumeBlocked = volume24h < MIN_VOLUME;
+
+        // ✅ Check Hybrid Strategy
+        const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions);
 
         const longAdjustedStrength = longCurrentStrength + longMtfBonus;
         const shortAdjustedStrength = shortCurrentStrength + shortMtfBonus;
@@ -4523,6 +4534,24 @@ router.get('/bot-analysis', async (req, res) => {
                         });
                     }
 
+                    // Volume check
+                    if (volumeBlocked) {
+                        blocks.push({
+                            type: 'Volume troppo basso',
+                            reason: `Volume 24h €${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })} < €${MIN_VOLUME.toLocaleString('it-IT')}`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Hybrid Strategy check
+                    if (!hybridCheck.allowed) {
+                        blocks.push({
+                            type: 'Strategia Ibrida',
+                            reason: hybridCheck.reason,
+                            severity: 'high'
+                        });
+                    }
+
                     return blocks;
                 })(),
                 short: (() => {
@@ -4567,6 +4596,24 @@ router.get('/bot-analysis', async (req, res) => {
                         blocks.push({
                             type: 'Balance insufficiente',
                             reason: `Solo €${maxAvailableForNewPosition.toFixed(2)} disponibili (minimo €10)`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Volume check
+                    if (volumeBlocked) {
+                        blocks.push({
+                            type: 'Volume troppo basso',
+                            reason: `Volume 24h €${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })} < €${MIN_VOLUME.toLocaleString('it-IT')}`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Hybrid Strategy check
+                    if (!hybridCheck.allowed) {
+                        blocks.push({
+                            type: 'Strategia Ibrida',
+                            reason: hybridCheck.reason,
                             severity: 'high'
                         });
                     }
@@ -4842,7 +4889,8 @@ router.get('/scanner', async (req, res) => {
                 }
 
                 // ✅ LOG per debug (sempre, anche per NEUTRAL)
-                console.log(`[SCANNER] ${s.display}: direction=${displayDirection}, strength=${displayStrength}, original=${signal?.direction || 'ERROR'}/${signal?.strength || 0}`);
+                const rsiValue = signal?.indicators?.rsi || null;
+                console.log(`[SCANNER] ${s.display}: direction=${displayDirection}, strength=${displayStrength}, RSI=${rsiValue?.toFixed(2) || 'N/A'}, price=${currentPrice.toFixed(4)}`);
 
                 // ✅ IMPORTANTE: Restituisci SEMPRE il risultato, anche se NEUTRAL con strength 0
                 // Questo permette di vedere TUTTI i simboli nel Market Scanner per debug
@@ -4855,7 +4903,7 @@ router.get('/scanner', async (req, res) => {
                     strength: displayStrength || 0, // Usa strength migliorata per display (almeno 0)
                     confirmations: signal?.confirmations || 0,
                     reasons: signal?.reasons || ['Nessun segnale'],
-                    rsi: signal?.indicators?.rsi || null // RSI calcolato con ultima candela aggiornata
+                    rsi: rsiValue // RSI calcolato con ultima candela aggiornata (periodo 14, stesso di bot-analysis)
                 };
             } catch (err) {
                 console.error(`[SCANNER] Errore completo per ${s.symbol}:`, err.message);
