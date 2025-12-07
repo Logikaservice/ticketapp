@@ -449,13 +449,23 @@ const CryptoDashboard = () => {
             if (pos.type === 'buy' && pos.status === 'open') {
                 totalLongValue += remainingVolume * price;
             } else if (pos.type === 'sell' && pos.status === 'open') {
-                totalShortLiability += remainingVolume * price;
+                // ✅ FIX: Per SHORT, il debito è FISSO all'entry price (quanto crypto dobbiamo restituire)
+                // NON usiamo current_price perché il debito non cambia - solo il P&L cambia
+                const entryPrice = parseFloat(pos.entry_price) || 0;
+                totalShortLiability += remainingVolume * entryPrice;
             }
         });
     }
 
-    // Equity = Cash + Longs - Short Liabilities
+    // ✅ FIX CRITICO: Calcolo corretto Total Balance
+    // LONG: Valore attuale delle crypto possedute (current_price * volume)
+    // SHORT: Debito da ripagare (entry_price * volume) - questo è quanto dobbiamo restituire
+    // Equity = Cash + Long Value - Short Debt
+
+    // Per SHORT, il debito è FISSO all'entry price (quanto abbiamo "preso in prestito")
+    // NON cambia con il prezzo corrente - quello influenza solo il P&L
     const totalBalance = portfolio.balance_usd + totalLongValue - totalShortLiability;
+
 
     // ✅ FIX: Calculate P&L ONLY from OPEN positions (not all holdings)
     // This prevents showing unrealized P&L from old closed positions' residual holdings
