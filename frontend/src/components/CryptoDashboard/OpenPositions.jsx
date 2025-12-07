@@ -70,7 +70,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                             fontWeight: '600',
                             color: totalPnL >= 0 ? '#10b981' : '#ef4444'
                         }}>
-                            {totalPnL >= 0 ? '+' : ''}€{totalPnL.toFixed(2)}
+                            {totalPnL >= 0 ? '+' : ''}€{(totalPnL || 0).toFixed(2)}
                         </div>
                     </div>
                     {isUpdating && (
@@ -99,12 +99,13 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                     </thead>
                     <tbody>
                         {positions.map((pos) => {
+                            // ✅ FIX: Controlli null/undefined per prevenire errori toFixed()
                             const pnl = parseFloat(pos.profit_loss) || 0;
                             const pnlPct = parseFloat(pos.profit_loss_pct) || 0;
                             const isLong = pos.type === 'buy';
-                            const entryPrice = parseFloat(pos.entry_price);
-                            const currentPriceValue = parseFloat(pos.current_price) || currentPrice;
-                            const volume = parseFloat(pos.volume);
+                            const entryPrice = parseFloat(pos.entry_price) || 0;
+                            const currentPriceValue = parseFloat(pos.current_price) || parseFloat(currentPrice) || 0;
+                            const volume = parseFloat(pos.volume) || 0;
 
                             return (
                                 <tr
@@ -177,15 +178,15 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                                 return symbolInfo.display;
                                             }
                                             // Fallback: formatta manualmente se non trovato
-                                            if (pos.symbol.includes('_usdt')) {
+                                            if (pos.symbol && pos.symbol.includes('_usdt')) {
                                                 const baseSymbol = pos.symbol.replace('_usdt', '').toUpperCase();
                                                 return `${baseSymbol}/USDT`;
-                                            } else if (pos.symbol.includes('_eur')) {
+                                            } else if (pos.symbol && pos.symbol.includes('_eur')) {
                                                 const baseSymbol = pos.symbol.replace('_eur', '').toUpperCase();
                                                 return `${baseSymbol}/EUR`;
                                             }
                                             // Fallback finale: uppercase semplice
-                                            return pos.symbol.toUpperCase().replace(/_/g, '/');
+                                            return (pos.symbol || '').toUpperCase().replace(/_/g, '/');
                                         })()}
                                     </td>
                                     <td style={{ padding: '10px 8px' }}>
@@ -205,25 +206,25 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                         </div>
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace' }}>
-                                        {volume.toFixed(4)}
+                                        {(volume || 0).toFixed(4)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600', color: '#fbbf24' }}>
-                                        €{(entryPrice && volume ? (entryPrice * volume).toFixed(2) : '0.00')}
+                                        €{((entryPrice || 0) * (volume || 0)).toFixed(2)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#9ca3af' }}>
-                                        <span title="Prezzo in EUR (convertito da USDT)">€{entryPrice.toFixed(2)}</span>
+                                        <span title="Prezzo in EUR (convertito da USDT)">€{(entryPrice || 0).toFixed(2)}</span>
                                         {pos.symbol && pos.symbol.includes('_usdt') && (
                                             <span style={{ fontSize: '10px', color: '#6b7280', marginLeft: '4px' }} title="Prezzo convertito da USDT a EUR">(EUR)</span>
                                         )}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600' }}>
-                                        €{currentPriceValue.toFixed(2)}
+                                        €{(currentPriceValue || 0).toFixed(2)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#ef4444' }}>
-                                        {pos.stop_loss ? `€${parseFloat(pos.stop_loss).toFixed(2)}` : '-'}
+                                        {pos.stop_loss ? `€${(parseFloat(pos.stop_loss) || 0).toFixed(2)}` : '-'}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#10b981' }}>
-                                        {pos.take_profit ? `€${parseFloat(pos.take_profit).toFixed(2)}` : '-'}
+                                        {pos.take_profit ? `€${(parseFloat(pos.take_profit) || 0).toFixed(2)}` : '-'}
                                     </td>
                                     <td style={{
                                         padding: '10px 8px',
@@ -232,7 +233,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                         fontWeight: '600',
                                         color: pnl >= 0 ? '#10b981' : '#ef4444'
                                     }}>
-                                        {pnl >= 0 ? '+' : ''}€{pnl.toFixed(2)}
+                                        {pnl >= 0 ? '+' : ''}€{(pnl || 0).toFixed(2)}
                                     </td>
                                     <td style={{
                                         padding: '10px 8px',
@@ -241,12 +242,12 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                         fontWeight: '600',
                                         color: pnlPct >= 0 ? '#10b981' : '#ef4444'
                                     }}>
-                                        {pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%
+                                        {pnlPct >= 0 ? '+' : ''}{(pnlPct || 0).toFixed(2)}%
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'center' }}>
                                         <button
                                             onClick={() => {
-                                                if (window.confirm(`Chiudere la posizione ${pos.ticket_id.substring(0, 8)}?`)) {
+                                                if (window.confirm(`Chiudere la posizione ${pos.ticket_id?.substring(0, 8) || 'N/A'}?`)) {
                                                     onClosePosition(pos.ticket_id);
                                                 }
                                             }}
@@ -287,7 +288,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
             }}>
                 <div>
                     Volume Totale: <span style={{ color: '#fff', fontWeight: '600' }}>
-                        {positions.reduce((sum, pos) => sum + parseFloat(pos.volume), 0).toFixed(4)}
+                        {(positions.reduce((sum, pos) => sum + (parseFloat(pos.volume) || 0), 0) || 0).toFixed(4)}
                     </span>
                 </div>
                 <div>
@@ -295,7 +296,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                         color: totalPnLPercent >= 0 ? '#10b981' : '#ef4444',
                         fontWeight: '600'
                     }}>
-                        {totalPnLPercent >= 0 ? '+' : ''}{totalPnLPercent.toFixed(2)}%
+                        {totalPnLPercent >= 0 ? '+' : ''}{(totalPnLPercent || 0).toFixed(2)}%
                     </span>
                 </div>
             </div>
@@ -304,4 +305,3 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
 };
 
 export default OpenPositions;
-
