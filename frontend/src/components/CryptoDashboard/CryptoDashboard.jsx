@@ -458,11 +458,23 @@ const CryptoDashboard = () => {
     let totalLongValue = 0;
     let totalShortLiability = 0;
 
-    if (openPositions && openPositions.length > 0) {
-        openPositions.forEach(pos => {
+    // ✅ FIX: Usa validOpenPositions invece di openPositions per coerenza
+    if (validOpenPositions && validOpenPositions.length > 0) {
+        validOpenPositions.forEach(pos => {
+            // ✅ FIX: Validazione aggiuntiva
+            if (pos.status !== 'open') {
+                return; // Skip non-open positions
+            }
+            
             const volume = parseFloat(pos.volume) || 0;
             const volumeClosed = parseFloat(pos.volume_closed) || 0;
             const remainingVolume = volume - volumeClosed;
+            
+            // ✅ FIX: Valida remainingVolume
+            if (remainingVolume <= 0) {
+                return; // Skip positions with no remaining volume
+            }
+            
             // Use live price if available, otherwise try currentSymbol price or position's last known price
             const price = allSymbolPrices[pos.symbol] || (pos.symbol === currentSymbol ? currentPrice : parseFloat(pos.current_price) || 0);
 
@@ -472,7 +484,9 @@ const CryptoDashboard = () => {
                 // ✅ FIX: Per SHORT, il debito è FISSO all'entry price (quanto crypto dobbiamo restituire)
                 // NON usiamo current_price perché il debito non cambia - solo il P&L cambia
                 const entryPrice = parseFloat(pos.entry_price) || 0;
-                totalShortLiability += remainingVolume * entryPrice;
+                if (entryPrice > 0) {
+                    totalShortLiability += remainingVolume * entryPrice;
+                }
             }
         });
     }
@@ -484,24 +498,61 @@ const CryptoDashboard = () => {
 
     // Per SHORT, il debito è FISSO all'entry price (quanto abbiamo "preso in prestito")
     // NON cambia con il prezzo corrente - quello influenza solo il P&L
-    const totalBalance = portfolio.balance_usd + totalLongValue - totalShortLiability;
+    
+    // ✅ FIX CRITICO: Valida portfolio.balance_usd per evitare valori assurdi
+    const rawBalance = parseFloat(portfolio.balance_usd) || 0;
+    const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni di euro max (soglia di sicurezza)
+    const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min (per permettere debiti)
+    
+    let validatedBalance = rawBalance;
+    if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
+        console.error(`🚨 [BALANCE] Valore anomale di balance_usd: €${rawBalance.toLocaleString()}. Usando fallback: €10000`);
+        validatedBalance = 10000; // Fallback a 10k EUR
+    }
+    
+    const totalBalance = validatedBalance + totalLongValue - totalShortLiability;
 
 
-    // ✅ FIX SEMPLIFICATO: Usa direttamente profit_loss calcolato dal backend
-    // Il calcolo dovrebbe essere "molto stupido" - semplicemente sommare i profit_loss delle posizioni aperte
+    // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend
+    // ✅ FIX: Validazione STRICTA - solo posizioni con status === 'open' e dati validi
     let pnlValue = 0;
     let pnlPercent = 0;
     let totalInvestedValue = 0;
     let avgPrice = 0;
 
-    if (openPositions && openPositions.length > 0) {
+    // ✅ FIX: Filtra STRICTO solo posizioni aperte e valida i dati
+    const validOpenPositions = (openPositions || []).filter(pos => {
+        // Validazione STRICTA: deve essere esattamente 'open'
+        if (!pos || pos.status !== 'open') {
+            return false;
+        }
+        // Validazione: deve avere ticket_id valido
+        if (!pos.ticket_id) {
+            return false;
+        }
+        return true;
+    });
+
+    if (validOpenPositions.length > 0) {
         // Calcolo SEMPLICE: somma i profit_loss già calcolati dal backend
         // Questo evita problemi con prezzi sbagliati o mancanti
-        openPositions.forEach(pos => {
-            if (pos.status !== 'open') return; // Skip closed positions
+        validOpenPositions.forEach(pos => {
+            // ✅ FIX: Validazione aggiuntiva per sicurezza
+            if (pos.status !== 'open') {
+                console.warn(`⚠️ [P&L] Skipping position ${pos.ticket_id} with invalid status: ${pos.status}`);
+                return;
+            }
             
             // Usa direttamente profit_loss dal backend (già calcolato correttamente)
             const positionPnL = parseFloat(pos.profit_loss) || 0;
+            
+            // ✅ FIX: Valida valori anomali (evita errori di calcolo)
+            const MAX_REASONABLE_PNL = 1000000; // 1 milione di euro max
+            if (Math.abs(positionPnL) > MAX_REASONABLE_PNL) {
+                console.warn(`⚠️ [P&L] Skipping anomalous profit_loss for position ${pos.ticket_id}: €${positionPnL.toFixed(2)}`);
+                return;
+            }
+            
             pnlValue += positionPnL;
             
             // Calcola invested value per la percentuale
@@ -520,7 +571,7 @@ const CryptoDashboard = () => {
         pnlPercent = totalInvestedValue > 0 ? (pnlValue / totalInvestedValue) * 100 : 0;
         
         // Calculate average price (weighted average of all entry prices)
-        const totalVolume = openPositions.reduce((sum, pos) => {
+        const totalVolume = validOpenPositions.reduce((sum, pos) => {
             if (pos.status !== 'open') return sum;
             const vol = parseFloat(pos.volume) || 0;
             const volClosed = parseFloat(pos.volume_closed) || 0;

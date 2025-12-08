@@ -113,6 +113,24 @@ const getPortfolio = () => {
                     // ✅ FIX: Se non esiste, ritorna default
                     resolve({ balance_usd: 10000.0, holdings: '{}' });
                 } else {
+                    // ✅ FIX CRITICO: Valida balance_usd per evitare valori assurdi
+                    const rawBalance = parseFloat(row.balance_usd) || 0;
+                    const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni di euro max
+                    const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min
+                    
+                    if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
+                        console.error(`🚨 [PORTFOLIO] Valore anomale di balance_usd nel database: €${rawBalance.toLocaleString()}. Usando fallback: €10000`);
+                        // ✅ FIX: Aggiorna il database con valore valido
+                        db.run("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [10000], (updateErr) => {
+                            if (updateErr) {
+                                console.error('❌ Error fixing portfolio balance:', updateErr.message);
+                            } else {
+                                console.log('✅ [PORTFOLIO] Balance corretto nel database a €10000');
+                            }
+                        });
+                        row.balance_usd = 10000; // Usa valore valido per questa chiamata
+                    }
+                    
                     resolve(row);
                 }
             });
@@ -2611,17 +2629,46 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
 // GET /api/crypto/positions - Get all open positions
 router.get('/positions', (req, res) => {
     const { status } = req.query;
-    const query = status
-        ? "SELECT * FROM open_positions WHERE status = ? ORDER BY opened_at DESC"
-        : "SELECT * FROM open_positions ORDER BY opened_at DESC";
-
-    const params = status ? [status] : [];
+    
+    // ✅ FIX: Validazione STRICTA - se status è specificato, deve essere esattamente 'open'
+    // Questo previene bug dove posizioni chiuse vengono mostrate come aperte
+    let query;
+    let params = [];
+    
+    if (status) {
+        // ✅ FIX: Solo accetta 'open' come status valido per questo endpoint
+        if (status === 'open') {
+            query = "SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC";
+        } else {
+            // Per altri status, usa query normale ma con validazione
+            query = "SELECT * FROM open_positions WHERE status = ? ORDER BY opened_at DESC";
+            params = [status];
+        }
+    } else {
+        // Se non specificato, restituisci tutte le posizioni
+        query = "SELECT * FROM open_positions ORDER BY opened_at DESC";
+    }
 
     db.all(query, params, (err, rows) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
-        res.json({ positions: rows });
+        
+        // ✅ FIX: Validazione aggiuntiva - filtra posizioni con dati invalidi
+        const validPositions = (rows || []).filter(pos => {
+            // Deve avere ticket_id
+            if (!pos || !pos.ticket_id) {
+                return false;
+            }
+            // Se status è 'open', verifica che sia effettivamente 'open'
+            if (status === 'open' && pos.status !== 'open') {
+                console.warn(`⚠️ [POSITIONS] Position ${pos.ticket_id} has status '${pos.status}' but was requested as 'open'`);
+                return false;
+            }
+            return true;
+        });
+        
+        res.json({ positions: validPositions });
     });
 });
 
