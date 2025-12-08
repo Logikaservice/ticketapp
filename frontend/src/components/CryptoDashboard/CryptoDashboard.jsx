@@ -8,7 +8,6 @@ import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
 import MarketScanner from './MarketScanner';
 import GeneralSettings from './GeneralSettings';
-import KellyStatsPanel from './KellyStatsPanel';
 import cryptoSounds from '../../utils/cryptoSounds';
 import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
 import './CryptoLayout.css';
@@ -38,7 +37,6 @@ const CryptoDashboard = () => {
     const [useApexChart, setUseApexChart] = useState(false); // Toggle tra TradingView e ApexChart
     const [showAddFundsModal, setShowAddFundsModal] = useState(false); // Modal per aggiungere fondi
     const [showGeneralSettings, setShowGeneralSettings] = useState(false); // Modal per impostazioni generali
-    const [performanceStats, setPerformanceStats] = useState(null); // Kelly Criterion stats
 
     // WebSocket for real-time notifications
     const { connected: wsConnected } = useCryptoWebSocket(
@@ -93,7 +91,7 @@ const CryptoDashboard = () => {
                 console.warn('⚠️ [AUTO-FIX] Errore correzione automatica P&L:', fixError);
                 // Continua comunque, non bloccare il caricamento
             }
-            
+
             const res = await fetch(`${apiBase}/api/crypto/dashboard`);
             if (res.ok) {
                 const data = await res.json();
@@ -112,8 +110,8 @@ const CryptoDashboard = () => {
                 const anyActiveBot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy' && b.is_active === 1);
                 const bot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy' && b.symbol === currentSymbol);
                 // Se c'è almeno un bot attivo, mostra ACTIVE, altrimenti PAUSED
-                setBotStatus({ 
-                    active: anyActiveBot ? true : false, 
+                setBotStatus({
+                    active: anyActiveBot ? true : false,
                     strategy: bot?.strategy_name || 'RSI_Strategy',
                     currentSymbolBot: bot ? (bot.is_active === 1) : false
                 });
@@ -445,13 +443,13 @@ const CryptoDashboard = () => {
         const fetchAllPrices = async () => {
             const holdings = portfolio.holdings || {};
             const holdingsSymbols = Object.keys(holdings).filter(s => holdings[s] > 0);
-            
+
             // ✅ FIX: Recupera prezzi anche per tutti i simboli delle posizioni aperte
             const openPositionSymbols = openPositions
                 .filter(pos => pos.status === 'open')
                 .map(pos => pos.symbol)
                 .filter((symbol, index, self) => self.indexOf(symbol) === index); // Remove duplicates
-            
+
             // Combina tutti i simboli unici
             const allSymbols = [...new Set([...holdingsSymbols, ...openPositionSymbols])];
             const prices = {};
@@ -481,7 +479,7 @@ const CryptoDashboard = () => {
     // Il valore delle posizioni è già "bloccato" e non è disponibile come cash
     // ✅ FIX: Use ONLY open positions effectively ignoring 'portfolio.holdings' which might be corrupted
     const holdings = portfolio.holdings || {}; // Restore this for fallback logic
-    
+
     // ✅ FIX CRITICO: Filtra STRICTO solo posizioni aperte PRIMA di usarle (evita ReferenceError)
     const validOpenPositions = (openPositions || []).filter(pos => {
         // Validazione STRICTA: deve essere esattamente 'open'
@@ -494,13 +492,13 @@ const CryptoDashboard = () => {
         }
         return true;
     });
-    
+
     // ✅ FIX CRITICO: Dichiarare tutte le costanti PRIMA del loro utilizzo
     const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni di euro max (soglia di sicurezza)
     const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min (per permettere debiti)
     const MAX_REASONABLE_VOLUME = 1000000; // 1 milione di unità max
     const MAX_REASONABLE_PRICE = 1000000; // 1 milione EUR max per unità
-    
+
     let totalLongValue = 0;
     let totalShortLiability = 0;
 
@@ -511,24 +509,24 @@ const CryptoDashboard = () => {
             if (pos.status !== 'open') {
                 return; // Skip non-open positions
             }
-            
+
             const volume = parseFloat(pos.volume) || 0;
             const volumeClosed = parseFloat(pos.volume_closed) || 0;
             const remainingVolume = volume - volumeClosed;
-            
+
             // ✅ FIX: Valida remainingVolume
             if (remainingVolume <= 0) {
                 return; // Skip positions with no remaining volume
             }
-            
+
             if (remainingVolume > MAX_REASONABLE_VOLUME) {
                 console.error(`🚨 [BALANCE] Volume anomale per posizione ${pos.ticket_id}: ${remainingVolume}. Skipping.`);
                 return;
             }
-            
+
             // Use live price if available, otherwise try currentSymbol price or position's last known price
             let price = allSymbolPrices[pos.symbol] || (pos.symbol === currentSymbol ? currentPrice : parseFloat(pos.current_price) || 0);
-            
+
             // ✅ FIX CRITICO: Valida che il prezzo sia ragionevole
             if (price > MAX_REASONABLE_PRICE) {
                 console.error(`🚨 [BALANCE] Prezzo anomale per ${pos.symbol}: €${price.toLocaleString()}. Usando entry_price come fallback.`);
@@ -554,13 +552,13 @@ const CryptoDashboard = () => {
                 // ✅ FIX: Per SHORT, il debito è FISSO all'entry price (quanto crypto dobbiamo restituire)
                 // NON usiamo current_price perché il debito non cambia - solo il P&L cambia
                 const entryPrice = parseFloat(pos.entry_price) || 0;
-                
+
                 // ✅ FIX: Valida entry_price
                 if (entryPrice > MAX_REASONABLE_PRICE) {
                     console.error(`🚨 [BALANCE] Entry price anomale per SHORT ${pos.ticket_id}: €${entryPrice.toLocaleString()}. Skipping.`);
                     return;
                 }
-                
+
                 if (entryPrice > 0) {
                     const shortLiability = remainingVolume * entryPrice;
                     // ✅ FIX: Valida che il valore calcolato sia ragionevole
@@ -581,11 +579,11 @@ const CryptoDashboard = () => {
 
     // Per SHORT, il debito è FISSO all'entry price (quanto abbiamo "preso in prestito")
     // NON cambia con il prezzo corrente - quello influenza solo il P&L
-    
+
     // ✅ FIX CRITICO: Valida portfolio.balance_usd per evitare valori assurdi
     // ✅ NOTA: MAX_REASONABLE_BALANCE e MIN_REASONABLE_BALANCE sono già dichiarati sopra
     const rawBalance = parseFloat(portfolio.balance_usd) || 0;
-    
+
     // ✅ DEBUG CRITICO: Log valori PRIMA della validazione per capire da dove viene il problema
     console.log('🔍 [BALANCE DEBUG - RAW VALUES]', {
         'portfolio.balance_usd (raw)': portfolio.balance_usd,
@@ -597,7 +595,7 @@ const CryptoDashboard = () => {
         'currentPrice': currentPrice,
         'currentSymbol': currentSymbol
     });
-    
+
     // ✅ DEBUG: Log dettagli per ogni posizione aperta
     if (validOpenPositions.length > 0) {
         console.log('🔍 [BALANCE DEBUG - OPEN POSITIONS]', validOpenPositions.map(pos => ({
@@ -614,13 +612,13 @@ const CryptoDashboard = () => {
             'calculated shortLiability (if sell)': pos.type === 'sell' ? ((parseFloat(pos.volume) || 0) - (parseFloat(pos.volume_closed) || 0)) * (parseFloat(pos.entry_price) || 0) : 0
         })));
     }
-    
+
     let validatedBalance = rawBalance;
     if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
         console.error(`🚨 [BALANCE] Valore anomale di balance_usd: €${rawBalance.toLocaleString()}. Usando fallback: €10000`);
         validatedBalance = 10000; // Fallback a 10k EUR
     }
-    
+
     // ✅ DEBUG: Log valori DOPO la validazione
     console.log('🔍 [BALANCE DEBUG - VALIDATED VALUES]', {
         'validatedBalance (available cash)': validatedBalance,
@@ -629,12 +627,12 @@ const CryptoDashboard = () => {
         'totalBalance (available cash only)': validatedBalance,
         'portfolio equity (cash + positions)': validatedBalance + totalLongValue - totalShortLiability
     });
-    
+
     // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
     // Se hai €1000 totali e investi €500, il Total Balance deve mostrare €500 (capitale disponibile)
     // Il valore delle posizioni (totalLongValue - totalShortLiability) è già "bloccato" e non è disponibile
     const totalBalance = validatedBalance; // Solo capitale disponibile, non equity totale
-    
+
     // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend
     // ✅ FIX: Validazione STRICTA - solo posizioni con status === 'open' e dati validi
     // ✅ NOTA: validOpenPositions è già dichiarato sopra, non dichiararlo di nuovo!
@@ -652,25 +650,25 @@ const CryptoDashboard = () => {
                 console.warn(`⚠️ [P&L] Skipping position ${pos.ticket_id} with invalid status: ${pos.status}`);
                 return;
             }
-            
+
             // Usa direttamente profit_loss dal backend (già calcolato correttamente)
             const positionPnL = parseFloat(pos.profit_loss) || 0;
-            
+
             // ✅ FIX: Valida valori anomali (evita errori di calcolo)
             const MAX_REASONABLE_PNL = 1000000; // 1 milione di euro max
             if (Math.abs(positionPnL) > MAX_REASONABLE_PNL) {
                 console.warn(`⚠️ [P&L] Skipping anomalous profit_loss for position ${pos.ticket_id}: €${positionPnL.toFixed(2)}`);
                 return;
             }
-            
+
             pnlValue += positionPnL;
-            
+
             // Calcola invested value per la percentuale
             const entryPrice = parseFloat(pos.entry_price) || 0;
             const volume = parseFloat(pos.volume) || 0;
             const volumeClosed = parseFloat(pos.volume_closed) || 0;
             const remainingVolume = volume - volumeClosed;
-            
+
             if (remainingVolume > 0 && entryPrice > 0) {
                 const invested = remainingVolume * entryPrice;
                 totalInvestedValue += invested;
@@ -679,7 +677,7 @@ const CryptoDashboard = () => {
 
         // Calcola percentuale P&L
         pnlPercent = totalInvestedValue > 0 ? (pnlValue / totalInvestedValue) * 100 : 0;
-        
+
         // Calculate average price (weighted average of all entry prices)
         const totalVolume = validOpenPositions.reduce((sum, pos) => {
             if (pos.status !== 'open') return sum;
@@ -687,7 +685,7 @@ const CryptoDashboard = () => {
             const volClosed = parseFloat(pos.volume_closed) || 0;
             return sum + (vol - volClosed);
         }, 0);
-        
+
         avgPrice = totalInvestedValue > 0 && totalVolume > 0 ? totalInvestedValue / totalVolume : 0;
     } else {
         // Fallback: use old calculation if no open positions (for backward compatibility)
@@ -698,7 +696,7 @@ const CryptoDashboard = () => {
         pnlValue = currentValue - investedValue;
         pnlPercent = investedValue > 0 ? (pnlValue / investedValue) * 100 : 0;
     }
-    
+
     // ✅ DEBUG: Calcolo alternativo per verificare correttezza
     // Formula alternativa: Initial Balance + Realized P&L + Unrealized P&L
     // (dove Unrealized P&L è già incluso in totalLongValue - totalShortLiability)
@@ -707,14 +705,14 @@ const CryptoDashboard = () => {
         const pnl = parseFloat(pos.profit_loss) || 0;
         return sum + pnl;
     }, 0) || 0;
-    
+
     const unrealizedPnL = pnlValue; // Ora pnlValue è già calcolato sopra
-    
+
     // ✅ DEBUG: Log per verificare calcolo (solo in console, non visibile all'utente)
     if (Math.abs(totalBalance - (validatedBalance + totalLongValue - totalShortLiability)) > 0.01) {
         console.warn('⚠️ [BALANCE] Discrepanza nel calcolo totalBalance');
     }
-    
+
     // ✅ DEBUG: Log componenti balance (solo se ci sono valori anomali)
     if (Math.abs(validatedBalance) > 100000 || Math.abs(totalLongValue) > 100000 || Math.abs(totalShortLiability) > 100000) {
         console.log('📊 [BALANCE DEBUG]', {
@@ -734,18 +732,18 @@ const CryptoDashboard = () => {
         <div className="crypto-dashboard">
             <div className="crypto-header" style={{ position: 'relative' }}>
                 {/* ✅ Logo LogiKa in alto a sinistra (PNG) */}
-                <div style={{ 
-                    display: 'flex', 
+                <div style={{
+                    display: 'flex',
                     alignItems: 'center',
                     marginBottom: '1rem',
                     marginLeft: '-0.5rem',
                     paddingTop: '0.5rem'
                 }}>
-                    <img 
-                        src="/logo-logika.png" 
-                        alt="Logika" 
-                        style={{ 
-                            height: '80px', 
+                    <img
+                        src="/logo-logika.png"
+                        alt="Logika"
+                        style={{
+                            height: '80px',
                             width: 'auto',
                             display: 'block',
                             maxWidth: '300px',
@@ -844,9 +842,9 @@ const CryptoDashboard = () => {
                             onClick={async () => {
                                 try {
                                     const newStatus = !botStatus.active;
-                                    
+
                                     console.log(`🤖 Toggling ALL bots to ${newStatus ? 'ACTIVE' : 'PAUSED'}`);
-                                    
+
                                     const response = await fetch(`${apiBase}/api/crypto/bot/toggle-all`, {
                                         method: 'POST',
                                         headers: { 'Content-Type': 'application/json' },
@@ -854,26 +852,26 @@ const CryptoDashboard = () => {
                                             is_active: newStatus
                                         })
                                     });
-                                    
+
                                     if (!response.ok) {
                                         const errorData = await response.json();
                                         throw new Error(errorData.error || 'Errore nel toggle bot');
                                     }
-                                    
+
                                     const data = await response.json();
                                     console.log(`✅ ${data.message}`);
-                                    
+
                                     // Aggiorna stato locale
                                     setBotStatus(prev => ({ ...prev, active: newStatus }));
-                                    
+
                                     // Mostra messaggio
                                     alert(data.message);
-                                    
+
                                     // Ricarica dashboard per aggiornare dati
                                     setTimeout(() => {
                                         window.location.reload();
                                     }, 1000);
-                                    
+
                                 } catch (error) {
                                     console.error('Errore toggle bot:', error);
                                     alert(`Errore: ${error.message}`);
@@ -902,7 +900,7 @@ const CryptoDashboard = () => {
                             <Power size={18} />
                             {botStatus.active ? 'Disattiva Bot' : 'Attiva Bot'}
                         </button>
-                        
+
                         {/* Settings Button */}
                         <button
                             className="toggle-btn"
@@ -1074,10 +1072,8 @@ const CryptoDashboard = () => {
                 }}
             />
 
-            {/* KELLY CRITERION STATISTICS */}
-            <div style={{ marginTop: '20px' }}>
-                <KellyStatsPanel stats={performanceStats} />
-            </div>
+
+            {/* Kelly Criterion rimosso - ora usiamo Fixed Position Sizing */}
 
             {/* RECENT TRADES HISTORY */}
             <div className="crypto-card" style={{ marginTop: '20px' }}>
@@ -1117,19 +1113,19 @@ const CryptoDashboard = () => {
                                     // ✅ FIX CRITICO: Valida e ricalcola P&L se anomale
                                     const MAX_REASONABLE_PNL = 1000000; // 1 milione EUR max
                                     const MAX_REASONABLE_PRICE = 1000000; // 1 milione EUR max
-                                    
+
                                     // ✅ FIX: Verifica anche se il prezzo è completamente fuori range (es. €77246 per SAND)
                                     // Se entry_price è ragionevole (es. €0.12) ma closePrice è assurdo (es. €77246),
                                     // il P&L sarà assurdo anche se non supera MAX_REASONABLE_PNL in valore assoluto
                                     const priceRatio = entryPrice > 0 ? closePrice / entryPrice : 0;
                                     const isPriceAnomalous = priceRatio > 100 || (priceRatio < 0.01 && priceRatio > 0);
-                                    
+
                                     // Se P&L o prezzo sono anomali, ricalcola
-                                    if (Math.abs(pnl) > MAX_REASONABLE_PNL || 
-                                        closePrice > MAX_REASONABLE_PRICE || 
+                                    if (Math.abs(pnl) > MAX_REASONABLE_PNL ||
+                                        closePrice > MAX_REASONABLE_PRICE ||
                                         entryPrice > MAX_REASONABLE_PRICE ||
                                         isPriceAnomalous) {
-                                        
+
                                         console.warn(`⚠️ [FRONTEND] P&L anomale per posizione ${pos.ticket_id}:`, {
                                             pnl: pnl,
                                             entryPrice: entryPrice,
@@ -1138,18 +1134,18 @@ const CryptoDashboard = () => {
                                             priceRatio: priceRatio,
                                             isPriceAnomalous: isPriceAnomalous
                                         });
-                                        
+
                                         // Ricalcola P&L con logica corretta
-                                        if (entryPrice > 0 && entryPrice <= MAX_REASONABLE_PRICE && 
+                                        if (entryPrice > 0 && entryPrice <= MAX_REASONABLE_PRICE &&
                                             remainingVolume > 0) {
-                                            
+
                                             // Se il prezzo di chiusura è anomale, usa entry price (P&L = 0)
                                             if (closePrice > MAX_REASONABLE_PRICE || closePrice <= 0 || isPriceAnomalous) {
                                                 // ✅ FIX: Per SAND, se entry è €0.12 e close è €77246, usa entry
                                                 closePrice = entryPrice;
                                                 console.warn(`   → Prezzo chiusura anomale (ratio: ${priceRatio.toFixed(2)}x), uso entry price: €${entryPrice.toFixed(6)}`);
                                             }
-                                            
+
                                             // Ricalcola P&L
                                             if (pos.type === 'buy') {
                                                 // LONG: profit quando prezzo sale
@@ -1158,7 +1154,7 @@ const CryptoDashboard = () => {
                                                 // SHORT: profit quando prezzo scende
                                                 pnl = (entryPrice - closePrice) * remainingVolume;
                                             }
-                                            
+
                                             console.log(`   → P&L ricalcolato: €${pnl.toFixed(2)} (entry: €${entryPrice.toFixed(6)}, close: €${closePrice.toFixed(6)}, vol: ${remainingVolume.toFixed(4)})`);
                                         } else {
                                             // Se non possiamo ricalcolare, mostra 0
