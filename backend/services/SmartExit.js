@@ -50,13 +50,20 @@ const SMART_EXIT_CONFIG = {
     MIN_OPPOSITE_STRENGTH: 60, // Close if opposite signal strength >= 60
     MIN_PROFIT_TO_PROTECT: 0.5, // Only activate if position has at least 0.5% profit
     
+    // ✅ FIX: Soglie meno aggressive per evitare chiusure premature
     // Nuove configurazioni per ragionamento avanzato
     STATIC_MARKET_ATR_THRESHOLD: 0.3, // ATR < 0.3% = mercato statico
     SLOW_MARKET_ATR_THRESHOLD: 0.5, // ATR 0.3-0.5% = mercato lento
-    SUFFICIENT_PROFIT_IN_STATIC: 0.5, // 0.5% (50% del guadagno) è sufficiente in mercato statico
-    MIN_MOMENTUM_FOR_HOLD: 0.1, // Momentum minimo per tenere posizione (0.1% per periodo)
-    MAX_TIME_IN_STATIC_MARKET: 3600000, // 1 ora in mercato statico senza movimento = chiudi
-    OPPORTUNITY_COST_THRESHOLD: 1.0, // Se ci sono simboli con segnali >1% migliori, considera chiusura
+    SUFFICIENT_PROFIT_IN_STATIC: 2.0, // ✅ AUMENTATO: 2% minimo per chiudere in mercato statico (era 0.5% - troppo aggressivo)
+    MIN_MOMENTUM_FOR_HOLD: 0.05, // ✅ RIDOTTO: Momentum minimo per tenere (0.05% invece di 0.1% - più permissivo)
+    MAX_TIME_IN_STATIC_MARKET: 7200000, // ✅ AUMENTATO: 2 ore invece di 1 ora (più tempo prima di chiudere)
+    OPPORTUNITY_COST_THRESHOLD: 2.0, // ✅ AUMENTATO: 2% di differenza invece di 1% (più conservativo)
+    
+    // ✅ NUOVO: Soglia minima assoluta - MAI chiudere sotto questa soglia
+    MIN_ABSOLUTE_PROFIT_TO_CLOSE: 1.0, // MAI chiudere se guadagno < 1% (protezione contro chiusure premature)
+    
+    // ✅ NUOVO: Soglia per mercato lento - più conservativa
+    MIN_PROFIT_FOR_SLOW_MARKET: 1.5, // Minimo 1.5% per chiudere in mercato lento
 };
 
 /**
@@ -247,19 +254,38 @@ async function shouldClosePosition(position, priceHistory) {
         const marketCondition = assessMarketCondition(klines, currentPrice);
         const momentum = calculateMomentum(priceHistory, [5, 10, 20]);
         
+        // ✅ FIX: Protezione contro chiusure premature - MAI chiudere sotto soglia minima
+        if (currentPnLPct < SMART_EXIT_CONFIG.MIN_ABSOLUTE_PROFIT_TO_CLOSE) {
+            // MAI chiudere se guadagno < 1% - protezione contro chiusure premature
+            return {
+                shouldClose: false,
+                reason: `Guadagno ${currentPnLPct.toFixed(2)}% < soglia minima ${SMART_EXIT_CONFIG.MIN_ABSOLUTE_PROFIT_TO_CLOSE}% - Mantenere posizione`,
+                currentPnL: currentPnLPct,
+                decisionFactor: 'below_minimum_threshold'
+            };
+        }
+        
         // 4. RAGIONAMENTO: Mercato statico con guadagno sufficiente
         if (marketCondition.condition === 'static' && currentPnLPct >= SMART_EXIT_CONFIG.SUFFICIENT_PROFIT_IN_STATIC) {
-            // Se il mercato è statico e abbiamo un guadagno "sufficiente" (0.5%+), considera chiusura
+            // ✅ FIX: Solo se guadagno è DAVVERO sufficiente (>= 2%) E non c'è momentum
             // Specialmente se non c'è momentum positivo
             if (!momentum || momentum < SMART_EXIT_CONFIG.MIN_MOMENTUM_FOR_HOLD) {
-                return {
-                    shouldClose: true,
-                    reason: `Mercato statico (ATR: ${marketCondition.atrPct.toFixed(2)}%) con guadagno sufficiente (${currentPnLPct.toFixed(2)}%) ma senza momentum - Chiusura per evitare perdita`,
-                    currentPnL: currentPnLPct,
-                    marketCondition: marketCondition.condition,
-                    momentum: momentum,
-                    decisionFactor: 'static_market_no_momentum'
-                };
+                // ✅ AGGIUNTO: Verifica anche che il trend non stia migliorando
+                const sameDirectionSignal = isLongPosition ? signal.longSignal : signal.shortSignal;
+                const sameDirectionStrength = sameDirectionSignal?.strength || 0;
+                
+                // ✅ Solo chiudi se il trend nella stessa direzione è debole (< 40)
+                if (sameDirectionStrength < 40) {
+                    return {
+                        shouldClose: true,
+                        reason: `Mercato statico (ATR: ${marketCondition.atrPct.toFixed(2)}%) con guadagno ${currentPnLPct.toFixed(2)}% ma trend debole (${sameDirectionStrength}/100) e senza momentum - Chiusura per proteggere profitto`,
+                        currentPnL: currentPnLPct,
+                        marketCondition: marketCondition.condition,
+                        momentum: momentum,
+                        signalStrength: sameDirectionStrength,
+                        decisionFactor: 'static_market_no_momentum'
+                    };
+                }
             }
         }
         
@@ -277,17 +303,19 @@ async function shouldClosePosition(position, priceHistory) {
         }
         
         // 6. RAGIONAMENTO: Mercato lento con guadagno buono ma trend che si indebolisce
-        if (marketCondition.condition === 'slow' && currentPnLPct >= 0.5) {
+        // ✅ FIX: Soglia più alta (1.5% invece di 0.5%) per mercato lento
+        if (marketCondition.condition === 'slow' && currentPnLPct >= SMART_EXIT_CONFIG.MIN_PROFIT_FOR_SLOW_MARKET) {
             const sameDirectionSignal = isLongPosition ? signal.longSignal : signal.shortSignal;
             const sameDirectionStrength = sameDirectionSignal?.strength || 0;
             
-            // Se il segnale nella stessa direzione si sta indebolendo (< 50), considera chiusura
-            if (sameDirectionStrength < 50 && (!momentum || momentum < 0.05)) {
+            // ✅ FIX: Solo se trend è MOLTO debole (< 30) E momentum negativo
+            if (sameDirectionStrength < 30 && (!momentum || momentum < -0.1)) {
                 return {
                     shouldClose: true,
-                    reason: `Mercato lento con guadagno (${currentPnLPct.toFixed(2)}%) ma trend che si indebolisce (${sameDirectionStrength}/100) - Chiusura preventiva`,
+                    reason: `Mercato lento con guadagno (${currentPnLPct.toFixed(2)}%) ma trend molto debole (${sameDirectionStrength}/100) e momentum negativo - Chiusura preventiva`,
                     currentPnL: currentPnLPct,
                     signalStrength: sameDirectionStrength,
+                    momentum: momentum,
                     decisionFactor: 'weakening_trend'
                 };
             }
@@ -307,7 +335,8 @@ async function shouldClosePosition(position, priceHistory) {
             }
         }
         
-        // 8. RAGIONAMENTO: Guadagno buono (0.5%+) ma mercato statico e paura di perdere
+        // 8. RAGIONAMENTO: Guadagno buono ma mercato statico e paura di perdere
+        // ✅ FIX: Soglia più alta (2%+) e variazione più significativa
         if (currentPnLPct >= SMART_EXIT_CONFIG.SUFFICIENT_PROFIT_IN_STATIC && 
             marketCondition.condition === 'static' && 
             (!momentum || Math.abs(momentum) < 0.05)) {
@@ -317,11 +346,11 @@ async function shouldClosePosition(position, priceHistory) {
             const minPrice = Math.min(...priceVariation);
             const variationPct = ((maxPrice - minPrice) / minPrice) * 100;
             
-            // Se c'è stata variazione (alti e bassi) ma ora è statico
-            if (variationPct > 0.3 && marketCondition.atrPct < 0.3) {
+            // ✅ FIX: Solo se variazione è significativa (> 1%) e guadagno è buono (>= 2%)
+            if (variationPct > 1.0 && marketCondition.atrPct < 0.3 && currentPnLPct >= 2.0) {
                 return {
                     shouldClose: true,
-                    reason: `Guadagno ${currentPnLPct.toFixed(2)}% dopo alti e bassi (variazione ${variationPct.toFixed(2)}%) ma ora mercato statico - Chiusura per proteggere profitto`,
+                    reason: `Guadagno ${currentPnLPct.toFixed(2)}% dopo alti e bassi significativi (variazione ${variationPct.toFixed(2)}%) ma ora mercato statico - Chiusura per proteggere profitto`,
                     currentPnL: currentPnLPct,
                     priceVariation: variationPct,
                     decisionFactor: 'profit_protection_static'

@@ -7,6 +7,8 @@ const https = require('https');
 const riskManager = require('../services/RiskManager');
 const signalGenerator = require('../services/BidirectionalSignalGenerator');
 const { sendCryptoEmail } = require('../services/CryptoEmailNotifications');
+// ✅ IMPORTANTE: Carica SmartExit per attivare il sistema di ragionamento avanzato
+require('../services/SmartExit');
 
 // Socket.io instance (will be set from index.js)
 let ioInstance = null;
