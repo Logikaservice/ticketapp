@@ -659,7 +659,12 @@ router.post('/cleanup-positions', async (req, res) => {
         for (const pos of allOpenPositions) {
             try {
                 // Ottieni prezzo corrente e history
+                // ✅ FIX: Gestisci null (errore) vs 0 (prezzo reale zero)
                 const currentPrice = await getSymbolPrice(pos.symbol);
+                if (currentPrice === null || currentPrice === undefined) {
+                    console.warn(`⚠️ [UPDATE P&L] Impossibile ottenere prezzo per ${pos.symbol} (${pos.ticket_id}), salto`);
+                    continue; // Skip se non possiamo ottenere il prezzo
+                }
                 const klines = await dbAll(
                     "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
                     [pos.symbol]
@@ -747,7 +752,12 @@ router.post('/cleanup-positions', async (req, res) => {
         for (const { position: pos, score, pnlPct, shouldClose } of positionsToCloseList) {
             try {
                 // Ottieni prezzo corrente per chiudere
+                // ✅ FIX: Gestisci null (errore) vs 0 (prezzo reale zero)
                 const currentPrice = await getSymbolPrice(pos.symbol);
+                if (currentPrice === null || currentPrice === undefined) {
+                    console.warn(`⚠️ [CLEANUP] Impossibile ottenere prezzo per ${pos.symbol} (${pos.ticket_id}), salto`);
+                    continue; // Skip se non possiamo ottenere il prezzo
+                }
                 
                 if (currentPrice > 0) {
                     // Chiudi la posizione con motivo dettagliato
@@ -1191,18 +1201,29 @@ const getSymbolPrice = async (symbol) => {
         console.error(`Error fetching ${symbol} price from Binance:`, e.message);
         try {
             // ✅ FIX: CoinGecko restituisce sempre in EUR, quindi è più affidabile per coppie USDT
-            const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=eur`);
-            if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].eur) {
-                const price = parseFloat(geckoData[coingeckoId].eur);
-                console.log(`💱 [PRICE] ${symbol} from CoinGecko: €${price.toFixed(2)} EUR`);
-                // ✅ Salva in cache anche per CoinGecko
-                priceCache.set(symbol, { price, timestamp: Date.now() });
-                return price;
-            }
+                // ✅ FIX CRITICO: Usa precision=18 per gestire prezzi molto bassi (es. Shiba ~0.000007)
+                const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=eur&precision=18`);
+                if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].eur !== undefined) {
+                    const price = parseFloat(geckoData[coingeckoId].eur);
+                    // ✅ FIX: Verifica che il prezzo sia valido (anche se molto basso, es. 0.000007)
+                    if (price > 0 && !isNaN(price) && isFinite(price)) {
+                        console.log(`💱 [PRICE] ${symbol} from CoinGecko: €${price.toFixed(8)} EUR`);
+                        // ✅ Salva in cache anche per CoinGecko
+                        priceCache.set(symbol, { price, timestamp: Date.now() });
+                        return price;
+                    } else {
+                        console.warn(`⚠️ [PRICE] ${symbol} prezzo da CoinGecko non valido: ${price}`);
+                    }
+                } else {
+                    console.warn(`⚠️ [PRICE] ${symbol} dati CoinGecko non validi o mancanti per ${coingeckoId}`);
+                }
         } catch (e2) {
             console.error(`Error fetching ${symbol} price from CoinGecko:`, e2.message);
         }
-        return 0;
+        
+        // ✅ FIX: Se tutto fallisce, ritorna null invece di 0 per distinguere da prezzo reale zero
+        console.error(`❌ [PRICE] Impossibile ottenere prezzo per ${symbol} (tradingPair: ${tradingPair}, coingeckoId: ${coingeckoId})`);
+        return null;
     }
 };
 
