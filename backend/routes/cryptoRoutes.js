@@ -4240,6 +4240,63 @@ router.get('/bot/active', async (req, res) => {
     }
 });
 
+// GET /api/crypto/bot/status - Get detailed bot status (for diagnostics)
+router.get('/bot/status', async (req, res) => {
+    try {
+        // Get all bots (active and paused)
+        const allBots = await dbAll(
+            "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'"
+        );
+        
+        const activeBots = allBots.filter(b => Number(b.is_active) === 1);
+        const pausedBots = allBots.filter(b => Number(b.is_active) === 0);
+        
+        // Count open positions
+        const openPositions = await dbAll(
+            "SELECT COUNT(*) as count FROM open_positions WHERE status = 'open'"
+        );
+        const openPositionsCount = openPositions[0]?.count || 0;
+        
+        // Check if bot cycle is running (check last activity)
+        const lastBotActivity = await dbAll(
+            "SELECT MAX(timestamp) as last_update FROM price_history WHERE symbol IN (SELECT symbol FROM bot_settings WHERE strategy_name = 'RSI_Strategy') LIMIT 1"
+        );
+        const lastUpdate = lastBotActivity[0]?.last_update || null;
+        const minutesSinceUpdate = lastUpdate ? Math.floor((Date.now() - new Date(lastUpdate).getTime()) / (1000 * 60)) : null;
+        
+        res.json({
+            status: activeBots.length > 0 ? 'ACTIVE' : 'PAUSED',
+            total_bots: allBots.length,
+            active_bots: activeBots.length,
+            paused_bots: pausedBots.length,
+            open_positions: openPositionsCount,
+            bot_details: {
+                active: activeBots.map(b => ({
+                    symbol: b.symbol,
+                    is_active: Number(b.is_active) === 1
+                })),
+                paused: pausedBots.map(b => ({
+                    symbol: b.symbol,
+                    is_active: Number(b.is_active) === 1
+                }))
+            },
+            system_status: {
+                bot_cycle_running: minutesSinceUpdate !== null && minutesSinceUpdate < 2, // Updated in last 2 minutes
+                last_update: lastUpdate,
+                minutes_since_update: minutesSinceUpdate,
+                smart_exit_active: true, // SmartExit sempre attivo
+                position_updates_active: true // Aggiornamento P&L sempre attivo
+            },
+            explanation: {
+                paused_means: "Il bot NON può aprire nuove posizioni, ma continua ad aggiornare dati (prezzi, klines) e gestisce posizioni esistenti (P&L, SmartExit)",
+                active_means: "Il bot può aprire nuove posizioni, processa segnali e gestisce tutte le operazioni"
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // GET /api/crypto/symbols/available - Get list of available trading symbols
 router.get('/symbols/available', async (req, res) => {
     try {
@@ -4398,6 +4455,62 @@ router.post('/bot/toggle', async (req, res) => {
         console.error('❌ [BOT-TOGGLE] Error toggling bot:', error);
         console.error('❌ [BOT-TOGGLE] Stack:', error.stack);
         res.status(500).json({ error: error.message || 'Errore sconosciuto nell\'attivazione del bot' });
+    }
+});
+
+// POST /api/crypto/bot/toggle-all - Toggle all bots at once
+router.post('/bot/toggle-all', async (req, res) => {
+    try {
+        const { is_active } = req.body;
+        
+        if (typeof is_active !== 'boolean') {
+            return res.status(400).json({ error: 'is_active must be a boolean' });
+        }
+        
+        const activeValue = is_active ? 1 : 0;
+        
+        console.log(`🤖 [BOT-TOGGLE-ALL] Toggling ALL bots to ${activeValue === 1 ? 'ACTIVE' : 'INACTIVE'}`);
+        
+        // Get all bot settings
+        const allBots = await dbAll(
+            "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'"
+        );
+        
+        if (allBots.length === 0) {
+            // No bots exist, create default ones for main symbols
+            const mainSymbols = ['bitcoin', 'ethereum', 'solana', 'cardano', 'polkadot', 'chainlink'];
+            for (const symbol of mainSymbols) {
+                await dbRun(
+                    "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES (?, ?, ?, ?)",
+                    ['RSI_Strategy', symbol, activeValue, JSON.stringify(DEFAULT_PARAMS)]
+                );
+            }
+            console.log(`✅ [BOT-TOGGLE-ALL] Created ${mainSymbols.length} bot settings and set to ${activeValue === 1 ? 'ACTIVE' : 'INACTIVE'}`);
+        } else {
+            // Update all existing bots
+            await dbRun(
+                "UPDATE bot_settings SET is_active = ? WHERE strategy_name = 'RSI_Strategy'",
+                [activeValue]
+            );
+            console.log(`✅ [BOT-TOGGLE-ALL] Updated ${allBots.length} bots to ${activeValue === 1 ? 'ACTIVE' : 'INACTIVE'}`);
+        }
+        
+        // Verify
+        const activeBots = await dbAll(
+            "SELECT COUNT(*) as count FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND is_active = 1"
+        );
+        const activeCount = activeBots[0]?.count || 0;
+        
+        res.json({
+            success: true,
+            is_active: activeValue === 1,
+            active_bots_count: activeCount,
+            total_bots: allBots.length || 6,
+            message: `Tutti i bot ${activeValue === 1 ? 'attivati' : 'disattivati'} con successo`
+        });
+    } catch (error) {
+        console.error('❌ [BOT-TOGGLE-ALL] Error:', error);
+        res.status(500).json({ error: error.message || 'Errore nel toggle di tutti i bot' });
     }
 });
 

@@ -6,7 +6,6 @@ import ApexChart from './ApexChart';
 import BotSettings from './BotSettings';
 import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
-import BacktestPanel from './BacktestPanel';
 import MarketScanner from './MarketScanner';
 import GeneralSettings from './GeneralSettings';
 import KellyStatsPanel from './KellyStatsPanel';
@@ -109,8 +108,15 @@ const CryptoDashboard = () => {
                 setAllTrades(data.all_trades || []); // Store full history for chart
                 setOpenPositions(data.open_positions || []); // Store open positions
                 setClosedPositions(data.closed_positions || []); // ✅ FIX: Store closed positions per P&L
+                // ✅ FIX: Controlla se c'è ALMENO un bot attivo (non solo per currentSymbol)
+                const anyActiveBot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy' && b.is_active === 1);
                 const bot = data.active_bots?.find(b => b.strategy_name === 'RSI_Strategy' && b.symbol === currentSymbol);
-                if (bot) setBotStatus({ active: bot.is_active === 1, strategy: bot.strategy_name });
+                // Se c'è almeno un bot attivo, mostra ACTIVE, altrimenti PAUSED
+                setBotStatus({ 
+                    active: anyActiveBot ? true : false, 
+                    strategy: bot?.strategy_name || 'RSI_Strategy',
+                    currentSymbolBot: bot ? (bot.is_active === 1) : false
+                });
                 // Load bot parameters for backtesting
                 if (data.bot_parameters) {
                     setBotParameters(data.bot_parameters);
@@ -822,42 +828,90 @@ const CryptoDashboard = () => {
                             <div style={{ fontWeight: 'bold', color: botStatus.active ? '#4ade80' : '#9ca3af' }}>
                                 {botStatus.active ? "Active" : "Paused"}
                             </div>
+                            {!botStatus.active && (
+                                <div style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: '2px' }} title="Bot in pausa: non apre nuove posizioni, ma continua ad aggiornare dati e gestire posizioni esistenti">
+                                    (aggiorna dati)
+                                </div>
+                            )}
                             {portfolio.rsi !== null && (
                                 <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>RSI: {portfolio.rsi.toFixed(2)}</div>
                             )}
                         </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexDirection: 'column' }}>
+                        {/* ✅ Toggle Bot Button */}
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const newStatus = !botStatus.active;
+                                    
+                                    console.log(`🤖 Toggling ALL bots to ${newStatus ? 'ACTIVE' : 'PAUSED'}`);
+                                    
+                                    const response = await fetch(`${apiBase}/api/crypto/bot/toggle-all`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            is_active: newStatus
+                                        })
+                                    });
+                                    
+                                    if (!response.ok) {
+                                        const errorData = await response.json();
+                                        throw new Error(errorData.error || 'Errore nel toggle bot');
+                                    }
+                                    
+                                    const data = await response.json();
+                                    console.log(`✅ ${data.message}`);
+                                    
+                                    // Aggiorna stato locale
+                                    setBotStatus(prev => ({ ...prev, active: newStatus }));
+                                    
+                                    // Mostra messaggio
+                                    alert(data.message);
+                                    
+                                    // Ricarica dashboard per aggiornare dati
+                                    setTimeout(() => {
+                                        window.location.reload();
+                                    }, 1000);
+                                    
+                                } catch (error) {
+                                    console.error('Errore toggle bot:', error);
+                                    alert(`Errore: ${error.message}`);
+                                }
+                            }}
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                fontSize: '0.9rem',
+                                fontWeight: '600',
+                                background: botStatus.active ? '#ef4444' : '#10b981',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                transition: 'opacity 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                            title={botStatus.active ? 'Disattiva Bot (le posizioni esistenti continueranno ad essere gestite)' : 'Attiva Bot (il bot inizierà ad aprire nuove posizioni)'}
+                        >
+                            <Power size={18} />
+                            {botStatus.active ? 'Disattiva Bot' : 'Attiva Bot'}
+                        </button>
+                        
+                        {/* Settings Button */}
                         <button
                             className="toggle-btn"
                             onClick={() => setShowBotSettings(true)}
-                            style={{ flex: 1, padding: '8px', fontSize: '0.9rem' }}
+                            style={{ width: '100%', padding: '8px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                             title="Configurazione Bot"
                         >
                             <Settings size={18} />
-                        </button>
-                        <button
-                            className="toggle-btn"
-                            onClick={() => setShowBacktestPanel(true)}
-                            style={{ flex: 1, padding: '8px', fontSize: '0.9rem' }}
-                            title="Backtesting Strategia"
-                        >
-                            <BarChart2 size={18} />
-                        </button>
-                        <button
-                            className="toggle-btn"
-                            onClick={() => {
-                                const url = new URL(window.location);
-                                url.searchParams.set('domain', 'crypto');
-                                url.searchParams.set('page', 'bot-analysis');
-                                url.searchParams.set('symbol', currentSymbol);
-                                url.searchParams.set('_v', Date.now());
-                                window.open(url.toString(), 'BotAnalysis', 'width=1200,height=800,resizable=yes,scrollbars=yes');
-                            }}
-                            style={{ flex: 1, padding: '8px', fontSize: '0.9rem', background: '#10b981' }}
-                            title={`Analisi Bot in Tempo Reale per ${currentSymbol.toUpperCase()} - Nuova Versione`}
-                        >
-                            🔍 Analisi Bot
+                            <span>Impostazioni</span>
                         </button>
                     </div>
                 </div>
@@ -1227,13 +1281,6 @@ const CryptoDashboard = () => {
                 }}
             />
 
-            {/* Backtest Panel Modal */}
-            <BacktestPanel
-                isOpen={showBacktestPanel}
-                onClose={() => setShowBacktestPanel(false)}
-                apiBase={apiBase}
-                currentBotParams={botParameters}
-            />
 
             {/* Add Funds Modal */}
             {showAddFundsModal && (
