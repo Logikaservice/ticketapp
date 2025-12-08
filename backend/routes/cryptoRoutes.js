@@ -1159,6 +1159,37 @@ const priceCache = new Map();
 const PRICE_CACHE_TTL = 3000; // 3 secondi - bilanciato tra real-time e rate limit (prima era 60s)
 // Calcolo rate limit: max 20 chiamate/sec Binance, con cache 3s = max 6-7 chiamate/sec per simbolo = SICURO
 
+// ✅ WEBSOCKET SERVICE per aggiornamenti real-time (zero rate limit)
+const BinanceWebSocketService = require('../services/BinanceWebSocket');
+let wsService = null;
+
+// Inizializza WebSocket service con callback per aggiornare cache
+const initWebSocketService = () => {
+    if (!wsService) {
+        wsService = new BinanceWebSocketService((symbol, price) => {
+            // Callback: aggiorna cache quando arriva prezzo da WebSocket
+            priceCache.set(symbol, { price, timestamp: Date.now() });
+            // Log solo occasionalmente
+            if (Math.random() < 0.05) {
+                console.log(`📡 [WEBSOCKET] Prezzo aggiornato ${symbol}: €${price.toFixed(2)}`);
+            }
+        });
+        
+        // Imposta mappa simbolo -> trading pair
+        wsService.setSymbolToPairMap(SYMBOL_TO_PAIR);
+        
+        // Connetti WebSocket
+        wsService.connect().catch(err => {
+            console.error('⚠️ [WEBSOCKET] Errore inizializzazione:', err.message);
+            console.log('   → Fallback a REST API');
+        });
+    }
+    return wsService;
+};
+
+// ✅ Inizializza WebSocket all'avvio
+initWebSocketService();
+
 const getSymbolPrice = async (symbol) => {
     // ✅ Controlla cache prima di chiamare Binance
     const cached = priceCache.get(symbol);
@@ -3661,14 +3692,51 @@ const updateAllPositionsPnL = async () => {
         const allOpenPositions = await dbAll("SELECT DISTINCT symbol FROM open_positions WHERE status = 'open'");
         
         if (allOpenPositions.length === 0) {
-            return; // Nessuna posizione aperta
+            // Nessuna posizione aperta - rimuovi tutte le sottoscrizioni WebSocket
+            if (wsService && wsService.isWebSocketConnected()) {
+                const currentSymbols = Array.from(wsService.subscribedSymbols || []);
+                if (currentSymbols.length > 0) {
+                    wsService.unsubscribeFromSymbols(currentSymbols);
+                }
+            }
+            return;
+        }
+        
+        // ✅ WEBSOCKET: Sottoscrivi a simboli con posizioni aperte
+        if (wsService && wsService.isWebSocketConnected()) {
+            const currentSymbols = Array.from(wsService.subscribedSymbols || []);
+            const newSymbols = allOpenPositions.map(p => p.symbol);
+            
+            // Rimuovi simboli non più necessari
+            const toUnsubscribe = currentSymbols.filter(s => !newSymbols.includes(s));
+            if (toUnsubscribe.length > 0) {
+                wsService.unsubscribeFromSymbols(toUnsubscribe);
+            }
+            
+            // Aggiungi nuovi simboli
+            const toSubscribe = newSymbols.filter(s => !currentSymbols.includes(s));
+            if (toSubscribe.length > 0) {
+                wsService.subscribeToSymbols(toSubscribe);
+            }
+        } else {
+            // WebSocket non connesso - riprova connessione
+            if (wsService && !wsService.isConnecting) {
+                console.log('🔄 [WEBSOCKET] Tentativo riconnessione...');
+                wsService.connect().catch(() => {
+                    // Fallback a REST API se WebSocket fallisce
+                });
+            }
         }
         
         // Aggiorna P&L per ogni simbolo
+        // ✅ OTTIMIZZATO: Se WebSocket attivo, usa cache (aggiornata in real-time)
+        // Se WebSocket non disponibile, usa REST API (fallback)
         for (const posRow of allOpenPositions) {
             const symbol = posRow.symbol;
             try {
                 // Ottieni prezzo corrente per questo simbolo
+                // Se WebSocket attivo, prezzo è già in cache (aggiornato in real-time)
+                // Se non attivo, chiama REST API (fallback)
                 const currentPrice = await getSymbolPrice(symbol);
                 
                 if (currentPrice > 0) {
