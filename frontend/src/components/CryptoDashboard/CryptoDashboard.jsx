@@ -178,17 +178,29 @@ const CryptoDashboard = () => {
     };
 
     const handleResetPortfolio = async () => {
-        const allPositionsCount = openPositions.length + (trades?.length || 0);
-        const confirmMessage = `⚠️ ATTENZIONE: Reset completo del portfolio!\n\nQuesto cancellerà:\n${openPositions.length > 0 ? `- ${openPositions.length} posizione/i aperta/e\n` : ''}- TUTTE le posizioni (aperte e chiuse)\n- TUTTI i trades (marker sul grafico e lista recenti)\n\nE poi:\n- Imposterà il saldo a €250\n- Resetterà tutte le holdings\n\nVuoi continuare?`;
+        const confirmMessage = `⚠️ ATTENZIONE: Reset completo del portfolio!\n\nQuesto cancellerà:\n- TUTTE le posizioni (aperte e chiuse)\n- TUTTI i trades (marker sul grafico e lista recenti)\n\nVuoi continuare?`;
 
         if (!window.confirm(confirmMessage)) {
+            return;
+        }
+
+        // Chiedi l'importo iniziale
+        const defaultBalance = '1000';
+        const initialBalanceInput = window.prompt("Inserisci il saldo iniziale (EUR) per il nuovo portfolio:", defaultBalance);
+
+        if (initialBalanceInput === null) return; // Annullato dall'utente
+
+        const initialBalance = parseFloat(initialBalanceInput);
+        if (isNaN(initialBalance) || initialBalance < 0) {
+            alert("⚠️ Importo non valido. Inserisci un numero maggiore o uguale a 0.");
             return;
         }
 
         try {
             const res = await fetch(`${apiBase}/api/crypto/reset`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initial_balance: initialBalance })
             });
 
             if (res.ok) {

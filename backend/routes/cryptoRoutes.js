@@ -532,6 +532,8 @@ router.get('/price/:symbol', async (req, res) => {
 // POST /api/crypto/reset (Reset Demo Portfolio)
 router.post('/reset', async (req, res) => {
     try {
+        const { initial_balance } = req.body;
+
         // 1. Conta posizioni e trades prima di cancellarli
         const positionCountRows = await dbAll("SELECT COUNT(*) as count FROM open_positions");
         const positionCount = positionCountRows && positionCountRows.length > 0 ? positionCountRows[0].count : 0;
@@ -547,17 +549,19 @@ router.post('/reset', async (req, res) => {
         await dbRun("DELETE FROM trades");
         console.log(`🗑️ Cancellati ${tradeCount} trade/i`);
 
-        // 4. Reset portfolio a €250
-        await dbRun("UPDATE portfolio SET balance_usd = 250, holdings = '{}' WHERE id = 1");
+        // 4. Reset portfolio a valore custom (default 250 se non specificato o se reset normale)
+        const newBalance = (initial_balance && !isNaN(parseFloat(initial_balance))) ? parseFloat(initial_balance) : 250;
+        await dbRun("UPDATE portfolio SET balance_usd = ?, holdings = '{}' WHERE id = 1", [newBalance]);
 
         // 5. Invalida cache Risk Manager
         riskManager.invalidateCache();
 
         res.json({
             success: true,
-            message: `Portfolio resettato completamente a €250. Cancellate ${positionCount} posizione/i e ${tradeCount} trade/i. Grafico e lista recenti puliti.`,
+            message: `Portfolio resettato completamente a €${newBalance.toFixed(2)}. Cancellate ${positionCount} posizione/i e ${tradeCount} trade/i. Grafico e lista recenti puliti.`,
             deleted_positions: positionCount,
-            deleted_trades: tradeCount
+            deleted_trades: tradeCount,
+            new_balance: newBalance
         });
     } catch (err) {
         console.error('Error resetting portfolio:', err);
