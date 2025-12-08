@@ -455,6 +455,20 @@ const CryptoDashboard = () => {
     // ✅ FIX: Use ONLY open positions effectively ignoring 'portfolio.holdings' which might be corrupted
     // This ensures Total Balance strictly reflects Cash + Open Positions Value
     const holdings = portfolio.holdings || {}; // Restore this for fallback logic
+    
+    // ✅ FIX CRITICO: Filtra STRICTO solo posizioni aperte PRIMA di usarle (evita ReferenceError)
+    const validOpenPositions = (openPositions || []).filter(pos => {
+        // Validazione STRICTA: deve essere esattamente 'open'
+        if (!pos || pos.status !== 'open') {
+            return false;
+        }
+        // Validazione: deve avere ticket_id valido
+        if (!pos.ticket_id) {
+            return false;
+        }
+        return true;
+    });
+    
     let totalLongValue = 0;
     let totalShortLiability = 0;
 
@@ -515,23 +529,11 @@ const CryptoDashboard = () => {
 
     // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend
     // ✅ FIX: Validazione STRICTA - solo posizioni con status === 'open' e dati validi
+    // ✅ NOTA: validOpenPositions è già dichiarato sopra, non dichiararlo di nuovo!
     let pnlValue = 0;
     let pnlPercent = 0;
     let totalInvestedValue = 0;
     let avgPrice = 0;
-
-    // ✅ FIX: Filtra STRICTO solo posizioni aperte e valida i dati
-    const validOpenPositions = (openPositions || []).filter(pos => {
-        // Validazione STRICTA: deve essere esattamente 'open'
-        if (!pos || pos.status !== 'open') {
-            return false;
-        }
-        // Validazione: deve avere ticket_id valido
-        if (!pos.ticket_id) {
-            return false;
-        }
-        return true;
-    });
 
     if (validOpenPositions.length > 0) {
         // Calcolo SEMPLICE: somma i profit_loss già calcolati dal backend
