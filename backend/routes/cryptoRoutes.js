@@ -6635,48 +6635,17 @@ router.get('/scanner', async (req, res) => {
                 const adjustedStrength = Math.max(0, rawStrength + mtfBonus);
                 const displayStrength = Math.min(adjustedStrength, 100); // Cap at 100 for display
 
-                // ✅ FIX: Ricalcola RSI FRESH (stessa logica di bot-analysis/Deep Analysis)
-                // Questo garantisce che RSI sia IDENTICO tra Market Scanner e Deep Analysis
-                let rsiValue = signal?.indicators?.rsi || null; // Fallback
+                // ✅ FIX CRITICO: Usa ESATTAMENTE la stessa logica di bot-analysis/Deep Analysis
+                // COPIA ESATTA della logica da riga 5670-5682 (bot-analysis endpoint)
+                let rsiValue = signal?.indicators?.rsi || null; // Fallback iniziale
                 try {
-                    // ✅ CRITICAL FIX: Crea una COPIA profonda di historyForSignal per evitare modifiche condivise
-                    // Questo garantisce che ogni simbolo abbia i suoi dati unici
-                    const historyCopy = JSON.parse(JSON.stringify(historyForSignal));
-                    
-                    // ✅ CRITICAL FIX: Estrai prezzi CORRETTI da historyCopy (deve essere per QUESTO simbolo)
-                    const prices = historyCopy.map(h => {
-                        // Preferisci close, poi price, poi fallback
-                        return h.close || h.price || 0;
-                    }).filter(p => p > 0 && !isNaN(p)); // Rimuovi valori null/zero/NaN
-                    
+                    // ✅ STESSA LOGICA ESATTA di bot-analysis (riga 5672-5674)
+                    const prices = historyForSignal.map(h => h.close || h.price);
                     if (prices.length >= 15) {
-                        // ✅ DEBUG: Verifica che i prezzi siano diversi per ogni simbolo
-                        const firstPrice = prices[0];
-                        const lastPrice = prices[prices.length - 1];
-                        const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
-                        
-                        // ✅ CRITICAL: Verifica che i prezzi siano validi e diversi
-                        if (firstPrice === lastPrice && prices.length > 1) {
-                            console.warn(`⚠️ [SCANNER-RSI] ${s.display}: Prezzi tutti uguali! First=${firstPrice} Last=${lastPrice}`);
-                        }
-                        
                         rsiValue = calculateRSI(prices, 14);
-                        
-                        console.log(`📊 [SCANNER-RSI] ${s.display}: RSI=${rsiValue?.toFixed(2)} | Prices: ${prices.length} | First=${firstPrice.toFixed(4)} | Last=${lastPrice.toFixed(4)} | Avg=${avgPrice.toFixed(4)}`);
-                        
-                        // ✅ VERIFICA: Se RSI è null o NaN, usa fallback
-                        if (rsiValue === null || isNaN(rsiValue)) {
-                            console.warn(`⚠️ [SCANNER-RSI] RSI null/NaN per ${s.display}, uso fallback: ${signal?.indicators?.rsi || 'N/A'}`);
-                            rsiValue = signal?.indicators?.rsi || null;
-                        }
-                    } else {
-                        console.warn(`⚠️ [SCANNER-RSI] Dati insufficienti per ${s.display} (${prices.length} candele < 15), uso cache: ${signal?.indicators?.rsi || 'N/A'}`);
-                        rsiValue = signal?.indicators?.rsi || null;
                     }
                 } catch (rsiError) {
-                    console.error(`❌ [SCANNER-RSI] Errore ricalcolo RSI per ${s.display}:`, rsiError.message);
-                    console.error(`   Stack:`, rsiError.stack);
-                    // Usa RSI dalla cache se ricalcolo fallisce
+                    // Silenzioso, usa fallback
                     rsiValue = signal?.indicators?.rsi || null;
                 }
 
