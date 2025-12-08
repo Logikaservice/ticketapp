@@ -553,12 +553,17 @@ router.post('/reset', async (req, res) => {
         const newBalance = (initial_balance && !isNaN(parseFloat(initial_balance))) ? parseFloat(initial_balance) : 250;
         await dbRun("UPDATE portfolio SET balance_usd = ?, holdings = '{}' WHERE id = 1", [newBalance]);
 
-        // 5. Invalida cache Risk Manager
+        // 5. Reset Kelly Criterion Stats (Performance Stats)
+        await dbRun("DELETE FROM performance_stats");
+        await dbRun("INSERT INTO performance_stats (total_trades, winning_trades, losing_trades, total_profit, total_loss, avg_win, avg_loss, win_rate) VALUES (0, 0, 0, 0, 0, 0, 0, 0)");
+        console.log(`🗑️ Resettate statistiche Kelly Criterion`);
+
+        // 6. Invalida cache Risk Manager
         riskManager.invalidateCache();
 
         res.json({
             success: true,
-            message: `Portfolio resettato completamente a €${newBalance.toFixed(2)}. Cancellate ${positionCount} posizione/i e ${tradeCount} trade/i. Grafico e lista recenti puliti.`,
+            message: `Portfolio resettato completamente a €${newBalance.toFixed(2)}. Cancellate ${positionCount} posizione/i, ${tradeCount} trade/i e resettate statistiche Kelly.`,
             deleted_positions: positionCount,
             deleted_trades: tradeCount,
             new_balance: newBalance
