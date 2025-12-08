@@ -394,8 +394,18 @@ function initDb() {
         // Initialize performance stats if not exists
         db.get("SELECT count(*) as count FROM performance_stats", (err, row) => {
             if (!err && row.count === 0) {
-                db.run("INSERT INTO performance_stats (total_trades, winning_trades, losing_trades) VALUES (0, 0, 0)");
-                console.log("✅ Initialized performance_stats table");
+                // ✅ FIX: Inserisci record con id=1 esplicito e tutti i campi inizializzati
+                db.run("INSERT INTO performance_stats (id, total_trades, winning_trades, losing_trades, total_profit, total_loss, avg_win, avg_loss, win_rate) VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0)");
+                console.log("✅ Initialized performance_stats table with id=1");
+            } else if (!err && row.count > 0) {
+                // ✅ FIX: Verifica che esista un record con id=1, altrimenti crealo
+                db.get("SELECT id FROM performance_stats WHERE id = 1", (err2, row2) => {
+                    if (err2 || !row2) {
+                        // Non esiste record con id=1, crealo
+                        db.run("INSERT OR IGNORE INTO performance_stats (id, total_trades, winning_trades, losing_trades, total_profit, total_loss, avg_win, avg_loss, win_rate) VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0)");
+                        console.log("✅ Created performance_stats record with id=1");
+                    }
+                });
             }
         });
     });

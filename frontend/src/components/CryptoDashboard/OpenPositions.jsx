@@ -94,6 +94,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                             <th style={{ padding: '8px', textAlign: 'right', fontWeight: '500', fontSize: '11px' }}>T/P</th>
                             <th style={{ padding: '8px', textAlign: 'right', fontWeight: '500', fontSize: '11px' }}>P&L</th>
                             <th style={{ padding: '8px', textAlign: 'right', fontWeight: '500', fontSize: '11px' }}>P&L %</th>
+                            <th style={{ padding: '8px', textAlign: 'center', fontWeight: '500', fontSize: '11px' }}>Sentimento Bot</th>
                             <th style={{ padding: '8px', textAlign: 'center', fontWeight: '500', fontSize: '11px' }}>Azione</th>
                         </tr>
                     </thead>
@@ -279,6 +280,75 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                         color: pnlPct >= 0 ? '#10b981' : '#ef4444'
                                     }}>
                                         {pnlPct >= 0 ? '+' : ''}{(pnlPct || 0).toFixed(2)}%
+                                    </td>
+                                    <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                                        {(() => {
+                                            const sentiment = pos.bot_sentiment;
+                                            if (!sentiment || sentiment.sentiment === 'NEUTRAL') {
+                                                return (
+                                                    <div style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        padding: '4px 8px',
+                                                        borderRadius: '4px',
+                                                        background: '#2d2d2d',
+                                                        color: '#9ca3af',
+                                                        fontSize: '11px',
+                                                        fontWeight: '500'
+                                                    }} title="Sentimento neutro">
+                                                        ➡️ Neutro
+                                                    </div>
+                                                );
+                                            }
+                                            
+                                            const isBullish = sentiment.sentiment === 'BULLISH';
+                                            const isContrary = sentiment.is_contrary;
+                                            const strength = sentiment.strength || 0;
+                                            
+                                            return (
+                                                <div style={{
+                                                    display: 'inline-flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    gap: '2px'
+                                                }}>
+                                                    <div style={{
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        padding: '4px 8px',
+                                                        borderRadius: '4px',
+                                                        background: isContrary 
+                                                            ? 'rgba(239, 68, 68, 0.2)' 
+                                                            : isBullish 
+                                                            ? 'rgba(16, 185, 129, 0.15)' 
+                                                            : 'rgba(239, 68, 68, 0.15)',
+                                                        color: isContrary 
+                                                            ? '#ef4444' 
+                                                            : isBullish 
+                                                            ? '#10b981' 
+                                                            : '#ef4444',
+                                                        fontSize: '11px',
+                                                        fontWeight: '600',
+                                                        border: isContrary ? '1px solid #ef4444' : 'none'
+                                                    }} title={isContrary 
+                                                        ? `⚠️ ATTENZIONE: Sentimento contrario alla posizione! Bot prevede ${sentiment.direction === 'UP' ? 'rialzo' : 'ribasso'} ma posizione è ${isLong ? 'LONG' : 'SHORT'}` 
+                                                        : `Bot prevede ${sentiment.direction === 'UP' ? 'rialzo' : 'ribasso'} (strength: ${strength}/100)`}>
+                                                        {isContrary && <AlertCircle size={12} />}
+                                                        {isBullish ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                                                        {sentiment.direction === 'UP' ? '↑ Su' : '↓ Giù'}
+                                                    </div>
+                                                    <div style={{
+                                                        fontSize: '9px',
+                                                        color: '#6b7280',
+                                                        fontWeight: '500'
+                                                    }}>
+                                                        {strength}/100
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'center' }}>
                                         <button

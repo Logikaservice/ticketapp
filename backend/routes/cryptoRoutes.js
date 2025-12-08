@@ -483,8 +483,102 @@ router.get('/dashboard', async (req, res) => {
             }
         }
 
+        // ✅ NUOVO: Calcola sentimento bot per ogni posizione aperta
+        const openPositionsWithSentiment = await Promise.all(openPositions.map(async (position) => {
+            try {
+                // Ottieni klines per calcolare segnale attuale
+                const klinesData = await dbAll(
+                    "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
+                    [position.symbol]
+                );
+                
+                if (klinesData && klinesData.length >= 20) {
+                    const klinesChronological = klinesData.reverse();
+                    const historyForSignal = klinesChronological.map(kline => ({
+                        close: parseFloat(kline.close_price),
+                        high: parseFloat(kline.high_price),
+                        low: parseFloat(kline.low_price),
+                        volume: parseFloat(kline.volume || 0),
+                        price: parseFloat(kline.close_price),
+                        open: parseFloat(kline.open_price),
+                        timestamp: kline.open_time
+                    }));
+                    
+                    // Genera segnale attuale
+                    const currentSignal = signalGenerator.generateSignal(historyForSignal, position.symbol);
+                    
+                    // Determina sentimento
+                    let sentiment = 'NEUTRAL';
+                    let sentimentStrength = 0;
+                    let sentimentDirection = null;
+                    
+                    if (currentSignal.direction === 'LONG') {
+                        sentiment = 'BULLISH';
+                        sentimentStrength = currentSignal.strength;
+                        sentimentDirection = 'UP';
+                    } else if (currentSignal.direction === 'SHORT') {
+                        sentiment = 'BEARISH';
+                        sentimentStrength = currentSignal.strength;
+                        sentimentDirection = 'DOWN';
+                    } else {
+                        sentiment = 'NEUTRAL';
+                        sentimentStrength = Math.max(
+                            currentSignal.longSignal?.strength || 0,
+                            currentSignal.shortSignal?.strength || 0
+                        );
+                    }
+                    
+                    // Verifica se sentimento è contrario alla posizione (WARNING)
+                    const isContrary = (position.type === 'buy' && sentiment === 'BEARISH') ||
+                                      (position.type === 'sell' && sentiment === 'BULLISH');
+                    
+                    return {
+                        ...position,
+                        bot_sentiment: {
+                            sentiment, // 'BULLISH', 'BEARISH', 'NEUTRAL'
+                            direction: sentimentDirection, // 'UP', 'DOWN', null
+                            strength: sentimentStrength, // 0-100
+                            is_contrary: isContrary, // true se contrario alla posizione
+                            signal_details: {
+                                direction: currentSignal.direction,
+                                strength: currentSignal.strength,
+                                confirmations: currentSignal.confirmations,
+                                reasons: currentSignal.reasons || []
+                            }
+                        }
+                    };
+                } else {
+                    // Dati insufficienti - sentimento neutro
+                    return {
+                        ...position,
+                        bot_sentiment: {
+                            sentiment: 'NEUTRAL',
+                            direction: null,
+                            strength: 0,
+                            is_contrary: false,
+                            signal_details: null
+                        }
+                    };
+                }
+            } catch (err) {
+                console.error(`⚠️ [SENTIMENT] Errore calcolo sentimento per ${position.symbol}:`, err.message);
+                // In caso di errore, restituisci posizione senza sentimento
+                return {
+                    ...position,
+                    bot_sentiment: {
+                        sentiment: 'NEUTRAL',
+                        direction: null,
+                        strength: 0,
+                        is_contrary: false,
+                        signal_details: null,
+                        error: err.message
+                    }
+                };
+            }
+        }));
+
         // ✅ FIX: Aggiungi signal_details e profit_loss ai trades dalla posizione corrispondente (aperta o chiusa)
-        const allPositions = [...openPositions, ...closedPositions];
+        const allPositions = [...openPositionsWithSentiment, ...closedPositions];
         const tradesWithDetails = trades.map(trade => {
             if (trade.ticket_id) {
                 const position = allPositions.find(pos => pos.ticket_id === trade.ticket_id);
@@ -520,11 +614,20 @@ router.get('/dashboard', async (req, res) => {
             recent_trades: tradesWithDetails.slice(0, 10), // Send only 10 to frontend list
             all_trades: tradesWithDetails, // Send more history for chart plotting
             active_bots: bots,
-            open_positions: openPositions, // Include open positions
+            open_positions: openPositionsWithSentiment, // Include open positions with bot sentiment
             closed_positions: closedPositions, // ✅ FIX: Include closed positions per P&L
             rsi: latestRSI,
             // ✅ KELLY CRITERION: Performance statistics
-            performance_stats: await dbGet("SELECT * FROM performance_stats WHERE id = 1") || null
+            // ✅ FIX: Se non esiste record con id=1, crealo
+            performance_stats: await (async () => {
+                let stats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
+                if (!stats) {
+                    // Crea record iniziale se non esiste
+                    await dbRun("INSERT OR IGNORE INTO performance_stats (id, total_trades, winning_trades, losing_trades, total_profit, total_loss, avg_win, avg_loss, win_rate) VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0)");
+                    stats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
+                }
+                return stats || null;
+            })()
         });
     } catch (error) {
         console.error("Dashboard Error:", error);
