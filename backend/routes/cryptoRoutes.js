@@ -3386,20 +3386,18 @@ router.get('/statistics', async (req, res) => {
         let totalVolume = 0;
 
         // Calculate from closed positions (realized P&L)
-        // ✅ FIX: Valida che closedPositions sia un array
         if (Array.isArray(closedPositions)) {
             closedPositions.forEach(pos => {
                 if (!pos) return; // Salta posizioni null/undefined
                 const pnl = parseFloat(pos.profit_loss) || 0;
-                
-                // ✅ FIX CRITICO: Valida valori anomali di profit_loss (evita errori di calcolo enormi)
-                // Se profit_loss è > 1 milione o < -1 milione, probabilmente è un errore di dati
-                const MAX_REASONABLE_PNL = 1000000; // 1 milione EUR è un limite ragionevole
+
+                // ✅ FIX CRITICO: Valida valori anomali di profit_loss
+                const MAX_REASONABLE_PNL = 1000000;
                 if (Math.abs(pnl) > MAX_REASONABLE_PNL) {
-                    console.warn(`⚠️ Skipping anomalous profit_loss for position ${pos.ticket_id}: €${pnl.toFixed(2)} (exceeds ±€${MAX_REASONABLE_PNL.toFixed(2)})`);
-                    return; // Salta questa posizione
+                    console.warn(`⚠️ Skipping anomalous profit_loss for position ${pos.ticket_id}: €${pnl.toFixed(2)}`);
+                    return;
                 }
-                
+
                 totalPnL += pnl;
                 if (pnl > 0) {
                     totalProfit += pnl;
@@ -3408,8 +3406,7 @@ router.get('/statistics', async (req, res) => {
                     totalLoss += Math.abs(pnl);
                     losingTrades++;
                 }
-                // ✅ FIX: NON contare volume qui - verrà contato dai trades BUY iniziali per evitare doppio conteggio
-                // totalVolume += (parseFloat(pos.volume) || 0) * (parseFloat(pos.entry_price) || 0);
+                // Volume calcolato dai trades per evitare duplicati
             });
         } else {
             console.warn(`⚠️ closedPositions is not an array in statistics:`, typeof closedPositions);
@@ -3485,38 +3482,33 @@ router.get('/statistics', async (req, res) => {
             if (pos.ticket_id) processedTicketIds.add(pos.ticket_id);
         });
 
-        // ✅ FIX: Traccia ticket_ids già contati nel volume per evitare doppio conteggio
+        // ✅ FIX: Traccia ticket_ids già contati nel volume
         const volumeCountedTicketIds = new Set();
+        const pnlCountedTicketIds = new Set(Array.from(processedTicketIds));
 
         allTrades.forEach(trade => {
-            // Only count trades that are not part of a position (manual trades)
-            if (trade.profit_loss !== null && trade.profit_loss !== undefined && !processedTicketIds.has(trade.ticket_id)) {
+            // Conta P&L dai trade manuali (non posizioni)
+            if (trade.profit_loss !== null && trade.profit_loss !== undefined && !pnlCountedTicketIds.has(trade.ticket_id)) {
                 const pnl = parseFloat(trade.profit_loss) || 0;
-                
-                // ✅ FIX CRITICO: Valida valori anomali anche per trades manuali
                 const MAX_REASONABLE_PNL = 1000000;
-                if (Math.abs(pnl) > MAX_REASONABLE_PNL) {
-                    console.warn(`⚠️ Skipping anomalous profit_loss for trade ${trade.id || 'unknown'}: €${pnl.toFixed(2)}`);
-                    return; // Salta questo trade
-                }
-                
-                if (Math.abs(pnl) > 0.01) {
-                    totalPnL += pnl;
-                    if (pnl > 0) {
-                        totalProfit += pnl;
-                        winningTrades++;
-                    } else if (pnl < 0) {
-                        totalLoss += Math.abs(pnl);
-                        losingTrades++;
+                if (Math.abs(pnl) <= MAX_REASONABLE_PNL) {
+                    if (Math.abs(pnl) > 0.01) {
+                        totalPnL += pnl;
+                        if (pnl > 0) {
+                            totalProfit += pnl;
+                            winningTrades++;
+                        } else if (pnl < 0) {
+                            totalLoss += Math.abs(pnl);
+                            losingTrades++;
+                        }
                     }
                 }
             }
-            // ✅ FIX CRITICO: Conta volume SOLO per trades BUY iniziali (apertura posizione)
-            // NON contare trades SELL (chiusura) perché sono già contati dal volume della posizione
-            // NON contare se il ticket_id è già stato contato (evita doppio conteggio)
+
+            // ✅ FIX CRITICO: Conta volume SOLO per trades BUY iniziali
             if (trade.type === 'buy' && trade.ticket_id && !volumeCountedTicketIds.has(trade.ticket_id)) {
                 const tradeVolume = (parseFloat(trade.amount) || 0) * (parseFloat(trade.price) || 0);
-                if (tradeVolume > 0.01) { // Solo se volume significativo
+                if (tradeVolume > 0.01 && tradeVolume < 1000000) { // Validazione anche qui
                     totalVolume += tradeVolume;
                     volumeCountedTicketIds.add(trade.ticket_id);
                 }
@@ -3563,26 +3555,16 @@ router.get('/statistics', async (req, res) => {
         const avgWin = winningTrades > 0 ? totalProfit / winningTrades : 0;
         const avgLoss = losingTrades > 0 ? totalLoss / losingTrades : 0;
 
-        // ✅ FIX CRITICO: Valida che i valori calcolati siano ragionevoli
-        // Se totalPnL, totalBalance o altri valori sono anomali, limitali o resettali
-        const MAX_REASONABLE_BALANCE = 1000000; // 1 milione EUR limite ragionevole
-        const sanitizedTotalBalance = (totalBalance > MAX_REASONABLE_BALANCE || totalBalance < -MAX_REASONABLE_BALANCE) 
-            ? initialBalance 
-            : totalBalance;
-        const sanitizedTotalPnL = (Math.abs(totalPnL) > MAX_REASONABLE_PNL) 
-            ? 0 
-            : totalPnL;
-        const sanitizedPnLPercent = (Math.abs(pnlPercent) > 10000) // > 10000% è impossibile
-            ? 0 
-            : pnlPercent;
-        const sanitizedROI = (Math.abs(roi) > 10000)
-            ? 0
-            : roi;
+        // ✅ FIX CRITICO: Sanitizzazione finale valori anomali
+        const MAX_REASONABLE_BALANCE = 1000000;
+        const MAX_REASONABLE_PNL = 1000000;
 
-        // Log warning se valori sono stati sanitizzati
-        if (totalBalance !== sanitizedTotalBalance || totalPnL !== sanitizedTotalPnL) {
-            console.warn(`⚠️ Statistics: Sanitized anomalous values - Balance: €${totalBalance.toFixed(2)} → €${sanitizedTotalBalance.toFixed(2)}, P&L: €${totalPnL.toFixed(2)} → €${sanitizedTotalPnL.toFixed(2)}`);
-        }
+        const sanitizedTotalBalance = (Math.abs(totalBalance) > MAX_REASONABLE_BALANCE) ? initialBalance : totalBalance;
+        const sanitizedTotalPnL = (Math.abs(totalPnL) > MAX_REASONABLE_PNL) ? 0 : totalPnL;
+        const sanitizedPnLPercent = (Math.abs(pnlPercent) > 10000) ? 0 : pnlPercent;
+        const sanitizedROI = (Math.abs(roi) > 10000) ? 0 : roi;
+
+        if (totalBalance !== sanitizedTotalBalance) console.warn(`Sanitized Balance: ${totalBalance} -> ${sanitizedTotalBalance}`);
 
         res.json({
             success: true,
