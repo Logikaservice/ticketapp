@@ -104,20 +104,20 @@ const dbAll = (query, params = []) => {
 const getPortfolio = async () => {
     try {
         const row = await dbGet("SELECT * FROM portfolio LIMIT 1");
-        
+
         if (!row) {
             // ✅ FIX: Se non esiste, ritorna default
             return { balance_usd: 10000.0, holdings: '{}' };
         }
-        
+
         // ✅ FIX CRITICO: Valida balance_usd per evitare valori assurdi
         const rawBalance = parseFloat(row.balance_usd) || 0;
         const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni di euro max
         const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min
-        
+
         // ✅ DEBUG: Log balance per tracciare calcoli
         console.log(`💰 [BALANCE CHECK] Raw balance_usd dal DB: €${rawBalance.toFixed(2)}`);
-        
+
         if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
             console.error(`🚨 [PORTFOLIO] Valore anomale di balance_usd nel database: €${rawBalance.toLocaleString()}. Correggendo automaticamente a €10000`);
             // ✅ FIX CRITICO: Aggiorna il database con valore valido
@@ -131,11 +131,11 @@ const getPortfolio = async () => {
                 row.balance_usd = 10000;
             }
         }
-        
+
         // ✅ DEBUG: Log balance finale dopo validazione
         const finalBalance = parseFloat(row.balance_usd) || 0;
         console.log(`💰 [BALANCE CHECK] Balance finale dopo validazione: €${finalBalance.toFixed(2)}`);
-        
+
         return row;
     } catch (e) {
         console.error('❌ Exception getting portfolio:', e.message);
@@ -491,7 +491,7 @@ router.get('/dashboard', async (req, res) => {
                     "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
                     [position.symbol]
                 );
-                
+
                 if (klinesData && klinesData.length >= 20) {
                     const klinesChronological = klinesData.reverse();
                     const historyForSignal = klinesChronological.map(kline => ({
@@ -503,15 +503,15 @@ router.get('/dashboard', async (req, res) => {
                         open: parseFloat(kline.open_price),
                         timestamp: kline.open_time
                     }));
-                    
+
                     // Genera segnale attuale
                     const currentSignal = signalGenerator.generateSignal(historyForSignal, position.symbol);
-                    
+
                     // Determina sentimento
                     let sentiment = 'NEUTRAL';
                     let sentimentStrength = 0;
                     let sentimentDirection = null;
-                    
+
                     if (currentSignal.direction === 'LONG') {
                         sentiment = 'BULLISH';
                         sentimentStrength = currentSignal.strength;
@@ -527,11 +527,11 @@ router.get('/dashboard', async (req, res) => {
                             currentSignal.shortSignal?.strength || 0
                         );
                     }
-                    
+
                     // Verifica se sentimento è contrario alla posizione (WARNING)
                     const isContrary = (position.type === 'buy' && sentiment === 'BEARISH') ||
-                                      (position.type === 'sell' && sentiment === 'BULLISH');
-                    
+                        (position.type === 'sell' && sentiment === 'BULLISH');
+
                     return {
                         ...position,
                         bot_sentiment: {
@@ -745,14 +745,14 @@ router.post('/cleanup-positions', async (req, res) => {
     try {
         const { max_positions } = req.body;
         const targetMax = max_positions && !isNaN(parseInt(max_positions)) ? parseInt(max_positions) : HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
-        
+
         // Recupera tutte le posizioni aperte
         const allOpenPositions = await dbAll(
             "SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC"
         );
-        
+
         const currentCount = allOpenPositions.length;
-        
+
         if (currentCount <= targetMax) {
             return res.json({
                 success: true,
@@ -762,13 +762,13 @@ router.post('/cleanup-positions', async (req, res) => {
                 closed_count: 0
             });
         }
-        
+
         const positionsToClose = currentCount - targetMax;
-        
+
         // ✅ LOGICA INTELLIGENTE: Valuta ogni posizione con SmartExit per decidere quali chiudere
         const SmartExit = require('../services/SmartExit');
         const positionScores = [];
-        
+
         for (const pos of allOpenPositions) {
             try {
                 // Ottieni prezzo corrente e history
@@ -782,7 +782,7 @@ router.post('/cleanup-positions', async (req, res) => {
                     "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
                     [pos.symbol]
                 );
-                
+
                 const priceHistory = klines.reverse().map(k => ({
                     open: k.open_price,
                     high: k.high_price,
@@ -790,49 +790,49 @@ router.post('/cleanup-positions', async (req, res) => {
                     close: k.close_price,
                     timestamp: k.open_time
                 }));
-                
+
                 // ✅ Usa SmartExit per valutare se questa posizione dovrebbe essere chiusa
                 const shouldClose = await SmartExit.shouldClosePosition(pos, priceHistory);
-                
+
                 // Calcola score per prioritizzare chiusura:
                 // - Score negativo = chiudere prima (perdite, segnali opposti, mercato statico)
                 // - Score positivo = mantenere (profitti, trend valido)
                 let score = 0;
-                
+
                 const pnlPct = parseFloat(pos.profit_loss_pct) || 0;
-                
+
                 // 1. Priorità a posizioni in perdita (score negativo)
                 if (pnlPct < 0) {
                     score -= 100 + Math.abs(pnlPct) * 10; // Più in perdita = score più negativo
                 }
-                
+
                 // 2. Priorità a posizioni con segnale opposto forte
                 if (shouldClose.reason && shouldClose.reason.includes('opposto')) {
                     score -= 50;
                 }
-                
+
                 // 3. Priorità a posizioni in mercato statico senza guadagno
                 if (shouldClose.reason && shouldClose.reason.includes('statico')) {
                     score -= 30;
                 }
-                
+
                 // 4. Priorità a posizioni vecchie senza guadagno significativo
                 const openedAt = new Date(pos.opened_at);
                 const hoursOpen = (Date.now() - openedAt.getTime()) / (1000 * 60 * 60);
                 if (hoursOpen > 24 && pnlPct < 1.0) {
                     score -= 20; // Posizione vecchia (>24h) con poco guadagno
                 }
-                
+
                 // 5. Mantieni posizioni con buon profitto (score positivo)
                 if (pnlPct > 2.0) {
                     score += pnlPct * 10; // Più profitto = score più positivo
                 }
-                
+
                 // 6. Mantieni posizioni con trend valido (da SmartExit)
                 if (shouldClose.reason && shouldClose.reason.includes('MANTENERE')) {
                     score += 30;
                 }
-                
+
                 positionScores.push({
                     position: pos,
                     score: score,
@@ -852,16 +852,16 @@ router.post('/cleanup-positions', async (req, res) => {
                 });
             }
         }
-        
+
         // ✅ Ordina per score (score più negativo = chiudere prima)
         positionScores.sort((a, b) => a.score - b.score);
-        
+
         // ✅ Prendi le prime N posizioni da chiudere (quelle con score più negativo)
         const positionsToCloseList = positionScores.slice(0, positionsToClose);
-        
+
         let closedCount = 0;
         const closedPositions = [];
-        
+
         for (const { position: pos, score, pnlPct, shouldClose } of positionsToCloseList) {
             try {
                 // Ottieni prezzo corrente per chiudere
@@ -871,7 +871,7 @@ router.post('/cleanup-positions', async (req, res) => {
                     console.warn(`⚠️ [CLEANUP] Impossibile ottenere prezzo per ${pos.symbol} (${pos.ticket_id}), salto`);
                     continue; // Skip se non possiamo ottenere il prezzo
                 }
-                
+
                 if (currentPrice > 0) {
                     // Chiudi la posizione con motivo dettagliato
                     const reason = shouldClose?.reason || 'cleanup (troppe posizioni)';
@@ -889,10 +889,10 @@ router.post('/cleanup-positions', async (req, res) => {
                 console.error(`⚠️ Error closing position ${pos.ticket_id} during cleanup:`, closeErr.message);
             }
         }
-        
+
         console.log(`🧹 [CLEANUP INTELLIGENTE] Chiuse ${closedCount} posizioni in eccesso. Da ${currentCount} a ${currentCount - closedCount} posizioni.`);
         console.log(`📊 [CLEANUP] Posizioni chiuse (score medio: ${(positionScores.slice(0, closedCount).reduce((sum, p) => sum + p.score, 0) / closedCount).toFixed(2)})`);
-        
+
         res.json({
             success: true,
             message: `Chiuse ${closedCount} posizioni in eccesso usando logica intelligente. Da ${currentCount} a ${currentCount - closedCount} posizioni.`,
@@ -1156,7 +1156,7 @@ const HYBRID_STRATEGY_CONFIG = {
     MAX_POSITIONS_PER_GROUP: 10, // ✅ Aumentato: Permette più posizioni per simbolo se win rate alto
     MAX_TOTAL_POSITIONS: 30, // ✅ Aumentato: Con win rate 90%, 30 posizioni è ragionevole (€1000 / 30 = ~€33 per posizione)
     MAX_EXPOSURE_PER_GROUP_PCT: 1.0, // Rimosso limite esposizione per gruppo (gestito dal Risk Manager globale)
-    
+
     // ✅ Limiti dinamici basati su win rate
     getMaxPositionsForWinRate: (winRate) => {
         if (winRate >= 0.90) return 30; // Win rate 90%+ → 30 posizioni
@@ -1287,10 +1287,10 @@ const initWebSocketService = () => {
                 console.log(`📡 [WEBSOCKET] Prezzo aggiornato ${symbol}: €${price.toFixed(2)}`);
             }
         });
-        
+
         // Imposta mappa simbolo -> trading pair
         wsService.setSymbolToPairMap(SYMBOL_TO_PAIR);
-        
+
         // Connetti WebSocket
         wsService.connect().catch(err => {
             console.error('⚠️ [WEBSOCKET] Errore inizializzazione:', err.message);
@@ -1310,7 +1310,7 @@ const getSymbolPrice = async (symbol) => {
         // Usa cache - nessuna chiamata API (sicuro per rate limit)
         return cached.price;
     }
-    
+
     // Cache scaduta o non presente - aggiorna prezzo da Binance
     // Log solo occasionalmente per non intasare (ogni ~10 chiamate)
     if (Math.random() < 0.1) {
@@ -1353,26 +1353,26 @@ const getSymbolPrice = async (symbol) => {
         console.error(`Error fetching ${symbol} price from Binance:`, e.message);
         try {
             // ✅ FIX: CoinGecko restituisce sempre in EUR, quindi è più affidabile per coppie USDT
-                // ✅ FIX CRITICO: Usa precision=18 per gestire prezzi molto bassi (es. Shiba ~0.000007)
-                const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=eur&precision=18`);
-                if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].eur !== undefined) {
-                    const price = parseFloat(geckoData[coingeckoId].eur);
-                    // ✅ FIX: Verifica che il prezzo sia valido (anche se molto basso, es. 0.000007)
-                    if (price > 0 && !isNaN(price) && isFinite(price)) {
-                        console.log(`💱 [PRICE] ${symbol} from CoinGecko: €${price.toFixed(8)} EUR`);
-                        // ✅ Salva in cache anche per CoinGecko
-                        priceCache.set(symbol, { price, timestamp: Date.now() });
-                        return price;
-                    } else {
-                        console.warn(`⚠️ [PRICE] ${symbol} prezzo da CoinGecko non valido: ${price}`);
-                    }
+            // ✅ FIX CRITICO: Usa precision=18 per gestire prezzi molto bassi (es. Shiba ~0.000007)
+            const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=eur&precision=18`);
+            if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].eur !== undefined) {
+                const price = parseFloat(geckoData[coingeckoId].eur);
+                // ✅ FIX: Verifica che il prezzo sia valido (anche se molto basso, es. 0.000007)
+                if (price > 0 && !isNaN(price) && isFinite(price)) {
+                    console.log(`💱 [PRICE] ${symbol} from CoinGecko: €${price.toFixed(8)} EUR`);
+                    // ✅ Salva in cache anche per CoinGecko
+                    priceCache.set(symbol, { price, timestamp: Date.now() });
+                    return price;
                 } else {
-                    console.warn(`⚠️ [PRICE] ${symbol} dati CoinGecko non validi o mancanti per ${coingeckoId}`);
+                    console.warn(`⚠️ [PRICE] ${symbol} prezzo da CoinGecko non valido: ${price}`);
                 }
+            } else {
+                console.warn(`⚠️ [PRICE] ${symbol} dati CoinGecko non validi o mancanti per ${coingeckoId}`);
+            }
         } catch (e2) {
             console.error(`Error fetching ${symbol} price from CoinGecko:`, e2.message);
         }
-        
+
         // ✅ FIX: Se tutto fallisce, ritorna null invece di 0 per distinguere da prezzo reale zero
         console.error(`❌ [PRICE] Impossibile ottenere prezzo per ${symbol} (tradingPair: ${tradingPair}, coingeckoId: ${coingeckoId})`);
         return null;
@@ -1508,25 +1508,25 @@ const getCorrelationGroup = (symbol) => {
 // ✅ Helper: Calcola score qualità di un nuovo segnale
 const calculateNewSignalQualityScore = (signal, symbol, signalType) => {
     if (!signal) return { score: 0 };
-    
+
     let score = 0;
-    
+
     // 1. Strength del segnale (0-100)
     score += signal.strength || 0;
-    
+
     // 2. Bonus per conferme (max +30)
     score += Math.min((signal.confirmations || 0) * 10, 30);
-    
+
     // 3. Bonus per MTF alignment (se presente)
     if (signal.mtf && signal.mtf.bonus) {
         score += signal.mtf.bonus;
     }
-    
+
     // 4. Penalità se ATR blocked
     if (signal.atrBlocked) {
         score -= 50; // Penalità forte per mercato non adatto
     }
-    
+
     return {
         score: score,
         strength: signal.strength || 0,
@@ -1537,36 +1537,36 @@ const calculateNewSignalQualityScore = (signal, symbol, signalType) => {
 // ✅ Helper: Calcola score qualità di una posizione esistente
 const calculatePositionQualityScore = async (position) => {
     if (!position) return { score: 0, pnlPct: 0, signalStrength: 0 };
-    
+
     let score = 0;
     const pnlPct = parseFloat(position.profit_loss_pct) || 0;
-    
+
     // 1. P&L percentuale (score principale)
     score += pnlPct * 10; // P&L positivo aumenta score, negativo lo diminuisce
-    
+
     // 2. Penalità per posizioni vecchie senza guadagno
     const openedAt = new Date(position.opened_at);
     const hoursOpen = (Date.now() - openedAt.getTime()) / (1000 * 60 * 60);
     if (hoursOpen > 24 && pnlPct < 1.0) {
         score -= 20; // Posizione vecchia senza guadagno significativo
     }
-    
+
     // 3. Bonus per posizioni con buon profitto
     if (pnlPct > 2.0) {
         score += 30; // Bonus per profitti solidi
     }
-    
+
     // 4. Penalità forte per perdite significative
     if (pnlPct < -2.0) {
         score -= 50; // Penalità forte per perdite
     }
-    
+
     // 5. Strength del segnale originale (se disponibile)
     let signalStrength = 0;
     try {
         if (position.signal_details) {
-            const signalDetails = typeof position.signal_details === 'string' 
-                ? JSON.parse(position.signal_details) 
+            const signalDetails = typeof position.signal_details === 'string'
+                ? JSON.parse(position.signal_details)
                 : position.signal_details;
             signalStrength = signalDetails.strength || signalDetails.mtf?.adjustedStrength || 0;
             score += signalStrength * 0.1; // Piccolo bonus per segnali forti
@@ -1574,7 +1574,7 @@ const calculatePositionQualityScore = async (position) => {
     } catch (e) {
         // Ignora errori di parsing
     }
-    
+
     return {
         score: score,
         pnlPct: pnlPct,
@@ -1617,7 +1617,7 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = 
                 else resolve(row);
             });
         });
-        
+
         if (stats && stats.total_trades >= 10) {
             const winRate = stats.total_trades > 0 ? stats.winning_trades / stats.total_trades : 0.5;
             maxTotalPositions = HYBRID_STRATEGY_CONFIG.getMaxPositionsForWinRate(winRate);
@@ -1626,7 +1626,7 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = 
     } catch (e) {
         // Usa default se errore
     }
-    
+
     // ✅ LOGICA INTELLIGENTE: Se limite totale raggiunto, confronta nuovo segnale con posizioni esistenti
     if (openPositions.length >= maxTotalPositions) {
         // Se non abbiamo il nuovo segnale, non possiamo confrontare - blocca
@@ -1637,28 +1637,28 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = 
                 groupPositions: groupPositions.length
             };
         }
-        
+
         // ✅ Calcola score del nuovo segnale
         const newSignalScore = calculateNewSignalQualityScore(newSignal, symbol, signalType);
-        
+
         // ✅ Calcola score di tutte le posizioni esistenti
         const positionScores = [];
         for (const pos of openPositions) {
             const posScore = await calculatePositionQualityScore(pos);
             positionScores.push(posScore);
         }
-        
+
         // ✅ Ordina per score (score più basso = posizione peggiore)
         positionScores.sort((a, b) => a.score - b.score);
-        
+
         // ✅ Trova la posizione peggiore (score più basso)
         const worstPosition = positionScores[0];
-        
+
         // ✅ Confronta: nuovo segnale deve essere MIGLIORE della posizione peggiore
         if (newSignalScore.score > worstPosition.score) {
             console.log(`✅ [SMART REPLACEMENT] Nuovo segnale ${symbol} (score: ${newSignalScore.score.toFixed(2)}) è MIGLIORE della posizione peggiore ${worstPosition.position.symbol} (score: ${worstPosition.score.toFixed(2)})`);
             console.log(`   → Chiuderò ${worstPosition.position.symbol} (P&L: ${worstPosition.pnlPct.toFixed(2)}%, Trend: ${worstPosition.signalStrength}/100) e aprirò ${symbol}`);
-            
+
             return {
                 allowed: true,
                 reason: `Smart replacement: Nuovo segnale migliore della posizione peggiore (${worstPosition.position.symbol})`,
@@ -1676,7 +1676,7 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = 
         } else {
             console.log(`🛑 [SMART REPLACEMENT] Nuovo segnale ${symbol} (score: ${newSignalScore.score.toFixed(2)}) NON è migliore della posizione peggiore ${worstPosition.position.symbol} (score: ${worstPosition.score.toFixed(2)})`);
             console.log(`   → Mantengo posizioni esistenti, non apro nuova posizione`);
-            
+
             return {
                 allowed: false,
                 reason: `Max ${maxTotalPositions} total positions. Nuovo segnale (score: ${newSignalScore.score.toFixed(2)}) NON migliore della posizione peggiore (score: ${worstPosition.score.toFixed(2)})`,
@@ -2048,14 +2048,14 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 const balance = parseFloat(portfolio.balance_usd || 10000);
                 const initialBalance = 1000; // Bilancio iniziale
                 const portfolioPnLPct = balance > 0 ? ((balance - initialBalance) / initialBalance) * 100 : -100;
-                
+
                 // Calcola P&L medio posizioni aperte
                 let avgOpenPnL = 0;
                 if (allOpenPositions.length > 0) {
                     const totalOpenPnL = allOpenPositions.reduce((sum, p) => sum + (parseFloat(p.profit_loss_pct) || 0), 0);
                     avgOpenPnL = totalOpenPnL / allOpenPositions.length;
                 }
-                
+
                 // Blocca se portfolio in drawdown significativo
                 if (portfolioPnLPct < -5.0) {
                     portfolioDrawdownBlock = true;
@@ -2064,7 +2064,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     portfolioDrawdownBlock = true;
                     portfolioDrawdownReason = `P&L medio posizioni aperte troppo negativo: ${avgOpenPnL.toFixed(2)}% (soglia: -2%)`;
                 }
-                
+
                 console.log(`📊 [PORTFOLIO-CHECK] P&L Portfolio: ${portfolioPnLPct.toFixed(2)}% | P&L Medio Aperte: ${avgOpenPnL.toFixed(2)}% | Block: ${portfolioDrawdownBlock}`);
             }
         } catch (e) {
@@ -2108,7 +2108,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 if (btcHistory.length >= 50) {
                     const btcPrice24hAgo = parseFloat(btcHistory[49].price);
                     const btcChange24h = ((btcPrice - btcPrice24hAgo) / btcPrice24hAgo) * 100;
-                    
+
                     // Se BTC in downtrend forte, blocca LONG
                     if (signal.direction === 'LONG' && btcChange24h < -3.0) {
                         marketRegimeBlock = true;
@@ -2119,7 +2119,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         marketRegimeBlock = true;
                         marketRegimeReason = `BTC in uptrend forte (+${btcChange24h.toFixed(2)}%) - Mercato rialzista, bloccare SHORT`;
                     }
-                    
+
                     console.log(`📊 [MARKET-REGIME] BTC 24h change: ${btcChange24h.toFixed(2)}% | Block: ${marketRegimeBlock}`);
                 }
             }
@@ -2140,7 +2140,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             if (symbolClosed.length >= 10) {
                 const winning = symbolClosed.filter(p => (parseFloat(p.profit_loss || 0)) > 0).length;
                 const winRate = winning / symbolClosed.length;
-                
+
                 // Se win rate < 40%, richiedere strength più alta
                 if (winRate < 0.40) {
                     symbolWinRateAdjustment = 15; // Aumenta soglia di 15 punti
@@ -2161,11 +2161,11 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             if (klinesData && klinesData.length >= 3) {
                 const recentKlines = klinesData.slice(-3).reverse(); // Ultime 3 candele (più recenti)
                 const closes = recentKlines.map(k => parseFloat(k.close_price));
-                
+
                 if (closes.length >= 3) {
                     const change1 = ((closes[1] - closes[0]) / closes[0]) * 100; // Cambio candela 1->2
                     const change2 = ((closes[2] - closes[1]) / closes[1]) * 100; // Cambio candela 2->3
-                    
+
                     // Per LONG: prezzo deve essere salito almeno 0.2% nelle ultime 2 candele (soglia più permissiva)
                     if (signal.direction === 'LONG') {
                         const totalRise = ((closes[2] - closes[0]) / closes[0]) * 100;
@@ -2182,7 +2182,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                             momentumReason = `Momentum debole per SHORT: prezzo non sta scendendo chiaramente (${totalFall.toFixed(2)}% totale) - Richiedere strength +5`;
                         }
                     }
-                    
+
                     console.log(`📊 [MOMENTUM] ${signal.direction}: Change1=${change1.toFixed(2)}%, Change2=${change2.toFixed(2)}% | Adjustment: +${momentumAdjustment}`);
                 }
             }
@@ -2200,10 +2200,10 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 const prices = klinesData.map(k => parseFloat(k.close_price));
                 const ema200 = signalGenerator.calculateEMA(prices, 200);
                 const currentPriceValue = parseFloat(currentPrice);
-                
+
                 if (ema200 && currentPriceValue > 0) {
                     const distanceToEMA200 = Math.abs((currentPriceValue - ema200) / ema200) * 100;
-                    
+
                     // Se LONG e prezzo è vicino a EMA200 (resistenza) o sopra EMA200 ma vicino
                     if (signal.direction === 'LONG') {
                         if (currentPriceValue < ema200 && distanceToEMA200 < 2.0) {
@@ -2218,7 +2218,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                             supportResistanceReason = `SHORT vicino a supporto EMA200 (${distanceToEMA200.toFixed(2)}% distanza) - Richiedere strength +10`;
                         }
                     }
-                    
+
                     if (supportResistanceAdjustment > 0) {
                         console.log(`⚠️ [SUPPORT/RESISTANCE] ${supportResistanceReason}`);
                     }
@@ -2236,7 +2236,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             const now = new Date();
             const hourUTC = now.getUTCHours();
             const dayOfWeek = now.getUTCDay(); // 0 = Domenica, 6 = Sabato
-            
+
             // Durante orari notturni (00:00-08:00 UTC) o weekend, aumenta leggermente la soglia
             if ((hourUTC >= 0 && hourUTC < 8) || dayOfWeek === 0 || dayOfWeek === 6) {
                 timeOfDayAdjustment = 3; // Piccolo aumento (3 punti) invece di bloccare
@@ -2251,7 +2251,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         // ==========================================
         // ✅ STRATEGY: 1000 posizioni piccole su analisi giuste > 1 posizione ogni tanto
         // Permettiamo MULTIPLE posizioni se il segnale è forte e il risk manager lo permette
-        
+
         // ✅ ADAPTIVE SIGNAL STRENGTH: Adatta soglia in base a condizioni (BILANCIATO)
         let MIN_SIGNAL_STRENGTH = 70; // Soglia base (non troppo alta per permettere aperture)
         if (consecutiveLossesBlock) {
@@ -2261,10 +2261,10 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         MIN_SIGNAL_STRENGTH += momentumAdjustment; // Aggiungi aggiustamento momentum
         MIN_SIGNAL_STRENGTH += supportResistanceAdjustment; // Aggiungi aggiustamento support/resistance
         MIN_SIGNAL_STRENGTH += timeOfDayAdjustment; // Aggiungi aggiustamento time of day
-        
+
         // ✅ CAP: Massimo 85 punti (non bloccare completamente)
         MIN_SIGNAL_STRENGTH = Math.min(85, MIN_SIGNAL_STRENGTH);
-        
+
         // ✅ LOG DETTAGLIATO: Mostra cosa il bot sta aspettando
         const baseStrength = 70;
         const adjustments = [];
@@ -2273,10 +2273,10 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         if (momentumAdjustment > 0) adjustments.push(`Momentum Debole: +${momentumAdjustment}`);
         if (supportResistanceAdjustment > 0) adjustments.push(`Support/Resistance: +${supportResistanceAdjustment}`);
         if (timeOfDayAdjustment > 0) adjustments.push(`Time-of-Day: +${timeOfDayAdjustment}`);
-        
+
         console.log(`\n📊 ========== ANALISI APERTURA POSIZIONE [${symbol.toUpperCase()}] ==========`);
         console.log(`🎯 Segnale: ${signal.direction} | Strength Attuale: ${signal.strength}/100 | Strength Richiesta: ${MIN_SIGNAL_STRENGTH}/100`);
-        
+
         // Mostra dettaglio aggiustamenti
         if (adjustments.length > 0) {
             console.log(`   ⚙️  Aggiustamenti Applicati:`);
@@ -2285,7 +2285,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         } else {
             console.log(`   ✅ Nessun aggiustamento - Soglia base: ${MIN_SIGNAL_STRENGTH}`);
         }
-        
+
         // Mostra stato filtri
         console.log(`   🔍 Stato Filtri:`);
         console.log(`      • Portfolio Drawdown: ${portfolioDrawdownBlock ? '❌ BLOCCATO' : '✅ OK'}`);
@@ -2296,7 +2296,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         console.log(`      • Momentum: ${momentumAdjustment > 0 ? `⚠️  Richiede +${momentumAdjustment}` : '✅ OK'}`);
         console.log(`      • Support/Resistance: ${supportResistanceAdjustment > 0 ? `⚠️  Richiede +${supportResistanceAdjustment}` : '✅ OK'}`);
         console.log(`      • Time-of-Day: ${timeOfDayAdjustment > 0 ? `⚠️  Richiede +${timeOfDayAdjustment}` : '✅ OK'}`);
-        
+
         // Mostra cosa sta aspettando
         if (signal.strength < MIN_SIGNAL_STRENGTH && signal.direction !== 'NEUTRAL') {
             const missing = MIN_SIGNAL_STRENGTH - signal.strength;
@@ -2382,13 +2382,13 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti
                 } else {
                     console.log(`✅ [HYBRID-STRATEGY] LONG APPROVED: ${hybridCheck.reason}`);
-                    
+
                     // ✅ LOGICA INTELLIGENTE: Se c'è una posizione da chiudere, chiudila PRIMA di aprire la nuova
                     if (hybridCheck.positionToClose) {
                         try {
                             const positionToClose = hybridCheck.positionToCloseDetails;
                             console.log(`🔄 [SMART REPLACEMENT] Chiudendo posizione ${positionToClose.symbol} (${positionToClose.ticket_id}) per aprire ${symbol}`);
-                            
+
                             const currentPriceToClose = await getSymbolPrice(positionToClose.symbol);
                             if (currentPriceToClose > 0) {
                                 await closePosition(
@@ -2410,7 +2410,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     // Esempio: €1000, maxExposure 80% = €800, maxPositions 10 → €800/10 = €80 per posizione
                     const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
                     const cashBalance = parseFloat(portfolio?.balance_usd || 0);
-                    
+
                     // Calcola totalEquity (cash + valore posizioni aperte)
                     const allOpenPos = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
                     let currentExposureValue = 0;
@@ -2422,11 +2422,11 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         currentExposureValue += remaining * entry;
                     }
                     const totalEquity = cashBalance + currentExposureValue;
-                    
+
                     // Calcola maxExposure e maxPositions
                     const dynamicLimits = await riskManager.getDynamicLimits();
                     const maxExposure = totalEquity * dynamicLimits.maxExposurePct; // Es. €1000 * 80% = €800
-                    
+
                     // Calcola maxPositions basato su win rate
                     let maxTotalPositions = HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
                     try {
@@ -2438,19 +2438,16 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     } catch (e) {
                         // Usa default
                     }
-                    
-                    // ✅ CALCOLO OTTIMALE: Dimensione posizione = maxExposure / maxPositions
-                    const optimalPositionSize = maxExposure / maxTotalPositions; // Es. €800 / 10 = €80
-                    
-                    // Prendi il minimo tra: optimalPositionSize, trade_size_eur, maxPositionSize, availableExposure
+
+                    // ✅ FIXED POSITION SIZING: Usa dimensione dal RiskManager (minimo €80)
+                    // Il RiskManager già calcola la dimensione ottimale (8% portfolio o €80 minimo)
+                    // Limitiamo solo all'exposure disponibile per non superare i limiti
                     const maxAvailableForNewPosition = Math.min(
-                        optimalPositionSize,        // ✅ NUOVO: €80 (calcolato ottimale)
-                        params.trade_size_eur,     // €50 (configurato)
-                        riskCheck.maxPositionSize,  // €100 (10% di €1000)
-                        riskCheck.availableExposure // €21.96 (se exposure già alta)
+                        riskCheck.maxPositionSize,  // €80 minimo (o più se portfolio cresce)
+                        riskCheck.availableExposure // Exposure disponibile (non superare limiti)
                     );
-                    
-                    console.log(`📊 [POSITION-SIZE] Total Equity: €${totalEquity.toFixed(2)} | Max Exposure: €${maxExposure.toFixed(2)} (${(dynamicLimits.maxExposurePct * 100).toFixed(0)}%) | Max Positions: ${maxTotalPositions} | Optimal Size: €${optimalPositionSize.toFixed(2)} | Final: €${maxAvailableForNewPosition.toFixed(2)}`);
+
+                    console.log(`📊 [POSITION-SIZE] Total Equity: €${totalEquity.toFixed(2)} | Risk Manager Size: €${riskCheck.maxPositionSize.toFixed(2)} | Available Exposure: €${riskCheck.availableExposure.toFixed(2)} | Final: €${maxAvailableForNewPosition.toFixed(2)}`);
                     const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
                     console.log(`🔍 LONG SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
@@ -2586,13 +2583,13 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti
                     } else {
                         console.log(`✅ [HYBRID-STRATEGY] SHORT APPROVED: ${hybridCheck.reason}`);
-                        
+
                         // ✅ LOGICA INTELLIGENTE: Se c'è una posizione da chiudere, chiudila PRIMA di aprire la nuova
                         if (hybridCheck.positionToClose) {
                             try {
                                 const positionToClose = hybridCheck.positionToCloseDetails;
                                 console.log(`🔄 [SMART REPLACEMENT] Chiudendo posizione ${positionToClose.symbol} (${positionToClose.ticket_id}) per aprire ${symbol}`);
-                                
+
                                 const currentPriceToClose = await getSymbolPrice(positionToClose.symbol);
                                 if (currentPriceToClose > 0) {
                                     await closePosition(
@@ -2615,7 +2612,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         // Stessa logica di LONG: €1000, maxExposure 80% = €800, maxPositions 10 → €800/10 = €80
                         const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
                         const cashBalance = parseFloat(portfolio?.balance_usd || 0);
-                        
+
                         // Calcola totalEquity (cash + valore posizioni aperte)
                         const allOpenPos = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
                         let currentExposureValue = 0;
@@ -2627,11 +2624,11 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                             currentExposureValue += remaining * entry;
                         }
                         const totalEquity = cashBalance + currentExposureValue;
-                        
+
                         // Calcola maxExposure e maxPositions
                         const dynamicLimits = await riskManager.getDynamicLimits();
                         const maxExposure = totalEquity * dynamicLimits.maxExposurePct; // Es. €1000 * 80% = €800
-                        
+
                         // Calcola maxPositions basato su win rate
                         let maxTotalPositions = HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
                         try {
@@ -2643,19 +2640,16 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         } catch (e) {
                             // Usa default
                         }
-                        
-                        // ✅ CALCOLO OTTIMALE: Dimensione posizione = maxExposure / maxPositions
-                        const optimalPositionSize = maxExposure / maxTotalPositions; // Es. €800 / 10 = €80
-                        
-                        // Prendi il minimo tra: optimalPositionSize, trade_size_eur, maxPositionSize, availableExposure
+
+                        // ✅ FIXED POSITION SIZING: Usa dimensione dal RiskManager (minimo €80)
+                        // Il RiskManager già calcola la dimensione ottimale (8% portfolio o €80 minimo)
+                        // Limitiamo solo all'exposure disponibile per non superare i limiti
                         const maxAvailableForNewPosition = Math.min(
-                            optimalPositionSize,        // ✅ NUOVO: €80 (calcolato ottimale)
-                            params.trade_size_eur,     // €50 (configurato)
-                            riskCheck.maxPositionSize,  // €100 (10% di €1000)
-                            riskCheck.availableExposure // €21.96 (se exposure già alta)
+                            riskCheck.maxPositionSize,  // €80 minimo (o più se portfolio cresce)
+                            riskCheck.availableExposure // Exposure disponibile (non superare limiti)
                         );
-                        
-                        console.log(`📊 [SHORT-POSITION-SIZE] Total Equity: €${totalEquity.toFixed(2)} | Max Exposure: €${maxExposure.toFixed(2)} (${(dynamicLimits.maxExposurePct * 100).toFixed(0)}%) | Max Positions: ${maxTotalPositions} | Optimal Size: €${optimalPositionSize.toFixed(2)} | Final: €${maxAvailableForNewPosition.toFixed(2)}`);
+
+                        console.log(`📊 [SHORT-POSITION-SIZE] Total Equity: €${totalEquity.toFixed(2)} | Risk Manager Size: €${riskCheck.maxPositionSize.toFixed(2)} | Available Exposure: €${riskCheck.availableExposure.toFixed(2)} | Final: €${maxAvailableForNewPosition.toFixed(2)}`);
                         const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
                         console.log(`🔍 SHORT SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
@@ -2806,7 +2800,7 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
         if (entryPrice > MAX_REASONABLE_ENTRY_PRICE) {
             console.error(`🚨 [OPEN POSITION] entryPrice anomale per ${symbol}: €${entryPrice.toLocaleString()}`);
             console.error(`   → Potrebbe essere in USDT non convertito. Verifico prezzo corretto...`);
-            
+
             // Prova a recuperare il prezzo corretto
             try {
                 const correctPrice = await getSymbolPrice(symbol);
@@ -2821,7 +2815,7 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
                 throw new Error(`Impossibile aprire posizione per ${symbol}: entryPrice anomale (€${entryPrice.toLocaleString()}) e impossibile recuperare prezzo corretto`);
             }
         }
-        
+
         // ✅ TODO BINANCE REALE: Quando si passa a Binance reale, aggiungere qui:
         // const { getBinanceClient, isBinanceAvailable } = require('../utils/binanceConfig');
         // if (isBinanceAvailable()) {
@@ -3291,13 +3285,13 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
                         let validatedClosePrice = currentPrice;
                         const tradingPair = SYMBOL_TO_PAIR[updatedPos.symbol] || 'BTCEUR';
                         const isUSDT = tradingPair.endsWith('USDT');
-                        
+
                         if (isUSDT && currentPrice > 200000 && updatedPos.symbol !== 'bitcoin') {
                             console.warn(`⚠️ [AUTO-CLOSE] currentPrice ${currentPrice} seems too high for ${updatedPos.symbol}, might need conversion`);
                             // Se sembra troppo alto, potrebbe essere in USDT - ma getSymbolPrice dovrebbe averlo già convertito
                             // Logga solo per debug
                         }
-                        
+
                         console.log(`⚡ AUTO-CLOSING POSITION: ${updatedPos.ticket_id} | Reason: ${closeReason} | Price: €${validatedClosePrice.toFixed(2)}`);
                         await closePosition(updatedPos.ticket_id, validatedClosePrice, closeReason);
                     }
@@ -3453,16 +3447,16 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
         const entryPrice = parseFloat(pos.entry_price) || 0;
         const MAX_REASONABLE_PRICE = 1000000; // 1 milione EUR max
         const MIN_REASONABLE_PRICE = 0.000001; // Minimo ragionevole
-        
+
         // ✅ FIX: Calcola range ragionevole basato su entry_price (max 10x o min 0.1x)
         const reasonablePriceMax = entryPrice > 0 ? entryPrice * 10 : MAX_REASONABLE_PRICE;
         const reasonablePriceMin = entryPrice > 0 ? entryPrice * 0.1 : MIN_REASONABLE_PRICE;
-        
+
         if (closePrice > MAX_REASONABLE_PRICE || closePrice < MIN_REASONABLE_PRICE) {
             console.error(`🚨 [CLOSE POSITION] Prezzo di chiusura anomale per ${pos.symbol}: €${closePrice.toLocaleString()}`);
             console.error(`   Entry price: €${entryPrice.toFixed(6)}, Close price: €${closePrice.toFixed(6)}`);
             console.error(`   Range ragionevole: €${reasonablePriceMin.toFixed(6)} - €${reasonablePriceMax.toFixed(6)}`);
-            
+
             // ✅ FIX: Prova a recuperare il prezzo corretto
             try {
                 const correctPrice = await getSymbolPrice(pos.symbol);
@@ -3481,7 +3475,7 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
             console.warn(`⚠️ [CLOSE POSITION] Prezzo di chiusura sospetto per ${pos.symbol}: €${closePrice.toFixed(6)} (entry: €${entryPrice.toFixed(6)})`);
             console.warn(`   Range ragionevole: €${reasonablePriceMin.toFixed(6)} - €${reasonablePriceMax.toFixed(6)}`);
             console.warn(`   Verifico prezzo corretto...`);
-            
+
             // ✅ FIX: Verifica con prezzo corrente
             try {
                 const currentPrice = await getSymbolPrice(pos.symbol);
@@ -3508,7 +3502,7 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
             // SHORT: profit quando prezzo scende
             finalPnl = (entryPrice - closePrice) * remainingVolume;
         }
-        
+
         // ✅ FIX CRITICO: Calcola profit_loss_pct CORRETTAMENTE per LONG e SHORT
         let profitLossPct = 0;
         if (entryPrice > 0) {
@@ -3520,7 +3514,7 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
                 profitLossPct = ((entryPrice - closePrice) / entryPrice) * 100;
             }
         }
-        
+
         // ✅ FIX: Valida anche il P&L calcolato
         const MAX_REASONABLE_PNL = 1000000; // 1 milione EUR max
         if (Math.abs(finalPnl) > MAX_REASONABLE_PNL) {
@@ -3609,7 +3603,7 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
                     console.log('✅ [STATS] Record performance_stats creato con successo');
                 }
             }
-            
+
             if (finalPnl > 0) {
                 // Winning trade
                 const result = await dbRun(`
@@ -3637,7 +3631,7 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
                 `, [finalPnl]);
                 console.log(`📊 [STATS] Loss recorded: €${finalPnl.toFixed(2)} | Rows affected: ${result.changes || 'N/A'}`);
             }
-            
+
             // ✅ DEBUG: Verifica stato aggiornato
             const updatedStats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
             if (updatedStats) {
@@ -3707,12 +3701,12 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
 // GET /api/crypto/positions - Get all open positions
 router.get('/positions', (req, res) => {
     const { status } = req.query;
-    
+
     // ✅ FIX: Validazione STRICTA - se status è specificato, deve essere esattamente 'open'
     // Questo previene bug dove posizioni chiuse vengono mostrate come aperte
     let query;
     let params = [];
-    
+
     if (status) {
         // ✅ FIX: Solo accetta 'open' come status valido per questo endpoint
         if (status === 'open') {
@@ -3731,7 +3725,7 @@ router.get('/positions', (req, res) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
-        
+
         // ✅ FIX: Validazione aggiuntiva - filtra posizioni con dati invalidi
         const validPositions = (rows || []).filter(pos => {
             // Deve avere ticket_id
@@ -3745,7 +3739,7 @@ router.get('/positions', (req, res) => {
             }
             return true;
         });
-        
+
         res.json({ positions: validPositions });
     });
 });
@@ -3847,7 +3841,7 @@ router.post('/positions/close/:ticketId', async (req, res) => {
             const targetSymbol = symbol || 'bitcoin';
             const tradingPair = SYMBOL_TO_PAIR[targetSymbol] || 'BTCEUR';
             const isUSDT = tradingPair.endsWith('USDT');
-            
+
             if (isUSDT) {
                 // ✅ FIX: Se il prezzo fornito è in USDT, convertilo in EUR
                 // Assumiamo che se close_price è molto grande (> 1000 per la maggior parte delle crypto),
@@ -3909,7 +3903,7 @@ const updateAllPositionsPnL = async () => {
     try {
         // Ottieni tutti i simboli unici delle posizioni aperte
         const allOpenPositions = await dbAll("SELECT DISTINCT symbol FROM open_positions WHERE status = 'open'");
-        
+
         if (allOpenPositions.length === 0) {
             // Nessuna posizione aperta - rimuovi tutte le sottoscrizioni WebSocket
             if (wsService && wsService.isWebSocketConnected()) {
@@ -3920,18 +3914,18 @@ const updateAllPositionsPnL = async () => {
             }
             return;
         }
-        
+
         // ✅ WEBSOCKET: Sottoscrivi a simboli con posizioni aperte
         if (wsService && wsService.isWebSocketConnected()) {
             const currentSymbols = Array.from(wsService.subscribedSymbols || []);
             const newSymbols = allOpenPositions.map(p => p.symbol);
-            
+
             // Rimuovi simboli non più necessari
             const toUnsubscribe = currentSymbols.filter(s => !newSymbols.includes(s));
             if (toUnsubscribe.length > 0) {
                 wsService.unsubscribeFromSymbols(toUnsubscribe);
             }
-            
+
             // Aggiungi nuovi simboli
             const toSubscribe = newSymbols.filter(s => !currentSymbols.includes(s));
             if (toSubscribe.length > 0) {
@@ -3946,7 +3940,7 @@ const updateAllPositionsPnL = async () => {
                 });
             }
         }
-        
+
         // Aggiorna P&L per ogni simbolo
         // ✅ OTTIMIZZATO: Se WebSocket attivo, usa cache (aggiornata in real-time)
         // Se WebSocket non disponibile, usa REST API (fallback)
@@ -3957,7 +3951,7 @@ const updateAllPositionsPnL = async () => {
                 // Se WebSocket attivo, prezzo è già in cache (aggiornato in real-time)
                 // Se non attivo, chiama REST API (fallback)
                 const currentPrice = await getSymbolPrice(symbol);
-                
+
                 if (currentPrice > 0) {
                     // Aggiorna P&L per tutte le posizioni di questo simbolo
                     await updatePositionsPnL(currentPrice, symbol);
@@ -4333,23 +4327,23 @@ router.get('/bot/status', async (req, res) => {
         const allBots = await dbAll(
             "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'"
         );
-        
+
         const activeBots = allBots.filter(b => Number(b.is_active) === 1);
         const pausedBots = allBots.filter(b => Number(b.is_active) === 0);
-        
+
         // Count open positions
         const openPositions = await dbAll(
             "SELECT COUNT(*) as count FROM open_positions WHERE status = 'open'"
         );
         const openPositionsCount = openPositions[0]?.count || 0;
-        
+
         // Check if bot cycle is running (check last activity)
         const lastBotActivity = await dbAll(
             "SELECT MAX(timestamp) as last_update FROM price_history WHERE symbol IN (SELECT symbol FROM bot_settings WHERE strategy_name = 'RSI_Strategy') LIMIT 1"
         );
         const lastUpdate = lastBotActivity[0]?.last_update || null;
         const minutesSinceUpdate = lastUpdate ? Math.floor((Date.now() - new Date(lastUpdate).getTime()) / (1000 * 60)) : null;
-        
+
         res.json({
             status: activeBots.length > 0 ? 'ACTIVE' : 'PAUSED',
             total_bots: allBots.length,
@@ -4548,20 +4542,20 @@ router.post('/bot/toggle', async (req, res) => {
 router.post('/bot/toggle-all', async (req, res) => {
     try {
         const { is_active } = req.body;
-        
+
         if (typeof is_active !== 'boolean') {
             return res.status(400).json({ error: 'is_active must be a boolean' });
         }
-        
+
         const activeValue = is_active ? 1 : 0;
-        
+
         console.log(`🤖 [BOT-TOGGLE-ALL] Toggling ALL bots to ${activeValue === 1 ? 'ACTIVE' : 'INACTIVE'}`);
-        
+
         // Get all bot settings
         const allBots = await dbAll(
             "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy'"
         );
-        
+
         if (allBots.length === 0) {
             // No bots exist, create default ones for main symbols
             const mainSymbols = ['bitcoin', 'ethereum', 'solana', 'cardano', 'polkadot', 'chainlink'];
@@ -4580,13 +4574,13 @@ router.post('/bot/toggle-all', async (req, res) => {
             );
             console.log(`✅ [BOT-TOGGLE-ALL] Updated ${allBots.length} bots to ${activeValue === 1 ? 'ACTIVE' : 'INACTIVE'}`);
         }
-        
+
         // Verify
         const activeBots = await dbAll(
             "SELECT COUNT(*) as count FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND is_active = 1"
         );
         const activeCount = activeBots[0]?.count || 0;
-        
+
         res.json({
             success: true,
             is_active: activeValue === 1,
@@ -4766,7 +4760,7 @@ router.get('/statistics', async (req, res) => {
                     totalLoss += Math.abs(pnl);
                     losingTrades++;
                 }
-                
+
                 // ✅ FIX: Aggiungi volume delle posizioni chiuse (volume totale scambiato)
                 const entryPrice = parseFloat(pos.entry_price) || 0;
                 const volume = parseFloat(pos.volume) || 0;
@@ -4809,7 +4803,7 @@ router.get('/statistics', async (req, res) => {
                 const volume = parseFloat(pos.volume) || 0;
                 const volumeClosed = parseFloat(pos.volume_closed) || 0;
                 const remainingVolume = volume - volumeClosed;
-                
+
                 if (remainingVolume > 0 && entryPrice > 0) {
                     totalVolume += remainingVolume * entryPrice;
                 }
@@ -4850,13 +4844,13 @@ router.get('/statistics', async (req, res) => {
             // ✅ FIX: Escludi partial closes dal conteggio trade (conta solo chiusure finali)
             // I partial closes (TP1) hanno strategy che contiene "TP1" o "partial"
             const isPartialClose = trade.strategy && (
-                trade.strategy.includes('TP1') || 
+                trade.strategy.includes('TP1') ||
                 trade.strategy.includes('partial') ||
                 trade.strategy.includes('Partial')
             );
-            
+
             // Conta P&L dai trade manuali (non posizioni) - solo se non già contato E non è partial close
-            if (trade.profit_loss !== null && trade.profit_loss !== undefined && 
+            if (trade.profit_loss !== null && trade.profit_loss !== undefined &&
                 !pnlCountedTicketIds.has(trade.ticket_id) && !isPartialClose) {
                 const pnl = parseFloat(trade.profit_loss) || 0;
                 const MAX_REASONABLE_PNL = 1000000;
@@ -4894,7 +4888,7 @@ router.get('/statistics', async (req, res) => {
         // Per le statistiche, contiamo solo i trade con P&L (chiusure) per essere coerenti con win rate
         // Se l'utente vuole vedere tutti i trade (aperture + chiusure), può guardare la tabella trades
         const totalTrades = closedTradesForWinRate; // Solo trade con P&L realizzato
-        
+
         // ✅ FIX: Profit Factor - se totalLoss è 0 ma ci sono profitti, usa un valore molto alto invece di Infinity
         let profitFactor = 0;
         if (totalLoss > 0) {
@@ -5751,7 +5745,7 @@ router.get('/bot-analysis', async (req, res) => {
             const prices = historyForSignal.map(h => h.close || h.price);
             if (prices.length >= 15) {
                 rsi = calculateRSI(prices, 14);
-                console.log(`📊 [BOT-ANALYSIS] RSI ricalcolato FRESH: ${rsi?.toFixed(2) || 'N/A'} (identico a Market Scanner)`);
+                console.log(`📊 [BOT-ANALYSIS] ${symbol}: RSI=${rsi?.toFixed(2)} | Prices: ${prices.length} | LastPrice: ${prices[prices.length - 1]?.toFixed(4)} | CurrentPrice: ${currentPrice?.toFixed(4)}`);
             } else {
                 console.warn(`⚠️ [BOT-ANALYSIS] Dati insufficienti per RSI (${prices.length} candele), uso cache`);
             }
@@ -6725,16 +6719,19 @@ router.get('/scanner', async (req, res) => {
                     rsiValue = signal?.indicators?.rsi || null;
                 }
 
-                // ✅ RSI DEEP ANALYSIS: REPLICA ESATTA della preparazione dati di bot-analysis
-                // Deep Analysis prepara historyForSignal in modo specifico (righe 5461-5501)
+                // ✅ RSI DEEP ANALYSIS: Chiama INTERNAMENTE la stessa logica di bot-analysis
+                // Invece di replicare, creiamo una funzione helper che fa ESATTAMENTE quello che fa bot-analysis
                 let rsiDeepAnalysis = null;
                 try {
-                    // ✅ STEP 1: Prepara historyForSignal ESATTAMENTE come bot-analysis (righe 5461-5485)
+                    // ✅ CRITICAL: Usa getSymbolPrice() come Deep Analysis (riga 5521)
+                    const deepCurrentPrice = await getSymbolPrice(s.symbol).catch(() => currentPrice);
+
+                    // ✅ REPLICA ESATTA: Stessa query e preparazione di bot-analysis (righe 5540-5564)
                     const deepAnalysisHistoryData = await dbAll(
                         "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
                         [s.symbol]
                     );
-                    
+
                     let deepAnalysisHistory = [];
                     if (deepAnalysisHistoryData && deepAnalysisHistoryData.length > 0) {
                         deepAnalysisHistory = deepAnalysisHistoryData.reverse().map(row => ({
@@ -6745,7 +6742,6 @@ router.get('/scanner', async (req, res) => {
                             timestamp: new Date(row.open_time).toISOString()
                         }));
                     } else {
-                        // Fallback a price_history (stessa logica bot-analysis riga 5477-5484)
                         const priceHistoryRows = await dbAll(
                             "SELECT price, timestamp FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 100",
                             [s.symbol]
@@ -6755,31 +6751,64 @@ router.get('/scanner', async (req, res) => {
                             timestamp: row.timestamp
                         }));
                     }
-                    
-                    // ✅ STEP 2: Aggiorna ultima candela con prezzo corrente (stessa logica bot-analysis righe 5489-5501)
+
+                    // ✅ REPLICA ESATTA: Aggiorna candela se aperta (righe 5568-5583)
                     if (deepAnalysisHistory.length > 0) {
                         const lastCandle = deepAnalysisHistory[deepAnalysisHistory.length - 1];
                         const lastCandleTime = new Date(lastCandle.timestamp);
                         const now = new Date();
                         const timeSinceLastCandle = now - lastCandleTime;
-                        
+
                         if (timeSinceLastCandle < 15 * 60 * 1000) {
-                            // Aggiorna high, low, close con prezzo corrente
-                            lastCandle.high = Math.max(lastCandle.high || lastCandle.close, currentPrice);
-                            lastCandle.low = Math.min(lastCandle.low || lastCandle.close, currentPrice);
-                            lastCandle.close = currentPrice;
-                            lastCandle.price = currentPrice;
-                        } else {
-                            // Se candela chiusa, aggiorna comunque close
-                            lastCandle.close = currentPrice;
-                            lastCandle.price = currentPrice;
+                            lastCandle.high = Math.max(lastCandle.high || lastCandle.close, deepCurrentPrice);
+                            lastCandle.low = Math.min(lastCandle.low || lastCandle.close, deepCurrentPrice);
+                            lastCandle.close = deepCurrentPrice;
+                            lastCandle.price = deepCurrentPrice;
                         }
                     }
-                    
-                    // ✅ STEP 3: Calcola RSI con ESATTAMENTE gli stessi dati (riga 5751-5753)
+
+                    // ✅ REPLICA ESATTA: Fallback Binance se obsoleto (righe 5585-5614)
+                    let isStale = false;
+                    if (deepAnalysisHistory.length > 0) {
+                        const lastTs = new Date(deepAnalysisHistory[deepAnalysisHistory.length - 1].timestamp).getTime();
+                        isStale = (new Date().getTime() - lastTs) > 15 * 60 * 1000;
+                    }
+
+                    if (!deepAnalysisHistory || deepAnalysisHistory.length < 20 || isStale) {
+                        try {
+                            const tradingPair = SYMBOL_TO_PAIR[s.symbol] || s.pair;
+                            const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
+                            const klines = await httpsGet(binanceUrl);
+                            if (Array.isArray(klines) && klines.length > 0) {
+                                deepAnalysisHistory = klines.map(k => ({
+                                    timestamp: new Date(k[0]).toISOString(),
+                                    open: parseFloat(k[1]),
+                                    high: parseFloat(k[2]),
+                                    low: parseFloat(k[3]),
+                                    close: parseFloat(k[4]),
+                                    price: parseFloat(k[4]),
+                                    volume: parseFloat(k[5])
+                                }));
+                            }
+                        } catch (binanceError) {
+                            // Silenzioso
+                        }
+                    }
+
+                    // ✅ REPLICA ESATTA: SEMPRE aggiorna ultima candela (righe 5618-5628) - CRITICO!
+                    if (deepAnalysisHistory.length > 0) {
+                        const lastCandle = deepAnalysisHistory[deepAnalysisHistory.length - 1];
+                        lastCandle.close = deepCurrentPrice;
+                        lastCandle.price = deepCurrentPrice;
+                        lastCandle.high = Math.max(lastCandle.high || lastCandle.close, deepCurrentPrice);
+                        lastCandle.low = Math.min(lastCandle.low || lastCandle.close, deepCurrentPrice);
+                    }
+
+                    // ✅ REPLICA ESATTA: Calcola RSI (riga 5751-5753)
                     const deepPrices = deepAnalysisHistory.map(h => h.close || h.price);
                     if (deepPrices.length >= 15) {
                         rsiDeepAnalysis = calculateRSI(deepPrices, 14);
+                        console.log(`📊 [SCANNER-RSI-DEEP] ${s.display}: RSI=${rsiDeepAnalysis?.toFixed(2)} | Prices: ${deepPrices.length} | LastPrice: ${deepPrices[deepPrices.length - 1]?.toFixed(4)} | CurrentPrice: ${deepCurrentPrice?.toFixed(4)}`);
                     }
                 } catch (deepRsiError) {
                     console.error(`❌ [SCANNER-RSI-DEEP] Errore per ${s.symbol}:`, deepRsiError.message);
@@ -7016,16 +7045,16 @@ router.get('/debug/balance', async (req, res) => {
 router.post('/fix-closed-positions-pnl', async (req, res) => {
     try {
         console.log('🔧 [FIX P&L] Inizio correzione P&L anomali nelle posizioni chiuse...');
-        
+
         const closedPositions = await dbAll(
             "SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken')"
         );
-        
+
         let fixedCount = 0;
         let errorCount = 0;
         const MAX_REASONABLE_PNL = 1000000; // 1 milione EUR max
         const MAX_REASONABLE_PRICE = 1000000; // 1 milione EUR max
-        
+
         for (const pos of closedPositions) {
             try {
                 const entryPrice = parseFloat(pos.entry_price) || 0;
@@ -7034,15 +7063,15 @@ router.post('/fix-closed-positions-pnl', async (req, res) => {
                 const volumeClosed = parseFloat(pos.volume_closed) || 0;
                 const remainingVolume = volume - volumeClosed;
                 const currentPnL = parseFloat(pos.profit_loss) || 0;
-                
+
                 // Verifica se il P&L è anomale
-                if (Math.abs(currentPnL) > MAX_REASONABLE_PNL || 
-                    closePrice > MAX_REASONABLE_PRICE || 
+                if (Math.abs(currentPnL) > MAX_REASONABLE_PNL ||
+                    closePrice > MAX_REASONABLE_PRICE ||
                     entryPrice > MAX_REASONABLE_PRICE) {
-                    
+
                     console.log(`⚠️ [FIX P&L] Posizione ${pos.ticket_id} (${pos.symbol}) ha P&L/prezzo anomale:`);
                     console.log(`   Entry: €${entryPrice}, Close: €${closePrice}, Volume: ${remainingVolume}, P&L: €${currentPnL}`);
-                    
+
                     // Prova a recuperare il prezzo corretto
                     let correctedClosePrice = closePrice;
                     try {
@@ -7054,15 +7083,15 @@ router.post('/fix-closed-positions-pnl', async (req, res) => {
                     } catch (priceError) {
                         console.warn(`   ⚠️ Impossibile recuperare prezzo corretto per ${pos.symbol}`);
                     }
-                    
+
                     // Ricalcola P&L con prezzo corretto (se disponibile)
                     let correctedPnL = currentPnL;
                     let correctedPnLPct = parseFloat(pos.profit_loss_pct) || 0;
-                    
-                    if (correctedClosePrice > 0 && correctedClosePrice <= MAX_REASONABLE_PRICE && 
-                        entryPrice > 0 && entryPrice <= MAX_REASONABLE_PRICE && 
+
+                    if (correctedClosePrice > 0 && correctedClosePrice <= MAX_REASONABLE_PRICE &&
+                        entryPrice > 0 && entryPrice <= MAX_REASONABLE_PRICE &&
                         remainingVolume > 0) {
-                        
+
                         if (pos.type === 'buy') {
                             correctedPnL = (correctedClosePrice - entryPrice) * remainingVolume;
                             correctedPnLPct = entryPrice > 0 ? ((correctedClosePrice - entryPrice) / entryPrice) * 100 : 0;
@@ -7070,7 +7099,7 @@ router.post('/fix-closed-positions-pnl', async (req, res) => {
                             correctedPnL = (entryPrice - correctedClosePrice) * remainingVolume;
                             correctedPnLPct = entryPrice > 0 ? ((entryPrice - correctedClosePrice) / entryPrice) * 100 : 0;
                         }
-                        
+
                         // Se il P&L corretto è ancora anomale, usa il prezzo corrente
                         if (Math.abs(correctedPnL) > MAX_REASONABLE_PNL) {
                             console.warn(`   ⚠️ P&L corretto ancora anomale (€${correctedPnL.toFixed(2)}), uso prezzo corrente`);
@@ -7090,16 +7119,16 @@ router.post('/fix-closed-positions-pnl', async (req, res) => {
                                 console.error(`   ❌ Errore recupero prezzo corrente:`, e.message);
                             }
                         }
-                        
+
                         // Aggiorna nel database solo se il P&L corretto è ragionevole
-                        if (Math.abs(correctedPnL) <= MAX_REASONABLE_PNL && 
+                        if (Math.abs(correctedPnL) <= MAX_REASONABLE_PNL &&
                             correctedClosePrice > 0 && correctedClosePrice <= MAX_REASONABLE_PRICE) {
-                            
+
                             await dbRun(
                                 "UPDATE open_positions SET current_price = ?, profit_loss = ?, profit_loss_pct = ? WHERE ticket_id = ?",
                                 [correctedClosePrice, correctedPnL, correctedPnLPct, pos.ticket_id]
                             );
-                            
+
                             console.log(`✅ [FIX P&L] Posizione ${pos.ticket_id} corretta:`);
                             console.log(`   P&L: €${currentPnL.toFixed(2)} → €${correctedPnL.toFixed(2)}`);
                             console.log(`   Close Price: €${closePrice.toFixed(6)} → €${correctedClosePrice.toFixed(6)}`);
@@ -7118,7 +7147,7 @@ router.post('/fix-closed-positions-pnl', async (req, res) => {
                 errorCount++;
             }
         }
-        
+
         res.json({
             success: true,
             total_closed_positions: closedPositions.length,
@@ -7137,24 +7166,24 @@ router.post('/recalculate-balance', async (req, res) => {
     try {
         const { initial_balance } = req.body;
         const startingBalance = initial_balance && !isNaN(parseFloat(initial_balance)) ? parseFloat(initial_balance) : 1000;
-        
+
         console.log(`💰 [RECALCULATE BALANCE] Ricalcolo balance partendo da €${startingBalance.toFixed(2)}`);
-        
+
         // 1. Leggi tutte le posizioni (aperte e chiuse)
         const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
         const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY opened_at ASC");
-        
+
         // 2. Calcola balance teorico partendo da €1000
         let calculatedBalance = startingBalance;
         const operations = [];
-        
+
         // Processa tutte le posizioni in ordine cronologico (aperte prima, poi chiuse)
         const allPositions = [...openPositions, ...closedPositions].sort((a, b) => {
             const dateA = new Date(a.opened_at || 0);
             const dateB = new Date(b.opened_at || 0);
             return dateA - dateB;
         });
-        
+
         for (const pos of allPositions) {
             const volume = parseFloat(pos.volume) || 0;
             const volumeClosed = parseFloat(pos.volume_closed) || 0;
@@ -7162,7 +7191,7 @@ router.post('/recalculate-balance', async (req, res) => {
             const entryPrice = parseFloat(pos.entry_price) || 0;
             const closePrice = parseFloat(pos.current_price) || 0;
             const isClosed = pos.status !== 'open';
-            
+
             if (pos.type === 'buy') {
                 // LONG: all'apertura sottrai, alla chiusura aggiungi
                 const cost = volume * entryPrice;
@@ -7175,7 +7204,7 @@ router.post('/recalculate-balance', async (req, res) => {
                     balance_after: calculatedBalance,
                     timestamp: pos.opened_at
                 });
-                
+
                 if (isClosed && closePrice > 0) {
                     const returned = volume * closePrice;
                     calculatedBalance += returned;
@@ -7209,7 +7238,7 @@ router.post('/recalculate-balance', async (req, res) => {
                     balance_after: calculatedBalance,
                     timestamp: pos.opened_at
                 });
-                
+
                 if (isClosed && closePrice > 0) {
                     const toReturn = volume * closePrice;
                     calculatedBalance -= toReturn;
@@ -7233,7 +7262,7 @@ router.post('/recalculate-balance', async (req, res) => {
                 }
             }
         }
-        
+
         // 3. Calcola capitale investito attualmente
         let currentInvested = 0;
         for (const pos of openPositions) {
@@ -7241,7 +7270,7 @@ router.post('/recalculate-balance', async (req, res) => {
             const volClosed = parseFloat(pos.volume_closed) || 0;
             const remaining = vol - volClosed;
             const entry = parseFloat(pos.entry_price) || 0;
-            
+
             if (pos.type === 'buy') {
                 currentInvested += remaining * entry;
             } else {
@@ -7249,7 +7278,7 @@ router.post('/recalculate-balance', async (req, res) => {
                 currentInvested += remaining * entry;
             }
         }
-        
+
         // 4. Balance disponibile = Balance calcolato - Capitale investito
         // Ma attenzione: per SHORT, il capitale "investito" è in realtà un debito
         let availableBalance = calculatedBalance;
@@ -7258,7 +7287,7 @@ router.post('/recalculate-balance', async (req, res) => {
             const volClosed = parseFloat(pos.volume_closed) || 0;
             const remaining = vol - volClosed;
             const entry = parseFloat(pos.entry_price) || 0;
-            
+
             if (pos.type === 'buy') {
                 // LONG: il capitale è investito, non disponibile
                 availableBalance -= remaining * entry;
@@ -7266,18 +7295,18 @@ router.post('/recalculate-balance', async (req, res) => {
             // SHORT: il capitale ricevuto è disponibile, ma devi restituirlo alla chiusura
             // Quindi non lo sottraiamo qui (è già nel balance)
         }
-        
+
         // 5. Leggi balance attuale dal DB
         const portfolio = await getPortfolio();
         const currentBalanceDB = parseFloat(portfolio.balance_usd) || 0;
-        
+
         // 6. Aggiorna balance nel DB con quello calcolato
         await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [calculatedBalance]);
-        
+
         console.log(`✅ [RECALCULATE BALANCE] Balance ricalcolato: €${currentBalanceDB.toFixed(2)} → €${calculatedBalance.toFixed(2)}`);
         console.log(`   Capitale disponibile: €${availableBalance.toFixed(2)}`);
         console.log(`   Capitale investito: €${currentInvested.toFixed(2)}`);
-        
+
         res.json({
             success: true,
             starting_balance: startingBalance,
@@ -7301,33 +7330,33 @@ router.post('/reset-balance', async (req, res) => {
     try {
         const { balance } = req.body;
         const newBalance = balance && !isNaN(parseFloat(balance)) ? parseFloat(balance) : 1000;
-        
+
         // Valida che il balance sia ragionevole
         if (newBalance < 0 || newBalance > 1000000) {
-            return res.status(400).json({ 
-                error: 'Balance deve essere tra 0 e 1.000.000 EUR' 
+            return res.status(400).json({
+                error: 'Balance deve essere tra 0 e 1.000.000 EUR'
             });
         }
-        
+
         // Leggi balance attuale
         const portfolio = await getPortfolio();
         const oldBalance = parseFloat(portfolio.balance_usd) || 0;
-        
+
         // ✅ DEBUG: Analizza perché il balance è cambiato
         const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
         const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken')");
-        
+
         let totalInvested = 0;
         let totalReturned = 0;
         let shortCredits = 0; // Denaro ricevuto da SHORT aperti
-        
+
         // Analizza posizioni aperte
         for (const pos of openPositions) {
             const vol = parseFloat(pos.volume) || 0;
             const volClosed = parseFloat(pos.volume_closed) || 0;
             const remaining = vol - volClosed;
             const entry = parseFloat(pos.entry_price) || 0;
-            
+
             if (pos.type === 'buy') {
                 totalInvested += remaining * entry;
             } else {
@@ -7335,13 +7364,13 @@ router.post('/reset-balance', async (req, res) => {
                 shortCredits += remaining * entry;
             }
         }
-        
+
         // Analizza posizioni chiuse
         for (const pos of closedPositions) {
             const vol = parseFloat(pos.volume) || 0;
             const entry = parseFloat(pos.entry_price) || 0;
             const close = parseFloat(pos.current_price) || 0;
-            
+
             if (pos.type === 'buy') {
                 totalInvested += vol * entry; // Investito quando era aperta
                 totalReturned += vol * close; // Tornato alla chiusura
@@ -7351,18 +7380,18 @@ router.post('/reset-balance', async (req, res) => {
                 totalReturned += vol * close; // Restituito alla chiusura
             }
         }
-        
+
         // Calcolo teorico: Balance = Initial - Invested + Returned + ShortCredits - ShortReturned
         // Ma ShortCredits e ShortReturned sono già in totalReturned per SHORT
         const theoreticalInitial = oldBalance + totalInvested - totalReturned;
-        
+
         // Aggiorna balance
         await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [newBalance]);
-        
+
         console.log(`💰 [RESET BALANCE] Balance aggiornato: €${oldBalance.toFixed(2)} → €${newBalance.toFixed(2)}`);
         console.log(`   Analisi: Invested: €${totalInvested.toFixed(2)}, Returned: €${totalReturned.toFixed(2)}, ShortCredits: €${shortCredits.toFixed(2)}`);
         console.log(`   Capitale iniziale teorico: €${theoreticalInitial.toFixed(2)}`);
-        
+
         res.json({
             success: true,
             old_balance: oldBalance,
@@ -7388,17 +7417,17 @@ router.get('/balance-problem', async (req, res) => {
         const portfolio = await getPortfolio();
         const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
         const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 100");
-        
+
         const currentBalance = parseFloat(portfolio.balance_usd) || 0;
-        
+
         // Calcola capitale investito e tornato
         let investedOpen = 0;
         let investedClosed = 0;
         let returnedClosed = 0;
         let pnlClosed = 0;
-        
+
         const problems = [];
-        
+
         // Analizza posizioni aperte
         for (const pos of openPositions) {
             const vol = parseFloat(pos.volume) || 0;
@@ -7406,7 +7435,7 @@ router.get('/balance-problem', async (req, res) => {
             const remaining = vol - volClosed;
             const entry = parseFloat(pos.entry_price) || 0;
             investedOpen += remaining * entry;
-            
+
             // Verifica anomalie
             if (entry > 100000) {
                 problems.push({
@@ -7418,18 +7447,18 @@ router.get('/balance-problem', async (req, res) => {
                 });
             }
         }
-        
+
         // Analizza posizioni chiuse
         for (const pos of closedPositions) {
             const vol = parseFloat(pos.volume) || 0;
             const entry = parseFloat(pos.entry_price) || 0;
             const close = parseFloat(pos.current_price) || 0;
             const pnl = parseFloat(pos.profit_loss) || 0;
-            
+
             investedClosed += vol * entry;
             returnedClosed += vol * close;
             pnlClosed += pnl;
-            
+
             // Verifica anomalie
             if (entry > 0 && close > 0) {
                 const ratio = close / entry;
@@ -7447,13 +7476,13 @@ router.get('/balance-problem', async (req, res) => {
                 }
             }
         }
-        
+
         // Calcolo teorico
         const totalInvested = investedOpen + investedClosed;
         const expectedBalance = currentBalance + investedOpen - returnedClosed;
         const theoreticalInitial = expectedBalance;
         const difference = currentBalance - (theoreticalInitial - investedOpen + returnedClosed);
-        
+
         res.json({
             summary: {
                 current_balance: currentBalance,
@@ -7474,7 +7503,7 @@ router.get('/balance-problem', async (req, res) => {
                 formula: "Balance = Initial - Invested + Returned",
                 current_balance: `€${currentBalance.toFixed(2)} (dal database)`,
                 if_consistent: `Dovrebbe essere: Initial (€${theoreticalInitial.toFixed(2)}) - Invested Open (€${investedOpen.toFixed(2)}) + Returned Closed (€${returnedClosed.toFixed(2)}) = €${(theoreticalInitial - investedOpen + returnedClosed).toFixed(2)}`,
-                difference_explained: difference > 0 ? 
+                difference_explained: difference > 0 ?
                     `Balance è €${difference.toFixed(2)} PIÙ ALTO del previsto (possibile doppio credito o conversione errata)` :
                     `Balance è €${Math.abs(difference).toFixed(2)} PIÙ BASSO del previsto (possibile doppio debito o conversione errata)`
             },
@@ -7499,14 +7528,14 @@ router.get('/verify-balance-calculation', async (req, res) => {
         const portfolio = await getPortfolio();
         const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
         const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC");
-        
+
         // Calcola balance teorico partendo da un capitale iniziale ipotetico
         // Formula: Balance finale = Capitale iniziale - Investimenti + Ritorni + P&L
-        
+
         let totalInvested = 0; // Capitale investito in posizioni aperte
         let totalReturned = 0; // Capitale tornato da posizioni chiuse
         let totalPnL = 0; // P&L totale
-        
+
         const openPositionsDetail = [];
         for (const pos of openPositions) {
             const volume = parseFloat(pos.volume) || 0;
@@ -7515,12 +7544,12 @@ router.get('/verify-balance-calculation', async (req, res) => {
             const entryPrice = parseFloat(pos.entry_price) || 0;
             const invested = remainingVolume * entryPrice;
             totalInvested += invested;
-            
+
             // Verifica se entryPrice è ragionevole
             const currentPrice = await getSymbolPrice(pos.symbol).catch(() => null);
             const priceRatio = currentPrice && entryPrice > 0 ? entryPrice / currentPrice : null;
             const isEntryPriceAnomalous = priceRatio && (priceRatio > 10 || priceRatio < 0.1);
-            
+
             openPositionsDetail.push({
                 ticket_id: pos.ticket_id,
                 symbol: pos.symbol,
@@ -7533,25 +7562,25 @@ router.get('/verify-balance-calculation', async (req, res) => {
                 invested: invested
             });
         }
-        
+
         const closedPositionsDetail = [];
         for (const pos of closedPositions) {
             const volume = parseFloat(pos.volume) || 0;
             const entryPrice = parseFloat(pos.entry_price) || 0;
             const closePrice = parseFloat(pos.current_price) || 0;
             const pnl = parseFloat(pos.profit_loss) || 0;
-            
+
             const invested = volume * entryPrice;
             const returned = volume * closePrice;
-            
+
             totalInvested += invested; // Investito quando era aperta
             totalReturned += returned; // Tornato quando chiusa
             totalPnL += pnl;
-            
+
             // Verifica anomalie
             const priceRatio = entryPrice > 0 && closePrice > 0 ? closePrice / entryPrice : null;
             const isAnomalous = priceRatio && (priceRatio > 100 || priceRatio < 0.01);
-            
+
             closedPositionsDetail.push({
                 ticket_id: pos.ticket_id,
                 symbol: pos.symbol,
@@ -7567,18 +7596,18 @@ router.get('/verify-balance-calculation', async (req, res) => {
                 closed_at: pos.closed_at
             });
         }
-        
+
         // Balance attuale dal DB
         const currentBalance = parseFloat(portfolio.balance_usd) || 0;
-        
+
         // Calcolo teorico: Balance = Initial - Invested + Returned
         // Se assumiamo che Initial = Balance + Invested - Returned
         const theoreticalInitial = currentBalance + totalInvested - totalReturned;
-        
+
         // Verifica coerenza
         const expectedBalance = theoreticalInitial - totalInvested + totalReturned;
         const difference = currentBalance - expectedBalance;
-        
+
         res.json({
             current_balance_db: currentBalance,
             calculations: {
@@ -7618,11 +7647,11 @@ router.get('/total-balance-analysis', async (req, res) => {
         const portfolio = await getPortfolio();
         const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
         const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 10");
-        
+
         // Calcola capitale investito in posizioni aperte
         let capitalInvested = 0;
         const positionsDetail = [];
-        
+
         openPositions.forEach(pos => {
             const volume = parseFloat(pos.volume) || 0;
             const volumeClosed = parseFloat(pos.volume_closed) || 0;
@@ -7630,7 +7659,7 @@ router.get('/total-balance-analysis', async (req, res) => {
             const entryPrice = parseFloat(pos.entry_price) || 0;
             const invested = remainingVolume * entryPrice;
             capitalInvested += invested;
-            
+
             positionsDetail.push({
                 ticket_id: pos.ticket_id,
                 symbol: pos.symbol,
@@ -7640,23 +7669,23 @@ router.get('/total-balance-analysis', async (req, res) => {
                 capital_invested: invested
             });
         });
-        
+
         // Calcola P&L realizzato da posizioni chiuse
         let realizedPnL = 0;
         closedPositions.forEach(pos => {
             const pnl = parseFloat(pos.profit_loss) || 0;
             realizedPnL += pnl;
         });
-        
+
         // Balance attuale dal DB
         const currentBalance = parseFloat(portfolio.balance_usd) || 0;
-        
+
         // Calcolo teorico: Se parti con X, investi Y, chiudi con P&L Z
         // Balance finale = X - Y + (capitale tornato) + P&L
         // Ma non conosciamo X iniziale, quindi calcoliamo:
         // X teorico = Balance attuale + Capitale investito - P&L realizzato
         const theoreticalInitialCapital = currentBalance + capitalInvested - realizedPnL;
-        
+
         // Equity totale (cash + valore posizioni)
         let totalEquity = currentBalance;
         for (const pos of openPositions) {
@@ -7680,7 +7709,7 @@ router.get('/total-balance-analysis', async (req, res) => {
                 totalEquity -= remainingVolume * entryPrice; // Debito da sottrarre
             }
         }
-        
+
         res.json({
             current_balance_db: currentBalance,
             capital_invested_open_positions: capitalInvested,
@@ -7718,18 +7747,18 @@ router.get('/kelly-stats-debug', async (req, res) => {
         // Verifica se la tabella esiste
         const tableCheck = await dbAll("SELECT name FROM sqlite_master WHERE type='table' AND name='performance_stats'");
         const tableExists = tableCheck && tableCheck.length > 0;
-        
+
         // Leggi tutti i record
         const allRecords = await dbAll("SELECT * FROM performance_stats");
-        
+
         // Leggi record con id=1
         const record1 = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
-        
+
         // Conta posizioni chiuse con P&L
         const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken')");
         const winningPositions = closedPositions.filter(p => (parseFloat(p.profit_loss) || 0) > 0);
         const losingPositions = closedPositions.filter(p => (parseFloat(p.profit_loss) || 0) <= 0);
-        
+
         res.json({
             table_exists: tableExists,
             all_records: allRecords,
@@ -7742,7 +7771,7 @@ router.get('/kelly-stats-debug', async (req, res) => {
                 total_profit: winningPositions.reduce((sum, p) => sum + (parseFloat(p.profit_loss) || 0), 0),
                 total_loss: losingPositions.reduce((sum, p) => sum + (parseFloat(p.profit_loss) || 0), 0)
             },
-            recommendation: !record1 ? 
+            recommendation: !record1 ?
                 "Record con id=1 non esiste. Eseguire: INSERT INTO performance_stats (id, total_trades, winning_trades, losing_trades, total_profit, total_loss, avg_win, avg_loss, win_rate) VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0);" :
                 "Record esiste. Verificare che i dati siano aggiornati correttamente."
         });
@@ -7758,7 +7787,7 @@ router.get('/balance-diagnostic', async (req, res) => {
         const portfolio = await getPortfolio();
         const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
         const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken')");
-        
+
         // Calcola capitale investito in posizioni aperte
         let capitalInvested = 0;
         openPositions.forEach(pos => {
@@ -7768,21 +7797,21 @@ router.get('/balance-diagnostic', async (req, res) => {
             const entryPrice = parseFloat(pos.entry_price) || 0;
             capitalInvested += remainingVolume * entryPrice;
         });
-        
+
         // Calcola P&L realizzato da posizioni chiuse
         let realizedPnL = 0;
         closedPositions.forEach(pos => {
             const pnl = parseFloat(pos.profit_loss) || 0;
             realizedPnL += pnl;
         });
-        
+
         // Balance attuale dal DB
         const currentBalance = parseFloat(portfolio.balance_usd) || 0;
-        
+
         // Calcolo teorico: Balance = Capitale iniziale - Capitale investito + P&L realizzato
         // Ma non conosciamo il capitale iniziale, quindi usiamo: Balance attuale + Capitale investito - P&L realizzato = Capitale iniziale teorico
         const theoreticalInitialCapital = currentBalance + capitalInvested - realizedPnL;
-        
+
         res.json({
             current_balance_db: currentBalance,
             capital_invested_open_positions: capitalInvested,
