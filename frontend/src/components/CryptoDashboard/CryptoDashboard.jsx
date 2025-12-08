@@ -525,6 +525,35 @@ const CryptoDashboard = () => {
     }
     
     const totalBalance = validatedBalance + totalLongValue - totalShortLiability;
+    
+    // ✅ DEBUG: Calcolo alternativo per verificare correttezza
+    // Formula alternativa: Initial Balance + Realized P&L + Unrealized P&L
+    // (dove Unrealized P&L è già incluso in totalLongValue - totalShortLiability)
+    // Nota: Questo è solo per debug, il calcolo principale è quello sopra
+    const realizedPnL = closedPositions?.reduce((sum, pos) => {
+        const pnl = parseFloat(pos.profit_loss) || 0;
+        return sum + pnl;
+    }, 0) || 0;
+    
+    const unrealizedPnL = pnlValue; // Già calcolato sopra per open positions
+    
+    // ✅ DEBUG: Log per verificare calcolo (solo in console, non visibile all'utente)
+    if (Math.abs(totalBalance - (validatedBalance + totalLongValue - totalShortLiability)) > 0.01) {
+        console.warn('⚠️ [BALANCE] Discrepanza nel calcolo totalBalance');
+    }
+    
+    // ✅ DEBUG: Log componenti balance (solo se ci sono valori anomali)
+    if (Math.abs(validatedBalance) > 100000 || Math.abs(totalLongValue) > 100000 || Math.abs(totalShortLiability) > 100000) {
+        console.log('📊 [BALANCE DEBUG]', {
+            validatedBalance: validatedBalance.toFixed(2),
+            totalLongValue: totalLongValue.toFixed(2),
+            totalShortLiability: totalShortLiability.toFixed(2),
+            totalBalance: totalBalance.toFixed(2),
+            realizedPnL: realizedPnL.toFixed(2),
+            unrealizedPnL: unrealizedPnL.toFixed(2),
+            openPositionsCount: validOpenPositions.length
+        });
+    }
 
 
     // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend

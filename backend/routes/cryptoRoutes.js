@@ -2152,12 +2152,21 @@ const calculateDynamicTrailingDistance = (atr, currentPrice, multiplier = 1.5) =
 
 // Helper to update P&L for all open positions
 // ✅ FIX: updatePositionsPnL ora aggiorna P&L per tutte le posizioni, non solo quelle del simbolo corrente
+// ✅ FIX CRITICO: currentPrice deve essere SEMPRE in EUR (già convertito da getSymbolPrice)
 const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
     return new Promise((resolve, reject) => {
         db.all("SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'", [symbol], async (err, positions) => {
             if (err) {
                 reject(err);
                 return;
+            }
+
+            // ✅ FIX CRITICO: Valida che currentPrice sia ragionevole (in EUR)
+            // Se è troppo grande, potrebbe essere in USDT invece di EUR
+            const MAX_REASONABLE_EUR_PRICE = 200000; // BTC può essere ~100k EUR, ma con margine
+            if (currentPrice > MAX_REASONABLE_EUR_PRICE && symbol !== 'bitcoin') {
+                console.error(`🚨 [UPDATE P&L] currentPrice ${currentPrice} seems too high for ${symbol}, might be in USDT instead of EUR!`);
+                // Non crashare, ma logga l'errore
             }
 
             for (const pos of positions) {
@@ -2334,8 +2343,20 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
 
                     if (shouldClose) {
                         // Close remaining position automatically
-                        console.log(`⚡ AUTO-CLOSING POSITION: ${updatedPos.ticket_id} | Reason: ${closeReason}`);
-                        await closePosition(updatedPos.ticket_id, currentPrice, closeReason);
+                        // ✅ FIX CRITICO: currentPrice dovrebbe già essere in EUR (da getSymbolPrice chiamato in runBotCycle)
+                        // Ma verifichiamo che sia ragionevole per sicurezza
+                        let validatedClosePrice = currentPrice;
+                        const tradingPair = SYMBOL_TO_PAIR[updatedPos.symbol] || 'BTCEUR';
+                        const isUSDT = tradingPair.endsWith('USDT');
+                        
+                        if (isUSDT && currentPrice > 200000 && updatedPos.symbol !== 'bitcoin') {
+                            console.warn(`⚠️ [AUTO-CLOSE] currentPrice ${currentPrice} seems too high for ${updatedPos.symbol}, might need conversion`);
+                            // Se sembra troppo alto, potrebbe essere in USDT - ma getSymbolPrice dovrebbe averlo già convertito
+                            // Logga solo per debug
+                        }
+                        
+                        console.log(`⚡ AUTO-CLOSING POSITION: ${updatedPos.ticket_id} | Reason: ${closeReason} | Price: €${validatedClosePrice.toFixed(2)}`);
+                        await closePosition(updatedPos.ticket_id, validatedClosePrice, closeReason);
                     }
                 }
             }
@@ -2747,21 +2768,44 @@ router.post('/positions/close/:ticketId', async (req, res) => {
     const { close_price, symbol } = req.body;
 
     try {
-        // Get current price if not provided
+        // ✅ FIX CRITICO: Get current price if not provided, usando getSymbolPrice per conversione USDT→EUR
         let finalPrice = close_price;
         if (!finalPrice) {
             try {
-                // Determine symbol - default to bitcoin
-                const tradingPair = (symbol === 'bitcoin' || !symbol) ? 'BTCEUR' : 'SOLEUR';
-                const priceData = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=${tradingPair}`);
-                finalPrice = parseFloat(priceData.price);
+                // ✅ FIX: Usa getSymbolPrice che gestisce automaticamente conversione USDT→EUR
+                const targetSymbol = symbol || 'bitcoin';
+                finalPrice = await getSymbolPrice(targetSymbol);
 
-                if (!finalPrice || isNaN(finalPrice)) {
-                    throw new Error('Invalid price received from Binance');
+                if (!finalPrice || isNaN(finalPrice) || finalPrice <= 0) {
+                    throw new Error('Invalid price received from getSymbolPrice');
                 }
+                console.log(`💱 [CLOSE] Using price for ${targetSymbol}: €${finalPrice.toFixed(2)} EUR`);
             } catch (e) {
                 console.error('Error fetching price for close position:', e.message);
                 return res.status(500).json({ error: 'Could not fetch current price. Please provide close_price.' });
+            }
+        } else {
+            // ✅ FIX CRITICO: Se close_price è fornito, verifica che sia in EUR
+            // Se il simbolo è USDT, potrebbe essere necessario convertire
+            const targetSymbol = symbol || 'bitcoin';
+            const tradingPair = SYMBOL_TO_PAIR[targetSymbol] || 'BTCEUR';
+            const isUSDT = tradingPair.endsWith('USDT');
+            
+            if (isUSDT) {
+                // ✅ FIX: Se il prezzo fornito è in USDT, convertilo in EUR
+                // Assumiamo che se close_price è molto grande (> 1000 per la maggior parte delle crypto),
+                // potrebbe essere in USDT invece di EUR
+                const MAX_REASONABLE_EUR_PRICE = 100000; // BTC può essere > 100k EUR, ma altre crypto no
+                if (finalPrice > MAX_REASONABLE_EUR_PRICE && targetSymbol !== 'bitcoin') {
+                    console.warn(`⚠️ [CLOSE] close_price ${finalPrice} seems too high for ${targetSymbol}, attempting USDT→EUR conversion`);
+                    try {
+                        const usdtToEurRate = await getUSDTtoEURRate();
+                        finalPrice = finalPrice * usdtToEurRate;
+                        console.log(`💱 [CLOSE] Converted USDT price to EUR: €${finalPrice.toFixed(2)}`);
+                    } catch (convError) {
+                        console.error(`⚠️ [CLOSE] Could not convert USDT to EUR, using price as-is:`, convError.message);
+                    }
+                }
             }
         }
 

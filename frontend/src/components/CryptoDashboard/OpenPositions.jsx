@@ -103,9 +103,13 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                             const pnl = parseFloat(pos.profit_loss) || 0;
                             const pnlPct = parseFloat(pos.profit_loss_pct) || 0;
                             const isLong = pos.type === 'buy';
-                            const entryPrice = parseFloat(pos.entry_price) || 0;
-                            const currentPriceValue = parseFloat(pos.current_price) || parseFloat(currentPrice) || 0;
+                            // ✅ FIX: Usa valori dal database, non fallback a 0 se sono null/undefined
+                            // Per simboli con prezzi molto piccoli (es. SHIB), i valori potrebbero essere molto piccoli ma validi
+                            const entryPrice = pos.entry_price != null ? parseFloat(pos.entry_price) : 0;
+                            const currentPriceValue = pos.current_price != null ? parseFloat(pos.current_price) : (currentPrice ? parseFloat(currentPrice) : 0);
                             const volume = parseFloat(pos.volume) || 0;
+                            const stopLoss = pos.stop_loss != null ? parseFloat(pos.stop_loss) : null;
+                            const takeProfit = pos.take_profit != null ? parseFloat(pos.take_profit) : null;
 
                             return (
                                 <tr
@@ -212,19 +216,51 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                         €{((entryPrice || 0) * (volume || 0)).toFixed(2)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#9ca3af' }}>
-                                        <span title="Prezzo in EUR (convertito da USDT)">€{(entryPrice || 0).toFixed(2)}</span>
-                                        {pos.symbol && pos.symbol.includes('_usdt') && (
-                                            <span style={{ fontSize: '10px', color: '#6b7280', marginLeft: '4px' }} title="Prezzo convertito da USDT a EUR">(EUR)</span>
+                                        {entryPrice > 0 ? (
+                                            <>
+                                                <span title="Prezzo in EUR (convertito da USDT)">
+                                                    {entryPrice < 0.01 
+                                                        ? `€${entryPrice.toFixed(6)}` 
+                                                        : entryPrice < 1 
+                                                        ? `€${entryPrice.toFixed(4)}` 
+                                                        : `€${entryPrice.toFixed(2)}`}
+                                                </span>
+                                                {pos.symbol && pos.symbol.includes('_usdt') && (
+                                                    <span style={{ fontSize: '10px', color: '#6b7280', marginLeft: '4px' }} title="Prezzo convertito da USDT a EUR">(EUR)</span>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <span style={{ color: '#ef4444' }} title="Prezzo non disponibile">€0.00</span>
                                         )}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600' }}>
-                                        €{(currentPriceValue || 0).toFixed(2)}
+                                        {currentPriceValue > 0 ? (
+                                            currentPriceValue < 0.01 
+                                                ? `€${currentPriceValue.toFixed(6)}` 
+                                                : currentPriceValue < 1 
+                                                ? `€${currentPriceValue.toFixed(4)}` 
+                                                : `€${currentPriceValue.toFixed(2)}`
+                                        ) : (
+                                            <span style={{ color: '#ef4444' }}>€0.00</span>
+                                        )}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#ef4444' }}>
-                                        {pos.stop_loss ? `€${(parseFloat(pos.stop_loss) || 0).toFixed(2)}` : '-'}
+                                        {stopLoss != null && stopLoss > 0 ? (
+                                            stopLoss < 0.01 
+                                                ? `€${stopLoss.toFixed(6)}` 
+                                                : stopLoss < 1 
+                                                ? `€${stopLoss.toFixed(4)}` 
+                                                : `€${stopLoss.toFixed(2)}`
+                                        ) : '-'}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#10b981' }}>
-                                        {pos.take_profit ? `€${(parseFloat(pos.take_profit) || 0).toFixed(2)}` : '-'}
+                                        {takeProfit != null && takeProfit > 0 ? (
+                                            takeProfit < 0.01 
+                                                ? `€${takeProfit.toFixed(6)}` 
+                                                : takeProfit < 1 
+                                                ? `€${takeProfit.toFixed(4)}` 
+                                                : `€${takeProfit.toFixed(2)}`
+                                        ) : '-'}
                                     </td>
                                     <td style={{
                                         padding: '10px 8px',
