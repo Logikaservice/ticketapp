@@ -469,6 +469,12 @@ const CryptoDashboard = () => {
         return true;
     });
     
+    // ✅ FIX CRITICO: Dichiarare tutte le costanti PRIMA del loro utilizzo
+    const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni di euro max (soglia di sicurezza)
+    const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min (per permettere debiti)
+    const MAX_REASONABLE_VOLUME = 1000000; // 1 milione di unità max
+    const MAX_REASONABLE_PRICE = 1000000; // 1 milione EUR max per unità
+    
     let totalLongValue = 0;
     let totalShortLiability = 0;
 
@@ -488,10 +494,6 @@ const CryptoDashboard = () => {
             if (remainingVolume <= 0) {
                 return; // Skip positions with no remaining volume
             }
-            
-            // ✅ FIX CRITICO: Valida che volume e prezzi siano ragionevoli
-            const MAX_REASONABLE_VOLUME = 1000000; // 1 milione di unità max
-            const MAX_REASONABLE_PRICE = 1000000; // 1 milione EUR max per unità
             
             if (remainingVolume > MAX_REASONABLE_VOLUME) {
                 console.error(`🚨 [BALANCE] Volume anomale per posizione ${pos.ticket_id}: ${remainingVolume}. Skipping.`);
@@ -555,9 +557,8 @@ const CryptoDashboard = () => {
     // NON cambia con il prezzo corrente - quello influenza solo il P&L
     
     // ✅ FIX CRITICO: Valida portfolio.balance_usd per evitare valori assurdi
+    // ✅ NOTA: MAX_REASONABLE_BALANCE e MIN_REASONABLE_BALANCE sono già dichiarati sopra
     const rawBalance = parseFloat(portfolio.balance_usd) || 0;
-    const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni di euro max (soglia di sicurezza)
-    const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min (per permettere debiti)
     
     // ✅ DEBUG CRITICO: Log valori PRIMA della validazione per capire da dove viene il problema
     console.log('🔍 [BALANCE DEBUG - RAW VALUES]', {
