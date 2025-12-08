@@ -6725,38 +6725,18 @@ router.get('/scanner', async (req, res) => {
                     rsiValue = signal?.indicators?.rsi || null;
                 }
 
-                // ✅ RSI DEEP ANALYSIS: Chiama la stessa funzione helper che usa bot-analysis
+                // ✅ RSI DEEP ANALYSIS: Usa signalGenerator.calculateRSI() (stessa formula di Deep Analysis)
+                // Deep Analysis mostra signal.indicators.rsi che viene da signalGenerator.generateSignal()
+                // signalGenerator usa EMA (Exponential Moving Average) per RSI, non SMA!
                 let rsiDeepAnalysis = null;
                 try {
-                    // ✅ REPLICA ESATTA della logica di bot-analysis (righe 5452-5682)
-                    // 1. Prepara historyForSignal esattamente come bot-analysis
-                    const deepAnalysisHistoryData = await dbAll(
-                        "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
-                        [s.symbol]
-                    );
-                    
-                    let deepAnalysisHistory = [];
-                    if (deepAnalysisHistoryData && deepAnalysisHistoryData.length > 0) {
-                        deepAnalysisHistory = deepAnalysisHistoryData.reverse().map(row => ({
-                            price: parseFloat(row.close_price),
-                            high: parseFloat(row.high_price),
-                            low: parseFloat(row.low_price),
-                            close: parseFloat(row.close_price),
-                            timestamp: new Date(row.open_time).toISOString()
-                        }));
-                    }
-                    
-                    // 2. Aggiorna ultima candela con prezzo corrente (stessa logica bot-analysis)
-                    if (deepAnalysisHistory.length > 0) {
-                        const lastCandle = deepAnalysisHistory[deepAnalysisHistory.length - 1];
-                        lastCandle.close = currentPrice;
-                        lastCandle.price = currentPrice;
-                    }
-                    
-                    // 3. Calcola RSI esattamente come bot-analysis (riga 5672-5674)
-                    const deepPrices = deepAnalysisHistory.map(h => h.close || h.price);
+                    // ✅ USA LA STESSA historyForSignal che viene usata per generare il signal
+                    // Questo garantisce che i dati siano identici
+                    const deepPrices = historyForSignal.map(h => h.close || h.price);
                     if (deepPrices.length >= 15) {
-                        rsiDeepAnalysis = calculateRSI(deepPrices, 14);
+                        // ✅ CRITICAL: Usa signalGenerator.calculateRSI() non calculateRSI() globale!
+                        // signalGenerator.calculateRSI() usa EMA, calculateRSI() globale usa SMA
+                        rsiDeepAnalysis = signalGenerator.calculateRSI(deepPrices, 14);
                     }
                 } catch (deepRsiError) {
                     // Silenzioso
