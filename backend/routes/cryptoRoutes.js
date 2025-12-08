@@ -6708,16 +6708,6 @@ router.get('/scanner', async (req, res) => {
                 const adjustedStrength = Math.max(0, rawStrength + mtfBonus);
                 const displayStrength = Math.min(adjustedStrength, 100); // Cap at 100 for display
 
-                // ✅ RSI NORMALE (quello attuale)
-                let rsiValue = signal?.indicators?.rsi || null;
-                try {
-                    const prices = historyForSignal.map(h => h.close || h.price);
-                    if (prices.length >= 15) {
-                        rsiValue = calculateRSI(prices, 14);
-                    }
-                } catch (rsiError) {
-                    rsiValue = signal?.indicators?.rsi || null;
-                }
 
                 // ✅ RSI DEEP ANALYSIS: Chiama INTERNAMENTE la stessa logica di bot-analysis
                 // Invece di replicare, creiamo una funzione helper che fa ESATTAMENTE quello che fa bot-analysis
@@ -6837,7 +6827,7 @@ router.get('/scanner', async (req, res) => {
                     strength: displayStrength, // MTF-adjusted strength (0-100)
                     confirmations: signal?.confirmations || 0,
                     reasons: signal?.reasons || ['Nessun segnale'],
-                    rsi: rsiValue, // RSI normale (quello attuale)
+                    rsi: rsiDeepAnalysis, // ✅ ORA USA RSI DEEP (stesso valore di rsi_deep_analysis)
                     rsi_deep_analysis: rsiDeepAnalysis // ✅ RSI da Deep Analysis (stesso calcolo esatto)
                 };
             } catch (err) {

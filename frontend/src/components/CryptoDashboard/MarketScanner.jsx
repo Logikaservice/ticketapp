@@ -86,7 +86,6 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                             <th style={{ padding: '10px', textAlign: 'right' }}>Volume 24h</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Signal</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Strength</th>
-                            <th style={{ padding: '10px', textAlign: 'center' }}>RSI</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>RSI Deep</th>
                             <th style={{ padding: '10px', textAlign: 'left' }}>Top Reason</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Action</th>
@@ -155,21 +154,19 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                                 <span style={{ color: strengthColor, fontWeight: 'bold' }}>{item.strength}</span>
                                             </div>
                                         </td>
-                                        <td style={{ padding: '10px', textAlign: 'center', color: item.rsi < 30 ? '#4ade80' : item.rsi > 70 ? '#f87171' : '#9ca3af' }}>
-                                            {item.rsi?.toFixed(1) || 'N/A'}
-                                        </td>
+
                                         <td style={{ padding: '10px', textAlign: 'center' }}>
                                             {(() => {
                                                 const rsiDeep = item.rsi_deep_analysis;
                                                 if (rsiDeep === null || rsiDeep === undefined) {
                                                     return <span style={{ color: '#6b7280' }}>N/A</span>;
                                                 }
-                                                
+
                                                 // ✅ RSI DEEP ANALYSIS: Stesso calcolo di Deep Analysis
                                                 let rsiColor = '#9ca3af';
                                                 let rsiDirection = '';
                                                 let rsiTooltip = `RSI Deep Analysis: ${rsiDeep.toFixed(1)}`;
-                                                
+
                                                 if (item.direction === 'SHORT') {
                                                     if (rsiDeep > 70) {
                                                         rsiColor = '#f87171';
@@ -205,7 +202,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                                         rsiTooltip += ' (Overbought)';
                                                     }
                                                 }
-                                                
+
                                                 return (
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }} title={rsiTooltip}>
                                                         <span style={{ color: rsiColor, fontWeight: 'bold', fontSize: '0.9rem' }}>
@@ -268,7 +265,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                     {
                                         expandedSymbol === item.symbol && (
                                             <tr style={{ background: '#1c1c1e', borderBottom: '1px solid #374151' }}>
-                                                <td colSpan="8" style={{ padding: '15px' }}>
+                                                <td colSpan="7" style={{ padding: '15px' }}>
                                                     {analysisLoading ? (
                                                         <div style={{ color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                             <RefreshCw className="spin" size={16} /> Caricamento analisi rapida...
