@@ -6631,6 +6631,9 @@ router.get('/scanner', async (req, res) => {
                     rawStrength = 0;
                 }
 
+                // 🔍 DEBUG LOG
+                console.log(`[SCANNER-STRENGTH] ${s.display}: LONG=${longStrength}, SHORT=${shortStrength}, RAW=${rawStrength}, DIR=${displayDirection}`);
+
                 // Calculate MTF bonus/penalty (SAME logic as bot-analysis)
                 let mtfBonus = 0;
                 if (displayDirection === 'LONG') {
