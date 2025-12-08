@@ -3078,7 +3078,7 @@ router.get('/bot/active', async (req, res) => {
             active_bots: activeBots.map(bot => ({
                 strategy_name: bot.strategy_name,
                 symbol: bot.symbol,
-                is_active: bot.is_active === 1,
+                is_active: Number(bot.is_active) === 1,
                 parameters: bot.parameters ? JSON.parse(bot.parameters) : DEFAULT_PARAMS
             }))
         });
@@ -4565,7 +4565,8 @@ router.get('/bot-analysis', async (req, res) => {
         // ✅ FIX: Se non c'è entry in bot_settings, considera il bot ATTIVO di default (per nuovi simboli)
         // Questo permette ai nuovi simboli di funzionare senza doverli attivare manualmente
         const botSettings = await dbGet("SELECT is_active FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = ?", [symbol]);
-        const isBotActive = botSettings ? (botSettings.is_active === 1) : true; // Default: attivo se non esiste entry
+        console.log(`🔍 [BOT-DEBUG] Symbol: ${symbol}, Settings found: ${!!botSettings}, Active: ${botSettings ? botSettings.is_active : 'DEFAULT (1)'}`);
+        const isBotActive = botSettings ? (Number(botSettings.is_active) === 1) : true; // Default: attivo se non esiste entry
 
         if (!isBotActive) {
             freshnessBlockers.push({
