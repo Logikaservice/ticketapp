@@ -1128,9 +1128,10 @@ const CryptoDashboard = () => {
                                                 pos.symbol === 'solana_eur' ? 'SOL/EUR' :
                                                     pos.symbol.toUpperCase().replace('_', '/')) : '-';
 
+                                    // ✅ FIX: Formato unificato P&L: sempre +€X.XX o -€X.XX (segno prima del simbolo)
                                     const displayPnl = (
                                         <span style={{ color: pnl >= 0 ? '#4ade80' : '#ef4444', fontWeight: 'bold' }}>
-                                            {pnl >= 0 ? '+' : ''}€{pnl.toFixed(2)}
+                                            {pnl >= 0 ? '+' : '-'}€{Math.abs(pnl).toFixed(2)}
                                         </span>
                                     );
 
