@@ -5342,9 +5342,17 @@ router.get('/scanner', async (req, res) => {
                 const adjustedStrength = Math.max(0, rawStrength + mtfBonus);
                 const displayStrength = Math.min(adjustedStrength, 100); // Cap at 100 for display
 
-                // ✅ LOG per debug
+                // ✅ LOG per debug - DETAILED
                 const rsiValue = signal?.indicators?.rsi || null;
-                console.log(`[SCANNER] ${s.display}: direction=${displayDirection}, rawStrength=${rawStrength}, mtfBonus=${mtfBonus}, adjustedStrength=${adjustedStrength}, RSI=${rsiValue?.toFixed(2) || 'N/A'}, price=${currentPrice.toFixed(4)}`);
+                console.log(`[SCANNER] ${s.display}:`);
+                console.log(`  - Signal direction: ${signal?.direction || 'null'}`);
+                console.log(`  - Display direction: ${displayDirection}`);
+                console.log(`  - Raw strength: ${rawStrength}`);
+                console.log(`  - MTF (1h=${trend1h}, 4h=${trend4h}): bonus=${mtfBonus}`);
+                console.log(`  - Adjusted strength: ${adjustedStrength}`);
+                console.log(`  - Display strength (capped): ${displayStrength}`);
+                console.log(`  - RSI: ${rsiValue?.toFixed(2) || 'N/A'}`);
+                console.log(`  - Price: ${currentPrice.toFixed(4)}`);
 
                 // ✅ IMPORTANTE: Restituisci SEMPRE il risultato, anche se NEUTRAL con strength 0
                 // Questo permette di vedere TUTTI i simboli nel Market Scanner per debug
