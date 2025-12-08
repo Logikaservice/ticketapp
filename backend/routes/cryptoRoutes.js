@@ -6788,7 +6788,9 @@ router.get('/scanner', async (req, res) => {
                     price: currentPrice, // Prezzo corrente aggiornato in tempo reale
                     volume24h: volume24h || 0, // Volume 24h in EUR/USDT
                     direction: displayDirection, // Usa direzione migliorata per display
-                    strength: displayStrength, // MTF-adjusted strength (0-100)
+                    strength: displayStrength, // MTF-adjusted strength (0-100) - Mantengo per sort
+                    strength_long: longStrength, // ✅ Valore puro LONG (come in Deep Analysis)
+                    strength_short: shortStrength, // ✅ Valore puro SHORT (come in Deep Analysis)
                     confirmations: signal?.confirmations || 0,
                     reasons: signal?.reasons || ['Nessun segnale'],
                     rsi: rsiDeepAnalysis !== null ? rsiDeepAnalysis : rsiSimple, // ✅ USA RSI DEEP, fallback a RSI Simple
@@ -6804,6 +6806,8 @@ router.get('/scanner', async (req, res) => {
                     volume24h: 0,
                     direction: 'NEUTRAL',
                     strength: 0,
+                    strength_long: 0,
+                    strength_short: 0,
                     confirmations: 0,
                     reasons: [`Errore: ${err.message}`],
                     rsi: null

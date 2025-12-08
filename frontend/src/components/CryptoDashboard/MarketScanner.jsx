@@ -85,7 +85,8 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                             <th style={{ padding: '10px', textAlign: 'right' }}>Price</th>
                             <th style={{ padding: '10px', textAlign: 'right' }}>Volume 24h</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Signal</th>
-                            <th style={{ padding: '10px', textAlign: 'center' }}>Strength</th>
+                            <th style={{ padding: '10px', textAlign: 'center' }}>Str. L</th>
+                            <th style={{ padding: '10px', textAlign: 'center' }}>Str. S</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>RSI Deep</th>
                             <th style={{ padding: '10px', textAlign: 'left' }}>Top Reason</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Action</th>
@@ -147,12 +148,22 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                             </span>
                                         </td>
                                         <td style={{ padding: '10px', textAlign: 'center' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
-                                                <div style={{ width: '40px', height: '6px', background: '#374151', borderRadius: '3px', overflow: 'hidden' }}>
-                                                    <div style={{ width: `${item.strength}%`, height: '100%', background: strengthColor }} />
-                                                </div>
-                                                <span style={{ color: strengthColor, fontWeight: 'bold' }}>{item.strength}</span>
-                                            </div>
+                                            <span style={{
+                                                color: (item.strength_long || 0) >= 50 ? '#4ade80' : '#6b7280',
+                                                fontWeight: (item.strength_long || 0) > 0 ? 'bold' : 'normal',
+                                                fontSize: '0.9rem'
+                                            }}>
+                                                {item.strength_long || 0}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '10px', textAlign: 'center' }}>
+                                            <span style={{
+                                                color: (item.strength_short || 0) >= 50 ? '#f87171' : '#6b7280',
+                                                fontWeight: (item.strength_short || 0) > 0 ? 'bold' : 'normal',
+                                                fontSize: '0.9rem'
+                                            }}>
+                                                {item.strength_short || 0}
+                                            </span>
                                         </td>
 
                                         <td style={{ padding: '10px', textAlign: 'center' }}>
