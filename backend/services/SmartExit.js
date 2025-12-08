@@ -49,7 +49,7 @@ const SMART_EXIT_CONFIG = {
     CHECK_INTERVAL_MS: 10000, // Check every 10 seconds
     MIN_OPPOSITE_STRENGTH: 60, // Close if opposite signal strength >= 60
     MIN_PROFIT_TO_PROTECT: 0.5, // Only activate if position has at least 0.5% profit
-    
+
     // ✅ FIX: Soglie meno aggressive per evitare chiusure premature
     // Nuove configurazioni per ragionamento avanzato
     STATIC_MARKET_ATR_THRESHOLD: 0.3, // ATR < 0.3% = mercato statico
@@ -58,13 +58,13 @@ const SMART_EXIT_CONFIG = {
     MIN_MOMENTUM_FOR_HOLD: 0.05, // ✅ RIDOTTO: Momentum minimo per tenere (0.05% invece di 0.1% - più permissivo)
     MAX_TIME_IN_STATIC_MARKET: 7200000, // ✅ AUMENTATO: 2 ore invece di 1 ora (più tempo prima di chiudere)
     OPPORTUNITY_COST_THRESHOLD: 2.0, // ✅ AUMENTATO: 2% di differenza invece di 1% (più conservativo)
-    
+
     // ✅ NUOVO: Soglia minima assoluta - MAI chiudere sotto questa soglia
     MIN_ABSOLUTE_PROFIT_TO_CLOSE: 1.0, // MAI chiudere se guadagno < 1% (protezione contro chiusure premature)
-    
+
     // ✅ NUOVO: Soglia per mercato lento - più conservativa
     MIN_PROFIT_FOR_SLOW_MARKET: 1.5, // Minimo 1.5% per chiudere in mercato lento
-    
+
     // ✅ PRIORITÀ 1: Trailing Profit Protection
     TRAILING_PROFIT_ENABLED: true,
     TRAILING_PROFIT_LEVELS: [
@@ -74,42 +74,42 @@ const SMART_EXIT_CONFIG = {
         { peakProfit: 10.0, lockPercent: 0.75 },  // Se sale a 10%, blocca almeno 7.5% (75%)
         { peakProfit: 15.0, lockPercent: 0.80 },  // Se sale a 15%, blocca almeno 12% (80%)
     ],
-    
+
     // ✅ PRIORITÀ 2: Soglie Dinamiche Basate su ATR
     DYNAMIC_THRESHOLDS_ENABLED: true,
     ATR_MULTIPLIER: 2.0, // Soglia = ATR × 2.0
     MIN_DYNAMIC_THRESHOLD: 0.5, // Soglia minima anche se ATR è molto basso
     MAX_DYNAMIC_THRESHOLD: 5.0, // Soglia massima anche se ATR è molto alto
-    
+
     // ✅ PRIORITÀ 3: Risk/Reward Ratio
     RISK_REWARD_ENABLED: true,
     MIN_RISK_REWARD_RATIO: 1.5, // Minimo R/R 1:1.5 per mantenere posizione
     CALCULATE_RR_FROM_ENTRY: true, // Calcola R/R dall'entry price
-    
+
     // ✅ NUOVO PRIORITÀ 1: Volume Confirmation
     VOLUME_CONFIRMATION_ENABLED: true,
     VOLUME_LOW_THRESHOLD: 0.7, // Volume < 70% media = basso
     VOLUME_HIGH_THRESHOLD: 1.5, // Volume > 150% media = alto
     REQUIRE_VOLUME_FOR_REVERSAL: true, // Richiedi volume alto per reversal
-    
+
     // ✅ NUOVO PRIORITÀ 2: Support/Resistance Levels
     SUPPORT_RESISTANCE_ENABLED: true,
     SR_LOOKBACK_PERIODS: 50, // Cerca S/R negli ultimi 50 periodi
     SR_TOUCH_DISTANCE_PCT: 0.5, // Considera "vicino" se entro 0.5% del livello
     PARTIAL_CLOSE_AT_RESISTANCE: true, // Chiudi parzialmente a resistenza
-    
+
     // ✅ NUOVO PRIORITÀ 3: Divergence Detection
     DIVERGENCE_DETECTION_ENABLED: true,
     RSI_PERIOD: 14, // Periodo RSI
     DIVERGENCE_LOOKBACK: 20, // Cerca divergenze negli ultimi 20 periodi
     MIN_DIVERGENCE_STRENGTH: 0.3, // Divergenza deve essere almeno 30% significativa
-    
+
     // ✅ NUOVO PRIORITÀ 4: Multi-Timeframe Exit
     MULTI_TIMEFRAME_EXIT_ENABLED: true,
     EXIT_TIMEFRAMES: ['15m', '1h', '4h'], // Timeframe per exit
     EXIT_TIMEFRAME_WEIGHTS: { '15m': 0.2, '1h': 0.3, '4h': 0.5 }, // Peso per timeframe
     REQUIRE_HIGHER_TF_CONFIRMATION: true, // Richiedi conferma timeframe più lungo
-    
+
     // ✅ NUOVO PRIORITÀ 5: Portfolio Drawdown Protection
     PORTFOLIO_DRAWDOWN_ENABLED: true,
     MAX_PORTFOLIO_DRAWDOWN_PCT: 5.0, // Max drawdown totale 5%
@@ -122,13 +122,13 @@ const SMART_EXIT_CONFIG = {
  */
 function calculateATR(klines, period = 14) {
     if (!klines || klines.length < period + 1) return null;
-    
+
     const trs = [];
     for (let i = 1; i < klines.length; i++) {
         const high = parseFloat(klines[i].high || klines[i].high_price || 0);
         const low = parseFloat(klines[i].low || klines[i].low_price || 0);
         const prevClose = parseFloat(klines[i - 1].close || klines[i - 1].close_price || 0);
-        
+
         if (high > 0 && low > 0 && prevClose > 0) {
             const tr = Math.max(
                 high - low,
@@ -138,9 +138,9 @@ function calculateATR(klines, period = 14) {
             trs.push(tr);
         }
     }
-    
+
     if (trs.length < period) return null;
-    
+
     // Calcola ATR come media degli ultimi 'period' TR
     const recentTRs = trs.slice(-period);
     const atr = recentTRs.reduce((sum, tr) => sum + tr, 0) / period;
@@ -152,24 +152,24 @@ function calculateATR(klines, period = 14) {
  */
 function calculateMomentum(priceHistory, periods = [5, 10, 20]) {
     if (!priceHistory || priceHistory.length < Math.max(...periods)) return null;
-    
-    const currentPrice = parseFloat(priceHistory[priceHistory.length - 1]?.close || 
-                                    priceHistory[priceHistory.length - 1]?.price || 0);
-    
+
+    const currentPrice = parseFloat(priceHistory[priceHistory.length - 1]?.close ||
+        priceHistory[priceHistory.length - 1]?.price || 0);
+
     if (currentPrice === 0) return null;
-    
+
     const momentums = periods.map(period => {
         if (priceHistory.length < period) return null;
         const pastPrice = parseFloat(priceHistory[priceHistory.length - period]?.close ||
-                                    priceHistory[priceHistory.length - period]?.price || 0);
+            priceHistory[priceHistory.length - period]?.price || 0);
         if (pastPrice === 0) return null;
         return ((currentPrice - pastPrice) / pastPrice) * 100;
     });
-    
+
     // Ritorna momentum medio
     const validMomentums = momentums.filter(m => m !== null);
     if (validMomentums.length === 0) return null;
-    
+
     return validMomentums.reduce((sum, m) => sum + m, 0) / validMomentums.length;
 }
 
@@ -180,12 +180,12 @@ function assessMarketCondition(klines, currentPrice) {
     if (!klines || klines.length < 20 || !currentPrice || currentPrice === 0) {
         return { condition: 'unknown', atr: null, atrPct: null };
     }
-    
+
     const atr = calculateATR(klines, 14);
     if (!atr) return { condition: 'unknown', atr: null, atrPct: null };
-    
+
     const atrPct = (atr / currentPrice) * 100;
-    
+
     let condition;
     if (atrPct < SMART_EXIT_CONFIG.STATIC_MARKET_ATR_THRESHOLD) {
         condition = 'static'; // Mercato statico
@@ -194,7 +194,7 @@ function assessMarketCondition(klines, currentPrice) {
     } else {
         condition = 'volatile'; // Mercato volatile
     }
-    
+
     return { condition, atr, atrPct };
 }
 
@@ -208,12 +208,12 @@ async function checkOpportunityCost(position) {
             "SELECT DISTINCT symbol FROM bot_settings WHERE is_active = 1 AND symbol != ?",
             [position.symbol]
         );
-        
+
         if (allSymbols.length === 0) return { hasBetterOpportunity: false, bestSignal: null };
-        
+
         let bestSignal = null;
         let bestStrength = 0;
-        
+
         for (const symbolRow of allSymbols) {
             const symbol = symbolRow.symbol;
             try {
@@ -221,9 +221,9 @@ async function checkOpportunityCost(position) {
                     "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
                     [symbol]
                 );
-                
+
                 if (klines.length < 20) continue;
-                
+
                 const priceHistory = klines.reverse().map(k => ({
                     price: k.close_price,
                     high: k.high_price,
@@ -231,11 +231,11 @@ async function checkOpportunityCost(position) {
                     close: k.close_price,
                     timestamp: k.open_time
                 }));
-                
+
                 const signal = signalGenerator.generateSignal(priceHistory, symbol);
                 const relevantSignal = position.type === 'buy' ? signal.longSignal : signal.shortSignal;
                 const strength = relevantSignal?.strength || 0;
-                
+
                 if (strength > bestStrength) {
                     bestStrength = strength;
                     bestSignal = { symbol, strength, direction: relevantSignal?.direction };
@@ -245,12 +245,12 @@ async function checkOpportunityCost(position) {
                 continue;
             }
         }
-        
+
         // Se c'è un segnale significativamente migliore (>1% di differenza), considera opportunity cost
         const currentPnLPct = parseFloat(position.profit_loss_pct) || 0;
-        const hasBetterOpportunity = bestSignal && 
+        const hasBetterOpportunity = bestSignal &&
             bestSignal.strength > (currentPnLPct + SMART_EXIT_CONFIG.OPPORTUNITY_COST_THRESHOLD);
-        
+
         return { hasBetterOpportunity, bestSignal };
     } catch (error) {
         console.error(`❌ Error checking opportunity cost:`, error.message);
@@ -265,23 +265,23 @@ function calculatePeakProfit(position, priceHistory) {
     if (!priceHistory || priceHistory.length === 0) {
         return parseFloat(position.profit_loss_pct) || 0;
     }
-    
+
     const entryPrice = parseFloat(position.entry_price) || 0;
     const entryTime = new Date(position.opened_at || Date.now()).getTime();
-    
+
     if (entryPrice === 0) return parseFloat(position.profit_loss_pct) || 0;
-    
+
     let peakProfit = 0;
     const isLong = position.type === 'buy';
-    
+
     // Cerca il prezzo massimo/minimo raggiunto dopo l'apertura
     priceHistory.forEach(candle => {
         const candleTime = new Date(candle.timestamp || 0).getTime();
         if (candleTime < entryTime) return; // Prima dell'apertura
-        
+
         const high = parseFloat(candle.high || candle.high_price || candle.price || 0);
         const low = parseFloat(candle.low || candle.low_price || candle.price || 0);
-        
+
         if (isLong && high > 0) {
             const profit = ((high - entryPrice) / entryPrice) * 100;
             if (profit > peakProfit) peakProfit = profit;
@@ -290,7 +290,7 @@ function calculatePeakProfit(position, priceHistory) {
             if (profit > peakProfit) peakProfit = profit;
         }
     });
-    
+
     // Usa anche highest_price dal database se disponibile
     if (position.highest_price) {
         const highestPrice = parseFloat(position.highest_price);
@@ -299,12 +299,12 @@ function calculatePeakProfit(position, priceHistory) {
             if (profit > peakProfit) peakProfit = profit;
         }
     }
-    
+
     // Se non trovato, usa profit_loss_pct attuale
     if (peakProfit === 0) {
         peakProfit = parseFloat(position.profit_loss_pct) || 0;
     }
-    
+
     return Math.max(peakProfit, parseFloat(position.profit_loss_pct) || 0);
 }
 
@@ -315,9 +315,9 @@ function calculateDynamicThreshold(atrPct) {
     if (!SMART_EXIT_CONFIG.DYNAMIC_THRESHOLDS_ENABLED || !atrPct) {
         return SMART_EXIT_CONFIG.MIN_ABSOLUTE_PROFIT_TO_CLOSE;
     }
-    
+
     const dynamicThreshold = atrPct * SMART_EXIT_CONFIG.ATR_MULTIPLIER;
-    
+
     // Limita tra min e max
     return Math.max(
         SMART_EXIT_CONFIG.MIN_DYNAMIC_THRESHOLD,
@@ -330,15 +330,15 @@ function calculateDynamicThreshold(atrPct) {
  */
 function calculateRiskRewardRatio(position, currentPnLPct, marketCondition) {
     if (!SMART_EXIT_CONFIG.RISK_REWARD_ENABLED) return null;
-    
+
     const entryPrice = parseFloat(position.entry_price) || 0;
     const stopLoss = parseFloat(position.stop_loss) || 0;
     const currentPrice = parseFloat(position.current_price || position.entry_price) || 0;
-    
+
     if (entryPrice === 0 || currentPrice === 0) return null;
-    
+
     const isLong = position.type === 'buy';
-    
+
     // Calcola rischio (distanza da entry a stop loss)
     let risk = 0;
     if (stopLoss > 0) {
@@ -351,15 +351,15 @@ function calculateRiskRewardRatio(position, currentPnLPct, marketCondition) {
         // Se non c'è stop loss, usa ATR come rischio stimato
         risk = marketCondition.atrPct || 1.0;
     }
-    
+
     if (risk <= 0) return null;
-    
+
     // Reward = profitto attuale
     const reward = Math.abs(currentPnLPct);
-    
+
     // R/R ratio = reward / risk
     const rrRatio = reward / risk;
-    
+
     return {
         ratio: rrRatio,
         risk: risk,
@@ -373,21 +373,21 @@ function calculateRiskRewardRatio(position, currentPnLPct, marketCondition) {
  */
 function calculateRSI(priceHistory, period = 14) {
     if (!priceHistory || priceHistory.length < period + 1) return null;
-    
+
     const prices = priceHistory.map(p => parseFloat(p.close || p.close_price || p.price || 0)).filter(p => p > 0);
     if (prices.length < period + 1) return null;
-    
+
     let gains = 0;
     let losses = 0;
-    
+
     for (let i = 1; i <= period; i++) {
         const change = prices[prices.length - i] - prices[prices.length - i - 1];
         if (change > 0) gains += change;
         else losses += Math.abs(change);
     }
-    
+
     if (losses === 0) return 100;
-    
+
     const avgGain = gains / period;
     const avgLoss = losses / period;
     const rs = avgGain / avgLoss;
@@ -402,17 +402,17 @@ function checkVolumeConfirmation(klines, isReversalSignal) {
     if (!SMART_EXIT_CONFIG.VOLUME_CONFIRMATION_ENABLED || !klines || klines.length < 20) {
         return { confirmed: true, reason: 'Volume confirmation disabled or insufficient data' };
     }
-    
+
     // Calcola volume medio degli ultimi 20 periodi
     const volumes = klines.slice(-20).map(k => parseFloat(k.volume || 0)).filter(v => v > 0);
     if (volumes.length === 0) {
         return { confirmed: true, reason: 'No volume data available' };
     }
-    
+
     const avgVolume = volumes.reduce((sum, v) => sum + v, 0) / volumes.length;
     const currentVolume = parseFloat(klines[klines.length - 1]?.volume || 0);
     const volumeRatio = avgVolume > 0 ? currentVolume / avgVolume : 1.0;
-    
+
     // Se è un segnale di reversal, richiedi volume alto
     if (isReversalSignal && SMART_EXIT_CONFIG.REQUIRE_VOLUME_FOR_REVERSAL) {
         if (volumeRatio < SMART_EXIT_CONFIG.VOLUME_HIGH_THRESHOLD) {
@@ -423,7 +423,7 @@ function checkVolumeConfirmation(klines, isReversalSignal) {
             };
         }
     }
-    
+
     // Se volume è molto basso, potrebbe essere consolidamento sano (non reversal)
     if (volumeRatio < SMART_EXIT_CONFIG.VOLUME_LOW_THRESHOLD) {
         return {
@@ -432,7 +432,7 @@ function checkVolumeConfirmation(klines, isReversalSignal) {
             volumeRatio: volumeRatio
         };
     }
-    
+
     return {
         confirmed: true,
         reason: `Volume conferma (${(volumeRatio * 100).toFixed(0)}% della media)`,
@@ -447,33 +447,33 @@ function calculateSupportResistance(klines, currentPrice) {
     if (!SMART_EXIT_CONFIG.SUPPORT_RESISTANCE_ENABLED || !klines || klines.length < SMART_EXIT_CONFIG.SR_LOOKBACK_PERIODS) {
         return { support: null, resistance: null, nearSupport: false, nearResistance: false };
     }
-    
+
     const lookback = Math.min(SMART_EXIT_CONFIG.SR_LOOKBACK_PERIODS, klines.length);
     const recentKlines = klines.slice(-lookback);
-    
+
     // Trova high e low più frequenti (livelli toccati più volte)
     const highs = recentKlines.map(k => parseFloat(k.high || k.high_price || 0)).filter(h => h > 0);
     const lows = recentKlines.map(k => parseFloat(k.low || k.low_price || 0)).filter(l => l > 0);
-    
+
     if (highs.length === 0 || lows.length === 0) {
         return { support: null, resistance: null, nearSupport: false, nearResistance: false };
     }
-    
+
     // Calcola resistenza (media degli high più alti)
     const sortedHighs = [...highs].sort((a, b) => b - a);
     const topHighs = sortedHighs.slice(0, Math.max(3, Math.floor(sortedHighs.length * 0.1)));
     const resistance = topHighs.reduce((sum, h) => sum + h, 0) / topHighs.length;
-    
+
     // Calcola supporto (media dei low più bassi)
     const sortedLows = [...lows].sort((a, b) => a - b);
     const bottomLows = sortedLows.slice(0, Math.max(3, Math.floor(sortedLows.length * 0.1)));
     const support = bottomLows.reduce((sum, l) => sum + l, 0) / bottomLows.length;
-    
+
     // Verifica se siamo vicini a support/resistance
     const distancePct = SMART_EXIT_CONFIG.SR_TOUCH_DISTANCE_PCT;
     const nearResistance = resistance > 0 && Math.abs((currentPrice - resistance) / resistance * 100) <= distancePct;
     const nearSupport = support > 0 && Math.abs((currentPrice - support) / support * 100) <= distancePct;
-    
+
     return {
         support: support,
         resistance: resistance,
@@ -491,14 +491,14 @@ function detectRSIDivergence(priceHistory, positionType) {
     if (!SMART_EXIT_CONFIG.DIVERGENCE_DETECTION_ENABLED || !priceHistory || priceHistory.length < SMART_EXIT_CONFIG.DIVERGENCE_LOOKBACK) {
         return { hasDivergence: false, type: null };
     }
-    
+
     const lookback = Math.min(SMART_EXIT_CONFIG.DIVERGENCE_LOOKBACK, priceHistory.length);
     const recentHistory = priceHistory.slice(-lookback);
-    
+
     // Calcola RSI per ogni punto
     const rsiValues = [];
     const prices = [];
-    
+
     for (let i = SMART_EXIT_CONFIG.RSI_PERIOD; i < recentHistory.length; i++) {
         const window = recentHistory.slice(i - SMART_EXIT_CONFIG.RSI_PERIOD, i + 1);
         const rsi = calculateRSI(window, SMART_EXIT_CONFIG.RSI_PERIOD);
@@ -507,34 +507,34 @@ function detectRSIDivergence(priceHistory, positionType) {
             prices.push(parseFloat(recentHistory[i].close || recentHistory[i].close_price || recentHistory[i].price || 0));
         }
     }
-    
+
     if (rsiValues.length < 10 || prices.length < 10) {
         return { hasDivergence: false, type: null };
     }
-    
+
     // Trova i punti più recenti e più vecchi per confronto
     const recentPrices = prices.slice(-5); // Ultimi 5 punti
     const recentRSI = rsiValues.slice(-5);
     const olderPrices = prices.slice(0, 5); // Primi 5 punti
     const olderRSI = rsiValues.slice(0, 5);
-    
+
     const recentPriceHigh = Math.max(...recentPrices);
     const recentPriceLow = Math.min(...recentPrices);
     const olderPriceHigh = Math.max(...olderPrices);
     const olderPriceLow = Math.min(...olderPrices);
-    
+
     const recentRSIHigh = Math.max(...recentRSI);
     const recentRSILow = Math.min(...recentRSI);
     const olderRSIHigh = Math.max(...olderRSI);
     const olderRSILow = Math.min(...olderRSI);
-    
+
     // Divergenza bearish (per LONG): Prezzo sale ma RSI scende
     if (positionType === 'buy') {
         const priceRising = recentPriceHigh > olderPriceHigh;
         const rsiFalling = recentRSIHigh < olderRSIHigh;
-        const divergenceStrength = priceRising && rsiFalling ? 
+        const divergenceStrength = priceRising && rsiFalling ?
             Math.abs((recentPriceHigh - olderPriceHigh) / olderPriceHigh) + Math.abs((olderRSIHigh - recentRSIHigh) / 100) : 0;
-        
+
         if (divergenceStrength >= SMART_EXIT_CONFIG.MIN_DIVERGENCE_STRENGTH) {
             return {
                 hasDivergence: true,
@@ -544,14 +544,14 @@ function detectRSIDivergence(priceHistory, positionType) {
             };
         }
     }
-    
+
     // Divergenza bullish (per SHORT): Prezzo scende ma RSI sale
     if (positionType === 'sell') {
         const priceFalling = recentPriceLow < olderPriceLow;
         const rsiRising = recentRSILow > olderRSILow;
         const divergenceStrength = priceFalling && rsiRising ?
             Math.abs((olderPriceLow - recentPriceLow) / olderPriceLow) + Math.abs((recentRSILow - olderRSILow) / 100) : 0;
-        
+
         if (divergenceStrength >= SMART_EXIT_CONFIG.MIN_DIVERGENCE_STRENGTH) {
             return {
                 hasDivergence: true,
@@ -561,7 +561,7 @@ function detectRSIDivergence(priceHistory, positionType) {
             };
         }
     }
-    
+
     return { hasDivergence: false, type: null };
 }
 
@@ -572,13 +572,13 @@ async function getMultiTimeframeExitSignal(symbol, positionType) {
     if (!SMART_EXIT_CONFIG.MULTI_TIMEFRAME_EXIT_ENABLED) {
         return { shouldExit: false, reason: 'Multi-timeframe exit disabled' };
     }
-    
+
     const signalGenerator = require('../services/BidirectionalSignalGenerator');
-    
+
     const exitSignals = {};
     let totalWeight = 0;
     let weightedScore = 0;
-    
+
     for (const tf of SMART_EXIT_CONFIG.EXIT_TIMEFRAMES) {
         try {
             // Carica klines per questo timeframe
@@ -586,11 +586,11 @@ async function getMultiTimeframeExitSignal(symbol, positionType) {
                 "SELECT * FROM klines WHERE symbol = ? AND interval = ? ORDER BY open_time DESC LIMIT 50",
                 [symbol, tf]
             );
-            
+
             if (klines.length < 20) {
                 continue; // Skip se dati insufficienti
             }
-            
+
             const priceHistory = klines.reverse().map(k => ({
                 open: k.open_price,
                 high: k.high_price,
@@ -598,35 +598,35 @@ async function getMultiTimeframeExitSignal(symbol, positionType) {
                 close: k.close_price,
                 timestamp: k.open_time
             }));
-            
+
             // Genera segnale per questo timeframe
             const signal = signalGenerator.generateSignal(priceHistory, symbol);
             const relevantSignal = positionType === 'buy' ? signal.longSignal : signal.shortSignal;
             const oppositeSignal = positionType === 'buy' ? signal.shortSignal : signal.longSignal;
-            
+
             // Score: positivo se trend valido, negativo se opposto
             const score = (relevantSignal?.strength || 0) - (oppositeSignal?.strength || 0);
             const weight = SMART_EXIT_CONFIG.EXIT_TIMEFRAME_WEIGHTS[tf] || 0.2;
-            
+
             exitSignals[tf] = {
                 score: score,
                 strength: relevantSignal?.strength || 0,
                 oppositeStrength: oppositeSignal?.strength || 0
             };
-            
+
             weightedScore += score * weight;
             totalWeight += weight;
         } catch (err) {
             console.error(`⚠️ Error getting exit signal for ${symbol} ${tf}:`, err.message);
         }
     }
-    
+
     if (totalWeight === 0) {
         return { shouldExit: false, reason: 'Insufficient data for multi-timeframe analysis' };
     }
-    
+
     const finalScore = weightedScore / totalWeight;
-    
+
     // Se 4h dice "tieni" (score positivo), non chiudere anche se 15m dice "esci"
     if (SMART_EXIT_CONFIG.REQUIRE_HIGHER_TF_CONFIRMATION && exitSignals['4h']) {
         if (exitSignals['4h'].score > 20) {
@@ -638,7 +638,7 @@ async function getMultiTimeframeExitSignal(symbol, positionType) {
             };
         }
     }
-    
+
     // Se score finale è negativo (trend opposto), considera exit
     if (finalScore < -30) {
         return {
@@ -648,7 +648,7 @@ async function getMultiTimeframeExitSignal(symbol, positionType) {
             finalScore: finalScore
         };
     }
-    
+
     return {
         shouldExit: false,
         reason: `Multi-timeframe score: ${finalScore.toFixed(1)} - Trend ancora valido`,
@@ -664,19 +664,19 @@ async function checkPortfolioDrawdown() {
     if (!SMART_EXIT_CONFIG.PORTFOLIO_DRAWDOWN_ENABLED) {
         return { shouldCloseWorst: false, worstPositions: [] };
     }
-    
+
     try {
         const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
         if (openPositions.length === 0) {
             return { shouldCloseWorst: false, worstPositions: [] };
         }
-        
+
         // Calcola drawdown totale (somma P&L negativo)
         const totalPnL = openPositions.reduce((sum, pos) => {
             const pnl = parseFloat(pos.profit_loss) || 0;
             return sum + (pnl < 0 ? pnl : 0); // Solo perdite
         }, 0);
-        
+
         // Calcola valore totale investito
         const totalInvested = openPositions.reduce((sum, pos) => {
             const volume = parseFloat(pos.volume) || 0;
@@ -685,9 +685,9 @@ async function checkPortfolioDrawdown() {
             const remainingVolume = volume - volumeClosed;
             return sum + (remainingVolume * entryPrice);
         }, 0);
-        
+
         const drawdownPct = totalInvested > 0 ? Math.abs(totalPnL / totalInvested * 100) : 0;
-        
+
         if (drawdownPct > SMART_EXIT_CONFIG.MAX_PORTFOLIO_DRAWDOWN_PCT) {
             // Ordina posizioni per P&L (peggiori prima)
             const sortedPositions = [...openPositions].sort((a, b) => {
@@ -695,9 +695,9 @@ async function checkPortfolioDrawdown() {
                 const pnlB = parseFloat(b.profit_loss_pct) || 0;
                 return pnlA - pnlB; // Ordine crescente (più negative prima)
             });
-            
+
             const worstPositions = sortedPositions.slice(0, SMART_EXIT_CONFIG.WORST_POSITIONS_TO_CLOSE);
-            
+
             return {
                 shouldCloseWorst: true,
                 worstPositions: worstPositions,
@@ -705,7 +705,7 @@ async function checkPortfolioDrawdown() {
                 reason: `Portfolio drawdown ${drawdownPct.toFixed(2)}% > max ${SMART_EXIT_CONFIG.MAX_PORTFOLIO_DRAWDOWN_PCT}% - Chiudere ${worstPositions.length} posizioni peggiori`
             };
         }
-        
+
         return {
             shouldCloseWorst: false,
             worstPositions: [],
@@ -724,7 +724,7 @@ function calculateTrailingProfitProtection(currentPnLPct, peakProfit) {
     if (!SMART_EXIT_CONFIG.TRAILING_PROFIT_ENABLED || peakProfit <= 0) {
         return null;
     }
-    
+
     // Trova il livello di trailing profit applicabile
     let applicableLevel = null;
     for (let i = SMART_EXIT_CONFIG.TRAILING_PROFIT_LEVELS.length - 1; i >= 0; i--) {
@@ -734,12 +734,12 @@ function calculateTrailingProfitProtection(currentPnLPct, peakProfit) {
             break;
         }
     }
-    
+
     if (!applicableLevel) return null;
-    
+
     // Calcola profitto minimo da bloccare
     const lockedProfit = peakProfit * applicableLevel.lockPercent;
-    
+
     // Se il profitto attuale è sceso sotto il profitto bloccato, chiudi
     if (currentPnLPct < lockedProfit) {
         return {
@@ -750,7 +750,7 @@ function calculateTrailingProfitProtection(currentPnLPct, peakProfit) {
             lockPercent: applicableLevel.lockPercent
         };
     }
-    
+
     return {
         shouldLock: false,
         peakProfit: peakProfit,
@@ -772,11 +772,11 @@ async function shouldClosePosition(position, priceHistory) {
         const entryPrice = parseFloat(position.entry_price) || 0;
         const entryTime = new Date(position.opened_at || Date.now());
         const timeInPosition = Date.now() - entryTime.getTime();
-        
+
         // ✅ PRIORITÀ 1: Trailing Profit Protection - CRITICO
         const peakProfit = calculatePeakProfit(position, priceHistory);
         const trailingProfit = calculateTrailingProfitProtection(currentPnLPct, peakProfit);
-        
+
         if (trailingProfit && trailingProfit.shouldLock) {
             return {
                 shouldClose: true,
@@ -787,7 +787,7 @@ async function shouldClosePosition(position, priceHistory) {
                 decisionFactor: 'trailing_profit_protection'
             };
         }
-        
+
         // ✅ NUOVO PRIORITÀ 3: Divergence Detection - Rileva reversal PRIMA che accada
         const divergence = detectRSIDivergence(priceHistory, position.type);
         if (divergence.hasDivergence) {
@@ -803,7 +803,7 @@ async function shouldClosePosition(position, priceHistory) {
                 };
             }
         }
-        
+
         // 1. Genera segnale per condizioni di mercato attuali
         const signal = signalGenerator.generateSignal(priceHistory, position.symbol);
 
@@ -822,10 +822,10 @@ async function shouldClosePosition(position, priceHistory) {
                 "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 30",
                 [position.symbol]
             );
-            
+
             if (klines.length >= 20) {
                 volumeConfirmation = checkVolumeConfirmation(klines.reverse(), true); // true = reversal signal
-                
+
                 // Se volume NON conferma, non chiudere (potrebbe essere falso segnale)
                 if (!volumeConfirmation.confirmed) {
                     return {
@@ -839,7 +839,7 @@ async function shouldClosePosition(position, priceHistory) {
                 }
             }
         }
-        
+
         if (oppositeStrength >= SMART_EXIT_CONFIG.MIN_OPPOSITE_STRENGTH && currentPnLPct >= SMART_EXIT_CONFIG.MIN_PROFIT_TO_PROTECT && volumeConfirmation.confirmed) {
             return {
                 shouldClose: true,
@@ -850,7 +850,7 @@ async function shouldClosePosition(position, priceHistory) {
                 decisionFactor: 'opposite_signal_volume_confirmed'
             };
         }
-        
+
         // 3. Valuta condizione del mercato (statico, lento, volatile)
         const klines = priceHistory.map(p => ({
             high: p.high || p.price,
@@ -861,7 +861,7 @@ async function shouldClosePosition(position, priceHistory) {
             close_price: p.close || p.price,
             volume: p.volume || 0
         }));
-        
+
         // ✅ Carica klines complete dal DB per volume e support/resistance
         const dbKlines = await dbAll(
             "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
@@ -876,20 +876,20 @@ async function shouldClosePosition(position, priceHistory) {
             low_price: k.low_price,
             close_price: k.close_price
         }));
-        
+
         const marketCondition = assessMarketCondition(klines, currentPrice);
         const momentum = calculateMomentum(priceHistory, [5, 10, 20]);
-        
+
         // ✅ NUOVO PRIORITÀ 2: Support/Resistance Levels
         const supportResistance = calculateSupportResistance(fullKlines, currentPrice);
-        
+
         // ✅ Se siamo vicini a resistenza e in profitto, considera partial close
         if (supportResistance.nearResistance && currentPnLPct > 2.0 && SMART_EXIT_CONFIG.PARTIAL_CLOSE_AT_RESISTANCE) {
             // Non chiudere completamente, ma suggerisci partial close (gestito da updatePositionsPnL)
             // Per ora, solo logga
             console.log(`📊 [S/R] ${position.symbol} vicino a resistenza (€${supportResistance.resistance.toFixed(2)}) con profitto ${currentPnLPct.toFixed(2)}% - Considera partial close`);
         }
-        
+
         // ✅ NUOVO PRIORITÀ 4: Multi-Timeframe Exit
         const multiTFExit = await getMultiTimeframeExitSignal(position.symbol, position.type);
         if (multiTFExit.shouldExit && currentPnLPct >= SMART_EXIT_CONFIG.MIN_PROFIT_TO_PROTECT) {
@@ -901,20 +901,20 @@ async function shouldClosePosition(position, priceHistory) {
                 decisionFactor: 'multi_timeframe_exit'
             };
         }
-        
+
         // ✅ Se timeframe più lungo dice "tieni", non chiudere anche se altri fattori suggeriscono exit
         if (multiTFExit.finalScore > 20 && !multiTFExit.shouldExit) {
             // Override: timeframe più lungo ha priorità
             // Continua con altre valutazioni ma con peso minore
         }
-        
+
         // ✅ PRIORITÀ 2: Soglia Dinamica Basata su ATR
         const dynamicThreshold = calculateDynamicThreshold(marketCondition.atrPct);
         const effectiveMinThreshold = Math.max(
             SMART_EXIT_CONFIG.MIN_ABSOLUTE_PROFIT_TO_CLOSE,
             dynamicThreshold
         );
-        
+
         // ✅ FIX: Protezione contro chiusure premature - MAI chiudere sotto soglia minima (dinamica)
         if (currentPnLPct < effectiveMinThreshold) {
             return {
@@ -926,14 +926,14 @@ async function shouldClosePosition(position, priceHistory) {
                 decisionFactor: 'below_dynamic_threshold'
             };
         }
-        
+
         // ✅ PRIORITÀ 3: Risk/Reward Ratio Check
         const riskReward = calculateRiskRewardRatio(position, currentPnLPct, marketCondition);
         if (riskReward && riskReward.isFavorable) {
             // Se R/R è ancora favorevole, non chiudere (a meno che non ci siano altri motivi critici)
             const sameDirectionSignal = isLongPosition ? signal.longSignal : signal.shortSignal;
             const sameDirectionStrength = sameDirectionSignal?.strength || 0;
-            
+
             // Solo chiudi se trend è molto debole (< 30) E segnale opposto forte
             if (sameDirectionStrength >= 30 && oppositeStrength < 70) {
                 return {
@@ -945,14 +945,14 @@ async function shouldClosePosition(position, priceHistory) {
                 };
             }
         }
-        
+
         // 4. RAGIONAMENTO: Mercato statico con guadagno sufficiente
         // ✅ USA SOGLIA DINAMICA invece di fissa
         const staticMarketThreshold = Math.max(
             SMART_EXIT_CONFIG.SUFFICIENT_PROFIT_IN_STATIC,
             dynamicThreshold
         );
-        
+
         if (marketCondition.condition === 'static' && currentPnLPct >= staticMarketThreshold) {
             // ✅ FIX: Solo se guadagno è DAVVERO sufficiente (>= soglia dinamica) E non c'è momentum
             // Specialmente se non c'è momentum positivo
@@ -960,12 +960,12 @@ async function shouldClosePosition(position, priceHistory) {
                 // ✅ AGGIUNTO: Verifica anche che il trend non stia migliorando
                 const sameDirectionSignal = isLongPosition ? signal.longSignal : signal.shortSignal;
                 const sameDirectionStrength = sameDirectionSignal?.strength || 0;
-                
+
                 // ✅ Solo chiudi se il trend nella stessa direzione è debole (< 40)
                 // ✅ E se R/R non è ancora favorevole
-                const shouldCloseStatic = sameDirectionStrength < 40 && 
+                const shouldCloseStatic = sameDirectionStrength < 40 &&
                     (!riskReward || !riskReward.isFavorable || riskReward.ratio < 1.5);
-                
+
                 if (shouldCloseStatic) {
                     return {
                         shouldClose: true,
@@ -980,7 +980,7 @@ async function shouldClosePosition(position, priceHistory) {
                 }
             }
         }
-        
+
         // 5. RAGIONAMENTO: Mercato statico per troppo tempo senza movimento
         if (marketCondition.condition === 'static' && timeInPosition > SMART_EXIT_CONFIG.MAX_TIME_IN_STATIC_MARKET) {
             if (currentPnLPct > 0) {
@@ -993,13 +993,13 @@ async function shouldClosePosition(position, priceHistory) {
                 };
             }
         }
-        
+
         // 6. RAGIONAMENTO: Mercato lento con guadagno buono ma trend che si indebolisce
         // ✅ FIX: Soglia più alta (1.5% invece di 0.5%) per mercato lento
         if (marketCondition.condition === 'slow' && currentPnLPct >= SMART_EXIT_CONFIG.MIN_PROFIT_FOR_SLOW_MARKET) {
             const sameDirectionSignal = isLongPosition ? signal.longSignal : signal.shortSignal;
             const sameDirectionStrength = sameDirectionSignal?.strength || 0;
-            
+
             // ✅ FIX: Solo se trend è MOLTO debole (< 30) E momentum negativo
             if (sameDirectionStrength < 30 && (!momentum || momentum < -0.1)) {
                 return {
@@ -1012,7 +1012,7 @@ async function shouldClosePosition(position, priceHistory) {
                 };
             }
         }
-        
+
         // 7. RAGIONAMENTO: Opportunity Cost - Ci sono simboli migliori?
         if (currentPnLPct >= SMART_EXIT_CONFIG.MIN_PROFIT_TO_PROTECT) {
             const opportunity = await checkOpportunityCost(position);
@@ -1026,27 +1026,27 @@ async function shouldClosePosition(position, priceHistory) {
                 };
             }
         }
-        
+
         // 8. RAGIONAMENTO: Guadagno buono ma mercato statico e paura di perdere
         // ✅ FIX: Usa soglia dinamica invece di fissa
         const profitProtectionThreshold = Math.max(
             SMART_EXIT_CONFIG.SUFFICIENT_PROFIT_IN_STATIC,
             dynamicThreshold
         );
-        
-        if (currentPnLPct >= profitProtectionThreshold && 
-            marketCondition.condition === 'static' && 
+
+        if (currentPnLPct >= profitProtectionThreshold &&
+            marketCondition.condition === 'static' &&
             (!momentum || Math.abs(momentum) < 0.05)) {
             // Dopo "alti e bassi" (variazioni di prezzo), se ora è statico e abbiamo guadagno, chiudi
             const priceVariation = priceHistory.slice(-20).map(p => parseFloat(p.close || p.price));
             const maxPrice = Math.max(...priceVariation);
             const minPrice = Math.min(...priceVariation);
             const variationPct = ((maxPrice - minPrice) / minPrice) * 100;
-            
+
             // ✅ FIX: Solo se variazione è significativa (> ATR) e guadagno è buono (>= soglia dinamica)
             // ✅ E se R/R non è ancora favorevole
             const minVariation = marketCondition.atrPct || 0.5;
-            if (variationPct > minVariation && marketCondition.atrPct < 0.3 && 
+            if (variationPct > minVariation && marketCondition.atrPct < 0.3 &&
                 currentPnLPct >= profitProtectionThreshold &&
                 (!riskReward || !riskReward.isFavorable)) {
                 return {
@@ -1059,7 +1059,7 @@ async function shouldClosePosition(position, priceHistory) {
                 };
             }
         }
-        
+
         // Nessuna ragione per chiudere
         return {
             shouldClose: false,
@@ -1092,7 +1092,7 @@ async function runSmartExit() {
         if (portfolioDrawdown.shouldCloseWorst && portfolioDrawdown.worstPositions.length > 0) {
             console.log(`🚨 [PORTFOLIO DRAWDOWN] Drawdown totale: ${portfolioDrawdown.drawdownPct.toFixed(2)}% > max ${SMART_EXIT_CONFIG.MAX_PORTFOLIO_DRAWDOWN_PCT}%`);
             console.log(`   → Chiudendo ${portfolioDrawdown.worstPositions.length} posizioni peggiori per proteggere portfolio`);
-            
+
             // ✅ Usa closePosition da cryptoRoutes (importato dinamicamente per evitare dipendenza circolare)
             // Nota: closePosition è definita in cryptoRoutes ma non esportata, quindi usiamo un workaround
             // In alternativa, possiamo emettere un evento che cryptoRoutes gestisce
@@ -1100,7 +1100,7 @@ async function runSmartExit() {
             console.log(`   → Usa endpoint /cleanup-positions per chiudere automaticamente le posizioni peggiori`);
             // TODO: Implementare chiusura automatica quando closePosition sarà esportata o tramite evento
         }
-        
+
         // Get all open positions
         const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
 
@@ -1139,7 +1139,7 @@ async function runSmartExit() {
                     console.log(`🚨 [SMART EXIT] DECISIONE: Chiudere posizione ${position.ticket_id}`);
                     console.log(`   📊 Motivo: ${exitDecision.reason}`);
                     console.log(`   💰 P&L Attuale: ${exitDecision.currentPnL?.toFixed(2) || 0}%`);
-                    
+
                     // ✅ PRIORITÀ 1: Trailing Profit Protection
                     if (exitDecision.peakProfit !== undefined) {
                         console.log(`   📈 Peak Profit: ${exitDecision.peakProfit.toFixed(2)}%`);
@@ -1147,7 +1147,7 @@ async function runSmartExit() {
                     if (exitDecision.lockedProfit !== undefined) {
                         console.log(`   🔒 Profitto Bloccato: ${exitDecision.lockedProfit.toFixed(2)}%`);
                     }
-                    
+
                     // ✅ PRIORITÀ 2: Soglia Dinamica
                     if (exitDecision.dynamicThreshold !== undefined) {
                         console.log(`   📊 Soglia Dinamica (ATR-based): ${exitDecision.dynamicThreshold.toFixed(2)}%`);
@@ -1155,14 +1155,14 @@ async function runSmartExit() {
                     if (exitDecision.atrPct !== undefined) {
                         console.log(`   📈 ATR: ${exitDecision.atrPct.toFixed(2)}%`);
                     }
-                    
+
                     // ✅ PRIORITÀ 3: Risk/Reward
                     if (exitDecision.riskReward) {
                         console.log(`   ⚖️  Risk/Reward: ${exitDecision.riskReward.ratio.toFixed(2)}:1 (${exitDecision.riskReward.isFavorable ? 'Favorevole' : 'Non favorevole'})`);
                     }
-                    
+
                     console.log(`   🎯 Fattore Decisione: ${exitDecision.decisionFactor || 'unknown'}`);
-                    
+
                     if (exitDecision.marketCondition) {
                         console.log(`   📈 Condizione Mercato: ${exitDecision.marketCondition}`);
                     }
@@ -1172,19 +1172,19 @@ async function runSmartExit() {
 
                     // Close the position properly
                     const currentPrice = parseFloat(position.current_price || position.entry_price);
-                    
+
                     // Use the closePosition helper from cryptoRoutes
                     // Since closePosition is not exported, we'll use a direct database approach
                     // but we need to calculate P&L properly
                     const remainingVolume = parseFloat(position.volume) - (parseFloat(position.volume_closed) || 0);
-                    
+
                     let pnl = 0;
                     if (position.type === 'buy') {
                         pnl = (currentPrice - parseFloat(position.entry_price)) * remainingVolume;
                     } else {
                         pnl = (parseFloat(position.entry_price) - currentPrice) * remainingVolume;
                     }
-                    
+
                     // Update position to closed with proper P&L
                     await dbRun(
                         `UPDATE open_positions 
@@ -1193,11 +1193,12 @@ async function runSmartExit() {
                              current_price = ?,
                              profit_loss = ?,
                              profit_loss_pct = ?,
-                             volume_closed = volume
+                             volume_closed = volume,
+                             close_reason = ?
                          WHERE ticket_id = ?`,
-                        [currentPrice, pnl, exitDecision.currentPnL || 0, position.ticket_id]
+                        [currentPrice, pnl, exitDecision.currentPnL || 0, exitDecision.reason || 'SmartExit', position.ticket_id]
                     );
-                    
+
                     // Update portfolio balance
                     const portfolio = await dbAll("SELECT * FROM portfolio LIMIT 1");
                     if (portfolio && portfolio.length > 0) {
@@ -1225,7 +1226,7 @@ async function runSmartExit() {
                     if (exitDecision.marketCondition) details.push(`Mercato: ${exitDecision.marketCondition}`);
                     if (exitDecision.momentum !== undefined) details.push(`Momentum: ${exitDecision.momentum?.toFixed(2)}%`);
                     if (exitDecision.oppositeStrength !== undefined) details.push(`Opposto: ${exitDecision.oppositeStrength}/100`);
-                    
+
                     console.log(`📊 [SMART EXIT] ${position.ticket_id} | P&L: ${exitDecision.currentPnL?.toFixed(2) || 0}% | ${details.join(' | ')} - MANTENERE`);
                 }
             } catch (posError) {
