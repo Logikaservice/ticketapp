@@ -6708,6 +6708,16 @@ router.get('/scanner', async (req, res) => {
                 const adjustedStrength = Math.max(0, rawStrength + mtfBonus);
                 const displayStrength = Math.min(adjustedStrength, 100); // Cap at 100 for display
 
+                // ✅ RSI SEMPLICE (Fallback se Deep Analysis fallisce)
+                let rsiSimple = null;
+                try {
+                    const simplePrices = historyForSignal.map(h => h.close || h.price);
+                    if (simplePrices.length >= 15) {
+                        rsiSimple = calculateRSI(simplePrices, 14);
+                    }
+                } catch (rsiError) {
+                    rsiSimple = signal?.indicators?.rsi || null;
+                }
 
                 // ✅ RSI DEEP ANALYSIS: Chiama INTERNAMENTE la stessa logica di bot-analysis
                 // Invece di replicare, creiamo una funzione helper che fa ESATTAMENTE quello che fa bot-analysis
@@ -6813,7 +6823,7 @@ router.get('/scanner', async (req, res) => {
                 console.log(`  - MTF (1h=${trend1h}, 4h=${trend4h}): bonus=${mtfBonus}`);
                 console.log(`  - Adjusted strength: ${adjustedStrength}`);
                 console.log(`  - Display strength (capped): ${displayStrength}`);
-                console.log(`  - RSI (Deep Analysis): ${rsiValue?.toFixed(2) || 'N/A'}`);
+                console.log(`  - RSI Deep: ${rsiDeepAnalysis?.toFixed(2) || 'N/A'} | RSI Simple: ${rsiSimple?.toFixed(2) || 'N/A'}`);
                 console.log(`  - Price: ${currentPrice.toFixed(4)}`);
 
                 // ✅ IMPORTANTE: Restituisci SEMPRE il risultato, anche se NEUTRAL con strength 0
@@ -6827,8 +6837,8 @@ router.get('/scanner', async (req, res) => {
                     strength: displayStrength, // MTF-adjusted strength (0-100)
                     confirmations: signal?.confirmations || 0,
                     reasons: signal?.reasons || ['Nessun segnale'],
-                    rsi: rsiDeepAnalysis, // ✅ ORA USA RSI DEEP (stesso valore di rsi_deep_analysis)
-                    rsi_deep_analysis: rsiDeepAnalysis // ✅ RSI da Deep Analysis (stesso calcolo esatto)
+                    rsi: rsiDeepAnalysis !== null ? rsiDeepAnalysis : rsiSimple, // ✅ USA RSI DEEP, fallback a RSI Simple
+                    rsi_deep_analysis: rsiDeepAnalysis !== null ? rsiDeepAnalysis : rsiSimple // ✅ Stesso valore
                 };
             } catch (err) {
                 console.error(`[SCANNER] Errore completo per ${s.symbol}:`, err.message);
