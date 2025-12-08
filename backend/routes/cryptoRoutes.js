@@ -2256,6 +2256,28 @@ const runBotCycle = async () => {
 // ✅ COMPATIBILE CON BINANCE REALE: Struttura pronta per integrazione
 const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss = null, takeProfit = null, options = {}) => {
     try {
+        // ✅ FIX CRITICO: Verifica che entryPrice sia ragionevole (in EUR)
+        // Se entryPrice sembra troppo alto (es. > 100000), potrebbe essere in USDT non convertito
+        const MAX_REASONABLE_ENTRY_PRICE = 100000; // 100k EUR max per qualsiasi crypto
+        if (entryPrice > MAX_REASONABLE_ENTRY_PRICE) {
+            console.error(`🚨 [OPEN POSITION] entryPrice anomale per ${symbol}: €${entryPrice.toLocaleString()}`);
+            console.error(`   → Potrebbe essere in USDT non convertito. Verifico prezzo corretto...`);
+            
+            // Prova a recuperare il prezzo corretto
+            try {
+                const correctPrice = await getSymbolPrice(symbol);
+                if (correctPrice > 0 && correctPrice <= MAX_REASONABLE_ENTRY_PRICE) {
+                    console.log(`✅ [OPEN POSITION] Prezzo corretto recuperato: €${correctPrice.toFixed(6)} (era €${entryPrice.toFixed(6)})`);
+                    entryPrice = correctPrice;
+                } else {
+                    throw new Error(`Prezzo corretto non disponibile o ancora anomale (€${correctPrice})`);
+                }
+            } catch (priceError) {
+                console.error(`❌ [OPEN POSITION] Errore recupero prezzo corretto:`, priceError.message);
+                throw new Error(`Impossibile aprire posizione per ${symbol}: entryPrice anomale (€${entryPrice.toLocaleString()}) e impossibile recuperare prezzo corretto`);
+            }
+        }
+        
         // ✅ TODO BINANCE REALE: Quando si passa a Binance reale, aggiungere qui:
         // const { getBinanceClient, isBinanceAvailable } = require('../utils/binanceConfig');
         // if (isBinanceAvailable()) {
@@ -6319,6 +6341,125 @@ router.post('/fix-closed-positions-pnl', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Error fixing closed positions P&L:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ ENDPOINT DIAGNOSTICA: Verifica completa calcolo balance
+router.get('/verify-balance-calculation', async (req, res) => {
+    try {
+        const portfolio = await getPortfolio();
+        const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
+        const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC");
+        
+        // Calcola balance teorico partendo da un capitale iniziale ipotetico
+        // Formula: Balance finale = Capitale iniziale - Investimenti + Ritorni + P&L
+        
+        let totalInvested = 0; // Capitale investito in posizioni aperte
+        let totalReturned = 0; // Capitale tornato da posizioni chiuse
+        let totalPnL = 0; // P&L totale
+        
+        const openPositionsDetail = [];
+        for (const pos of openPositions) {
+            const volume = parseFloat(pos.volume) || 0;
+            const volumeClosed = parseFloat(pos.volume_closed) || 0;
+            const remainingVolume = volume - volumeClosed;
+            const entryPrice = parseFloat(pos.entry_price) || 0;
+            const invested = remainingVolume * entryPrice;
+            totalInvested += invested;
+            
+            // Verifica se entryPrice è ragionevole
+            const currentPrice = await getSymbolPrice(pos.symbol).catch(() => null);
+            const priceRatio = currentPrice && entryPrice > 0 ? entryPrice / currentPrice : null;
+            const isEntryPriceAnomalous = priceRatio && (priceRatio > 10 || priceRatio < 0.1);
+            
+            openPositionsDetail.push({
+                ticket_id: pos.ticket_id,
+                symbol: pos.symbol,
+                type: pos.type,
+                entry_price: entryPrice,
+                current_price: currentPrice,
+                price_ratio: priceRatio,
+                is_anomalous: isEntryPriceAnomalous,
+                volume: remainingVolume,
+                invested: invested
+            });
+        }
+        
+        const closedPositionsDetail = [];
+        for (const pos of closedPositions) {
+            const volume = parseFloat(pos.volume) || 0;
+            const entryPrice = parseFloat(pos.entry_price) || 0;
+            const closePrice = parseFloat(pos.current_price) || 0;
+            const pnl = parseFloat(pos.profit_loss) || 0;
+            
+            const invested = volume * entryPrice;
+            const returned = volume * closePrice;
+            
+            totalInvested += invested; // Investito quando era aperta
+            totalReturned += returned; // Tornato quando chiusa
+            totalPnL += pnl;
+            
+            // Verifica anomalie
+            const priceRatio = entryPrice > 0 && closePrice > 0 ? closePrice / entryPrice : null;
+            const isAnomalous = priceRatio && (priceRatio > 100 || priceRatio < 0.01);
+            
+            closedPositionsDetail.push({
+                ticket_id: pos.ticket_id,
+                symbol: pos.symbol,
+                type: pos.type,
+                entry_price: entryPrice,
+                close_price: closePrice,
+                price_ratio: priceRatio,
+                is_anomalous: isAnomalous,
+                volume: volume,
+                invested: invested,
+                returned: returned,
+                pnl: pnl,
+                closed_at: pos.closed_at
+            });
+        }
+        
+        // Balance attuale dal DB
+        const currentBalance = parseFloat(portfolio.balance_usd) || 0;
+        
+        // Calcolo teorico: Balance = Initial - Invested + Returned
+        // Se assumiamo che Initial = Balance + Invested - Returned
+        const theoreticalInitial = currentBalance + totalInvested - totalReturned;
+        
+        // Verifica coerenza
+        const expectedBalance = theoreticalInitial - totalInvested + totalReturned;
+        const difference = currentBalance - expectedBalance;
+        
+        res.json({
+            current_balance_db: currentBalance,
+            calculations: {
+                total_invested_open: totalInvested,
+                total_returned_closed: totalReturned,
+                total_pnl: totalPnL,
+                theoretical_initial_capital: theoreticalInitial,
+                expected_balance: expectedBalance,
+                difference: difference,
+                is_consistent: Math.abs(difference) < 0.01
+            },
+            open_positions: {
+                count: openPositions.length,
+                detail: openPositionsDetail,
+                total_invested: totalInvested
+            },
+            closed_positions: {
+                count: closedPositions.length,
+                detail: closedPositionsDetail.slice(0, 20), // Prime 20
+                total_returned: totalReturned,
+                total_pnl: totalPnL
+            },
+            anomalies: {
+                anomalous_open_positions: openPositionsDetail.filter(p => p.is_anomalous),
+                anomalous_closed_positions: closedPositionsDetail.filter(p => p.is_anomalous)
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error verifying balance calculation:', error);
         res.status(500).json({ error: error.message });
     }
 });
