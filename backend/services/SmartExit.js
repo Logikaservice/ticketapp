@@ -806,14 +806,14 @@ async function shouldClosePosition(position, priceHistory) {
         
         // 1. Genera segnale per condizioni di mercato attuali
         const signal = signalGenerator.generateSignal(priceHistory, position.symbol);
-        
+
         const isLongPosition = position.type === 'buy';
         const isShortPosition = position.type === 'sell';
-        
+
         // 2. Controlla segnale opposto (logica originale)
         const oppositeSignal = isLongPosition ? signal.shortSignal : signal.longSignal;
         const oppositeStrength = oppositeSignal?.strength || 0;
-        
+
         // ✅ NUOVO PRIORITÀ 1: Volume Confirmation per segnale opposto
         let volumeConfirmation = { confirmed: true };
         if (oppositeStrength >= SMART_EXIT_CONFIG.MIN_OPPOSITE_STRENGTH) {
