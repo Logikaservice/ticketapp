@@ -723,56 +723,27 @@ const CryptoDashboard = () => {
     return (
         <div className="crypto-dashboard">
             <div className="crypto-header" style={{ position: 'relative' }}>
-                {/* ✅ Logo LogiKa in alto a sinistra */}
+                {/* ✅ Logo LogiKa in alto a sinistra (PNG) */}
                 <div style={{ 
                     display: 'flex', 
                     alignItems: 'center',
                     marginBottom: '1rem',
                     marginLeft: '-0.5rem'
                 }}>
-                    <svg width="160" height="50" viewBox="0 0 160 50" style={{ display: 'block' }}>
-                        <defs>
-                            <filter id="glow-green">
-                                <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-                                <feMerge>
-                                    <feMergeNode in="coloredBlur"/>
-                                    <feMergeNode in="SourceGraphic"/>
-                                </feMerge>
-                            </filter>
-                        </defs>
-                        
-                        {/* Testo LogiKa - lettere separate per posizionamento preciso */}
-                        <text x="0" y="32" fontSize="28" fontWeight="700" fill="#ffffff" fontFamily="'Inter', 'Arial', sans-serif" style={{ letterSpacing: '2px' }}>
-                            Log
-                        </text>
-                        <text x="48" y="32" fontSize="28" fontWeight="700" fill="#ffffff" fontFamily="'Inter', 'Arial', sans-serif" style={{ letterSpacing: '2px' }}>
-                            Ka
-                        </text>
-                        
-                        {/* Linea verde curva che passa attraverso le lettere (trend line) */}
-                        <path 
-                            d="M 8 42 Q 25 32, 42 26 Q 60 20, 75 16 Q 90 12, 105 10 Q 120 8, 135 7" 
-                            stroke="#00ff88" 
-                            strokeWidth="3" 
-                            fill="none"
-                            filter="url(#glow-green)"
-                            style={{ opacity: 0.9 }}
-                        />
-                        
-                        {/* Candlestick verde tra 'g' e 'K' (sostituisce la 'i') */}
-                        <g transform="translate(70, 8)">
-                            {/* Upper wick */}
-                            <line x1="4" y1="0" x2="4" y2="6" stroke="#00ff88" strokeWidth="2" filter="url(#glow-green)" />
-                            {/* Body (green bullish candlestick) */}
-                            <rect x="2" y="6" width="4" height="16" fill="#00ff88" filter="url(#glow-green)" style={{ opacity: 0.95 }} />
-                            {/* Lower wick */}
-                            <line x1="4" y1="22" x2="4" y2="28" stroke="#00ff88" strokeWidth="2" filter="url(#glow-green)" />
-                        </g>
-                    </svg>
-                </div>
-                
-                <div className="crypto-title" style={{ marginLeft: 'auto' }}>
-                    <span style={{ color: '#fff' }}>Revolut</span> <span style={{ color: '#3b82f6' }}>X</span> Clone
+                    <img 
+                        src="/logo-logika.png" 
+                        alt="Logika" 
+                        style={{ 
+                            height: '50px', 
+                            width: 'auto',
+                            display: 'block'
+                        }}
+                        onError={(e) => {
+                            // Fallback se l'immagine non viene trovata
+                            console.warn('Logo Logika non trovato in /logo-logika.png');
+                            e.target.style.display = 'none';
+                        }}
+                    />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#9ca3af' }}>
                     <button
