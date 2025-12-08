@@ -6706,21 +6706,6 @@ router.get('/scanner', async (req, res) => {
                         }));
                     }
 
-                    // ✅ REPLICA ESATTA: Aggiorna candela se aperta (righe 5568-5583)
-                    if (deepAnalysisHistory.length > 0) {
-                        const lastCandle = deepAnalysisHistory[deepAnalysisHistory.length - 1];
-                        const lastCandleTime = new Date(lastCandle.timestamp);
-                        const now = new Date();
-                        const timeSinceLastCandle = now - lastCandleTime;
-
-                        if (timeSinceLastCandle < 15 * 60 * 1000) {
-                            lastCandle.high = Math.max(lastCandle.high || lastCandle.close, deepCurrentPrice);
-                            lastCandle.low = Math.min(lastCandle.low || lastCandle.close, deepCurrentPrice);
-                            lastCandle.close = deepCurrentPrice;
-                            lastCandle.price = deepCurrentPrice;
-                        }
-                    }
-
                     // ✅ REPLICA ESATTA: Fallback Binance se obsoleto (righe 5585-5614)
                     let isStale = false;
                     if (deepAnalysisHistory.length > 0) {
@@ -6749,9 +6734,11 @@ router.get('/scanner', async (req, res) => {
                         }
                     }
 
-                    // ✅ REPLICA ESATTA: SEMPRE aggiorna ultima candela (righe 5618-5628) - CRITICO!
+                    // ✅ FIX: Aggiorna SEMPRE l'ultima candela con il prezzo corrente per analisi in tempo reale
+                    // Spostato qui DOPO il fallback Binance per assicurare che anche i dati scaricati siano aggiornati
                     if (deepAnalysisHistory.length > 0) {
                         const lastCandle = deepAnalysisHistory[deepAnalysisHistory.length - 1];
+                        // Aggiorna sempre close con currentPrice per RSI in tempo reale
                         lastCandle.close = deepCurrentPrice;
                         lastCandle.price = deepCurrentPrice;
                         lastCandle.high = Math.max(lastCandle.high || lastCandle.close, deepCurrentPrice);
