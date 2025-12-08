@@ -6366,6 +6366,256 @@ router.post('/fix-closed-positions-pnl', async (req, res) => {
     }
 });
 
+// ✅ ENDPOINT: Ricalcola balance partendo da €1000 e considerando tutti i movimenti
+router.post('/recalculate-balance', async (req, res) => {
+    try {
+        const { initial_balance } = req.body;
+        const startingBalance = initial_balance && !isNaN(parseFloat(initial_balance)) ? parseFloat(initial_balance) : 1000;
+        
+        console.log(`💰 [RECALCULATE BALANCE] Ricalcolo balance partendo da €${startingBalance.toFixed(2)}`);
+        
+        // 1. Leggi tutte le posizioni (aperte e chiuse)
+        const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
+        const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY opened_at ASC");
+        
+        // 2. Calcola balance teorico partendo da €1000
+        let calculatedBalance = startingBalance;
+        const operations = [];
+        
+        // Processa tutte le posizioni in ordine cronologico (aperte prima, poi chiuse)
+        const allPositions = [...openPositions, ...closedPositions].sort((a, b) => {
+            const dateA = new Date(a.opened_at || 0);
+            const dateB = new Date(b.opened_at || 0);
+            return dateA - dateB;
+        });
+        
+        for (const pos of allPositions) {
+            const volume = parseFloat(pos.volume) || 0;
+            const volumeClosed = parseFloat(pos.volume_closed) || 0;
+            const remainingVolume = volume - volumeClosed;
+            const entryPrice = parseFloat(pos.entry_price) || 0;
+            const closePrice = parseFloat(pos.current_price) || 0;
+            const isClosed = pos.status !== 'open';
+            
+            if (pos.type === 'buy') {
+                // LONG: all'apertura sottrai, alla chiusura aggiungi
+                const cost = volume * entryPrice;
+                calculatedBalance -= cost;
+                operations.push({
+                    type: 'LONG_OPEN',
+                    ticket_id: pos.ticket_id,
+                    symbol: pos.symbol,
+                    amount: -cost,
+                    balance_after: calculatedBalance,
+                    timestamp: pos.opened_at
+                });
+                
+                if (isClosed && closePrice > 0) {
+                    const returned = volume * closePrice;
+                    calculatedBalance += returned;
+                    operations.push({
+                        type: 'LONG_CLOSE',
+                        ticket_id: pos.ticket_id,
+                        symbol: pos.symbol,
+                        amount: +returned,
+                        balance_after: calculatedBalance,
+                        pnl: (closePrice - entryPrice) * volume,
+                        timestamp: pos.closed_at
+                    });
+                } else if (remainingVolume > 0 && entryPrice > 0) {
+                    // Posizione ancora aperta - il capitale è investito
+                    operations.push({
+                        type: 'LONG_OPEN_PARTIAL',
+                        ticket_id: pos.ticket_id,
+                        symbol: pos.symbol,
+                        note: `Capitale investito: €${(remainingVolume * entryPrice).toFixed(2)} (non ancora tornato)`
+                    });
+                }
+            } else {
+                // SHORT: all'apertura aggiungi, alla chiusura sottrai
+                const credit = volume * entryPrice;
+                calculatedBalance += credit;
+                operations.push({
+                    type: 'SHORT_OPEN',
+                    ticket_id: pos.ticket_id,
+                    symbol: pos.symbol,
+                    amount: +credit,
+                    balance_after: calculatedBalance,
+                    timestamp: pos.opened_at
+                });
+                
+                if (isClosed && closePrice > 0) {
+                    const toReturn = volume * closePrice;
+                    calculatedBalance -= toReturn;
+                    operations.push({
+                        type: 'SHORT_CLOSE',
+                        ticket_id: pos.ticket_id,
+                        symbol: pos.symbol,
+                        amount: -toReturn,
+                        balance_after: calculatedBalance,
+                        pnl: (entryPrice - closePrice) * volume,
+                        timestamp: pos.closed_at
+                    });
+                } else if (remainingVolume > 0 && entryPrice > 0) {
+                    // Posizione ancora aperta - devi restituire questo capitale
+                    operations.push({
+                        type: 'SHORT_OPEN_PARTIAL',
+                        ticket_id: pos.ticket_id,
+                        symbol: pos.symbol,
+                        note: `Capitale da restituire: €${(remainingVolume * entryPrice).toFixed(2)} (non ancora restituito)`
+                    });
+                }
+            }
+        }
+        
+        // 3. Calcola capitale investito attualmente
+        let currentInvested = 0;
+        for (const pos of openPositions) {
+            const vol = parseFloat(pos.volume) || 0;
+            const volClosed = parseFloat(pos.volume_closed) || 0;
+            const remaining = vol - volClosed;
+            const entry = parseFloat(pos.entry_price) || 0;
+            
+            if (pos.type === 'buy') {
+                currentInvested += remaining * entry;
+            } else {
+                // SHORT: devi restituire questo capitale
+                currentInvested += remaining * entry;
+            }
+        }
+        
+        // 4. Balance disponibile = Balance calcolato - Capitale investito
+        // Ma attenzione: per SHORT, il capitale "investito" è in realtà un debito
+        let availableBalance = calculatedBalance;
+        for (const pos of openPositions) {
+            const vol = parseFloat(pos.volume) || 0;
+            const volClosed = parseFloat(pos.volume_closed) || 0;
+            const remaining = vol - volClosed;
+            const entry = parseFloat(pos.entry_price) || 0;
+            
+            if (pos.type === 'buy') {
+                // LONG: il capitale è investito, non disponibile
+                availableBalance -= remaining * entry;
+            }
+            // SHORT: il capitale ricevuto è disponibile, ma devi restituirlo alla chiusura
+            // Quindi non lo sottraiamo qui (è già nel balance)
+        }
+        
+        // 5. Leggi balance attuale dal DB
+        const portfolio = await getPortfolio();
+        const currentBalanceDB = parseFloat(portfolio.balance_usd) || 0;
+        
+        // 6. Aggiorna balance nel DB con quello calcolato
+        await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [calculatedBalance]);
+        
+        console.log(`✅ [RECALCULATE BALANCE] Balance ricalcolato: €${currentBalanceDB.toFixed(2)} → €${calculatedBalance.toFixed(2)}`);
+        console.log(`   Capitale disponibile: €${availableBalance.toFixed(2)}`);
+        console.log(`   Capitale investito: €${currentInvested.toFixed(2)}`);
+        
+        res.json({
+            success: true,
+            starting_balance: startingBalance,
+            calculated_balance: calculatedBalance,
+            current_balance_db: currentBalanceDB,
+            available_balance: availableBalance,
+            capital_invested: currentInvested,
+            difference: calculatedBalance - currentBalanceDB,
+            operations_count: operations.length,
+            operations: operations.slice(-20), // Ultime 20 operazioni
+            message: `Balance ricalcolato da €${currentBalanceDB.toFixed(2)} a €${calculatedBalance.toFixed(2)} partendo da €${startingBalance.toFixed(2)}`
+        });
+    } catch (error) {
+        console.error('❌ Error recalculating balance:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ ENDPOINT: Resetta balance a valore specificato (default €1000)
+router.post('/reset-balance', async (req, res) => {
+    try {
+        const { balance } = req.body;
+        const newBalance = balance && !isNaN(parseFloat(balance)) ? parseFloat(balance) : 1000;
+        
+        // Valida che il balance sia ragionevole
+        if (newBalance < 0 || newBalance > 1000000) {
+            return res.status(400).json({ 
+                error: 'Balance deve essere tra 0 e 1.000.000 EUR' 
+            });
+        }
+        
+        // Leggi balance attuale
+        const portfolio = await getPortfolio();
+        const oldBalance = parseFloat(portfolio.balance_usd) || 0;
+        
+        // ✅ DEBUG: Analizza perché il balance è cambiato
+        const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
+        const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken')");
+        
+        let totalInvested = 0;
+        let totalReturned = 0;
+        let shortCredits = 0; // Denaro ricevuto da SHORT aperti
+        
+        // Analizza posizioni aperte
+        for (const pos of openPositions) {
+            const vol = parseFloat(pos.volume) || 0;
+            const volClosed = parseFloat(pos.volume_closed) || 0;
+            const remaining = vol - volClosed;
+            const entry = parseFloat(pos.entry_price) || 0;
+            
+            if (pos.type === 'buy') {
+                totalInvested += remaining * entry;
+            } else {
+                // SHORT: ricevi denaro all'apertura
+                shortCredits += remaining * entry;
+            }
+        }
+        
+        // Analizza posizioni chiuse
+        for (const pos of closedPositions) {
+            const vol = parseFloat(pos.volume) || 0;
+            const entry = parseFloat(pos.entry_price) || 0;
+            const close = parseFloat(pos.current_price) || 0;
+            
+            if (pos.type === 'buy') {
+                totalInvested += vol * entry; // Investito quando era aperta
+                totalReturned += vol * close; // Tornato alla chiusura
+            } else {
+                // SHORT: ricevi denaro all'apertura, restituisci alla chiusura
+                shortCredits += vol * entry; // Ricevuto all'apertura
+                totalReturned += vol * close; // Restituito alla chiusura
+            }
+        }
+        
+        // Calcolo teorico: Balance = Initial - Invested + Returned + ShortCredits - ShortReturned
+        // Ma ShortCredits e ShortReturned sono già in totalReturned per SHORT
+        const theoreticalInitial = oldBalance + totalInvested - totalReturned;
+        
+        // Aggiorna balance
+        await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [newBalance]);
+        
+        console.log(`💰 [RESET BALANCE] Balance aggiornato: €${oldBalance.toFixed(2)} → €${newBalance.toFixed(2)}`);
+        console.log(`   Analisi: Invested: €${totalInvested.toFixed(2)}, Returned: €${totalReturned.toFixed(2)}, ShortCredits: €${shortCredits.toFixed(2)}`);
+        console.log(`   Capitale iniziale teorico: €${theoreticalInitial.toFixed(2)}`);
+        
+        res.json({
+            success: true,
+            old_balance: oldBalance,
+            new_balance: newBalance,
+            analysis: {
+                capital_invested: totalInvested,
+                capital_returned: totalReturned,
+                short_credits: shortCredits,
+                theoretical_initial: theoreticalInitial,
+                difference: oldBalance - (theoreticalInitial - totalInvested + totalReturned)
+            },
+            message: `Balance resettato da €${oldBalance.toFixed(2)} a €${newBalance.toFixed(2)}`
+        });
+    } catch (error) {
+        console.error('❌ Error resetting balance:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ✅ ENDPOINT DIAGNOSTICA: Mostra problema balance in modo semplice
 router.get('/balance-problem', async (req, res) => {
     try {
