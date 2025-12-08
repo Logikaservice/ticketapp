@@ -6749,11 +6749,11 @@ router.get('/scanner', async (req, res) => {
                             lastCandle.high = Math.max(lastCandle.high || lastCandle.close, deepCurrentPrice);
                             lastCandle.low = Math.min(lastCandle.low || lastCandle.close, deepCurrentPrice);
                         } else {
-                            // Se i dati sono vecchi e Binance ha fallito (rate limit), NON aggiornare l'ultima candela
-                            // Altrimenti creiamo un "fake pump" (prezzo vecchio -> prezzo nuovo in 1 candela)
-                            // che fa schizzare gli indicatori a 100.
-                            // Meglio usare i dati vecchi così come sono o segnalare errore.
-                            // console.warn(`[SCANNER] Dati stale per ${s.display} e download fallito. Skip real-time update.`);
+                            // Se i dati sono vecchi e Binance ha fallito (rate limit), NON usare questi dati.
+                            // Dati vecchi producono segnali errati (spesso 100% strength su pattern congelati).
+                            // Meglio ritornare 0 che un falso positivo.
+                            console.warn(`[SCANNER] Dati stale per ${s.display} e fallback fallito. Annullo analisi deep.`);
+                            deepAnalysisHistory = []; // Svuota array per generare strength 0
                         }
                     }
 
@@ -6762,6 +6762,9 @@ router.get('/scanner', async (req, res) => {
                     if (deepPrices.length >= 15) {
                         rsiDeepAnalysis = calculateRSI(deepPrices, 14);
                         console.log(`📊 [SCANNER-RSI-DEEP] ${s.display}: RSI=${rsiDeepAnalysis?.toFixed(2)} | Prices: ${deepPrices.length} | LastPrice: ${deepPrices[deepPrices.length - 1]?.toFixed(4)} | CurrentPrice: ${deepCurrentPrice?.toFixed(4)}`);
+                    } else {
+                        // Se non abbiamo abbastanza dati (es. cancellati perché stale), RSI deep è null
+                        rsiDeepAnalysis = null;
                     }
                 } catch (deepRsiError) {
                     console.error(`❌ [SCANNER-RSI-DEEP] Errore per ${s.symbol}:`, deepRsiError.message);
