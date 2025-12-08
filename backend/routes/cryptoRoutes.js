@@ -4195,12 +4195,6 @@ router.get('/statistics', async (req, res) => {
         const closedTradesForWinRate = winningTrades + losingTrades;
         const winRate = closedTradesForWinRate > 0 ? (winningTrades / closedTradesForWinRate) * 100 : 0;
 
-        // ✅ FIX CRITICO: Total trades = solo trade con P&L (chiusure), NON tutti i trade
-        // Ogni posizione genera 2 trade: apertura (senza P&L) + chiusura (con P&L)
-        // Per le statistiche, contiamo solo i trade con P&L (chiusure) per essere coerenti con win rate
-        // Se l'utente vuole vedere tutti i trade (aperture + chiusure), può guardare la tabella trades
-        const totalTrades = closedTradesForWinRate; // Solo trade con P&L realizzato
-        
         // ✅ FIX: Profit Factor - se totalLoss è 0 ma ci sono profitti, usa un valore molto alto invece di Infinity
         let profitFactor = 0;
         if (totalLoss > 0) {
@@ -4216,7 +4210,7 @@ router.get('/statistics', async (req, res) => {
         // P&L Percent
         const pnlPercent = initialBalance > 0 ? ((totalBalance - initialBalance) / initialBalance) * 100 : 0;
 
-        // Trade statistics by period - Count ALL trades by timestamp (non solo quelli chiusi)
+        // ✅ FIX: Trade statistics by period - Logica specifica come richiesto
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const weekAgo = new Date(today);
@@ -4224,19 +4218,39 @@ router.get('/statistics', async (req, res) => {
         const monthAgo = new Date(today);
         monthAgo.setMonth(monthAgo.getMonth() - 1);
 
+        // ✅ "Trade Totali" = posizioni (aperte + chiuse) di OGGI
         let tradesToday = 0;
-        let tradesThisWeek = 0;
-        let tradesThisMonth = 0;
-
-        // Count ALL trades by timestamp (per il conteggio operazioni)
-        allTrades.forEach(trade => {
-            if (trade.timestamp) {
-                const tradeDate = new Date(trade.timestamp);
-                if (tradeDate >= today) tradesToday++;
-                if (tradeDate >= weekAgo) tradesThisWeek++;
-                if (tradeDate >= monthAgo) tradesThisMonth++;
+        const allPositions = [...openPositions, ...closedPositions];
+        allPositions.forEach(pos => {
+            const openedDate = pos.opened_at ? new Date(pos.opened_at) : null;
+            if (openedDate && openedDate >= today) {
+                tradesToday++;
             }
         });
+
+        // ✅ "Settimana" = posizioni APERTE questa settimana
+        let tradesThisWeek = 0;
+        openPositions.forEach(pos => {
+            const openedDate = pos.opened_at ? new Date(pos.opened_at) : null;
+            if (openedDate && openedDate >= weekAgo) {
+                tradesThisWeek++;
+            }
+        });
+
+        // ✅ "Mese" = posizioni APERTE questo mese
+        let tradesThisMonth = 0;
+        openPositions.forEach(pos => {
+            const openedDate = pos.opened_at ? new Date(pos.opened_at) : null;
+            if (openedDate && openedDate >= monthAgo) {
+                tradesThisMonth++;
+            }
+        });
+        
+        // ✅ "Totale" = tutte le posizioni (aperte + chiuse)
+        const totalTrades = allPositions.length;
+        
+        // ✅ DEBUG: Verifica coerenza
+        console.log(`📊 [STATS] Trade Totali (oggi): ${tradesToday} | Settimana (aperte): ${tradesThisWeek} | Mese (aperte): ${tradesThisMonth} | Totale: ${totalTrades}`);
 
         // Average profit per winning trade
         const avgWin = winningTrades > 0 ? totalProfit / winningTrades : 0;
@@ -4280,9 +4294,10 @@ router.get('/statistics', async (req, res) => {
                 total_volume_eur: totalVolume,
 
                 // Period Stats
-                trades_today: tradesToday,
-                trades_this_week: tradesThisWeek,
-                trades_this_month: tradesThisMonth,
+                trades_today: tradesToday, // Posizioni (aperte + chiuse) di oggi
+                trades_this_week: tradesThisWeek, // Posizioni APERTE questa settimana
+                trades_this_month: tradesThisMonth, // Posizioni APERTE questo mese
+                total_trades_all: totalTrades, // Totale: tutte le posizioni (aperte + chiuse)
 
                 // Current Holdings (multi-symbol)
                 total_crypto_value: totalCryptoValue,
