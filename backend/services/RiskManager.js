@@ -222,6 +222,22 @@ class SeriousRiskManager {
             // Limit trade size to available cash to avoid negative balance
             const maxPositionSize = Math.min(totalEquity * maxPositionSizePct, cashBalance);
 
+            // ✅ FIX: Prevent dust trading (posizioni insignificanti)
+            const MIN_POSITION_SIZE = 5.0; // Minimo €5 per trade
+            if (maxPositionSize < MIN_POSITION_SIZE) {
+                this.cachedResult = {
+                    canTrade: false,
+                    reason: `Calculated position size (€${maxPositionSize.toFixed(2)}) below minimum (€${MIN_POSITION_SIZE.toFixed(2)}) - Saving capital`,
+                    maxPositionSize: 0,
+                    availableExposure: availableExposure,
+                    dailyLoss: dailyLossPct,
+                    currentExposure: currentExposurePct,
+                    drawdown: drawdown
+                };
+                this.lastCheck = now;
+                return this.cachedResult;
+            }
+
             this.cachedResult = {
                 canTrade: true,
                 reason: 'OK',

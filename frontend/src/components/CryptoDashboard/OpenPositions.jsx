@@ -247,9 +247,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                     <td style={{ padding: '10px 8px', textAlign: 'center' }}>
                                         <button
                                             onClick={() => {
-                                                if (window.confirm(`Chiudere la posizione ${pos.ticket_id?.substring(0, 8) || 'N/A'}?`)) {
-                                                    onClosePosition(pos.ticket_id);
-                                                }
+                                                onClosePosition(pos.ticket_id);
                                             }}
                                             style={{
                                                 background: '#ef4444',
