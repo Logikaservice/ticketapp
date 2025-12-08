@@ -6635,8 +6635,23 @@ router.get('/scanner', async (req, res) => {
                 const adjustedStrength = Math.max(0, rawStrength + mtfBonus);
                 const displayStrength = Math.min(adjustedStrength, 100); // Cap at 100 for display
 
+                // ✅ FIX: Ricalcola RSI FRESH (stessa logica di bot-analysis/Deep Analysis)
+                // Questo garantisce che RSI sia IDENTICO tra Market Scanner e Deep Analysis
+                let rsiValue = signal?.indicators?.rsi || null; // Fallback
+                try {
+                    const prices = historyForSignal.map(h => h.close || h.price);
+                    if (prices.length >= 15) {
+                        rsiValue = calculateRSI(prices, 14);
+                        console.log(`📊 [SCANNER] RSI ricalcolato FRESH per ${s.display}: ${rsiValue?.toFixed(2) || 'N/A'} (identico a Deep Analysis)`);
+                    } else {
+                        console.warn(`⚠️ [SCANNER] Dati insufficienti per RSI (${prices.length} candele), uso cache`);
+                    }
+                } catch (rsiError) {
+                    console.error(`❌ [SCANNER] Errore ricalcolo RSI per ${s.display}:`, rsiError.message);
+                    // Usa RSI dalla cache se ricalcolo fallisce
+                }
+
                 // ✅ LOG per debug - DETAILED
-                const rsiValue = signal?.indicators?.rsi || null;
                 console.log(`[SCANNER] ${s.display}:`);
                 console.log(`  - Signal direction: ${signal?.direction || 'null'}`);
                 console.log(`  - Display direction: ${displayDirection}`);
@@ -6644,7 +6659,7 @@ router.get('/scanner', async (req, res) => {
                 console.log(`  - MTF (1h=${trend1h}, 4h=${trend4h}): bonus=${mtfBonus}`);
                 console.log(`  - Adjusted strength: ${adjustedStrength}`);
                 console.log(`  - Display strength (capped): ${displayStrength}`);
-                console.log(`  - RSI: ${rsiValue?.toFixed(2) || 'N/A'}`);
+                console.log(`  - RSI (Deep Analysis): ${rsiValue?.toFixed(2) || 'N/A'}`);
                 console.log(`  - Price: ${currentPrice.toFixed(4)}`);
 
                 // ✅ IMPORTANTE: Restituisci SEMPRE il risultato, anche se NEUTRAL con strength 0
