@@ -2474,6 +2474,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         }
         else if (!signal.atrBlocked && !portfolioDrawdownBlock && !marketRegimeBlock && signal.direction === 'SHORT' && signal.strength >= MIN_SIGNAL_STRENGTH) {
             console.log(`\n✅ [SHORT APPROVATO] ${symbol.toUpperCase()}: Segnale SHORT valido (strength: ${signal.strength} >= ${MIN_SIGNAL_STRENGTH})\n`);
+            console.log(`   📊 [SHORT-DEBUG] Symbol: ${symbol} | Signal Strength: ${signal.strength} | MIN_SIGNAL_STRENGTH: ${MIN_SIGNAL_STRENGTH}`);
+            console.log(`   📊 [SHORT-DEBUG] ATR Blocked: ${signal.atrBlocked} | Portfolio Drawdown Block: ${portfolioDrawdownBlock} | Market Regime Block: ${marketRegimeBlock}`);
+            console.log(`   📊 [SHORT-DEBUG] RSI: ${signal.indicators?.rsi?.toFixed(2) || 'N/A'} | Trend: ${signal.indicators?.trend || 'N/A'}`);
             // ✅ COMPATIBILITÀ BINANCE: Verifica se SHORT è supportato
             // Binance Spot NON supporta short - serve Futures o Margin
             const binanceMode = process.env.BINANCE_MODE || 'demo';
@@ -2523,6 +2526,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 if (adjustedStrength < MIN_SIGNAL_STRENGTH) {
                     console.log(`🛑 [MTF] SHORT BLOCKED: Adjusted strength ${adjustedStrength} < ${MIN_SIGNAL_STRENGTH} (1h=${trend1h}, 4h=${trend4h})`);
                     console.log(`   → Waiting for higher timeframes to align or signal to strengthen`);
+                    console.log(`   📊 [SHORT-DEBUG] Original strength: ${signal.strength} | MTF bonus: ${mtfBonus} | Adjusted: ${adjustedStrength} | Required: ${MIN_SIGNAL_STRENGTH}`);
                     // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti e dati
                 } else {
 
@@ -2534,6 +2538,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                     if (!hybridCheck.allowed) {
                         console.log(`🛑 [HYBRID-STRATEGY] SHORT BLOCKED: ${hybridCheck.reason}`);
+                        console.log(`   📊 [SHORT-DEBUG] Hybrid check failed for ${symbol}`);
                         if (hybridCheck.worstPositionScore !== undefined) {
                             console.log(`   → Nuovo segnale (score: ${hybridCheck.newSignalScore?.toFixed(2)}) NON migliore della posizione peggiore (score: ${hybridCheck.worstPositionScore.toFixed(2)})`);
                         } else {
@@ -2628,6 +2633,8 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                             riskManager.invalidateCache(); // Invalida cache dopo operazione
                         } else if (!canOpen.allowed) {
                             console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: €${riskCheck.availableExposure.toFixed(2)}`);
+                            console.log(`   📊 [SHORT-DEBUG] Risk check failed for ${symbol}: ${canOpen.reason}`);
+                            console.log(`   📊 [SHORT-DEBUG] Max available for new position: €${maxAvailableForNewPosition.toFixed(2)} | Trade size: €${params.trade_size_eur} | Max position size: €${riskCheck.maxPositionSize.toFixed(2)}`);
                         }
                     }
                 }
