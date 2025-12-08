@@ -5273,39 +5273,78 @@ router.get('/scanner', async (req, res) => {
                 // 3. Get 24h volume
                 const volume24h = await get24hVolume(s.symbol).catch(() => 0);
 
-                // ✅ FIX: Mostra SEMPRE tutti i simboli nel Market Scanner (anche NEUTRAL con strength 0)
-                // Questo permette di vedere TUTTI i simboli e capire perché non generano segnali
-                let displayDirection = signal?.direction || 'NEUTRAL';
-                let displayStrength = signal?.strength || 0;
+                // ✅ CRITICAL FIX: Apply MTF (Multi-Timeframe) adjustment to match Bot Analysis
+                // This ensures Market Scanner shows the SAME strength values as Bot Analysis
 
-                // Se è NEUTRAL, controlla se ci sono segnali parziali da mostrare
+                // Calculate MTF trends (same logic as bot-analysis)
+                let trend1h = 'neutral';
+                let trend4h = 'neutral';
+                try {
+                    trend1h = await detectTrendOnTimeframe(s.symbol, '1h', 50);
+                    trend4h = await detectTrendOnTimeframe(s.symbol, '4h', 50);
+                } catch (mtfError) {
+                    // Fallback: neutral if MTF fails
+                    trend1h = 'neutral';
+                    trend4h = 'neutral';
+                }
+
+                // Determine which signal to show (LONG or SHORT)
+                let displayDirection = signal?.direction || 'NEUTRAL';
+                let rawStrength = signal?.strength || 0;
+
+                // If NEUTRAL, check partial signals
                 if (signal?.direction === 'NEUTRAL' && signal?.longSignal && signal?.shortSignal) {
                     const longStrength = signal.longSignal.strength || 0;
                     const shortStrength = signal.shortSignal.strength || 0;
 
-                    // ✅ Mostra SEMPRE il segnale migliore, anche se strength è molto bassa (>= 1)
-                    // Questo permette di vedere TUTTI i segnali in sviluppo
                     if (longStrength > shortStrength && longStrength >= 1) {
                         displayDirection = 'LONG';
-                        displayStrength = longStrength;
+                        rawStrength = longStrength;
                     } else if (shortStrength > longStrength && shortStrength >= 1) {
                         displayDirection = 'SHORT';
-                        displayStrength = shortStrength;
+                        rawStrength = shortStrength;
                     } else if (longStrength > 0 || shortStrength > 0) {
-                        // Mostra il migliore anche se entrambi sono bassi
                         if (longStrength >= shortStrength) {
                             displayDirection = 'LONG';
-                            displayStrength = longStrength;
+                            rawStrength = longStrength;
                         } else {
                             displayDirection = 'SHORT';
-                            displayStrength = shortStrength;
+                            rawStrength = shortStrength;
                         }
                     }
                 }
 
-                // ✅ LOG per debug (sempre, anche per NEUTRAL)
+                // Calculate MTF bonus/penalty (SAME logic as bot-analysis)
+                let mtfBonus = 0;
+                if (displayDirection === 'LONG') {
+                    if (trend1h === 'bullish' && trend4h === 'bullish') {
+                        mtfBonus = +10;
+                    } else if (trend1h === 'bullish' || trend4h === 'bullish') {
+                        mtfBonus = +5;
+                    } else if (trend1h === 'bearish' || trend4h === 'bearish') {
+                        mtfBonus = -15;
+                    } else {
+                        mtfBonus = 0;
+                    }
+                } else if (displayDirection === 'SHORT') {
+                    if (trend1h === 'bearish' && trend4h === 'bearish') {
+                        mtfBonus = +10;
+                    } else if (trend1h === 'bearish' || trend4h === 'bearish') {
+                        mtfBonus = +5;
+                    } else if (trend1h === 'bullish' || trend4h === 'bullish') {
+                        mtfBonus = -15;
+                    } else {
+                        mtfBonus = 0;
+                    }
+                }
+
+                // Apply MTF adjustment to get FINAL strength (same as bot-analysis)
+                const adjustedStrength = Math.max(0, rawStrength + mtfBonus);
+                const displayStrength = Math.min(adjustedStrength, 100); // Cap at 100 for display
+
+                // ✅ LOG per debug
                 const rsiValue = signal?.indicators?.rsi || null;
-                console.log(`[SCANNER] ${s.display}: direction=${displayDirection}, strength=${displayStrength}, RSI=${rsiValue?.toFixed(2) || 'N/A'}, price=${currentPrice.toFixed(4)}`);
+                console.log(`[SCANNER] ${s.display}: direction=${displayDirection}, rawStrength=${rawStrength}, mtfBonus=${mtfBonus}, adjustedStrength=${adjustedStrength}, RSI=${rsiValue?.toFixed(2) || 'N/A'}, price=${currentPrice.toFixed(4)}`);
 
                 // ✅ IMPORTANTE: Restituisci SEMPRE il risultato, anche se NEUTRAL con strength 0
                 // Questo permette di vedere TUTTI i simboli nel Market Scanner per debug
@@ -5315,7 +5354,7 @@ router.get('/scanner', async (req, res) => {
                     price: currentPrice, // Prezzo corrente aggiornato in tempo reale
                     volume24h: volume24h || 0, // Volume 24h in EUR/USDT
                     direction: displayDirection, // Usa direzione migliorata per display
-                    strength: Math.min(displayStrength || 0, 100), // Usa strength migliorata per display (max 100)
+                    strength: displayStrength, // MTF-adjusted strength (0-100)
                     confirmations: signal?.confirmations || 0,
                     reasons: signal?.reasons || ['Nessun segnale'],
                     rsi: rsiValue // RSI calcolato con ultima candela aggiornata (periodo 14, stesso di bot-analysis)
