@@ -5802,28 +5802,12 @@ router.get('/bot-analysis', async (req, res) => {
         // Calculate what's needed for LONG
         const LONG_MIN_CONFIRMATIONS = 3; // Abbassato da 4 per più opportunità
         const LONG_MIN_STRENGTH = 60; // Abbassato da 70 per più opportunità
-        // ✅ FIX: Mostra longSignal in base alla direction
-        // LONG: usa signal.strength (valore principale)
-        // NEUTRAL: mostra signal.longSignal.strength se esiste (segnali parziali)
-        // SHORT: resetta a 0 (trend opposto)
-        let longCurrentStrength = 0;
-        let longCurrentConfirmations = 0;
 
-        if (signal.direction === 'LONG') {
-            // ✅ FIX: Usa longSignal.strength invece di signal.strength per consistenza con Market Scanner
-            // signal.strength è cappato a 100, mentre longSignal.strength contiene il valore reale
-            longCurrentStrength = signal.longSignal?.strength || signal.strength || 0;
-            longCurrentConfirmations = signal.longSignal?.confirmations || signal.confirmations || 0;
-        } else if (signal.direction === 'NEUTRAL' && signal.longSignal) {
-            // ✅ FIX: Se direction è NEUTRAL, mostra i valori parziali di longSignal
-            // Questo permette di vedere i progressi verso un segnale LONG anche quando non è ancora completo
-            longCurrentStrength = signal.longSignal.strength || 0;
-            longCurrentConfirmations = signal.longSignal.confirmations || 0;
-        } else {
-            // ✅ FIX: Se direction è SHORT, resetta longSignal a 0 (trend opposto)
-            longCurrentStrength = 0;
-            longCurrentConfirmations = 0;
-        }
+        // ✅ FIX: Mostra SEMPRE i valori parziali di longSignal, indipendentemente da direction
+        // Questo rende il Quick Analysis coerente con il Market Scanner
+        let longCurrentStrength = signal.longSignal?.strength || 0;
+        let longCurrentConfirmations = signal.longSignal?.confirmations || 0;
+
         const longNeedsConfirmations = Math.max(0, LONG_MIN_CONFIRMATIONS - longCurrentConfirmations);
         const longNeedsStrength = Math.max(0, LONG_MIN_STRENGTH - longCurrentStrength);
         // ✅ FIX: Calcola MTF PRIMA e poi verifica requirements con adjusted strength
@@ -5835,43 +5819,12 @@ router.get('/bot-analysis', async (req, res) => {
         // Calculate what's needed for SHORT
         const SHORT_MIN_CONFIRMATIONS = 4; // Abbassato da 5 per più opportunità
         const SHORT_MIN_STRENGTH = 60; // Abbassato da 70 per più opportunità
-        // ✅ FIX CRITICO: Mostra shortSignal in base alla direction
-        // SHORT: usa signal.strength (valore principale)
-        // NEUTRAL: mostra signal.shortSignal SOLO se prezzo sta scendendo attivamente
-        // LONG: resetta a 0 (trend opposto)
-        let shortCurrentStrength = 0;
-        let shortCurrentConfirmations = 0;
 
-        if (signal.direction === 'SHORT') {
-            // ✅ FIX: Usa shortSignal.strength invece di signal.strength per consistenza con Market Scanner
-            // signal.strength è cappato a 100, mentre shortSignal.strength contiene il valore reale
-            shortCurrentStrength = signal.shortSignal?.strength || signal.strength || 0;
-            shortCurrentConfirmations = signal.shortSignal?.confirmations || signal.confirmations || 0;
-        } else if (signal.direction === 'NEUTRAL' && signal.shortSignal) {
-            // ✅ FIX: Se direction è NEUTRAL, mostra shortSignal SOLO se prezzo sta scendendo
-            // Verifica movimento prezzo (stessa logica del generatore)
-            const priceChange = historyForSignal && historyForSignal.length >= 3
-                ? (historyForSignal[historyForSignal.length - 1].close - historyForSignal[historyForSignal.length - 3].close) / historyForSignal[historyForSignal.length - 3].close * 100
-                : 0;
-            const priceChange5 = historyForSignal && historyForSignal.length >= 5
-                ? (historyForSignal[historyForSignal.length - 1].close - historyForSignal[historyForSignal.length - 5].close) / historyForSignal[historyForSignal.length - 5].close * 100
-                : 0;
-            const isPriceActivelyFalling = priceChange < -0.3 || priceChange5 < -0.5;
+        // ✅ FIX: Mostra SEMPRE i valori parziali di shortSignal, indipendentemente da direction
+        // Questo rende il Quick Analysis coerente con il Market Scanner
+        let shortCurrentStrength = signal.shortSignal?.strength || 0;
+        let shortCurrentConfirmations = signal.shortSignal?.confirmations || 0;
 
-            if (isPriceActivelyFalling) {
-                // Prezzo sta scendendo: mostra valori parziali SHORT
-                shortCurrentStrength = signal.shortSignal.strength || 0;
-                shortCurrentConfirmations = signal.shortSignal.confirmations || 0;
-            } else {
-                // Prezzo neutrale: non mostrare valori SHORT (mercato laterale)
-                shortCurrentStrength = 0;
-                shortCurrentConfirmations = 0;
-            }
-        } else {
-            // ✅ FIX: Se direction è LONG, resetta shortSignal a 0 (trend opposto)
-            shortCurrentStrength = 0;
-            shortCurrentConfirmations = 0;
-        }
         const shortNeedsConfirmations = Math.max(0, SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations);
         const shortNeedsStrength = Math.max(0, SHORT_MIN_STRENGTH - shortCurrentStrength);
         // ✅ FIX: Calcola MTF PRIMA e poi verifica requirements con adjusted strength
