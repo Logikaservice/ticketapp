@@ -415,14 +415,23 @@ const CryptoDashboard = () => {
     // Calculate total balance (EUR + All Crypto values)
     const [allSymbolPrices, setAllSymbolPrices] = useState({});
 
-    // Fetch prices for all symbols in holdings
+    // Fetch prices for all symbols in holdings AND open positions
     useEffect(() => {
         const fetchAllPrices = async () => {
             const holdings = portfolio.holdings || {};
-            const symbols = Object.keys(holdings).filter(s => holdings[s] > 0);
+            const holdingsSymbols = Object.keys(holdings).filter(s => holdings[s] > 0);
+            
+            // ✅ FIX: Recupera prezzi anche per tutti i simboli delle posizioni aperte
+            const openPositionSymbols = openPositions
+                .filter(pos => pos.status === 'open')
+                .map(pos => pos.symbol)
+                .filter((symbol, index, self) => self.indexOf(symbol) === index); // Remove duplicates
+            
+            // Combina tutti i simboli unici
+            const allSymbols = [...new Set([...holdingsSymbols, ...openPositionSymbols])];
             const prices = {};
 
-            for (const symbol of symbols) {
+            for (const symbol of allSymbols) {
                 try {
                     const res = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=eur`);
                     if (res.ok) {
@@ -437,10 +446,9 @@ const CryptoDashboard = () => {
             setAllSymbolPrices(prices);
         };
 
-        if (Object.keys(portfolio.holdings || {}).length > 0) {
-            fetchAllPrices();
-        }
-    }, [portfolio.holdings, apiBase]);
+        // Aggiorna prezzi quando cambiano holdings o posizioni aperte
+        fetchAllPrices();
+    }, [portfolio.holdings, openPositions, apiBase]);
 
     // Calculate total balance (EUR + All Crypto values - Short Liabilities)
     // Calculate total balance (EUR + All Crypto values - Short Liabilities)
@@ -479,81 +487,37 @@ const CryptoDashboard = () => {
     const totalBalance = portfolio.balance_usd + totalLongValue - totalShortLiability;
 
 
-    // ✅ FIX: Calculate P&L from ALL OPEN positions (not just current symbol)
-    // "Open Position P&L" should show the sum of ALL open positions across all symbols
+    // ✅ FIX SEMPLIFICATO: Usa direttamente profit_loss calcolato dal backend
+    // Il calcolo dovrebbe essere "molto stupido" - semplicemente sommare i profit_loss delle posizioni aperte
     let pnlValue = 0;
     let pnlPercent = 0;
     let totalInvestedValue = 0;
-    let totalCurrentValue = 0;
     let avgPrice = 0;
 
     if (openPositions && openPositions.length > 0) {
-        // Calculate P&L from ALL open positions (all symbols)
+        // Calcolo SEMPLICE: somma i profit_loss già calcolati dal backend
+        // Questo evita problemi con prezzi sbagliati o mancanti
         openPositions.forEach(pos => {
             if (pos.status !== 'open') return; // Skip closed positions
             
+            // Usa direttamente profit_loss dal backend (già calcolato correttamente)
+            const positionPnL = parseFloat(pos.profit_loss) || 0;
+            pnlValue += positionPnL;
+            
+            // Calcola invested value per la percentuale
             const entryPrice = parseFloat(pos.entry_price) || 0;
             const volume = parseFloat(pos.volume) || 0;
             const volumeClosed = parseFloat(pos.volume_closed) || 0;
             const remainingVolume = volume - volumeClosed;
-
+            
             if (remainingVolume > 0 && entryPrice > 0) {
-                // Get current price for this symbol (use live price if available, otherwise position's current_price)
-                const symbolPrice = allSymbolPrices[pos.symbol] || parseFloat(pos.current_price) || entryPrice;
-                
                 const invested = remainingVolume * entryPrice;
-                let current = 0;
-                
-                if (pos.type === 'buy') {
-                    // LONG: profit when price goes up
-                    current = remainingVolume * symbolPrice;
-                } else if (pos.type === 'sell') {
-                    // SHORT: profit when price goes down
-                    // For SHORT, current value is what we need to pay back (entry price)
-                    // P&L is calculated as: (entry_price - current_price) * volume
-                    current = remainingVolume * entryPrice; // Debt stays at entry price
-                    // P&L for SHORT is: (entry_price - current_price) * volume
-                    // We'll calculate it separately
-                }
-                
                 totalInvestedValue += invested;
-                totalCurrentValue += current;
             }
         });
 
-        // Calculate P&L: for LONG it's (current - invested), for SHORT it's (invested - current_value_at_entry)
-        // But we need to recalculate properly for SHORT positions
-        let totalPnL = 0;
-        let totalInvestedForPnL = 0;
-        
-        openPositions.forEach(pos => {
-            if (pos.status !== 'open') return;
-            
-            const entryPrice = parseFloat(pos.entry_price) || 0;
-            const volume = parseFloat(pos.volume) || 0;
-            const volumeClosed = parseFloat(pos.volume_closed) || 0;
-            const remainingVolume = volume - volumeClosed;
-            
-            if (remainingVolume > 0 && entryPrice > 0) {
-                const symbolPrice = allSymbolPrices[pos.symbol] || parseFloat(pos.current_price) || entryPrice;
-                const invested = remainingVolume * entryPrice;
-                
-                if (pos.type === 'buy') {
-                    // LONG: profit = (current_price - entry_price) * volume
-                    const currentValue = remainingVolume * symbolPrice;
-                    totalPnL += (currentValue - invested);
-                    totalInvestedForPnL += invested;
-                } else if (pos.type === 'sell') {
-                    // SHORT: profit = (entry_price - current_price) * volume
-                    const currentValue = remainingVolume * symbolPrice;
-                    totalPnL += (invested - currentValue);
-                    totalInvestedForPnL += invested;
-                }
-            }
-        });
-
-        pnlValue = totalPnL;
-        pnlPercent = totalInvestedForPnL > 0 ? (pnlValue / totalInvestedForPnL) * 100 : 0;
+        // Calcola percentuale P&L
+        pnlPercent = totalInvestedValue > 0 ? (pnlValue / totalInvestedValue) * 100 : 0;
         
         // Calculate average price (weighted average of all entry prices)
         const totalVolume = openPositions.reduce((sum, pos) => {
@@ -563,7 +527,7 @@ const CryptoDashboard = () => {
             return sum + (vol - volClosed);
         }, 0);
         
-        avgPrice = totalInvestedForPnL > 0 && totalVolume > 0 ? totalInvestedForPnL / totalVolume : 0;
+        avgPrice = totalInvestedValue > 0 && totalVolume > 0 ? totalInvestedValue / totalVolume : 0;
     } else {
         // Fallback: use old calculation if no open positions (for backward compatibility)
         const currentHoldings = holdings[currentSymbol] || 0;
