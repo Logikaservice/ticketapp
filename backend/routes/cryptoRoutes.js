@@ -622,9 +622,19 @@ router.get('/dashboard', async (req, res) => {
             performance_stats: await (async () => {
                 let stats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
                 if (!stats) {
+                    console.log('⚠️ [DASHBOARD] Record performance_stats con id=1 non trovato, creazione...');
                     // Crea record iniziale se non esiste
                     await dbRun("INSERT OR IGNORE INTO performance_stats (id, total_trades, winning_trades, losing_trades, total_profit, total_loss, avg_win, avg_loss, win_rate) VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0)");
                     stats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
+                    if (stats) {
+                        console.log('✅ [DASHBOARD] Record performance_stats creato con successo');
+                    } else {
+                        console.error('❌ [DASHBOARD] Impossibile creare record performance_stats');
+                    }
+                }
+                // ✅ DEBUG: Log per verificare che i dati siano corretti
+                if (stats) {
+                    console.log(`📊 [DASHBOARD] Performance stats: Total=${stats.total_trades}, Wins=${stats.winning_trades}, Losses=${stats.losing_trades}, WinRate=${((stats.win_rate || 0) * 100).toFixed(1)}%`);
                 }
                 return stats || null;
             })()
@@ -3501,9 +3511,22 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
 
         // ✅ UPDATE PERFORMANCE STATS for Kelly Criterion
         try {
+            // ✅ FIX: Verifica che il record esista, altrimenti crealo
+            let statsRecord = await dbGet("SELECT id FROM performance_stats WHERE id = 1");
+            if (!statsRecord) {
+                console.log('⚠️ [STATS] Record performance_stats con id=1 non trovato, creazione...');
+                await dbRun("INSERT OR IGNORE INTO performance_stats (id, total_trades, winning_trades, losing_trades, total_profit, total_loss, avg_win, avg_loss, win_rate) VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0)");
+                statsRecord = await dbGet("SELECT id FROM performance_stats WHERE id = 1");
+                if (!statsRecord) {
+                    console.error('❌ [STATS] Impossibile creare record performance_stats con id=1');
+                } else {
+                    console.log('✅ [STATS] Record performance_stats creato con successo');
+                }
+            }
+            
             if (finalPnl > 0) {
                 // Winning trade
-                await dbRun(`
+                const result = await dbRun(`
                     UPDATE performance_stats SET 
                         total_trades = total_trades + 1,
                         winning_trades = winning_trades + 1,
@@ -3513,10 +3536,10 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
                         last_updated = CURRENT_TIMESTAMP
                     WHERE id = 1
                 `, [finalPnl]);
-                console.log(`📊 [STATS] Win recorded: +€${finalPnl.toFixed(2)}`);
+                console.log(`📊 [STATS] Win recorded: +€${finalPnl.toFixed(2)} | Rows affected: ${result.changes || 'N/A'}`);
             } else {
-                // Losing trade
-                await dbRun(`
+                // Losing trade (include anche P&L = 0 come loss)
+                const result = await dbRun(`
                     UPDATE performance_stats SET 
                         total_trades = total_trades + 1,
                         losing_trades = losing_trades + 1,
@@ -3526,10 +3549,17 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
                         last_updated = CURRENT_TIMESTAMP
                     WHERE id = 1
                 `, [finalPnl]);
-                console.log(`📊 [STATS] Loss recorded: €${finalPnl.toFixed(2)}`);
+                console.log(`📊 [STATS] Loss recorded: €${finalPnl.toFixed(2)} | Rows affected: ${result.changes || 'N/A'}`);
+            }
+            
+            // ✅ DEBUG: Verifica stato aggiornato
+            const updatedStats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
+            if (updatedStats) {
+                console.log(`📊 [STATS] Stato aggiornato: Total=${updatedStats.total_trades}, Wins=${updatedStats.winning_trades}, Losses=${updatedStats.losing_trades}, WinRate=${((updatedStats.win_rate || 0) * 100).toFixed(1)}%`);
             }
         } catch (statsError) {
-            console.error('⚠️ Failed to update performance stats:', statsError.message);
+            console.error('❌ [STATS] Failed to update performance stats:', statsError.message);
+            console.error('   Stack:', statsError.stack);
         }
 
 
@@ -7407,6 +7437,46 @@ router.get('/total-balance-analysis', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Error in total balance analysis:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ ENDPOINT DIAGNOSTICA: Verifica stato Kelly Criterion Stats
+router.get('/kelly-stats-debug', async (req, res) => {
+    try {
+        // Verifica se la tabella esiste
+        const tableCheck = await dbAll("SELECT name FROM sqlite_master WHERE type='table' AND name='performance_stats'");
+        const tableExists = tableCheck && tableCheck.length > 0;
+        
+        // Leggi tutti i record
+        const allRecords = await dbAll("SELECT * FROM performance_stats");
+        
+        // Leggi record con id=1
+        const record1 = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
+        
+        // Conta posizioni chiuse con P&L
+        const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken')");
+        const winningPositions = closedPositions.filter(p => (parseFloat(p.profit_loss) || 0) > 0);
+        const losingPositions = closedPositions.filter(p => (parseFloat(p.profit_loss) || 0) <= 0);
+        
+        res.json({
+            table_exists: tableExists,
+            all_records: allRecords,
+            record_id_1: record1,
+            record_count: allRecords ? allRecords.length : 0,
+            actual_closed_positions: {
+                total: closedPositions.length,
+                winning: winningPositions.length,
+                losing: losingPositions.length,
+                total_profit: winningPositions.reduce((sum, p) => sum + (parseFloat(p.profit_loss) || 0), 0),
+                total_loss: losingPositions.reduce((sum, p) => sum + (parseFloat(p.profit_loss) || 0), 0)
+            },
+            recommendation: !record1 ? 
+                "Record con id=1 non esiste. Eseguire: INSERT INTO performance_stats (id, total_trades, winning_trades, losing_trades, total_profit, total_loss, avg_win, avg_loss, win_rate) VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0);" :
+                "Record esiste. Verificare che i dati siano aggiornati correttamente."
+        });
+    } catch (error) {
+        console.error('❌ Error in kelly stats debug:', error);
         res.status(500).json({ error: error.message });
     }
 });

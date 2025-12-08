@@ -117,7 +117,11 @@ const CryptoDashboard = () => {
                 }
                 // Load performance stats for Kelly Criterion
                 if (data.performance_stats) {
+                    console.log('📊 [KELLY] Performance stats ricevuti:', data.performance_stats);
                     setPerformanceStats(data.performance_stats);
+                } else {
+                    console.warn('⚠️ [KELLY] Performance stats non presenti nella risposta');
+                    setPerformanceStats(null);
                 }
             } else {
                 console.error('❌ Dashboard fetch failed:', res.status, res.statusText);
