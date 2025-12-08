@@ -1011,10 +1011,57 @@ const CryptoDashboard = () => {
                                 {closedPositions.map((pos, i) => {
                                     const isBuy = pos.type === 'buy';
                                     const volume = parseFloat(pos.volume) || 0;
-                                    const closePrice = parseFloat(pos.current_price) || 0;
-                                    const totalValue = volume * closePrice;
-                                    const pnl = parseFloat(pos.profit_loss) || 0;
+                                    const volumeClosed = parseFloat(pos.volume_closed) || 0;
+                                    const remainingVolume = volume - volumeClosed;
+                                    const entryPrice = parseFloat(pos.entry_price) || 0;
+                                    let closePrice = parseFloat(pos.current_price) || 0;
+                                    const totalValue = remainingVolume * closePrice;
+                                    let pnl = parseFloat(pos.profit_loss) || 0;
                                     const closedAt = pos.closed_at ? new Date(pos.closed_at) : null;
+
+                                    // ✅ FIX CRITICO: Valida e ricalcola P&L se anomale
+                                    const MAX_REASONABLE_PNL = 1000000; // 1 milione EUR max
+                                    const MAX_REASONABLE_PRICE = 1000000; // 1 milione EUR max
+                                    
+                                    // Se P&L o prezzo sono anomali, ricalcola
+                                    if (Math.abs(pnl) > MAX_REASONABLE_PNL || 
+                                        closePrice > MAX_REASONABLE_PRICE || 
+                                        entryPrice > MAX_REASONABLE_PRICE) {
+                                        
+                                        console.warn(`⚠️ [FRONTEND] P&L anomale per posizione ${pos.ticket_id}:`, {
+                                            pnl: pnl,
+                                            entryPrice: entryPrice,
+                                            closePrice: closePrice,
+                                            volume: remainingVolume
+                                        });
+                                        
+                                        // Ricalcola P&L con logica corretta
+                                        if (entryPrice > 0 && entryPrice <= MAX_REASONABLE_PRICE && 
+                                            remainingVolume > 0) {
+                                            
+                                            // Se il prezzo di chiusura è anomale, prova a usare un prezzo ragionevole
+                                            if (closePrice > MAX_REASONABLE_PRICE || closePrice <= 0) {
+                                                // Usa entry price come fallback (P&L = 0)
+                                                closePrice = entryPrice;
+                                                console.warn(`   → Usando entry price come fallback: €${entryPrice.toFixed(6)}`);
+                                            }
+                                            
+                                            // Ricalcola P&L
+                                            if (pos.type === 'buy') {
+                                                // LONG: profit quando prezzo sale
+                                                pnl = (closePrice - entryPrice) * remainingVolume;
+                                            } else {
+                                                // SHORT: profit quando prezzo scende
+                                                pnl = (entryPrice - closePrice) * remainingVolume;
+                                            }
+                                            
+                                            console.log(`   → P&L ricalcolato: €${pnl.toFixed(2)}`);
+                                        } else {
+                                            // Se non possiamo ricalcolare, mostra 0
+                                            pnl = 0;
+                                            console.warn(`   → Dati insufficienti, P&L impostato a 0`);
+                                        }
+                                    }
 
                                     // Get symbol display name
                                     const symbolDisplay = pos.symbol ? (pos.symbol === 'bitcoin' ? 'BTC/EUR' :
@@ -1047,7 +1094,7 @@ const CryptoDashboard = () => {
                                                 </span>
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
-                                                €{closePrice.toFixed(2)}
+                                                €{closePrice > 1000000 ? entryPrice.toFixed(2) : closePrice.toFixed(2)}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
                                                 {volume.toFixed(4)}

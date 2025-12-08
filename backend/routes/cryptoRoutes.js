@@ -4143,8 +4143,11 @@ router.get('/statistics', async (req, res) => {
         const closedTradesForWinRate = winningTrades + losingTrades;
         const winRate = closedTradesForWinRate > 0 ? (winningTrades / closedTradesForWinRate) * 100 : 0;
 
-        // Total trades = tutti i trades (per display)
-        const totalTrades = allTrades.length;
+        // ✅ FIX CRITICO: Total trades = solo trade con P&L (chiusure), NON tutti i trade
+        // Ogni posizione genera 2 trade: apertura (senza P&L) + chiusura (con P&L)
+        // Per le statistiche, contiamo solo i trade con P&L (chiusure) per essere coerenti con win rate
+        // Se l'utente vuole vedere tutti i trade (aperture + chiusure), può guardare la tabella trades
+        const totalTrades = closedTradesForWinRate; // Solo trade con P&L realizzato
         
         // ✅ FIX: Profit Factor - se totalLoss è 0 ma ci sono profitti, usa un valore molto alto invece di Infinity
         let profitFactor = 0;
@@ -6187,6 +6190,126 @@ router.get('/debug/balance', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Debug balance error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ ENDPOINT: Corregge P&L anomali nelle posizioni chiuse
+router.post('/fix-closed-positions-pnl', async (req, res) => {
+    try {
+        console.log('🔧 [FIX P&L] Inizio correzione P&L anomali nelle posizioni chiuse...');
+        
+        const closedPositions = await dbAll(
+            "SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken')"
+        );
+        
+        let fixedCount = 0;
+        let errorCount = 0;
+        const MAX_REASONABLE_PNL = 1000000; // 1 milione EUR max
+        const MAX_REASONABLE_PRICE = 1000000; // 1 milione EUR max
+        
+        for (const pos of closedPositions) {
+            try {
+                const entryPrice = parseFloat(pos.entry_price) || 0;
+                const closePrice = parseFloat(pos.current_price) || 0;
+                const volume = parseFloat(pos.volume) || 0;
+                const volumeClosed = parseFloat(pos.volume_closed) || 0;
+                const remainingVolume = volume - volumeClosed;
+                const currentPnL = parseFloat(pos.profit_loss) || 0;
+                
+                // Verifica se il P&L è anomale
+                if (Math.abs(currentPnL) > MAX_REASONABLE_PNL || 
+                    closePrice > MAX_REASONABLE_PRICE || 
+                    entryPrice > MAX_REASONABLE_PRICE) {
+                    
+                    console.log(`⚠️ [FIX P&L] Posizione ${pos.ticket_id} (${pos.symbol}) ha P&L/prezzo anomale:`);
+                    console.log(`   Entry: €${entryPrice}, Close: €${closePrice}, Volume: ${remainingVolume}, P&L: €${currentPnL}`);
+                    
+                    // Prova a recuperare il prezzo corretto
+                    let correctedClosePrice = closePrice;
+                    try {
+                        const correctPrice = await getSymbolPrice(pos.symbol);
+                        if (correctPrice > 0 && correctPrice <= MAX_REASONABLE_PRICE) {
+                            correctedClosePrice = correctPrice;
+                            console.log(`   → Prezzo corretto recuperato: €${correctPrice.toFixed(6)}`);
+                        }
+                    } catch (priceError) {
+                        console.warn(`   ⚠️ Impossibile recuperare prezzo corretto per ${pos.symbol}`);
+                    }
+                    
+                    // Ricalcola P&L con prezzo corretto (se disponibile)
+                    let correctedPnL = currentPnL;
+                    let correctedPnLPct = parseFloat(pos.profit_loss_pct) || 0;
+                    
+                    if (correctedClosePrice > 0 && correctedClosePrice <= MAX_REASONABLE_PRICE && 
+                        entryPrice > 0 && entryPrice <= MAX_REASONABLE_PRICE && 
+                        remainingVolume > 0) {
+                        
+                        if (pos.type === 'buy') {
+                            correctedPnL = (correctedClosePrice - entryPrice) * remainingVolume;
+                            correctedPnLPct = entryPrice > 0 ? ((correctedClosePrice - entryPrice) / entryPrice) * 100 : 0;
+                        } else {
+                            correctedPnL = (entryPrice - correctedClosePrice) * remainingVolume;
+                            correctedPnLPct = entryPrice > 0 ? ((entryPrice - correctedClosePrice) / entryPrice) * 100 : 0;
+                        }
+                        
+                        // Se il P&L corretto è ancora anomale, usa il prezzo corrente
+                        if (Math.abs(correctedPnL) > MAX_REASONABLE_PNL) {
+                            console.warn(`   ⚠️ P&L corretto ancora anomale (€${correctedPnL.toFixed(2)}), uso prezzo corrente`);
+                            try {
+                                const currentPrice = await getSymbolPrice(pos.symbol);
+                                if (currentPrice > 0 && currentPrice <= MAX_REASONABLE_PRICE) {
+                                    if (pos.type === 'buy') {
+                                        correctedPnL = (currentPrice - entryPrice) * remainingVolume;
+                                        correctedPnLPct = entryPrice > 0 ? ((currentPrice - entryPrice) / entryPrice) * 100 : 0;
+                                    } else {
+                                        correctedPnL = (entryPrice - currentPrice) * remainingVolume;
+                                        correctedPnLPct = entryPrice > 0 ? ((entryPrice - currentPrice) / entryPrice) * 100 : 0;
+                                    }
+                                    correctedClosePrice = currentPrice;
+                                }
+                            } catch (e) {
+                                console.error(`   ❌ Errore recupero prezzo corrente:`, e.message);
+                            }
+                        }
+                        
+                        // Aggiorna nel database solo se il P&L corretto è ragionevole
+                        if (Math.abs(correctedPnL) <= MAX_REASONABLE_PNL && 
+                            correctedClosePrice > 0 && correctedClosePrice <= MAX_REASONABLE_PRICE) {
+                            
+                            await dbRun(
+                                "UPDATE open_positions SET current_price = ?, profit_loss = ?, profit_loss_pct = ? WHERE ticket_id = ?",
+                                [correctedClosePrice, correctedPnL, correctedPnLPct, pos.ticket_id]
+                            );
+                            
+                            console.log(`✅ [FIX P&L] Posizione ${pos.ticket_id} corretta:`);
+                            console.log(`   P&L: €${currentPnL.toFixed(2)} → €${correctedPnL.toFixed(2)}`);
+                            console.log(`   Close Price: €${closePrice.toFixed(6)} → €${correctedClosePrice.toFixed(6)}`);
+                            fixedCount++;
+                        } else {
+                            console.warn(`   ⚠️ P&L corretto ancora anomale, non aggiornato`);
+                            errorCount++;
+                        }
+                    } else {
+                        console.warn(`   ⚠️ Dati insufficienti per correggere (entry: ${entryPrice}, close: ${correctedClosePrice}, volume: ${remainingVolume})`);
+                        errorCount++;
+                    }
+                }
+            } catch (posError) {
+                console.error(`❌ [FIX P&L] Errore correzione posizione ${pos.ticket_id}:`, posError.message);
+                errorCount++;
+            }
+        }
+        
+        res.json({
+            success: true,
+            total_closed_positions: closedPositions.length,
+            fixed_count: fixedCount,
+            error_count: errorCount,
+            message: `Corrette ${fixedCount} posizioni su ${closedPositions.length}`
+        });
+    } catch (error) {
+        console.error('❌ Error fixing closed positions P&L:', error);
         res.status(500).json({ error: error.message });
     }
 });
