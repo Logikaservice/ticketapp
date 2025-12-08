@@ -6737,12 +6737,24 @@ router.get('/scanner', async (req, res) => {
                     // ✅ FIX: Aggiorna SEMPRE l'ultima candela con il prezzo corrente per analisi in tempo reale
                     // Spostato qui DOPO il fallback Binance per assicurare che anche i dati scaricati siano aggiornati
                     if (deepAnalysisHistory.length > 0) {
-                        const lastCandle = deepAnalysisHistory[deepAnalysisHistory.length - 1];
-                        // Aggiorna sempre close con currentPrice per RSI in tempo reale
-                        lastCandle.close = deepCurrentPrice;
-                        lastCandle.price = deepCurrentPrice;
-                        lastCandle.high = Math.max(lastCandle.high || lastCandle.close, deepCurrentPrice);
-                        lastCandle.low = Math.min(lastCandle.low || lastCandle.close, deepCurrentPrice);
+                        // Verifica se i dati sono ancora stale dopo il tentativo di download
+                        const lastTs = new Date(deepAnalysisHistory[deepAnalysisHistory.length - 1].timestamp).getTime();
+                        const isStillStale = (new Date().getTime() - lastTs) > 20 * 60 * 1000; // Tolleranza 20 min
+
+                        if (!isStillStale) {
+                            const lastCandle = deepAnalysisHistory[deepAnalysisHistory.length - 1];
+                            // Aggiorna sempre close con currentPrice per RSI in tempo reale
+                            lastCandle.close = deepCurrentPrice;
+                            lastCandle.price = deepCurrentPrice;
+                            lastCandle.high = Math.max(lastCandle.high || lastCandle.close, deepCurrentPrice);
+                            lastCandle.low = Math.min(lastCandle.low || lastCandle.close, deepCurrentPrice);
+                        } else {
+                            // Se i dati sono vecchi e Binance ha fallito (rate limit), NON aggiornare l'ultima candela
+                            // Altrimenti creiamo un "fake pump" (prezzo vecchio -> prezzo nuovo in 1 candela)
+                            // che fa schizzare gli indicatori a 100.
+                            // Meglio usare i dati vecchi così come sono o segnalare errore.
+                            // console.warn(`[SCANNER] Dati stale per ${s.display} e download fallito. Skip real-time update.`);
+                        }
                     }
 
                     // ✅ REPLICA ESATTA: Calcola RSI (riga 5751-5753)
