@@ -2113,19 +2113,73 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         // ✅ CAP: Massimo 85 punti (non bloccare completamente)
         MIN_SIGNAL_STRENGTH = Math.min(85, MIN_SIGNAL_STRENGTH);
         
-        // ✅ FIX: Log dettagliato per capire perché il bot non apre posizioni
-        console.log(`🔍 [BOT-DECISION] Signal: ${signal.direction}, Strength: ${signal.strength}, Required: ${MIN_SIGNAL_STRENGTH}, ATR Blocked: ${signal.atrBlocked || false}, ATR: ${signal.atrPct?.toFixed(2) || 'N/A'}%`);
-        console.log(`   [PRE-FILTERS] Portfolio Drawdown: ${portfolioDrawdownBlock ? '❌ BLOCKED' : '✅ OK'} | Consecutive Losses: ${consecutiveLossesBlock ? '⚠️ +10 strength' : '✅ OK'} | Market Regime: ${marketRegimeBlock ? '❌ BLOCKED' : '✅ OK'} | Momentum: ${momentumAdjustment > 0 ? `⚠️ +${momentumAdjustment}` : '✅ OK'} | S/R: ${supportResistanceAdjustment > 0 ? `⚠️ +${supportResistanceAdjustment}` : '✅ OK'} | Time: ${timeOfDayAdjustment > 0 ? `⚠️ +${timeOfDayAdjustment}` : '✅ OK'}`);
+        // ✅ LOG DETTAGLIATO: Mostra cosa il bot sta aspettando
+        const baseStrength = 70;
+        const adjustments = [];
+        if (consecutiveLossesBlock) adjustments.push(`Consecutive Losses: +10 (base 70→80)`);
+        if (symbolWinRateAdjustment > 0) adjustments.push(`Win Rate Simbolo: +${symbolWinRateAdjustment}`);
+        if (momentumAdjustment > 0) adjustments.push(`Momentum Debole: +${momentumAdjustment}`);
+        if (supportResistanceAdjustment > 0) adjustments.push(`Support/Resistance: +${supportResistanceAdjustment}`);
+        if (timeOfDayAdjustment > 0) adjustments.push(`Time-of-Day: +${timeOfDayAdjustment}`);
+        
+        console.log(`\n📊 ========== ANALISI APERTURA POSIZIONE [${symbol.toUpperCase()}] ==========`);
+        console.log(`🎯 Segnale: ${signal.direction} | Strength Attuale: ${signal.strength}/100 | Strength Richiesta: ${MIN_SIGNAL_STRENGTH}/100`);
+        
+        // Mostra dettaglio aggiustamenti
+        if (adjustments.length > 0) {
+            console.log(`   ⚙️  Aggiustamenti Applicati:`);
+            adjustments.forEach(adj => console.log(`      • ${adj}`));
+            console.log(`   📈 Soglia Finale: ${baseStrength} + aggiustamenti = ${MIN_SIGNAL_STRENGTH} (max 85)`);
+        } else {
+            console.log(`   ✅ Nessun aggiustamento - Soglia base: ${MIN_SIGNAL_STRENGTH}`);
+        }
+        
+        // Mostra stato filtri
+        console.log(`   🔍 Stato Filtri:`);
+        console.log(`      • Portfolio Drawdown: ${portfolioDrawdownBlock ? '❌ BLOCCATO' : '✅ OK'}`);
+        console.log(`      • Market Regime (BTC): ${marketRegimeBlock ? '❌ BLOCCATO' : '✅ OK'}`);
+        console.log(`      • ATR: ${signal.atrBlocked ? '❌ BLOCCATO' : '✅ OK'} ${signal.atrPct ? `(${signal.atrPct.toFixed(2)}%)` : ''}`);
+        console.log(`      • Consecutive Losses: ${consecutiveLossesBlock ? '⚠️  Richiede +10' : '✅ OK'}`);
+        console.log(`      • Win Rate Simbolo: ${symbolWinRateAdjustment > 0 ? `⚠️  Richiede +${symbolWinRateAdjustment}` : '✅ OK'}`);
+        console.log(`      • Momentum: ${momentumAdjustment > 0 ? `⚠️  Richiede +${momentumAdjustment}` : '✅ OK'}`);
+        console.log(`      • Support/Resistance: ${supportResistanceAdjustment > 0 ? `⚠️  Richiede +${supportResistanceAdjustment}` : '✅ OK'}`);
+        console.log(`      • Time-of-Day: ${timeOfDayAdjustment > 0 ? `⚠️  Richiede +${timeOfDayAdjustment}` : '✅ OK'}`);
+        
+        // Mostra cosa sta aspettando
+        if (signal.strength < MIN_SIGNAL_STRENGTH && signal.direction !== 'NEUTRAL') {
+            const missing = MIN_SIGNAL_STRENGTH - signal.strength;
+            console.log(`\n   ⏳ BOT IN ATTESA:`);
+            console.log(`      🔴 Strength insufficiente: ${signal.strength} < ${MIN_SIGNAL_STRENGTH}`);
+            console.log(`      📊 Mancano ${missing} punti per aprire la posizione`);
+            console.log(`      💡 Il bot aspetta che il segnale si rafforzi a ${MIN_SIGNAL_STRENGTH}+ prima di aprire`);
+            if (adjustments.length > 0) {
+                console.log(`      📝 Motivo soglia alta: ${adjustments.join(', ')}`);
+            }
+        } else if (signal.direction === 'NEUTRAL') {
+            console.log(`\n   ⏳ BOT IN ATTESA:`);
+            console.log(`      🔴 Segnale NEUTRAL - Nessun segnale valido rilevato`);
+            console.log(`      💡 Il bot aspetta un segnale ${signal.strength >= 50 ? 'più forte' : 'valido'} (min ${MIN_SIGNAL_STRENGTH})`);
+        } else {
+            console.log(`\n   ✅ CONDIZIONI SODDISFATTE:`);
+            console.log(`      ✅ Strength sufficiente: ${signal.strength} >= ${MIN_SIGNAL_STRENGTH}`);
+            console.log(`      ✅ Tutti i filtri superati`);
+            console.log(`      🚀 Procedendo con valutazione apertura...`);
+        }
+        console.log(`📊 ============================================================\n`);
 
         // ✅ FIX: Non aprire posizioni se ATR blocca il trading
         if (signal.atrBlocked) {
-            console.log(`⚠️ BOT [${symbol.toUpperCase()}]: Trading blocked by ATR filter (${signal.atrPct?.toFixed(2)}%) - Skipping position opening but continuing cycle`);
+            console.log(`\n🛑 [BLOCCATO] ${symbol.toUpperCase()}: Trading bloccato da filtro ATR (${signal.atrPct?.toFixed(2)}%)`);
+            console.log(`   💡 Il bot aspetta che la volatilità rientri in range accettabile\n`);
             // Continua il ciclo per aggiornare posizioni esistenti
         } else if (portfolioDrawdownBlock) {
-            console.log(`🛑 BOT [${symbol.toUpperCase()}]: Trading blocked - ${portfolioDrawdownReason}`);
+            console.log(`\n🛑 [BLOCCATO] ${symbol.toUpperCase()}: Trading bloccato - ${portfolioDrawdownReason}`);
+            console.log(`   💡 Il bot aspetta che il portfolio si riprenda prima di aprire nuove posizioni\n`);
         } else if (marketRegimeBlock) {
-            console.log(`🛑 BOT [${symbol.toUpperCase()}]: Trading blocked - ${marketRegimeReason}`);
+            console.log(`\n🛑 [BLOCCATO] ${symbol.toUpperCase()}: Trading bloccato - ${marketRegimeReason}`);
+            console.log(`   💡 Il bot aspetta che il trend BTC si allinei prima di aprire\n`);
         } else if (signal.direction === 'LONG' && signal.strength >= MIN_SIGNAL_STRENGTH) {
+            console.log(`\n✅ [LONG APPROVATO] ${symbol.toUpperCase()}: Segnale LONG valido (strength: ${signal.strength} >= ${MIN_SIGNAL_STRENGTH})\n`);
             // ✅ MULTI-TIMEFRAME CONFIRMATION (con sistema a punteggio)
             const trend1h = await detectTrendOnTimeframe(symbol, '1h', 50);
             const trend4h = await detectTrendOnTimeframe(symbol, '4h', 50);
@@ -2266,7 +2320,8 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 }
             }
         }
-        else if (!signal.atrBlocked && !portfolioDrawdownBlock && !marketRegimeBlock && !momentumBlock && signal.direction === 'SHORT' && signal.strength >= MIN_SIGNAL_STRENGTH) {
+        else if (!signal.atrBlocked && !portfolioDrawdownBlock && !marketRegimeBlock && signal.direction === 'SHORT' && signal.strength >= MIN_SIGNAL_STRENGTH) {
+            console.log(`\n✅ [SHORT APPROVATO] ${symbol.toUpperCase()}: Segnale SHORT valido (strength: ${signal.strength} >= ${MIN_SIGNAL_STRENGTH})\n`);
             // ✅ COMPATIBILITÀ BINANCE: Verifica se SHORT è supportato
             // Binance Spot NON supporta short - serve Futures o Margin
             const binanceMode = process.env.BINANCE_MODE || 'demo';
