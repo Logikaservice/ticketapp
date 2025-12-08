@@ -828,73 +828,31 @@ const CryptoDashboard = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {closedPositions.map((trade, i) => {
-                                    // ✅ FIX: closedPositions è ora disponibile nello scope
-                                    const isBuy = trade.type === 'buy';
-                                    const totalValue = (parseFloat(trade.amount) || 0) * (parseFloat(trade.price) || 0);
-                                    let pnl = parseFloat(trade.profit_loss) || 0;
-
-                                    // ✅ FIX: Se il trade ha un ticket_id, cerca la posizione corrispondente per ottenere il P&L
-                                    if (pnl === null && trade.ticket_id) {
-                                        const correspondingPosition = openPositions.find(pos => pos.ticket_id === trade.ticket_id) ||
-                                            closedPositions?.find(pos => pos.ticket_id === trade.ticket_id);
-                                        if (correspondingPosition && correspondingPosition.profit_loss !== null) {
-                                            pnl = correspondingPosition.profit_loss;
-                                        }
-                                    }
-
-                                    // Check if this trade has a corresponding open position
-                                    const hasOpenPosition = isBuy && openPositions.some(pos =>
-                                        (pos.ticket_id === trade.ticket_id) || // Match by ticket_id (preferito)
-                                        (pos.type === 'buy' &&
-                                            Math.abs(parseFloat(pos.entry_price) - parseFloat(trade.price)) < 0.01 &&
-                                            Math.abs(parseFloat(pos.volume) - parseFloat(trade.amount)) < 0.0001)
-                                    );
-
-                                    // ✅ FIX: Usa il prezzo corretto per il simbolo del trade, non sempre Bitcoin
-                                    let symbolCurrentPrice = currentPrice; // Default
-                                    if (trade.symbol && trade.symbol !== 'bitcoin') {
-                                        // Prova a ottenere il prezzo dal portfolio o usa il prezzo corrente se disponibile
-                                        const symbolPrice = allSymbolPrices?.[trade.symbol];
-                                        if (symbolPrice) {
-                                            symbolCurrentPrice = symbolPrice;
-                                        }
-                                    }
-
-                                    // Theoretical P&L for BUYs ONLY if position is still open
-                                    const theoreticalPnl = (isBuy && hasOpenPosition) ? ((symbolCurrentPrice || 0) - (parseFloat(trade.price) || 0)) * (parseFloat(trade.amount) || 0) : 0;
-                                    const theoreticalPnlPercent = (isBuy && hasOpenPosition) ? (((symbolCurrentPrice || 0) - (parseFloat(trade.price) || 0)) / (parseFloat(trade.price) || 1)) * 100 : 0;
+                                {closedPositions.map((pos, i) => {
+                                    const isBuy = pos.type === 'buy';
+                                    const volume = parseFloat(pos.volume) || 0;
+                                    const closePrice = parseFloat(pos.current_price) || 0;
+                                    const totalValue = volume * closePrice;
+                                    const pnl = parseFloat(pos.profit_loss) || 0;
+                                    const closedAt = pos.closed_at ? new Date(pos.closed_at) : null;
 
                                     // Get symbol display name
-                                    const symbolDisplay = trade.symbol ? (trade.symbol === 'bitcoin' ? 'BTC/EUR' :
-                                        trade.symbol === 'bitcoin_usdt' ? 'BTC/USDT' :
-                                            trade.symbol === 'solana' ? 'SOL/USDT' :
-                                                trade.symbol === 'solana_eur' ? 'SOL/EUR' :
-                                                    trade.symbol.toUpperCase().replace('_', '/')) : '-';
+                                    const symbolDisplay = pos.symbol ? (pos.symbol === 'bitcoin' ? 'BTC/EUR' :
+                                        pos.symbol === 'bitcoin_usdt' ? 'BTC/USDT' :
+                                            pos.symbol === 'solana' ? 'SOL/USDT' :
+                                                pos.symbol === 'solana_eur' ? 'SOL/EUR' :
+                                                    pos.symbol.toUpperCase().replace('_', '/')) : '-';
 
-                                    // Show P&L if available (for both BUY and SELL)
-                                    const displayPnl = pnl !== null && pnl !== undefined ? (
+                                    const displayPnl = (
                                         <span style={{ color: pnl >= 0 ? '#4ade80' : '#ef4444', fontWeight: 'bold' }}>
-                                            {pnl >= 0 ? '+' : ''}€{(pnl || 0).toFixed(2)}
+                                            {pnl >= 0 ? '+' : ''}€{pnl.toFixed(2)}
                                         </span>
-                                    ) : isBuy && hasOpenPosition ? (
-                                        <span style={{ color: theoreticalPnl >= 0 ? '#4ade80' : '#ef4444', fontSize: '0.85rem' }}>
-                                            {theoreticalPnl >= 0 ? '+' : ''}€{(theoreticalPnl || 0).toFixed(2)} ({(theoreticalPnlPercent || 0).toFixed(2)}%)
-                                            <br />
-                                            <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>Unrealized</span>
-                                        </span>
-                                    ) : isBuy ? (
-                                        <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>
-                                            Chiusa
-                                        </span>
-                                    ) : (
-                                        <span style={{ color: '#6b7280' }}>-</span>
                                     );
 
                                     return (
-                                        <tr key={i} style={{ borderBottom: '1px solid #1f2937' }}>
+                                        <tr key={pos.ticket_id || i} style={{ borderBottom: '1px solid #1f2937' }}>
                                             <td style={{ padding: '10px', color: '#9ca3af' }}>
-                                                {new Date(trade.timestamp).toLocaleTimeString()}
+                                                {closedAt ? closedAt.toLocaleTimeString() : 'N/A'}
                                             </td>
                                             <td style={{ padding: '10px', color: '#e5e7eb', fontWeight: '500' }}>
                                                 {symbolDisplay}
@@ -905,75 +863,47 @@ const CryptoDashboard = () => {
                                                     fontWeight: 'bold',
                                                     textTransform: 'uppercase'
                                                 }}>
-                                                    {trade.type}
+                                                    {pos.type}
                                                 </span>
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
-                                                €{(parseFloat(trade.price) || 0).toFixed(2)}
+                                                €{closePrice.toFixed(2)}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
-                                                {(parseFloat(trade.amount) || 0).toFixed(4)}
+                                                {volume.toFixed(4)}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#9ca3af' }}>
-                                                €{(totalValue || 0).toFixed(2)}
+                                                €{totalValue.toFixed(2)}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right' }}>
                                                 {displayPnl}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'center' }}>
-                                                {trade.signal_details || trade.ticket_id ? (
+                                                {pos.signal_details ? (
                                                     <button
                                                         onClick={() => {
                                                             try {
-                                                                let signalData = null;
-                                                                if (trade.signal_details) {
-                                                                    signalData = typeof trade.signal_details === 'string'
-                                                                        ? JSON.parse(trade.signal_details)
-                                                                        : trade.signal_details;
-                                                                } else {
-                                                                    const position = openPositions.find(pos => pos.ticket_id === trade.ticket_id);
-                                                                    if (position && position.signal_details) {
-                                                                        signalData = typeof position.signal_details === 'string'
-                                                                            ? JSON.parse(position.signal_details)
-                                                                            : position.signal_details;
-                                                                    }
-                                                                }
+                                                                const signalData = typeof pos.signal_details === 'string'
+                                                                    ? JSON.parse(pos.signal_details)
+                                                                    : pos.signal_details;
 
-                                                                if (signalData) {
-                                                                    const details = [
-                                                                        `📊 SIGNAL DETAILS`,
-                                                                        `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-                                                                        `Direction: ${signalData.direction || 'N/A'}`,
-                                                                        `Strength: ${signalData.strength || 0}/100`,
-                                                                        `Confirmations: ${signalData.confirmations || 0}`,
-                                                                        ``,
-                                                                        `📋 REASONS:`,
-                                                                        ...(signalData.reasons || []).map((r, i) => `${i + 1}. ${r}`),
-                                                                        ``,
-                                                                        `📈 LONG SIGNAL:`,
-                                                                        signalData.longSignal ?
-                                                                            `  Strength: ${signalData.longSignal.strength || 0}/100\n  Confirmations: ${signalData.longSignal.confirmations || 0}\n  Reasons: ${(signalData.longSignal.reasons || []).join(', ')}` :
-                                                                            '  N/A',
-                                                                        ``,
-                                                                        `📉 SHORT SIGNAL:`,
-                                                                        signalData.shortSignal ?
-                                                                            `  Strength: ${signalData.shortSignal.strength || 0}/100\n  Confirmations: ${signalData.shortSignal.confirmations || 0}\n  Reasons: ${(signalData.shortSignal.reasons || []).join(', ')}` :
-                                                                            '  N/A',
-                                                                        ``,
-                                                                        `📊 INDICATORS:`,
-                                                                        `  RSI: ${signalData.indicators?.rsi?.toFixed(2) || 'N/A'}`,
-                                                                        `  Trend: ${signalData.indicators?.trend || 'N/A'}`,
-                                                                        signalData.indicators?.macd ?
-                                                                            `  MACD: ${signalData.indicators.macd.macdLine?.toFixed(2) || 'N/A'} | Signal: ${signalData.indicators.macd.signalLine?.toFixed(2) || 'N/A'}` :
-                                                                            '  MACD: N/A'
-                                                                    ].join('\n');
-                                                                    alert(details);
-                                                                } else {
-                                                                    alert(`Trade Details:\n\nSymbol: ${symbolDisplay}\nType: ${trade.type}\nPrice: €${trade.price.toFixed(2)}\nAmount: ${trade.amount.toFixed(4)}\nStrategy: ${trade.strategy || 'N/A'}\nP&L: ${pnl !== null ? (pnl >= 0 ? '+' : '') + '€' + pnl.toFixed(2) : 'N/A'}`);
-                                                                }
+                                                                const details = [
+                                                                    `📊 SIGNAL DETAILS`,
+                                                                    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+                                                                    `Direction: ${signalData.direction || 'N/A'}`,
+                                                                    `Strength: ${signalData.strength || 0}/100`,
+                                                                    `Confirmations: ${signalData.confirmations || 0}`,
+                                                                    ``,
+                                                                    `📋 REASONS:`,
+                                                                    ...(signalData.reasons || []).map((r, i) => `${i + 1}. ${r}`),
+                                                                    ``,
+                                                                    `📊 INDICATORS:`,
+                                                                    `  RSI: ${signalData.indicators?.rsi?.toFixed(2) || 'N/A'}`,
+                                                                    `  Trend: ${signalData.indicators?.trend || 'N/A'}`
+                                                                ].join('\n');
+                                                                alert(details);
                                                             } catch (err) {
-                                                                console.error('Error parsing signal details:', err);
-                                                                alert(`Trade Details:\n\nSymbol: ${symbolDisplay}\nType: ${trade.type}\nPrice: €${trade.price.toFixed(2)}\nAmount: ${trade.amount.toFixed(4)}\nStrategy: ${trade.strategy || 'N/A'}\nP&L: ${pnl !== null ? (pnl >= 0 ? '+' : '') + '€' + pnl.toFixed(2) : 'N/A'}`);
+                                                                alert('Dettagli non disponibili');
                                                             }
                                                         }}
                                                         style={{
@@ -988,11 +918,9 @@ const CryptoDashboard = () => {
                                                         onMouseEnter={(e) => e.target.style.background = '#374151'}
                                                         onMouseLeave={(e) => e.target.style.background = 'transparent'}
                                                     >
-                                                        View
+                                                        Info
                                                     </button>
-                                                ) : (
-                                                    <span style={{ color: '#6b7280', fontSize: '0.75rem' }}>-</span>
-                                                )}
+                                                ) : '-'}
                                             </td>
                                         </tr>
                                     );
