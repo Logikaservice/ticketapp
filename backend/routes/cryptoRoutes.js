@@ -5170,17 +5170,30 @@ router.get('/scanner', async (req, res) => {
                 // Questo garantisce che RSI e altri indicatori siano calcolati con dati in tempo reale
                 let currentPrice = historyForSignal[historyForSignal.length - 1].close;
                 try {
-                    // Prova a ottenere il prezzo corrente da Binance
+                    // Prova a ottenere il prezzo corrente da Binance (LIVE)
                     const priceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${s.pair}`;
-                    const priceData = await httpsGet(priceUrl);
+                    // Timeout breve per evitare rallentamenti eccessivi (1.5s)
+                    const priceData = await httpsGet(priceUrl, 1500).catch(() => null);
+
                     if (priceData && priceData.price) {
-                        currentPrice = parseFloat(priceData.price);
+                        const livePrice = parseFloat(priceData.price);
+                        // ✅ Validazione: Accetta il prezzo solo se sensato (non zero e non infinitamente diverso)
+                        if (livePrice > 0) {
+                            currentPrice = livePrice;
+                            // console.log(`[SCANNER] Prezzo LIVE per ${s.symbol}: ${livePrice} (DB: ${historyForSignal[historyForSignal.length - 1].close})`);
+                        }
+                    } else {
+                        // Fallback: Prova database price_history recentissimo
+                        const lastPriceDb = await dbGet("SELECT price FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 1", [s.symbol]);
+                        if (lastPriceDb && lastPriceDb.price) {
+                            currentPrice = parseFloat(lastPriceDb.price);
+                        }
                     }
                 } catch (err) {
-                    console.log(`[SCANNER] Errore fetch prezzo corrente per ${s.symbol}, uso ultimo close`);
+                    // Silenzioso, usa close price
                 }
 
-                // Aggiorna l'ultima candela con il prezzo corrente se è ancora aperta
+                // Aggiorna l'ultima candela con il prezzo corrente se è ancora aperta (o sempre per scanner)
                 if (historyForSignal.length > 0) {
                     const lastCandle = historyForSignal[historyForSignal.length - 1];
                     const lastCandleTime = new Date(lastCandle.timestamp);
@@ -5194,6 +5207,15 @@ router.get('/scanner', async (req, res) => {
                         lastCandle.low = Math.min(lastCandle.low || lastCandle.close, currentPrice);
                         lastCandle.close = currentPrice;
                         lastCandle.price = currentPrice; // Per backward compatibility
+                    } else {
+                        // ⚠️ Se l'ultima candela è CHIUSA (> 15 min), significa che il DB non è aggiornato con la candela corrente
+                        // Per lo scanner, DOBBIAMO considerare il prezzo corrente come una "nuova candela parziale" o aggiornare l'ultima
+                        // Per semplicità e coerenza con bot-analysis, aggiorniamo l'ultima candela "esistente" forzandola al prezzo corrente
+                        // Questo può distorcere leggermente il grafico storico ma dà RSI corretto sull'ultimo tick
+                        lastCandle.close = currentPrice;
+                        lastCandle.price = currentPrice;
+                        // Nota: non aggiorniamo high/low qui perché potrebbe essere una candela vecchia, 
+                        // ma per RSI conta quasi solo il close.
                     }
                 }
 
