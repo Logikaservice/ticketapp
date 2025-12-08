@@ -1,0 +1,30 @@
+# 🚀 Comandi Deploy Rapido - Copia e Incolla
+
+## Deploy Manuale Immediato (Copia tutto e incolla nel terminale SSH)
+
+ssh root@159.69.121.162 << 'EOF'
+cd /var/www/ticketapp
+git pull origin main
+pm2 restart ticketapp-backend
+sleep 3
+pm2 status
+pm2 logs ticketapp-backend --lines 20 --nostream
+curl -s http://localhost:3001/api/crypto/dashboard | head -c 200
+echo ""
+echo "✅ Deploy completato!"
+EOF
+
+## Oppure esegui comando per comando:
+
+# 1. Connettiti
+ssh root@159.69.121.162
+
+# 2. Aggiorna codice
+cd /var/www/ticketapp && git pull origin main
+
+# 3. Riavvia backend
+pm2 restart ticketapp-backend
+
+# 4. Verifica
+pm2 status
+pm2 logs ticketapp-backend --lines 20
