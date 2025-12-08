@@ -85,6 +85,36 @@ const SMART_EXIT_CONFIG = {
     RISK_REWARD_ENABLED: true,
     MIN_RISK_REWARD_RATIO: 1.5, // Minimo R/R 1:1.5 per mantenere posizione
     CALCULATE_RR_FROM_ENTRY: true, // Calcola R/R dall'entry price
+    
+    // ✅ NUOVO PRIORITÀ 1: Volume Confirmation
+    VOLUME_CONFIRMATION_ENABLED: true,
+    VOLUME_LOW_THRESHOLD: 0.7, // Volume < 70% media = basso
+    VOLUME_HIGH_THRESHOLD: 1.5, // Volume > 150% media = alto
+    REQUIRE_VOLUME_FOR_REVERSAL: true, // Richiedi volume alto per reversal
+    
+    // ✅ NUOVO PRIORITÀ 2: Support/Resistance Levels
+    SUPPORT_RESISTANCE_ENABLED: true,
+    SR_LOOKBACK_PERIODS: 50, // Cerca S/R negli ultimi 50 periodi
+    SR_TOUCH_DISTANCE_PCT: 0.5, // Considera "vicino" se entro 0.5% del livello
+    PARTIAL_CLOSE_AT_RESISTANCE: true, // Chiudi parzialmente a resistenza
+    
+    // ✅ NUOVO PRIORITÀ 3: Divergence Detection
+    DIVERGENCE_DETECTION_ENABLED: true,
+    RSI_PERIOD: 14, // Periodo RSI
+    DIVERGENCE_LOOKBACK: 20, // Cerca divergenze negli ultimi 20 periodi
+    MIN_DIVERGENCE_STRENGTH: 0.3, // Divergenza deve essere almeno 30% significativa
+    
+    // ✅ NUOVO PRIORITÀ 4: Multi-Timeframe Exit
+    MULTI_TIMEFRAME_EXIT_ENABLED: true,
+    EXIT_TIMEFRAMES: ['15m', '1h', '4h'], // Timeframe per exit
+    EXIT_TIMEFRAME_WEIGHTS: { '15m': 0.2, '1h': 0.3, '4h': 0.5 }, // Peso per timeframe
+    REQUIRE_HIGHER_TF_CONFIRMATION: true, // Richiedi conferma timeframe più lungo
+    
+    // ✅ NUOVO PRIORITÀ 5: Portfolio Drawdown Protection
+    PORTFOLIO_DRAWDOWN_ENABLED: true,
+    MAX_PORTFOLIO_DRAWDOWN_PCT: 5.0, // Max drawdown totale 5%
+    CLOSE_WORST_ON_DRAWDOWN: true, // Chiudi posizioni peggiori se drawdown alto
+    WORST_POSITIONS_TO_CLOSE: 2, // Quante posizioni peggiori chiudere
 };
 
 /**

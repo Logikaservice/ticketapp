@@ -29,8 +29,8 @@ class SeriousRiskManager {
     constructor() {
         // LIMITI ASSOLUTI (non negoziabili)
         this.MAX_DAILY_LOSS_PCT = 0.05;        // 5% capitale
-        this.MAX_TOTAL_EXPOSURE_PCT = 0.80;    // 80% capitale (aggressivo - sistema di alta qualità)
-        this.MAX_POSITION_SIZE_PCT = 0.10;     // 10% capitale per posizione (aumentato per conti piccoli)
+        this.MAX_TOTAL_EXPOSURE_PCT = 0.80;    // 80% capitale (base, aumenta con win rate alto)
+        this.MAX_POSITION_SIZE_PCT = 0.10;     // 10% capitale per posizione (base, aumenta con win rate alto)
         this.MAX_DRAWDOWN_PCT = 0.10;          // 10% drawdown
         this.BASE_CAPITAL = 250;                // Protezione capitale base
 
@@ -38,6 +38,66 @@ class SeriousRiskManager {
         this.lastCheck = null;
         this.cacheDuration = 5000; // 5 secondi
         this.cachedResult = null;
+    }
+    
+    /**
+     * ✅ Calcola limiti dinamici basati su win rate
+     * Se il sistema ha win rate alto (>80%), permette più exposure e posizioni più grandi
+     */
+    async getDynamicLimits() {
+        try {
+            const db = require('../crypto_db');
+            const stats = await new Promise((resolve, reject) => {
+                db.get("SELECT * FROM performance_stats WHERE id = 1", (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+            
+            if (!stats || !stats.total_trades || stats.total_trades < 10) {
+                // Non abbastanza dati, usa limiti conservativi
+                return {
+                    maxExposurePct: this.MAX_TOTAL_EXPOSURE_PCT,
+                    maxPositionSizePct: this.MAX_POSITION_SIZE_PCT
+                };
+            }
+            
+            const winRate = stats.total_trades > 0 ? stats.winning_trades / stats.total_trades : 0.5;
+            
+            // ✅ LOGICA DINAMICA: Aumenta limiti se win rate è alto
+            let maxExposurePct = this.MAX_TOTAL_EXPOSURE_PCT;
+            let maxPositionSizePct = this.MAX_POSITION_SIZE_PCT;
+            
+            if (winRate >= 0.90) {
+                // Win rate 90%+ → molto aggressivo
+                maxExposurePct = 0.95; // 95% exposure (quasi tutto il capitale)
+                maxPositionSizePct = 0.15; // 15% per posizione (più grande)
+                console.log(`📊 [DYNAMIC LIMITS] Win rate ${(winRate * 100).toFixed(1)}% → Exposure: 95%, Position size: 15%`);
+            } else if (winRate >= 0.80) {
+                // Win rate 80-89% → aggressivo
+                maxExposurePct = 0.90; // 90% exposure
+                maxPositionSizePct = 0.12; // 12% per posizione
+                console.log(`📊 [DYNAMIC LIMITS] Win rate ${(winRate * 100).toFixed(1)}% → Exposure: 90%, Position size: 12%`);
+            } else if (winRate >= 0.70) {
+                // Win rate 70-79% → moderato
+                maxExposurePct = 0.85; // 85% exposure
+                maxPositionSizePct = 0.11; // 11% per posizione
+                console.log(`📊 [DYNAMIC LIMITS] Win rate ${(winRate * 100).toFixed(1)}% → Exposure: 85%, Position size: 11%`);
+            }
+            // Win rate <70% → usa limiti base (80% exposure, 10% position size)
+            
+            return {
+                maxExposurePct: maxExposurePct,
+                maxPositionSizePct: maxPositionSizePct,
+                winRate: winRate
+            };
+        } catch (error) {
+            console.warn(`⚠️ Error calculating dynamic limits, using defaults:`, error.message);
+            return {
+                maxExposurePct: this.MAX_TOTAL_EXPOSURE_PCT,
+                maxPositionSizePct: this.MAX_POSITION_SIZE_PCT
+            };
+        }
     }
 
     /**
@@ -170,16 +230,35 @@ class SeriousRiskManager {
                 return this.cachedResult;
             }
 
-            // 6. CALCOLA RISCHIO RESIDUO DISPONIBILE
-            const availableExposurePct = Math.max(0, this.MAX_TOTAL_EXPOSURE_PCT - currentExposurePct);
+            // 6. ✅ CALCOLA LIMITI DINAMICI basati su win rate
+            const dynamicLimits = await this.getDynamicLimits();
+            const maxExposurePct = dynamicLimits.maxExposurePct;
+            const baseMaxPositionSizePct = dynamicLimits.maxPositionSizePct;
+            
+            // ✅ Verifica limite exposure con limiti dinamici
+            if (currentExposurePct >= maxExposurePct) {
+                this.cachedResult = {
+                    canTrade: false,
+                    reason: `Max exposure reached (${(currentExposurePct * 100).toFixed(2)}% >= ${(maxExposurePct * 100).toFixed(2)}%)`,
+                    maxPositionSize: 0,
+                    availableExposure: 0,
+                    dailyLoss: dailyLossPct,
+                    currentExposure: currentExposurePct,
+                    drawdown: drawdown
+                };
+                this.lastCheck = now;
+                return this.cachedResult;
+            }
+            
+            // CALCOLA RISCHIO RESIDUO DISPONIBILE
+            const availableExposurePct = Math.max(0, maxExposurePct - currentExposurePct);
             // Available Exposure in EUR = Total Equity * Available %
             const availableExposure = totalEquity * availableExposurePct;
 
-            // Max position size: min tra 10% capitale e 50% dell'exposure disponibile
-            // Aumentato da 0.1 a 0.5 per permettere operatività su conti piccoli (< €1000)
+            // Max position size: min tra % dinamica e 50% dell'exposure disponibile
             // ✅ KELLY CRITERION: Dynamic position sizing based on performance
             let maxPositionSizePct = Math.min(
-                this.MAX_POSITION_SIZE_PCT,
+                baseMaxPositionSizePct,
                 availableExposurePct * 0.5
             );
 
@@ -219,8 +298,31 @@ class SeriousRiskManager {
                 console.warn(`⚠️ Kelly Criterion calculation failed, using default sizing:`, kellyError.message);
             }
 
-            // Limit trade size to available cash to avoid negative balance
+            // ✅ FIX CRITICO: Limita trade size al cash disponibile E verifica che ci sia abbastanza cash
+            // Con saldo €1000 e posizioni da €50, max 20 posizioni possibili
+            // Ma il RiskManager limita a 10% per posizione, quindi max €100 per posizione
+            // Quindi con €1000 cash, max 10 posizioni da €100 = €1000 totali
             const maxPositionSize = Math.min(totalEquity * maxPositionSizePct, cashBalance);
+            
+            // ✅ FIX AGGIUNTIVO: Verifica che il cash disponibile sia ragionevole
+            // Se cashBalance è anomalo (>10M), usa un limite più conservativo
+            const MAX_REASONABLE_CASH = 1000000; // 1 milione EUR max ragionevole
+            if (cashBalance > MAX_REASONABLE_CASH) {
+                console.warn(`⚠️ [RISK MANAGER] Cash balance anomalo (€${cashBalance.toLocaleString()}), usando limite conservativo €${MAX_REASONABLE_CASH.toLocaleString()}`);
+                const conservativeMax = Math.min(totalEquity * maxPositionSizePct, MAX_REASONABLE_CASH);
+                // Se il maxPositionSize calcolato è troppo alto, limitalo
+                if (maxPositionSize > conservativeMax) {
+                    return {
+                        canTrade: false,
+                        reason: `Cash balance anomalo rilevato. Limite conservativo applicato.`,
+                        maxPositionSize: 0,
+                        availableExposure: 0,
+                        dailyLoss: dailyLossPct,
+                        currentExposure: currentExposurePct,
+                        drawdown: drawdown
+                    };
+                }
+            }
 
             // ✅ FIX: Prevent dust trading (posizioni insignificanti)
             const MIN_POSITION_SIZE = 5.0; // Minimo €5 per trade

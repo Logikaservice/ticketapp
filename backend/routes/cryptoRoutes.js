@@ -1020,10 +1020,20 @@ const CORRELATION_GROUPS = {
 };
 
 // Config Strategia Ibrida
+// ✅ LOGICA DINAMICA: Limiti aumentati se win rate è alto (>80%)
+// Con win rate 90%, ha senso essere più aggressivi e aprire più posizioni
 const HYBRID_STRATEGY_CONFIG = {
-    MAX_POSITIONS_PER_GROUP: 5, // ✅ FIX: Ridotto drasticamente per evitare troppe posizioni
-    MAX_TOTAL_POSITIONS: 10, // ✅ FIX: Massimo 10 posizioni totali (ragionevole per saldo €1000)
+    MAX_POSITIONS_PER_GROUP: 10, // ✅ Aumentato: Permette più posizioni per simbolo se win rate alto
+    MAX_TOTAL_POSITIONS: 30, // ✅ Aumentato: Con win rate 90%, 30 posizioni è ragionevole (€1000 / 30 = ~€33 per posizione)
     MAX_EXPOSURE_PER_GROUP_PCT: 1.0, // Rimosso limite esposizione per gruppo (gestito dal Risk Manager globale)
+    
+    // ✅ Limiti dinamici basati su win rate
+    getMaxPositionsForWinRate: (winRate) => {
+        if (winRate >= 0.90) return 30; // Win rate 90%+ → 30 posizioni
+        if (winRate >= 0.80) return 25; // Win rate 80-89% → 25 posizioni
+        if (winRate >= 0.70) return 20; // Win rate 70-79% → 20 posizioni
+        return 15; // Win rate <70% → 15 posizioni (più conservativo)
+    }
 };
 
 // Symbol to CoinGecko ID mapping
@@ -1315,7 +1325,86 @@ const getCorrelationGroup = (symbol) => {
  * @param {Array} openPositions - Posizioni già aperte
  * @returns {Object} { allowed: boolean, reason: string, groupPositions: number }
  */
-const canOpenPositionHybridStrategy = async (symbol, openPositions) => {
+// ✅ Helper: Calcola score qualità di un nuovo segnale
+const calculateNewSignalQualityScore = (signal, symbol, signalType) => {
+    if (!signal) return { score: 0 };
+    
+    let score = 0;
+    
+    // 1. Strength del segnale (0-100)
+    score += signal.strength || 0;
+    
+    // 2. Bonus per conferme (max +30)
+    score += Math.min((signal.confirmations || 0) * 10, 30);
+    
+    // 3. Bonus per MTF alignment (se presente)
+    if (signal.mtf && signal.mtf.bonus) {
+        score += signal.mtf.bonus;
+    }
+    
+    // 4. Penalità se ATR blocked
+    if (signal.atrBlocked) {
+        score -= 50; // Penalità forte per mercato non adatto
+    }
+    
+    return {
+        score: score,
+        strength: signal.strength || 0,
+        confirmations: signal.confirmations || 0
+    };
+};
+
+// ✅ Helper: Calcola score qualità di una posizione esistente
+const calculatePositionQualityScore = async (position) => {
+    if (!position) return { score: 0, pnlPct: 0, signalStrength: 0 };
+    
+    let score = 0;
+    const pnlPct = parseFloat(position.profit_loss_pct) || 0;
+    
+    // 1. P&L percentuale (score principale)
+    score += pnlPct * 10; // P&L positivo aumenta score, negativo lo diminuisce
+    
+    // 2. Penalità per posizioni vecchie senza guadagno
+    const openedAt = new Date(position.opened_at);
+    const hoursOpen = (Date.now() - openedAt.getTime()) / (1000 * 60 * 60);
+    if (hoursOpen > 24 && pnlPct < 1.0) {
+        score -= 20; // Posizione vecchia senza guadagno significativo
+    }
+    
+    // 3. Bonus per posizioni con buon profitto
+    if (pnlPct > 2.0) {
+        score += 30; // Bonus per profitti solidi
+    }
+    
+    // 4. Penalità forte per perdite significative
+    if (pnlPct < -2.0) {
+        score -= 50; // Penalità forte per perdite
+    }
+    
+    // 5. Strength del segnale originale (se disponibile)
+    let signalStrength = 0;
+    try {
+        if (position.signal_details) {
+            const signalDetails = typeof position.signal_details === 'string' 
+                ? JSON.parse(position.signal_details) 
+                : position.signal_details;
+            signalStrength = signalDetails.strength || signalDetails.mtf?.adjustedStrength || 0;
+            score += signalStrength * 0.1; // Piccolo bonus per segnali forti
+        }
+    } catch (e) {
+        // Ignora errori di parsing
+    }
+    
+    return {
+        score: score,
+        pnlPct: pnlPct,
+        signalStrength: signalStrength,
+        hoursOpen: hoursOpen,
+        position: position
+    };
+};
+
+const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = null, signalType = null) => {
     const group = getCorrelationGroup(symbol);
 
     if (!group) {
@@ -1338,13 +1427,33 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions) => {
         };
     }
 
+    // ✅ LOGICA DINAMICA: Calcola limite max posizioni basato su win rate
+    let maxTotalPositions = HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
+    try {
+        const db = require('../crypto_db');
+        const stats = await new Promise((resolve, reject) => {
+            db.get("SELECT * FROM performance_stats WHERE id = 1", (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
+        });
+        
+        if (stats && stats.total_trades >= 10) {
+            const winRate = stats.total_trades > 0 ? stats.winning_trades / stats.total_trades : 0.5;
+            maxTotalPositions = HYBRID_STRATEGY_CONFIG.getMaxPositionsForWinRate(winRate);
+            console.log(`📊 [DYNAMIC POSITIONS] Win rate ${(winRate * 100).toFixed(1)}% → Max positions: ${maxTotalPositions}`);
+        }
+    } catch (e) {
+        // Usa default se errore
+    }
+    
     // ✅ LOGICA INTELLIGENTE: Se limite totale raggiunto, confronta nuovo segnale con posizioni esistenti
-    if (openPositions.length >= HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS) {
+    if (openPositions.length >= maxTotalPositions) {
         // Se non abbiamo il nuovo segnale, non possiamo confrontare - blocca
         if (!newSignal || !signalType) {
             return {
                 allowed: false,
-                reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS} total positions (current: ${openPositions.length}). Nuovo segnale non fornito per confronto.`,
+                reason: `Max ${maxTotalPositions} total positions (current: ${openPositions.length}). Nuovo segnale non fornito per confronto.`,
                 groupPositions: groupPositions.length
             };
         }
@@ -1390,7 +1499,7 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions) => {
             
             return {
                 allowed: false,
-                reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS} total positions. Nuovo segnale (score: ${newSignalScore.score.toFixed(2)}) NON migliore della posizione peggiore (score: ${worstPosition.score.toFixed(2)})`,
+                reason: `Max ${maxTotalPositions} total positions. Nuovo segnale (score: ${newSignalScore.score.toFixed(2)}) NON migliore della posizione peggiore (score: ${worstPosition.score.toFixed(2)})`,
                 groupPositions: groupPositions.length,
                 worstPositionScore: worstPosition.score,
                 newSignalScore: newSignalScore.score
