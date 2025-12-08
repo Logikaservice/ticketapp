@@ -862,8 +862,8 @@ const CORRELATION_GROUPS = {
 
 // Config Strategia Ibrida
 const HYBRID_STRATEGY_CONFIG = {
-    MAX_POSITIONS_PER_GROUP: 20, // Aumentato drasticamente per permettere pyramiding
-    MAX_TOTAL_POSITIONS: 50, // Aumentato per permettere molte posizioni
+    MAX_POSITIONS_PER_GROUP: 5, // ✅ FIX: Ridotto drasticamente per evitare troppe posizioni
+    MAX_TOTAL_POSITIONS: 10, // ✅ FIX: Massimo 10 posizioni totali (ragionevole per saldo €1000)
     MAX_EXPOSURE_PER_GROUP_PCT: 1.0, // Rimosso limite esposizione per gruppo (gestito dal Risk Manager globale)
 };
 

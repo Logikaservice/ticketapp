@@ -489,17 +489,58 @@ const CryptoDashboard = () => {
                 return; // Skip positions with no remaining volume
             }
             
+            // ✅ FIX CRITICO: Valida che volume e prezzi siano ragionevoli
+            const MAX_REASONABLE_VOLUME = 1000000; // 1 milione di unità max
+            const MAX_REASONABLE_PRICE = 1000000; // 1 milione EUR max per unità
+            
+            if (remainingVolume > MAX_REASONABLE_VOLUME) {
+                console.error(`🚨 [BALANCE] Volume anomale per posizione ${pos.ticket_id}: ${remainingVolume}. Skipping.`);
+                return;
+            }
+            
             // Use live price if available, otherwise try currentSymbol price or position's last known price
-            const price = allSymbolPrices[pos.symbol] || (pos.symbol === currentSymbol ? currentPrice : parseFloat(pos.current_price) || 0);
+            let price = allSymbolPrices[pos.symbol] || (pos.symbol === currentSymbol ? currentPrice : parseFloat(pos.current_price) || 0);
+            
+            // ✅ FIX CRITICO: Valida che il prezzo sia ragionevole
+            if (price > MAX_REASONABLE_PRICE) {
+                console.error(`🚨 [BALANCE] Prezzo anomale per ${pos.symbol}: €${price.toLocaleString()}. Usando entry_price come fallback.`);
+                // Usa entry_price come fallback se il prezzo è anomale
+                const fallbackPrice = parseFloat(pos.entry_price) || 0;
+                if (fallbackPrice > 0 && fallbackPrice <= MAX_REASONABLE_PRICE) {
+                    price = fallbackPrice;
+                } else {
+                    console.error(`🚨 [BALANCE] Anche entry_price è anomale (${fallbackPrice}). Skipping posizione ${pos.ticket_id}.`);
+                    return;
+                }
+            }
 
             if (pos.type === 'buy' && pos.status === 'open') {
-                totalLongValue += remainingVolume * price;
+                const longValue = remainingVolume * price;
+                // ✅ FIX: Valida che il valore calcolato sia ragionevole
+                if (longValue > MAX_REASONABLE_BALANCE) {
+                    console.error(`🚨 [BALANCE] Valore LONG anomale per ${pos.ticket_id}: €${longValue.toLocaleString()}. Skipping.`);
+                    return;
+                }
+                totalLongValue += longValue;
             } else if (pos.type === 'sell' && pos.status === 'open') {
                 // ✅ FIX: Per SHORT, il debito è FISSO all'entry price (quanto crypto dobbiamo restituire)
                 // NON usiamo current_price perché il debito non cambia - solo il P&L cambia
                 const entryPrice = parseFloat(pos.entry_price) || 0;
+                
+                // ✅ FIX: Valida entry_price
+                if (entryPrice > MAX_REASONABLE_PRICE) {
+                    console.error(`🚨 [BALANCE] Entry price anomale per SHORT ${pos.ticket_id}: €${entryPrice.toLocaleString()}. Skipping.`);
+                    return;
+                }
+                
                 if (entryPrice > 0) {
-                    totalShortLiability += remainingVolume * entryPrice;
+                    const shortLiability = remainingVolume * entryPrice;
+                    // ✅ FIX: Valida che il valore calcolato sia ragionevole
+                    if (shortLiability > MAX_REASONABLE_BALANCE) {
+                        console.error(`🚨 [BALANCE] Valore SHORT anomale per ${pos.ticket_id}: €${shortLiability.toLocaleString()}. Skipping.`);
+                        return;
+                    }
+                    totalShortLiability += shortLiability;
                 }
             }
         });
@@ -518,11 +559,48 @@ const CryptoDashboard = () => {
     const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni di euro max (soglia di sicurezza)
     const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min (per permettere debiti)
     
+    // ✅ DEBUG CRITICO: Log valori PRIMA della validazione per capire da dove viene il problema
+    console.log('🔍 [BALANCE DEBUG - RAW VALUES]', {
+        'portfolio.balance_usd (raw)': portfolio.balance_usd,
+        'rawBalance (parsed)': rawBalance,
+        'totalLongValue': totalLongValue,
+        'totalShortLiability': totalShortLiability,
+        'openPositions count': validOpenPositions.length,
+        'allSymbolPrices keys': Object.keys(allSymbolPrices),
+        'currentPrice': currentPrice,
+        'currentSymbol': currentSymbol
+    });
+    
+    // ✅ DEBUG: Log dettagli per ogni posizione aperta
+    if (validOpenPositions.length > 0) {
+        console.log('🔍 [BALANCE DEBUG - OPEN POSITIONS]', validOpenPositions.map(pos => ({
+            ticket_id: pos.ticket_id,
+            symbol: pos.symbol,
+            type: pos.type,
+            volume: pos.volume,
+            volume_closed: pos.volume_closed,
+            entry_price: pos.entry_price,
+            current_price: pos.current_price,
+            'price from allSymbolPrices': allSymbolPrices[pos.symbol],
+            'calculated remainingVolume': (parseFloat(pos.volume) || 0) - (parseFloat(pos.volume_closed) || 0),
+            'calculated longValue (if buy)': pos.type === 'buy' ? ((parseFloat(pos.volume) || 0) - (parseFloat(pos.volume_closed) || 0)) * (allSymbolPrices[pos.symbol] || parseFloat(pos.current_price) || 0) : 0,
+            'calculated shortLiability (if sell)': pos.type === 'sell' ? ((parseFloat(pos.volume) || 0) - (parseFloat(pos.volume_closed) || 0)) * (parseFloat(pos.entry_price) || 0) : 0
+        })));
+    }
+    
     let validatedBalance = rawBalance;
     if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
         console.error(`🚨 [BALANCE] Valore anomale di balance_usd: €${rawBalance.toLocaleString()}. Usando fallback: €10000`);
         validatedBalance = 10000; // Fallback a 10k EUR
     }
+    
+    // ✅ DEBUG: Log valori DOPO la validazione
+    console.log('🔍 [BALANCE DEBUG - VALIDATED VALUES]', {
+        'validatedBalance': validatedBalance,
+        'totalLongValue': totalLongValue,
+        'totalShortLiability': totalShortLiability,
+        'totalBalance (calculated)': validatedBalance + totalLongValue - totalShortLiability
+    });
     
     const totalBalance = validatedBalance + totalLongValue - totalShortLiability;
     
