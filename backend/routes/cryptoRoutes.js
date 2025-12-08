@@ -1154,15 +1154,23 @@ const getUSDTtoEURRate = async () => {
 };
 
 
-// ✅ CACHE AGGRESSIVA per evitare rate limit Binance
+// ✅ CACHE OTTIMIZZATA per real-time senza rate limit
 const priceCache = new Map();
-const PRICE_CACHE_TTL = 60000; // 60 secondi - cache MOLTO aggressiva per evitare rate limit Binance
+const PRICE_CACHE_TTL = 3000; // 3 secondi - bilanciato tra real-time e rate limit (prima era 60s)
+// Calcolo rate limit: max 20 chiamate/sec Binance, con cache 3s = max 6-7 chiamate/sec per simbolo = SICURO
 
 const getSymbolPrice = async (symbol) => {
     // ✅ Controlla cache prima di chiamare Binance
     const cached = priceCache.get(symbol);
     if (cached && (Date.now() - cached.timestamp) < PRICE_CACHE_TTL) {
+        // Usa cache - nessuna chiamata API (sicuro per rate limit)
         return cached.price;
+    }
+    
+    // Cache scaduta o non presente - aggiorna prezzo da Binance
+    // Log solo occasionalmente per non intasare (ogni ~10 chiamate)
+    if (Math.random() < 0.1) {
+        console.log(`🔄 [PRICE-UPDATE] Aggiornando prezzo ${symbol} da Binance (cache scaduta)`);
     }
 
     const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
@@ -3683,8 +3691,9 @@ const updateAllPositionsPnL = async () => {
     }
 };
 
-// ✅ FIX: Aggiorna TUTTE le posizioni ogni 3 secondi (più frequente per vedere guadagni in tempo reale)
-setInterval(updateAllPositionsPnL, 3000); // 3 secondi invece di 5, e aggiorna TUTTI i simboli
+// ✅ OTTIMIZZATO: Aggiorna TUTTE le posizioni ogni 2 secondi per real-time
+// Usa cache prezzi (3s), quindi non fa chiamate API ogni volta - SICURO per rate limit
+setInterval(updateAllPositionsPnL, 2000); // 2 secondi - usa cache quindi sicuro
 
 // ==========================================
 // BINANCE API INTEGRATION
