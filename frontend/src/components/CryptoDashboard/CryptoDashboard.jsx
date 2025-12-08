@@ -1003,41 +1003,7 @@ const CryptoDashboard = () => {
             <div className="crypto-card" style={{ marginTop: '20px' }}>
                 <div className="card-title">
                     <RefreshCw size={20} className="text-gray-400" />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                        <h3 style={{ margin: 0 }}>Closed Positions History</h3>
-                        <button
-                            onClick={async () => {
-                                try {
-                                    const response = await fetch(`${apiBase}/api/crypto/fix-closed-positions-pnl`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' }
-                                    });
-                                    const result = await response.json();
-                                    if (result.success) {
-                                        alert(`✅ Corrette ${result.fixed_count} posizioni su ${result.total_closed_positions}`);
-                                        fetchData(); // Ricarica i dati
-                                    } else {
-                                        alert(`❌ Errore: ${result.error || 'Errore sconosciuto'}`);
-                                    }
-                                } catch (error) {
-                                    console.error('Error fixing P&L:', error);
-                                    alert(`❌ Errore: ${error.message}`);
-                                }
-                            }}
-                            style={{
-                                padding: '8px 16px',
-                                backgroundColor: '#3b82f6',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                fontWeight: '500'
-                            }}
-                        >
-                            🔧 Corregge P&L Anomali
-                        </button>
-                    </div>
+                    Closed Positions History
                 </div>
                 <div className="trades-list">
                     {closedPositions.length === 0 ? (

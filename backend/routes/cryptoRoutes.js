@@ -6323,6 +6323,106 @@ router.post('/fix-closed-positions-pnl', async (req, res) => {
     }
 });
 
+// ✅ ENDPOINT DIAGNOSTICA: Analisi completa Total Balance
+router.get('/total-balance-analysis', async (req, res) => {
+    try {
+        const portfolio = await getPortfolio();
+        const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
+        const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 10");
+        
+        // Calcola capitale investito in posizioni aperte
+        let capitalInvested = 0;
+        const positionsDetail = [];
+        
+        openPositions.forEach(pos => {
+            const volume = parseFloat(pos.volume) || 0;
+            const volumeClosed = parseFloat(pos.volume_closed) || 0;
+            const remainingVolume = volume - volumeClosed;
+            const entryPrice = parseFloat(pos.entry_price) || 0;
+            const invested = remainingVolume * entryPrice;
+            capitalInvested += invested;
+            
+            positionsDetail.push({
+                ticket_id: pos.ticket_id,
+                symbol: pos.symbol,
+                type: pos.type,
+                entry_price: entryPrice,
+                volume: remainingVolume,
+                capital_invested: invested
+            });
+        });
+        
+        // Calcola P&L realizzato da posizioni chiuse
+        let realizedPnL = 0;
+        closedPositions.forEach(pos => {
+            const pnl = parseFloat(pos.profit_loss) || 0;
+            realizedPnL += pnl;
+        });
+        
+        // Balance attuale dal DB
+        const currentBalance = parseFloat(portfolio.balance_usd) || 0;
+        
+        // Calcolo teorico: Se parti con X, investi Y, chiudi con P&L Z
+        // Balance finale = X - Y + (capitale tornato) + P&L
+        // Ma non conosciamo X iniziale, quindi calcoliamo:
+        // X teorico = Balance attuale + Capitale investito - P&L realizzato
+        const theoreticalInitialCapital = currentBalance + capitalInvested - realizedPnL;
+        
+        // Equity totale (cash + valore posizioni)
+        let totalEquity = currentBalance;
+        for (const pos of openPositions) {
+            if (pos.type === 'buy') {
+                // LONG: valore attuale delle crypto
+                try {
+                    const price = await getSymbolPrice(pos.symbol);
+                    const volume = parseFloat(pos.volume) || 0;
+                    const volumeClosed = parseFloat(pos.volume_closed) || 0;
+                    const remainingVolume = volume - volumeClosed;
+                    totalEquity += remainingVolume * price;
+                } catch (e) {
+                    // Skip se errore
+                }
+            } else {
+                // SHORT: debito fisso (entry_price * volume)
+                const volume = parseFloat(pos.volume) || 0;
+                const volumeClosed = parseFloat(pos.volume_closed) || 0;
+                const remainingVolume = volume - volumeClosed;
+                const entryPrice = parseFloat(pos.entry_price) || 0;
+                totalEquity -= remainingVolume * entryPrice; // Debito da sottrarre
+            }
+        }
+        
+        res.json({
+            current_balance_db: currentBalance,
+            capital_invested_open_positions: capitalInvested,
+            realized_pnl_closed_positions: realizedPnL,
+            theoretical_initial_capital: theoreticalInitialCapital,
+            total_equity: totalEquity,
+            open_positions_count: openPositions.length,
+            closed_positions_count: closedPositions.length,
+            explanation: {
+                total_balance_shows: "Capitale disponibile (cash) = balance_usd dal database",
+                formula: "Total Balance = balance_usd (capitale disponibile, non include posizioni aperte)",
+                equity_formula: "Equity Totale = balance_usd + valore posizioni LONG - debito posizioni SHORT",
+                note: "Se parti con €1000 e investi €500, Total Balance mostra €500 (capitale disponibile)"
+            },
+            positions_detail: positionsDetail,
+            recent_closed_positions: closedPositions.slice(0, 5).map(pos => ({
+                ticket_id: pos.ticket_id,
+                symbol: pos.symbol,
+                type: pos.type,
+                entry_price: pos.entry_price,
+                close_price: pos.current_price,
+                profit_loss: pos.profit_loss,
+                closed_at: pos.closed_at
+            }))
+        });
+    } catch (error) {
+        console.error('❌ Error in total balance analysis:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ✅ ENDPOINT DIAGNOSTICA: Verifica calcolo balance
 router.get('/balance-diagnostic', async (req, res) => {
     try {
