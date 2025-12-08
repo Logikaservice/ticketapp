@@ -6635,18 +6635,53 @@ router.get('/scanner', async (req, res) => {
                 const adjustedStrength = Math.max(0, rawStrength + mtfBonus);
                 const displayStrength = Math.min(adjustedStrength, 100); // Cap at 100 for display
 
-                // ✅ FIX CRITICO: Usa ESATTAMENTE la stessa logica di bot-analysis/Deep Analysis
-                // COPIA ESATTA della logica da riga 5670-5682 (bot-analysis endpoint)
-                let rsiValue = signal?.indicators?.rsi || null; // Fallback iniziale
+                // ✅ RSI NORMALE (quello attuale)
+                let rsiValue = signal?.indicators?.rsi || null;
                 try {
-                    // ✅ STESSA LOGICA ESATTA di bot-analysis (riga 5672-5674)
                     const prices = historyForSignal.map(h => h.close || h.price);
                     if (prices.length >= 15) {
                         rsiValue = calculateRSI(prices, 14);
                     }
                 } catch (rsiError) {
-                    // Silenzioso, usa fallback
                     rsiValue = signal?.indicators?.rsi || null;
+                }
+
+                // ✅ RSI DEEP ANALYSIS: Chiama la stessa funzione helper che usa bot-analysis
+                let rsiDeepAnalysis = null;
+                try {
+                    // ✅ REPLICA ESATTA della logica di bot-analysis (righe 5452-5682)
+                    // 1. Prepara historyForSignal esattamente come bot-analysis
+                    const deepAnalysisHistoryData = await dbAll(
+                        "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
+                        [s.symbol]
+                    );
+                    
+                    let deepAnalysisHistory = [];
+                    if (deepAnalysisHistoryData && deepAnalysisHistoryData.length > 0) {
+                        deepAnalysisHistory = deepAnalysisHistoryData.reverse().map(row => ({
+                            price: parseFloat(row.close_price),
+                            high: parseFloat(row.high_price),
+                            low: parseFloat(row.low_price),
+                            close: parseFloat(row.close_price),
+                            timestamp: new Date(row.open_time).toISOString()
+                        }));
+                    }
+                    
+                    // 2. Aggiorna ultima candela con prezzo corrente (stessa logica bot-analysis)
+                    if (deepAnalysisHistory.length > 0) {
+                        const lastCandle = deepAnalysisHistory[deepAnalysisHistory.length - 1];
+                        lastCandle.close = currentPrice;
+                        lastCandle.price = currentPrice;
+                    }
+                    
+                    // 3. Calcola RSI esattamente come bot-analysis (riga 5672-5674)
+                    const deepPrices = deepAnalysisHistory.map(h => h.close || h.price);
+                    if (deepPrices.length >= 15) {
+                        rsiDeepAnalysis = calculateRSI(deepPrices, 14);
+                    }
+                } catch (deepRsiError) {
+                    // Silenzioso
+                    rsiDeepAnalysis = null;
                 }
 
                 // ✅ LOG per debug - DETAILED
@@ -6671,7 +6706,8 @@ router.get('/scanner', async (req, res) => {
                     strength: displayStrength, // MTF-adjusted strength (0-100)
                     confirmations: signal?.confirmations || 0,
                     reasons: signal?.reasons || ['Nessun segnale'],
-                    rsi: rsiValue // RSI calcolato con ultima candela aggiornata (periodo 14, stesso di bot-analysis)
+                    rsi: rsiValue, // RSI normale (quello attuale)
+                    rsi_deep_analysis: rsiDeepAnalysis // ✅ RSI da Deep Analysis (stesso calcolo esatto)
                 };
             } catch (err) {
                 console.error(`[SCANNER] Errore completo per ${s.symbol}:`, err.message);

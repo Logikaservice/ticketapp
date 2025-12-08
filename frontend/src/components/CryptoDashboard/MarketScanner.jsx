@@ -87,6 +87,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                             <th style={{ padding: '10px', textAlign: 'center' }}>Signal</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Strength</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>RSI</th>
+                            <th style={{ padding: '10px', textAlign: 'center' }}>RSI Deep</th>
                             <th style={{ padding: '10px', textAlign: 'left' }}>Top Reason</th>
                             <th style={{ padding: '10px', textAlign: 'center' }}>Action</th>
                         </tr>
@@ -154,56 +155,52 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                                 <span style={{ color: strengthColor, fontWeight: 'bold' }}>{item.strength}</span>
                                             </div>
                                         </td>
+                                        <td style={{ padding: '10px', textAlign: 'center', color: item.rsi < 30 ? '#4ade80' : item.rsi > 70 ? '#f87171' : '#9ca3af' }}>
+                                            {item.rsi?.toFixed(1) || 'N/A'}
+                                        </td>
                                         <td style={{ padding: '10px', textAlign: 'center' }}>
                                             {(() => {
-                                                const rsi = item.rsi;
-                                                if (!rsi) return <span style={{ color: '#6b7280' }}>N/A</span>;
+                                                const rsiDeep = item.rsi_deep_analysis;
+                                                if (rsiDeep === null || rsiDeep === undefined) {
+                                                    return <span style={{ color: '#6b7280' }}>N/A</span>;
+                                                }
                                                 
-                                                // ✅ DEEP ANALYSIS RSI: Mostra direzione long/short basata su RSI
-                                                // RSI < 30: Oversold (bullish per LONG) - Verde
-                                                // RSI > 70: Overbought (bearish per SHORT) - Rosso
-                                                // RSI 30-70: Neutro - Grigio
-                                                // Per SHORT: RSI alto (>70) è positivo, RSI basso (<30) è negativo
-                                                // Per LONG: RSI basso (<30) è positivo, RSI alto (>70) è negativo
-                                                
-                                                let rsiColor = '#9ca3af'; // Neutro
+                                                // ✅ RSI DEEP ANALYSIS: Stesso calcolo di Deep Analysis
+                                                let rsiColor = '#9ca3af';
                                                 let rsiDirection = '';
-                                                let rsiTooltip = `RSI: ${rsi.toFixed(1)}`;
+                                                let rsiTooltip = `RSI Deep Analysis: ${rsiDeep.toFixed(1)}`;
                                                 
                                                 if (item.direction === 'SHORT') {
-                                                    // Per SHORT: RSI alto è positivo (overbought = opportunità short)
-                                                    if (rsi > 70) {
-                                                        rsiColor = '#f87171'; // Rosso = Overbought = Buono per SHORT
+                                                    if (rsiDeep > 70) {
+                                                        rsiColor = '#f87171';
                                                         rsiDirection = '↓';
                                                         rsiTooltip += ' (Overbought - Buono per SHORT)';
-                                                    } else if (rsi < 30) {
-                                                        rsiColor = '#4ade80'; // Verde = Oversold = Cattivo per SHORT
+                                                    } else if (rsiDeep < 30) {
+                                                        rsiColor = '#4ade80';
                                                         rsiDirection = '↑';
                                                         rsiTooltip += ' (Oversold - Cattivo per SHORT)';
                                                     } else {
-                                                        rsiColor = '#eab308'; // Giallo = Neutro
+                                                        rsiColor = '#eab308';
                                                         rsiTooltip += ' (Neutro)';
                                                     }
                                                 } else if (item.direction === 'LONG') {
-                                                    // Per LONG: RSI basso è positivo (oversold = opportunità long)
-                                                    if (rsi < 30) {
-                                                        rsiColor = '#4ade80'; // Verde = Oversold = Buono per LONG
+                                                    if (rsiDeep < 30) {
+                                                        rsiColor = '#4ade80';
                                                         rsiDirection = '↑';
                                                         rsiTooltip += ' (Oversold - Buono per LONG)';
-                                                    } else if (rsi > 70) {
-                                                        rsiColor = '#f87171'; // Rosso = Overbought = Cattivo per LONG
+                                                    } else if (rsiDeep > 70) {
+                                                        rsiColor = '#f87171';
                                                         rsiDirection = '↓';
                                                         rsiTooltip += ' (Overbought - Cattivo per LONG)';
                                                     } else {
-                                                        rsiColor = '#eab308'; // Giallo = Neutro
+                                                        rsiColor = '#eab308';
                                                         rsiTooltip += ' (Neutro)';
                                                     }
                                                 } else {
-                                                    // NEUTRAL: Mostra colore standard basato su RSI
-                                                    if (rsi < 30) {
+                                                    if (rsiDeep < 30) {
                                                         rsiColor = '#4ade80';
                                                         rsiTooltip += ' (Oversold)';
-                                                    } else if (rsi > 70) {
+                                                    } else if (rsiDeep > 70) {
                                                         rsiColor = '#f87171';
                                                         rsiTooltip += ' (Overbought)';
                                                     }
@@ -212,7 +209,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                                 return (
                                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }} title={rsiTooltip}>
                                                         <span style={{ color: rsiColor, fontWeight: 'bold', fontSize: '0.9rem' }}>
-                                                            {rsi.toFixed(1)}
+                                                            {rsiDeep.toFixed(1)}
                                                         </span>
                                                         {rsiDirection && (
                                                             <span style={{ color: rsiColor, fontSize: '0.8rem' }}>
