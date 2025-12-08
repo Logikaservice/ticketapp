@@ -2883,15 +2883,88 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
 
         console.log(`🔒 CLOSING POSITION: ${ticketId} | Type: ${pos.type} | Entry: €${pos.entry_price} | Close: €${closePrice} | Volume: ${remainingVolume.toFixed(8)}/${pos.volume.toFixed(8)} | Reason: ${reason}`);
 
+        // ✅ FIX CRITICO: Valida che il prezzo di chiusura sia ragionevole
+        const entryPrice = parseFloat(pos.entry_price) || 0;
+        const MAX_REASONABLE_PRICE = 1000000; // 1 milione EUR max
+        const MIN_REASONABLE_PRICE = 0.000001; // Minimo ragionevole
+        
+        // ✅ FIX: Calcola range ragionevole basato su entry_price (max 10x o min 0.1x)
+        const reasonablePriceMax = entryPrice > 0 ? entryPrice * 10 : MAX_REASONABLE_PRICE;
+        const reasonablePriceMin = entryPrice > 0 ? entryPrice * 0.1 : MIN_REASONABLE_PRICE;
+        
+        if (closePrice > MAX_REASONABLE_PRICE || closePrice < MIN_REASONABLE_PRICE) {
+            console.error(`🚨 [CLOSE POSITION] Prezzo di chiusura anomale per ${pos.symbol}: €${closePrice.toLocaleString()}`);
+            console.error(`   Entry price: €${entryPrice.toFixed(6)}, Close price: €${closePrice.toFixed(6)}`);
+            console.error(`   Range ragionevole: €${reasonablePriceMin.toFixed(6)} - €${reasonablePriceMax.toFixed(6)}`);
+            
+            // ✅ FIX: Prova a recuperare il prezzo corretto
+            try {
+                const correctPrice = await getSymbolPrice(pos.symbol);
+                if (correctPrice > 0 && correctPrice <= MAX_REASONABLE_PRICE && correctPrice >= MIN_REASONABLE_PRICE) {
+                    console.log(`✅ [CLOSE POSITION] Prezzo corretto recuperato: €${correctPrice.toFixed(6)} (era €${closePrice.toFixed(6)})`);
+                    closePrice = correctPrice;
+                } else {
+                    throw new Error(`Prezzo corretto non disponibile (€${correctPrice})`);
+                }
+            } catch (priceError) {
+                console.error(`❌ [CLOSE POSITION] Errore recupero prezzo corretto:`, priceError.message);
+                throw new Error(`Impossibile chiudere posizione ${ticketId}: prezzo anomale (€${closePrice.toLocaleString()}) e impossibile recuperare prezzo corretto`);
+            }
+        } else if (closePrice > reasonablePriceMax || closePrice < reasonablePriceMin) {
+            // Prezzo fuori range ragionevole rispetto all'entry, ma non completamente assurdo
+            console.warn(`⚠️ [CLOSE POSITION] Prezzo di chiusura sospetto per ${pos.symbol}: €${closePrice.toFixed(6)} (entry: €${entryPrice.toFixed(6)})`);
+            console.warn(`   Range ragionevole: €${reasonablePriceMin.toFixed(6)} - €${reasonablePriceMax.toFixed(6)}`);
+            console.warn(`   Verifico prezzo corretto...`);
+            
+            // ✅ FIX: Verifica con prezzo corrente
+            try {
+                const currentPrice = await getSymbolPrice(pos.symbol);
+                if (currentPrice > 0 && currentPrice <= MAX_REASONABLE_PRICE && currentPrice >= MIN_REASONABLE_PRICE) {
+                    const priceDiff = Math.abs(closePrice - currentPrice) / currentPrice;
+                    if (priceDiff > 0.5) { // Se differenza > 50%, usa prezzo corrente
+                        console.warn(`⚠️ [CLOSE POSITION] Prezzo passato (€${closePrice.toFixed(6)}) differisce >50% da prezzo corrente (€${currentPrice.toFixed(6)})`);
+                        console.warn(`   → Uso prezzo corrente: €${currentPrice.toFixed(6)}`);
+                        closePrice = currentPrice;
+                    }
+                }
+            } catch (priceError) {
+                console.warn(`⚠️ [CLOSE POSITION] Non posso verificare prezzo corrente:`, priceError.message);
+                // Continua con il prezzo passato se non completamente assurdo
+            }
+        }
+
         // Calculate final P&L on REMAINING volume only
         let finalPnl = 0;
         if (pos.type === 'buy') {
-            finalPnl = (closePrice - pos.entry_price) * remainingVolume;
+            // LONG: profit quando prezzo sale
+            finalPnl = (closePrice - entryPrice) * remainingVolume;
         } else {
-            finalPnl = (pos.entry_price - closePrice) * remainingVolume;
+            // SHORT: profit quando prezzo scende
+            finalPnl = (entryPrice - closePrice) * remainingVolume;
+        }
+        
+        // ✅ FIX CRITICO: Calcola profit_loss_pct CORRETTAMENTE per LONG e SHORT
+        let profitLossPct = 0;
+        if (entryPrice > 0) {
+            if (pos.type === 'buy') {
+                // LONG: % = (closePrice - entryPrice) / entryPrice * 100
+                profitLossPct = ((closePrice - entryPrice) / entryPrice) * 100;
+            } else {
+                // SHORT: % = (entryPrice - closePrice) / entryPrice * 100
+                profitLossPct = ((entryPrice - closePrice) / entryPrice) * 100;
+            }
+        }
+        
+        // ✅ FIX: Valida anche il P&L calcolato
+        const MAX_REASONABLE_PNL = 1000000; // 1 milione EUR max
+        if (Math.abs(finalPnl) > MAX_REASONABLE_PNL) {
+            console.error(`🚨 [CLOSE POSITION] P&L calcolato anomale: €${finalPnl.toLocaleString()}`);
+            console.error(`   Entry: €${entryPrice}, Close: €${closePrice}, Volume: ${remainingVolume}`);
+            throw new Error(`P&L calcolato anomale (€${finalPnl.toLocaleString()}). Verifica prezzi e volume.`);
         }
 
-        console.log(`💰 P&L CALCULATION: ${pos.type.toUpperCase()} | (${closePrice} - ${pos.entry_price}) * ${remainingVolume} = €${finalPnl.toFixed(2)}`);
+        console.log(`💰 P&L CALCULATION: ${pos.type.toUpperCase()} | Entry: €${entryPrice.toFixed(6)} | Close: €${closePrice.toFixed(6)} | Volume: ${remainingVolume.toFixed(8)}`);
+        console.log(`   P&L: €${finalPnl.toFixed(2)} | P&L%: ${profitLossPct >= 0 ? '+' : ''}${profitLossPct.toFixed(2)}%`);
 
         // Update portfolio
         const portfolio = await getPortfolio();
@@ -2941,9 +3014,10 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
             status = 'closed';
         }
 
+        // ✅ FIX CRITICO: Salva anche profit_loss_pct quando si chiude la posizione
         await dbRun(
-            "UPDATE open_positions SET status = ?, closed_at = CURRENT_TIMESTAMP, current_price = ?, profit_loss = ? WHERE ticket_id = ?",
-            [status, closePrice, finalPnl, ticketId]
+            "UPDATE open_positions SET status = ?, closed_at = CURRENT_TIMESTAMP, current_price = ?, profit_loss = ?, profit_loss_pct = ? WHERE ticket_id = ?",
+            [status, closePrice, finalPnl, profitLossPct, ticketId]
         );
 
         // Record in trades history (use remaining volume, not full volume)
@@ -3011,8 +3085,18 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
         const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
         const duration = `${hours}h ${minutes}m`;
 
-        // Calculate profit/loss percentage
-        const profitLossPercent = ((closePrice - pos.entry_price) / pos.entry_price) * 100;
+        // ✅ FIX: Calcola profit/loss percentage CORRETTAMENTE per LONG e SHORT
+        // (Nota: profitLossPct è già stato calcolato sopra, ma lo ricalcoliamo qui per l'email)
+        let profitLossPercent = 0;
+        if (pos.entry_price > 0) {
+            if (pos.type === 'buy') {
+                // LONG: % = (closePrice - entryPrice) / entryPrice * 100
+                profitLossPercent = ((closePrice - pos.entry_price) / pos.entry_price) * 100;
+            } else {
+                // SHORT: % = (entryPrice - closePrice) / entryPrice * 100
+                profitLossPercent = ((pos.entry_price - closePrice) / pos.entry_price) * 100;
+            }
+        }
 
         // Send email notification
         sendCryptoEmail('position_closed', {
