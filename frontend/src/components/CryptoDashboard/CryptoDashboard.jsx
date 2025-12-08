@@ -451,9 +451,10 @@ const CryptoDashboard = () => {
     }, [portfolio.holdings, openPositions, apiBase]);
 
     // Calculate total balance (EUR + All Crypto values - Short Liabilities)
-    // Calculate total balance (EUR + All Crypto values - Short Liabilities)
+    // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
+    // Se hai €1000 totali e investi €500, il Total Balance mostra €500 (capitale disponibile)
+    // Il valore delle posizioni è già "bloccato" e non è disponibile come cash
     // ✅ FIX: Use ONLY open positions effectively ignoring 'portfolio.holdings' which might be corrupted
-    // This ensures Total Balance strictly reflects Cash + Open Positions Value
     const holdings = portfolio.holdings || {}; // Restore this for fallback logic
     
     // ✅ FIX CRITICO: Filtra STRICTO solo posizioni aperte PRIMA di usarle (evita ReferenceError)
@@ -597,13 +598,17 @@ const CryptoDashboard = () => {
     
     // ✅ DEBUG: Log valori DOPO la validazione
     console.log('🔍 [BALANCE DEBUG - VALIDATED VALUES]', {
-        'validatedBalance': validatedBalance,
-        'totalLongValue': totalLongValue,
-        'totalShortLiability': totalShortLiability,
-        'totalBalance (calculated)': validatedBalance + totalLongValue - totalShortLiability
+        'validatedBalance (available cash)': validatedBalance,
+        'totalLongValue (invested in LONG)': totalLongValue,
+        'totalShortLiability (SHORT debt)': totalShortLiability,
+        'totalBalance (available cash only)': validatedBalance,
+        'portfolio equity (cash + positions)': validatedBalance + totalLongValue - totalShortLiability
     });
     
-    const totalBalance = validatedBalance + totalLongValue - totalShortLiability;
+    // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
+    // Se hai €1000 totali e investi €500, il Total Balance deve mostrare €500 (capitale disponibile)
+    // Il valore delle posizioni (totalLongValue - totalShortLiability) è già "bloccato" e non è disponibile
+    const totalBalance = validatedBalance; // Solo capitale disponibile, non equity totale
     
     // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend
     // ✅ FIX: Validazione STRICTA - solo posizioni con status === 'open' e dati validi
@@ -742,7 +747,7 @@ const CryptoDashboard = () => {
             {/* TOP STATS GRID - 4 COLUMNS (separato Impostazioni) */}
             <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.8fr 0.6fr', gap: '20px', marginBottom: '20px' }}>
                 <div className="balance-card" style={{ marginBottom: 0 }}>
-                    <div className="balance-label">Total Balance</div>
+                    <div className="balance-label">Total Balance (Available Cash)</div>
                     <div className="balance-amount">€{totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     <div className="balance-change change-positive">
                         <ArrowUpRight size={16} /> +2.4% Today
