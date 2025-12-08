@@ -95,7 +95,6 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                         {scanResults.map((item, idx) => {
                             const isLong = item.direction === 'LONG';
                             const isShort = item.direction === 'SHORT';
-                            const isNeutral = item.direction === 'NEUTRAL';
                             const strengthColor = item.strength >= 80 ? '#22c55e' : item.strength >= 60 ? '#eab308' : '#6b7280';
 
                             return (
@@ -109,7 +108,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                             {item.display}
                                         </td>
                                         <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
-                                            €{item.price.toFixed(4)}
+                                            {item.display && item.display.includes('USDT') ? '$' : '€'}{item.price.toFixed(4)}
                                         </td>
                                         <td style={{ padding: '10px', textAlign: 'right' }}>
                                             {(() => {
@@ -117,13 +116,15 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                                 const MIN_VOLUME = 500_000;
                                                 const volumeColor = vol >= MIN_VOLUME * 2 ? '#22c55e' : vol >= MIN_VOLUME ? '#eab308' : '#ef4444';
 
+                                                const currency = item.display && item.display.includes('USDT') ? '$' : '€';
+
                                                 let formatted = '';
                                                 if (vol >= 1_000_000) {
-                                                    formatted = `€${(vol / 1_000_000).toFixed(1)}M`;
+                                                    formatted = `${currency}${(vol / 1_000_000).toFixed(1)}M`;
                                                 } else if (vol >= 1_000) {
-                                                    formatted = `€${(vol / 1_000).toFixed(0)}K`;
+                                                    formatted = `${currency}${(vol / 1_000).toFixed(0)}K`;
                                                 } else {
-                                                    formatted = `€${vol.toFixed(0)}`;
+                                                    formatted = `${currency}${vol.toFixed(0)}`;
                                                 }
 
                                                 return (
@@ -201,115 +202,121 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                             </div>
                                         </td>
                                     </tr>
-                                    {expandedSymbol === item.symbol && (
-                                        <tr style={{ background: '#1c1c1e', borderBottom: '1px solid #374151' }}>
-                                            <td colSpan="8" style={{ padding: '15px' }}>
-                                                {analysisLoading ? (
-                                                    <div style={{ color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        <RefreshCw className="spin" size={16} /> Caricamento analisi rapida...
-                                                    </div>
-                                                ) : quickAnalysis ? (
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                                        {/* LONG COLUMN */}
-                                                        <div style={{ padding: '10px', background: 'rgba(34, 197, 94, 0.05)', borderRadius: '6px', border: '1px solid rgba(34, 197, 94, 0.1)' }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                                                <h4 style={{ margin: 0, color: '#4ade80', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <TrendingUp size={16} /> LONG
-                                                                </h4>
-                                                                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: quickAnalysis?.requirements?.long?.canOpen ? '#4ade80' : '#9ca3af' }}>
-                                                                    {quickAnalysis?.requirements?.long?.canOpen ? 'READY' : 'WAITING'}
-                                                                </span>
-                                                            </div>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem' }}>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                                    <span style={{ color: '#9ca3af' }}>Strength:</span>
-                                                                    <span style={{ color: '#fff' }}>
-                                                                        {quickAnalysis?.requirements?.long?.currentStrength || 0} <span style={{ color: '#6b7280' }}>/ {quickAnalysis?.requirements?.long?.minStrength || 0}</span>
-                                                                    </span>
-                                                                </div>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                                    <span style={{ color: '#9ca3af' }}>Confirms:</span>
-                                                                    <span style={{ color: '#fff' }}>
-                                                                        {quickAnalysis?.requirements?.long?.currentConfirmations || 0} <span style={{ color: '#6b7280' }}>/ {quickAnalysis?.requirements?.long?.minConfirmations || 0}</span>
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            {quickAnalysis?.blockers?.long?.length > 0 && (
-                                                                <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                                                                    <div style={{ color: '#f87171', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
-                                                                        <Lock size={12} /> Blockers:
-                                                                    </div>
-                                                                    <ul style={{ margin: 0, paddingLeft: '15px', color: '#fca5a5', fontSize: '0.8rem' }}>
-                                                                        {quickAnalysis.blockers.long.map((b, i) => (
-                                                                            <li key={i}>{b.type}</li>
-                                                                        ))}
-                                                                    </ul>
-                                                                </div>
-                                                            )}
+                                    {
+                                        expandedSymbol === item.symbol && (
+                                            <tr style={{ background: '#1c1c1e', borderBottom: '1px solid #374151' }}>
+                                                <td colSpan="8" style={{ padding: '15px' }}>
+                                                    {analysisLoading ? (
+                                                        <div style={{ color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <RefreshCw className="spin" size={16} /> Caricamento analisi rapida...
                                                         </div>
+                                                    ) : quickAnalysis ? (
+                                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                                            {/* LONG COLUMN */}
+                                                            <div style={{ padding: '10px', background: 'rgba(34, 197, 94, 0.05)', borderRadius: '6px', border: '1px solid rgba(34, 197, 94, 0.1)' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                                    <h4 style={{ margin: 0, color: '#4ade80', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                        <TrendingUp size={16} /> LONG
+                                                                    </h4>
+                                                                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: quickAnalysis?.requirements?.long?.canOpen ? '#4ade80' : '#9ca3af' }}>
+                                                                        {quickAnalysis?.requirements?.long?.canOpen ? 'READY' : 'WAITING'}
+                                                                    </span>
+                                                                </div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem' }}>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                        <span style={{ color: '#9ca3af' }}>Strength:</span>
+                                                                        <span style={{ color: '#fff' }}>
+                                                                            {quickAnalysis?.requirements?.long?.currentStrength || 0} <span style={{ color: '#6b7280' }}>/ {quickAnalysis?.requirements?.long?.minStrength || 0}</span>
+                                                                        </span>
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                        <span style={{ color: '#9ca3af' }}>Confirms:</span>
+                                                                        <span style={{ color: '#fff' }}>
+                                                                            {quickAnalysis?.requirements?.long?.currentConfirmations || 0} <span style={{ color: '#6b7280' }}>/ {quickAnalysis?.requirements?.long?.minConfirmations || 0}</span>
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                {quickAnalysis?.blockers?.long?.length > 0 && (
+                                                                    <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                                                        <div style={{ color: '#f87171', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                                                                            <Lock size={12} /> Blockers:
+                                                                        </div>
+                                                                        <ul style={{ margin: 0, paddingLeft: '15px', color: '#fca5a5', fontSize: '0.8rem' }}>
+                                                                            {quickAnalysis.blockers.long.map((b, i) => (
+                                                                                <li key={i}>{b.type}</li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    </div>
+                                                                )}
+                                                            </div>
 
-                                                        {/* SHORT COLUMN */}
-                                                        <div style={{ padding: '10px', background: 'rgba(248, 113, 113, 0.05)', borderRadius: '6px', border: '1px solid rgba(248, 113, 113, 0.1)' }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                                                                <h4 style={{ margin: 0, color: '#f87171', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <TrendingDown size={16} /> SHORT
-                                                                </h4>
-                                                                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: quickAnalysis?.requirements?.short?.canOpen ? '#f87171' : '#9ca3af' }}>
-                                                                    {quickAnalysis?.requirements?.short?.canOpen ? 'READY' : 'WAITING'}
-                                                                </span>
-                                                            </div>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem' }}>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                                    <span style={{ color: '#9ca3af' }}>Strength:</span>
-                                                                    <span style={{ color: '#fff' }}>
-                                                                        {quickAnalysis?.requirements?.short?.currentStrength || 0} <span style={{ color: '#6b7280' }}>/ {quickAnalysis?.requirements?.short?.minStrength || 0}</span>
+                                                            {/* SHORT COLUMN */}
+                                                            <div style={{ padding: '10px', background: 'rgba(248, 113, 113, 0.05)', borderRadius: '6px', border: '1px solid rgba(248, 113, 113, 0.1)' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                                                    <h4 style={{ margin: 0, color: '#f87171', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                        <TrendingDown size={16} /> SHORT
+                                                                    </h4>
+                                                                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: quickAnalysis?.requirements?.short?.canOpen ? '#f87171' : '#9ca3af' }}>
+                                                                        {quickAnalysis?.requirements?.short?.canOpen ? 'READY' : 'WAITING'}
                                                                     </span>
                                                                 </div>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                                    <span style={{ color: '#9ca3af' }}>Confirms:</span>
-                                                                    <span style={{ color: '#fff' }}>
-                                                                        {quickAnalysis?.requirements?.short?.currentConfirmations || 0} <span style={{ color: '#6b7280' }}>/ {quickAnalysis?.requirements?.short?.minConfirmations || 0}</span>
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            {quickAnalysis?.blockers?.short?.length > 0 && (
-                                                                <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                                                                    <div style={{ color: '#f87171', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
-                                                                        <Lock size={12} /> Blockers:
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem' }}>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                        <span style={{ color: '#9ca3af' }}>Strength:</span>
+                                                                        <span style={{ color: '#fff' }}>
+                                                                            {quickAnalysis?.requirements?.short?.currentStrength || 0} <span style={{ color: '#6b7280' }}>/ {quickAnalysis?.requirements?.short?.minStrength || 0}</span>
+                                                                        </span>
                                                                     </div>
-                                                                    <ul style={{ margin: 0, paddingLeft: '15px', color: '#fca5a5', fontSize: '0.8rem' }}>
-                                                                        {quickAnalysis.blockers.short.map((b, i) => (
-                                                                            <li key={i}>{b.type}</li>
-                                                                        ))}
-                                                                    </ul>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                        <span style={{ color: '#9ca3af' }}>Confirms:</span>
+                                                                        <span style={{ color: '#fff' }}>
+                                                                            {quickAnalysis?.requirements?.short?.currentConfirmations || 0} <span style={{ color: '#6b7280' }}>/ {quickAnalysis?.requirements?.short?.minConfirmations || 0}</span>
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
-                                                            )}
+                                                                {quickAnalysis?.blockers?.short?.length > 0 && (
+                                                                    <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                                                        <div style={{ color: '#f87171', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                                                                            <Lock size={12} /> Blockers:
+                                                                        </div>
+                                                                        <ul style={{ margin: 0, paddingLeft: '15px', color: '#fca5a5', fontSize: '0.8rem' }}>
+                                                                            {quickAnalysis.blockers.short.map((b, i) => (
+                                                                                <li key={i}>{b.type}</li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ) : (
-                                                    <div style={{ color: '#ef4444' }}>Errore caricamento dati analisi.</div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    )}
+                                                    ) : (
+                                                        <div style={{ color: '#ef4444' }}>Errore caricamento dati analisi.</div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        )
+                                    }
                                 </React.Fragment>
                             );
                         })}
-                        {scanResults.length === 0 && !loading && (
-                            <tr>
-                                <td colSpan="7" style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
-                                    No data available. Click Scan Now.
-                                </td>
-                            </tr>
-                        )}
+                        {
+                            scanResults.length === 0 && !loading && (
+                                <tr>
+                                    <td colSpan="8" style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
+                                        No data available. Click Scan Now.
+                                    </td>
+                                </tr>
+                            )
+                        }
                     </tbody>
                 </table>
             </div>
-            {lastScan && (
-                <div style={{ textAlign: 'right', marginTop: '10px', fontSize: '0.75rem', color: '#6b7280' }}>
-                    Last scan: {lastScan.toLocaleTimeString()}
-                </div>
-            )}
+            {
+                lastScan && (
+                    <div style={{ textAlign: 'right', marginTop: '10px', fontSize: '0.75rem', color: '#6b7280' }}>
+                        Last scan: {lastScan.toLocaleTimeString()}
+                    </div>
+                )
+            }
         </div>
     );
 };

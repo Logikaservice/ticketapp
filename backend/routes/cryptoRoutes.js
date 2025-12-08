@@ -5123,6 +5123,21 @@ router.get('/scanner', async (req, res) => {
             // FILEUR, SANDEUR, AAVEEUR, CRVEUR, LDOEUR, MANAEUR, AXSEUR
         ];
 
+        // ✅ OTTIMIZZAZIONE: Scarica TUTTI i prezzi in una sola chiamata per evitare rate limits
+        const allPricesMap = new Map();
+        try {
+            // console.log('🔍 [SCANNER] Fetching ALL live prices from Binance...');
+            const allPrices = await httpsGet('https://api.binance.com/api/v3/ticker/price', 5000); // 5s timeout
+            if (Array.isArray(allPrices)) {
+                allPrices.forEach(p => {
+                    allPricesMap.set(p.symbol, parseFloat(p.price));
+                });
+                // console.log(`✅ [SCANNER] Fetched ${allPrices.length} prices`);
+            }
+        } catch (err) {
+            console.error('⚠️ [SCANNER] Bulk price fetch failed:', err.message);
+        }
+
         const results = await Promise.all(symbolsToScan.map(async (s) => {
             try {
                 // 1. Get Price History (reuse logic from bot-analysis)
@@ -5169,28 +5184,32 @@ router.get('/scanner', async (req, res) => {
                 // ✅ FIX: Aggiorna sempre l'ultima candela con il prezzo corrente (stessa logica di /bot-analysis)
                 // Questo garantisce che RSI e altri indicatori siano calcolati con dati in tempo reale
                 let currentPrice = historyForSignal[historyForSignal.length - 1].close;
-                try {
-                    // Prova a ottenere il prezzo corrente da Binance (LIVE)
-                    const priceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${s.pair}`;
-                    // Timeout breve per evitare rallentamenti eccessivi (1.5s)
-                    const priceData = await httpsGet(priceUrl, 1500).catch(() => null);
 
-                    if (priceData && priceData.price) {
-                        const livePrice = parseFloat(priceData.price);
-                        // ✅ Validazione: Accetta il prezzo solo se sensato (non zero e non infinitamente diverso)
-                        if (livePrice > 0) {
-                            currentPrice = livePrice;
-                            // console.log(`[SCANNER] Prezzo LIVE per ${s.symbol}: ${livePrice} (DB: ${historyForSignal[historyForSignal.length - 1].close})`);
+                // 1. Prova Bulk Map (Velocissimo e sincronizzato)
+                if (allPricesMap.has(s.pair)) {
+                    currentPrice = allPricesMap.get(s.pair);
+                } else {
+                    try {
+                        // 2. Fallback: Prova fetch singolo (se bulk fallito o simbolo mancante)
+                        const priceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${s.pair}`;
+                        // Timeout breve per evitare rallentamenti eccessivi (1.5s)
+                        const priceData = await httpsGet(priceUrl, 1500).catch(() => null);
+
+                        if (priceData && priceData.price) {
+                            const livePrice = parseFloat(priceData.price);
+                            if (livePrice > 0) {
+                                currentPrice = livePrice;
+                            }
+                        } else {
+                            // 3. Fallback finale: Database
+                            const lastPriceDb = await dbGet("SELECT price FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 1", [s.symbol]);
+                            if (lastPriceDb && lastPriceDb.price) {
+                                currentPrice = parseFloat(lastPriceDb.price);
+                            }
                         }
-                    } else {
-                        // Fallback: Prova database price_history recentissimo
-                        const lastPriceDb = await dbGet("SELECT price FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 1", [s.symbol]);
-                        if (lastPriceDb && lastPriceDb.price) {
-                            currentPrice = parseFloat(lastPriceDb.price);
-                        }
+                    } catch (err) {
+                        // Silenzioso, usa close price
                     }
-                } catch (err) {
-                    // Silenzioso, usa close price
                 }
 
                 // Aggiorna l'ultima candela con il prezzo corrente se è ancora aperta (o sempre per scanner)
