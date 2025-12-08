@@ -619,6 +619,71 @@ router.post('/reset', async (req, res) => {
     }
 });
 
+// POST /api/crypto/cleanup-positions (Chiudi posizioni in eccesso oltre MAX_TOTAL_POSITIONS)
+router.post('/cleanup-positions', async (req, res) => {
+    try {
+        const { max_positions } = req.body;
+        const targetMax = max_positions && !isNaN(parseInt(max_positions)) ? parseInt(max_positions) : HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
+        
+        // Recupera tutte le posizioni aperte ordinate per data (più vecchie prima)
+        const allOpenPositions = await dbAll(
+            "SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at ASC"
+        );
+        
+        const currentCount = allOpenPositions.length;
+        
+        if (currentCount <= targetMax) {
+            return res.json({
+                success: true,
+                message: `Nessuna pulizia necessaria. Posizioni aperte: ${currentCount}/${targetMax}`,
+                current_count: currentCount,
+                target_max: targetMax,
+                closed_count: 0
+            });
+        }
+        
+        const positionsToClose = currentCount - targetMax;
+        const positionsToCloseList = allOpenPositions.slice(0, positionsToClose);
+        
+        let closedCount = 0;
+        const closedPositions = [];
+        
+        for (const pos of positionsToCloseList) {
+            try {
+                // Ottieni prezzo corrente per chiudere
+                const currentPrice = await getSymbolPrice(pos.symbol);
+                
+                if (currentPrice > 0) {
+                    // Chiudi la posizione
+                    await closePosition(pos.ticket_id, currentPrice, 'cleanup (troppe posizioni)');
+                    closedCount++;
+                    closedPositions.push({
+                        ticket_id: pos.ticket_id,
+                        symbol: pos.symbol,
+                        reason: 'cleanup (troppe posizioni)'
+                    });
+                }
+            } catch (closeErr) {
+                console.error(`⚠️ Error closing position ${pos.ticket_id} during cleanup:`, closeErr.message);
+            }
+        }
+        
+        console.log(`🧹 [CLEANUP] Chiuse ${closedCount} posizioni in eccesso. Da ${currentCount} a ${currentCount - closedCount} posizioni.`);
+        
+        res.json({
+            success: true,
+            message: `Chiuse ${closedCount} posizioni in eccesso. Da ${currentCount} a ${currentCount - closedCount} posizioni.`,
+            current_count: currentCount,
+            target_max: targetMax,
+            closed_count: closedCount,
+            closed_positions: closedPositions
+        });
+    } catch (err) {
+        console.error('Error cleaning up positions:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // POST /api/crypto/add-funds (Add Funds to Portfolio - Simulation)
 router.post('/add-funds', async (req, res) => {
     try {
