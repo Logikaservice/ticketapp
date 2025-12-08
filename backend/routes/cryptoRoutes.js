@@ -6725,18 +6725,17 @@ router.get('/scanner', async (req, res) => {
                     rsiValue = signal?.indicators?.rsi || null;
                 }
 
-                // ✅ RSI DEEP ANALYSIS: Usa signalGenerator.calculateRSI() (stessa formula di Deep Analysis)
-                // Deep Analysis mostra signal.indicators.rsi che viene da signalGenerator.generateSignal()
-                // signalGenerator usa EMA (Exponential Moving Average) per RSI, non SMA!
+                // ✅ RSI DEEP ANALYSIS: Usa ESATTAMENTE la stessa logica di bot-analysis endpoint
+                // Deep Analysis (riga 5749-5761) ricalcola RSI con calculateRSI() globale (SMA)
+                // NON usa signal.indicators.rsi (che è EMA), ma ricalcola con calculateRSI()
                 let rsiDeepAnalysis = null;
                 try {
-                    // ✅ USA LA STESSA historyForSignal che viene usata per generare il signal
-                    // Questo garantisce che i dati siano identici
+                    // ✅ STESSA LOGICA ESATTA di bot-analysis riga 5751-5753
                     const deepPrices = historyForSignal.map(h => h.close || h.price);
                     if (deepPrices.length >= 15) {
-                        // ✅ CRITICAL: Usa signalGenerator.calculateRSI() non calculateRSI() globale!
-                        // signalGenerator.calculateRSI() usa EMA, calculateRSI() globale usa SMA
-                        rsiDeepAnalysis = signalGenerator.calculateRSI(deepPrices, 14);
+                        // ✅ CRITICAL: Usa calculateRSI() GLOBALE (SMA), non signalGenerator.calculateRSI() (EMA)!
+                        // Questo è quello che Deep Analysis mostra nella risposta (riga 6101: rsi: rsi || 0)
+                        rsiDeepAnalysis = calculateRSI(deepPrices, 14);
                     }
                 } catch (deepRsiError) {
                     // Silenzioso
