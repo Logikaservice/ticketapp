@@ -101,45 +101,40 @@ const dbAll = (query, params = []) => {
 };
 
 // Helper to get portfolio
-const getPortfolio = () => {
-    return new Promise((resolve, reject) => {
-        try {
-            db.get("SELECT * FROM portfolio LIMIT 1", (err, row) => {
-                if (err) {
-                    console.error('❌ Error getting portfolio:', err.message);
-                    // ✅ FIX: Ritorna portfolio di default invece di crashare
-                    resolve({ balance_usd: 10000.0, holdings: '{}' });
-                } else if (!row) {
-                    // ✅ FIX: Se non esiste, ritorna default
-                    resolve({ balance_usd: 10000.0, holdings: '{}' });
-                } else {
-                    // ✅ FIX CRITICO: Valida balance_usd per evitare valori assurdi
-                    const rawBalance = parseFloat(row.balance_usd) || 0;
-                    const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni di euro max
-                    const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min
-                    
-                    if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
-                        console.error(`🚨 [PORTFOLIO] Valore anomale di balance_usd nel database: €${rawBalance.toLocaleString()}. Usando fallback: €10000`);
-                        // ✅ FIX: Aggiorna il database con valore valido
-                        db.run("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [10000], (updateErr) => {
-                            if (updateErr) {
-                                console.error('❌ Error fixing portfolio balance:', updateErr.message);
-                            } else {
-                                console.log('✅ [PORTFOLIO] Balance corretto nel database a €10000');
-                            }
-                        });
-                        row.balance_usd = 10000; // Usa valore valido per questa chiamata
-                    }
-                    
-                    resolve(row);
-                }
-            });
-        } catch (e) {
-            console.error('❌ Exception getting portfolio:', e.message);
-            // ✅ FIX: Ritorna default invece di crashare
-            resolve({ balance_usd: 10000.0, holdings: '{}' });
+const getPortfolio = async () => {
+    try {
+        const row = await dbGet("SELECT * FROM portfolio LIMIT 1");
+        
+        if (!row) {
+            // ✅ FIX: Se non esiste, ritorna default
+            return { balance_usd: 10000.0, holdings: '{}' };
         }
-    });
+        
+        // ✅ FIX CRITICO: Valida balance_usd per evitare valori assurdi
+        const rawBalance = parseFloat(row.balance_usd) || 0;
+        const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni di euro max
+        const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min
+        
+        if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
+            console.error(`🚨 [PORTFOLIO] Valore anomale di balance_usd nel database: €${rawBalance.toLocaleString()}. Correggendo automaticamente a €10000`);
+            // ✅ FIX CRITICO: Aggiorna il database con valore valido
+            try {
+                await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [10000]);
+                console.log('✅ [PORTFOLIO] Balance corretto automaticamente nel database a €10000');
+                row.balance_usd = 10000; // Usa valore valido per questa chiamata
+            } catch (updateErr) {
+                console.error('❌ Error fixing portfolio balance:', updateErr.message);
+                // Anche se l'update fallisce, usa comunque il valore valido per questa chiamata
+                row.balance_usd = 10000;
+            }
+        }
+        
+        return row;
+    } catch (e) {
+        console.error('❌ Exception getting portfolio:', e.message);
+        // ✅ FIX: Ritorna default invece di crashare
+        return { balance_usd: 10000.0, holdings: '{}' };
+    }
 };
 
 // GET /api/crypto/history (Get chart data)
