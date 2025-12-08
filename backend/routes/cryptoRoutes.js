@@ -115,6 +115,9 @@ const getPortfolio = async () => {
         const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni di euro max
         const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min
         
+        // ✅ DEBUG: Log balance per tracciare calcoli
+        console.log(`💰 [BALANCE CHECK] Raw balance_usd dal DB: €${rawBalance.toFixed(2)}`);
+        
         if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
             console.error(`🚨 [PORTFOLIO] Valore anomale di balance_usd nel database: €${rawBalance.toLocaleString()}. Correggendo automaticamente a €10000`);
             // ✅ FIX CRITICO: Aggiorna il database con valore valido
@@ -128,6 +131,10 @@ const getPortfolio = async () => {
                 row.balance_usd = 10000;
             }
         }
+        
+        // ✅ DEBUG: Log balance finale dopo validazione
+        const finalBalance = parseFloat(row.balance_usd) || 0;
+        console.log(`💰 [BALANCE CHECK] Balance finale dopo validazione: €${finalBalance.toFixed(2)}`);
         
         return row;
     } catch (e) {
@@ -2285,12 +2292,14 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
             balance -= cost;
             holdings[symbol] = (holdings[symbol] || 0) + volume;
             console.log(`💵 LONG OPEN: Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (-€${cost.toFixed(2)}) | Holdings: ${holdings[symbol].toFixed(8)}`);
+            console.log(`   📊 [BALANCE LOGIC] Capitale investito: €${cost.toFixed(2)}, Capitale disponibile ora: €${balance.toFixed(2)}`);
         } else {
             // ✅ FIX CRITICO: Short position - ricevi denaro ma NON toccare holdings
             // In uno SHORT vendi allo scoperto (non possiedi la crypto), quindi holdings NON cambiano
             balance += cost;
             // holdings[symbol] NON DEVE CAMBIARE all'apertura di uno SHORT
             console.log(`💵 SHORT OPEN: Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (+€${cost.toFixed(2)}) | Holdings: ${holdings[symbol] || 0} (unchanged - short position)`);
+            console.log(`   📊 [BALANCE LOGIC] Capitale ricevuto da SHORT: €${cost.toFixed(2)}, Capitale disponibile ora: €${balance.toFixed(2)}`);
         }
 
         const ticketId = generateTicketId();
@@ -2893,14 +2902,24 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
 
         if (pos.type === 'buy') {
             // Selling: add money, remove crypto (only remaining volume)
+            // ✅ LOGICA: Quando chiudi LONG, ricevi: closePrice * volume
+            // Questo include: entryPrice * volume (capitale che torna) + P&L
+            const capitalReturned = pos.entry_price * remainingVolume;
+            const pnlFromClose = (closePrice - pos.entry_price) * remainingVolume;
             balance += closePrice * remainingVolume;
             holdings[pos.symbol] = (holdings[pos.symbol] || 0) - remainingVolume;
             console.log(`💵 LONG CLOSE: Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (+€${(closePrice * remainingVolume).toFixed(2)})`);
+            console.log(`   📊 [BALANCE LOGIC] Capitale tornato: €${capitalReturned.toFixed(2)}, P&L: €${pnlFromClose.toFixed(2)}, Totale ricevuto: €${(closePrice * remainingVolume).toFixed(2)}`);
         } else {
             // Closing short: subtract money, add crypto back (only remaining volume)
+            // ✅ LOGICA: Quando chiudi SHORT, restituisci: closePrice * volume
+            // Questo include: entryPrice * volume (capitale da restituire) - P&L
+            const capitalToReturn = pos.entry_price * remainingVolume;
+            const pnlFromClose = (pos.entry_price - closePrice) * remainingVolume;
             balance -= closePrice * remainingVolume;
             holdings[pos.symbol] = (holdings[pos.symbol] || 0) + remainingVolume;
             console.log(`💵 SHORT CLOSE: Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (-€${(closePrice * remainingVolume).toFixed(2)})`);
+            console.log(`   📊 [BALANCE LOGIC] Capitale da restituire: €${capitalToReturn.toFixed(2)}, P&L: €${pnlFromClose.toFixed(2)}, Totale da restituire: €${(closePrice * remainingVolume).toFixed(2)}`);
         }
 
         // Update database using Promise-based operations (sequentially to ensure order)
@@ -6084,6 +6103,66 @@ router.get('/debug/balance', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Debug balance error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ ENDPOINT DIAGNOSTICA: Verifica calcolo balance
+router.get('/balance-diagnostic', async (req, res) => {
+    try {
+        const portfolio = await getPortfolio();
+        const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
+        const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken')");
+        
+        // Calcola capitale investito in posizioni aperte
+        let capitalInvested = 0;
+        openPositions.forEach(pos => {
+            const volume = parseFloat(pos.volume) || 0;
+            const volumeClosed = parseFloat(pos.volume_closed) || 0;
+            const remainingVolume = volume - volumeClosed;
+            const entryPrice = parseFloat(pos.entry_price) || 0;
+            capitalInvested += remainingVolume * entryPrice;
+        });
+        
+        // Calcola P&L realizzato da posizioni chiuse
+        let realizedPnL = 0;
+        closedPositions.forEach(pos => {
+            const pnl = parseFloat(pos.profit_loss) || 0;
+            realizedPnL += pnl;
+        });
+        
+        // Balance attuale dal DB
+        const currentBalance = parseFloat(portfolio.balance_usd) || 0;
+        
+        // Calcolo teorico: Balance = Capitale iniziale - Capitale investito + P&L realizzato
+        // Ma non conosciamo il capitale iniziale, quindi usiamo: Balance attuale + Capitale investito - P&L realizzato = Capitale iniziale teorico
+        const theoreticalInitialCapital = currentBalance + capitalInvested - realizedPnL;
+        
+        res.json({
+            current_balance_db: currentBalance,
+            capital_invested_open_positions: capitalInvested,
+            realized_pnl_closed_positions: realizedPnL,
+            theoretical_initial_capital: theoreticalInitialCapital,
+            open_positions_count: openPositions.length,
+            closed_positions_count: closedPositions.length,
+            calculation: {
+                formula: 'Balance = Initial Capital - Capital Invested + Realized P&L',
+                current_balance: currentBalance,
+                should_be: theoreticalInitialCapital - capitalInvested + realizedPnL,
+                difference: currentBalance - (theoreticalInitialCapital - capitalInvested + realizedPnL)
+            },
+            open_positions_detail: openPositions.map(pos => ({
+                ticket_id: pos.ticket_id,
+                symbol: pos.symbol,
+                type: pos.type,
+                volume: pos.volume,
+                volume_closed: pos.volume_closed,
+                entry_price: pos.entry_price,
+                capital_invested: (parseFloat(pos.volume) - (parseFloat(pos.volume_closed) || 0)) * parseFloat(pos.entry_price)
+            }))
+        });
+    } catch (error) {
+        console.error('❌ Error in balance diagnostic:', error);
         res.status(500).json({ error: error.message });
     }
 });
