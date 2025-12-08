@@ -620,14 +620,15 @@ router.post('/reset', async (req, res) => {
 });
 
 // POST /api/crypto/cleanup-positions (Chiudi posizioni in eccesso oltre MAX_TOTAL_POSITIONS)
+// ✅ LOGICA INTELLIGENTE: Usa SmartExit per decidere quali posizioni chiudere
 router.post('/cleanup-positions', async (req, res) => {
     try {
         const { max_positions } = req.body;
         const targetMax = max_positions && !isNaN(parseInt(max_positions)) ? parseInt(max_positions) : HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
         
-        // Recupera tutte le posizioni aperte ordinate per data (più vecchie prima)
+        // Recupera tutte le posizioni aperte
         const allOpenPositions = await dbAll(
-            "SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at ASC"
+            "SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC"
         );
         
         const currentCount = allOpenPositions.length;
@@ -643,24 +644,115 @@ router.post('/cleanup-positions', async (req, res) => {
         }
         
         const positionsToClose = currentCount - targetMax;
-        const positionsToCloseList = allOpenPositions.slice(0, positionsToClose);
+        
+        // ✅ LOGICA INTELLIGENTE: Valuta ogni posizione con SmartExit per decidere quali chiudere
+        const SmartExit = require('../services/SmartExit');
+        const positionScores = [];
+        
+        for (const pos of allOpenPositions) {
+            try {
+                // Ottieni prezzo corrente e history
+                const currentPrice = await getSymbolPrice(pos.symbol);
+                const klines = await dbAll(
+                    "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
+                    [pos.symbol]
+                );
+                
+                const priceHistory = klines.reverse().map(k => ({
+                    open: k.open_price,
+                    high: k.high_price,
+                    low: k.low_price,
+                    close: k.close_price,
+                    timestamp: k.open_time
+                }));
+                
+                // ✅ Usa SmartExit per valutare se questa posizione dovrebbe essere chiusa
+                const shouldClose = await SmartExit.shouldClosePosition(pos, priceHistory);
+                
+                // Calcola score per prioritizzare chiusura:
+                // - Score negativo = chiudere prima (perdite, segnali opposti, mercato statico)
+                // - Score positivo = mantenere (profitti, trend valido)
+                let score = 0;
+                
+                const pnlPct = parseFloat(pos.profit_loss_pct) || 0;
+                
+                // 1. Priorità a posizioni in perdita (score negativo)
+                if (pnlPct < 0) {
+                    score -= 100 + Math.abs(pnlPct) * 10; // Più in perdita = score più negativo
+                }
+                
+                // 2. Priorità a posizioni con segnale opposto forte
+                if (shouldClose.reason && shouldClose.reason.includes('opposto')) {
+                    score -= 50;
+                }
+                
+                // 3. Priorità a posizioni in mercato statico senza guadagno
+                if (shouldClose.reason && shouldClose.reason.includes('statico')) {
+                    score -= 30;
+                }
+                
+                // 4. Priorità a posizioni vecchie senza guadagno significativo
+                const openedAt = new Date(pos.opened_at);
+                const hoursOpen = (Date.now() - openedAt.getTime()) / (1000 * 60 * 60);
+                if (hoursOpen > 24 && pnlPct < 1.0) {
+                    score -= 20; // Posizione vecchia (>24h) con poco guadagno
+                }
+                
+                // 5. Mantieni posizioni con buon profitto (score positivo)
+                if (pnlPct > 2.0) {
+                    score += pnlPct * 10; // Più profitto = score più positivo
+                }
+                
+                // 6. Mantieni posizioni con trend valido (da SmartExit)
+                if (shouldClose.reason && shouldClose.reason.includes('MANTENERE')) {
+                    score += 30;
+                }
+                
+                positionScores.push({
+                    position: pos,
+                    score: score,
+                    pnlPct: pnlPct,
+                    shouldClose: shouldClose,
+                    hoursOpen: hoursOpen
+                });
+            } catch (err) {
+                console.error(`⚠️ Error evaluating position ${pos.ticket_id} for cleanup:`, err.message);
+                // Se errore, metti score neutro (chiudi se necessario)
+                positionScores.push({
+                    position: pos,
+                    score: 0,
+                    pnlPct: parseFloat(pos.profit_loss_pct) || 0,
+                    shouldClose: null,
+                    hoursOpen: 0
+                });
+            }
+        }
+        
+        // ✅ Ordina per score (score più negativo = chiudere prima)
+        positionScores.sort((a, b) => a.score - b.score);
+        
+        // ✅ Prendi le prime N posizioni da chiudere (quelle con score più negativo)
+        const positionsToCloseList = positionScores.slice(0, positionsToClose);
         
         let closedCount = 0;
         const closedPositions = [];
         
-        for (const pos of positionsToCloseList) {
+        for (const { position: pos, score, pnlPct, shouldClose } of positionsToCloseList) {
             try {
                 // Ottieni prezzo corrente per chiudere
                 const currentPrice = await getSymbolPrice(pos.symbol);
                 
                 if (currentPrice > 0) {
-                    // Chiudi la posizione
-                    await closePosition(pos.ticket_id, currentPrice, 'cleanup (troppe posizioni)');
+                    // Chiudi la posizione con motivo dettagliato
+                    const reason = shouldClose?.reason || 'cleanup (troppe posizioni)';
+                    await closePosition(pos.ticket_id, currentPrice, `cleanup (score: ${score.toFixed(2)}, P&L: ${pnlPct.toFixed(2)}%, ${reason})`);
                     closedCount++;
                     closedPositions.push({
                         ticket_id: pos.ticket_id,
                         symbol: pos.symbol,
-                        reason: 'cleanup (troppe posizioni)'
+                        score: score,
+                        pnl_pct: pnlPct,
+                        reason: reason
                     });
                 }
             } catch (closeErr) {
@@ -668,15 +760,17 @@ router.post('/cleanup-positions', async (req, res) => {
             }
         }
         
-        console.log(`🧹 [CLEANUP] Chiuse ${closedCount} posizioni in eccesso. Da ${currentCount} a ${currentCount - closedCount} posizioni.`);
+        console.log(`🧹 [CLEANUP INTELLIGENTE] Chiuse ${closedCount} posizioni in eccesso. Da ${currentCount} a ${currentCount - closedCount} posizioni.`);
+        console.log(`📊 [CLEANUP] Posizioni chiuse (score medio: ${(positionScores.slice(0, closedCount).reduce((sum, p) => sum + p.score, 0) / closedCount).toFixed(2)})`);
         
         res.json({
             success: true,
-            message: `Chiuse ${closedCount} posizioni in eccesso. Da ${currentCount} a ${currentCount - closedCount} posizioni.`,
+            message: `Chiuse ${closedCount} posizioni in eccesso usando logica intelligente. Da ${currentCount} a ${currentCount - closedCount} posizioni.`,
             current_count: currentCount,
             target_max: targetMax,
             closed_count: closedCount,
-            closed_positions: closedPositions
+            closed_positions: closedPositions,
+            logic_used: 'SmartExit + P&L + Time-based scoring'
         });
     } catch (err) {
         console.error('Error cleaning up positions:', err);
@@ -1244,13 +1338,64 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions) => {
         };
     }
 
-    // Verifica limite totale posizioni
+    // ✅ LOGICA INTELLIGENTE: Se limite totale raggiunto, confronta nuovo segnale con posizioni esistenti
     if (openPositions.length >= HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS) {
-        return {
-            allowed: false,
-            reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS} total positions (current: ${openPositions.length})`,
-            groupPositions: groupPositions.length
-        };
+        // Se non abbiamo il nuovo segnale, non possiamo confrontare - blocca
+        if (!newSignal || !signalType) {
+            return {
+                allowed: false,
+                reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS} total positions (current: ${openPositions.length}). Nuovo segnale non fornito per confronto.`,
+                groupPositions: groupPositions.length
+            };
+        }
+        
+        // ✅ Calcola score del nuovo segnale
+        const newSignalScore = calculateNewSignalQualityScore(newSignal, symbol, signalType);
+        
+        // ✅ Calcola score di tutte le posizioni esistenti
+        const positionScores = [];
+        for (const pos of openPositions) {
+            const posScore = await calculatePositionQualityScore(pos);
+            positionScores.push(posScore);
+        }
+        
+        // ✅ Ordina per score (score più basso = posizione peggiore)
+        positionScores.sort((a, b) => a.score - b.score);
+        
+        // ✅ Trova la posizione peggiore (score più basso)
+        const worstPosition = positionScores[0];
+        
+        // ✅ Confronta: nuovo segnale deve essere MIGLIORE della posizione peggiore
+        if (newSignalScore.score > worstPosition.score) {
+            console.log(`✅ [SMART REPLACEMENT] Nuovo segnale ${symbol} (score: ${newSignalScore.score.toFixed(2)}) è MIGLIORE della posizione peggiore ${worstPosition.position.symbol} (score: ${worstPosition.score.toFixed(2)})`);
+            console.log(`   → Chiuderò ${worstPosition.position.symbol} (P&L: ${worstPosition.pnlPct.toFixed(2)}%, Trend: ${worstPosition.signalStrength}/100) e aprirò ${symbol}`);
+            
+            return {
+                allowed: true,
+                reason: `Smart replacement: Nuovo segnale migliore della posizione peggiore (${worstPosition.position.symbol})`,
+                groupPositions: groupPositions.length,
+                positionToClose: worstPosition.position.ticket_id,
+                positionToCloseDetails: {
+                    ticket_id: worstPosition.position.ticket_id,
+                    symbol: worstPosition.position.symbol,
+                    score: worstPosition.score,
+                    pnlPct: worstPosition.pnlPct,
+                    signalStrength: worstPosition.signalStrength
+                },
+                newSignalScore: newSignalScore.score
+            };
+        } else {
+            console.log(`🛑 [SMART REPLACEMENT] Nuovo segnale ${symbol} (score: ${newSignalScore.score.toFixed(2)}) NON è migliore della posizione peggiore ${worstPosition.position.symbol} (score: ${worstPosition.score.toFixed(2)})`);
+            console.log(`   → Mantengo posizioni esistenti, non apro nuova posizione`);
+            
+            return {
+                allowed: false,
+                reason: `Max ${HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS} total positions. Nuovo segnale (score: ${newSignalScore.score.toFixed(2)}) NON migliore della posizione peggiore (score: ${worstPosition.score.toFixed(2)})`,
+                groupPositions: groupPositions.length,
+                worstPositionScore: worstPosition.score,
+                newSignalScore: newSignalScore.score
+            };
+        }
     }
 
     return {
@@ -1650,15 +1795,42 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                 console.log(`✅ [MTF] LONG APPROVED: Adjusted strength ${adjustedStrength} >= ${MIN_SIGNAL_STRENGTH}`);
 
-                // ✅ HYBRID STRATEGY - Verifica limiti correlazione
-                const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions);
+                // ✅ HYBRID STRATEGY - Verifica limiti correlazione con LOGICA INTELLIGENTE
+                // ✅ Passa il segnale per confronto con posizioni esistenti
+                const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions, signal, 'buy');
 
                 if (!hybridCheck.allowed) {
                     console.log(`🛑 [HYBRID-STRATEGY] LONG BLOCKED: ${hybridCheck.reason}`);
-                    console.log(`   → Diversification protection: avoiding over-exposure to correlated assets`);
+                    if (hybridCheck.worstPositionScore !== undefined) {
+                        console.log(`   → Nuovo segnale (score: ${hybridCheck.newSignalScore?.toFixed(2)}) NON migliore della posizione peggiore (score: ${hybridCheck.worstPositionScore.toFixed(2)})`);
+                    } else {
+                        console.log(`   → Diversification protection: avoiding over-exposure to correlated assets`);
+                    }
                     // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti
                 } else {
                     console.log(`✅ [HYBRID-STRATEGY] LONG APPROVED: ${hybridCheck.reason}`);
+                    
+                    // ✅ LOGICA INTELLIGENTE: Se c'è una posizione da chiudere, chiudila PRIMA di aprire la nuova
+                    if (hybridCheck.positionToClose) {
+                        try {
+                            const positionToClose = hybridCheck.positionToCloseDetails;
+                            console.log(`🔄 [SMART REPLACEMENT] Chiudendo posizione ${positionToClose.symbol} (${positionToClose.ticket_id}) per aprire ${symbol}`);
+                            
+                            const currentPriceToClose = await getSymbolPrice(positionToClose.symbol);
+                            if (currentPriceToClose > 0) {
+                                await closePosition(
+                                    positionToClose.ticket_id,
+                                    currentPriceToClose,
+                                    `smart replacement (nuovo segnale ${symbol} migliore: score ${hybridCheck.newSignalScore.toFixed(2)} vs ${positionToClose.score.toFixed(2)})`
+                                );
+                                console.log(`✅ [SMART REPLACEMENT] Posizione ${positionToClose.symbol} chiusa. Procedendo con apertura ${symbol}`);
+                            }
+                        } catch (closeErr) {
+                            console.error(`❌ [SMART REPLACEMENT] Errore chiusura posizione per replacement:`, closeErr.message);
+                            // Se fallisce la chiusura, non aprire la nuova (evita superare limite)
+                            return;
+                        }
+                    }
 
                     // Verifica se possiamo aprire LONG
                     // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
@@ -1782,15 +1954,42 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                     console.log(`✅ [MTF] SHORT APPROVED: Adjusted strength ${adjustedStrength} >= ${MIN_SIGNAL_STRENGTH}`);
 
-                    // ✅ HYBRID STRATEGY - Verifica limiti correlazione
-                    const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions);
+                    // ✅ HYBRID STRATEGY - Verifica limiti correlazione con LOGICA INTELLIGENTE
+                    // ✅ Passa il segnale per confronto con posizioni esistenti
+                    const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions, signal, 'sell');
 
                     if (!hybridCheck.allowed) {
                         console.log(`🛑 [HYBRID-STRATEGY] SHORT BLOCKED: ${hybridCheck.reason}`);
-                        console.log(`   → Diversification protection: avoiding over-exposure to correlated assets`);
+                        if (hybridCheck.worstPositionScore !== undefined) {
+                            console.log(`   → Nuovo segnale (score: ${hybridCheck.newSignalScore?.toFixed(2)}) NON migliore della posizione peggiore (score: ${hybridCheck.worstPositionScore.toFixed(2)})`);
+                        } else {
+                            console.log(`   → Diversification protection: avoiding over-exposure to correlated assets`);
+                        }
                         // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti
                     } else {
                         console.log(`✅ [HYBRID-STRATEGY] SHORT APPROVED: ${hybridCheck.reason}`);
+                        
+                        // ✅ LOGICA INTELLIGENTE: Se c'è una posizione da chiudere, chiudila PRIMA di aprire la nuova
+                        if (hybridCheck.positionToClose) {
+                            try {
+                                const positionToClose = hybridCheck.positionToCloseDetails;
+                                console.log(`🔄 [SMART REPLACEMENT] Chiudendo posizione ${positionToClose.symbol} (${positionToClose.ticket_id}) per aprire ${symbol}`);
+                                
+                                const currentPriceToClose = await getSymbolPrice(positionToClose.symbol);
+                                if (currentPriceToClose > 0) {
+                                    await closePosition(
+                                        positionToClose.ticket_id,
+                                        currentPriceToClose,
+                                        `smart replacement (nuovo segnale ${symbol} migliore: score ${hybridCheck.newSignalScore.toFixed(2)} vs ${positionToClose.score.toFixed(2)})`
+                                    );
+                                    console.log(`✅ [SMART REPLACEMENT] Posizione ${positionToClose.symbol} chiusa. Procedendo con apertura ${symbol}`);
+                                }
+                            } catch (closeErr) {
+                                console.error(`❌ [SMART REPLACEMENT] Errore chiusura posizione per replacement:`, closeErr.message);
+                                // Se fallisce la chiusura, non aprire la nuova (evita superare limite)
+                                return;
+                            }
+                        }
 
                         // Verifica se possiamo aprire SHORT
                         // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
