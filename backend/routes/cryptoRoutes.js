@@ -6607,30 +6607,28 @@ router.get('/scanner', async (req, res) => {
                     trend4h = 'neutral';
                 }
 
-                // Determine which signal to show (LONG or SHORT)
-                let displayDirection = signal?.direction || 'NEUTRAL';
-                let rawStrength = signal?.strength || 0;
+                // ✅ STRENGTH UNIFICATO: Usa sempre i valori parziali (come Quick Analysis)
+                // Questo evita il bug dove signal.strength è già cappato a 100
+                const longStrength = signal.longSignal?.strength || 0;
+                const shortStrength = signal.shortSignal?.strength || 0;
 
-                // If NEUTRAL, check partial signals
-                if (signal?.direction === 'NEUTRAL' && signal?.longSignal && signal?.shortSignal) {
-                    const longStrength = signal.longSignal.strength || 0;
-                    const shortStrength = signal.shortSignal.strength || 0;
+                // Determina direzione dominante
+                let displayDirection = 'NEUTRAL';
+                let rawStrength = 0;
 
-                    if (longStrength > shortStrength && longStrength >= 1) {
-                        displayDirection = 'LONG';
-                        rawStrength = longStrength;
-                    } else if (shortStrength > longStrength && shortStrength >= 1) {
-                        displayDirection = 'SHORT';
-                        rawStrength = shortStrength;
-                    } else if (longStrength > 0 || shortStrength > 0) {
-                        if (longStrength >= shortStrength) {
-                            displayDirection = 'LONG';
-                            rawStrength = longStrength;
-                        } else {
-                            displayDirection = 'SHORT';
-                            rawStrength = shortStrength;
-                        }
-                    }
+                if (longStrength > shortStrength && longStrength >= 1) {
+                    displayDirection = 'LONG';
+                    rawStrength = longStrength;
+                } else if (shortStrength > longStrength && shortStrength >= 1) {
+                    displayDirection = 'SHORT';
+                    rawStrength = shortStrength;
+                } else if (longStrength > 0 || shortStrength > 0) {
+                    // Se uguali, usa il maggiore
+                    displayDirection = longStrength >= shortStrength ? 'LONG' : 'SHORT';
+                    rawStrength = Math.max(longStrength, shortStrength);
+                } else {
+                    displayDirection = 'NEUTRAL';
+                    rawStrength = 0;
                 }
 
                 // Calculate MTF bonus/penalty (SAME logic as bot-analysis)
