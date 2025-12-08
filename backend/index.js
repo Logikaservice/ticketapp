@@ -1124,34 +1124,39 @@ app.use('/api/orari', authenticateToken, (req, res, next) => {
 }, orariRoutes);
 
 // Route Vivaldi (per tecnico/admin e clienti con permesso progetto vivaldi)
-app.use('/api/vivaldi', authenticateToken, (req, res, next) => {
-  if (!vivaldiRoutes) {
-    return res.status(503).json({
-      error: 'Vivaldi non disponibile: DATABASE_URL_VIVALDI non configurato'
-    });
-  }
-  // Tecnici e admin hanno sempre accesso
-  if (req.user?.ruolo === 'tecnico' || req.user?.ruolo === 'admin') {
-    console.log(`✅ Accesso Vivaldi autorizzato per STAFF ${req.user.email}`);
-    return next();
-  }
-
-  // Per clienti, verifica che abbiano il progetto "vivaldi" abilitato nel token
-  if (req.user?.ruolo === 'cliente') {
-    const enabledProjects = req.user?.enabled_projects || ['ticket'];
-
-    if (Array.isArray(enabledProjects) && enabledProjects.includes('vivaldi')) {
-      console.log(`✅ Cliente ${req.user.email} ha accesso a Vivaldi`);
+// ✅ FIX: Monta le route solo se vivaldiRoutes non è null per evitare crash
+if (vivaldiRoutes) {
+  app.use('/api/vivaldi', authenticateToken, (req, res, next) => {
+    // Tecnici e admin hanno sempre accesso
+    if (req.user?.ruolo === 'tecnico' || req.user?.ruolo === 'admin') {
+      console.log(`✅ Accesso Vivaldi autorizzato per STAFF ${req.user.email}`);
       return next();
     }
-  }
 
-  // Accesso negato
-  console.log(`❌ Accesso negato a /api/vivaldi per ${req.user?.email} (${req.user?.ruolo})`);
-  return res.status(403).json({
-    error: 'Accesso negato. Non hai i permessi per accedere a Vivaldi.'
+    // Per clienti, verifica che abbiano il progetto "vivaldi" abilitato nel token
+    if (req.user?.ruolo === 'cliente') {
+      const enabledProjects = req.user?.enabled_projects || ['ticket'];
+
+      if (Array.isArray(enabledProjects) && enabledProjects.includes('vivaldi')) {
+        console.log(`✅ Cliente ${req.user.email} ha accesso a Vivaldi`);
+        return next();
+      }
+    }
+
+    // Accesso negato
+    console.log(`❌ Accesso negato a /api/vivaldi per ${req.user?.email} (${req.user?.ruolo})`);
+    return res.status(403).json({
+      error: 'Accesso negato. Non hai i permessi per accedere a Vivaldi.'
+    });
+  }, vivaldiRoutes);
+} else {
+  // ✅ FIX: Se Vivaldi non è disponibile, restituisci 503 per tutte le richieste
+  app.use('/api/vivaldi', authenticateToken, (req, res) => {
+    res.status(503).json({
+      error: 'Vivaldi non disponibile: DATABASE_URL_VIVALDI non configurato'
+    });
   });
-}, vivaldiRoutes);
+}
 
 // Gestione route non trovate (404) - DEVE essere DOPO tutte le route ma PRIMA del middleware errori
 app.use((req, res, next) => {

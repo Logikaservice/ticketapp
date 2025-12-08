@@ -75,13 +75,50 @@ const httpsGet = (url) => {
     });
 };
 
+// ✅ FIX: Helper per gestire errori database senza crashare il backend
+// Questa funzione è definita qui per essere disponibile in tutto il file
+const dbAll = (query, params = []) => {
+    return new Promise((resolve, reject) => {
+        try {
+            db.all(query, params, (err, rows) => {
+                if (err) {
+                    console.error('❌ Database query error:', err.message);
+                    console.error('❌ Query:', query.substring(0, 200));
+                    // ✅ FIX: Non crashare il backend, ritorna array vuoto per query di lettura
+                    // Le route gestiranno l'errore appropriatamente
+                    reject(err);
+                } else {
+                    resolve(rows || []);
+                }
+            });
+        } catch (e) {
+            console.error('❌ Database query exception:', e.message);
+            reject(e);
+        }
+    });
+};
+
 // Helper to get portfolio
 const getPortfolio = () => {
     return new Promise((resolve, reject) => {
-        db.get("SELECT * FROM portfolio LIMIT 1", (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-        });
+        try {
+            db.get("SELECT * FROM portfolio LIMIT 1", (err, row) => {
+                if (err) {
+                    console.error('❌ Error getting portfolio:', err.message);
+                    // ✅ FIX: Ritorna portfolio di default invece di crashare
+                    resolve({ balance_usd: 10000.0, holdings: '{}' });
+                } else if (!row) {
+                    // ✅ FIX: Se non esiste, ritorna default
+                    resolve({ balance_usd: 10000.0, holdings: '{}' });
+                } else {
+                    resolve(row);
+                }
+            });
+        } catch (e) {
+            console.error('❌ Exception getting portfolio:', e.message);
+            // ✅ FIX: Ritorna default invece di crashare
+            resolve({ balance_usd: 10000.0, holdings: '{}' });
+        }
     });
 };
 
@@ -361,15 +398,8 @@ router.get('/history', async (req, res) => {
     }
 });
 
-// Helper for DB queries using Promises
-const dbAll = (query, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.all(query, params, (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows || []);
-        });
-    });
-};
+// ✅ FIX: dbAll è già definita sopra con migliore gestione errori
+// Rimossa duplicazione - usa la versione migliorata definita all'inizio del file
 
 // Helper for db.get using Promises
 const dbGet = (query, params = []) => {

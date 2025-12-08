@@ -1,15 +1,42 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 
 const dbPath = path.resolve(__dirname, 'crypto.db');
 
+// ✅ FIX: Verifica esistenza directory prima di creare database
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+    try {
+        fs.mkdirSync(dbDir, { recursive: true });
+        console.log('✅ Created database directory:', dbDir);
+    } catch (mkdirErr) {
+        console.error('❌ Error creating database directory:', mkdirErr.message);
+    }
+}
+
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
-        console.error('Error opening crypto database:', err.message);
+        console.error('❌ Error opening crypto database:', err.message);
+        console.error('❌ Database path:', dbPath);
+        // ✅ FIX: Non crashare il backend, solo logga l'errore
+        // Il database verrà creato automaticamente alla prima query
     } else {
-        console.log('Connected to the crypto SQLite database.');
-        initDb();
+        console.log('✅ Connected to the crypto SQLite database:', dbPath);
+        try {
+            initDb();
+        } catch (initErr) {
+            console.error('❌ Error initializing crypto database:', initErr.message);
+            console.error('❌ Stack:', initErr.stack);
+            // ✅ FIX: Non crashare, continua comunque
+        }
     }
+});
+
+// ✅ FIX: Gestione errori migliorata per evitare crash
+db.on('error', (err) => {
+    console.error('❌ SQLite database error:', err.message);
+    // Non crashare il backend per errori del database
 });
 
 function initDb() {
