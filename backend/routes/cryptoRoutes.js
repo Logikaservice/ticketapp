@@ -6345,6 +6345,117 @@ router.post('/fix-closed-positions-pnl', async (req, res) => {
     }
 });
 
+// ✅ ENDPOINT DIAGNOSTICA: Mostra problema balance in modo semplice
+router.get('/balance-problem', async (req, res) => {
+    try {
+        const portfolio = await getPortfolio();
+        const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
+        const closedPositions = await dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 100");
+        
+        const currentBalance = parseFloat(portfolio.balance_usd) || 0;
+        
+        // Calcola capitale investito e tornato
+        let investedOpen = 0;
+        let investedClosed = 0;
+        let returnedClosed = 0;
+        let pnlClosed = 0;
+        
+        const problems = [];
+        
+        // Analizza posizioni aperte
+        for (const pos of openPositions) {
+            const vol = parseFloat(pos.volume) || 0;
+            const volClosed = parseFloat(pos.volume_closed) || 0;
+            const remaining = vol - volClosed;
+            const entry = parseFloat(pos.entry_price) || 0;
+            investedOpen += remaining * entry;
+            
+            // Verifica anomalie
+            if (entry > 100000) {
+                problems.push({
+                    type: 'open_anomalous_price',
+                    ticket_id: pos.ticket_id,
+                    symbol: pos.symbol,
+                    issue: `entryPrice €${entry.toFixed(2)} sembra troppo alto (potrebbe essere USDT non convertito)`,
+                    entry_price: entry
+                });
+            }
+        }
+        
+        // Analizza posizioni chiuse
+        for (const pos of closedPositions) {
+            const vol = parseFloat(pos.volume) || 0;
+            const entry = parseFloat(pos.entry_price) || 0;
+            const close = parseFloat(pos.current_price) || 0;
+            const pnl = parseFloat(pos.profit_loss) || 0;
+            
+            investedClosed += vol * entry;
+            returnedClosed += vol * close;
+            pnlClosed += pnl;
+            
+            // Verifica anomalie
+            if (entry > 0 && close > 0) {
+                const ratio = close / entry;
+                if (ratio > 100 || ratio < 0.01) {
+                    problems.push({
+                        type: 'closed_price_mismatch',
+                        ticket_id: pos.ticket_id,
+                        symbol: pos.symbol,
+                        issue: `entryPrice €${entry.toFixed(6)} vs closePrice €${close.toFixed(6)} - ratio ${ratio.toFixed(2)}x (probabile mismatch valuta)`,
+                        entry_price: entry,
+                        close_price: close,
+                        ratio: ratio,
+                        pnl: pnl
+                    });
+                }
+            }
+        }
+        
+        // Calcolo teorico
+        const totalInvested = investedOpen + investedClosed;
+        const expectedBalance = currentBalance + investedOpen - returnedClosed;
+        const theoreticalInitial = expectedBalance;
+        const difference = currentBalance - (theoreticalInitial - investedOpen + returnedClosed);
+        
+        res.json({
+            summary: {
+                current_balance: currentBalance,
+                capital_invested_open: investedOpen,
+                capital_invested_closed: investedClosed,
+                capital_returned_closed: returnedClosed,
+                pnl_closed: pnlClosed,
+                theoretical_initial: theoreticalInitial,
+                expected_balance: theoreticalInitial - investedOpen + returnedClosed,
+                difference: difference,
+                is_consistent: Math.abs(difference) < 0.01
+            },
+            problems: {
+                count: problems.length,
+                details: problems.slice(0, 20) // Prime 20
+            },
+            explanation: {
+                formula: "Balance = Initial - Invested + Returned",
+                current_balance: `€${currentBalance.toFixed(2)} (dal database)`,
+                if_consistent: `Dovrebbe essere: Initial (€${theoreticalInitial.toFixed(2)}) - Invested Open (€${investedOpen.toFixed(2)}) + Returned Closed (€${returnedClosed.toFixed(2)}) = €${(theoreticalInitial - investedOpen + returnedClosed).toFixed(2)}`,
+                difference_explained: difference > 0 ? 
+                    `Balance è €${difference.toFixed(2)} PIÙ ALTO del previsto (possibile doppio credito o conversione errata)` :
+                    `Balance è €${Math.abs(difference).toFixed(2)} PIÙ BASSO del previsto (possibile doppio debito o conversione errata)`
+            },
+            recommendations: problems.length > 0 ? [
+                `Trovate ${problems.length} anomalie nei prezzi`,
+                'Possibile causa: entryPrice in USDT non convertito in EUR',
+                'Soluzione: Usa endpoint POST /api/crypto/fix-closed-positions-pnl per correggere'
+            ] : [
+                'Nessuna anomalia nei prezzi trovata',
+                'Se balance è ancora sbagliato, verifica se ci sono operazioni manuali o altri endpoint che modificano balance_usd'
+            ]
+        });
+    } catch (error) {
+        console.error('❌ Error in balance problem analysis:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ✅ ENDPOINT DIAGNOSTICA: Verifica completa calcolo balance
 router.get('/verify-balance-calculation', async (req, res) => {
     try {
