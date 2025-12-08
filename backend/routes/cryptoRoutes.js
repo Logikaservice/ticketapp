@@ -4110,8 +4110,17 @@ router.get('/statistics', async (req, res) => {
         });
 
         allTrades.forEach(trade => {
-            // Conta P&L dai trade manuali (non posizioni) - solo se non già contato
-            if (trade.profit_loss !== null && trade.profit_loss !== undefined && !pnlCountedTicketIds.has(trade.ticket_id)) {
+            // ✅ FIX: Escludi partial closes dal conteggio trade (conta solo chiusure finali)
+            // I partial closes (TP1) hanno strategy che contiene "TP1" o "partial"
+            const isPartialClose = trade.strategy && (
+                trade.strategy.includes('TP1') || 
+                trade.strategy.includes('partial') ||
+                trade.strategy.includes('Partial')
+            );
+            
+            // Conta P&L dai trade manuali (non posizioni) - solo se non già contato E non è partial close
+            if (trade.profit_loss !== null && trade.profit_loss !== undefined && 
+                !pnlCountedTicketIds.has(trade.ticket_id) && !isPartialClose) {
                 const pnl = parseFloat(trade.profit_loss) || 0;
                 const MAX_REASONABLE_PNL = 1000000;
                 if (Math.abs(pnl) <= MAX_REASONABLE_PNL && Math.abs(pnl) > 0.01) {

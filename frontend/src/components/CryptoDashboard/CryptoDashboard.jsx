@@ -80,6 +80,21 @@ const CryptoDashboard = () => {
 
     const fetchData = async () => {
         try {
+            // ✅ FIX: Correggi automaticamente P&L anomali al caricamento
+            try {
+                const fixRes = await fetch(`${apiBase}/api/crypto/fix-closed-positions-pnl`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (fixRes.ok) {
+                    const fixData = await fixRes.json();
+                    console.log('🔧 [AUTO-FIX] P&L corretti automaticamente:', fixData);
+                }
+            } catch (fixError) {
+                console.warn('⚠️ [AUTO-FIX] Errore correzione automatica P&L:', fixError);
+                // Continua comunque, non bloccare il caricamento
+            }
+            
             const res = await fetch(`${apiBase}/api/crypto/dashboard`);
             if (res.ok) {
                 const data = await res.json();
@@ -988,7 +1003,41 @@ const CryptoDashboard = () => {
             <div className="crypto-card" style={{ marginTop: '20px' }}>
                 <div className="card-title">
                     <RefreshCw size={20} className="text-gray-400" />
-                    Closed Positions History
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <h3 style={{ margin: 0 }}>Closed Positions History</h3>
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const response = await fetch(`${apiBase}/api/crypto/fix-closed-positions-pnl`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' }
+                                    });
+                                    const result = await response.json();
+                                    if (result.success) {
+                                        alert(`✅ Corrette ${result.fixed_count} posizioni su ${result.total_closed_positions}`);
+                                        fetchData(); // Ricarica i dati
+                                    } else {
+                                        alert(`❌ Errore: ${result.error || 'Errore sconosciuto'}`);
+                                    }
+                                } catch (error) {
+                                    console.error('Error fixing P&L:', error);
+                                    alert(`❌ Errore: ${error.message}`);
+                                }
+                            }}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: '500'
+                            }}
+                        >
+                            🔧 Corregge P&L Anomali
+                        </button>
+                    </div>
                 </div>
                 <div className="trades-list">
                     {closedPositions.length === 0 ? (
@@ -1023,27 +1072,36 @@ const CryptoDashboard = () => {
                                     const MAX_REASONABLE_PNL = 1000000; // 1 milione EUR max
                                     const MAX_REASONABLE_PRICE = 1000000; // 1 milione EUR max
                                     
+                                    // ✅ FIX: Verifica anche se il prezzo è completamente fuori range (es. €77246 per SAND)
+                                    // Se entry_price è ragionevole (es. €0.12) ma closePrice è assurdo (es. €77246),
+                                    // il P&L sarà assurdo anche se non supera MAX_REASONABLE_PNL in valore assoluto
+                                    const priceRatio = entryPrice > 0 ? closePrice / entryPrice : 0;
+                                    const isPriceAnomalous = priceRatio > 100 || (priceRatio < 0.01 && priceRatio > 0);
+                                    
                                     // Se P&L o prezzo sono anomali, ricalcola
                                     if (Math.abs(pnl) > MAX_REASONABLE_PNL || 
                                         closePrice > MAX_REASONABLE_PRICE || 
-                                        entryPrice > MAX_REASONABLE_PRICE) {
+                                        entryPrice > MAX_REASONABLE_PRICE ||
+                                        isPriceAnomalous) {
                                         
                                         console.warn(`⚠️ [FRONTEND] P&L anomale per posizione ${pos.ticket_id}:`, {
                                             pnl: pnl,
                                             entryPrice: entryPrice,
                                             closePrice: closePrice,
-                                            volume: remainingVolume
+                                            volume: remainingVolume,
+                                            priceRatio: priceRatio,
+                                            isPriceAnomalous: isPriceAnomalous
                                         });
                                         
                                         // Ricalcola P&L con logica corretta
                                         if (entryPrice > 0 && entryPrice <= MAX_REASONABLE_PRICE && 
                                             remainingVolume > 0) {
                                             
-                                            // Se il prezzo di chiusura è anomale, prova a usare un prezzo ragionevole
-                                            if (closePrice > MAX_REASONABLE_PRICE || closePrice <= 0) {
-                                                // Usa entry price come fallback (P&L = 0)
+                                            // Se il prezzo di chiusura è anomale, usa entry price (P&L = 0)
+                                            if (closePrice > MAX_REASONABLE_PRICE || closePrice <= 0 || isPriceAnomalous) {
+                                                // ✅ FIX: Per SAND, se entry è €0.12 e close è €77246, usa entry
                                                 closePrice = entryPrice;
-                                                console.warn(`   → Usando entry price come fallback: €${entryPrice.toFixed(6)}`);
+                                                console.warn(`   → Prezzo chiusura anomale (ratio: ${priceRatio.toFixed(2)}x), uso entry price: €${entryPrice.toFixed(6)}`);
                                             }
                                             
                                             // Ricalcola P&L
@@ -1055,7 +1113,7 @@ const CryptoDashboard = () => {
                                                 pnl = (entryPrice - closePrice) * remainingVolume;
                                             }
                                             
-                                            console.log(`   → P&L ricalcolato: €${pnl.toFixed(2)}`);
+                                            console.log(`   → P&L ricalcolato: €${pnl.toFixed(2)} (entry: €${entryPrice.toFixed(6)}, close: €${closePrice.toFixed(6)}, vol: ${remainingVolume.toFixed(4)})`);
                                         } else {
                                             // Se non possiamo ricalcolare, mostra 0
                                             pnl = 0;
