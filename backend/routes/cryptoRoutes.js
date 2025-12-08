@@ -2755,26 +2755,46 @@ router.get('/positions/update-pnl', async (req, res) => {
     }
 });
 
-// Update P&L every 5 seconds in background
-setInterval(async () => {
+// ✅ FIX: Aggiorna P&L per TUTTE le posizioni aperte (tutti i simboli) ogni 3 secondi
+// Funzione per aggiornare tutte le posizioni aperte
+const updateAllPositionsPnL = async () => {
     try {
-        let currentPrice = 0;
-        try {
-            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR`);
-            if (data && data.price) {
-                currentPrice = parseFloat(data.price);
-            }
-        } catch (e) {
-            // Silent fail in background
-            return;
+        // Ottieni tutti i simboli unici delle posizioni aperte
+        const allOpenPositions = await dbAll("SELECT DISTINCT symbol FROM open_positions WHERE status = 'open'");
+        
+        if (allOpenPositions.length === 0) {
+            return; // Nessuna posizione aperta
         }
-        if (currentPrice > 0) {
-            await updatePositionsPnL(currentPrice, 'bitcoin');
+        
+        // Aggiorna P&L per ogni simbolo
+        for (const posRow of allOpenPositions) {
+            const symbol = posRow.symbol;
+            try {
+                // Ottieni prezzo corrente per questo simbolo
+                const currentPrice = await getSymbolPrice(symbol);
+                
+                if (currentPrice > 0) {
+                    // Aggiorna P&L per tutte le posizioni di questo simbolo
+                    await updatePositionsPnL(currentPrice, symbol);
+                }
+            } catch (symbolError) {
+                // Log solo occasionalmente per non intasare
+                if (Math.random() < 0.1) {
+                    console.warn(`⚠️ [UPDATE P&L] Errore aggiornamento ${symbol}:`, symbolError.message);
+                }
+                continue; // Continua con il prossimo simbolo
+            }
         }
     } catch (err) {
-        // Silent fail
+        // Silent fail in background - non bloccare il processo
+        if (Math.random() < 0.1) {
+            console.warn(`⚠️ [UPDATE P&L] Errore generale:`, err.message);
+        }
     }
-}, 5000);
+};
+
+// ✅ FIX: Aggiorna TUTTE le posizioni ogni 3 secondi (più frequente per vedere guadagni in tempo reale)
+setInterval(updateAllPositionsPnL, 3000); // 3 secondi invece di 5, e aggiorna TUTTI i simboli
 
 // ==========================================
 // BINANCE API INTEGRATION
