@@ -728,15 +728,18 @@ const CryptoDashboard = () => {
                     display: 'flex', 
                     alignItems: 'center',
                     marginBottom: '1rem',
-                    marginLeft: '-0.5rem'
+                    marginLeft: '-0.5rem',
+                    paddingTop: '0.5rem'
                 }}>
                     <img 
                         src="/logo-logika.png" 
                         alt="Logika" 
                         style={{ 
-                            height: '50px', 
+                            height: '80px', 
                             width: 'auto',
-                            display: 'block'
+                            display: 'block',
+                            maxWidth: '300px',
+                            objectFit: 'contain'
                         }}
                         onError={(e) => {
                             // Fallback se l'immagine non viene trovata

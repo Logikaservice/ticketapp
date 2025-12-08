@@ -1883,18 +1883,188 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
         console.log(`📊 OPEN POSITIONS: LONG=${longPositions.length} | SHORT=${shortPositions.length}`);
 
+        // ✅ NUOVO: ADVANCED PRE-FILTERS - Controlli intelligenti prima di aprire
+        // ==========================================
+        // 10.1. PORTFOLIO DRAWDOWN PROTECTION
+        // ==========================================
+        let portfolioDrawdownBlock = false;
+        let portfolioDrawdownReason = '';
+        try {
+            const portfolio = await dbGet("SELECT * FROM portfolio WHERE id = 1");
+            if (portfolio) {
+                const totalPnL = parseFloat(portfolio.total_pnl || 0);
+                const balance = parseFloat(portfolio.balance_usd || 10000);
+                const initialBalance = 1000; // Bilancio iniziale
+                const portfolioPnLPct = balance > 0 ? ((balance - initialBalance) / initialBalance) * 100 : -100;
+                
+                // Calcola P&L medio posizioni aperte
+                let avgOpenPnL = 0;
+                if (allOpenPositions.length > 0) {
+                    const totalOpenPnL = allOpenPositions.reduce((sum, p) => sum + (parseFloat(p.profit_loss_pct) || 0), 0);
+                    avgOpenPnL = totalOpenPnL / allOpenPositions.length;
+                }
+                
+                // Blocca se portfolio in drawdown significativo
+                if (portfolioPnLPct < -5.0) {
+                    portfolioDrawdownBlock = true;
+                    portfolioDrawdownReason = `Portfolio drawdown troppo alto: ${portfolioPnLPct.toFixed(2)}% (soglia: -5%)`;
+                } else if (avgOpenPnL < -2.0 && allOpenPositions.length >= 5) {
+                    portfolioDrawdownBlock = true;
+                    portfolioDrawdownReason = `P&L medio posizioni aperte troppo negativo: ${avgOpenPnL.toFixed(2)}% (soglia: -2%)`;
+                }
+                
+                console.log(`📊 [PORTFOLIO-CHECK] P&L Portfolio: ${portfolioPnLPct.toFixed(2)}% | P&L Medio Aperte: ${avgOpenPnL.toFixed(2)}% | Block: ${portfolioDrawdownBlock}`);
+            }
+        } catch (e) {
+            console.error('⚠️ Error checking portfolio drawdown:', e.message);
+        }
+
+        // ==========================================
+        // 10.2. CONSECUTIVE LOSSES PROTECTION
+        // ==========================================
+        let consecutiveLossesBlock = false;
+        let consecutiveLossesReason = '';
+        try {
+            const recentClosed = await dbAll(
+                "SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 5"
+            );
+            if (recentClosed.length >= 3) {
+                const last3 = recentClosed.slice(0, 3);
+                const allNegative = last3.every(p => (parseFloat(p.profit_loss || 0)) < 0);
+                if (allNegative) {
+                    consecutiveLossesBlock = true;
+                    consecutiveLossesReason = `Ultime 3 posizioni chiuse sono tutte negative - Richiedere strength >= 80`;
+                    console.log(`🛑 [CONSECUTIVE-LOSSES] Blocco parziale: ultime 3 posizioni negative`);
+                }
+            }
+        } catch (e) {
+            console.error('⚠️ Error checking consecutive losses:', e.message);
+        }
+
+        // ==========================================
+        // 10.3. MARKET REGIME DETECTION (BTC Trend)
+        // ==========================================
+        let marketRegimeBlock = false;
+        let marketRegimeReason = '';
+        try {
+            const btcPrice = await getSymbolPrice('bitcoin');
+            if (btcPrice > 0) {
+                // Ottieni prezzo BTC 24h fa (approssimativo: usa price_history)
+                const btcHistory = await dbAll(
+                    "SELECT price FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp DESC LIMIT 100"
+                );
+                if (btcHistory.length >= 50) {
+                    const btcPrice24hAgo = parseFloat(btcHistory[49].price);
+                    const btcChange24h = ((btcPrice - btcPrice24hAgo) / btcPrice24hAgo) * 100;
+                    
+                    // Se BTC in downtrend forte, blocca LONG
+                    if (signal.direction === 'LONG' && btcChange24h < -3.0) {
+                        marketRegimeBlock = true;
+                        marketRegimeReason = `BTC in downtrend forte (-${Math.abs(btcChange24h).toFixed(2)}%) - Mercato ribassista, bloccare LONG`;
+                    }
+                    // Se BTC in uptrend forte, blocca SHORT
+                    if (signal.direction === 'SHORT' && btcChange24h > 3.0) {
+                        marketRegimeBlock = true;
+                        marketRegimeReason = `BTC in uptrend forte (+${btcChange24h.toFixed(2)}%) - Mercato rialzista, bloccare SHORT`;
+                    }
+                    
+                    console.log(`📊 [MARKET-REGIME] BTC 24h change: ${btcChange24h.toFixed(2)}% | Block: ${marketRegimeBlock}`);
+                }
+            }
+        } catch (e) {
+            console.error('⚠️ Error checking market regime:', e.message);
+        }
+
+        // ==========================================
+        // 10.4. WIN RATE FILTER PER SIMBOLO
+        // ==========================================
+        let symbolWinRateAdjustment = 0; // Aggiustamento soglia strength
+        let symbolWinRateReason = '';
+        try {
+            const symbolClosed = await dbAll(
+                "SELECT * FROM open_positions WHERE symbol = ? AND status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 20",
+                [symbol]
+            );
+            if (symbolClosed.length >= 10) {
+                const winning = symbolClosed.filter(p => (parseFloat(p.profit_loss || 0)) > 0).length;
+                const winRate = winning / symbolClosed.length;
+                
+                // Se win rate < 40%, richiedere strength più alta
+                if (winRate < 0.40) {
+                    symbolWinRateAdjustment = 15; // Aumenta soglia di 15 punti
+                    symbolWinRateReason = `Win rate simbolo ${symbol}: ${(winRate * 100).toFixed(1)}% (soglia: 40%) - Richiedere strength +15`;
+                    console.log(`⚠️ [SYMBOL-WIN-RATE] ${symbol}: ${(winRate * 100).toFixed(1)}% win rate - Aumentando soglia strength`);
+                }
+            }
+        } catch (e) {
+            console.error('⚠️ Error checking symbol win rate:', e.message);
+        }
+
+        // ==========================================
+        // 10.5. MOMENTUM REVERSAL DETECTION
+        // ==========================================
+        let momentumBlock = false;
+        let momentumReason = '';
+        try {
+            if (klinesData && klinesData.length >= 3) {
+                const recentKlines = klinesData.slice(-3).reverse(); // Ultime 3 candele (più recenti)
+                const closes = recentKlines.map(k => parseFloat(k.close_price));
+                
+                if (closes.length >= 3) {
+                    const change1 = ((closes[1] - closes[0]) / closes[0]) * 100; // Cambio candela 1->2
+                    const change2 = ((closes[2] - closes[1]) / closes[1]) * 100; // Cambio candela 2->3
+                    
+                    // Per LONG: prezzo deve essere salito almeno 0.3% nelle ultime 2 candele
+                    if (signal.direction === 'LONG') {
+                        const totalRise = ((closes[2] - closes[0]) / closes[0]) * 100;
+                        if (totalRise < 0.3 || change2 < 0) {
+                            momentumBlock = true;
+                            momentumReason = `Momentum insufficiente per LONG: prezzo non sta salendo (${totalRise.toFixed(2)}% totale, ${change2.toFixed(2)}% ultima candela)`;
+                        }
+                    }
+                    // Per SHORT: prezzo deve essere sceso almeno 0.3% nelle ultime 2 candele
+                    if (signal.direction === 'SHORT') {
+                        const totalFall = ((closes[0] - closes[2]) / closes[2]) * 100;
+                        if (totalFall < 0.3 || change2 > 0) {
+                            momentumBlock = true;
+                            momentumReason = `Momentum insufficiente per SHORT: prezzo non sta scendendo (${totalFall.toFixed(2)}% totale, ${change2.toFixed(2)}% ultima candela)`;
+                        }
+                    }
+                    
+                    console.log(`📊 [MOMENTUM] ${signal.direction}: Change1=${change1.toFixed(2)}%, Change2=${change2.toFixed(2)}% | Block: ${momentumBlock}`);
+                }
+            }
+        } catch (e) {
+            console.error('⚠️ Error checking momentum:', e.message);
+        }
+
+        // ==========================================
         // 10. DECISION LOGIC - Solo se segnale FORTISSIMO (90% certezza)
+        // ==========================================
         // ✅ STRATEGY: 1000 posizioni piccole su analisi giuste > 1 posizione ogni tanto
         // Permettiamo MULTIPLE posizioni se il segnale è forte e il risk manager lo permette
-        const MIN_SIGNAL_STRENGTH = 70; // Soglia alta per sicurezza 90%
-
+        
+        // ✅ ADAPTIVE SIGNAL STRENGTH: Adatta soglia in base a condizioni
+        let MIN_SIGNAL_STRENGTH = 70; // Soglia base
+        if (consecutiveLossesBlock) {
+            MIN_SIGNAL_STRENGTH = 80; // Se ultime 3 posizioni negative, richiedere strength più alta
+        }
+        MIN_SIGNAL_STRENGTH += symbolWinRateAdjustment; // Aggiungi aggiustamento win rate simbolo
+        
         // ✅ FIX: Log dettagliato per capire perché il bot non apre posizioni
-        console.log(`🔍 [BOT-DECISION] Signal: ${signal.direction}, Strength: ${signal.strength}, ATR Blocked: ${signal.atrBlocked || false}, ATR: ${signal.atrPct?.toFixed(2) || 'N/A'}%`);
+        console.log(`🔍 [BOT-DECISION] Signal: ${signal.direction}, Strength: ${signal.strength}, Required: ${MIN_SIGNAL_STRENGTH}, ATR Blocked: ${signal.atrBlocked || false}, ATR: ${signal.atrPct?.toFixed(2) || 'N/A'}%`);
+        console.log(`   [PRE-FILTERS] Portfolio Drawdown: ${portfolioDrawdownBlock ? '❌ BLOCKED' : '✅ OK'} | Consecutive Losses: ${consecutiveLossesBlock ? '⚠️ +10 strength' : '✅ OK'} | Market Regime: ${marketRegimeBlock ? '❌ BLOCKED' : '✅ OK'} | Momentum: ${momentumBlock ? '❌ BLOCKED' : '✅ OK'}`);
 
         // ✅ FIX: Non aprire posizioni se ATR blocca il trading
         if (signal.atrBlocked) {
             console.log(`⚠️ BOT [${symbol.toUpperCase()}]: Trading blocked by ATR filter (${signal.atrPct?.toFixed(2)}%) - Skipping position opening but continuing cycle`);
             // Continua il ciclo per aggiornare posizioni esistenti
+        } else if (portfolioDrawdownBlock) {
+            console.log(`🛑 BOT [${symbol.toUpperCase()}]: Trading blocked - ${portfolioDrawdownReason}`);
+        } else if (marketRegimeBlock) {
+            console.log(`🛑 BOT [${symbol.toUpperCase()}]: Trading blocked - ${marketRegimeReason}`);
+        } else if (momentumBlock) {
+            console.log(`🛑 BOT [${symbol.toUpperCase()}]: Trading blocked - ${momentumReason}`);
         } else if (signal.direction === 'LONG' && signal.strength >= MIN_SIGNAL_STRENGTH) {
             // ✅ MULTI-TIMEFRAME CONFIRMATION (con sistema a punteggio)
             const trend1h = await detectTrendOnTimeframe(symbol, '1h', 50);
@@ -2036,7 +2206,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 }
             }
         }
-        else if (!signal.atrBlocked && signal.direction === 'SHORT' && signal.strength >= MIN_SIGNAL_STRENGTH) {
+        else if (!signal.atrBlocked && !portfolioDrawdownBlock && !marketRegimeBlock && !momentumBlock && signal.direction === 'SHORT' && signal.strength >= MIN_SIGNAL_STRENGTH) {
             // ✅ COMPATIBILITÀ BINANCE: Verifica se SHORT è supportato
             // Binance Spot NON supporta short - serve Futures o Margin
             const binanceMode = process.env.BINANCE_MODE || 'demo';
@@ -4195,6 +4365,12 @@ router.get('/statistics', async (req, res) => {
         const closedTradesForWinRate = winningTrades + losingTrades;
         const winRate = closedTradesForWinRate > 0 ? (winningTrades / closedTradesForWinRate) * 100 : 0;
 
+        // ✅ FIX CRITICO: Total trades = solo trade con P&L (chiusure), NON tutti i trade
+        // Ogni posizione genera 2 trade: apertura (senza P&L) + chiusura (con P&L)
+        // Per le statistiche, contiamo solo i trade con P&L (chiusure) per essere coerenti con win rate
+        // Se l'utente vuole vedere tutti i trade (aperture + chiusure), può guardare la tabella trades
+        const totalTrades = closedTradesForWinRate; // Solo trade con P&L realizzato
+        
         // ✅ FIX: Profit Factor - se totalLoss è 0 ma ci sono profitti, usa un valore molto alto invece di Infinity
         let profitFactor = 0;
         if (totalLoss > 0) {
@@ -4210,7 +4386,7 @@ router.get('/statistics', async (req, res) => {
         // P&L Percent
         const pnlPercent = initialBalance > 0 ? ((totalBalance - initialBalance) / initialBalance) * 100 : 0;
 
-        // ✅ FIX: Trade statistics by period - Logica specifica come richiesto
+        // Trade statistics by period - Count ALL trades by timestamp (non solo quelli chiusi)
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const weekAgo = new Date(today);
@@ -4218,39 +4394,19 @@ router.get('/statistics', async (req, res) => {
         const monthAgo = new Date(today);
         monthAgo.setMonth(monthAgo.getMonth() - 1);
 
-        // ✅ "Trade Totali" = posizioni (aperte + chiuse) di OGGI
         let tradesToday = 0;
-        const allPositions = [...openPositions, ...closedPositions];
-        allPositions.forEach(pos => {
-            const openedDate = pos.opened_at ? new Date(pos.opened_at) : null;
-            if (openedDate && openedDate >= today) {
-                tradesToday++;
-            }
-        });
-
-        // ✅ "Settimana" = posizioni APERTE questa settimana
         let tradesThisWeek = 0;
-        openPositions.forEach(pos => {
-            const openedDate = pos.opened_at ? new Date(pos.opened_at) : null;
-            if (openedDate && openedDate >= weekAgo) {
-                tradesThisWeek++;
-            }
-        });
-
-        // ✅ "Mese" = posizioni APERTE questo mese
         let tradesThisMonth = 0;
-        openPositions.forEach(pos => {
-            const openedDate = pos.opened_at ? new Date(pos.opened_at) : null;
-            if (openedDate && openedDate >= monthAgo) {
-                tradesThisMonth++;
+
+        // Count ALL trades by timestamp (per il conteggio operazioni)
+        allTrades.forEach(trade => {
+            if (trade.timestamp) {
+                const tradeDate = new Date(trade.timestamp);
+                if (tradeDate >= today) tradesToday++;
+                if (tradeDate >= weekAgo) tradesThisWeek++;
+                if (tradeDate >= monthAgo) tradesThisMonth++;
             }
         });
-        
-        // ✅ "Totale" = tutte le posizioni (aperte + chiuse)
-        const totalTrades = allPositions.length;
-        
-        // ✅ DEBUG: Verifica coerenza
-        console.log(`📊 [STATS] Trade Totali (oggi): ${tradesToday} | Settimana (aperte): ${tradesThisWeek} | Mese (aperte): ${tradesThisMonth} | Totale: ${totalTrades}`);
 
         // Average profit per winning trade
         const avgWin = winningTrades > 0 ? totalProfit / winningTrades : 0;
@@ -4294,10 +4450,9 @@ router.get('/statistics', async (req, res) => {
                 total_volume_eur: totalVolume,
 
                 // Period Stats
-                trades_today: tradesToday, // Posizioni (aperte + chiuse) di oggi
-                trades_this_week: tradesThisWeek, // Posizioni APERTE questa settimana
-                trades_this_month: tradesThisMonth, // Posizioni APERTE questo mese
-                total_trades_all: totalTrades, // Totale: tutte le posizioni (aperte + chiuse)
+                trades_today: tradesToday,
+                trades_this_week: tradesThisWeek,
+                trades_this_month: tradesThisMonth,
 
                 // Current Holdings (multi-symbol)
                 total_crypto_value: totalCryptoValue,

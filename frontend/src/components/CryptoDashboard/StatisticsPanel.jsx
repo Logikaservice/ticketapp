@@ -111,12 +111,9 @@ const StatisticsPanel = ({ apiBase }) => {
                         <Activity size={18} />
                         Trade Totali
                     </div>
-                    <div className="stat-value">{stats.total_trades_all || stats.total_trades}</div>
+                    <div className="stat-value">{stats.total_trades}</div>
                     <div className="stat-sublabel">
                         Oggi: {stats.trades_today} | Settimana: {stats.trades_this_week} | Mese: {stats.trades_this_month}
-                    </div>
-                    <div className="stat-sublabel" style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '4px' }}>
-                        Totale: {stats.total_trades_all || stats.total_trades} (aperte + chiuse)
                     </div>
                 </div>
 
