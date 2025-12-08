@@ -4210,9 +4210,16 @@ router.get('/bot-analysis', async (req, res) => {
             }
         }
 
-        // ✅ FALLBACK: Se DB non ha abbastanza dati, scarica da Binance
-        if (!historyForSignal || historyForSignal.length < 20) {
-            console.log(`⚠️ [BOT-ANALYSIS] DB has only ${historyForSignal ? historyForSignal.length : 0} candles, downloading from Binance as fallback...`);
+        // ✅ FALLBACK: Se DB non ha abbastanza dati O è obsoleto (> 15 min), scarica da Binance
+        // Calcola staleness prima
+        let isStale = false;
+        if (historyForSignal.length > 0) {
+            const lastTs = new Date(historyForSignal[historyForSignal.length - 1].timestamp).getTime();
+            isStale = (new Date().getTime() - lastTs) > 15 * 60 * 1000;
+        }
+
+        if (!historyForSignal || historyForSignal.length < 20 || isStale) {
+            console.log(`⚠️ [BOT-ANALYSIS] Data stale (${isStale}) or insufficient (${historyForSignal ? historyForSignal.length : 0}), downloading from Binance as fallback...`);
             try {
                 const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
                 const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
@@ -4228,17 +4235,24 @@ router.get('/bot-analysis', async (req, res) => {
                         volume: parseFloat(k[5])
                     }));
                     console.log(`✅ [BOT-ANALYSIS] Downloaded ${historyForSignal.length} candles from Binance`);
-                    if (historyForSignal.length > 0) {
-                        const lastCandle = historyForSignal[historyForSignal.length - 1];
-                        lastCandle.high = Math.max(lastCandle.high, currentPrice);
-                        lastCandle.low = Math.min(lastCandle.low, currentPrice);
-                        lastCandle.close = currentPrice;
-                        lastCandle.price = currentPrice;
-                    }
                 }
             } catch (binanceError) {
                 console.error('❌ [BOT-ANALYSIS] Binance fallback failed:', binanceError.message);
             }
+        }
+
+        // ✅ FIX: Sempre aggiorna l'ultima candela con il prezzo corrente per analisi in tempo reale
+        // Questo allinea la logica con il Market Scanner
+        if (historyForSignal.length > 0) {
+            const lastCandle = historyForSignal[historyForSignal.length - 1];
+            // Aggiorna sempre close con currentPrice per RSI in tempo reale
+            lastCandle.close = currentPrice;
+            lastCandle.price = currentPrice;
+            // Aggiorna high/low solo se ha senso (es. se siamo ancora nella stessa candela temporale)
+            // o se la candela è stata appena aggiornata.
+            // Per semplicità e coerenza RSI, forziamo high/low a includere currentPrice
+            lastCandle.high = Math.max(lastCandle.high, currentPrice);
+            lastCandle.low = Math.min(lastCandle.low, currentPrice);
         }
 
         // ❌ DISABILITATO: Scaricamento da Binance causa rate limit 503 per simboli USDT
@@ -5301,7 +5315,7 @@ router.get('/scanner', async (req, res) => {
                     price: currentPrice, // Prezzo corrente aggiornato in tempo reale
                     volume24h: volume24h || 0, // Volume 24h in EUR/USDT
                     direction: displayDirection, // Usa direzione migliorata per display
-                    strength: displayStrength || 0, // Usa strength migliorata per display (almeno 0)
+                    strength: Math.min(displayStrength || 0, 100), // Usa strength migliorata per display (max 100)
                     confirmations: signal?.confirmations || 0,
                     reasons: signal?.reasons || ['Nessun segnale'],
                     rsi: rsiValue // RSI calcolato con ultima candela aggiornata (periodo 14, stesso di bot-analysis)
