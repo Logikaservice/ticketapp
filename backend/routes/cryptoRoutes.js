@@ -2406,12 +2406,51 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     }
 
                     // Verifica se possiamo aprire LONG
-                    // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
+                    // ✅ LOGICA OTTIMALE: Calcola dimensione posizione basata su maxExposure / maxPositions
+                    // Esempio: €1000, maxExposure 80% = €800, maxPositions 10 → €800/10 = €80 per posizione
+                    const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
+                    const cashBalance = parseFloat(portfolio?.balance_usd || 0);
+                    
+                    // Calcola totalEquity (cash + valore posizioni aperte)
+                    const allOpenPos = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
+                    let currentExposureValue = 0;
+                    for (const pos of allOpenPos) {
+                        const vol = parseFloat(pos.volume) || 0;
+                        const volClosed = parseFloat(pos.volume_closed) || 0;
+                        const remaining = vol - volClosed;
+                        const entry = parseFloat(pos.entry_price) || 0;
+                        currentExposureValue += remaining * entry;
+                    }
+                    const totalEquity = cashBalance + currentExposureValue;
+                    
+                    // Calcola maxExposure e maxPositions
+                    const dynamicLimits = await riskManager.getDynamicLimits();
+                    const maxExposure = totalEquity * dynamicLimits.maxExposurePct; // Es. €1000 * 80% = €800
+                    
+                    // Calcola maxPositions basato su win rate
+                    let maxTotalPositions = HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
+                    try {
+                        const stats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
+                        if (stats && stats.total_trades >= 10) {
+                            const winRate = stats.total_trades > 0 ? stats.winning_trades / stats.total_trades : 0.5;
+                            maxTotalPositions = HYBRID_STRATEGY_CONFIG.getMaxPositionsForWinRate(winRate);
+                        }
+                    } catch (e) {
+                        // Usa default
+                    }
+                    
+                    // ✅ CALCOLO OTTIMALE: Dimensione posizione = maxExposure / maxPositions
+                    const optimalPositionSize = maxExposure / maxTotalPositions; // Es. €800 / 10 = €80
+                    
+                    // Prendi il minimo tra: optimalPositionSize, trade_size_eur, maxPositionSize, availableExposure
                     const maxAvailableForNewPosition = Math.min(
-                        params.trade_size_eur,
-                        riskCheck.maxPositionSize,
-                        riskCheck.availableExposure * 0.5 // Max 50% dell'exposure disponibile per nuova posizione (Sblocco conti piccoli)
+                        optimalPositionSize,        // ✅ NUOVO: €80 (calcolato ottimale)
+                        params.trade_size_eur,     // €50 (configurato)
+                        riskCheck.maxPositionSize,  // €100 (10% di €1000)
+                        riskCheck.availableExposure // €21.96 (se exposure già alta)
                     );
+                    
+                    console.log(`📊 [POSITION-SIZE] Total Equity: €${totalEquity.toFixed(2)} | Max Exposure: €${maxExposure.toFixed(2)} (${(dynamicLimits.maxExposurePct * 100).toFixed(0)}%) | Max Positions: ${maxTotalPositions} | Optimal Size: €${optimalPositionSize.toFixed(2)} | Final: €${maxAvailableForNewPosition.toFixed(2)}`);
                     const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
                     console.log(`🔍 LONG SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
@@ -2572,11 +2611,51 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                         // Verifica se possiamo aprire SHORT
                         // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
+                        // ✅ LOGICA OTTIMALE: Calcola dimensione posizione basata su maxExposure / maxPositions
+                        // Stessa logica di LONG: €1000, maxExposure 80% = €800, maxPositions 10 → €800/10 = €80
+                        const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
+                        const cashBalance = parseFloat(portfolio?.balance_usd || 0);
+                        
+                        // Calcola totalEquity (cash + valore posizioni aperte)
+                        const allOpenPos = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
+                        let currentExposureValue = 0;
+                        for (const pos of allOpenPos) {
+                            const vol = parseFloat(pos.volume) || 0;
+                            const volClosed = parseFloat(pos.volume_closed) || 0;
+                            const remaining = vol - volClosed;
+                            const entry = parseFloat(pos.entry_price) || 0;
+                            currentExposureValue += remaining * entry;
+                        }
+                        const totalEquity = cashBalance + currentExposureValue;
+                        
+                        // Calcola maxExposure e maxPositions
+                        const dynamicLimits = await riskManager.getDynamicLimits();
+                        const maxExposure = totalEquity * dynamicLimits.maxExposurePct; // Es. €1000 * 80% = €800
+                        
+                        // Calcola maxPositions basato su win rate
+                        let maxTotalPositions = HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
+                        try {
+                            const stats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
+                            if (stats && stats.total_trades >= 10) {
+                                const winRate = stats.total_trades > 0 ? stats.winning_trades / stats.total_trades : 0.5;
+                                maxTotalPositions = HYBRID_STRATEGY_CONFIG.getMaxPositionsForWinRate(winRate);
+                            }
+                        } catch (e) {
+                            // Usa default
+                        }
+                        
+                        // ✅ CALCOLO OTTIMALE: Dimensione posizione = maxExposure / maxPositions
+                        const optimalPositionSize = maxExposure / maxTotalPositions; // Es. €800 / 10 = €80
+                        
+                        // Prendi il minimo tra: optimalPositionSize, trade_size_eur, maxPositionSize, availableExposure
                         const maxAvailableForNewPosition = Math.min(
-                            params.trade_size_eur,
-                            riskCheck.maxPositionSize,
-                            riskCheck.availableExposure * 0.1 // Max 10% dell'exposure disponibile per nuova posizione
+                            optimalPositionSize,        // ✅ NUOVO: €80 (calcolato ottimale)
+                            params.trade_size_eur,     // €50 (configurato)
+                            riskCheck.maxPositionSize,  // €100 (10% di €1000)
+                            riskCheck.availableExposure // €21.96 (se exposure già alta)
                         );
+                        
+                        console.log(`📊 [SHORT-POSITION-SIZE] Total Equity: €${totalEquity.toFixed(2)} | Max Exposure: €${maxExposure.toFixed(2)} (${(dynamicLimits.maxExposurePct * 100).toFixed(0)}%) | Max Positions: ${maxTotalPositions} | Optimal Size: €${optimalPositionSize.toFixed(2)} | Final: €${maxAvailableForNewPosition.toFixed(2)}`);
                         const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
                         console.log(`🔍 SHORT SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
