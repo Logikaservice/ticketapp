@@ -3447,58 +3447,34 @@ router.get('/statistics', async (req, res) => {
                     totalLoss += Math.abs(pnl);
                     losingTrades++;
                 }
-                // Volume calcolato dai trades per evitare duplicati
+                
+                // ✅ FIX: Aggiungi volume delle posizioni chiuse (volume totale scambiato)
+                const entryPrice = parseFloat(pos.entry_price) || 0;
+                const volume = parseFloat(pos.volume) || 0;
+                if (volume > 0 && entryPrice > 0) {
+                    totalVolume += volume * entryPrice;
+                }
             });
         } else {
             console.warn(`⚠️ closedPositions is not an array in statistics:`, typeof closedPositions);
         }
 
-        // ✅ FIX CRITICO: Calculate unrealized P&L from open positions usando il prezzo CORRETTO per ogni simbolo
-        // ✅ FIX: Assicurati che openPositions sia un array
+        // ✅ FIX SEMPLIFICATO: Usa direttamente profit_loss già calcolato dal backend per posizioni aperte
+        // Questo evita problemi con prezzi sbagliati o mancanti
         if (Array.isArray(openPositions)) {
             for (const pos of openPositions) {
                 // ✅ FIX: Valida che la posizione abbia i campi necessari
-                if (!pos || !pos.symbol) {
-                    console.warn(`⚠️ Skipping invalid position in statistics:`, pos);
+                if (!pos || pos.status !== 'open') {
                     continue;
                 }
 
-                const entryPrice = parseFloat(pos.entry_price) || 0;
-                const volume = parseFloat(pos.volume) || 0;
+                // ✅ FIX SEMPLIFICATO: Usa direttamente profit_loss già calcolato
+                const unrealizedPnL = parseFloat(pos.profit_loss) || 0;
 
-                // ✅ FIX: Salta posizioni con dati invalidi
-                if (entryPrice <= 0 || volume <= 0) {
-                    console.warn(`⚠️ Skipping position with invalid entryPrice (${entryPrice}) or volume (${volume})`);
-                    continue;
-                }
-
-                // ✅ FIX: Ottieni il prezzo CORRETTO per il simbolo di questa posizione (non sempre Bitcoin!)
-                let symbolCurrentPrice = currentPrice; // Default a Bitcoin per backward compatibility
-                if (pos.symbol && pos.symbol !== 'bitcoin') {
-                    try {
-                        const symbolPrice = await getSymbolPrice(pos.symbol);
-                        if (symbolPrice > 0) {
-                            symbolCurrentPrice = symbolPrice;
-                        } else {
-                            console.warn(`⚠️ Could not fetch valid price for ${pos.symbol} (got ${symbolPrice}), using entry price as fallback`);
-                            symbolCurrentPrice = entryPrice; // Usa entry price come fallback se prezzo non disponibile
-                        }
-                    } catch (err) {
-                        console.warn(`⚠️ Could not fetch price for ${pos.symbol} in statistics:`, err.message);
-                        symbolCurrentPrice = entryPrice; // Usa entry price come fallback
-                    }
-                }
-
-                // Calcola P&L non realizzato usando il prezzo corretto
-                let unrealizedPnL = 0;
-                if (pos.type === 'buy') {
-                    // LONG: guadagni se prezzo sale
-                    unrealizedPnL = (symbolCurrentPrice - entryPrice) * volume;
-                } else if (pos.type === 'sell') {
-                    // SHORT: guadagni se prezzo scende
-                    unrealizedPnL = (entryPrice - symbolCurrentPrice) * volume;
-                } else {
-                    console.warn(`⚠️ Unknown position type: ${pos.type}, skipping P&L calculation`);
+                // ✅ FIX CRITICO: Valida valori anomali di profit_loss
+                const MAX_REASONABLE_PNL = 1000000;
+                if (Math.abs(unrealizedPnL) > MAX_REASONABLE_PNL) {
+                    console.warn(`⚠️ Skipping anomalous profit_loss for open position ${pos.ticket_id}: €${unrealizedPnL.toFixed(2)}`);
                     continue;
                 }
 
@@ -3508,7 +3484,16 @@ router.get('/statistics', async (req, res) => {
                 } else if (unrealizedPnL < 0) {
                     totalLoss += Math.abs(unrealizedPnL);
                 }
-                totalVolume += volume * entryPrice;
+
+                // ✅ FIX: Volume = solo volume effettivamente investito (considera volume_closed per posizioni parzialmente chiuse)
+                const entryPrice = parseFloat(pos.entry_price) || 0;
+                const volume = parseFloat(pos.volume) || 0;
+                const volumeClosed = parseFloat(pos.volume_closed) || 0;
+                const remainingVolume = volume - volumeClosed;
+                
+                if (remainingVolume > 0 && entryPrice > 0) {
+                    totalVolume += remainingVolume * entryPrice;
+                }
             }
         } else {
             console.warn(`⚠️ openPositions is not an array in statistics:`, typeof openPositions);
@@ -3523,46 +3508,70 @@ router.get('/statistics', async (req, res) => {
             if (pos.ticket_id) processedTicketIds.add(pos.ticket_id);
         });
 
-        // ✅ FIX: Traccia ticket_ids già contati nel volume
+        // ✅ FIX: Traccia ticket_ids già contati nel volume e P&L
+        // Il volume delle posizioni chiuse e aperte è già stato contato sopra
         const volumeCountedTicketIds = new Set();
-        const pnlCountedTicketIds = new Set(Array.from(processedTicketIds));
+        const pnlCountedTicketIds = new Set();
+
+        // ✅ FIX: Aggiungi ticket_ids delle posizioni chiuse e aperte per evitare doppi conteggi nei trades
+        closedPositions.forEach(pos => {
+            if (pos.ticket_id) {
+                volumeCountedTicketIds.add(pos.ticket_id);
+                pnlCountedTicketIds.add(pos.ticket_id);
+            }
+        });
+        openPositions.forEach(pos => {
+            if (pos.ticket_id) {
+                volumeCountedTicketIds.add(pos.ticket_id);
+                pnlCountedTicketIds.add(pos.ticket_id);
+            }
+        });
 
         allTrades.forEach(trade => {
-            // Conta P&L dai trade manuali (non posizioni)
+            // Conta P&L dai trade manuali (non posizioni) - solo se non già contato
             if (trade.profit_loss !== null && trade.profit_loss !== undefined && !pnlCountedTicketIds.has(trade.ticket_id)) {
                 const pnl = parseFloat(trade.profit_loss) || 0;
                 const MAX_REASONABLE_PNL = 1000000;
-                if (Math.abs(pnl) <= MAX_REASONABLE_PNL) {
-                    if (Math.abs(pnl) > 0.01) {
-                        totalPnL += pnl;
-                        if (pnl > 0) {
-                            totalProfit += pnl;
-                            winningTrades++;
-                        } else if (pnl < 0) {
-                            totalLoss += Math.abs(pnl);
-                            losingTrades++;
-                        }
+                if (Math.abs(pnl) <= MAX_REASONABLE_PNL && Math.abs(pnl) > 0.01) {
+                    totalPnL += pnl;
+                    if (pnl > 0) {
+                        totalProfit += pnl;
+                        winningTrades++;
+                    } else if (pnl < 0) {
+                        totalLoss += Math.abs(pnl);
+                        losingTrades++;
                     }
+                    pnlCountedTicketIds.add(trade.ticket_id);
                 }
             }
 
-            // ✅ FIX CRITICO: Conta volume SOLO per trades BUY iniziali
-            if (trade.type === 'buy' && trade.ticket_id && !volumeCountedTicketIds.has(trade.ticket_id)) {
+            // ✅ FIX CRITICO: Conta volume SOLO per trades che non sono già in posizioni
+            // Volume = amount * price per ogni trade (sia BUY che SELL contano come volume scambiato)
+            if (trade.ticket_id && !volumeCountedTicketIds.has(trade.ticket_id)) {
                 const tradeVolume = (parseFloat(trade.amount) || 0) * (parseFloat(trade.price) || 0);
-                if (tradeVolume > 0.01 && tradeVolume < 1000000) { // Validazione anche qui
+                if (tradeVolume > 0.01 && tradeVolume < 1000000) {
                     totalVolume += tradeVolume;
                     volumeCountedTicketIds.add(trade.ticket_id);
                 }
             }
         });
 
-        // Total trades = posizioni chiuse (con P&L realizzato) per win rate
+        // ✅ FIX: Win Rate basato solo su posizioni chiuse con P&L realizzato
+        // Total trades con P&L realizzato (posizioni chiuse + trades manuali con P&L)
         const closedTradesForWinRate = winningTrades + losingTrades;
         const winRate = closedTradesForWinRate > 0 ? (winningTrades / closedTradesForWinRate) * 100 : 0;
 
         // Total trades = tutti i trades (per display)
         const totalTrades = allTrades.length;
-        const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : (totalProfit > 0 ? Infinity : 0);
+        
+        // ✅ FIX: Profit Factor - se totalLoss è 0 ma ci sono profitti, usa un valore molto alto invece di Infinity
+        let profitFactor = 0;
+        if (totalLoss > 0) {
+            profitFactor = totalProfit / totalLoss;
+        } else if (totalProfit > 0) {
+            // Se non ci sono perdite ma ci sono profitti, profit factor è molto alto
+            profitFactor = totalProfit > 0 ? 999999 : 0;
+        }
 
         // ROI calculation
         const roi = initialBalance > 0 ? ((totalBalance - initialBalance) / initialBalance) * 100 : 0;
@@ -3622,7 +3631,7 @@ router.get('/statistics', async (req, res) => {
                 winning_trades: winningTrades,
                 losing_trades: losingTrades,
                 win_rate: winRate,
-                profit_factor: profitFactor === Infinity ? null : profitFactor,
+                profit_factor: profitFactor > 0 ? (profitFactor > 999999 ? null : profitFactor) : 0,
 
                 // Profit/Loss Breakdown
                 total_profit: totalProfit,
