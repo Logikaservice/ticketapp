@@ -1376,7 +1376,7 @@ initWebSocketService();
 const getSymbolPrice = async (symbol) => {
     // ✅ FIX CRITICO: Normalizza il simbolo prima di cercare nel mapping
     let normalizedSymbol = symbol.toLowerCase().replace('/', '').replace('_', '');
-    
+
     // ✅ FIX: Prova varianti comuni se il simbolo non è trovato
     if (!SYMBOL_TO_PAIR[normalizedSymbol] && !SYMBOL_TO_PAIR[symbol]) {
         const symbolVariants = {
@@ -1393,16 +1393,16 @@ const getSymbolPrice = async (symbol) => {
             'sol': 'solana',
             'solusdt': 'solana'
         };
-        
+
         if (symbolVariants[normalizedSymbol]) {
             normalizedSymbol = symbolVariants[normalizedSymbol];
         }
     }
-    
+
     // ✅ Controlla cache prima di chiamare Binance
     const cached = priceCache.get(normalizedSymbol);
     const tradingPair = SYMBOL_TO_PAIR[normalizedSymbol] || SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';  // ✅ FIX: Default USDT invece di EUR
-    
+
     // ✅ FIX CRITICO: Valida che il tradingPair non sia BTCUSDT per simboli non-BTC
     if (tradingPair === 'BTCUSDT' && normalizedSymbol !== 'bitcoin' && symbol.toLowerCase() !== 'btc' && symbol.toLowerCase() !== 'btcusdt') {
         console.error(`❌ [PRICE] Simbolo ${symbol} (normalized: ${normalizedSymbol}) non trovato in SYMBOL_TO_PAIR, uso default BTCUSDT - QUESTO È UN ERRORE!`);
@@ -3203,7 +3203,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
             // ✅ FIX CRITICO: Normalizza il simbolo per gestire varianti (es. "ada/usdt" → "cardano", "xrp" → "ripple")
             // Rimuovi slash e underscore, poi normalizza
             let normalizedSymbol = pos.symbol.toLowerCase().replace('/', '').replace('_', '');
-            
+
             const symbolVariants = {
                 'xrp': 'ripple',
                 'xrpusdt': 'ripple',
@@ -3244,7 +3244,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                     pos.symbol.toLowerCase(),
                     pos.symbol
                 ];
-                
+
                 for (const variant of variants) {
                     if (SYMBOL_TO_PAIR[variant]) {
                         normalizedSymbol = variant;
@@ -6821,9 +6821,9 @@ router.get('/bot-analysis', async (req, res) => {
 
                     // ✅ FIX CRITICO: Mostra filtri professionali che bloccano LONG
                     if (longBlockedByFilters) {
-                        const blockingFilters = longProfessionalFilters.filter(f => f.includes('🚫 BLOCKED'));
+                        const blockingFilters = longProfessionalFilters.filter(f => f.includes('🚫') && (f.includes('BLOCKED') || f.includes('BLOCCATO')));
                         blockingFilters.forEach(filter => {
-                            const filterText = filter.replace('🚫 BLOCKED: ', '');
+                            const filterText = filter.replace(/^🚫.*?: /, '');
                             blocks.push({
                                 type: 'Filtro Professionale',
                                 reason: filterText,
@@ -6936,9 +6936,9 @@ router.get('/bot-analysis', async (req, res) => {
 
                     // ✅ FIX CRITICO: Mostra filtri professionali che bloccano SHORT
                     if (shortBlockedByFilters) {
-                        const blockingFilters = shortProfessionalFilters.filter(f => f.includes('🚫 BLOCKED'));
+                        const blockingFilters = shortProfessionalFilters.filter(f => f.includes('🚫') && (f.includes('BLOCKED') || f.includes('BLOCCATO')));
                         blockingFilters.forEach(filter => {
-                            const filterText = filter.replace('🚫 BLOCKED: ', '');
+                            const filterText = filter.replace(/^🚫.*?: /, '');
                             blocks.push({
                                 type: 'Filtro Professionale',
                                 reason: filterText,
