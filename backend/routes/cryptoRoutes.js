@@ -1422,14 +1422,17 @@ const getSymbolPrice = async (symbol) => {
 };
 
 // Load history from DB on startup
-const loadPriceHistory = () => {
-    db.all("SELECT price FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp DESC LIMIT 300", (err, rows) => {
-        if (!err && rows) {
+const loadPriceHistory = async () => {
+    try {
+        const rows = await dbAll("SELECT price FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp DESC LIMIT 300");
+        if (rows && rows.length > 0) {
             // Reverse because SQL gives DESC (newest first), but we need chronological order for RSI
             priceHistory = rows.map(r => r.price).reverse();
             console.log(`📈 BOT: Loaded ${priceHistory.length} historical prices from DB.`);
         }
-    });
+    } catch (err) {
+        console.error('❌ Error loading price history:', err.message);
+    }
 };
 loadPriceHistory();
 
@@ -3145,13 +3148,10 @@ const calculateDynamicTrailingDistance = (atr, currentPrice, multiplier = 1.5) =
 // Helper to update P&L for all open positions
 // ✅ FIX: updatePositionsPnL ora aggiorna P&L per tutte le posizioni, non solo quelle del simbolo corrente
 // ✅ FIX CRITICO: currentPrice deve essere SEMPRE in EUR (già convertito da getSymbolPrice)
+// ✅ MIGRAZIONE POSTGRESQL: Convertito da db.all() a dbAll()
 const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
-    return new Promise((resolve, reject) => {
-        db.all("SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'", [symbol], async (err, positions) => {
-            if (err) {
-                reject(err);
-                return;
-            }
+    try {
+        const positions = await dbAll("SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'", [symbol]);
 
             // ✅ FIX CRITICO: Valida che currentPrice sia ragionevole (in EUR)
             // Se è troppo grande, potrebbe essere in USDT invece di EUR
@@ -3259,7 +3259,7 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
                 }
 
                 updateValues.push(pos.ticket_id);
-                db.run(
+                await dbRun(
                     `UPDATE open_positions SET ${updateFields.join(', ')} WHERE ticket_id = ?`,
                     updateValues
                 );
@@ -3353,9 +3353,11 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
                 }
             }
 
-            resolve(positions.length);
-        });
-    });
+            return positions.length;
+    } catch (err) {
+        console.error('❌ Error in updatePositionsPnL:', err.message);
+        throw err;
+    }
 };
 
 // Helper to partially close a position (for partial close strategy)
@@ -3772,32 +3774,31 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
 };
 
 // GET /api/crypto/positions - Get all open positions
-router.get('/positions', (req, res) => {
-    const { status } = req.query;
+// ✅ MIGRAZIONE POSTGRESQL: Convertito da db.all() a dbAll()
+router.get('/positions', async (req, res) => {
+    try {
+        const { status } = req.query;
 
-    // ✅ FIX: Validazione STRICTA - se status è specificato, deve essere esattamente 'open'
-    // Questo previene bug dove posizioni chiuse vengono mostrate come aperte
-    let query;
-    let params = [];
+        // ✅ FIX: Validazione STRICTA - se status è specificato, deve essere esattamente 'open'
+        // Questo previene bug dove posizioni chiuse vengono mostrate come aperte
+        let query;
+        let params = [];
 
-    if (status) {
-        // ✅ FIX: Solo accetta 'open' come status valido per questo endpoint
-        if (status === 'open') {
-            query = "SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC";
+        if (status) {
+            // ✅ FIX: Solo accetta 'open' come status valido per questo endpoint
+            if (status === 'open') {
+                query = "SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC";
+            } else {
+                // Per altri status, usa query normale ma con validazione
+                query = "SELECT * FROM open_positions WHERE status = ? ORDER BY opened_at DESC";
+                params = [status];
+            }
         } else {
-            // Per altri status, usa query normale ma con validazione
-            query = "SELECT * FROM open_positions WHERE status = ? ORDER BY opened_at DESC";
-            params = [status];
+            // Se non specificato, restituisci tutte le posizioni
+            query = "SELECT * FROM open_positions ORDER BY opened_at DESC";
         }
-    } else {
-        // Se non specificato, restituisci tutte le posizioni
-        query = "SELECT * FROM open_positions ORDER BY opened_at DESC";
-    }
 
-    db.all(query, params, (err, rows) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
+        const rows = await dbAll(query, params);
 
         // ✅ FIX: Validazione aggiuntiva - filtra posizioni con dati invalidi
         const validPositions = (rows || []).filter(pos => {
@@ -3814,7 +3815,10 @@ router.get('/positions', (req, res) => {
         });
 
         res.json({ positions: validPositions });
-    });
+    } catch (err) {
+        console.error('❌ Error in /positions:', err.message);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // POST /api/crypto/positions/open - Open a new position
