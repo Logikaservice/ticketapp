@@ -646,6 +646,16 @@ const cryptoRoutes = require('./routes/cryptoRoutes');
 cryptoRoutes.setSocketIO(io);
 app.use('/api/crypto', cryptoRoutes);
 
+// 🤖 Start Professional Trading Bot
+console.log('🤖 [INIT] Starting Professional Crypto Trading Bot...');
+try {
+  const TradingBot = require('./services/TradingBot');
+  console.log('✅ [INIT] Professional Trading Bot started successfully');
+} catch (botError) {
+  console.error('❌ [INIT] Error starting Trading Bot:', botError.message);
+  console.error('❌ [INIT] Stack:', botError.stack);
+}
+
 // Rotte temporanee per debug (senza autenticazione) - DEVE ESSERE PRIMA
 app.use('/api/temp', tempLoginRoutes);
 
