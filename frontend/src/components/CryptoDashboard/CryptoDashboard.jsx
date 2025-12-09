@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Settings, BarChart2, Wallet, Maximize2, Minimize2, DollarSign } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Settings, BarChart2, Wallet, Maximize2, Minimize2, DollarSign, TrendingUp, Info } from 'lucide-react'; // ✅ FIX: Added TrendingUp & Info
 import OpenPositions from './OpenPositions';
 import TradingViewChart from './TradingViewChart';
 import ApexChart from './ApexChart';
@@ -1053,6 +1053,146 @@ const CryptoDashboard = () => {
 
             {/* Kelly Criterion rimosso - ora usiamo Fixed Position Sizing */}
 
+            {/* PERFORMANCE ANALYTICS */}
+            {performanceAnalytics && (
+                <div className="crypto-card" style={{ marginTop: '20px' }}>
+                    <div className="card-title">
+                        <TrendingUp size={20} className="text-blue-400" />
+                        Portfolio Performance Analytics
+                    </div>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '15px' }}>
+                        {['daily', 'weekly', 'monthly', 'yearly', 'all_time'].map(period => {
+                            const stats = performanceAnalytics[period];
+                            if (!stats) return null;
+                            
+                            const periodLabel = {
+                                'daily': 'Today',
+                                'weekly': 'This Week',
+                                'monthly': 'This Month',
+                                'yearly': 'This Year',
+                                'all_time': 'All Time'
+                            }[period];
+                            
+                            const isPositive = stats.net_profit >= 0;
+                            
+                            return (
+                                <div key={period} style={{ 
+                                    background: '#1f2937', 
+                                    padding: '15px', 
+                                    borderRadius: '8px', 
+                                    border: '1px solid #374151',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '5px'
+                                }}>
+                                    <div style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: '5px' }}>{periodLabel}</div>
+                                    <div style={{ 
+                                        fontSize: '1.5rem', 
+                                        fontWeight: 'bold', 
+                                        color: isPositive ? '#10b981' : '#ef4444' 
+                                    }}>
+                                        {isPositive ? '+' : ''}{parseFloat(stats.net_profit).toFixed(2)} $
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                        <span style={{ color: '#d1d5db' }}>ROI:</span>
+                                        <span style={{ color: stats.roi_percent >= 0 ? '#34d399' : '#f87171', fontWeight: 'bold' }}>
+                                            {parseFloat(stats.roi_percent).toFixed(2)}%
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                        <span style={{ color: '#d1d5db' }}>Win Rate:</span>
+                                        <span style={{ color: '#fbbf24' }}>{parseFloat(stats.win_rate).toFixed(1)}%</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                        <span style={{ color: '#d1d5db' }}>Trades:</span>
+                                        <span style={{ color: '#fff' }}>{stats.total_trades} ({stats.winning_trades}W/{stats.losing_trades}L)</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* RECENT TRADES HISTORY */}
+            <div className="crypto-card" style={{ marginTop: '20px' }}>
+                <div className="card-title">
+                    <RefreshCw size={20} className="text-gray-400" />
+                    Closed Positions History
+                </div>
+                <div className="trades-list">
+                    {closedPositions.length === 0 ? (
+                        <div style={{ color: '#555', textAlign: 'center', padding: '20px' }}>Nessuna posizione chiusa ancora</div>
+                    ) : (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                            <thead>
+                                <tr style={{ color: '#6b7280', borderBottom: '1px solid #374151' }}>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Time</th>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Symbol</th>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Type</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>Price</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>Amount</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>Total</th>
+                                    <th style={{ padding: '10px', textAlign: 'right' }}>P&L</th>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Durata</th>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Motivo Chiusura</th>
+                                    <th style={{ padding: '10px', textAlign: 'center' }}>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {closedPositions.map((pos, i) => {
+                                    const profit = parseFloat(pos.profit_loss || 0);
+                                    const profitPct = parseFloat(pos.profit_loss_pct || 0);
+                                    const isWin = profit >= 0;
+                                    const durationMs = new Date(pos.closed_at).getTime() - new Date(pos.opened_at).getTime();
+                                    const durationMin = Math.floor(durationMs / 60000);
+
+                                    return (
+                                        <tr key={i} style={{ borderBottom: '1px solid #2d3748', background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                                            <td style={{ padding: '10px' }}>{new Date(pos.closed_at).toLocaleTimeString()}</td>
+                                            <td style={{ padding: '10px', fontWeight: 'bold' }}>{pos.symbol}</td>
+                                            <td style={{ padding: '10px' }}>
+                                                <span style={{
+                                                    color: pos.type === 'buy' ? '#10b981' : '#ef4444',
+                                                    background: pos.type === 'buy' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '0.8rem'
+                                                }}>
+                                                    {pos.type === 'buy' ? 'LONG' : 'SHORT'}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '10px', textAlign: 'right' }}>{parseFloat(pos.entry_price).toFixed(2)}</td>
+                                            <td style={{ padding: '10px', textAlign: 'right' }}>{parseFloat(pos.volume).toFixed(4)}</td>
+                                            <td style={{ padding: '10px', textAlign: 'right' }}>{(parseFloat(pos.entry_price) * parseFloat(pos.volume)).toFixed(2)}€</td>
+                                            <td style={{ padding: '10px', textAlign: 'right', fontWeight: 'bold', color: isWin ? '#10b981' : '#ef4444' }}>
+                                                {isWin ? '+' : ''}{profit.toFixed(2)}€ ({isWin ? '+' : ''}{profitPct.toFixed(2)}%)
+                                            </td>
+                                            <td style={{ padding: '10px', color: '#9ca3af', fontSize: '0.85rem' }}>{durationMin} min</td>
+                                            <td style={{ padding: '10px', color: '#9ca3af', fontSize: '0.8rem', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={pos.close_reason}>
+                                                {pos.close_reason || 'Manual'}
+                                            </td>
+                                            <td style={{ padding: '10px', textAlign: 'center' }}>
+                                                <button
+                                                    onClick={() => {
+                                                        // Show details if needed
+                                                        alert(JSON.stringify(pos.signal_details || {}, null, 2));
+                                                    }}
+                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1' }}
+                                                >
+                                                    <Info size={16} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </div>
+
             {/* 📊 PERFORMANCE ANALYTICS - Day/Week/Month/Year */}
             {performanceAnalytics && (
                 <div className="crypto-card" style={{ marginTop: '20px' }}>
@@ -1133,12 +1273,6 @@ const CryptoDashboard = () => {
                     </div>
                 </div>
             )}
-
-            {/* RECENT TRADES HISTORY */}
-            <div className="crypto-card" style={{ marginTop: '20px' }}>
-                <div className="card-title">
-                    <RefreshCw size={20} className="text-gray-400" />
-                    Closed Positions History
                 </div>
                 <div className="trades-list">
                     {closedPositions.length === 0 ? (
@@ -1389,211 +1523,212 @@ const CryptoDashboard = () => {
                         </table>
                     )}
                 </div>
-            </div>
+            </div >
+    {/* Bot Settings Modal */ }
+    <BotSettings
+isOpen = { showBotSettings }
+onClose = {() => setShowBotSettings(false)}
+apiBase = { apiBase }
+    />
 
-            {/* Bot Settings Modal */}
-            <BotSettings
-                isOpen={showBotSettings}
-                onClose={() => setShowBotSettings(false)}
-                apiBase={apiBase}
-            />
+    {/* General Settings Modal */ }
+    <GeneralSettings
+isOpen = { showGeneralSettings }
+onClose = {() => setShowGeneralSettings(false)}
+onResetPortfolio = { handleResetPortfolio }
+onAddFunds = {() => {
+    setShowGeneralSettings(false);
+    setShowAddFundsModal(true);
+}}
+    />
 
-            {/* General Settings Modal */}
-            <GeneralSettings
-                isOpen={showGeneralSettings}
-                onClose={() => setShowGeneralSettings(false)}
-                onResetPortfolio={handleResetPortfolio}
-                onAddFunds={() => {
-                    setShowGeneralSettings(false);
-                    setShowAddFundsModal(true);
-                }}
-            />
+{/* Add Funds Modal */ }
+{
+    showAddFundsModal && (
+        <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000
+        }}>
+            <div style={{
+                background: 'linear-gradient(145deg, #1f2937, #111827)',
+                borderRadius: '16px',
+                padding: '30px',
+                maxWidth: '500px',
+                width: '90%',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+                border: '1px solid #374151'
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h2 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <DollarSign size={24} className="text-green-500" />
+                        Aggiungi Fondi
+                    </h2>
+                    <button
+                        onClick={() => setShowAddFundsModal(false)}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#9ca3af',
+                            fontSize: '1.5rem',
+                            cursor: 'pointer',
+                            padding: '0',
+                            width: '30px',
+                            height: '30px'
+                        }}
+                    >
+                        ×
+                    </button>
+                </div>
 
+                <div style={{ color: '#9ca3af', marginBottom: '20px', fontSize: '0.9rem' }}>
+                    Simula un deposito di fondi nel tuo portfolio. L'importo verrà aggiunto al saldo attuale.
+                </div>
 
-            {/* Add Funds Modal */}
-            {showAddFundsModal && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0, 0, 0, 0.8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 2000
-                }}>
-                    <div style={{
-                        background: 'linear-gradient(145deg, #1f2937, #111827)',
-                        borderRadius: '16px',
-                        padding: '30px',
-                        maxWidth: '500px',
-                        width: '90%',
-                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
-                        border: '1px solid #374151'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h2 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <DollarSign size={24} className="text-green-500" />
-                                Aggiungi Fondi
-                            </h2>
+                <div style={{ marginBottom: '20px' }}>
+                    <label style={{ color: '#e5e7eb', fontSize: '0.9rem', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                        Importo da aggiungere (USDT)
+                    </label>
+                    <input
+                        type="number"
+                        id="addFundsAmount"
+                        min="1"
+                        step="0.01"
+                        placeholder="Inserisci importo..."
+                        style={{
+                            width: '100%',
+                            padding: '12px',
+                            background: '#111827',
+                            border: '1px solid #374151',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            fontSize: '1.1rem',
+                            fontWeight: 'bold'
+                        }}
+                        onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                                const amount = document.getElementById('addFundsAmount').value;
+                                if (amount && parseFloat(amount) > 0) {
+                                    handleAddFunds(amount);
+                                }
+                            }
+                        }}
+                    />
+                </div>
+
+                {/* Quick Amount Buttons */}
+                <div style={{ marginBottom: '25px' }}>
+                    <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '10px' }}>Importi rapidi:</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                        {[50, 100, 250, 500].map(amount => (
                             <button
-                                onClick={() => setShowAddFundsModal(false)}
-                                style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: '#9ca3af',
-                                    fontSize: '1.5rem',
-                                    cursor: 'pointer',
-                                    padding: '0',
-                                    width: '30px',
-                                    height: '30px'
+                                key={amount}
+                                onClick={() => {
+                                    const input = document.getElementById('addFundsAmount');
+                                    if (input) input.value = amount;
                                 }}
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        <div style={{ color: '#9ca3af', marginBottom: '20px', fontSize: '0.9rem' }}>
-                            Simula un deposito di fondi nel tuo portfolio. L'importo verrà aggiunto al saldo attuale.
-                        </div>
-
-                        <div style={{ marginBottom: '20px' }}>
-                            <label style={{ color: '#e5e7eb', fontSize: '0.9rem', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                                Importo da aggiungere (USDT)
-                            </label>
-                            <input
-                                type="number"
-                                id="addFundsAmount"
-                                min="1"
-                                step="0.01"
-                                placeholder="Inserisci importo..."
                                 style={{
-                                    width: '100%',
-                                    padding: '12px',
-                                    background: '#111827',
-                                    border: '1px solid #374151',
-                                    borderRadius: '8px',
-                                    color: '#fff',
-                                    fontSize: '1.1rem',
-                                    fontWeight: 'bold'
-                                }}
-                                onKeyPress={(e) => {
-                                    if (e.key === 'Enter') {
-                                        const amount = document.getElementById('addFundsAmount').value;
-                                        if (amount && parseFloat(amount) > 0) {
-                                            handleAddFunds(amount);
-                                        }
-                                    }
-                                }}
-                            />
-                        </div>
-
-                        {/* Quick Amount Buttons */}
-                        <div style={{ marginBottom: '25px' }}>
-                            <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '10px' }}>Importi rapidi:</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-                                {[50, 100, 250, 500].map(amount => (
-                                    <button
-                                        key={amount}
-                                        onClick={() => {
-                                            document.getElementById('addFundsAmount').value = amount;
-                                        }}
-                                        style={{
-                                            padding: '10px',
-                                            background: '#374151',
-                                            border: '1px solid #4b5563',
-                                            borderRadius: '8px',
-                                            color: '#fff',
-                                            cursor: 'pointer',
-                                            fontSize: '0.9rem',
-                                            fontWeight: '500',
-                                            transition: 'all 0.2s'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.target.style.background = '#4b5563';
-                                            e.target.style.borderColor = '#6366f1';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.target.style.background = '#374151';
-                                            e.target.style.borderColor = '#4b5563';
-                                        }}
-                                    >
-                                        ${amount}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button
-                                onClick={() => setShowAddFundsModal(false)}
-                                style={{
-                                    flex: 1,
-                                    padding: '12px',
+                                    padding: '10px',
                                     background: '#374151',
                                     border: '1px solid #4b5563',
                                     borderRadius: '8px',
                                     color: '#fff',
                                     cursor: 'pointer',
-                                    fontSize: '1rem',
-                                    fontWeight: '500'
+                                    fontSize: '0.9rem',
+                                    fontWeight: '500',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.target.style.background = '#4b5563';
+                                    e.target.style.borderColor = '#6366f1';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.target.style.background = '#374151';
+                                    e.target.style.borderColor = '#4b5563';
                                 }}
                             >
-                                Annulla
+                                ${amount}
                             </button>
-                            <button
-                                onClick={() => {
-                                    const amount = document.getElementById('addFundsAmount').value;
-                                    if (!amount || parseFloat(amount) <= 0) {
-                                        alert('⚠️ Inserisci un importo valido maggiore di 0');
-                                        return;
-                                    }
-                                    handleAddFunds(amount);
-                                }}
-                                style={{
-                                    flex: 1,
-                                    padding: '12px',
-                                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    color: '#fff',
-                                    cursor: 'pointer',
-                                    fontSize: '1rem',
-                                    fontWeight: 'bold',
-                                    boxShadow: '0 4px 6px rgba(16, 185, 129, 0.3)'
-                                }}
-                            >
-                                Conferma Deposito
-                            </button>
-                        </div>
-
-                        <div style={{ marginTop: '20px', padding: '12px', background: '#1f2937', borderRadius: '8px', border: '1px solid #374151' }}>
-                            <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '6px' }}>
-                                💡 <strong>Nota:</strong> Questa è una simulazione
-                            </div>
-                            <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
-                                I fondi aggiunti sono virtuali e servono solo per testare la strategia di trading.
-                            </div>
-                        </div>
+                        ))}
                     </div>
                 </div>
-            )}
 
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                        onClick={() => setShowAddFundsModal(false)}
+                        style={{
+                            flex: 1,
+                            padding: '12px',
+                            background: '#374151',
+                            border: '1px solid #4b5563',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            cursor: 'pointer',
+                            fontSize: '1rem',
+                            fontWeight: '500'
+                        }}
+                    >
+                        Annulla
+                    </button>
+                    <button
+                        onClick={() => {
+                            const amount = document.getElementById('addFundsAmount').value;
+                            if (!amount || parseFloat(amount) <= 0) {
+                                alert('⚠️ Inserisci un importo valido maggiore di 0');
+                                return;
+                            }
+                            handleAddFunds(amount);
+                        }}
+                        style={{
+                            flex: 1,
+                            padding: '12px',
+                            background: 'linear-gradient(135deg, #10b981, #059669)',
+                            border: 'none',
+                            borderRadius: '8px',
+                            color: '#fff',
+                            cursor: 'pointer',
+                            fontSize: '1rem',
+                            fontWeight: 'bold',
+                            boxShadow: '0 4px 6px rgba(16, 185, 129, 0.3)'
+                        }}
+                    >
+                        Conferma Deposito
+                    </button>
+                </div>
 
-            {/* Real-time Notifications */}
-            <div className="crypto-notifications-container">
-                {notifications.map(notification => (
-                    <CryptoNotification
-                        key={notification.id}
-                        notification={notification}
-                        onClose={() => removeNotification(notification.id)}
-                    />
-                ))}
+                <div style={{ marginTop: '20px', padding: '12px', background: '#1f2937', borderRadius: '8px', border: '1px solid #374151' }}>
+                    <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '6px' }}>
+                        💡 <strong>Nota:</strong> Questa è una simulazione
+                    </div>
+                    <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
+                        I fondi aggiunti sono virtuali e servono solo per testare la strategia di trading.
+                    </div>
+                </div>
             </div>
         </div>
+    )
+}
+
+{/* Real-time Notifications */ }
+<div className="crypto-notifications-container">
+    {notifications.map(notification => (
+        <CryptoNotification
+            key={notification.id}
+            notification={notification}
+            onClose={() => removeNotification(notification.id)}
+        />
+    ))}
+</div>
+        </div >
     );
 };
 
 export default CryptoDashboard;
+
