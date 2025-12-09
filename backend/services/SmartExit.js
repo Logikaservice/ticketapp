@@ -28,79 +28,80 @@ const dbRun = cryptoDb.dbRun;
  */
 const SMART_EXIT_CONFIG = {
     ENABLED: true,
-    CHECK_INTERVAL_MS: 10000, // Check every 10 seconds
-    MIN_OPPOSITE_STRENGTH: 60, // Close if opposite signal strength >= 60
-    MIN_PROFIT_TO_PROTECT: 0.5, // Only activate if position has at least 0.5% profit
+    // ⚡ MONITORAGGIO PIÙ FREQUENTE per strategia veloce
+    CHECK_INTERVAL_MS: 3000, // Check ogni 3 secondi (da 10) - Più reattivo!
 
-    // ✅ FIX CRITICO: Grace Period - MAI chiudere posizioni appena aperte
-    MIN_GRACE_PERIOD_MS: 60000, // ✅ NUOVO: 60 secondi minimi prima di poter chiudere (evita chiusure < 1 secondo)
-    MIN_GRACE_PERIOD_FOR_LOSS_MS: 300000, // ✅ NUOVO: 5 minuti minimi se P&L è negativo (evita perdite immediate)
+    // 🎯 SENTIMENT CHANGE DETECTION - Più sensibile
+    MIN_OPPOSITE_STRENGTH: 55, // Chiudi se segnale opposto >= 55 (da 60) - Più aggressivo!
+    MIN_PROFIT_TO_PROTECT: 0.3, // Attiva protezione già a 0.3% (da 0.5%) - Prima!
 
-    // ✅ FIX: Soglie meno aggressive per evitare chiusure premature
-    // Nuove configurazioni per ragionamento avanzato
+    // ✅ Grace Period - Protezione contro chiusure immediate
+    MIN_GRACE_PERIOD_MS: 30000, // 30 secondi (da 60) - Più veloce ma sicuro
+    MIN_GRACE_PERIOD_FOR_LOSS_MS: 180000, // 3 minuti (da 5) - Più veloce
+
+    // 🚀 CHIUSURE PIÙ RAPIDE in mercato statico/lento
     STATIC_MARKET_ATR_THRESHOLD: 0.3, // ATR < 0.3% = mercato statico
     SLOW_MARKET_ATR_THRESHOLD: 0.5, // ATR 0.3-0.5% = mercato lento
-    SUFFICIENT_PROFIT_IN_STATIC: 2.0, // ✅ AUMENTATO: 2% minimo per chiudere in mercato statico (era 0.5% - troppo aggressivo)
-    MIN_MOMENTUM_FOR_HOLD: 0.05, // ✅ RIDOTTO: Momentum minimo per tenere (0.05% invece di 0.1% - più permissivo)
-    MAX_TIME_IN_STATIC_MARKET: 7200000, // ✅ AUMENTATO: 2 ore invece di 1 ora (più tempo prima di chiudere)
-    OPPORTUNITY_COST_THRESHOLD: 2.0, // ✅ AUMENTATO: 2% di differenza invece di 1% (più conservativo)
+    SUFFICIENT_PROFIT_IN_STATIC: 1.5, // 1.5% per chiudere in statico (da 2%) - Più veloce!
+    MIN_MOMENTUM_FOR_HOLD: 0.03, // Momentum minimo 0.03% (da 0.05%) - Più sensibile!
+    MAX_TIME_IN_STATIC_MARKET: 3600000, // 1 ora (da 2 ore) - Più veloce!
+    OPPORTUNITY_COST_THRESHOLD: 1.5, // 1.5% differenza (da 2%) - Più aggressivo!
 
-    // ✅ NUOVO: Soglia minima assoluta - MAI chiudere sotto questa soglia
-    MIN_ABSOLUTE_PROFIT_TO_CLOSE: 1.0, // MAI chiudere se guadagno < 1% (protezione contro chiusure premature)
+    // 💰 "PORTA A CASA IL GUADAGNO" - Soglie minime per chiusura
+    MIN_ABSOLUTE_PROFIT_TO_CLOSE: 0.8, // 0.8% minimo (da 1%) - Più veloce!
+    MIN_PROFIT_FOR_SLOW_MARKET: 1.2, // 1.2% in mercato lento (da 1.5%) - Più veloce!
 
-    // ✅ NUOVO: Soglia per mercato lento - più conservativa
-    MIN_PROFIT_FOR_SLOW_MARKET: 1.5, // Minimo 1.5% per chiudere in mercato lento
-
-    // ✅ PRIORITÀ 1: Trailing Profit Protection
+    // 🎯 TRAILING PROFIT PROTECTION - PIÙ STRETTO per proteggere guadagni
     TRAILING_PROFIT_ENABLED: true,
     TRAILING_PROFIT_LEVELS: [
-        { peakProfit: 3.0, lockPercent: 0.60 },  // Se sale a 3%, blocca almeno 1.8% (60%)
-        { peakProfit: 5.0, lockPercent: 0.65 },  // Se sale a 5%, blocca almeno 3.25% (65%)
-        { peakProfit: 7.0, lockPercent: 0.70 },   // Se sale a 7%, blocca almeno 4.9% (70%)
-        { peakProfit: 10.0, lockPercent: 0.75 },  // Se sale a 10%, blocca almeno 7.5% (75%)
-        { peakProfit: 15.0, lockPercent: 0.80 },  // Se sale a 15%, blocca almeno 12% (80%)
+        { peakProfit: 2.0, lockPercent: 0.50 },  // Se sale a 2%, blocca 1% (50%)
+        { peakProfit: 3.0, lockPercent: 0.60 },  // Se sale a 3%, blocca 1.8% (60%)
+        { peakProfit: 4.0, lockPercent: 0.65 },  // Se sale a 4%, blocca 2.6% (65%)
+        { peakProfit: 5.0, lockPercent: 0.70 },  // Se sale a 5%, blocca 3.5% (70%)
+        { peakProfit: 7.0, lockPercent: 0.75 },  // Se sale a 7%, blocca 5.25% (75%)
+        { peakProfit: 10.0, lockPercent: 0.80 }, // Se sale a 10%, blocca 8% (80%)
     ],
 
-    // ✅ PRIORITÀ 2: Soglie Dinamiche Basate su ATR
+    // ✅ Soglie Dinamiche Basate su ATR
     DYNAMIC_THRESHOLDS_ENABLED: true,
-    ATR_MULTIPLIER: 2.0, // Soglia = ATR × 2.0
-    MIN_DYNAMIC_THRESHOLD: 0.5, // Soglia minima anche se ATR è molto basso
-    MAX_DYNAMIC_THRESHOLD: 5.0, // Soglia massima anche se ATR è molto alto
+    ATR_MULTIPLIER: 1.8, // Soglia = ATR × 1.8 (da 2.0) - Più stretto!
+    MIN_DYNAMIC_THRESHOLD: 0.4, // Soglia minima 0.4% (da 0.5%)
+    MAX_DYNAMIC_THRESHOLD: 4.0, // Soglia massima 4% (da 5%)
 
-    // ✅ PRIORITÀ 3: Risk/Reward Ratio
+    // ✅ Risk/Reward Ratio
     RISK_REWARD_ENABLED: true,
-    MIN_RISK_REWARD_RATIO: 1.5, // Minimo R/R 1:1.5 per mantenere posizione
-    CALCULATE_RR_FROM_ENTRY: true, // Calcola R/R dall'entry price
+    MIN_RISK_REWARD_RATIO: 1.3, // R/R minimo 1:1.3 (da 1:1.5) - Più permissivo!
+    CALCULATE_RR_FROM_ENTRY: true,
 
-    // ✅ NUOVO PRIORITÀ 1: Volume Confirmation
+    // ✅ Volume Confirmation - PIÙ SENSIBILE
     VOLUME_CONFIRMATION_ENABLED: true,
-    VOLUME_LOW_THRESHOLD: 0.7, // Volume < 70% media = basso
-    VOLUME_HIGH_THRESHOLD: 1.5, // Volume > 150% media = alto
-    REQUIRE_VOLUME_FOR_REVERSAL: true, // Richiedi volume alto per reversal
+    VOLUME_LOW_THRESHOLD: 0.6, // Volume < 60% media = basso (da 70%) - Più sensibile!
+    VOLUME_HIGH_THRESHOLD: 1.4, // Volume > 140% media = alto (da 150%)
+    REQUIRE_VOLUME_FOR_REVERSAL: true,
 
-    // ✅ NUOVO PRIORITÀ 2: Support/Resistance Levels
+    // ✅ Support/Resistance Levels
     SUPPORT_RESISTANCE_ENABLED: true,
-    SR_LOOKBACK_PERIODS: 50, // Cerca S/R negli ultimi 50 periodi
-    SR_TOUCH_DISTANCE_PCT: 0.5, // Considera "vicino" se entro 0.5% del livello
-    PARTIAL_CLOSE_AT_RESISTANCE: true, // Chiudi parzialmente a resistenza
+    SR_LOOKBACK_PERIODS: 50,
+    SR_TOUCH_DISTANCE_PCT: 0.4, // 0.4% (da 0.5%) - Più sensibile!
+    PARTIAL_CLOSE_AT_RESISTANCE: true,
 
-    // ✅ NUOVO PRIORITÀ 3: Divergence Detection
+    // ✅ Divergence Detection - PIÙ SENSIBILE
     DIVERGENCE_DETECTION_ENABLED: true,
-    RSI_PERIOD: 14, // Periodo RSI
-    DIVERGENCE_LOOKBACK: 20, // Cerca divergenze negli ultimi 20 periodi
-    MIN_DIVERGENCE_STRENGTH: 0.3, // Divergenza deve essere almeno 30% significativa
+    RSI_PERIOD: 14,
+    DIVERGENCE_LOOKBACK: 15, // 15 periodi (da 20) - Più veloce!
+    MIN_DIVERGENCE_STRENGTH: 0.25, // 25% (da 30%) - Più sensibile!
 
-    // ✅ NUOVO PRIORITÀ 4: Multi-Timeframe Exit
+    // ✅ Multi-Timeframe Exit
     MULTI_TIMEFRAME_EXIT_ENABLED: true,
-    EXIT_TIMEFRAMES: ['15m', '1h', '4h'], // Timeframe per exit
-    EXIT_TIMEFRAME_WEIGHTS: { '15m': 0.2, '1h': 0.3, '4h': 0.5 }, // Peso per timeframe
-    REQUIRE_HIGHER_TF_CONFIRMATION: true, // Richiedi conferma timeframe più lungo
+    EXIT_TIMEFRAMES: ['15m', '1h', '4h'],
+    EXIT_TIMEFRAME_WEIGHTS: { '15m': 0.3, '1h': 0.3, '4h': 0.4 }, // Più peso a 15m!
+    REQUIRE_HIGHER_TF_CONFIRMATION: true,
 
-    // ✅ NUOVO PRIORITÀ 5: Portfolio Drawdown Protection
+    // ✅ Portfolio Drawdown Protection
     PORTFOLIO_DRAWDOWN_ENABLED: true,
-    MAX_PORTFOLIO_DRAWDOWN_PCT: 5.0, // Max drawdown totale 5%
-    CLOSE_WORST_ON_DRAWDOWN: true, // Chiudi posizioni peggiori se drawdown alto
-    WORST_POSITIONS_TO_CLOSE: 2, // Quante posizioni peggiori chiudere
+    MAX_PORTFOLIO_DRAWDOWN_PCT: 4.0, // 4% (da 5%) - Più stretto!
+    CLOSE_WORST_ON_DRAWDOWN: true,
+    WORST_POSITIONS_TO_CLOSE: 2,
 };
 
 /**
