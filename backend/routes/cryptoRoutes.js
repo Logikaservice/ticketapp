@@ -2583,7 +2583,19 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             // In DEMO mode, simuliamo sempre che lo short sia supportato per testare la strategia
             const isDemo = binanceMode === 'demo';
 
-            if (!isDemo && (binanceMode === 'live' || binanceMode === 'testnet') && !supportsShort) {
+            if (shortBlockedByFilters) {
+                // ✅ FIX CRITICO: Mostra filtri professionali che bloccano SHORT
+                const blockingFilters = shortProfessionalFilters.filter(f => f.includes('🚫 BLOCKED'));
+                if (blockingFilters.length > 0) {
+                    console.log(`\n🛑 [BLOCCATO] ${symbol.toUpperCase()}: Trading bloccato da filtri professionali SHORT`);
+                    blockingFilters.forEach(filter => {
+                        console.log(`   🚫 ${filter.replace('🚫 BLOCKED: ', '')}`);
+                    });
+                    console.log(`   💡 Il bot aspetta che le condizioni di mercato migliorino prima di aprire\n`);
+                } else {
+                    console.log(`\n🛑 [BLOCCATO] ${symbol.toUpperCase()}: Trading bloccato da filtri professionali SHORT\n`);
+                }
+            } else if (!isDemo && (binanceMode === 'live' || binanceMode === 'testnet') && !supportsShort) {
                 console.log(`⚠️ SHORT signal ignorato per ${symbol}: Binance Spot non supporta short.`);
                 console.log(`   Per usare SHORT, configura BINANCE_SUPPORTS_SHORT=true e usa Binance Futures.`);
                 console.log(`   Oppure disabilita SHORT per usare solo LONG (raccomandato per principianti).`);
