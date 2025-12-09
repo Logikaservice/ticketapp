@@ -1337,28 +1337,11 @@ initWebSocketService();
 const getSymbolPrice = async (symbol) => {
     // ✅ Controlla cache prima di chiamare Binance
     const cached = priceCache.get(symbol);
-    const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
-    const isEURPair = tradingPair.endsWith('EUR');
+    const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';  // ✅ FIX: Default USDT invece di EUR
 
-    // ✅ FIX CRITICO: Per coppie EUR, invalidiamo la cache se è più vecchia di 1 secondo
-    // Questo garantisce che i prezzi siano sempre convertiti EUR→USDT correttamente
-    // La cache potrebbe contenere ancora prezzi vecchi in EUR non convertiti
+    // ✅ Cache valida - usa prezzo cached
     if (cached && (Date.now() - cached.timestamp) < PRICE_CACHE_TTL) {
-        if (isEURPair) {
-            // ✅ FIX: Per coppie EUR, invalidiamo cache se > 1 secondo per garantire conversione corretta
-            // La cache potrebbe contenere ancora EUR non convertito da prima della fix
-            const cacheAge = Date.now() - cached.timestamp;
-            if (cacheAge > 1000) { // Se cache > 1 secondo, forziamo refresh
-                console.log(`🔄 [PRICE-CACHE] ${symbol}: Cache EUR > 1s (${cacheAge}ms), forzando refresh per conversione USDT`);
-                priceCache.delete(symbol); // Invalida cache per forzare refresh con conversione
-            } else {
-                // Cache fresca (< 1s), usa (dovrebbe essere già in USDT)
-                return cached.price;
-            }
-        } else {
-            // Cache valida per coppie USDT (non necessitano conversione)
-            return cached.price;
-        }
+        return cached.price;
     }
 
     // Cache scaduta o non presente - aggiorna prezzo da Binance
@@ -1367,22 +1350,12 @@ const getSymbolPrice = async (symbol) => {
         console.log(`🔄 [PRICE-UPDATE] Aggiornando prezzo ${symbol} da Binance (cache scaduta)`);
     }
 
-    // tradingPair e isEURPair già definiti sopra
     const coingeckoId = SYMBOL_TO_COINGECKO[symbol] || 'bitcoin';
-    const EUR_TO_USDT_RATE = 1.08; // Tasso approssimativo EUR → USDT
 
     try {
         const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=${tradingPair}`);
         if (data && data.price) {
-            let price = parseFloat(data.price);
-
-            // ✅ FIX CRITICO: Se la coppia è in EUR, converti a USDT per match con TradingView
-            // TradingView mostra sempre USDT, quindi dobbiamo convertire EUR → USDT
-            if (isEURPair) {
-                const originalPrice = price;
-                price = price * EUR_TO_USDT_RATE;
-                console.log(`💱 [PRICE] ${symbol} (${tradingPair}): Convertito EUR → USDT: €${originalPrice.toFixed(6)} → $${price.toFixed(6)} USDT`);
-            }
+            const price = parseFloat(data.price);
 
             // ✅ Salva in cache (sempre in USDT)
             priceCache.set(symbol, { price, timestamp: Date.now() });
