@@ -14,6 +14,7 @@ try {
         dbAll = cryptoDb.dbAll;
         dbGet = cryptoDb.dbGet;
         dbRun = cryptoDb.dbRun;
+        db = undefined; // ✅ FIX: Assicura che db sia undefined per PostgreSQL
         console.log('✅ Using PostgreSQL crypto database');
     } else {
         // Vecchio modulo SQLite
@@ -23,8 +24,13 @@ try {
 } catch (err) {
     console.error('❌ Error loading crypto_db:', err.message);
     // Fallback a SQLite se disponibile
-    db = require('../crypto_db');
-    console.log('⚠️  Fallback to SQLite crypto database');
+    try {
+        db = require('../crypto_db');
+        console.log('⚠️  Fallback to SQLite crypto database');
+    } catch (fallbackErr) {
+        console.error('❌ Critical: Cannot load crypto_db at all!', fallbackErr.message);
+        throw new Error('Cannot initialize crypto database');
+    }
 }
 
 const https = require('https');
@@ -106,6 +112,9 @@ const httpsGet = (url) => {
 // ✅ MIGRAZIONE POSTGRESQL: Helper per gestire errori database
 // Se dbAll non è già definito (vecchio sistema SQLite), definiscilo qui
 if (!dbAll) {
+    if (!db) {
+        throw new Error('❌ CRITICAL: dbAll not defined and db is undefined. Cannot use database!');
+    }
     dbAll = (query, params = []) => {
         return new Promise((resolve, reject) => {
             try {
@@ -450,6 +459,9 @@ router.get('/history', async (req, res) => {
 // ✅ MIGRAZIONE POSTGRESQL: Helper per db.get e db.run
 // Se non sono già definiti (vecchio sistema SQLite), definiscili qui
 if (!dbGet) {
+    if (!db) {
+        throw new Error('❌ CRITICAL: dbGet not defined and db is undefined. Cannot use database!');
+    }
     dbGet = (query, params = []) => {
         return new Promise((resolve, reject) => {
             db.get(query, params, (err, row) => {
@@ -461,6 +473,9 @@ if (!dbGet) {
 }
 
 if (!dbRun) {
+    if (!db) {
+        throw new Error('❌ CRITICAL: dbRun not defined and db is undefined. Cannot use database!');
+    }
     dbRun = (query, params = []) => {
         return new Promise((resolve, reject) => {
             db.run(query, params, function (err) {
@@ -3854,25 +3869,24 @@ router.post('/positions/open', async (req, res) => {
         const ticketId = generateTicketId();
 
         // Create position
-        db.serialize(() => {
-            db.run(
-                "UPDATE portfolio SET balance_usd = ?, holdings = ?",
-                [balance, JSON.stringify(holdings)]
-            );
+        // ✅ MIGRAZIONE POSTGRESQL: Usa dbRun invece di db.serialize()/db.run()
+        await dbRun(
+            "UPDATE portfolio SET balance_usd = ?, holdings = ?",
+            [balance, JSON.stringify(holdings)]
+        );
 
-            db.run(
-                `INSERT INTO open_positions 
-                (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')`,
-                [ticketId, symbol, type, volume, entry_price, entry_price, stop_loss || null, take_profit || null, strategy || 'Manual', 'open']
-            );
+        await dbRun(
+            `INSERT INTO open_positions 
+            (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')`,
+            [ticketId, symbol, type, volume, entry_price, entry_price, stop_loss || null, take_profit || null, strategy || 'Manual', 'open']
+        );
 
-            // Record initial trade
-            db.run(
-                "INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
-                [symbol, type, volume, entry_price, strategy || 'Manual Open']
-            );
-        });
+        // Record initial trade
+        await dbRun(
+            "INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
+            [symbol, type, volume, entry_price, strategy || 'Manual Open']
+        );
 
         res.json({
             success: true,
