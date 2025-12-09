@@ -4,26 +4,35 @@
  * Limiti assoluti non negoziabili
  */
 
-const db = require('../crypto_db');
+// ✅ MIGRAZIONE POSTGRESQL: Usa helper esportati da crypto_db
+const cryptoDb = require('../crypto_db');
 
-// Promise-based database helpers
-const dbGet = (query, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.get(query, params, (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
+// Se crypto_db esporta helper PostgreSQL, usali, altrimenti crea wrapper per SQLite
+let dbGet, dbAll;
+if (cryptoDb.dbGet && cryptoDb.dbAll) {
+    // Nuovo modulo PostgreSQL
+    dbGet = cryptoDb.dbGet;
+    dbAll = cryptoDb.dbAll;
+} else {
+    // Vecchio modulo SQLite - crea wrapper
+    const db = cryptoDb;
+    dbGet = (query, params = []) => {
+        return new Promise((resolve, reject) => {
+            db.get(query, params, (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+            });
         });
-    });
-};
-
-const dbAll = (query, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.all(query, params, (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows || []);
+    };
+    dbAll = (query, params = []) => {
+        return new Promise((resolve, reject) => {
+            db.all(query, params, (err, rows) => {
+                if (err) reject(err);
+                else resolve(rows || []);
+            });
         });
-    });
-};
+    };
+}
 
 class SeriousRiskManager {
     constructor() {
@@ -46,13 +55,8 @@ class SeriousRiskManager {
      */
     async getDynamicLimits() {
         try {
-            const db = require('../crypto_db');
-            const stats = await new Promise((resolve, reject) => {
-                db.get("SELECT * FROM performance_stats WHERE id = 1", (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                });
-            });
+            // ✅ MIGRAZIONE POSTGRESQL: Usa dbGet invece di db.get
+            const stats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
 
             if (!stats || !stats.total_trades || stats.total_trades < 10) {
                 // Non abbastanza dati, usa limiti conservativi
