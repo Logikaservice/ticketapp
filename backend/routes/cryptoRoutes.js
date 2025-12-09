@@ -1374,9 +1374,42 @@ const initWebSocketService = () => {
 initWebSocketService();
 
 const getSymbolPrice = async (symbol) => {
+    // ✅ FIX CRITICO: Normalizza il simbolo prima di cercare nel mapping
+    let normalizedSymbol = symbol.toLowerCase().replace('/', '').replace('_', '');
+    
+    // ✅ FIX: Prova varianti comuni se il simbolo non è trovato
+    if (!SYMBOL_TO_PAIR[normalizedSymbol] && !SYMBOL_TO_PAIR[symbol]) {
+        const symbolVariants = {
+            'ada': 'cardano',
+            'adausdt': 'cardano',
+            'xrp': 'ripple',
+            'xrpusdt': 'ripple',
+            'bnb': 'binance_coin',
+            'bnbusdt': 'binance_coin',
+            'btc': 'bitcoin',
+            'btcusdt': 'bitcoin',
+            'eth': 'ethereum',
+            'ethusdt': 'ethereum',
+            'sol': 'solana',
+            'solusdt': 'solana'
+        };
+        
+        if (symbolVariants[normalizedSymbol]) {
+            normalizedSymbol = symbolVariants[normalizedSymbol];
+        }
+    }
+    
     // ✅ Controlla cache prima di chiamare Binance
-    const cached = priceCache.get(symbol);
-    const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';  // ✅ FIX: Default USDT invece di EUR
+    const cached = priceCache.get(normalizedSymbol);
+    const tradingPair = SYMBOL_TO_PAIR[normalizedSymbol] || SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';  // ✅ FIX: Default USDT invece di EUR
+    
+    // ✅ FIX CRITICO: Valida che il tradingPair non sia BTCUSDT per simboli non-BTC
+    if (tradingPair === 'BTCUSDT' && normalizedSymbol !== 'bitcoin' && symbol.toLowerCase() !== 'btc' && symbol.toLowerCase() !== 'btcusdt') {
+        console.error(`❌ [PRICE] Simbolo ${symbol} (normalized: ${normalizedSymbol}) non trovato in SYMBOL_TO_PAIR, uso default BTCUSDT - QUESTO È UN ERRORE!`);
+        console.error(`   Simboli disponibili: ${Object.keys(SYMBOL_TO_PAIR).slice(0, 10).join(', ')}...`);
+        // ✅ FIX: Non usare BTCUSDT come default per simboli non-BTC, ritorna null
+        return null;
+    }
 
     // ✅ DEBUG: Log ridotto per non intasare (solo ~5% delle chiamate)
     if (Math.random() < 0.05) {
