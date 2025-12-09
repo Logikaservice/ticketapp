@@ -184,3 +184,4 @@ Se c'è questo problema:
 - **P&L errati**: Calcoli di profitto/perdita sono sbagliati
 
 **Questo potrebbe spiegare perché il bot ha aperto RENDER BUY a €1.42 quando il sentiment è "Neutro"!**
+

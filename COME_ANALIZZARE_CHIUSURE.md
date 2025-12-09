@@ -149,3 +149,4 @@ Se vedi posizioni chiuse in < 1 secondo con perdite elevate, controlla:
 - Il campo `close_reason` contiene il motivo dettagliato della chiusura
 - SmartExit logga sempre il motivo prima di chiudere una posizione
 
+

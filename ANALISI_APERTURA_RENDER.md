@@ -231,3 +231,4 @@ Il bot **implementa**:
 - Rilevamento support/resistance
 - Rilevamento breakout sopra resistenza
 - Conferma volume su breakout
+

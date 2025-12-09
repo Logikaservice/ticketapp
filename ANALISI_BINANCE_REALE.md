@@ -267,3 +267,4 @@ Il sistema **funziona bene in modalità DEMO**, ma per usare **Binance reale con
 
 
 
+
