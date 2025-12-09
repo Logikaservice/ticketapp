@@ -188,3 +188,4 @@ Il bot le ha riaperte perché:
 4. Il bot **fiducia nell'analisi tecnica** più che nei risultati storici
 
 **Il problema principale**: Il bot non "impara" dalle perdite passate su un simbolo specifico. Continua ad aprire posizioni SHORT su ATOM anche con win rate 0% perché il segnale tecnico è ancora forte.
+

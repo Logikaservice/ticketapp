@@ -70,7 +70,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                             fontWeight: '600',
                             color: totalPnL >= 0 ? '#10b981' : '#ef4444'
                         }}>
-                            {totalPnL >= 0 ? '+' : ''}€{(totalPnL || 0).toFixed(2)}
+                            {totalPnL >= 0 ? '+' : ''}${(totalPnL || 0).toFixed(2)} USDT
                         </div>
                     </div>
                     {isUpdating && (
@@ -214,7 +214,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                         {(volume || 0).toFixed(4)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600', color: '#fbbf24' }}>
-                                        €{((entryPrice || 0) * (volume || 0)).toFixed(2)}
+                                        ${((entryPrice || 0) * (volume || 0)).toFixed(2)} USDT
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#9ca3af' }}>
                                         {entryPrice > 0 ? (
@@ -237,30 +237,30 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600' }}>
                                         {currentPriceValue > 0 ? (
                                             currentPriceValue < 0.01 
-                                                ? `€${currentPriceValue.toFixed(6)}` 
+                                                ? `$${currentPriceValue.toFixed(6)}` 
                                                 : currentPriceValue < 1 
-                                                ? `€${currentPriceValue.toFixed(4)}` 
-                                                : `€${currentPriceValue.toFixed(2)}`
+                                                ? `$${currentPriceValue.toFixed(4)}` 
+                                                : `$${currentPriceValue.toFixed(2)}`
                                         ) : (
-                                            <span style={{ color: '#ef4444' }}>€0.00</span>
+                                            <span style={{ color: '#ef4444' }}>$0.00</span>
                                         )}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#ef4444' }}>
                                         {stopLoss != null && stopLoss > 0 ? (
                                             stopLoss < 0.01 
-                                                ? `€${stopLoss.toFixed(6)}` 
+                                                ? `$${stopLoss.toFixed(6)}` 
                                                 : stopLoss < 1 
-                                                ? `€${stopLoss.toFixed(4)}` 
-                                                : `€${stopLoss.toFixed(2)}`
+                                                ? `$${stopLoss.toFixed(4)}` 
+                                                : `$${stopLoss.toFixed(2)}`
                                         ) : '-'}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#10b981' }}>
                                         {takeProfit != null && takeProfit > 0 ? (
                                             takeProfit < 0.01 
-                                                ? `€${takeProfit.toFixed(6)}` 
+                                                ? `$${takeProfit.toFixed(6)}` 
                                                 : takeProfit < 1 
-                                                ? `€${takeProfit.toFixed(4)}` 
-                                                : `€${takeProfit.toFixed(2)}`
+                                                ? `$${takeProfit.toFixed(4)}` 
+                                                : `$${takeProfit.toFixed(2)}`
                                         ) : '-'}
                                     </td>
                                     <td style={{
@@ -270,7 +270,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                         fontWeight: '600',
                                         color: pnl >= 0 ? '#10b981' : '#ef4444'
                                     }}>
-                                        {pnl >= 0 ? '+' : ''}€{(pnl || 0).toFixed(2)}
+                                        {pnl >= 0 ? '+' : ''}${(pnl || 0).toFixed(2)} USDT
                                     </td>
                                     <td style={{
                                         padding: '10px 8px',

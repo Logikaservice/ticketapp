@@ -107,7 +107,7 @@ const getPortfolio = async () => {
 
         if (!row) {
             // ✅ FIX: Se non esiste, ritorna default
-            return { balance_usd: 10000.0, holdings: '{}' };
+            return { balance_usd: 10800.0, holdings: '{}' }; // Default: 10800 USDT ≈ 10000 EUR
         }
 
         // ✅ FIX CRITICO: Valida balance_usd per evitare valori assurdi
@@ -115,26 +115,27 @@ const getPortfolio = async () => {
         const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni di euro max
         const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min
 
+        // ✅ CAMBIATO: balance_usd ora è in USDT (non più EUR) per match con grafico TradingView
         // ✅ DEBUG: Log balance per tracciare calcoli
-        console.log(`💰 [BALANCE CHECK] Raw balance_usd dal DB: €${rawBalance.toFixed(2)}`);
+        console.log(`💰 [BALANCE CHECK] Raw balance_usd dal DB: $${rawBalance.toFixed(2)} USDT`);
 
         if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
-            console.error(`🚨 [PORTFOLIO] Valore anomale di balance_usd nel database: €${rawBalance.toLocaleString()}. Correggendo automaticamente a €10000`);
-            // ✅ FIX CRITICO: Aggiorna il database con valore valido
+            console.error(`🚨 [PORTFOLIO] Valore anomale di balance_usd nel database: $${rawBalance.toLocaleString()} USDT. Correggendo automaticamente a $10800 USDT`);
+            // ✅ FIX CRITICO: Aggiorna il database con valore valido (10800 USDT ≈ 10000 EUR)
             try {
-                await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [10000]);
-                console.log('✅ [PORTFOLIO] Balance corretto automaticamente nel database a €10000');
-                row.balance_usd = 10000; // Usa valore valido per questa chiamata
+                await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [10800]);
+                console.log('✅ [PORTFOLIO] Balance corretto automaticamente nel database a $10800 USDT');
+                row.balance_usd = 10800; // Usa valore valido per questa chiamata
             } catch (updateErr) {
                 console.error('❌ Error fixing portfolio balance:', updateErr.message);
                 // Anche se l'update fallisce, usa comunque il valore valido per questa chiamata
-                row.balance_usd = 10000;
+                row.balance_usd = 10800;
             }
         }
 
         // ✅ DEBUG: Log balance finale dopo validazione
         const finalBalance = parseFloat(row.balance_usd) || 0;
-        console.log(`💰 [BALANCE CHECK] Balance finale dopo validazione: €${finalBalance.toFixed(2)}`);
+        console.log(`💰 [BALANCE CHECK] Balance finale dopo validazione: $${finalBalance.toFixed(2)} USDT`);
 
         return row;
     } catch (e) {
@@ -494,13 +495,37 @@ router.get('/dashboard', async (req, res) => {
 
                 if (klinesData && klinesData.length >= 20) {
                     const klinesChronological = klinesData.reverse();
+                    // ✅ FIX CRITICO: Normalizza prezzi klines a USDT per evitare mismatch EUR/USDT
+                    // Verifica se le klines sono in EUR o USDT confrontando con prezzo corrente Binance
+                    const currentBinancePrice = await getSymbolPrice(position.symbol).catch(() => null); // USDT
+                    const latestKlinePrice = parseFloat(klinesChronological[klinesChronological.length - 1]?.close_price || 0);
+                    
+                    // Se il prezzo più recente è significativamente diverso dal prezzo Binance, potrebbe essere in EUR
+                    // Tolleranza: se differenza > 10%, probabilmente è in EUR
+                    let conversionRate = 1.0;
+                    if (currentBinancePrice && latestKlinePrice > 0) {
+                        const priceDiff = Math.abs((currentBinancePrice - latestKlinePrice) / latestKlinePrice);
+                        const needsConversion = priceDiff > 0.10 && latestKlinePrice < currentBinancePrice * 0.9; // Se kline è ~10% più bassa, probabilmente EUR
+                        
+                        if (needsConversion) {
+                            try {
+                                const usdtToEurRate = await getUSDTtoEURRate();
+                                conversionRate = 1.0 / usdtToEurRate; // EUR → USDT
+                                console.warn(`⚠️ [CURRENCY-FIX] ${position.symbol.toUpperCase()}: Klines sembrano in EUR (${latestKlinePrice.toFixed(4)} vs ${currentBinancePrice.toFixed(4)} USDT). Convertendo con rate ${conversionRate.toFixed(4)}`);
+                            } catch (rateError) {
+                                console.error(`⚠️ [CURRENCY-FIX] Errore conversione per ${position.symbol}:`, rateError.message);
+                                conversionRate = 1.08; // Fallback: 1 EUR = 1.08 USDT
+                            }
+                        }
+                    }
+                    
                     const historyForSignal = klinesChronological.map(kline => ({
-                        close: parseFloat(kline.close_price),
-                        high: parseFloat(kline.high_price),
-                        low: parseFloat(kline.low_price),
+                        close: parseFloat(kline.close_price) * conversionRate,  // ✅ Normalizza a USDT
+                        high: parseFloat(kline.high_price) * conversionRate,     // ✅ Normalizza a USDT
+                        low: parseFloat(kline.low_price) * conversionRate,        // ✅ Normalizza a USDT
                         volume: parseFloat(kline.volume || 0),
-                        price: parseFloat(kline.close_price),
-                        open: parseFloat(kline.open_price),
+                        price: parseFloat(kline.close_price) * conversionRate,    // ✅ Normalizza a USDT
+                        open: parseFloat(kline.open_price) * conversionRate,       // ✅ Normalizza a USDT
                         timestamp: kline.open_time
                     }));
 
@@ -1328,38 +1353,40 @@ const getSymbolPrice = async (symbol) => {
         if (data && data.price) {
             let price = parseFloat(data.price);
 
-            // ✅ FIX CRITICO: Se la coppia è in USDT, converti in EUR
-            if (isUSDT) {
-                try {
-                    const usdtToEurRate = await getUSDTtoEURRate();
-                    price = price * usdtToEurRate;
-                    // Log solo occasionalmente per non intasare i log
-                    if (Math.random() < 0.1) {
-                        console.log(`💱 [PRICE] ${tradingPair}: ${data.price} USDT → €${price.toFixed(2)} EUR (rate: ${usdtToEurRate.toFixed(4)})`);
-                    }
-                } catch (rateError) {
-                    console.error(`⚠️ Error converting USDT to EUR for ${tradingPair}:`, rateError.message);
-                    // Usa fallback rate se la conversione fallisce
-                    price = price * 0.92;
-                }
-            }
+            // ✅ CAMBIATO: Non convertiamo più USDT → EUR, manteniamo USDT per match con grafico TradingView
+            // Il sistema ora usa USDT ovunque per coerenza con il grafico
+            // if (isUSDT) {
+            //     // Conversione rimossa - manteniamo prezzo in USDT
+            // }
 
             // ✅ Salva in cache
             priceCache.set(symbol, { price, timestamp: Date.now() });
             return price;
         }
         throw new Error("Invalid data from Binance");
-    } catch (e) {
+        } catch (e) {
         console.error(`Error fetching ${symbol} price from Binance:`, e.message);
         try {
-            // ✅ FIX: CoinGecko restituisce sempre in EUR, quindi è più affidabile per coppie USDT
-            // ✅ FIX CRITICO: Usa precision=18 per gestire prezzi molto bassi (es. Shiba ~0.000007)
+            // ✅ CAMBIATO: CoinGecko ora restituisce USDT invece di EUR per match con grafico
+            // Se la coppia è USDT, convertiamo EUR → USDT
             const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=eur&precision=18`);
             if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].eur !== undefined) {
-                const price = parseFloat(geckoData[coingeckoId].eur);
+                let price = parseFloat(geckoData[coingeckoId].eur);
+                
+                // ✅ CAMBIATO: Se la coppia è USDT, convertiamo EUR → USDT
+                if (isUSDT) {
+                    try {
+                        const usdtToEurRate = await getUSDTtoEURRate();
+                        price = price / usdtToEurRate; // EUR → USDT (inverso della conversione precedente)
+                    } catch (rateError) {
+                        console.error(`⚠️ Error converting EUR to USDT for ${tradingPair}:`, rateError.message);
+                        price = price / 0.92; // Fallback: 1 EUR = 1.08 USDT, quindi 1 USDT = 1/0.92 EUR
+                    }
+                }
+                
                 // ✅ FIX: Verifica che il prezzo sia valido (anche se molto basso, es. 0.000007)
                 if (price > 0 && !isNaN(price) && isFinite(price)) {
-                    console.log(`💱 [PRICE] ${symbol} from CoinGecko: €${price.toFixed(8)} EUR`);
+                    console.log(`💱 [PRICE] ${symbol} from CoinGecko: ${isUSDT ? '$' : '€'}${price.toFixed(8)} ${isUSDT ? 'USDT' : 'EUR'}`);
                     // ✅ Salva in cache anche per CoinGecko
                     priceCache.set(symbol, { price, timestamp: Date.now() });
                     return price;
@@ -1936,14 +1963,36 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             // Reverse to chronological order (oldest first)
             const klinesChronological = klinesData.reverse();
 
+            // ✅ FIX CRITICO: Normalizza prezzi klines a USDT per evitare mismatch EUR/USDT
+            // Verifica se le klines sono in EUR o USDT confrontando con prezzo corrente Binance
+            const currentBinancePrice = await getSymbolPrice(symbol); // USDT
+            const latestKlinePrice = parseFloat(klinesChronological[klinesChronological.length - 1]?.close_price || 0);
+            
+            // Se il prezzo più recente è significativamente diverso dal prezzo Binance, potrebbe essere in EUR
+            // Tolleranza: se differenza > 10%, probabilmente è in EUR
+            const priceDiff = latestKlinePrice > 0 ? Math.abs((currentBinancePrice - latestKlinePrice) / latestKlinePrice) : 0;
+            const needsConversion = priceDiff > 0.10 && latestKlinePrice < currentBinancePrice * 0.9; // Se kline è ~10% più bassa, probabilmente EUR
+            
+            let conversionRate = 1.0;
+            if (needsConversion) {
+                try {
+                    const usdtToEurRate = await getUSDTtoEURRate();
+                    conversionRate = 1.0 / usdtToEurRate; // EUR → USDT
+                    console.warn(`⚠️ [CURRENCY-FIX] ${symbol.toUpperCase()}: Klines sembrano in EUR (${latestKlinePrice.toFixed(4)} vs ${currentBinancePrice.toFixed(4)} USDT). Convertendo con rate ${conversionRate.toFixed(4)}`);
+                } catch (rateError) {
+                    console.error(`⚠️ [CURRENCY-FIX] Errore conversione per ${symbol}:`, rateError.message);
+                    conversionRate = 1.08; // Fallback: 1 EUR = 1.08 USDT
+                }
+            }
+            
             // Formatta come array di oggetti { close, high, low, volume, price } per signalGenerator
             const historyForSignal = klinesChronological.map(kline => ({
-                close: parseFloat(kline.close_price),
-                high: parseFloat(kline.high_price),
-                low: parseFloat(kline.low_price),
+                close: parseFloat(kline.close_price) * conversionRate,  // ✅ Normalizza a USDT
+                high: parseFloat(kline.high_price) * conversionRate,     // ✅ Normalizza a USDT
+                low: parseFloat(kline.low_price) * conversionRate,        // ✅ Normalizza a USDT
                 volume: parseFloat(kline.volume || 0),
-                price: parseFloat(kline.close_price), // Per backward compatibility
-                open: parseFloat(kline.open_price),
+                price: parseFloat(kline.close_price) * conversionRate,    // ✅ Normalizza a USDT
+                open: parseFloat(kline.open_price) * conversionRate,       // ✅ Normalizza a USDT
                 timestamp: kline.open_time
             }));
 
@@ -2851,15 +2900,15 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
             }
             balance -= cost;
             holdings[symbol] = (holdings[symbol] || 0) + volume;
-            console.log(`💵 LONG OPEN: Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (-€${cost.toFixed(2)}) | Holdings: ${holdings[symbol].toFixed(8)}`);
-            console.log(`   📊 [BALANCE LOGIC] Capitale investito: €${cost.toFixed(2)}, Capitale disponibile ora: €${balance.toFixed(2)}`);
+            console.log(`💵 LONG OPEN: Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (-$${cost.toFixed(2)} USDT) | Holdings: ${holdings[symbol].toFixed(8)}`);
+            console.log(`   📊 [BALANCE LOGIC] Capitale investito: $${cost.toFixed(2)} USDT, Capitale disponibile ora: $${balance.toFixed(2)} USDT`);
         } else {
             // ✅ FIX CRITICO: Short position - ricevi denaro ma NON toccare holdings
             // In uno SHORT vendi allo scoperto (non possiedi la crypto), quindi holdings NON cambiano
             balance += cost;
             // holdings[symbol] NON DEVE CAMBIARE all'apertura di uno SHORT
-            console.log(`💵 SHORT OPEN: Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (+€${cost.toFixed(2)}) | Holdings: ${holdings[symbol] || 0} (unchanged - short position)`);
-            console.log(`   📊 [BALANCE LOGIC] Capitale ricevuto da SHORT: €${cost.toFixed(2)}, Capitale disponibile ora: €${balance.toFixed(2)}`);
+            console.log(`💵 SHORT OPEN: Balance ${balanceBefore.toFixed(2)} → ${balance.toFixed(2)} (+$${cost.toFixed(2)} USDT) | Holdings: ${holdings[symbol] || 0} (unchanged - short position)`);
+            console.log(`   📊 [BALANCE LOGIC] Capitale ricevuto da SHORT: $${cost.toFixed(2)} USDT, Capitale disponibile ora: $${balance.toFixed(2)} USDT`);
         }
 
         const ticketId = generateTicketId();

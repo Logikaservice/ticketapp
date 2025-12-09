@@ -14,7 +14,7 @@ import './CryptoLayout.css';
 import './CryptoStandalone.css';
 
 const CryptoDashboard = () => {
-    const [portfolio, setPortfolio] = useState({ balance_usd: 10000, holdings: {}, rsi: null }); // balance_usd is now treated as EUR
+    const [portfolio, setPortfolio] = useState({ balance_usd: 10800, holdings: {}, rsi: null }); // balance_usd is now in USDT (10800 USDT ≈ 10000 EUR)
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [trades, setTrades] = useState([]);
     const [botStatus, setBotStatus] = useState({ active: false, strategy: 'RSI_Strategy' });

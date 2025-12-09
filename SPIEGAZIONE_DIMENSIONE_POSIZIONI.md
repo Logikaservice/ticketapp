@@ -178,3 +178,4 @@ Il bot apre posizioni da **€10.98** perché:
 3. **Kelly Criterion** potrebbe limitare ulteriormente a €10 se win rate è 0%
 
 **Soluzione**: Chiudi posizioni esistenti per liberare exposure, oppure aumenta la percentuale dell'exposure disponibile usata per nuove posizioni.
+
