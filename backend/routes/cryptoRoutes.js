@@ -6743,15 +6743,36 @@ router.get('/scanner', async (req, res) => {
 
                         if (!isStillStale) {
                             const lastCandle = deepAnalysisHistory[deepAnalysisHistory.length - 1];
-                            // Aggiorna sempre close con currentPrice per RSI in tempo reale
-                            lastCandle.close = deepCurrentPrice;
-                            lastCandle.price = deepCurrentPrice;
-                            lastCandle.high = Math.max(lastCandle.high || lastCandle.close, deepCurrentPrice);
-                            lastCandle.low = Math.min(lastCandle.low || lastCandle.close, deepCurrentPrice);
+                            const lastCandleTime = new Date(lastCandle.timestamp);
+                            const now = new Date();
+
+                            // Calcola l'inizio della finestra 15m corrente e della candela
+                            const currentIntervalStart = Math.floor(now.getTime() / (15 * 60 * 1000)) * (15 * 60 * 1000);
+                            const lastCandleIntervalStart = Math.floor(lastCandleTime.getTime() / (15 * 60 * 1000)) * (15 * 60 * 1000);
+
+                            if (currentIntervalStart > lastCandleIntervalStart) {
+                                // Siamo in una NUOVA candela rispetto all'ultima nel DB.
+                                // NON modificare la vecchia. Aggiungi una nuova candela temporanea.
+                                const newCandle = {
+                                    timestamp: new Date(currentIntervalStart).toISOString(),
+                                    open: deepCurrentPrice,
+                                    high: deepCurrentPrice,
+                                    low: deepCurrentPrice,
+                                    close: deepCurrentPrice,
+                                    price: deepCurrentPrice,
+                                    volume: 0 // Volume sconosciuto per ora
+                                };
+                                deepAnalysisHistory.push(newCandle);
+                                // console.log(`[SCANNER] Added new temp candle for ${s.symbol} at ${newCandle.timestamp}`);
+                            } else {
+                                // Siamo ancora nella stessa finestra temporale dell'ultima candela. Aggiornala.
+                                lastCandle.close = deepCurrentPrice;
+                                lastCandle.price = deepCurrentPrice;
+                                lastCandle.high = Math.max(lastCandle.high || lastCandle.close, deepCurrentPrice);
+                                lastCandle.low = Math.min(lastCandle.low || lastCandle.close, deepCurrentPrice);
+                            }
                         } else {
                             // Se i dati sono vecchi e Binance ha fallito (rate limit), NON usare questi dati.
-                            // Dati vecchi producono segnali errati (spesso 100% strength su pattern congelati).
-                            // Meglio ritornare 0 che un falso positivo.
                             console.warn(`[SCANNER] Dati stale per ${s.display} e fallback fallito. Annullo analisi deep.`);
                             deepAnalysisHistory = []; // Svuota array per generare strength 0
                         }
@@ -6761,9 +6782,8 @@ router.get('/scanner', async (req, res) => {
                     const deepPrices = deepAnalysisHistory.map(h => h.close || h.price);
                     if (deepPrices.length >= 15) {
                         rsiDeepAnalysis = calculateRSI(deepPrices, 14);
-                        console.log(`📊 [SCANNER-RSI-DEEP] ${s.display}: RSI=${rsiDeepAnalysis?.toFixed(2)} | Prices: ${deepPrices.length} | LastPrice: ${deepPrices[deepPrices.length - 1]?.toFixed(4)} | CurrentPrice: ${deepCurrentPrice?.toFixed(4)}`);
+                        // console.log(`📊 [SCANNER-RSI-DEEP] ${s.display}: RSI=${rsiDeepAnalysis?.toFixed(2)}`);
                     } else {
-                        // Se non abbiamo abbastanza dati (es. cancellati perché stale), RSI deep è null
                         rsiDeepAnalysis = null;
                     }
                 } catch (deepRsiError) {
