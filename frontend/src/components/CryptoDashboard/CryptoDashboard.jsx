@@ -39,6 +39,8 @@ const CryptoDashboard = () => {
     const [useApexChart, setUseApexChart] = useState(false); // Toggle tra TradingView e ApexChart
     const [showAddFundsModal, setShowAddFundsModal] = useState(false); // Modal per aggiungere fondi
     const [showGeneralSettings, setShowGeneralSettings] = useState(false); // Modal per impostazioni generali
+    const [showDetailsModal, setShowDetailsModal] = useState(false); // Modal per dettagli posizione
+    const [selectedPositionDetails, setSelectedPositionDetails] = useState(null); // Dettagli posizione selezionata
 
     // WebSocket for real-time notifications
     const { connected: wsConnected } = useCryptoWebSocket(
@@ -1150,8 +1152,22 @@ const CryptoDashboard = () => {
                                             <td style={{ padding: '10px', textAlign: 'center' }}>
                                                 <button
                                                     onClick={() => {
-                                                        // Show details if needed
-                                                        alert(JSON.stringify(pos.signal_details || {}, null, 2));
+                                                        // Show details in a readable modal
+                                                        try {
+                                                            const details = pos.signal_details ? (typeof pos.signal_details === 'string' ? JSON.parse(pos.signal_details) : pos.signal_details) : {};
+                                                            setSelectedPositionDetails({
+                                                                ...pos,
+                                                                parsedDetails: details
+                                                            });
+                                                            setShowDetailsModal(true);
+                                                        } catch (e) {
+                                                            console.error('Error parsing signal details:', e);
+                                                            setSelectedPositionDetails({
+                                                                ...pos,
+                                                                parsedDetails: {}
+                                                            });
+                                                            setShowDetailsModal(true);
+                                                        }
                                                     }}
                                                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1' }}
                                                 >
