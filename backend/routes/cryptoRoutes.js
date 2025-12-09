@@ -3200,8 +3200,10 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
         }
 
         for (const pos of positions) {
-            // ✅ FIX CRITICO: Normalizza il simbolo per gestire varianti (es. "xrp" → "ripple", "bnb" → "binance_coin", "FLOKI" → "floki")
-            let normalizedSymbol = pos.symbol.toLowerCase();
+            // ✅ FIX CRITICO: Normalizza il simbolo per gestire varianti (es. "ada/usdt" → "cardano", "xrp" → "ripple")
+            // Rimuovi slash e underscore, poi normalizza
+            let normalizedSymbol = pos.symbol.toLowerCase().replace('/', '').replace('_', '');
+            
             const symbolVariants = {
                 'xrp': 'ripple',
                 'xrpusdt': 'ripple',
@@ -3225,17 +3227,30 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 'shibusdt': 'shiba',
                 'doge': 'dogecoin',
                 'dogeusdt': 'dogecoin',
-                'floki': 'floki', // Mantieni floki (già nel mapping)
-                'fet': 'fet'      // Mantieni fet (già nel mapping)
+                'floki': 'floki',
+                'fet': 'fet',
+                'ton': 'ton',
+                'tonusdt': 'ton'
             };
 
             if (symbolVariants[normalizedSymbol]) {
                 normalizedSymbol = symbolVariants[normalizedSymbol];
             }
 
-            // ✅ FIX: Se il simbolo normalizzato non è nel mapping, prova con il simbolo originale
-            if (!SYMBOL_TO_PAIR[normalizedSymbol] && SYMBOL_TO_PAIR[pos.symbol]) {
-                normalizedSymbol = pos.symbol;
+            // ✅ FIX: Se il simbolo normalizzato non è nel mapping, prova varianti
+            if (!SYMBOL_TO_PAIR[normalizedSymbol]) {
+                const variants = [
+                    pos.symbol.toLowerCase().replace('/', '').replace('_', ''),
+                    pos.symbol.toLowerCase(),
+                    pos.symbol
+                ];
+                
+                for (const variant of variants) {
+                    if (SYMBOL_TO_PAIR[variant]) {
+                        normalizedSymbol = variant;
+                        break;
+                    }
+                }
             }
 
             // ✅ FIX CRITICO: Recupera il prezzo corrente per questa posizione da Binance
