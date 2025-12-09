@@ -579,34 +579,9 @@ const CryptoDashboard = () => {
     // ✅ NOTA: MAX_REASONABLE_BALANCE e MIN_REASONABLE_BALANCE sono già dichiarati sopra
     const rawBalance = parseFloat(portfolio.balance_usd) || 0;
 
-    // ✅ DEBUG CRITICO: Log valori PRIMA della validazione per capire da dove viene il problema
     // Balance debug logging removed
-        'portfolio.balance_usd (raw)': portfolio.balance_usd,
-        'rawBalance (parsed)': rawBalance,
-        'totalLongValue': totalLongValue,
-        'totalShortLiability': totalShortLiability,
-        'openPositions count': validOpenPositions.length,
-        'allSymbolPrices keys': Object.keys(allSymbolPrices),
-        'currentPrice': currentPrice,
-        'currentSymbol': currentSymbol
-    });
 
-    // ✅ DEBUG: Log dettagli per ogni posizione aperta
-    if (validOpenPositions.length > 0) {
-        // Balance debug open positions logging removed
-            ticket_id: pos.ticket_id,
-            symbol: pos.symbol,
-            type: pos.type,
-            volume: pos.volume,
-            volume_closed: pos.volume_closed,
-            entry_price: pos.entry_price,
-            current_price: pos.current_price,
-            'price from allSymbolPrices': allSymbolPrices[pos.symbol],
-            'calculated remainingVolume': (parseFloat(pos.volume) || 0) - (parseFloat(pos.volume_closed) || 0),
-            'calculated longValue (if buy)': pos.type === 'buy' ? ((parseFloat(pos.volume) || 0) - (parseFloat(pos.volume_closed) || 0)) * (allSymbolPrices[pos.symbol] || parseFloat(pos.current_price) || 0) : 0,
-            'calculated shortLiability (if sell)': pos.type === 'sell' ? ((parseFloat(pos.volume) || 0) - (parseFloat(pos.volume_closed) || 0)) * (parseFloat(pos.entry_price) || 0) : 0
-        })));
-    }
+    // Balance debug open positions logging removed
 
     let validatedBalance = rawBalance;
     if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
