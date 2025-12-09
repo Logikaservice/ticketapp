@@ -6084,8 +6084,14 @@ router.get('/bot-analysis', async (req, res) => {
         // Generate signal with full details
         console.log('🔍 [BOT-ANALYSIS] History length:', historyForSignal ? historyForSignal.length : 0);
         if (!historyForSignal || historyForSignal.length === 0) {
-            console.error('❌ [BOT-ANALYSIS] Nessun dato storico disponibile');
-            return res.status(500).json({ error: 'Nessun dato storico disponibile per l\'analisi' });
+            console.error(`❌ [BOT-ANALYSIS] Nessun dato storico disponibile per ${symbol} (normalized: ${dbSymbol})`);
+            console.error(`   → Prova a verificare che il simbolo sia corretto e che ci siano klines nel database`);
+            return res.status(500).json({ 
+                error: `Nessun dato storico disponibile per ${symbol}`,
+                symbol: symbol,
+                normalizedSymbol: dbSymbol,
+                suggestion: 'Verifica che il simbolo sia corretto e che ci siano dati nel database'
+            });
         }
 
         console.log('🔍 [BOT-ANALYSIS] Generating signal...');
