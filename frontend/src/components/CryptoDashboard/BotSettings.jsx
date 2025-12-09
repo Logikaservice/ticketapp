@@ -9,7 +9,7 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
         rsi_overbought: 70,
         stop_loss_pct: 2.0,
         take_profit_pct: 3.0,
-        trade_size_eur: 50,
+        trade_size_usdt: 50,
         trailing_stop_enabled: false,
         trailing_stop_distance_pct: 1.0,
         partial_close_enabled: false,
@@ -219,21 +219,21 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
 
                             {/* Trade Size */}
                             <div className="parameter-group">
-                                <label htmlFor="trade_size_eur">
-                                    Dimensione Trade (€)
+                                <label htmlFor="trade_size_usdt">
+                                    Dimensione Trade ($)
                                     <span className="parameter-hint">(10-1000)</span>
                                 </label>
                                 <input
-                                    id="trade_size_eur"
+                                    id="trade_size_usdt"
                                     type="number"
                                     min="10"
                                     max="1000"
                                     step="5"
-                                    value={parameters.trade_size_eur}
-                                    onChange={(e) => handleChange('trade_size_eur', e.target.value)}
+                                    value={parameters.trade_size_usdt}
+                                    onChange={(e) => handleChange('trade_size_usdt', e.target.value)}
                                 />
                                 <div className="parameter-desc">
-                                    Importo in Euro investito per ogni operazione. Gestione del rischio: non investire più del 5-10% del capitale per trade.
+                                    Importo in USDT investito per ogni operazione. Gestione del rischio: non investire più del 5-10% del capitale per trade.
                                 </div>
                             </div>
 

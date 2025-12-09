@@ -4748,7 +4748,7 @@ router.put('/bot/parameters', async (req, res) => {
             rsi_overbought: Math.max(50, Math.min(100, parseFloat(parameters.rsi_overbought) || DEFAULT_PARAMS.rsi_overbought)),
             stop_loss_pct: Math.max(0.1, Math.min(10, parseFloat(parameters.stop_loss_pct) || DEFAULT_PARAMS.stop_loss_pct)),
             take_profit_pct: Math.max(0.1, Math.min(20, parseFloat(parameters.take_profit_pct) || DEFAULT_PARAMS.take_profit_pct)),
-            trade_size_eur: Math.max(10, Math.min(1000, parseFloat(parameters.trade_size_eur) || DEFAULT_PARAMS.trade_size_eur)),
+            trade_size_usdt: Math.max(10, Math.min(1000, parseFloat(parameters.trade_size_usdt || parameters.trade_size_eur) || DEFAULT_PARAMS.trade_size_usdt)),
             trailing_stop_enabled: parameters.trailing_stop_enabled === true || parameters.trailing_stop_enabled === 'true' || parameters.trailing_stop_enabled === 1 || DEFAULT_PARAMS.trailing_stop_enabled,
             trailing_stop_distance_pct: Math.max(0.1, Math.min(5, parseFloat(parameters.trailing_stop_distance_pct) || DEFAULT_PARAMS.trailing_stop_distance_pct)),
             partial_close_enabled: parameters.partial_close_enabled === true || parameters.partial_close_enabled === 'true' || parameters.partial_close_enabled === 1 || DEFAULT_PARAMS.partial_close_enabled,
@@ -5217,7 +5217,7 @@ const runBacktest = async (params, startDate, endDate, initialBalance = 10000) =
         const RSI_OVERBOUGHT = params.rsi_overbought || 70;
         const STOP_LOSS_PCT = (params.stop_loss_pct || 2.0) / 100;
         const TAKE_PROFIT_PCT = (params.take_profit_pct || 3.0) / 100;
-        const TRADE_SIZE_EUR = params.trade_size_eur || 50;
+        const TRADE_SIZE_USDT = params.trade_size_usdt || params.trade_size_eur || 50;
 
         // Simulate each price point
         for (let i = 0; i < historicalPrices.length; i++) {
@@ -5302,10 +5302,10 @@ const runBacktest = async (params, startDate, endDate, initialBalance = 10000) =
             });
 
             // Trading logic (same as bot)
-            if (rsi < RSI_OVERSOLD && balance >= TRADE_SIZE_EUR && holdings < 0.001) {
+            if (rsi < RSI_OVERSOLD && balance >= TRADE_SIZE_USDT && holdings < 0.001) {
                 // Buy signal
-                const amountToBuy = TRADE_SIZE_EUR / price;
-                balance -= TRADE_SIZE_EUR;
+                const amountToBuy = TRADE_SIZE_USDT / price;
+                balance -= TRADE_SIZE_USDT;
                 holdings += amountToBuy;
                 lastBuyPrice = price;
 

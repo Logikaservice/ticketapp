@@ -72,7 +72,7 @@ const BacktestPanel = ({ isOpen, onClose, apiBase, currentBotParams }) => {
                     rsi_overbought: 70,
                     stop_loss_pct: 2.0,
                     take_profit_pct: 3.0,
-                    trade_size_eur: 50
+                    trade_size_usdt: 50
                 };
 
             const res = await fetch(`${apiBase}/api/crypto/backtest/run`, {
