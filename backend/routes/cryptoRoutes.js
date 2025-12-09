@@ -3476,8 +3476,11 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
 
             // ✅ DEBUG: Log aggiornamento prezzo per verificare correttezza
             const oldCurrentPrice = parseFloat(pos.current_price) || 0;
-            if (Math.abs(currentPrice - oldCurrentPrice) > oldCurrentPrice * 0.05) { // Se differenza > 5%
-                console.log(`💰 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}): current_price aggiornato: $${oldCurrentPrice.toFixed(6)} → $${currentPrice.toFixed(6)} USDT`);
+            // ✅ FIX: Log sempre se c'è una differenza significativa (>1%) per debug
+            if (oldCurrentPrice > 0 && Math.abs(currentPrice - oldCurrentPrice) > oldCurrentPrice * 0.01) { // Se differenza > 1%
+                console.log(`💰 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}): current_price aggiornato: $${oldCurrentPrice.toFixed(8)} → $${currentPrice.toFixed(8)} USDT (diff: ${((currentPrice - oldCurrentPrice) / oldCurrentPrice * 100).toFixed(2)}%)`);
+            } else if (oldCurrentPrice === 0 && currentPrice > 0) {
+                console.log(`💰 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}): current_price impostato per la prima volta: $${currentPrice.toFixed(8)} USDT`);
             }
 
             if (shouldUpdateStopLoss) {
@@ -4040,6 +4043,28 @@ router.get('/positions', async (req, res) => {
             }
             return true;
         });
+
+        // ✅ FIX CRITICO: Aggiorna i prezzi in tempo reale prima di restituire i dati
+        // Questo garantisce che i prezzi siano sempre aggiornati quando il frontend li richiede
+        if (status === 'open' && validPositions.length > 0) {
+            try {
+                // Aggiorna P&L per tutte le posizioni aperte
+                await updatePositionsPnL();
+                
+                // ✅ RICARICA le posizioni dal database dopo l'aggiornamento per avere i prezzi aggiornati
+                const updatedRows = await dbAll("SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC");
+                const updatedValidPositions = (updatedRows || []).filter(pos => {
+                    if (!pos || !pos.ticket_id) return false;
+                    if (pos.status !== 'open') return false;
+                    return true;
+                });
+                
+                return res.json({ positions: updatedValidPositions });
+            } catch (updateError) {
+                console.error('⚠️ [POSITIONS] Errore aggiornamento prezzi, restituisco dati originali:', updateError.message);
+                // Se l'aggiornamento fallisce, restituisci comunque i dati originali
+            }
+        }
 
         res.json({ positions: validPositions });
     } catch (err) {
