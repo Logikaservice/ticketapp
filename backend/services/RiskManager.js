@@ -4,35 +4,16 @@
  * Limiti assoluti non negoziabili
  */
 
-// ✅ MIGRAZIONE POSTGRESQL: Usa helper esportati da crypto_db
+// ✅ POSTGRESQL ONLY: Richiede esplicitamente PostgreSQL
 const cryptoDb = require('../crypto_db');
 
-// Se crypto_db esporta helper PostgreSQL, usali, altrimenti crea wrapper per SQLite
-let dbGet, dbAll;
-if (cryptoDb.dbGet && cryptoDb.dbAll) {
-    // Nuovo modulo PostgreSQL
-    dbGet = cryptoDb.dbGet;
-    dbAll = cryptoDb.dbAll;
-} else {
-    // Vecchio modulo SQLite - crea wrapper
-    const db = cryptoDb;
-    dbGet = (query, params = []) => {
-        return new Promise((resolve, reject) => {
-            db.get(query, params, (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
-    };
-    dbAll = (query, params = []) => {
-        return new Promise((resolve, reject) => {
-            db.all(query, params, (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows || []);
-            });
-        });
-    };
+// Verifica che il modulo esporti gli helper PostgreSQL
+if (!cryptoDb.dbGet || !cryptoDb.dbAll) {
+    throw new Error('❌ CRITICAL: crypto_db must be PostgreSQL module. SQLite support removed.');
 }
+
+const dbGet = cryptoDb.dbGet;
+const dbAll = cryptoDb.dbAll;
 
 class SeriousRiskManager {
     constructor() {

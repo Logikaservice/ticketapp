@@ -1,37 +1,20 @@
 const express = require('express');
 const router = express.Router();
 
-// ✅ MIGRAZIONE POSTGRESQL: Supporta sia SQLite che PostgreSQL
-// Se crypto_db esporta dbAll, dbGet, dbRun, usa quelli (PostgreSQL)
-// Altrimenti usa il vecchio db SQLite con callback
-let db, dbAll, dbGet, dbRun;
+// ✅ POSTGRESQL ONLY: Richiede esplicitamente PostgreSQL
+// Il modulo crypto_db DEVE essere crypto_db_postgresql.js (rinominato a crypto_db.js)
+const cryptoDb = require('../crypto_db');
 
-try {
-    const cryptoDb = require('../crypto_db');
-    // Verifica se è il nuovo modulo PostgreSQL (esporta helper)
-    if (cryptoDb.dbAll && cryptoDb.dbGet && cryptoDb.dbRun) {
-        // Nuovo modulo PostgreSQL
-        dbAll = cryptoDb.dbAll;
-        dbGet = cryptoDb.dbGet;
-        dbRun = cryptoDb.dbRun;
-        db = undefined; // ✅ FIX: Assicura che db sia undefined per PostgreSQL
-        console.log('✅ Using PostgreSQL crypto database');
-    } else {
-        // Vecchio modulo SQLite
-        db = cryptoDb;
-        console.log('✅ Using SQLite crypto database (legacy)');
-    }
-} catch (err) {
-    console.error('❌ Error loading crypto_db:', err.message);
-    // Fallback a SQLite se disponibile
-    try {
-        db = require('../crypto_db');
-        console.log('⚠️  Fallback to SQLite crypto database');
-    } catch (fallbackErr) {
-        console.error('❌ Critical: Cannot load crypto_db at all!', fallbackErr.message);
-        throw new Error('Cannot initialize crypto database');
-    }
+// Verifica che il modulo esporti gli helper PostgreSQL
+if (!cryptoDb.dbAll || !cryptoDb.dbGet || !cryptoDb.dbRun) {
+    throw new Error('❌ CRITICAL: crypto_db must be PostgreSQL module. SQLite support removed.');
 }
+
+const dbAll = cryptoDb.dbAll;
+const dbGet = cryptoDb.dbGet;
+const dbRun = cryptoDb.dbRun;
+
+console.log('✅ Using PostgreSQL crypto database');
 
 const https = require('https');
 
@@ -109,31 +92,7 @@ const httpsGet = (url) => {
     });
 };
 
-// ✅ MIGRAZIONE POSTGRESQL: Helper per gestire errori database
-// Se dbAll non è già definito (vecchio sistema SQLite), definiscilo qui
-if (!dbAll) {
-    if (!db) {
-        throw new Error('❌ CRITICAL: dbAll not defined and db is undefined. Cannot use database!');
-    }
-    dbAll = (query, params = []) => {
-        return new Promise((resolve, reject) => {
-            try {
-                db.all(query, params, (err, rows) => {
-                    if (err) {
-                        console.error('❌ Database query error:', err.message);
-                        console.error('❌ Query:', query.substring(0, 200));
-                        reject(err);
-                    } else {
-                        resolve(rows || []);
-                    }
-                });
-            } catch (e) {
-                console.error('❌ Database query exception:', e.message);
-                reject(e);
-            }
-        });
-    };
-}
+// ✅ POSTGRESQL ONLY: dbAll, dbGet, dbRun sono già definiti sopra
 
 // Helper to get portfolio
 const getPortfolio = async () => {
@@ -456,35 +415,7 @@ router.get('/history', async (req, res) => {
     }
 });
 
-// ✅ MIGRAZIONE POSTGRESQL: Helper per db.get e db.run
-// Se non sono già definiti (vecchio sistema SQLite), definiscili qui
-if (!dbGet) {
-    if (!db) {
-        throw new Error('❌ CRITICAL: dbGet not defined and db is undefined. Cannot use database!');
-    }
-    dbGet = (query, params = []) => {
-        return new Promise((resolve, reject) => {
-            db.get(query, params, (err, row) => {
-                if (err) reject(err);
-                else resolve(row || null);
-            });
-        });
-    };
-}
-
-if (!dbRun) {
-    if (!db) {
-        throw new Error('❌ CRITICAL: dbRun not defined and db is undefined. Cannot use database!');
-    }
-    dbRun = (query, params = []) => {
-        return new Promise((resolve, reject) => {
-            db.run(query, params, function (err) {
-                if (err) reject(err);
-                else resolve({ lastID: this.lastID, changes: this.changes });
-            });
-        });
-    };
-}
+// ✅ POSTGRESQL ONLY: dbGet e dbRun sono già definiti sopra
 
 // GET /api/crypto/dashboard
 router.get('/dashboard', async (req, res) => {
@@ -2861,25 +2792,42 @@ const runBotCycle = async () => {
 // ✅ COMPATIBILE CON BINANCE REALE: Struttura pronta per integrazione
 const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss = null, takeProfit = null, options = {}) => {
     try {
-        // ✅ FIX CRITICO: Verifica che entryPrice sia ragionevole (in EUR)
-        // Se entryPrice sembra troppo alto (es. > 100000), potrebbe essere in USDT non convertito
-        const MAX_REASONABLE_ENTRY_PRICE = 100000; // 100k EUR max per qualsiasi crypto
+        // ✅ FIX CRITICO: Se il simbolo termina con _eur, il prezzo è in EUR e va convertito a USDT
+        // TradingView mostra sempre USDT, quindi dobbiamo salvare entry_price in USDT per coerenza
+        const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
+        const isEURPair = tradingPair.endsWith('EUR') || symbol.endsWith('_eur');
+        const EUR_TO_USDT_RATE = 1.08; // Tasso approssimativo EUR → USDT
+        
+        if (isEURPair && entryPrice > 0) {
+            // Il prezzo è in EUR, converti a USDT per match con TradingView
+            const originalPrice = entryPrice;
+            entryPrice = entryPrice * EUR_TO_USDT_RATE;
+            console.log(`💱 [OPEN POSITION] ${symbol}: Convertito EUR → USDT: €${originalPrice.toFixed(6)} → $${entryPrice.toFixed(6)} USDT`);
+            
+            // Converti anche stop loss e take profit se presenti
+            if (stopLoss) stopLoss = stopLoss * EUR_TO_USDT_RATE;
+            if (takeProfit) takeProfit = takeProfit * EUR_TO_USDT_RATE;
+        }
+        
+        // ✅ FIX CRITICO: Verifica che entryPrice sia ragionevole (in USDT)
+        // Se entryPrice sembra troppo alto (es. > 100000), potrebbe essere un errore
+        const MAX_REASONABLE_ENTRY_PRICE = 100000; // 100k USDT max per qualsiasi crypto
         if (entryPrice > MAX_REASONABLE_ENTRY_PRICE) {
-            console.error(`🚨 [OPEN POSITION] entryPrice anomale per ${symbol}: €${entryPrice.toLocaleString()}`);
-            console.error(`   → Potrebbe essere in USDT non convertito. Verifico prezzo corretto...`);
+            console.error(`🚨 [OPEN POSITION] entryPrice anomale per ${symbol}: $${entryPrice.toLocaleString()} USDT`);
+            console.error(`   → Verifico prezzo corretto...`);
 
             // Prova a recuperare il prezzo corretto
             try {
                 const correctPrice = await getSymbolPrice(symbol);
                 if (correctPrice > 0 && correctPrice <= MAX_REASONABLE_ENTRY_PRICE) {
-                    console.log(`✅ [OPEN POSITION] Prezzo corretto recuperato: €${correctPrice.toFixed(6)} (era €${entryPrice.toFixed(6)})`);
+                    console.log(`✅ [OPEN POSITION] Prezzo corretto recuperato: $${correctPrice.toFixed(6)} USDT (era $${entryPrice.toFixed(6)})`);
                     entryPrice = correctPrice;
                 } else {
-                    throw new Error(`Prezzo corretto non disponibile o ancora anomale (€${correctPrice})`);
+                    throw new Error(`Prezzo corretto non disponibile o ancora anomale ($${correctPrice} USDT)`);
                 }
             } catch (priceError) {
                 console.error(`❌ [OPEN POSITION] Errore recupero prezzo corretto:`, priceError.message);
-                throw new Error(`Impossibile aprire posizione per ${symbol}: entryPrice anomale (€${entryPrice.toLocaleString()}) e impossibile recuperare prezzo corretto`);
+                throw new Error(`Impossibile aprire posizione per ${symbol}: entryPrice anomale ($${entryPrice.toLocaleString()} USDT) e impossibile recuperare prezzo corretto`);
             }
         }
 
@@ -3156,37 +3104,62 @@ const calculateDynamicTrailingDistance = (atr, currentPrice, multiplier = 1.5) =
 
 // Helper to update P&L for all open positions
 // ✅ FIX: updatePositionsPnL ora aggiorna P&L per tutte le posizioni, non solo quelle del simbolo corrente
-// ✅ FIX CRITICO: currentPrice deve essere SEMPRE in EUR (già convertito da getSymbolPrice)
+// ✅ FIX CRITICO: currentPrice è SEMPRE in USDT (da getSymbolPrice) per match con TradingView
 // ✅ MIGRAZIONE POSTGRESQL: Convertito da db.all() a dbAll()
 const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
     try {
         const positions = await dbAll("SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'", [symbol]);
 
-            // ✅ FIX CRITICO: Valida che currentPrice sia ragionevole (in EUR)
-            // Se è troppo grande, potrebbe essere in USDT invece di EUR
-            const MAX_REASONABLE_EUR_PRICE = 200000; // BTC può essere ~100k EUR, ma con margine
-            if (currentPrice > MAX_REASONABLE_EUR_PRICE && symbol !== 'bitcoin') {
-                console.error(`🚨 [UPDATE P&L] currentPrice ${currentPrice} seems too high for ${symbol}, might be in USDT instead of EUR!`);
+            // ✅ FIX CRITICO: Valida che currentPrice sia ragionevole (in USDT)
+            // Se è troppo grande, potrebbe essere un errore
+            const MAX_REASONABLE_USDT_PRICE = 200000; // BTC può essere ~100k USDT, ma con margine
+            if (currentPrice > MAX_REASONABLE_USDT_PRICE && symbol !== 'bitcoin') {
+                console.error(`🚨 [UPDATE P&L] currentPrice ${currentPrice} seems too high for ${symbol}, might be an error!`);
                 // Non crashare, ma logga l'errore
             }
+            
+            // ✅ FIX: Verifica se entry_price è in EUR (vecchie posizioni) e converte a USDT se necessario
+            // Se entry_price è molto più basso di currentPrice (>20% differenza), potrebbe essere in EUR
+            // Conversione approssimativa: 1 EUR ≈ 1.08 USDT
 
             for (const pos of positions) {
+                let entryPrice = parseFloat(pos.entry_price);
+                
+                // ✅ FIX CRITICO: Rileva e converte entry_price da EUR a USDT se necessario
+                // Se entry_price è significativamente più basso di currentPrice (>15% differenza),
+                // probabilmente è in EUR e va convertito
+                const priceRatio = entryPrice > 0 ? currentPrice / entryPrice : 0;
+                const EUR_TO_USDT_RATE = 1.08; // Tasso approssimativo
+                
+                if (priceRatio > 1.15 && entryPrice < currentPrice * 0.85) {
+                    // Probabilmente entry_price è in EUR, converti a USDT
+                    const convertedEntryPrice = entryPrice * EUR_TO_USDT_RATE;
+                    console.warn(`⚠️ [CURRENCY-FIX] ${pos.ticket_id} (${symbol}): entry_price sembra in EUR (${entryPrice.toFixed(6)}), convertendo a USDT (${convertedEntryPrice.toFixed(6)})`);
+                    entryPrice = convertedEntryPrice;
+                    
+                    // ✅ AGGIORNA entry_price nel database per evitare riconversioni future
+                    await dbRun(
+                        "UPDATE open_positions SET entry_price = ? WHERE ticket_id = ?",
+                        [convertedEntryPrice, pos.ticket_id]
+                    );
+                }
+                
                 let pnl = 0;
                 let pnlPct = 0;
                 let remainingVolume = pos.volume - (pos.volume_closed || 0);
 
                 if (pos.type === 'buy') {
                     // Long position: profit when price goes up
-                    pnl = (currentPrice - pos.entry_price) * remainingVolume;
-                    pnlPct = ((currentPrice - pos.entry_price) / pos.entry_price) * 100;
+                    pnl = (currentPrice - entryPrice) * remainingVolume;
+                    pnlPct = ((currentPrice - entryPrice) / entryPrice) * 100;
                 } else {
                     // Short position: profit when price goes down
-                    pnl = (pos.entry_price - currentPrice) * remainingVolume;
-                    pnlPct = ((pos.entry_price - currentPrice) / pos.entry_price) * 100;
+                    pnl = (entryPrice - currentPrice) * remainingVolume;
+                    pnlPct = ((entryPrice - currentPrice) / entryPrice) * 100;
                 }
 
                 // Track highest price for trailing stop loss
-                let highestPrice = pos.highest_price || pos.entry_price;
+                let highestPrice = pos.highest_price || entryPrice;
                 let stopLoss = pos.stop_loss;
                 let shouldUpdateStopLoss = false;
 
@@ -3200,7 +3173,7 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
                 // For SHORT: profit when price goes DOWN, so we track the LOWEST price reached
                 else if (pos.type === 'sell') {
                     // For SHORT, highest_price actually stores the LOWEST price (confusing but works)
-                    const currentLowest = pos.highest_price || pos.entry_price;
+                    const currentLowest = pos.highest_price || entryPrice;
                     if (currentPrice < currentLowest) {
                         highestPrice = currentPrice; // Track new lowest price for SHORT
                         shouldUpdateStopLoss = true;
@@ -3243,7 +3216,7 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
                     } else {
                         // For short positions, trailing stop moves down as price decreases
                         // highest_price actually stores the LOWEST price for SHORT positions
-                        const lowestPrice = highestPrice || pos.entry_price;
+                        const lowestPrice = highestPrice || entryPrice;
                         if (currentPrice < lowestPrice) {
                             // Trailing stop for SHORT: SL = lowest_price * (1 + distance%)
                             // This moves the SL DOWN as price goes DOWN (protecting profit)
@@ -5717,7 +5690,7 @@ router.get('/bot-analysis', async (req, res) => {
                     // ✅ FIX: Salva i dati freschi nel DB così lo Scanner li vede!
                     // Questo risolve la discrepanza tra Quick Analysis (fresco) e Scanner (vecchio/corrotto)
                     try {
-                        // ✅ FIX: Salva SOLO le ultime 20 candele per non intasare il DB (SQLite busy)
+                        // ✅ FIX: Salva SOLO le ultime 20 candele per non intasare il DB
                         const klinesToSave = klines.slice(-20);
                         const savePromises = klinesToSave.map(k => {
                             const openTime = parseInt(k[0]);
@@ -7952,8 +7925,8 @@ router.get('/total-balance-analysis', async (req, res) => {
 // ✅ ENDPOINT DIAGNOSTICA: Verifica stato Kelly Criterion Stats
 router.get('/kelly-stats-debug', async (req, res) => {
     try {
-        // Verifica se la tabella esiste
-        const tableCheck = await dbAll("SELECT name FROM sqlite_master WHERE type='table' AND name='performance_stats'");
+        // Verifica se la tabella esiste (PostgreSQL)
+        const tableCheck = await dbAll("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'performance_stats'");
         const tableExists = tableCheck && tableCheck.length > 0;
 
         // Leggi tutti i record

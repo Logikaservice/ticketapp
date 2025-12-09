@@ -10,45 +10,18 @@
  * 5. Chiude se guadagno "sufficiente" in mercato statico senza ripresa
  */
 
-// ✅ MIGRAZIONE POSTGRESQL: Usa helper esportati da crypto_db
+// ✅ POSTGRESQL ONLY: Richiede esplicitamente PostgreSQL
 const cryptoDb = require('../crypto_db');
 const signalGenerator = require('../services/BidirectionalSignalGenerator');
 
-// Se crypto_db esporta helper PostgreSQL, usali, altrimenti crea wrapper per SQLite
-let dbGet, dbAll, dbRun;
-if (cryptoDb.dbGet && cryptoDb.dbAll && cryptoDb.dbRun) {
-    // Nuovo modulo PostgreSQL
-    dbGet = cryptoDb.dbGet;
-    dbAll = cryptoDb.dbAll;
-    dbRun = cryptoDb.dbRun;
-} else {
-    // Vecchio modulo SQLite - crea wrapper
-    const db = cryptoDb;
-    dbAll = (query, params = []) => {
-        return new Promise((resolve, reject) => {
-            db.all(query, params, (err, rows) => {
-                if (err) reject(err);
-                else resolve(rows || []);
-            });
-        });
-    };
-    dbRun = (query, params = []) => {
-        return new Promise((resolve, reject) => {
-            db.run(query, params, function (err) {
-                if (err) reject(err);
-                else resolve(this);
-            });
-        });
-    };
-    dbGet = (query, params = []) => {
-        return new Promise((resolve, reject) => {
-            db.get(query, params, (err, row) => {
-                if (err) reject(err);
-                else resolve(row || null);
-            });
-        });
-    };
+// Verifica che il modulo esporti gli helper PostgreSQL
+if (!cryptoDb.dbGet || !cryptoDb.dbAll || !cryptoDb.dbRun) {
+    throw new Error('❌ CRITICAL: crypto_db must be PostgreSQL module. SQLite support removed.');
 }
+
+const dbGet = cryptoDb.dbGet;
+const dbAll = cryptoDb.dbAll;
+const dbRun = cryptoDb.dbRun;
 
 /**
  * Smart Exit Configuration

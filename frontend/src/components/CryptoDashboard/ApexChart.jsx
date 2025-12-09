@@ -40,8 +40,9 @@ const ApexChart = ({
         }
 
         return [...openPositions].sort((a, b) => {
-            const timeA = new Date(a.entry_time || a.timestamp || Date.now()).getTime();
-            const timeB = new Date(b.entry_time || b.timestamp || Date.now()).getTime();
+            // ✅ FIX: Usa opened_at (campo corretto dal database) invece di entry_time
+            const timeA = new Date(a.opened_at || a.timestamp || 0).getTime();
+            const timeB = new Date(b.opened_at || b.timestamp || 0).getTime();
             return timeB - timeA; // Most recent first
         });
     }, [openPositions]);
@@ -72,9 +73,17 @@ const ApexChart = ({
         // Prepare markers for open positions (entry points)
         const markers = [];
         openPositions.forEach((pos, index) => {
-            const entryTime = pos.entry_time ? new Date(pos.entry_time).getTime() :
+            // ✅ FIX: Usa opened_at (campo corretto dal database) invece di entry_time o Date.now()
+            const entryTime = pos.opened_at ? new Date(pos.opened_at).getTime() :
                 pos.timestamp ? new Date(pos.timestamp).getTime() :
-                    Date.now();
+                    pos.entry_time ? new Date(pos.entry_time).getTime() :
+                        null; // Non usare Date.now() - se non c'è timestamp, non mostrare il marker
+
+            // Se non c'è timestamp valido, salta questo marker
+            if (!entryTime) {
+                console.warn(`⚠️ [ApexChart] Posizione ${pos.ticket_id || index} senza timestamp valido (opened_at/timestamp), marker saltato`);
+                return;
+            }
 
             const entryPrice = parseFloat(pos.entry_price || pos.price || 0);
             if (entryPrice > 0) {
@@ -330,7 +339,7 @@ const ApexChart = ({
                                                         P&L: {currentPnL >= 0 ? '+' : ''}${currentPnL.toFixed(2)} ({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%)
                                                     </div>
                                                     <div className="trade-time">
-                                                        {new Date(position.entry_time || position.timestamp || Date.now()).toLocaleString('it-IT')}
+                                                        {new Date(position.opened_at || position.timestamp || 0).toLocaleString('it-IT')}
                                                     </div>
                                                 </div>
                                             </div>
