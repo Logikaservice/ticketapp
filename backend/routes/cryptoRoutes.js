@@ -6724,6 +6724,19 @@ router.get('/bot-analysis', async (req, res) => {
                         blocks.push(...freshnessBlockers);
                     }
 
+                    // ✅ FIX CRITICO: Mostra filtri professionali che bloccano LONG
+                    if (longBlockedByFilters) {
+                        const blockingFilters = longProfessionalFilters.filter(f => f.includes('🚫 BLOCKED'));
+                        blockingFilters.forEach(filter => {
+                            const filterText = filter.replace('🚫 BLOCKED: ', '');
+                            blocks.push({
+                                type: 'Filtro Professionale',
+                                reason: filterText,
+                                severity: 'high'
+                            });
+                        });
+                    }
+
                     // ATR block
                     if (signal.atrBlocked) {
                         blocks.push({
@@ -6824,6 +6837,19 @@ router.get('/bot-analysis', async (req, res) => {
 
                     if (!meetsRequirements) {
                         return []; // No blockers to show if requirements not met
+                    }
+
+                    // ✅ FIX CRITICO: Mostra filtri professionali che bloccano SHORT
+                    if (shortBlockedByFilters) {
+                        const blockingFilters = shortProfessionalFilters.filter(f => f.includes('🚫 BLOCKED'));
+                        blockingFilters.forEach(filter => {
+                            const filterText = filter.replace('🚫 BLOCKED: ', '');
+                            blocks.push({
+                                type: 'Filtro Professionale',
+                                reason: filterText,
+                                severity: 'high'
+                            });
+                        });
                     }
 
                     // ATR block
