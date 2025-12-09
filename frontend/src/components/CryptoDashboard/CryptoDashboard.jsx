@@ -462,12 +462,26 @@ const CryptoDashboard = () => {
             const allSymbols = [...new Set([...holdingsSymbols, ...openPositionSymbols])];
             const prices = {};
 
+            // ✅ FIX: Se il simbolo corrente è nella lista, usa currentPrice (più aggiornato, ogni secondo)
+            if (allSymbols.includes(currentSymbol) && currentPrice > 0) {
+                prices[currentSymbol] = currentPrice;
+            }
+
+            // Fetch prezzi per tutti gli altri simboli
             for (const symbol of allSymbols) {
+                // Skip se già abbiamo il prezzo dal currentPrice
+                if (symbol === currentSymbol && prices[symbol]) {
+                    continue;
+                }
+                
                 try {
                     const res = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=usdt`);
                     if (res.ok) {
                         const data = await res.json();
-                        prices[symbol] = parseFloat(data.price || 0);
+                        const fetchedPrice = parseFloat(data.price || 0);
+                        if (fetchedPrice > 0) {
+                            prices[symbol] = fetchedPrice;
+                        }
                     }
                 } catch (error) {
                     console.error(`Error fetching price for ${symbol}:`, error);
@@ -479,7 +493,14 @@ const CryptoDashboard = () => {
 
         // Aggiorna prezzi quando cambiano holdings o posizioni aperte
         fetchAllPrices();
-    }, [portfolio.holdings, openPositions, apiBase]);
+        
+        // ✅ FIX CRITICO: Aggiorna prezzi anche periodicamente (ogni 2 secondi) per garantire sincronizzazione
+        const priceUpdateInterval = setInterval(() => {
+            fetchAllPrices();
+        }, 2000); // Aggiorna ogni 2 secondi
+        
+        return () => clearInterval(priceUpdateInterval);
+    }, [portfolio.holdings, openPositions, apiBase, currentSymbol, currentPrice]);
 
     // Calculate total balance (USDT + All Crypto values - Short Liabilities)
     // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
