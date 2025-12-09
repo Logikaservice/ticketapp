@@ -105,6 +105,45 @@ function convertSqliteToPostgres(query, params) {
     let pgQuery = query;
     const pgParams = [...params];
 
+    // Converti INSERT OR REPLACE a INSERT ... ON CONFLICT DO UPDATE
+    if (pgQuery.includes('INSERT OR REPLACE')) {
+        const tableMatch = pgQuery.match(/INSERT OR REPLACE INTO\s+(\w+)/i);
+        if (tableMatch) {
+            const tableName = tableMatch[1];
+            pgQuery = pgQuery.replace(/INSERT OR REPLACE/i, 'INSERT');
+            
+            // Determina ON CONFLICT basato sulla tabella
+            let conflictClause = '';
+            if (tableName === 'portfolio') {
+                conflictClause = ' ON CONFLICT (id) DO UPDATE SET balance_usd = EXCLUDED.balance_usd, holdings = EXCLUDED.holdings';
+            } else if (tableName === 'bot_settings') {
+                conflictClause = ' ON CONFLICT (strategy_name, symbol) DO UPDATE SET is_active = EXCLUDED.is_active, parameters = EXCLUDED.parameters';
+            } else if (tableName === 'klines') {
+                conflictClause = ' ON CONFLICT (symbol, interval, open_time) DO UPDATE SET open_price = EXCLUDED.open_price, high_price = EXCLUDED.high_price, low_price = EXCLUDED.low_price, close_price = EXCLUDED.close_price, volume = EXCLUDED.volume, close_time = EXCLUDED.close_time';
+            } else if (tableName === 'open_positions') {
+                conflictClause = ' ON CONFLICT (ticket_id) DO UPDATE SET current_price = EXCLUDED.current_price, profit_loss = EXCLUDED.profit_loss, status = EXCLUDED.status';
+            } else if (tableName === 'performance_stats') {
+                conflictClause = ' ON CONFLICT (id) DO UPDATE SET total_trades = EXCLUDED.total_trades, winning_trades = EXCLUDED.winning_trades, losing_trades = EXCLUDED.losing_trades, total_profit = EXCLUDED.total_profit, total_loss = EXCLUDED.total_loss, avg_win = EXCLUDED.avg_win, avg_loss = EXCLUDED.avg_loss, win_rate = EXCLUDED.win_rate';
+            } else {
+                // Default: DO UPDATE con tutti i campi (per price_history, trades, backtest_results)
+                // Estrai i nomi delle colonne dalla query
+                const columnsMatch = pgQuery.match(/\(([^)]+)\)/);
+                if (columnsMatch) {
+                    const columns = columnsMatch[1].split(',').map(c => c.trim());
+                    const updateClause = columns.map(col => `${col} = EXCLUDED.${col}`).join(', ');
+                    conflictClause = ` ON CONFLICT DO UPDATE SET ${updateClause}`;
+                } else {
+                    conflictClause = ' ON CONFLICT DO NOTHING';
+                }
+            }
+            
+            // Aggiungi ON CONFLICT prima del punto e virgola finale
+            if (!pgQuery.includes('ON CONFLICT')) {
+                pgQuery = pgQuery.replace(/;?\s*$/, conflictClause + ';');
+            }
+        }
+    }
+
     // Converti INSERT OR IGNORE a INSERT ... ON CONFLICT DO NOTHING
     if (pgQuery.includes('INSERT OR IGNORE')) {
         const tableMatch = pgQuery.match(/INSERT OR IGNORE INTO\s+(\w+)/i);
