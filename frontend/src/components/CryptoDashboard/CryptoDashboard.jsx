@@ -534,25 +534,55 @@ const CryptoDashboard = () => {
 
             // Use live price if available, otherwise try currentSymbol price or position's last known price
             let price = allSymbolPrices[pos.symbol] || (pos.symbol === currentSymbol ? currentPrice : parseFloat(pos.current_price) || 0);
+            
+            // ✅ FIX CRITICO: Se il prezzo è molto più basso di entry_price, potrebbe essere in EUR
+            // Verifica se c'è un problema di conversione EUR/USDT
+            const entryPrice = parseFloat(pos.entry_price) || 0;
+            const EUR_TO_USDT_RATE = 1.08;
+            
+            if (price > 0 && entryPrice > 0) {
+                // Se price * 1.08 ≈ entryPrice (differenza < 5%), probabilmente price è in EUR
+                const priceInUSDT = price * EUR_TO_USDT_RATE;
+                const priceDiff = Math.abs(entryPrice - priceInUSDT) / entryPrice;
+                
+                if (priceDiff < 0.05 && price < entryPrice * 0.95) {
+                    // Probabilmente price è in EUR, converti a USDT
+                    console.warn(`⚠️ [BALANCE] Prezzo per ${pos.symbol} sembra in EUR (${price.toFixed(8)}), convertendo a USDT (${priceInUSDT.toFixed(8)})`);
+                    price = priceInUSDT;
+                }
+            }
 
             // ✅ FIX CRITICO: Valida che il prezzo sia ragionevole
             if (price > MAX_REASONABLE_PRICE) {
                 console.error(`🚨 [BALANCE] Prezzo anomale per ${pos.symbol}: $${price.toLocaleString()}. Usando entry_price come fallback.`);
                 // Usa entry_price come fallback se il prezzo è anomale
-                const fallbackPrice = parseFloat(pos.entry_price) || 0;
-                if (fallbackPrice > 0 && fallbackPrice <= MAX_REASONABLE_PRICE) {
-                    price = fallbackPrice;
+                if (entryPrice > 0 && entryPrice <= MAX_REASONABLE_PRICE) {
+                    price = entryPrice;
                 } else {
-                    console.error(`🚨 [BALANCE] Anche entry_price è anomale (${fallbackPrice}). Skipping posizione ${pos.ticket_id}.`);
+                    console.error(`🚨 [BALANCE] Anche entry_price è anomale (${entryPrice}). Skipping posizione ${pos.ticket_id}.`);
                     return;
                 }
             }
 
             if (pos.type === 'buy' && pos.status === 'open') {
                 const longValue = remainingVolume * price;
-                // ✅ FIX: Valida che il valore calcolato sia ragionevole
+                
+                // ✅ FIX CRITICO: Se il valore è anomale, verifica se c'è un problema di conversione
                 if (longValue > MAX_REASONABLE_BALANCE) {
-                    console.error(`🚨 [BALANCE] Valore LONG anomale per ${pos.ticket_id}: $${longValue.toLocaleString()}. Skipping.`);
+                    // Prova a convertire il prezzo da EUR a USDT se sembra essere in EUR
+                    if (price > 0 && entryPrice > 0) {
+                        const priceInUSDT = price * EUR_TO_USDT_RATE;
+                        const correctedValue = remainingVolume * priceInUSDT;
+                        
+                        if (correctedValue <= MAX_REASONABLE_BALANCE) {
+                            // Il prezzo era in EUR, usa il valore corretto
+                            console.warn(`⚠️ [BALANCE] Valore corretto per ${pos.ticket_id}: prezzo era in EUR, convertito a USDT. Valore: $${correctedValue.toFixed(2)}`);
+                            totalLongValue += correctedValue;
+                            return; // Skip l'errore, abbiamo corretto
+                        }
+                    }
+                    
+                    console.error(`🚨 [BALANCE] Valore LONG anomale per ${pos.ticket_id}: $${longValue.toLocaleString()}. Volume: ${remainingVolume}, Prezzo: $${price.toFixed(8)}. Skipping.`);
                     return;
                 }
                 totalLongValue += longValue;
