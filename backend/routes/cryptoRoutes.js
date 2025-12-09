@@ -5605,7 +5605,9 @@ router.get('/bot-analysis', async (req, res) => {
                     // ✅ FIX: Salva i dati freschi nel DB così lo Scanner li vede!
                     // Questo risolve la discrepanza tra Quick Analysis (fresco) e Scanner (vecchio/corrotto)
                     try {
-                        const savePromises = klines.map(k => {
+                        // ✅ FIX: Salva SOLO le ultime 20 candele per non intasare il DB (SQLite busy)
+                        const klinesToSave = klines.slice(-20);
+                        const savePromises = klinesToSave.map(k => {
                             const openTime = parseInt(k[0]);
                             const open = parseFloat(k[1]);
                             const high = parseFloat(k[2]);
