@@ -21,11 +21,17 @@ if [ ! -f "crypto.db" ]; then
     exit 1
 fi
 
-# Carica variabili d'ambiente da .env
+# Carica solo DATABASE_URL da .env (in modo sicuro)
 if [ -f ".env" ]; then
-    echo -e "${YELLOW}📋 Caricamento variabili d'ambiente da .env...${NC}"
-    export $(grep -v '^#' .env | grep -v '^$' | xargs)
-    echo -e "${GREEN}✅ Variabili d'ambiente caricate${NC}"
+    echo -e "${YELLOW}📋 Caricamento DATABASE_URL da .env...${NC}"
+    # Carica solo DATABASE_URL (evita problemi con valori multi-linea)
+    if grep -q "^DATABASE_URL=" .env; then
+        export DATABASE_URL=$(grep "^DATABASE_URL=" .env | cut -d '=' -f2- | tr -d '"' | tr -d "'")
+        echo -e "${GREEN}✅ DATABASE_URL caricato${NC}"
+    else
+        echo -e "${RED}❌ DATABASE_URL non trovato in .env!${NC}"
+        exit 1
+    fi
 else
     echo -e "${RED}❌ File .env non trovato!${NC}"
     exit 1
