@@ -6576,6 +6576,27 @@ router.get('/scanner', async (req, res) => {
 
         const results = await Promise.all(symbolsToScan.map(async (s) => {
             try {
+                // 1. Recupera Prezzo Corrente (da Bulk Map o Fallback)
+                let currentPrice = 0;
+
+                if (allPricesMap.has(s.pair)) {
+                    currentPrice = allPricesMap.get(s.pair);
+                } else {
+                    // Fallback fetch singolo
+                    try {
+                        const priceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${s.pair}`;
+                        const priceData = await httpsGet(priceUrl, 1500).catch(() => null);
+                        if (priceData && priceData.price) {
+                            currentPrice = parseFloat(priceData.price);
+                        } else {
+                            // Fallback DB
+                            const lastPriceDb = await dbGet("SELECT price FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 1", [s.symbol]);
+                            if (lastPriceDb && lastPriceDb.price) currentPrice = parseFloat(lastPriceDb.price);
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+
+
                 // ✅ ANALISI UNIFICATA: Usa la stessa logica di Bot Analysis
                 const unifiedResult = await performUnifiedDeepAnalysis(s.symbol, currentPrice);
 
