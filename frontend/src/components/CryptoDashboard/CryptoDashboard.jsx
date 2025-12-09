@@ -30,6 +30,7 @@ const CryptoDashboard = () => {
     const [allTrades, setAllTrades] = useState([]); // For chart plotting
     const [openPositions, setOpenPositions] = useState([]);
     const [closedPositions, setClosedPositions] = useState([]); // ✅ FIX: Aggiungi closed positions per recuperare P&L
+    const [performanceAnalytics, setPerformanceAnalytics] = useState(null); // 📊 Performance Analytics (Day/Week/Month/Year)
     const [showBotSettings, setShowBotSettings] = useState(false);
     const [showBacktestPanel, setShowBacktestPanel] = useState(false);
     const [notifications, setNotifications] = useState([]);
@@ -125,6 +126,17 @@ const CryptoDashboard = () => {
                 }
             } else {
                 console.error('❌ Dashboard fetch failed:', res.status, res.statusText);
+            }
+
+            // 📊 Fetch Performance Analytics (Day/Week/Month/Year)
+            try {
+                const analyticsRes = await fetch(`${apiBase}/api/crypto/performance-analytics`);
+                if (analyticsRes.ok) {
+                    const analyticsData = await analyticsRes.json();
+                    setPerformanceAnalytics(analyticsData);
+                }
+            } catch (analyticsError) {
+                console.warn('⚠️ [ANALYTICS] Error fetching performance analytics:', analyticsError);
             }
         } catch (error) {
             console.error("❌ Error fetching dashboard:", error);
@@ -996,11 +1008,11 @@ const CryptoDashboard = () => {
                                     'ripple': 'XRPUSDT',
                                     'binance_coin': 'BNBUSDT'
                                 };
-                                
+
                                 if (symbolMap[currentSymbol]) {
                                     return symbolMap[currentSymbol];
                                 }
-                                
+
                                 // Fallback: genera da nome simbolo
                                 const upperSymbol = currentSymbol.toUpperCase().replace(/_/g, '');
                                 return `${upperSymbol}USDT`;
@@ -1041,6 +1053,87 @@ const CryptoDashboard = () => {
 
             {/* Kelly Criterion rimosso - ora usiamo Fixed Position Sizing */}
 
+            {/* 📊 PERFORMANCE ANALYTICS - Day/Week/Month/Year */}
+            {performanceAnalytics && (
+                <div className="crypto-card" style={{ marginTop: '20px' }}>
+                    <div className="card-title">
+                        <TrendingUp size={20} className="text-gray-400" />
+                        📊 Performance Analytics
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', padding: '15px' }}>
+                        {/* Daily */}
+                        <div style={{ background: '#1a1d29', padding: '15px', borderRadius: '8px', border: '1px solid #2d3748' }}>
+                            <div style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '8px' }}>📅 Oggi</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: performanceAnalytics.daily.net_profit >= 0 ? '#10b981' : '#ef4444' }}>
+                                {performanceAnalytics.daily.net_profit >= 0 ? '+' : ''}{performanceAnalytics.daily.net_profit.toFixed(2)} $
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: performanceAnalytics.daily.roi_percent >= 0 ? '#10b981' : '#ef4444', marginTop: '4px' }}>
+                                {performanceAnalytics.daily.roi_percent >= 0 ? '+' : ''}{performanceAnalytics.daily.roi_percent.toFixed(2)}% ROI
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '8px' }}>
+                                {performanceAnalytics.daily.total_trades} trade • {performanceAnalytics.daily.win_rate.toFixed(1)}% win rate
+                            </div>
+                        </div>
+
+                        {/* Weekly */}
+                        <div style={{ background: '#1a1d29', padding: '15px', borderRadius: '8px', border: '1px solid #2d3748' }}>
+                            <div style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '8px' }}>📅 Settimana</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: performanceAnalytics.weekly.net_profit >= 0 ? '#10b981' : '#ef4444' }}>
+                                {performanceAnalytics.weekly.net_profit >= 0 ? '+' : ''}{performanceAnalytics.weekly.net_profit.toFixed(2)} $
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: performanceAnalytics.weekly.roi_percent >= 0 ? '#10b981' : '#ef4444', marginTop: '4px' }}>
+                                {performanceAnalytics.weekly.roi_percent >= 0 ? '+' : ''}{performanceAnalytics.weekly.roi_percent.toFixed(2)}% ROI
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '8px' }}>
+                                {performanceAnalytics.weekly.total_trades} trade • {performanceAnalytics.weekly.win_rate.toFixed(1)}% win rate
+                            </div>
+                        </div>
+
+                        {/* Monthly */}
+                        <div style={{ background: '#1a1d29', padding: '15px', borderRadius: '8px', border: '1px solid #2d3748' }}>
+                            <div style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '8px' }}>📅 Mese</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: performanceAnalytics.monthly.net_profit >= 0 ? '#10b981' : '#ef4444' }}>
+                                {performanceAnalytics.monthly.net_profit >= 0 ? '+' : ''}{performanceAnalytics.monthly.net_profit.toFixed(2)} $
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: performanceAnalytics.monthly.roi_percent >= 0 ? '#10b981' : '#ef4444', marginTop: '4px' }}>
+                                {performanceAnalytics.monthly.roi_percent >= 0 ? '+' : ''}{performanceAnalytics.monthly.roi_percent.toFixed(2)}% ROI
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '8px' }}>
+                                {performanceAnalytics.monthly.total_trades} trade • {performanceAnalytics.monthly.win_rate.toFixed(1)}% win rate
+                            </div>
+                        </div>
+
+                        {/* Yearly */}
+                        <div style={{ background: '#1a1d29', padding: '15px', borderRadius: '8px', border: '1px solid #2d3748' }}>
+                            <div style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '8px' }}>📅 Anno</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: performanceAnalytics.yearly.net_profit >= 0 ? '#10b981' : '#ef4444' }}>
+                                {performanceAnalytics.yearly.net_profit >= 0 ? '+' : ''}{performanceAnalytics.yearly.net_profit.toFixed(2)} $
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: performanceAnalytics.yearly.roi_percent >= 0 ? '#10b981' : '#ef4444', marginTop: '4px' }}>
+                                {performanceAnalytics.yearly.roi_percent >= 0 ? '+' : ''}{performanceAnalytics.yearly.roi_percent.toFixed(2)}% ROI
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '8px' }}>
+                                {performanceAnalytics.yearly.total_trades} trade • {performanceAnalytics.yearly.win_rate.toFixed(1)}% win rate
+                            </div>
+                        </div>
+
+                        {/* All Time */}
+                        <div style={{ background: '#1a1d29', padding: '15px', borderRadius: '8px', border: '1px solid #2d3748' }}>
+                            <div style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: '8px' }}>📅 Totale</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: performanceAnalytics.all_time.net_profit >= 0 ? '#10b981' : '#ef4444' }}>
+                                {performanceAnalytics.all_time.net_profit >= 0 ? '+' : ''}{performanceAnalytics.all_time.net_profit.toFixed(2)} $
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: performanceAnalytics.all_time.roi_percent >= 0 ? '#10b981' : '#ef4444', marginTop: '4px' }}>
+                                {performanceAnalytics.all_time.roi_percent >= 0 ? '+' : ''}{performanceAnalytics.all_time.roi_percent.toFixed(2)}% ROI
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '8px' }}>
+                                {performanceAnalytics.all_time.total_trades} trade • {performanceAnalytics.all_time.win_rate.toFixed(1)}% win rate
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* RECENT TRADES HISTORY */}
             <div className="crypto-card" style={{ marginTop: '20px' }}>
                 <div className="card-title">
@@ -1078,7 +1171,7 @@ const CryptoDashboard = () => {
                                     let pnl = parseFloat(pos.profit_loss) || 0;
                                     const closedAt = pos.closed_at ? new Date(pos.closed_at) : null;
                                     const openedAt = pos.opened_at ? new Date(pos.opened_at) : null;
-                                    
+
                                     // ✅ NUOVO: Calcola durata della posizione
                                     let durationSeconds = 0;
                                     let durationDisplay = 'N/A';
@@ -1099,7 +1192,7 @@ const CryptoDashboard = () => {
                                     const closeReason = pos.close_reason || 'N/A';
                                     let mainReason = 'Sconosciuto';
                                     let isImmediate = durationSeconds < 5;
-                                    
+
                                     if (closeReason.includes('SmartExit') || closeReason.includes('smart exit') || closeReason.includes('SMART EXIT')) {
                                         mainReason = 'SmartExit';
                                     } else if (closeReason.includes('cleanup')) {
@@ -1217,11 +1310,11 @@ const CryptoDashboard = () => {
                                                 {isImmediate && <span style={{ color: '#ef4444', marginLeft: '5px' }}>⚠️</span>}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'left', color: '#9ca3af', fontSize: '0.85rem', maxWidth: '200px' }}>
-                                                <div style={{ 
-                                                    color: mainReason === 'SmartExit' ? '#f59e0b' : 
-                                                           mainReason === 'Cleanup' ? '#8b5cf6' : 
-                                                           mainReason === 'Stop Loss' ? '#ef4444' : 
-                                                           mainReason === 'Take Profit' ? '#4ade80' : '#9ca3af',
+                                                <div style={{
+                                                    color: mainReason === 'SmartExit' ? '#f59e0b' :
+                                                        mainReason === 'Cleanup' ? '#8b5cf6' :
+                                                            mainReason === 'Stop Loss' ? '#ef4444' :
+                                                                mainReason === 'Take Profit' ? '#4ade80' : '#9ca3af',
                                                     fontWeight: mainReason !== 'Sconosciuto' ? '500' : 'normal'
                                                 }}>
                                                     {mainReason}

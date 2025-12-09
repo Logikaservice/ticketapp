@@ -643,6 +643,89 @@ router.get('/dashboard', async (req, res) => {
     }
 });
 
+// GET /api/crypto/performance-analytics (Performance Analytics - Giorno/Settimana/Mese/Anno)
+router.get('/performance-analytics', async (req, res) => {
+    try {
+        const portfolio = await getPortfolio();
+        const currentBalance = parseFloat(portfolio.balance_usd) || 0;
+
+        // Get all closed positions ordered by close time
+        const closedPositions = await dbAll(
+            `SELECT * FROM open_positions 
+             WHERE status IN ('closed', 'stopped', 'taken') 
+             AND closed_at IS NOT NULL 
+             ORDER BY closed_at ASC`
+        );
+
+        const now = new Date();
+        const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+        // Helper to calculate stats for a period
+        const calculatePeriodStats = (positions, startDate) => {
+            const periodPositions = positions.filter(p => {
+                const closedAt = new Date(p.closed_at);
+                return closedAt >= startDate;
+            });
+
+            const totalTrades = periodPositions.length;
+            const winningTrades = periodPositions.filter(p => parseFloat(p.profit_loss || 0) > 0).length;
+            const losingTrades = periodPositions.filter(p => parseFloat(p.profit_loss || 0) < 0).length;
+
+            const totalProfit = periodPositions.reduce((sum, p) => {
+                const pl = parseFloat(p.profit_loss || 0);
+                return sum + (pl > 0 ? pl : 0);
+            }, 0);
+
+            const totalLoss = periodPositions.reduce((sum, p) => {
+                const pl = parseFloat(p.profit_loss || 0);
+                return sum + (pl < 0 ? Math.abs(pl) : 0);
+            }, 0);
+
+            const netProfit = totalProfit - totalLoss;
+            const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
+
+            // Calculate ROI based on initial balance for this period
+            // Estimate initial balance by subtracting net profit from current balance
+            const estimatedInitialBalance = currentBalance - netProfit;
+            const roi = estimatedInitialBalance > 0 ? (netProfit / estimatedInitialBalance) * 100 : 0;
+
+            return {
+                total_trades: totalTrades,
+                winning_trades: winningTrades,
+                losing_trades: losingTrades,
+                win_rate: winRate,
+                total_profit: totalProfit,
+                total_loss: totalLoss,
+                net_profit: netProfit,
+                roi_percent: roi,
+                avg_profit_per_trade: totalTrades > 0 ? netProfit / totalTrades : 0
+            };
+        };
+
+        // Calculate stats for each period
+        const dailyStats = calculatePeriodStats(closedPositions, oneDayAgo);
+        const weeklyStats = calculatePeriodStats(closedPositions, oneWeekAgo);
+        const monthlyStats = calculatePeriodStats(closedPositions, oneMonthAgo);
+        const yearlyStats = calculatePeriodStats(closedPositions, oneYearAgo);
+        const allTimeStats = calculatePeriodStats(closedPositions, new Date(0)); // All time
+
+        res.json({
+            current_balance: currentBalance,
+            daily: dailyStats,
+            weekly: weeklyStats,
+            monthly: monthlyStats,
+            yearly: yearlyStats,
+            all_time: allTimeStats
+        });
+    } catch (error) {
+        console.error("Performance Analytics Error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // GET /api/crypto/price/:symbol (Proxy to get real price)
 router.get('/price/:symbol', async (req, res) => {
     const { symbol } = req.params;
