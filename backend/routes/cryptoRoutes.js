@@ -6359,7 +6359,7 @@ router.get('/bot-analysis', async (req, res) => {
                 rsiPeriod: params.rsi_period,
                 stopLossPct: params.stop_loss_pct,
                 takeProfitPct: params.take_profit_pct,
-                tradeSizeEur: params.trade_size_eur
+                tradeSizeUsdt: params.trade_size_usdt || params.trade_size_eur || 50
             },
             // 🎯 READINESS ANALYSIS - Cosa vede il bot e perché (non) apre
             readiness: {
