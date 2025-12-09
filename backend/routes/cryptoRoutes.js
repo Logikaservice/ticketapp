@@ -1959,7 +1959,8 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         }
 
         // 4. Update all open positions P&L (this handles SL/TP/trailing stop automatically)
-        await updatePositionsPnL(currentPrice, symbol);
+        // ✅ FIX: updatePositionsPnL ora aggiorna TUTTE le posizioni, recuperando i prezzi da Binance
+        await updatePositionsPnL();
 
         // 5. Get bot parameters for this symbol
         const params = await getBotParameters(symbol);
@@ -3242,26 +3243,44 @@ const calculateDynamicTrailingDistance = (atr, currentPrice, multiplier = 1.5) =
 
 
 // Helper to update P&L for all open positions
-// ✅ FIX: updatePositionsPnL ora aggiorna P&L per tutte le posizioni, non solo quelle del simbolo corrente
+// ✅ FIX: updatePositionsPnL ora aggiorna P&L per TUTTE le posizioni aperte, recuperando il prezzo corrente per ciascuna
 // ✅ FIX CRITICO: currentPrice è SEMPRE in USDT (da getSymbolPrice) per match con TradingView
 // ✅ MIGRAZIONE POSTGRESQL: Convertito da db.all() a dbAll()
-const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
+const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
     try {
-        const positions = await dbAll("SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'", [symbol]);
+        // ✅ FIX CRITICO: Recupera TUTTE le posizioni aperte, non solo quelle del simbolo corrente
+        const positions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
 
         // ✅ FIX CRITICO: Valida che currentPrice sia ragionevole (in USDT)
-        // Se è troppo grande, potrebbe essere un errore
         const MAX_REASONABLE_USDT_PRICE = 200000; // BTC può essere ~100k USDT, ma con margine
-        if (currentPrice > MAX_REASONABLE_USDT_PRICE && symbol !== 'bitcoin') {
-            console.error(`🚨 [UPDATE P&L] currentPrice ${currentPrice} seems too high for ${symbol}, might be an error!`);
-            // Non crashare, ma logga l'errore
-        }
-
-        // ✅ FIX: Verifica se entry_price è in EUR (vecchie posizioni) e converte a USDT se necessario
-        // Se entry_price è molto più basso di currentPrice (>20% differenza), potrebbe essere in EUR
-        // Conversione approssimativa: 1 EUR ≈ 1.08 USDT
 
         for (const pos of positions) {
+            // ✅ FIX CRITICO: Recupera il prezzo corrente per questa posizione da Binance
+            let currentPrice = null;
+            try {
+                currentPrice = await getSymbolPrice(pos.symbol);
+                if (!currentPrice || currentPrice <= 0) {
+                    console.warn(`⚠️ [UPDATE P&L] Impossibile recuperare prezzo per ${pos.symbol}, uso prezzo dal database`);
+                    currentPrice = parseFloat(pos.current_price) || 0;
+                }
+            } catch (priceError) {
+                console.error(`❌ [UPDATE P&L] Errore recupero prezzo per ${pos.symbol}:`, priceError.message);
+                // Usa il prezzo dal database come fallback
+                currentPrice = parseFloat(pos.current_price) || 0;
+            }
+
+            // Valida che currentPrice sia ragionevole
+            if (currentPrice > MAX_REASONABLE_USDT_PRICE && pos.symbol !== 'bitcoin') {
+                console.error(`🚨 [UPDATE P&L] currentPrice ${currentPrice} seems too high for ${pos.symbol}, might be an error!`);
+                // Usa il prezzo dal database come fallback
+                currentPrice = parseFloat(pos.current_price) || 0;
+            }
+
+            if (currentPrice <= 0) {
+                console.warn(`⚠️ [UPDATE P&L] Prezzo non valido per ${pos.symbol} (${currentPrice}), salto questa posizione`);
+                continue; // Salta questa posizione se il prezzo non è valido
+            }
+
             let entryPrice = parseFloat(pos.entry_price);
 
             // ✅ FIX CRITICO: Rileva e converte entry_price da EUR a USDT se necessario
@@ -3273,7 +3292,7 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
             if (priceRatio > 1.15 && entryPrice < currentPrice * 0.85) {
                 // Probabilmente entry_price è in EUR, converti a USDT
                 const convertedEntryPrice = entryPrice * EUR_TO_USDT_RATE;
-                console.warn(`⚠️ [CURRENCY-FIX] ${pos.ticket_id} (${symbol}): entry_price sembra in EUR (${entryPrice.toFixed(6)}), convertendo a USDT (${convertedEntryPrice.toFixed(6)})`);
+                console.warn(`⚠️ [CURRENCY-FIX] ${pos.ticket_id} (${pos.symbol}): entry_price sembra in EUR (${entryPrice.toFixed(6)}), convertendo a USDT (${convertedEntryPrice.toFixed(6)})`);
                 entryPrice = convertedEntryPrice;
 
                 // ✅ AGGIORNA entry_price nel database per evitare riconversioni future
@@ -3377,7 +3396,7 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
             // ✅ DEBUG: Log aggiornamento prezzo per verificare correttezza
             const oldCurrentPrice = parseFloat(pos.current_price) || 0;
             if (Math.abs(currentPrice - oldCurrentPrice) > oldCurrentPrice * 0.05) { // Se differenza > 5%
-                console.log(`💰 [UPDATE P&L] ${pos.ticket_id} (${symbol}): current_price aggiornato: $${oldCurrentPrice.toFixed(6)} → $${currentPrice.toFixed(6)} USDT`);
+                console.log(`💰 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}): current_price aggiornato: $${oldCurrentPrice.toFixed(6)} → $${currentPrice.toFixed(6)} USDT`);
             }
 
             if (shouldUpdateStopLoss) {
@@ -4093,7 +4112,8 @@ router.get('/positions/update-pnl', async (req, res) => {
             return res.status(500).json({ error: 'Could not fetch current price' });
         }
 
-        const updatedCount = await updatePositionsPnL(currentPrice, targetSymbol);
+        // ✅ FIX: updatePositionsPnL ora aggiorna TUTTE le posizioni, recuperando i prezzi da Binance
+        const updatedCount = await updatePositionsPnL();
         res.json({ success: true, updated: updatedCount, current_price: currentPrice });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -4144,29 +4164,9 @@ const updateAllPositionsPnL = async () => {
             }
         }
 
-        // Aggiorna P&L per ogni simbolo
-        // ✅ OTTIMIZZATO: Se WebSocket attivo, usa cache (aggiornata in real-time)
-        // Se WebSocket non disponibile, usa REST API (fallback)
-        for (const posRow of allOpenPositions) {
-            const symbol = posRow.symbol;
-            try {
-                // Ottieni prezzo corrente per questo simbolo
-                // Se WebSocket attivo, prezzo è già in cache (aggiornato in real-time)
-                // Se non attivo, chiama REST API (fallback)
-                const currentPrice = await getSymbolPrice(symbol);
-
-                if (currentPrice > 0) {
-                    // Aggiorna P&L per tutte le posizioni di questo simbolo
-                    await updatePositionsPnL(currentPrice, symbol);
-                }
-            } catch (symbolError) {
-                // Log solo occasionalmente per non intasare
-                if (Math.random() < 0.1) {
-                    console.warn(`⚠️ [UPDATE P&L] Errore aggiornamento ${symbol}:`, symbolError.message);
-                }
-                continue; // Continua con il prossimo simbolo
-            }
-        }
+        // ✅ FIX CRITICO: Aggiorna TUTTE le posizioni aperte, recuperando i prezzi da Binance per ciascuna
+        // updatePositionsPnL ora gestisce internamente il recupero dei prezzi per ogni simbolo
+        await updatePositionsPnL();
     } catch (err) {
         // Silent fail in background - non bloccare il processo
         if (Math.random() < 0.1) {
