@@ -994,7 +994,6 @@ const CryptoDashboard = () => {
                         currentPrice={currentPrice}
                         priceHistory={priceData || []}
                     />
-                    )}
                 </div>
 
                 {/* MT5 Style Open Positions */}

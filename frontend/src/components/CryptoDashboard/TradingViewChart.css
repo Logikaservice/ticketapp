@@ -14,18 +14,22 @@
     gap: 0;
     align-items: stretch;
     width: 100%;
+    height: 750px;
+    /* Altezza fissa per il contenitore */
     min-height: 750px;
 }
 
 .tradingview-chart-wrapper {
     flex: 1;
     min-width: 0;
-    height: 750px;
+    height: 100%;
+    /* Si adatta al contenitore padre */
     position: relative;
-    overflow: visible; /* Permette ai markers di essere visibili */
+    overflow: visible;
+    /* Permette ai markers di essere visibili */
 }
 
-/* ... */
+/* ... (omesso) ... */
 
 .trades-legend-right {
     width: 300px;
@@ -33,7 +37,10 @@
     padding: 15px;
     background: #27272a;
     border-left: 1px solid #3f3f46;
-    height: 750px;
+    height: 100%;
+    /* Si adatta al contenitore padre */
+    box-sizing: border-box;
+    /* Include padding nell'altezza */
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -102,6 +109,7 @@
         opacity: 0;
         transform: translate(-50%, -100%) scale(0.5);
     }
+
     100% {
         opacity: 1;
         transform: translate(-50%, -100%) scale(1);
@@ -259,7 +267,8 @@
     right: 0;
     bottom: 0;
     pointer-events: none;
-    z-index: 10000; /* Alto z-index per essere sopra TradingView */
+    z-index: 10000;
+    /* Alto z-index per essere sopra TradingView */
 }
 
 .chart-marker {
@@ -323,13 +332,12 @@
     .tradingview-chart-container {
         height: 400px;
     }
-    
+
     .trades-list-compact {
         flex-direction: column;
     }
-    
+
     .trade-badge {
         justify-content: space-between;
     }
 }
-
