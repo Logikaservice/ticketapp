@@ -8971,44 +8971,72 @@ router.post('/bot/ai-chat', async (req, res) => {
             else if (signal.trend === 'bearish') reply += "Siamo in un trend ribassista al momento. 📉";
             else reply += "Il mercato è laterale/neutro. 😐";
         }
-        else if (lowerMsg.includes('analizz') || lowerMsg.includes('situazione') || lowerMsg.includes('come vedi')) {
+        else if (lowerMsg.includes('analizz') || lowerMsg.includes('situazione') || lowerMsg.includes('come vedi') || lowerMsg.includes('ora') || lowerMsg.includes('adesso') || lowerMsg.includes('news')) {
             // Analisi Tecnica Dettagliata
-            reply = `Ecco la mia analisi su **${normalizedSymbol}**: \n\n`;
+            reply = `Ecco l'analisi aggiornata per **${normalizedSymbol}** ($${closePrice.toFixed(2)}): \n\n`;
 
             // Score
-            reply += `📊 **Score Tecnico:** ${signal.score}/100 `;
-            if (signal.score > 70) reply += "(Molto Forte 🔥)\n";
-            else if (signal.score < 30) reply += "(Debole ❄️)\n";
-            else reply += "(Neutrale)\n";
+            reply += `📊 **Punteggio AI:** ${signal.score}/100 `;
+            if (signal.score >= 80) reply += "(🚀 Molto Rialzista)\n";
+            else if (signal.score >= 60) reply += "(📈 Rialzista)\n";
+            else if (signal.score <= 20) reply += "(🐻 Molto Ribassista)\n";
+            else if (signal.score <= 40) reply += "(📉 Ribassista)\n";
+            else reply += "(⚖️ Neutrale)\n";
 
             // RSI
-            reply += `📈 **RSI:** ${signal.indicators.rsi.toFixed(2)} - `;
-            if (signal.indicators.rsi > 70) reply += "Siamo in Ipercomprato (rischio ritracciamento). \n";
-            else if (signal.indicators.rsi < 30) reply += "Siamo in Ipervenduto (possibile rimbalzo). \n";
-            else reply += "Zona neutrale. \n";
+            reply += `🔹 **RSI:** ${signal.indicators.rsi.toFixed(1)} `;
+            if (signal.indicators.rsi > 70) reply += "⚠️ Ipercomprato (Possibile discesa)\n";
+            else if (signal.indicators.rsi < 30) reply += "✅ Ipervenduto (Possibile salita)\n";
+            else reply += "(Normale)\n";
 
-            // Trend & Direzione
-            reply += `🧭 **Trend:** ${signal.trend === 'bullish' ? 'Rialzista 🟢' : signal.trend === 'bearish' ? 'Ribassista 🔴' : 'Laterale ⚪'}\n`;
+            // Trend
+            reply += `🌊 **Trend:** ${signal.trend === 'bullish' ? 'Rialzista 🟢' : signal.trend === 'bearish' ? 'Ribassista 🔴' : 'Laterale ⚪'}\n`;
 
-            // Bloccanti
-            if (signal.direction === 'NEUTRAL' && signal.reasons.length > 0) {
-                reply += `\n⚠️ **Note:** Non entrerei adesso perché: ${signal.reasons[0]}`;
-            } else if (signal.direction !== 'NEUTRAL') {
-                reply += `\n✅ **Segnale:** Vedo una possibile opportunità **${signal.direction}**!`;
+            // ATR Volatility
+            if (signal.indicators.atr && closePrice > 0) {
+                const atrPct = (signal.indicators.atr / closePrice) * 100;
+                reply += `⚡ **Volatilità:** ${atrPct.toFixed(2)}% (ATR) \n`;
+            }
+
+            // Bloccanti e Consigli
+            if (signal.direction !== 'NEUTRAL') {
+                reply += `\n🎯 **Segnale Attivo:** ${signal.direction} 🌟\n`;
+            } else {
+                if (signal.reasons && signal.reasons.length > 0) {
+                    // Prendi solo i primi 2 motivi più importanti
+                    const shortReasons = signal.reasons.slice(0, 2).map(r => r.replace('⚠️ ', '').replace('❌ ', '')).join(', ');
+                    reply += `\n🧘 **Attesa:** Non entro adesso perché: ${shortReasons}.`;
+                } else {
+                    reply += `\n💡 **Consiglio:** Meglio attendere una configurazione più chiara.`;
+                }
             }
         }
-        else if (lowerMsg.includes('consigli') || lowerMsg.includes('fare')) {
-            if (signal.score >= 80) reply = `Con uno score di ${signal.score}, il segnale è molto forte LONG! 🚀 Valuta un ingresso se confermato dalla tua strategia.`;
-            else if (signal.score <= 20) reply = `Lo score è bassissimo (${signal.score}). Se hai posizioni LONG, fai attenzione! Potrebbe essere momento di vendere o shortare.`;
-            else reply = "Al momento c'è incertezza. Il miglior trade ora è... stare fermi e osservare. 🧘‍♂️";
+        else if (lowerMsg.includes('consigli') || lowerMsg.includes('fare') || lowerMsg.includes('compra') || lowerMsg.includes('vendi')) {
+            if (signal.score >= 80) reply = `Il punteggio è molto alto (${signal.score}) 🔥. Se la tua strategia lo consente, un **LONG** potrebbe avere buone probabilità.`;
+            else if (signal.score <= 20) reply = `Il punteggio è molto basso (${signal.score}) 🧊. Il mercato è debole, attenzione ai LONG. Potrebbe essere zona short.`;
+            else reply = `Situazione incerta (Score: ${signal.score}). 🤷‍♂️ Personalmente aspetterei che il trend si definisca meglio prima di muovermi.`;
+        }
+        else if (lowerMsg.includes('ciao') || lowerMsg.includes('salut')) {
+            reply = "Ciao! 👋 Pronto a scalare i grafici? Chiedimi un'analisi su qualsiasi moneta!";
         }
         else {
             // Fallback generico ma intelligente
-            reply = `Tengo d'occhio **${normalizedSymbol}** ($${closePrice.toFixed(2)}). `;
-            reply += `La volatilità (ATR) è ${((signal.indicators.atr / closePrice) * 100).toFixed(2)}%. `;
-            if (Math.abs(signal.indicators.macd.histogram) > 0) {
-                reply += `Il Momentum (MACD) sta ${signal.indicators.macd.histogram > 0 ? 'spingendo su 🟢' : 'flettendo giù 🔴'}.`;
+            reply = `Sto monitorando **${normalizedSymbol}** ($${closePrice.toFixed(2)}). `;
+
+            if (signal.indicators.atr && closePrice > 0) {
+                const atrPct = (signal.indicators.atr / closePrice) * 100;
+                reply += `La volatilità è del **${atrPct.toFixed(2)}%**. `;
             }
+
+            if (signal.trend === 'bullish') {
+                reply += "Vedo massimi crescenti sul breve periodo. 🟢";
+            } else if (signal.trend === 'bearish') {
+                reply += "Vedo massimi decrescenti, pressione di vendita. 🔴";
+            } else {
+                reply += "Il prezzo sta lateralizzando in un range. ↔️";
+            }
+
+            reply += "\n(Dimmi 'analizza' o 'ora' per i dettagli completi!)";
         }
 
         return res.json({ reply });
