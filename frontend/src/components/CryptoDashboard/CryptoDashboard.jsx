@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Settings, BarChart2, Wallet, Maximize2, Minimize2, DollarSign, TrendingUp, Info } from 'lucide-react'; // ✅ FIX: Added TrendingUp & Info
 import OpenPositions from './OpenPositions';
 import TradingViewChart from './TradingViewChart';
-import ApexChart from './ApexChart';
 import BotSettings from './BotSettings';
 import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
@@ -36,7 +35,6 @@ const CryptoDashboard = () => {
     const [notifications, setNotifications] = useState([]);
     const [botParameters, setBotParameters] = useState(null);
     const [performanceStats, setPerformanceStats] = useState(null); // ✅ FIX: Aggiunto stato mancante per performance stats
-    const [useApexChart, setUseApexChart] = useState(false); // Toggle tra TradingView e ApexChart
     const [showAddFundsModal, setShowAddFundsModal] = useState(false); // Modal per aggiungere fondi
     const [showGeneralSettings, setShowGeneralSettings] = useState(false); // Modal per impostazioni generali
     const [showDetailsModal, setShowDetailsModal] = useState(false); // Modal per dettagli posizione
@@ -308,28 +306,11 @@ const CryptoDashboard = () => {
         }
     };
 
-    // Fetch history for ApexChart (15m di default, ma può cambiare)
-    const [apexHistory, setApexHistory] = useState([]);
-    const [apexInterval, setApexInterval] = useState('15m'); // Default 15m per corrispondenza
-    const fetchApexHistory = async (interval = '15m') => {
-        try {
-            const res = await fetch(`${apiBase}/api/crypto/history?interval=${interval}&symbol=${currentSymbol}`);
-            if (res.ok) {
-                const history = await res.json();
-                setApexHistory(history);
-            } else {
-                console.error('❌ ApexChart history fetch failed:', res.status, res.statusText);
-            }
-        } catch (error) {
-            console.error("❌ Error fetching ApexChart history:", error);
-        }
-    };
 
     useEffect(() => {
         fetchAvailableSymbols();
         fetchActiveBots();
         fetchHistory(); // Load history first (15m for TradingView)
-        fetchApexHistory(apexInterval); // Load history for ApexChart
         fetchData();
         fetchPrice();
 
@@ -348,9 +329,6 @@ const CryptoDashboard = () => {
         // ✅ FIX: Aggiornamento più frequente per vedere candele in tempo reale
         const historyInterval = setInterval(() => {
             fetchHistory();
-            if (useApexChart) {
-                fetchApexHistory(apexInterval); // Update data when using ApexChart
-            }
         }, 5000); // Ridotto da 15s a 5s per aggiornamenti più frequenti
 
         return () => {
@@ -961,7 +939,6 @@ const CryptoDashboard = () => {
                                     setCurrentSymbol(e.target.value);
                                     // Reset price data when changing symbol
                                     setPriceData([]);
-                                    setApexHistory([]);
                                 }}
                                 style={{
                                     background: '#1f2937',
@@ -989,7 +966,6 @@ const CryptoDashboard = () => {
                             </span>
                         </div>
                         <button
-                            onClick={() => setUseApexChart(!useApexChart)}
                             style={{
                                 padding: '6px 12px',
                                 background: useApexChart ? '#4ade80' : '#3f3f46',
