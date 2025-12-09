@@ -468,37 +468,15 @@ router.get('/dashboard', async (req, res) => {
 
                 if (klinesData && klinesData.length >= 20) {
                     const klinesChronological = klinesData.reverse();
-                    // ✅ FIX CRITICO: Normalizza prezzi klines a USDT per evitare mismatch EUR/USDT
-                    // Verifica se le klines sono in EUR o USDT confrontando con prezzo corrente Binance
-                    const currentBinancePrice = await getSymbolPrice(position.symbol).catch(() => null); // USDT
-                    const latestKlinePrice = parseFloat(klinesChronological[klinesChronological.length - 1]?.close_price || 0);
-
-                    // Se il prezzo più recente è significativamente diverso dal prezzo Binance, potrebbe essere in EUR
-                    // Tolleranza: se differenza > 10%, probabilmente è in EUR
-                    let conversionRate = 1.0;
-                    if (currentBinancePrice && latestKlinePrice > 0) {
-                        const priceDiff = Math.abs((currentBinancePrice - latestKlinePrice) / latestKlinePrice);
-                        const needsConversion = priceDiff > 0.10 && latestKlinePrice < currentBinancePrice * 0.9; // Se kline è ~10% più bassa, probabilmente EUR
-
-                        if (needsConversion) {
-                            try {
-                                const usdtToEurRate = await getUSDTtoEURRate();
-                                conversionRate = 1.0 / usdtToEurRate; // EUR → USDT
-                                console.warn(`⚠️ [CURRENCY-FIX] ${position.symbol.toUpperCase()}: Klines sembrano in EUR (${latestKlinePrice.toFixed(4)} vs ${currentBinancePrice.toFixed(4)} USDT). Convertendo con rate ${conversionRate.toFixed(4)}`);
-                            } catch (rateError) {
-                                console.error(`⚠️ [CURRENCY-FIX] Errore conversione per ${position.symbol}:`, rateError.message);
-                                conversionRate = 1.08; // Fallback: 1 EUR = 1.08 USDT
-                            }
-                        }
-                    }
+                    // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
 
                     const historyForSignal = klinesChronological.map(kline => ({
-                        close: parseFloat(kline.close_price) * conversionRate,  // ✅ Normalizza a USDT
-                        high: parseFloat(kline.high_price) * conversionRate,     // ✅ Normalizza a USDT
-                        low: parseFloat(kline.low_price) * conversionRate,        // ✅ Normalizza a USDT
+                        close: parseFloat(kline.close_price),  // ✅ Tutto in USDT
+                        high: parseFloat(kline.high_price),     // ✅ Tutto in USDT
+                        low: parseFloat(kline.low_price),        // ✅ Tutto in USDT
                         volume: parseFloat(kline.volume || 0),
-                        price: parseFloat(kline.close_price) * conversionRate,    // ✅ Normalizza a USDT
-                        open: parseFloat(kline.open_price) * conversionRate,       // ✅ Normalizza a USDT
+                        price: parseFloat(kline.close_price),    // ✅ Tutto in USDT
+                        open: parseFloat(kline.open_price),       // ✅ Tutto in USDT
                         timestamp: kline.open_time
                     }));
 
@@ -1307,45 +1285,7 @@ const SYMBOL_TO_COINGECKO = {
 };
 
 // Helper to get price for a symbol
-// ✅ FIX: Helper per ottenere tasso di cambio USDT/EUR
-// Cache del tasso per evitare troppe chiamate API
-let cachedUSDTtoEURRate = null;
-let cacheTimestamp = 0;
-const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minuti
-
-const getUSDTtoEURRate = async () => {
-    // ✅ FIX: Usa cache se disponibile e recente
-    const now = Date.now();
-    if (cachedUSDTtoEURRate && (now - cacheTimestamp) < CACHE_DURATION_MS) {
-        return cachedUSDTtoEURRate;
-    }
-
-    try {
-        // Prova a ottenere EUR/USDT da Binance (se disponibile) o usa tasso fisso
-        // EURUSDT = quanti USDT per 1 EUR (es. 1.08 = 1 EUR = 1.08 USDT)
-        // Quindi 1 USDT = 1 / EURUSDT EUR
-        const eurUsdData = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT`);
-        if (eurUsdData && eurUsdData.price) {
-            const rate = 1 / parseFloat(eurUsdData.price);
-            cachedUSDTtoEURRate = rate;
-            cacheTimestamp = now;
-            return rate;
-        }
-    } catch (e) {
-        console.warn('⚠️ Could not fetch EUR/USDT rate from Binance');
-        // ✅ FIX: Se abbiamo un valore in cache (anche vecchio), usalo invece del fallback fisso
-        if (cachedUSDTtoEURRate) {
-            console.log(`💾 Using cached USDT/EUR rate: ${cachedUSDTtoEURRate.toFixed(4)} (age: ${((now - cacheTimestamp) / 1000).toFixed(0)}s)`);
-            return cachedUSDTtoEURRate;
-        }
-    }
-    // Fallback: 1 USDT ≈ 0.92 EUR (approssimativo) - solo se non c'è cache
-    const fallbackRate = 0.92;
-    console.log('⚠️ Using fallback USDT/EUR rate: 0.92');
-    cachedUSDTtoEURRate = fallbackRate;
-    cacheTimestamp = now;
-    return fallbackRate;
-};
+// ✅ RIMOSSO: Funzione getUSDTtoEURRate - non più necessaria, tutto in USDT
 
 
 // ✅ CACHE OTTIMIZZATA per real-time senza rate limit
@@ -1353,38 +1293,7 @@ const priceCache = new Map();
 const PRICE_CACHE_TTL = 3000; // 3 secondi - bilanciato tra real-time e rate limit (prima era 60s)
 // Calcolo rate limit: max 20 chiamate/sec Binance, con cache 3s = max 6-7 chiamate/sec per simbolo = SICURO
 
-// ✅ FIX CRITICO: Invalida completamente la cache per tutti i simboli EUR all'avvio
-// Questo garantisce che i prezzi vengano sempre convertiti correttamente EUR→USDT
-function invalidateEURCache() {
-    const EURSymbols = Object.keys(SYMBOL_TO_PAIR).filter(s => {
-        const pair = SYMBOL_TO_PAIR[s];
-        return pair && pair.endsWith('EUR');
-    });
-    EURSymbols.forEach(symbol => {
-        priceCache.delete(symbol);
-    });
-    if (EURSymbols.length > 0) {
-        console.log(`🔄 [CACHE] Invalidata cache per ${EURSymbols.length} simboli EUR all'avvio`);
-    }
-}
-
-// Invalida cache EUR all'avvio per garantire conversione corretta
-// (SYMBOL_TO_PAIR è definito dopo, quindi chiamiamo dopo la definizione)
-
-// ✅ FIX CRITICO: Invalida completamente la cache per tutti i simboli EUR all'avvio
-// Questo garantisce che i prezzi vengano sempre convertiti correttamente EUR→USDT
-function invalidateEURCache() {
-    const EURSymbols = Object.keys(SYMBOL_TO_PAIR).filter(s => {
-        const pair = SYMBOL_TO_PAIR[s];
-        return pair && pair.endsWith('EUR');
-    });
-    EURSymbols.forEach(symbol => {
-        priceCache.delete(symbol);
-    });
-    if (EURSymbols.length > 0) {
-        console.log(`🔄 [CACHE] Invalidata cache per ${EURSymbols.length} simboli EUR all'avvio`);
-    }
-}
+// ✅ RIMOSSO: Funzione invalidateEURCache - non più necessaria, tutto in USDT
 
 // ✅ WEBSOCKET SERVICE per aggiornamenti real-time (zero rate limit)
 const BinanceWebSocketService = require('../services/BinanceWebSocket');
@@ -2044,36 +1953,16 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             // Reverse to chronological order (oldest first)
             const klinesChronological = klinesData.reverse();
 
-            // ✅ FIX CRITICO: Normalizza prezzi klines a USDT per evitare mismatch EUR/USDT
-            // Verifica se le klines sono in EUR o USDT confrontando con prezzo corrente Binance
-            const currentBinancePrice = await getSymbolPrice(symbol); // USDT
-            const latestKlinePrice = parseFloat(klinesChronological[klinesChronological.length - 1]?.close_price || 0);
-
-            // Se il prezzo più recente è significativamente diverso dal prezzo Binance, potrebbe essere in EUR
-            // Tolleranza: se differenza > 10%, probabilmente è in EUR
-            const priceDiff = latestKlinePrice > 0 ? Math.abs((currentBinancePrice - latestKlinePrice) / latestKlinePrice) : 0;
-            const needsConversion = priceDiff > 0.10 && latestKlinePrice < currentBinancePrice * 0.9; // Se kline è ~10% più bassa, probabilmente EUR
-
-            let conversionRate = 1.0;
-            if (needsConversion) {
-                try {
-                    const usdtToEurRate = await getUSDTtoEURRate();
-                    conversionRate = 1.0 / usdtToEurRate; // EUR → USDT
-                    console.warn(`⚠️ [CURRENCY-FIX] ${symbol.toUpperCase()}: Klines sembrano in EUR (${latestKlinePrice.toFixed(4)} vs ${currentBinancePrice.toFixed(4)} USDT). Convertendo con rate ${conversionRate.toFixed(4)}`);
-                } catch (rateError) {
-                    console.error(`⚠️ [CURRENCY-FIX] Errore conversione per ${symbol}:`, rateError.message);
-                    conversionRate = 1.08; // Fallback: 1 EUR = 1.08 USDT
-                }
-            }
+            // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
 
             // Formatta come array di oggetti { close, high, low, volume, price } per signalGenerator
             const historyForSignal = klinesChronological.map(kline => ({
-                close: parseFloat(kline.close_price) * conversionRate,  // ✅ Normalizza a USDT
-                high: parseFloat(kline.high_price) * conversionRate,     // ✅ Normalizza a USDT
-                low: parseFloat(kline.low_price) * conversionRate,        // ✅ Normalizza a USDT
+                close: parseFloat(kline.close_price),  // ✅ Tutto in USDT
+                high: parseFloat(kline.high_price),     // ✅ Tutto in USDT
+                low: parseFloat(kline.low_price),        // ✅ Tutto in USDT
                 volume: parseFloat(kline.volume || 0),
-                price: parseFloat(kline.close_price) * conversionRate,    // ✅ Normalizza a USDT
-                open: parseFloat(kline.open_price) * conversionRate,       // ✅ Normalizza a USDT
+                price: parseFloat(kline.close_price),    // ✅ Tutto in USDT
+                open: parseFloat(kline.open_price),       // ✅ Tutto in USDT
                 timestamp: kline.open_time
             }));
 
@@ -2918,42 +2807,7 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
         // ✅ FIX CRITICO: Se il simbolo termina con _eur, il prezzo passato potrebbe essere già in USDT (da getSymbolPrice)
         // Ma per sicurezza, verifichiamo se il prezzo sembra in EUR e convertiamo se necessario
         const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
-        const isEURPair = tradingPair.endsWith('EUR') || symbol.endsWith('_eur');
-        const EUR_TO_USDT_RATE = 1.08; // Tasso approssimativo EUR → USDT
-
-        if (isEURPair && entryPrice > 0) {
-            // ✅ FIX: getSymbolPrice dovrebbe già restituire USDT (convertito), ma verifichiamo
-            // Se entryPrice sembra troppo basso rispetto al prezzo attuale, potrebbe essere ancora in EUR
-            try {
-                const currentUSDTPrice = await getSymbolPrice(symbol); // Questo dovrebbe essere già in USDT
-                if (currentUSDTPrice > 0) {
-                    const priceRatio = entryPrice / currentUSDTPrice;
-                    // Se entryPrice è molto più basso di currentUSDTPrice (>15% differenza), probabilmente è in EUR
-                    if (priceRatio < 0.85) {
-                        // Probabilmente entryPrice è in EUR, converti a USDT
-                        const originalPrice = entryPrice;
-                        entryPrice = entryPrice * EUR_TO_USDT_RATE;
-                        console.log(`💱 [OPEN POSITION] ${symbol}: entryPrice sembra in EUR (${originalPrice.toFixed(6)}), convertito a USDT: $${entryPrice.toFixed(6)} (current: $${currentUSDTPrice.toFixed(6)})`);
-
-                        // Converti anche stop loss e take profit se presenti
-                        if (stopLoss) stopLoss = stopLoss * EUR_TO_USDT_RATE;
-                        if (takeProfit) takeProfit = takeProfit * EUR_TO_USDT_RATE;
-                    } else {
-                        // entryPrice sembra già in USDT (è vicino a currentUSDTPrice)
-                        console.log(`✅ [OPEN POSITION] ${symbol}: entryPrice già in USDT: $${entryPrice.toFixed(6)} (current: $${currentUSDTPrice.toFixed(6)})`);
-                    }
-                }
-            } catch (priceError) {
-                // Se non riesco a verificare, applico conversione per sicurezza se sembra EUR
-                console.warn(`⚠️ [OPEN POSITION] ${symbol}: Impossibile verificare prezzo, applico conversione EUR→USDT per sicurezza`);
-                const originalPrice = entryPrice;
-                entryPrice = entryPrice * EUR_TO_USDT_RATE;
-                console.log(`💱 [OPEN POSITION] ${symbol}: Convertito EUR → USDT: €${originalPrice.toFixed(6)} → $${entryPrice.toFixed(6)} USDT`);
-
-                if (stopLoss) stopLoss = stopLoss * EUR_TO_USDT_RATE;
-                if (takeProfit) takeProfit = takeProfit * EUR_TO_USDT_RATE;
-            }
-        }
+        // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
 
         // ✅ FIX CRITICO: Verifica che entryPrice sia ragionevole (in USDT)
         // Se entryPrice sembra troppo alto (es. > 100000), potrebbe essere un errore
@@ -3345,43 +3199,10 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
             }
 
             let entryPrice = parseFloat(pos.entry_price);
-            const EUR_TO_USDT_RATE = 1.08; // Tasso approssimativo
+            // ✅ RIMOSSO: EUR_TO_USDT_RATE - tutto è già in USDT
 
             // ✅ FIX CRITICO: Rileva e converte entry_price e current_price da EUR a USDT se necessario
-            // Se currentPrice da Binance è significativamente più alto di entryPrice,
-            // potrebbe essere che entry_price è in EUR
-            if (entryPrice > 0 && currentPrice > 0) {
-                const entryInUSDT = entryPrice * EUR_TO_USDT_RATE;
-                const priceDiff = Math.abs(currentPrice - entryInUSDT) / currentPrice;
-                
-                // Se entry_price * 1.08 ≈ currentPrice (differenza < 5%), probabilmente entry_price è in EUR
-                if (priceDiff < 0.05 && entryPrice < currentPrice * 0.95) {
-                    // Probabilmente entry_price è in EUR, converti a USDT
-                    const convertedEntryPrice = entryPrice * EUR_TO_USDT_RATE;
-                    console.warn(`⚠️ [CURRENCY-FIX] ${pos.ticket_id} (${pos.symbol}): entry_price sembra in EUR (${entryPrice.toFixed(6)}), convertendo a USDT (${convertedEntryPrice.toFixed(6)})`);
-                    entryPrice = convertedEntryPrice;
-
-                    // ✅ AGGIORNA entry_price nel database per evitare riconversioni future
-                    await dbRun(
-                        "UPDATE open_positions SET entry_price = ? WHERE ticket_id = ?",
-                        [convertedEntryPrice, pos.ticket_id]
-                    );
-                }
-            }
-            
-            // ✅ FIX CRITICO: Verifica anche se current_price nel database è in EUR
-            // Se current_price nel DB * 1.08 ≈ currentPrice da Binance, allora current_price nel DB è in EUR
-            const dbCurrentPrice = parseFloat(pos.current_price) || 0;
-            if (dbCurrentPrice > 0 && currentPrice > 0) {
-                const dbCurrentInUSDT = dbCurrentPrice * EUR_TO_USDT_RATE;
-                const currentPriceDiff = Math.abs(currentPrice - dbCurrentInUSDT) / currentPrice;
-                
-                // Se current_price nel DB * 1.08 ≈ currentPrice da Binance (differenza < 5%), allora è in EUR
-                if (currentPriceDiff < 0.05 && dbCurrentPrice < currentPrice * 0.95) {
-                    console.warn(`⚠️ [CURRENCY-FIX] ${pos.ticket_id} (${pos.symbol}): current_price nel DB sembra in EUR (${dbCurrentPrice.toFixed(6)}), prezzo reale USDT: ${currentPrice.toFixed(6)}`);
-                    // Il prezzo verrà aggiornato con il valore corretto in USDT più sotto
-                }
-            }
+            // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT nel database
 
             let pnl = 0;
             let pnlPct = 0;
@@ -4176,14 +3997,8 @@ router.post('/positions/close/:ticketId', async (req, res) => {
                 // potrebbe essere in USDT invece di EUR
                 const MAX_REASONABLE_EUR_PRICE = 100000; // BTC può essere > 100k EUR, ma altre crypto no
                 if (finalPrice > MAX_REASONABLE_EUR_PRICE && targetSymbol !== 'bitcoin') {
-                    console.warn(`⚠️ [CLOSE] close_price ${finalPrice} seems too high for ${targetSymbol}, attempting USDT→EUR conversion`);
-                    try {
-                        const usdtToEurRate = await getUSDTtoEURRate();
-                        finalPrice = finalPrice * usdtToEurRate;
-                        console.log(`💱 [CLOSE] Converted USDT price to EUR: €${finalPrice.toFixed(2)}`);
-                    } catch (convError) {
-                        console.error(`⚠️ [CLOSE] Could not convert USDT to EUR, using price as-is:`, convError.message);
-                    }
+                    // ✅ RIMOSSO: Conversione USDT→EUR - tutto è in USDT
+                    console.warn(`⚠️ [CLOSE] close_price ${finalPrice} seems too high for ${targetSymbol}, using price as-is (already in USDT)`);
                 }
             }
         }

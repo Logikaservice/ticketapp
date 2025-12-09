@@ -21,13 +21,8 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
         script.type = 'text/javascript';
         script.async = true;
         // Map symbol to TradingView format
-        // ✅ FIX: Normalizza simboli comuni e gestisci EUR -> USDT
+        // ✅ RIMOSSO: Conversioni EUR -> USDT - tutto è già in USDT
         let normalizedSymbol = symbol;
-
-        // Converti EUR a USDT se presente
-        if (symbol.includes('EUR')) {
-            normalizedSymbol = symbol.replace('EUR', 'USDT');
-        }
 
         // Mappa simboli comuni a formato TradingView
         const symbolMap = {
