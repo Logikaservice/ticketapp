@@ -5652,8 +5652,8 @@ router.get('/bot-analysis', async (req, res) => {
             currentPrice = await getSymbolPrice(symbol);
         } catch (err) {
             console.error('Error fetching current price:', err);
-            // Fallback: get last price from DB
-            const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 1", [symbol]);
+            // Fallback: get last price from DB (PostgreSQL syntax)
+            const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [symbol]);
             if (lastPrice) {
                 currentPrice = parseFloat(lastPrice.price);
             }
@@ -5685,7 +5685,7 @@ router.get('/bot-analysis', async (req, res) => {
             }));
         } else {
             const priceHistoryRows = await dbAll(
-                "SELECT price, timestamp FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 100",
+                "SELECT price, timestamp FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 100",
                 [symbol]
             );
             historyForSignal = priceHistoryRows.reverse().map(row => ({
@@ -5763,11 +5763,19 @@ router.get('/bot-analysis', async (req, res) => {
                             const volume = parseFloat(k[5]);
                             const closeTime = parseInt(k[6]);
 
-                            // Usa INSERT OR REPLACE per aggiornare dati vecchi/corrotti
+                            // ✅ POSTGRESQL: Usa ON CONFLICT DO UPDATE invece di INSERT OR REPLACE
                             return dbRun(
-                                `INSERT OR REPLACE INTO klines 
+                                `INSERT INTO klines 
                                 (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                                ON CONFLICT (symbol, interval, open_time) 
+                                DO UPDATE SET 
+                                    open_price = EXCLUDED.open_price,
+                                    high_price = EXCLUDED.high_price,
+                                    low_price = EXCLUDED.low_price,
+                                    close_price = EXCLUDED.close_price,
+                                    volume = EXCLUDED.volume,
+                                    close_time = EXCLUDED.close_time`,
                                 [symbol, '15m', openTime, open, high, low, close, volume, closeTime]
                             );
                         });
