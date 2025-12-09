@@ -3465,6 +3465,25 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
             throw new Error('Position not found or already closed');
         }
 
+        // ✅ FIX CRITICO: Grace Period - Evita chiusure immediate (< 1 secondo)
+        const openedAt = new Date(pos.opened_at || Date.now());
+        const timeInPosition = Date.now() - openedAt.getTime();
+        const MIN_GRACE_PERIOD_MS = 60000; // 60 secondi minimi
+        const MIN_GRACE_PERIOD_FOR_LOSS_MS = 300000; // 5 minuti se in perdita
+
+        if (timeInPosition < MIN_GRACE_PERIOD_MS) {
+            const secondsOpen = Math.floor(timeInPosition / 1000);
+            throw new Error(`Chiusura bloccata: Posizione aperta da ${secondsOpen} secondi (minimo ${MIN_GRACE_PERIOD_MS / 1000}s richiesti). Questo evita chiusure premature con perdite assurde.`);
+        }
+
+        // ✅ FIX CRITICO: Grace Period esteso per posizioni in perdita
+        const currentPnLPct = parseFloat(pos.profit_loss_pct) || 0;
+        if (currentPnLPct < 0 && timeInPosition < MIN_GRACE_PERIOD_FOR_LOSS_MS) {
+            const minutesOpen = Math.floor(timeInPosition / 60000);
+            const requiredMinutes = Math.floor(MIN_GRACE_PERIOD_FOR_LOSS_MS / 60000);
+            throw new Error(`Chiusura bloccata: Posizione in perdita (${currentPnLPct.toFixed(2)}%) aperta da ${minutesOpen} minuti (minimo ${requiredMinutes} minuti richiesti). Questo evita perdite immediate.`);
+        }
+
         // ✅ FIX CRITICO: Calcola volume rimanente (considera partial closes)
         const remainingVolume = pos.volume - (pos.volume_closed || 0);
 

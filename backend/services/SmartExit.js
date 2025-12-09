@@ -50,6 +50,10 @@ const SMART_EXIT_CONFIG = {
     MIN_OPPOSITE_STRENGTH: 60, // Close if opposite signal strength >= 60
     MIN_PROFIT_TO_PROTECT: 0.5, // Only activate if position has at least 0.5% profit
 
+    // ✅ FIX CRITICO: Grace Period - MAI chiudere posizioni appena aperte
+    MIN_GRACE_PERIOD_MS: 60000, // ✅ NUOVO: 60 secondi minimi prima di poter chiudere (evita chiusure < 1 secondo)
+    MIN_GRACE_PERIOD_FOR_LOSS_MS: 300000, // ✅ NUOVO: 5 minuti minimi se P&L è negativo (evita perdite immediate)
+
     // ✅ FIX: Soglie meno aggressive per evitare chiusure premature
     // Nuove configurazioni per ragionamento avanzato
     STATIC_MARKET_ATR_THRESHOLD: 0.3, // ATR < 0.3% = mercato statico
@@ -772,6 +776,33 @@ async function shouldClosePosition(position, priceHistory) {
         const entryPrice = parseFloat(position.entry_price) || 0;
         const entryTime = new Date(position.opened_at || Date.now());
         const timeInPosition = Date.now() - entryTime.getTime();
+
+        // ✅ FIX CRITICO: Grace Period - MAI chiudere posizioni appena aperte
+        // Questo evita chiusure immediate (< 1 secondo) che causano perdite assurde
+        if (timeInPosition < SMART_EXIT_CONFIG.MIN_GRACE_PERIOD_MS) {
+            const secondsOpen = Math.floor(timeInPosition / 1000);
+            return {
+                shouldClose: false,
+                reason: `Grace period attivo: Posizione aperta da ${secondsOpen} secondi (minimo ${SMART_EXIT_CONFIG.MIN_GRACE_PERIOD_MS / 1000}s richiesti) - Protezione contro chiusure premature`,
+                currentPnL: currentPnLPct,
+                timeInPosition: timeInPosition,
+                decisionFactor: 'grace_period'
+            };
+        }
+
+        // ✅ FIX CRITICO: Grace Period esteso per posizioni in perdita
+        // Se la posizione è in perdita, aspetta più tempo prima di chiudere (evita perdite immediate)
+        if (currentPnLPct < 0 && timeInPosition < SMART_EXIT_CONFIG.MIN_GRACE_PERIOD_FOR_LOSS_MS) {
+            const minutesOpen = Math.floor(timeInPosition / 60000);
+            const requiredMinutes = Math.floor(SMART_EXIT_CONFIG.MIN_GRACE_PERIOD_FOR_LOSS_MS / 60000);
+            return {
+                shouldClose: false,
+                reason: `Grace period esteso per perdita: Posizione in perdita (${currentPnLPct.toFixed(2)}%) aperta da ${minutesOpen} minuti (minimo ${requiredMinutes} minuti richiesti) - Protezione contro perdite immediate`,
+                currentPnL: currentPnLPct,
+                timeInPosition: timeInPosition,
+                decisionFactor: 'grace_period_loss'
+            };
+        }
 
         // ✅ PRIORITÀ 1: Trailing Profit Protection - CRITICO
         const peakProfit = calculatePeakProfit(position, priceHistory);
