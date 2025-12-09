@@ -713,12 +713,59 @@ router.get('/price/:symbol', async (req, res) => {
     try {
         // 1. Try Binance (Best for USDT)
         try {
-            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT`);
+            // Map common names to Binance USDT pairs
+            const SYMBOL_MAP = {
+                'bitcoin': 'BTCUSDT',
+                'ethereum': 'ETHUSDT',
+                'solana': 'SOLUSDT',
+                'cardano': 'ADAUSDT',
+                'ripple': 'XRPUSDT',
+                'polkadot': 'DOTUSDT',
+                'dogecoin': 'DOGEUSDT',
+                'shiba_inu': 'SHIBUSDT',
+                'avalanche': 'AVAXUSDT',
+                'binance_coin': 'BNBUSDT',
+                'chainlink': 'LINKUSDT',
+                'litecoin': 'LTCUSDT',
+                'matic': 'MATICUSDT',
+                'polygon': 'MATICUSDT',
+                'ton': 'TONUSDT',
+                'toncoin': 'TONUSDT',
+                'tron': 'TRXUSDT',
+                'stellar': 'XLMUSDT',
+                'monero': 'XMRUSDT',
+                'cosmos': 'ATOMUSDT',
+                'uniswap': 'UNIUSDT'
+            };
+
+            // Determine correct pair
+            let pair = SYMBOL_MAP[symbol.toLowerCase()];
+
+            if (!pair) {
+                // Heuristic for other symbols:
+                // If it contains '_', remove it (e.g. bitcoin_usdt -> BTCUSDT)
+                // If input is like 'BTC', append USDT
+                const cleanSymbol = symbol.toUpperCase().replace(/_/g, '');
+
+                // If it ends with USDT/EUR/BUSD, use as is (ensure uppercase)
+                if (cleanSymbol.endsWith('USDT') || cleanSymbol.endsWith('EUR') || cleanSymbol.endsWith('BUSD')) {
+                    pair = cleanSymbol;
+                } else {
+                    // Default to appending USDT
+                    pair = cleanSymbol + 'USDT';
+                }
+            }
+
+            // Fix for specific edge cases if needed
+            if (pair === 'BITCOINUSDT') pair = 'BTCUSDT';
+            if (pair === 'ETHEREUMUSDT') pair = 'ETHUSDT';
+
+            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`);
             if (data && data.price) {
                 price = parseFloat(data.price);
             }
         } catch (e) {
-            console.error('Binance API failed:', e.message);
+            console.error(`Binance API failed for ${symbol}:`, e.message);
         }
 
         // 2. Fallback to CoinGecko (for Bitcoin, not Solana!)
@@ -1354,7 +1401,7 @@ const getSymbolPrice = async (symbol) => {
 
     try {
         const binanceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${tradingPair}`;
-        
+
         const data = await httpsGet(binanceUrl);
         if (data && data.price) {
             const price = parseFloat(data.price);
@@ -3118,7 +3165,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
         if (positions.length > 0 && Math.random() < 0.1) { // Log solo ~10% delle volte
             console.log(`🔄 [UPDATE P&L] Aggiornando ${positions.length} posizioni aperte...`);
         }
-        
+
         for (const pos of positions) {
             // ✅ FIX CRITICO: Normalizza il simbolo per gestire varianti (es. "xrp" → "ripple", "bnb" → "binance_coin", "FLOKI" → "floki")
             let normalizedSymbol = pos.symbol.toLowerCase();
@@ -3148,20 +3195,20 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 'floki': 'floki', // Mantieni floki (già nel mapping)
                 'fet': 'fet'      // Mantieni fet (già nel mapping)
             };
-            
+
             if (symbolVariants[normalizedSymbol]) {
                 normalizedSymbol = symbolVariants[normalizedSymbol];
             }
-            
+
             // ✅ FIX: Se il simbolo normalizzato non è nel mapping, prova con il simbolo originale
             if (!SYMBOL_TO_PAIR[normalizedSymbol] && SYMBOL_TO_PAIR[pos.symbol]) {
                 normalizedSymbol = pos.symbol;
             }
-            
+
             // ✅ FIX CRITICO: Recupera il prezzo corrente per questa posizione da Binance
             let currentPrice = null;
             const oldPrice = parseFloat(pos.current_price) || 0;
-            
+
             try {
                 currentPrice = await getSymbolPrice(normalizedSymbol);
                 if (!currentPrice || currentPrice <= 0) {
@@ -3169,7 +3216,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                     if (normalizedSymbol !== pos.symbol.toLowerCase()) {
                         currentPrice = await getSymbolPrice(pos.symbol);
                     }
-                    
+
                     if (!currentPrice || currentPrice <= 0) {
                         console.warn(`⚠️ [UPDATE P&L] Impossibile recuperare prezzo per ${pos.symbol} (normalized: ${normalizedSymbol}), uso prezzo dal database (${oldPrice})`);
                         currentPrice = oldPrice;
@@ -3871,7 +3918,7 @@ router.get('/positions', async (req, res) => {
             try {
                 // Aggiorna P&L per tutte le posizioni aperte
                 await updatePositionsPnL();
-                
+
                 // ✅ RICARICA le posizioni dal database dopo l'aggiornamento per avere i prezzi aggiornati
                 const updatedRows = await dbAll("SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC");
                 const updatedValidPositions = (updatedRows || []).filter(pos => {
@@ -3879,7 +3926,7 @@ router.get('/positions', async (req, res) => {
                     if (pos.status !== 'open') return false;
                     return true;
                 });
-                
+
                 return res.json({ positions: updatedValidPositions });
             } catch (updateError) {
                 console.error('⚠️ [POSITIONS] Errore aggiornamento prezzi, restituisco dati originali:', updateError.message);
@@ -6207,11 +6254,11 @@ router.get('/bot-analysis', async (req, res) => {
 
         // ✅ FIX CRITICO: Ricalcola requirements con adjusted strength e controllo ATR (stessa logica del bot reale)
         const MIN_SIGNAL_STRENGTH = 70; // Stessa soglia del bot reale
-        
+
         // ✅ FIX: Controlla filtri professionali che bloccano LONG
         const longProfessionalFilters = signal.professionalAnalysis?.filters?.long || [];
         const longBlockedByFilters = longProfessionalFilters.some(f => f.includes('🚫 BLOCKED'));
-        
+
         const longMeetsRequirements = signal.direction === 'LONG' &&
             longAdjustedStrength >= MIN_SIGNAL_STRENGTH &&
             signal.confirmations >= LONG_MIN_CONFIRMATIONS &&
@@ -6221,7 +6268,7 @@ router.get('/bot-analysis', async (req, res) => {
         // ✅ FIX: Controlla filtri professionali che bloccano SHORT
         const shortProfessionalFilters = signal.professionalAnalysis?.filters?.short || [];
         const shortBlockedByFilters = shortProfessionalFilters.some(f => f.includes('🚫 BLOCKED'));
-        
+
         const shortMeetsRequirements = signal.direction === 'SHORT' &&
             shortAdjustedStrength >= MIN_SIGNAL_STRENGTH &&
             signal.confirmations >= SHORT_MIN_CONFIRMATIONS &&
@@ -6306,7 +6353,7 @@ router.get('/bot-analysis', async (req, res) => {
             } else {
                 longReason = 'Nessun segnale LONG attivo';
             }
-            
+
             if (shortCurrentStrength > 0 && shortBlockedByFilters) {
                 const blockingFilters = shortProfessionalFilters.filter(f => f.includes('🚫 BLOCKED'));
                 if (blockingFilters.length > 0) {
