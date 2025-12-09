@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, TrendingUp, TrendingDown, AlertCircle, BarChart2 } from 'lucide-react';
 
-const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, availableSymbols = [], onSelectSymbol, apiBase }) => {
+const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices = {}, onClosePosition, onUpdatePnL, availableSymbols = [], onSelectSymbol, apiBase }) => {
     const [isUpdating, setIsUpdating] = useState(false);
 
     // Update P&L periodically (more frequently for instant updates)

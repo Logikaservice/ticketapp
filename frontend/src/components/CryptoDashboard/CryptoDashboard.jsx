@@ -532,8 +532,19 @@ const CryptoDashboard = () => {
                 return;
             }
 
-            // Use live price if available, otherwise try currentSymbol price or position's last known price
-            let price = allSymbolPrices[pos.symbol] || (pos.symbol === currentSymbol ? currentPrice : parseFloat(pos.current_price) || 0);
+            // ✅ FIX CRITICO: Usa sempre il prezzo più aggiornato disponibile
+            // Priorità: 1) allSymbolPrices (aggiornato ogni fetch), 2) currentPrice se stesso simbolo, 3) current_price dal DB
+            let price = allSymbolPrices[pos.symbol];
+            
+            // Se non c'è in allSymbolPrices ma è il simbolo corrente, usa currentPrice (aggiornato ogni secondo)
+            if (!price && pos.symbol === currentSymbol && currentPrice > 0) {
+                price = currentPrice;
+            }
+            
+            // Fallback: usa prezzo dal database
+            if (!price || price === 0) {
+                price = parseFloat(pos.current_price) || 0;
+            }
             
             // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
 
@@ -1029,15 +1040,17 @@ const CryptoDashboard = () => {
 
                 {/* MT5 Style Open Positions */}
                 <div className="crypto-card" style={{ gridColumn: 'span 2' }}>
-                    <OpenPositions
-                        positions={openPositions}
-                        currentPrice={currentPrice}
-                        onClosePosition={handleClosePosition}
-                        onUpdatePnL={handleUpdatePnL}
-                        availableSymbols={availableSymbols}
-                        onSelectSymbol={setCurrentSymbol}
-                        apiBase={apiBase}
-                    />
+                        <OpenPositions
+                            positions={openPositions}
+                            currentPrice={currentPrice}
+                            currentSymbol={currentSymbol}
+                            allSymbolPrices={allSymbolPrices}
+                            onClosePosition={handleClosePosition}
+                            onUpdatePnL={handleUpdatePnL}
+                            availableSymbols={availableSymbols}
+                            onSelectSymbol={setCurrentSymbol}
+                            apiBase={apiBase}
+                        />
                 </div>
             </div>
 
