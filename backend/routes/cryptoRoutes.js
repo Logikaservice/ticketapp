@@ -6686,9 +6686,11 @@ router.get('/scanner', async (req, res) => {
             try {
                 // 1. Recupera Prezzo Corrente (da Bulk Map o Fallback)
                 let currentPrice = 0;
+                let priceFound = false;
 
                 if (allPricesMap.has(s.pair)) {
                     currentPrice = allPricesMap.get(s.pair);
+                    priceFound = currentPrice > 0;
                 } else {
                     // Fallback fetch singolo
                     try {
@@ -6696,18 +6698,36 @@ router.get('/scanner', async (req, res) => {
                         const priceData = await httpsGet(priceUrl, 1500).catch(() => null);
                         if (priceData && priceData.price) {
                             currentPrice = parseFloat(priceData.price);
+                            priceFound = currentPrice > 0;
                         } else {
                             // Fallback DB
                             const lastPriceDb = await dbGet("SELECT price FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 1", [s.symbol]);
-                            if (lastPriceDb && lastPriceDb.price) currentPrice = parseFloat(lastPriceDb.price);
+                            if (lastPriceDb && lastPriceDb.price) {
+                                currentPrice = parseFloat(lastPriceDb.price);
+                                priceFound = currentPrice > 0;
+                            }
                         }
-                    } catch (e) { /* ignore */ }
+                    } catch (e) { 
+                        console.warn(`⚠️ [SCANNER] Errore recupero prezzo per ${s.pair}:`, e.message);
+                    }
+                }
+                
+                // ✅ FIX: Se non troviamo il prezzo, salta questo simbolo (evita errori downstream)
+                if (!priceFound || currentPrice <= 0) {
+                    console.warn(`⚠️ [SCANNER] Prezzo non disponibile per ${s.symbol} (${s.pair}), skip`);
+                    return null; // Skip questo simbolo
                 }
 
 
                 // ✅ ANALISI UNIFICATA: Usa la stessa logica di Bot Analysis
                 // Passing s.pair is CRITICAL for correct Binance fetching
-                const unifiedResult = await performUnifiedDeepAnalysis(s.symbol, currentPrice, s.pair);
+                let unifiedResult = null;
+                try {
+                    unifiedResult = await performUnifiedDeepAnalysis(s.symbol, currentPrice, s.pair);
+                } catch (analysisError) {
+                    console.warn(`⚠️ [SCANNER] Errore analisi per ${s.symbol}:`, analysisError.message);
+                    unifiedResult = null;
+                }
 
                 let signal;
                 let rsiDeepAnalysis = null;
@@ -6722,7 +6742,7 @@ router.get('/scanner', async (req, res) => {
                         strength: 0,
                         longSignal: { strength: 0 },
                         shortSignal: { strength: 0 },
-                        reasons: [],
+                        reasons: ['Dati non disponibili'],
                         confirmations: 0,
                         indicators: { rsi: null }
                     };
@@ -6854,11 +6874,10 @@ router.get('/scanner', async (req, res) => {
             }
         }));
 
-        // ✅ FIX CRITICO: Mostra TUTTI i risultati, anche NEUTRAL con strength 0
-        // Questo permette di vedere TUTTI i simboli nel Market Scanner per debug
-        // Solo filtra null/undefined, NON filtra per direction o strength
+        // ✅ FIX CRITICO: Filtra solo risultati validi con prezzo > 0
+        // Mostra risultati anche NEUTRAL con strength 0, ma solo se hanno prezzo valido
         const validResults = results
-            .filter(r => r !== null && r !== undefined)
+            .filter(r => r !== null && r !== undefined && r.price > 0)
             .sort((a, b) => {
                 // Prima ordina per direzione (LONG/SHORT prima di NEUTRAL), poi per strength
                 if (a.direction !== 'NEUTRAL' && b.direction === 'NEUTRAL') return -1;
@@ -6866,7 +6885,8 @@ router.get('/scanner', async (req, res) => {
                 return b.strength - a.strength;
             });
 
-        console.log(`📊 [SCANNER] Totale risultati: ${results.length}, Validi (non-null): ${results.filter(r => r !== null).length}, Con segnali: ${validResults.length}`);
+        const skippedCount = results.filter(r => r === null || r === undefined || (r && r.price <= 0)).length;
+        console.log(`📊 [SCANNER] Totale simboli: ${results.length}, Validi: ${validResults.length}, Saltati (no prezzo): ${skippedCount}`);
 
         res.json({
             success: true,
@@ -7404,6 +7424,151 @@ router.post('/reset-balance', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Error resetting balance:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ ENDPOINT ANALISI: Analizza posizioni chiuse per capire PERCHÉ sono state chiuse
+router.get('/analyze-closed-positions', async (req, res) => {
+    try {
+        const { limit = 50 } = req.query;
+        const maxLimit = parseInt(limit) || 50;
+
+        // Recupera posizioni chiuse
+        const closedPositions = await dbAll(
+            `SELECT 
+                ticket_id,
+                symbol,
+                type,
+                volume,
+                entry_price,
+                current_price,
+                opened_at,
+                closed_at,
+                profit_loss,
+                profit_loss_pct,
+                COALESCE(close_reason, 'N/A') as close_reason,
+                status,
+                strategy
+            FROM open_positions 
+            WHERE status IN ('closed', 'stopped', 'taken')
+            ORDER BY COALESCE(closed_at, opened_at) DESC 
+            LIMIT ?`,
+            [maxLimit]
+        );
+
+        if (closedPositions.length === 0) {
+            return res.json({
+                success: true,
+                message: 'Nessuna posizione chiusa trovata',
+                positions: [],
+                statistics: {}
+            });
+        }
+
+        // Analizza ogni posizione
+        const analyzed = closedPositions.map(pos => {
+            const openedAt = new Date(pos.opened_at);
+            const closedAt = pos.closed_at ? new Date(pos.closed_at) : null;
+            const durationMs = closedAt ? (closedAt.getTime() - openedAt.getTime()) : 0;
+            const durationSeconds = Math.floor(durationMs / 1000);
+            const durationMinutes = Math.floor(durationMs / 60000);
+
+            const entryPrice = parseFloat(pos.entry_price) || 0;
+            const closePrice = parseFloat(pos.current_price) || entryPrice;
+            const pnl = parseFloat(pos.profit_loss) || 0;
+            const pnlPct = parseFloat(pos.profit_loss_pct) || 0;
+            const volume = parseFloat(pos.volume) || 0;
+
+            // Determina motivo principale
+            const closeReason = pos.close_reason || 'N/A';
+            let mainReason = 'Sconosciuto';
+            let isSmartExit = false;
+            let isImmediate = durationSeconds < 5;
+            let isVeryFast = durationSeconds < 60;
+
+            if (closeReason.includes('SmartExit') || closeReason.includes('smart exit') || closeReason.includes('SMART EXIT')) {
+                mainReason = 'SmartExit';
+                isSmartExit = true;
+            } else if (closeReason.includes('cleanup')) {
+                mainReason = 'Cleanup (troppe posizioni)';
+            } else if (closeReason.includes('replacement') || closeReason.includes('smart replacement')) {
+                mainReason = 'Smart Replacement';
+            } else if (closeReason.includes('manual')) {
+                mainReason = 'Chiusura Manuale';
+            } else if (closeReason.includes('stop') || closeReason.includes('Stop Loss')) {
+                mainReason = 'Stop Loss';
+            } else if (closeReason.includes('take') || closeReason.includes('Take Profit')) {
+                mainReason = 'Take Profit';
+            } else if (closeReason && closeReason !== 'N/A') {
+                mainReason = closeReason.length > 50 ? closeReason.substring(0, 50) + '...' : closeReason;
+            }
+
+            // Calcola differenza prezzo
+            const priceDiff = closePrice - entryPrice;
+            const priceDiffPct = entryPrice > 0 ? ((priceDiff / entryPrice) * 100) : 0;
+
+            return {
+                ticket_id: pos.ticket_id,
+                symbol: pos.symbol,
+                type: pos.type,
+                volume: volume,
+                entry_price: entryPrice,
+                close_price: closePrice,
+                price_diff_pct: priceDiffPct,
+                profit_loss: pnl,
+                profit_loss_pct: pnlPct,
+                opened_at: pos.opened_at,
+                closed_at: pos.closed_at,
+                duration_seconds: durationSeconds,
+                duration_minutes: durationMinutes,
+                duration_ms: durationMs,
+                status: pos.status,
+                strategy: pos.strategy || 'N/A',
+                close_reason: closeReason,
+                main_reason: mainReason,
+                flags: {
+                    is_immediate: isImmediate, // < 5 secondi
+                    is_very_fast: isVeryFast, // < 60 secondi
+                    is_smart_exit: isSmartExit,
+                    is_loss: pnl < 0,
+                    is_big_loss: pnl < -10,
+                    price_anomaly: Math.abs(priceDiffPct) > 20
+                }
+            };
+        });
+
+        // Statistiche aggregate
+        const immediateCloses = analyzed.filter(p => p.flags.is_immediate);
+        const veryFastCloses = analyzed.filter(p => p.flags.is_very_fast);
+        const smartExitCloses = analyzed.filter(p => p.flags.is_smart_exit);
+        const losses = analyzed.filter(p => p.flags.is_loss);
+        const bigLosses = analyzed.filter(p => p.flags.is_big_loss);
+        const priceAnomalies = analyzed.filter(p => p.flags.price_anomaly);
+
+        const avgDuration = analyzed.reduce((sum, p) => sum + p.duration_seconds, 0) / analyzed.length;
+        const totalPnL = analyzed.reduce((sum, p) => sum + p.profit_loss, 0);
+
+        res.json({
+            success: true,
+            total_analyzed: analyzed.length,
+            positions: analyzed,
+            statistics: {
+                immediate_closes: immediateCloses.length,
+                very_fast_closes: veryFastCloses.length,
+                smart_exit_closes: smartExitCloses.length,
+                losses: losses.length,
+                big_losses: bigLosses.length,
+                price_anomalies: priceAnomalies.length,
+                avg_duration_seconds: Math.floor(avgDuration),
+                total_pnl: totalPnL,
+                win_rate: ((analyzed.length - losses.length) / analyzed.length * 100).toFixed(1) + '%'
+            },
+            immediate_closes_details: immediateCloses.slice(0, 10),
+            big_losses_details: bigLosses.slice(0, 10)
+        });
+    } catch (error) {
+        console.error('❌ Error analyzing closed positions:', error);
         res.status(500).json({ error: error.message });
     }
 });
