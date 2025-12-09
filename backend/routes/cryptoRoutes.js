@@ -8960,83 +8960,127 @@ router.post('/bot/ai-chat', async (req, res) => {
         const closePrice = lastCandle.close;
 
         // 3. Generazione Risposta Contestuale (Rule-Based NLP)
+        // --- CERVELLO LOCALE EVOLUTO (Local NLP) ---
+
+        // 1. Analisi Intento (Cosa vuole l'utente?)
+        const lowerMsg = message.toLowerCase();
+        let intent = 'trading_analysis'; // Default
+
+        // Keywords Mapping
+        if (lowerMsg.match(/(ciao|salut|buond|buonass|ehi|bot|greeny)/)) intent = 'greeting';
+        else if (lowerMsg.match(/(strateg|funzion|operi|logica|algoritm|regole)/)) intent = 'strategy_info';
+        else if (lowerMsg.match(/(progett|chi sei|cosa sei|posso fare|aiuto|guida)/)) intent = 'project_info';
+        else if (lowerMsg.match(/(soldi|saldo|bilancio|guadagn|pnl|profitto|portafogli|wallet)/)) intent = 'portfolio_status';
+        else if (lowerMsg.match(/(attivo|spento|acceso|status|stato|dormendo)/)) intent = 'bot_status';
+        else if (lowerMsg.match(/(meteo|calcio|pizza|film|serie|amore|vita|barzelle)/)) intent = 'off_topic';
+        else if (lowerMsg.match(/(analiz|prezzo|vedi|trend|rsi|entr|usc|compra|vendi|long|short|ora|adesso|news)/)) intent = 'trading_analysis';
+
         let reply = "";
 
-        // Riconoscimento intenti base (molto semplice)
-        const lowerMsg = message.toLowerCase();
+        // 2. Generazione Risposta in base all'Intento
+        switch (intent) {
+            case 'greeting':
+                const greetings = [
+                    "Ciao! 👋 Sono Greeny, il tuo analista personale. Chiedimi pure un'analisi su qualsiasi crypto!",
+                    "Ehilà! 🕯️ I mercati sono aperti e io sono pronto. Cosa guardiamo oggi?",
+                    "Ciao! Sono qui per aiutarti a non perdere soldi (si spera! 😅). Dimmi tutto."
+                ];
+                reply = greetings[Math.floor(Math.random() * greetings.length)];
+                break;
 
-        if (lowerMsg.includes('prezzo') || lowerMsg.includes('quanto')) {
-            reply = `Il prezzo attuale di **${normalizedSymbol}** è **$${closePrice.toFixed(4)}**. `;
-            if (signal.trend === 'bullish') reply += "Il trend di breve termine è rialzista! 📈";
-            else if (signal.trend === 'bearish') reply += "Siamo in un trend ribassista al momento. 📉";
-            else reply += "Il mercato è laterale/neutro. 😐";
-        }
-        else if (lowerMsg.includes('analizz') || lowerMsg.includes('situazione') || lowerMsg.includes('come vedi') || lowerMsg.includes('ora') || lowerMsg.includes('adesso') || lowerMsg.includes('news')) {
-            // Analisi Tecnica Dettagliata
-            reply = `Ecco l'analisi aggiornata per **${normalizedSymbol}** ($${closePrice.toFixed(2)}): \n\n`;
+            case 'off_topic':
+                const denials = [
+                    "Ehm... io sono solo una candela giapponese 🕯️, capisco solo di grafici e crypto!",
+                    "Non sono programmato per questo! Chiedimi di Bitcoin, è meglio. 😉",
+                    "Argomento interessante, ma il mio creatore mi ha proibito di parlare d'altro che non sia trading. 🤐",
+                    "Se non riguarda candele verdi o rosse, non fa per me! 📉📈"
+                ];
+                reply = denials[Math.floor(Math.random() * denials.length)];
+                break;
 
-            // Score
-            reply += `📊 **Punteggio AI:** ${signal.score}/100 `;
-            if (signal.score >= 80) reply += "(🚀 Molto Rialzista)\n";
-            else if (signal.score >= 60) reply += "(📈 Rialzista)\n";
-            else if (signal.score <= 20) reply += "(🐻 Molto Ribassista)\n";
-            else if (signal.score <= 40) reply += "(📉 Ribassista)\n";
-            else reply += "(⚖️ Neutrale)\n";
+            case 'strategy_info':
+                reply = "La mia strategia si basa su **RSI multi-timeframe** e **Bande di Bollinger**. \n\n";
+                reply += "✅ **Entro** quando vedo ipervenduto estremo + conferma del trend.\n";
+                reply += "🛑 **Esco** in profitto scalare (Take Profit) o se il trend cambia improvvisamente (Smart Exit).\n";
+                reply += "Uso anche filtri di volatilità (ATR) per non entrare nel caos! 🌪️";
+                break;
 
-            // RSI
-            reply += `🔹 **RSI:** ${signal.indicators.rsi.toFixed(1)} `;
-            if (signal.indicators.rsi > 70) reply += "⚠️ Ipercomprato (Possibile discesa)\n";
-            else if (signal.indicators.rsi < 30) reply += "✅ Ipervenduto (Possibile salita)\n";
-            else reply += "(Normale)\n";
+            case 'project_info':
+                reply = "**TicketApp Crypto Bot** è un sistema automatico che scansiona il mercato h24. 🕵️‍♂️\n\n";
+                reply += "Io sono **Greeny**, l'interfaccia AI del progetto. Posso analizzare grafici in tempo reale per te, dirti come sta andando il bot o spiegarti le mie decisioni.";
+                break;
 
-            // Trend
-            reply += `🌊 **Trend:** ${signal.trend === 'bullish' ? 'Rialzista 🟢' : signal.trend === 'bearish' ? 'Ribassista 🔴' : 'Laterale ⚪'}\n`;
+            case 'portfolio_status':
+                // Recupera saldo reale
+                const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id=1");
+                const stats = await dbGet("SELECT total_profit FROM performance_stats WHERE id=1");
+                const bal = portfolio ? portfolio.balance_usd : 0;
+                const profit = stats ? stats.total_profit : 0;
 
-            // ATR Volatility
-            if (signal.indicators.atr && closePrice > 0) {
-                const atrPct = (signal.indicators.atr / closePrice) * 100;
-                reply += `⚡ **Volatilità:** ${atrPct.toFixed(2)}% (ATR) \n`;
-            }
+                reply = `💰 **Saldo Attuale:** $${bal.toFixed(2)}\n`;
+                reply += `💸 **Profitto Totale:** ${profit >= 0 ? '+' : ''}$${profit.toFixed(2)}\n\n`;
+                reply += profit > 0 ? "Stiamo andando alla grande! 🚀" : "Dobbiamo recuperare un po'. Tieni duro! 💪";
+                break;
 
-            // Bloccanti e Consigli
-            if (signal.direction !== 'NEUTRAL') {
-                reply += `\n🎯 **Segnale Attivo:** ${signal.direction} 🌟\n`;
-            } else {
-                if (signal.reasons && signal.reasons.length > 0) {
-                    // Prendi solo i primi 2 motivi più importanti
-                    const shortReasons = signal.reasons.slice(0, 2).map(r => r.replace('⚠️ ', '').replace('❌ ', '')).join(', ');
-                    reply += `\n🧘 **Attesa:** Non entro adesso perché: ${shortReasons}.`;
-                } else {
-                    reply += `\n💡 **Consiglio:** Meglio attendere una configurazione più chiara.`;
+            case 'bot_status':
+                // Controlla se il bot è attivo su questo simbolo
+                const botSet = await dbGet("SELECT is_active FROM bot_settings WHERE symbol = $1", [normalizedSymbol]);
+                const isActive = botSet && botSet.is_active === 1;
+
+                reply = isActive
+                    ? `🟢 Il bot è **ATTIVO** su ${normalizedSymbol}. Sto cercando opportunità di ingresso...`
+                    : `🔴 Il bot è **DISATTIVO** su ${normalizedSymbol}. Posso analizzare, ma non aprirò posizioni automatiche.`;
+                break;
+
+            case 'trading_analysis':
+            default:
+                // Prepara analisi tecnica (codice esistente migliorato)
+                reply = `Ecco l'analisi tecnica aggiornata per **${normalizedSymbol}** ($${closePrice.toFixed(2)}): \n\n`;
+
+                // Varianti per l'intro
+                const intros = ["Dando un'occhiata veloce... 🧐\n", "Ho processato gli ultimi dati... 💾\n", "Analisi completata! Ecco cosa vedo: 📋\n"];
+                gameReply = intros[Math.floor(Math.random() * intros.length)]; // (non usata direttamente per mantenere struttura chiara)
+
+                // Score e Interpretazione
+                reply += `📊 **Score AI:** ${signal.score}/100 `;
+                if (signal.score >= 80) reply += "(🚀 Molto Rialzista)";
+                else if (signal.score >= 60) reply += "(📈 Rialzista)";
+                else if (signal.score <= 20) reply += "(🐻 Molto Ribassista)";
+                else if (signal.score <= 40) reply += "(📉 Ribassista)";
+                else reply += "(⚖️ Neutrale)";
+                reply += "\n";
+
+                // RSI con emoji diverse
+                const rsiVal = signal.indicators.rsi.toFixed(1);
+                reply += `🔹 **RSI (14):** ${rsiVal} → `;
+                if (signal.indicators.rsi > 70) reply += "⚠️ Ipercomprato! Rischio storno.";
+                else if (signal.indicators.rsi < 30) reply += "💎 Ipervenduto! Occasione?";
+                else reply += "Zona tranquilla.";
+                reply += "\n";
+
+                // Trend
+                reply += `🌊 **Trend:** ${signal.trend === 'bullish' ? 'Rialzista 🟢' : signal.trend === 'bearish' ? 'Ribassista 🔴' : 'Range Laterale 🦀'}\n`;
+
+                // ATR
+                if (signal.indicators.atr && closePrice > 0) {
+                    const atrPct = (signal.indicators.atr / closePrice) * 100;
+                    reply += `⚡ **Volatilità:** ${atrPct.toFixed(2)}% `;
+                    if (atrPct > 1) reply += "(Mercato nervoso 😬)\n";
+                    else reply += "(Mercato calmo 😌)\n";
                 }
-            }
-        }
-        else if (lowerMsg.includes('consigli') || lowerMsg.includes('fare') || lowerMsg.includes('compra') || lowerMsg.includes('vendi')) {
-            if (signal.score >= 80) reply = `Il punteggio è molto alto (${signal.score}) 🔥. Se la tua strategia lo consente, un **LONG** potrebbe avere buone probabilità.`;
-            else if (signal.score <= 20) reply = `Il punteggio è molto basso (${signal.score}) 🧊. Il mercato è debole, attenzione ai LONG. Potrebbe essere zona short.`;
-            else reply = `Situazione incerta (Score: ${signal.score}). 🤷‍♂️ Personalmente aspetterei che il trend si definisca meglio prima di muovermi.`;
-        }
-        else if (lowerMsg.includes('ciao') || lowerMsg.includes('salut')) {
-            reply = "Ciao! 👋 Pronto a scalare i grafici? Chiedimi un'analisi su qualsiasi moneta!";
-        }
-        else {
-            // Fallback generico ma intelligente
-            reply = `Sto monitorando **${normalizedSymbol}** ($${closePrice.toFixed(2)}). `;
 
-            if (signal.indicators.atr && closePrice > 0) {
-                const atrPct = (signal.indicators.atr / closePrice) * 100;
-                reply += `La volatilità è del **${atrPct.toFixed(2)}%**. `;
-            }
-
-            if (signal.trend === 'bullish') {
-                reply += "Vedo massimi crescenti sul breve periodo. 🟢";
-            } else if (signal.trend === 'bearish') {
-                reply += "Vedo massimi decrescenti, pressione di vendita. 🔴";
-            } else {
-                reply += "Il prezzo sta lateralizzando in un range. ↔️";
-            }
-
-            reply += "\n(Dimmi 'analizza' o 'ora' per i dettagli completi!)";
+                // Conclusioni operative
+                if (signal.direction !== 'NEUTRAL') {
+                    reply += `\n🎯 **CONCLUSIONE:** Segnale **${signal.direction}** rilevato! Potrebbe essere un buon momento.`;
+                } else {
+                    if (signal.reasons && signal.reasons.length > 0) {
+                        const reason = signal.reasons[0].replace('⚠️ ', '').replace('❌ ', '');
+                        reply += `\n🧘 **ATTESA:** Sto fermo perché: ${reason}.`;
+                    } else {
+                        reply += `\n👀 **ATTESA:** Nessun segnale chiaro. Meglio non rischiare per ora.`;
+                    }
+                }
+                break;
         }
 
         return res.json({ reply });
