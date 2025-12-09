@@ -1303,9 +1303,28 @@ initWebSocketService();
 const getSymbolPrice = async (symbol) => {
     // ✅ Controlla cache prima di chiamare Binance
     const cached = priceCache.get(symbol);
+    const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
+    const isEURPair = tradingPair.endsWith('EUR');
+    
+    // ✅ FIX CRITICO: Per coppie EUR, invalidiamo la cache se è più vecchia di 1 secondo
+    // Questo garantisce che i prezzi siano sempre convertiti EUR→USDT correttamente
+    // La cache potrebbe contenere ancora prezzi vecchi in EUR non convertiti
     if (cached && (Date.now() - cached.timestamp) < PRICE_CACHE_TTL) {
-        // Usa cache - nessuna chiamata API (sicuro per rate limit)
-        return cached.price;
+        if (isEURPair) {
+            // ✅ FIX: Per coppie EUR, invalidiamo cache se > 1 secondo per garantire conversione corretta
+            // La cache potrebbe contenere ancora EUR non convertito da prima della fix
+            const cacheAge = Date.now() - cached.timestamp;
+            if (cacheAge > 1000) { // Se cache > 1 secondo, forziamo refresh
+                console.log(`🔄 [PRICE-CACHE] ${symbol}: Cache EUR > 1s (${cacheAge}ms), forzando refresh per conversione USDT`);
+                priceCache.delete(symbol); // Invalida cache per forzare refresh con conversione
+            } else {
+                // Cache fresca (< 1s), usa (dovrebbe essere già in USDT)
+                return cached.price;
+            }
+        } else {
+            // Cache valida per coppie USDT (non necessitano conversione)
+            return cached.price;
+        }
     }
 
     // Cache scaduta o non presente - aggiorna prezzo da Binance
@@ -1314,12 +1333,8 @@ const getSymbolPrice = async (symbol) => {
         console.log(`🔄 [PRICE-UPDATE] Aggiornando prezzo ${symbol} da Binance (cache scaduta)`);
     }
 
-    const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
+    // tradingPair e isEURPair già definiti sopra
     const coingeckoId = SYMBOL_TO_COINGECKO[symbol] || 'bitcoin';
-
-    // ✅ FIX CRITICO: Verifica se la coppia è in EUR (serve conversione a USDT)
-    const isEURPair = tradingPair.endsWith('EUR');
-    const isUSDT = tradingPair.endsWith('USDT');
     const EUR_TO_USDT_RATE = 1.08; // Tasso approssimativo EUR → USDT
 
     try {
@@ -3238,6 +3253,12 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
                 // Update position with current price, P&L, and potentially new stop loss/highest price
                 const updateFields = ['current_price = ?', 'profit_loss = ?', 'profit_loss_pct = ?'];
                 const updateValues = [currentPrice, pnl, pnlPct];
+                
+                // ✅ DEBUG: Log aggiornamento prezzo per verificare correttezza
+                const oldCurrentPrice = parseFloat(pos.current_price) || 0;
+                if (Math.abs(currentPrice - oldCurrentPrice) > oldCurrentPrice * 0.05) { // Se differenza > 5%
+                    console.log(`💰 [UPDATE P&L] ${pos.ticket_id} (${symbol}): current_price aggiornato: $${oldCurrentPrice.toFixed(6)} → $${currentPrice.toFixed(6)} USDT`);
+                }
 
                 if (shouldUpdateStopLoss) {
                     updateFields.push('highest_price = ?', 'stop_loss = ?');
