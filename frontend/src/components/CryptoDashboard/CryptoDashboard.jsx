@@ -965,45 +965,8 @@ const CryptoDashboard = () => {
                                 {availableSymbols.find(s => s.symbol === currentSymbol)?.display || 'Live Market'}
                             </span>
                         </div>
-                        <button
-                            style={{
-                                padding: '6px 12px',
-                                background: useApexChart ? '#4ade80' : '#3f3f46',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                fontWeight: '500',
-                                transition: 'all 0.2s'
-                            }}
-                            title={useApexChart ? 'Passa a TradingView (con tool di disegno)' : 'Passa ad ApexChart (con marker precisi e aggiornamenti real-time)'}
-                        >
-                            {useApexChart ? '📊 TradingView' : '📍 ApexChart'}
-                        </button>
                     </div>
-                    {useApexChart ? (
-                        <ApexChart
-                            symbol={(() => {
-                                const found = availableSymbols.find(s => s.symbol === currentSymbol);
-                                if (found) return found.pair;
-
-                                // ✅ FIX: Auto-generate pair if not found
-                                const upperSymbol = currentSymbol.toUpperCase().replace(/_/g, '');
-                                return `${upperSymbol}USDT`;
-                            })()}
-                            trades={filteredTrades}
-                            openPositions={filteredOpenPositions}
-                            currentPrice={currentPrice}
-                            priceHistory={apexHistory.length > 0 ? apexHistory : priceData || []}
-                            currentInterval={apexInterval}
-                            onIntervalChange={(newInterval) => {
-                                setApexInterval(newInterval);
-                                fetchApexHistory(newInterval);
-                            }}
-                        />
-                    ) : (
-                        <TradingViewChart
+                    <TradingViewChart
                             symbol={(() => {
                                 const found = availableSymbols.find(s => s.symbol === currentSymbol);
                                 if (found) return found.pair;
