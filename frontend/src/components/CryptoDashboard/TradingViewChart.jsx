@@ -21,9 +21,38 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
         script.type = 'text/javascript';
         script.async = true;
         // Map symbol to TradingView format
-        const tradingViewSymbol = symbol === 'BTCUSDT' ? 'BINANCE:BTCUSDT' : symbol.includes('EUR') ? `BINANCE:${symbol.replace('EUR', 'USDT')}` :
-            symbol === 'BTCUSDT' ? 'BINANCE:BTCUSDT' :
-                `BINANCE:${symbol}`;
+        // ✅ FIX: Normalizza simboli comuni e gestisci EUR -> USDT
+        let normalizedSymbol = symbol;
+        
+        // Converti EUR a USDT se presente
+        if (symbol.includes('EUR')) {
+            normalizedSymbol = symbol.replace('EUR', 'USDT');
+        }
+        
+        // Mappa simboli comuni a formato TradingView
+        const symbolMap = {
+            'BTCUSDT': 'BTCUSDT',
+            'BITCOINUSDT': 'BTCUSDT',
+            'ETHUSDT': 'ETHUSDT',
+            'ETHEUR': 'ETHUSDT',
+            'SOLUSDT': 'SOLUSDT',
+            'SOLEUR': 'SOLUSDT',
+            'ADAUSDT': 'ADAUSDT',
+            'ADAEUR': 'ADAUSDT',
+            'DOTUSDT': 'DOTUSDT',
+            'DOTEUR': 'DOTUSDT',
+            'LINKUSDT': 'LINKUSDT',
+            'LINKEUR': 'LINKUSDT',
+            'LTCUSDT': 'LTCUSDT',
+            'LTCEUR': 'LTCUSDT',
+            'XRPUSDT': 'XRPUSDT',
+            'XRPEUR': 'XRPUSDT',
+            'BNBUSDT': 'BNBUSDT',
+            'BNBEUR': 'BNBUSDT'
+        };
+        
+        normalizedSymbol = symbolMap[normalizedSymbol] || normalizedSymbol;
+        const tradingViewSymbol = `BINANCE:${normalizedSymbol}`;
 
         // Crea container univoco per evitare conflitti
         const uniqueId = `tradingview_chart_${Date.now()}`;

@@ -1027,8 +1027,24 @@ const CryptoDashboard = () => {
                                 const found = availableSymbols.find(s => s.symbol === currentSymbol);
                                 if (found) return found.pair;
 
-                                // ✅ FIX: Auto-generate pair if not found
-                                // Prova prima USDT, poi EUR come fallback
+                                // ✅ FIX: Auto-generate pair if not found - mappa simboli comuni
+                                const symbolMap = {
+                                    'bitcoin': 'BTCUSDT',
+                                    'ethereum': 'ETHUSDT',
+                                    'solana': 'SOLUSDT',
+                                    'cardano': 'ADAUSDT',
+                                    'polkadot': 'DOTUSDT',
+                                    'chainlink': 'LINKUSDT',
+                                    'litecoin': 'LTCUSDT',
+                                    'ripple': 'XRPUSDT',
+                                    'binance_coin': 'BNBUSDT'
+                                };
+                                
+                                if (symbolMap[currentSymbol]) {
+                                    return symbolMap[currentSymbol];
+                                }
+                                
+                                // Fallback: genera da nome simbolo
                                 const upperSymbol = currentSymbol.toUpperCase().replace(/_/g, '');
                                 return `${upperSymbol}USDT`;
                             })()}

@@ -12,14 +12,21 @@ const StatisticsPanel = ({ apiBase }) => {
             const res = await fetch(`${apiBase}/api/crypto/statistics`);
             if (res.ok) {
                 const data = await res.json();
-                setStats(data.statistics);
-                setError(null);
+                if (data && data.statistics) {
+                    setStats(data.statistics);
+                    setError(null);
+                } else {
+                    console.error('StatisticsPanel: Invalid response format', data);
+                    setError('Formato risposta non valido');
+                }
             } else {
-                setError('Errore nel caricamento delle statistiche');
+                const errorText = await res.text();
+                console.error('StatisticsPanel: API error', res.status, errorText);
+                setError(`Errore ${res.status}: ${errorText.substring(0, 100)}`);
             }
         } catch (err) {
             console.error('Error fetching statistics:', err);
-            setError('Errore di connessione');
+            setError(`Errore di connessione: ${err.message}`);
         } finally {
             setLoading(false);
         }
