@@ -5669,7 +5669,7 @@ router.get('/bot-analysis', async (req, res) => {
         // Get price history for analysis (usa klines per dati più accurati)
         console.log('🔍 [BOT-ANALYSIS] Fetching price history...');
         const priceHistoryData = await dbAll(
-            "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
+            "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
             [symbol]
         );
 
