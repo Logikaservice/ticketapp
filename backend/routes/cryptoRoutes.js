@@ -8893,6 +8893,11 @@ router.get('/debug-positions', async (req, res) => {
 router.post('/bot/ai-chat', async (req, res) => {
     try {
         const { message, symbol } = req.body;
+
+        if (!symbol) {
+            return res.json({ reply: "Non so di quale moneta stai parlando! 🤷‍♂️" });
+        }
+
         // Normalizzazione simbolo per DB (es. "bitcoin" invece di "BTC/EUR")
         let dbSymbol = symbol.toLowerCase();
 
@@ -9010,7 +9015,7 @@ router.post('/bot/ai-chat', async (req, res) => {
 
     } catch (error) {
         console.error("❌ [AI-CHAT-ERROR]", error);
-        res.status(500).json({ reply: "Ho avuto un piccolo mal di testa digitale... Riprova tra un attimo! 🤕" });
+        res.status(500).json({ reply: `Errore tecnico: ${error.message} 🤕` });
     }
 });
 
