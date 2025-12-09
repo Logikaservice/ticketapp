@@ -918,7 +918,7 @@ async function shouldClosePosition(position, priceHistory) {
         if (supportResistance.nearResistance && currentPnLPct > 2.0 && SMART_EXIT_CONFIG.PARTIAL_CLOSE_AT_RESISTANCE) {
             // Non chiudere completamente, ma suggerisci partial close (gestito da updatePositionsPnL)
             // Per ora, solo logga
-            console.log(`📊 [S/R] ${position.symbol} vicino a resistenza (€${supportResistance.resistance.toFixed(2)}) con profitto ${currentPnLPct.toFixed(2)}% - Considera partial close`);
+            // Support/Resistance logging removed - too verbose
         }
 
         // ✅ NUOVO PRIORITÀ 4: Multi-Timeframe Exit
@@ -1121,15 +1121,7 @@ async function runSmartExit() {
         // ✅ NUOVO PRIORITÀ 5: Portfolio Drawdown Protection - Controlla PRIMA di analizzare singole posizioni
         const portfolioDrawdown = await checkPortfolioDrawdown();
         if (portfolioDrawdown.shouldCloseWorst && portfolioDrawdown.worstPositions.length > 0) {
-            console.log(`🚨 [PORTFOLIO DRAWDOWN] Drawdown totale: ${portfolioDrawdown.drawdownPct.toFixed(2)}% > max ${SMART_EXIT_CONFIG.MAX_PORTFOLIO_DRAWDOWN_PCT}%`);
-            console.log(`   → Chiudendo ${portfolioDrawdown.worstPositions.length} posizioni peggiori per proteggere portfolio`);
-
-            // ✅ Usa closePosition da cryptoRoutes (importato dinamicamente per evitare dipendenza circolare)
-            // Nota: closePosition è definita in cryptoRoutes ma non esportata, quindi usiamo un workaround
-            // In alternativa, possiamo emettere un evento che cryptoRoutes gestisce
-            console.log(`⚠️ [PORTFOLIO DRAWDOWN] Drawdown alto rilevato. Posizioni da chiudere: ${portfolioDrawdown.worstPositions.map(p => `${p.symbol} (${p.profit_loss_pct}%)`).join(', ')}`);
-            console.log(`   → Usa endpoint /cleanup-positions per chiudere automaticamente le posizioni peggiori`);
-            // TODO: Implementare chiusura automatica quando closePosition sarà esportata o tramite evento
+            console.warn(`[PORTFOLIO DRAWDOWN] Drawdown ${portfolioDrawdown.drawdownPct.toFixed(2)}% > max ${SMART_EXIT_CONFIG.MAX_PORTFOLIO_DRAWDOWN_PCT}% - ${portfolioDrawdown.worstPositions.length} posizioni da chiudere`);
         }
 
         // Get all open positions
@@ -1138,8 +1130,6 @@ async function runSmartExit() {
         if (openPositions.length === 0) {
             return; // No positions to check
         }
-
-        console.log(`🔍 [SMART EXIT] Analizzando ${openPositions.length} posizioni aperte con ragionamento avanzato...`);
 
         for (const position of openPositions) {
             try {
@@ -1150,7 +1140,6 @@ async function runSmartExit() {
                 );
 
                 if (klines.length < 20) {
-                    console.log(`⚠️ [SMART EXIT] Dati insufficienti per ${position.symbol}, salto`);
                     continue;
                 }
 
@@ -1167,38 +1156,10 @@ async function runSmartExit() {
                 const exitDecision = await shouldClosePosition(position, priceHistory);
 
                 if (exitDecision.shouldClose) {
-                    console.log(`🚨 [SMART EXIT] DECISIONE: Chiudere posizione ${position.ticket_id}`);
-                    console.log(`   📊 Motivo: ${exitDecision.reason}`);
-                    console.log(`   💰 P&L Attuale: ${exitDecision.currentPnL?.toFixed(2) || 0}%`);
-
-                    // ✅ PRIORITÀ 1: Trailing Profit Protection
-                    if (exitDecision.peakProfit !== undefined) {
-                        console.log(`   📈 Peak Profit: ${exitDecision.peakProfit.toFixed(2)}%`);
-                    }
-                    if (exitDecision.lockedProfit !== undefined) {
-                        console.log(`   🔒 Profitto Bloccato: ${exitDecision.lockedProfit.toFixed(2)}%`);
-                    }
-
-                    // ✅ PRIORITÀ 2: Soglia Dinamica
-                    if (exitDecision.dynamicThreshold !== undefined) {
-                        console.log(`   📊 Soglia Dinamica (ATR-based): ${exitDecision.dynamicThreshold.toFixed(2)}%`);
-                    }
-                    if (exitDecision.atrPct !== undefined) {
-                        console.log(`   📈 ATR: ${exitDecision.atrPct.toFixed(2)}%`);
-                    }
-
-                    // ✅ PRIORITÀ 3: Risk/Reward
-                    if (exitDecision.riskReward) {
-                        console.log(`   ⚖️  Risk/Reward: ${exitDecision.riskReward.ratio.toFixed(2)}:1 (${exitDecision.riskReward.isFavorable ? 'Favorevole' : 'Non favorevole'})`);
-                    }
-
-                    console.log(`   🎯 Fattore Decisione: ${exitDecision.decisionFactor || 'unknown'}`);
-
-                    if (exitDecision.marketCondition) {
-                        console.log(`   📈 Condizione Mercato: ${exitDecision.marketCondition}`);
-                    }
-                    if (exitDecision.momentum !== undefined) {
-                        console.log(`   ⚡ Momentum: ${exitDecision.momentum?.toFixed(2) || 0}%`);
+                    // Log solo per chiusure importanti (perdite elevate o anomalie)
+                    const shouldLog = (exitDecision.currentPnL || 0) < -5 || exitDecision.decisionFactor === 'grace_period_loss';
+                    if (shouldLog) {
+                        console.warn(`[SMART EXIT] Chiusura posizione ${position.ticket_id}: ${exitDecision.reason} | P&L: ${exitDecision.currentPnL?.toFixed(2) || 0}%`);
                     }
 
                     // Close the position properly
@@ -1241,24 +1202,10 @@ async function runSmartExit() {
                         );
                     }
 
-                    console.log(`✅ [SMART EXIT] Posizione ${position.ticket_id} chiusa a €${currentPrice.toFixed(2)} | P&L: ${exitDecision.currentPnL?.toFixed(2) || 0}%`);
-                } else {
-                    // Log monitoring status with more details
-                    const details = [];
-                    if (exitDecision.peakProfit !== undefined && exitDecision.peakProfit > exitDecision.currentPnL) {
-                        details.push(`Peak: ${exitDecision.peakProfit.toFixed(2)}%`);
+                    // Log solo per chiusure importanti
+                    if (shouldLog) {
+                        console.warn(`[SMART EXIT] Posizione ${position.ticket_id} chiusa | P&L: ${exitDecision.currentPnL?.toFixed(2) || 0}%`);
                     }
-                    if (exitDecision.dynamicThreshold !== undefined) {
-                        details.push(`Soglia: ${exitDecision.dynamicThreshold.toFixed(2)}%`);
-                    }
-                    if (exitDecision.riskReward) {
-                        details.push(`R/R: ${exitDecision.riskReward.ratio.toFixed(2)}:1`);
-                    }
-                    if (exitDecision.marketCondition) details.push(`Mercato: ${exitDecision.marketCondition}`);
-                    if (exitDecision.momentum !== undefined) details.push(`Momentum: ${exitDecision.momentum?.toFixed(2)}%`);
-                    if (exitDecision.oppositeStrength !== undefined) details.push(`Opposto: ${exitDecision.oppositeStrength}/100`);
-
-                    console.log(`📊 [SMART EXIT] ${position.ticket_id} | P&L: ${exitDecision.currentPnL?.toFixed(2) || 0}% | ${details.join(' | ')} - MANTENERE`);
                 }
             } catch (posError) {
                 console.error(`❌ [SMART EXIT] Errore processando posizione ${position.ticket_id}:`, posError.message);
@@ -1271,7 +1218,6 @@ async function runSmartExit() {
 
 // Start Smart Exit loop
 if (SMART_EXIT_CONFIG.ENABLED) {
-    console.log(`🎯 [SMART EXIT] Started (Check interval: ${SMART_EXIT_CONFIG.CHECK_INTERVAL_MS}ms, Min opposite strength: ${SMART_EXIT_CONFIG.MIN_OPPOSITE_STRENGTH})`);
     setInterval(runSmartExit, SMART_EXIT_CONFIG.CHECK_INTERVAL_MS);
 }
 

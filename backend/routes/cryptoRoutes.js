@@ -1,6 +1,32 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../crypto_db');
+
+// ✅ MIGRAZIONE POSTGRESQL: Supporta sia SQLite che PostgreSQL
+// Se crypto_db esporta dbAll, dbGet, dbRun, usa quelli (PostgreSQL)
+// Altrimenti usa il vecchio db SQLite con callback
+let db, dbAll, dbGet, dbRun;
+
+try {
+    const cryptoDb = require('../crypto_db');
+    // Verifica se è il nuovo modulo PostgreSQL (esporta helper)
+    if (cryptoDb.dbAll && cryptoDb.dbGet && cryptoDb.dbRun) {
+        // Nuovo modulo PostgreSQL
+        dbAll = cryptoDb.dbAll;
+        dbGet = cryptoDb.dbGet;
+        dbRun = cryptoDb.dbRun;
+        console.log('✅ Using PostgreSQL crypto database');
+    } else {
+        // Vecchio modulo SQLite
+        db = cryptoDb;
+        console.log('✅ Using SQLite crypto database (legacy)');
+    }
+} catch (err) {
+    console.error('❌ Error loading crypto_db:', err.message);
+    // Fallback a SQLite se disponibile
+    db = require('../crypto_db');
+    console.log('⚠️  Fallback to SQLite crypto database');
+}
+
 const https = require('https');
 
 // Import new services
@@ -23,7 +49,7 @@ const emitCryptoEvent = (eventName, data) => {
     if (ioInstance) {
         // Emit to public crypto room (anyone viewing crypto dashboard)
         ioInstance.to('crypto:dashboard').emit(eventName, data);
-        console.log(`📡 Emitted crypto event: ${eventName}`, data);
+        // Event emission logging removed - too verbose
     }
 };
 
@@ -77,28 +103,28 @@ const httpsGet = (url) => {
     });
 };
 
-// ✅ FIX: Helper per gestire errori database senza crashare il backend
-// Questa funzione è definita qui per essere disponibile in tutto il file
-const dbAll = (query, params = []) => {
-    return new Promise((resolve, reject) => {
-        try {
-            db.all(query, params, (err, rows) => {
-                if (err) {
-                    console.error('❌ Database query error:', err.message);
-                    console.error('❌ Query:', query.substring(0, 200));
-                    // ✅ FIX: Non crashare il backend, ritorna array vuoto per query di lettura
-                    // Le route gestiranno l'errore appropriatamente
-                    reject(err);
-                } else {
-                    resolve(rows || []);
-                }
-            });
-        } catch (e) {
-            console.error('❌ Database query exception:', e.message);
-            reject(e);
-        }
-    });
-};
+// ✅ MIGRAZIONE POSTGRESQL: Helper per gestire errori database
+// Se dbAll non è già definito (vecchio sistema SQLite), definiscilo qui
+if (!dbAll) {
+    dbAll = (query, params = []) => {
+        return new Promise((resolve, reject) => {
+            try {
+                db.all(query, params, (err, rows) => {
+                    if (err) {
+                        console.error('❌ Database query error:', err.message);
+                        console.error('❌ Query:', query.substring(0, 200));
+                        reject(err);
+                    } else {
+                        resolve(rows || []);
+                    }
+                });
+            } catch (e) {
+                console.error('❌ Database query exception:', e.message);
+                reject(e);
+            }
+        });
+    };
+}
 
 // Helper to get portfolio
 const getPortfolio = async () => {
@@ -117,14 +143,14 @@ const getPortfolio = async () => {
 
         // ✅ CAMBIATO: balance_usd ora è in USDT (non più EUR) per match con grafico TradingView
         // ✅ DEBUG: Log balance per tracciare calcoli
-        console.log(`💰 [BALANCE CHECK] Raw balance_usd dal DB: $${rawBalance.toFixed(2)} USDT`);
+        // Balance check logging removed
 
         if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
             console.error(`🚨 [PORTFOLIO] Valore anomale di balance_usd nel database: $${rawBalance.toLocaleString()} USDT. Correggendo automaticamente a $10800 USDT`);
             // ✅ FIX CRITICO: Aggiorna il database con valore valido (10800 USDT)
             try {
                 await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [10800]);
-                console.log('✅ [PORTFOLIO] Balance corretto automaticamente nel database a $10800 USDT');
+                // Auto-fix balance logging removed
                 row.balance_usd = 10800; // Usa valore valido per questa chiamata
             } catch (updateErr) {
                 console.error('❌ Error fixing portfolio balance:', updateErr.message);
@@ -135,7 +161,7 @@ const getPortfolio = async () => {
 
         // ✅ DEBUG: Log balance finale dopo validazione
         const finalBalance = parseFloat(row.balance_usd) || 0;
-        console.log(`💰 [BALANCE CHECK] Balance finale dopo validazione: $${finalBalance.toFixed(2)} USDT`);
+        // Balance validation logging removed
 
         return row;
     } catch (e) {
@@ -421,28 +447,29 @@ router.get('/history', async (req, res) => {
     }
 });
 
-// ✅ FIX: dbAll è già definita sopra con migliore gestione errori
-// Rimossa duplicazione - usa la versione migliorata definita all'inizio del file
-
-// Helper for db.get using Promises
-const dbGet = (query, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.get(query, params, (err, row) => {
-            if (err) reject(err);
-            else resolve(row || null);
+// ✅ MIGRAZIONE POSTGRESQL: Helper per db.get e db.run
+// Se non sono già definiti (vecchio sistema SQLite), definiscili qui
+if (!dbGet) {
+    dbGet = (query, params = []) => {
+        return new Promise((resolve, reject) => {
+            db.get(query, params, (err, row) => {
+                if (err) reject(err);
+                else resolve(row || null);
+            });
         });
-    });
-};
+    };
+}
 
-// Helper for db.run using Promises
-const dbRun = (query, params = []) => {
-    return new Promise((resolve, reject) => {
-        db.run(query, params, function (err) {
-            if (err) reject(err);
-            else resolve({ lastID: this.lastID, changes: this.changes });
+if (!dbRun) {
+    dbRun = (query, params = []) => {
+        return new Promise((resolve, reject) => {
+            db.run(query, params, function (err) {
+                if (err) reject(err);
+                else resolve({ lastID: this.lastID, changes: this.changes });
+            });
         });
-    });
-};
+    };
+}
 
 // GET /api/crypto/dashboard
 router.get('/dashboard', async (req, res) => {
@@ -458,7 +485,7 @@ router.get('/dashboard', async (req, res) => {
         ]);
 
         // ✅ FIX: Log per debug
-        console.log(`📊 Dashboard: ${openPositions?.length || 0} open positions, ${closedPositions?.length || 0} closed positions, ${trades?.length || 0} trades`);
+        // Dashboard stats logging removed
 
         // Calculate Average Buy Price for current holdings
         let avgBuyPrice = 0;
@@ -659,7 +686,7 @@ router.get('/dashboard', async (req, res) => {
                 }
                 // ✅ DEBUG: Log per verificare che i dati siano corretti
                 if (stats) {
-                    console.log(`📊 [DASHBOARD] Performance stats: Total=${stats.total_trades}, Wins=${stats.winning_trades}, Losses=${stats.losing_trades}, WinRate=${((stats.win_rate || 0) * 100).toFixed(1)}%`);
+                    // Performance stats logging removed
                 }
                 return stats || null;
             })()
@@ -1886,13 +1913,13 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
         const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase();
         if (rsi) {
-            console.log(`🤖 BOT [${symbol.toUpperCase()}]: ${tradingPair}=${currentPrice.toFixed(2)}€ | RSI=${rsi.toFixed(2)} | Active=${isBotActive}`);
+            // Bot status logging removed - too verbose
         }
 
         // ✅ FIX: Se bot è disattivo, aggiorna comunque i dati (klines) ma non processa segnali
         // Questo garantisce che i dati siano sempre freschi per l'analisi
         if (!isBotActive) {
-            console.log(`📊 [${symbol.toUpperCase()}] Bot disattivo - aggiorno solo dati, nessun segnale`);
+            // Bot inactive logging removed
             return; // Aggiorna klines ma non processa segnali
         }
 
@@ -1908,7 +1935,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             return; // Salta questo ciclo
         }
 
-        console.log(`✅ [VOLUME-FILTER] ${symbol.toUpperCase()} OK: Volume 24h €${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })}`);
+        // Volume filter OK logging removed
 
         // 6. RISK CHECK - Protezione PRIMA di tutto
         const riskCheck = await riskManager.calculateMaxRisk();
@@ -1919,7 +1946,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             return; // STOP - Non tradare se rischio troppo alto
         }
 
-        console.log(`✅ RISK MANAGER: OK - Max Position: €${riskCheck.maxPositionSize.toFixed(2)} | Available Exposure: ${(riskCheck.availableExposurePct * 100).toFixed(2)}%`);
+        // Risk manager OK logging removed
 
         // ✅ REFACTORING: Usa candele reali (15m) invece di price_history per segnali affidabili
         // 7. Carica ultime 100 candele complete 15m per analisi trend reali
@@ -2007,7 +2034,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti e dati
                     // Non apriamo nuove posizioni ma continuiamo ad aggiornare
                 } else {
-                    console.log(`📊 BOT [${symbol.toUpperCase()}]: ATR: ${atrPct.toFixed(2)}% (OK for trading)`);
+                    // ATR OK logging removed
                 }
             }
 
@@ -2311,35 +2338,28 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         if (supportResistanceAdjustment > 0) adjustments.push(`Support/Resistance: +${supportResistanceAdjustment}`);
         if (timeOfDayAdjustment > 0) adjustments.push(`Time-of-Day: +${timeOfDayAdjustment}`);
 
-        console.log(`\n📊 ========== ANALISI APERTURA POSIZIONE [${symbol.toUpperCase()}] ==========`);
+        // Position analysis logging removed - too verbose
         console.log(`🎯 Segnale: ${signal.direction} | Strength Attuale: ${signal.strength}/100 | Strength Richiesta: ${MIN_SIGNAL_STRENGTH}/100`);
 
         // Mostra dettaglio aggiustamenti
         if (adjustments.length > 0) {
             console.log(`   ⚙️  Aggiustamenti Applicati:`);
             adjustments.forEach(adj => console.log(`      • ${adj}`));
-            console.log(`   📈 Soglia Finale: ${baseStrength} + aggiustamenti = ${MIN_SIGNAL_STRENGTH} (max 85)`);
+            // Threshold calculation logging removed
         } else {
-            console.log(`   ✅ Nessun aggiustamento - Soglia base: ${MIN_SIGNAL_STRENGTH}`);
+            // Base threshold logging removed
         }
 
         // Mostra stato filtri
         console.log(`   🔍 Stato Filtri:`);
-        console.log(`      • Portfolio Drawdown: ${portfolioDrawdownBlock ? '❌ BLOCCATO' : '✅ OK'}`);
-        console.log(`      • Market Regime (BTC): ${marketRegimeBlock ? '❌ BLOCCATO' : '✅ OK'}`);
-        console.log(`      • ATR: ${signal.atrBlocked ? '❌ BLOCCATO' : '✅ OK'} ${signal.atrPct ? `(${signal.atrPct.toFixed(2)}%)` : ''}`);
-        console.log(`      • Consecutive Losses: ${consecutiveLossesBlock ? '⚠️  Richiede +10' : '✅ OK'}`);
-        console.log(`      • Win Rate Simbolo: ${symbolWinRateAdjustment > 0 ? `⚠️  Richiede +${symbolWinRateAdjustment}` : '✅ OK'}`);
-        console.log(`      • Momentum: ${momentumAdjustment > 0 ? `⚠️  Richiede +${momentumAdjustment}` : '✅ OK'}`);
-        console.log(`      • Support/Resistance: ${supportResistanceAdjustment > 0 ? `⚠️  Richiede +${supportResistanceAdjustment}` : '✅ OK'}`);
-        console.log(`      • Time-of-Day: ${timeOfDayAdjustment > 0 ? `⚠️  Richiede +${timeOfDayAdjustment}` : '✅ OK'}`);
+        // Filter status logging removed - too verbose
 
         // Mostra cosa sta aspettando
         if (signal.strength < MIN_SIGNAL_STRENGTH && signal.direction !== 'NEUTRAL') {
             const missing = MIN_SIGNAL_STRENGTH - signal.strength;
             console.log(`\n   ⏳ BOT IN ATTESA:`);
             console.log(`      🔴 Strength insufficiente: ${signal.strength} < ${MIN_SIGNAL_STRENGTH}`);
-            console.log(`      📊 Mancano ${missing} punti per aprire la posizione`);
+            // Missing points logging removed
             console.log(`      💡 Il bot aspetta che il segnale si rafforzi a ${MIN_SIGNAL_STRENGTH}+ prima di aprire`);
             if (adjustments.length > 0) {
                 console.log(`      📝 Motivo soglia alta: ${adjustments.join(', ')}`);
@@ -2349,12 +2369,10 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             console.log(`      🔴 Segnale NEUTRAL - Nessun segnale valido rilevato`);
             console.log(`      💡 Il bot aspetta un segnale ${signal.strength >= 50 ? 'più forte' : 'valido'} (min ${MIN_SIGNAL_STRENGTH})`);
         } else {
-            console.log(`\n   ✅ CONDIZIONI SODDISFATTE:`);
-            console.log(`      ✅ Strength sufficiente: ${signal.strength} >= ${MIN_SIGNAL_STRENGTH}`);
-            console.log(`      ✅ Tutti i filtri superati`);
+            // Conditions satisfied logging removed
             console.log(`      🚀 Procedendo con valutazione apertura...`);
         }
-        console.log(`📊 ============================================================\n`);
+        // Analysis separator logging removed
 
         // ✅ FIX: Non aprire posizioni se ATR blocca il trading
         if (signal.atrBlocked) {
@@ -2368,7 +2386,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             console.log(`\n🛑 [BLOCCATO] ${symbol.toUpperCase()}: Trading bloccato - ${marketRegimeReason}`);
             console.log(`   💡 Il bot aspetta che il trend BTC si allinei prima di aprire\n`);
         } else if (signal.direction === 'LONG' && signal.strength >= MIN_SIGNAL_STRENGTH) {
-            console.log(`\n✅ [LONG APPROVATO] ${symbol.toUpperCase()}: Segnale LONG valido (strength: ${signal.strength} >= ${MIN_SIGNAL_STRENGTH})\n`);
+            // LONG approved logging removed
             // ✅ MULTI-TIMEFRAME CONFIRMATION (con sistema a punteggio)
             const trend1h = await detectTrendOnTimeframe(symbol, '1h', 50);
             const trend4h = await detectTrendOnTimeframe(symbol, '4h', 50);
@@ -2546,7 +2564,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             }
         }
         else if (!signal.atrBlocked && !portfolioDrawdownBlock && !marketRegimeBlock && signal.direction === 'SHORT' && signal.strength >= MIN_SIGNAL_STRENGTH) {
-            console.log(`\n✅ [SHORT APPROVATO] ${symbol.toUpperCase()}: Segnale SHORT valido (strength: ${signal.strength} >= ${MIN_SIGNAL_STRENGTH})\n`);
+            // SHORT approved logging removed
             console.log(`   📊 [SHORT-DEBUG] Symbol: ${symbol} | Signal Strength: ${signal.strength} | MIN_SIGNAL_STRENGTH: ${MIN_SIGNAL_STRENGTH}`);
             console.log(`   📊 [SHORT-DEBUG] ATR Blocked: ${signal.atrBlocked} | Portfolio Drawdown Block: ${portfolioDrawdownBlock} | Market Regime Block: ${marketRegimeBlock}`);
             console.log(`   📊 [SHORT-DEBUG] RSI: ${signal.indicators?.rsi?.toFixed(2) || 'N/A'} | Trend: ${signal.indicators?.trend || 'N/A'}`);
@@ -3713,10 +3731,9 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
             timestamp: new Date().toISOString()
         });
 
-        // Calculate duration
-        const openedAt = new Date(pos.opened_at);
-        const closedAt = new Date();
-        const durationMs = closedAt - openedAt;
+        // Calculate duration (reuse openedAt from grace period check above)
+        const closedAtForEmail = new Date();
+        const durationMs = closedAtForEmail.getTime() - openedAt.getTime();
         const hours = Math.floor(durationMs / (1000 * 60 * 60));
         const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
         const duration = `${hours}h ${minutes}m`;

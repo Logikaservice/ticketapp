@@ -42,7 +42,7 @@ const CryptoDashboard = () => {
     const { connected: wsConnected } = useCryptoWebSocket(
         // onPositionOpened
         (data) => {
-            console.log('📈 Position opened via WebSocket:', data);
+            // WebSocket position opened logging removed
             addNotification({ ...data, type: 'opened' });
             // Play sound
             cryptoSounds.positionOpened();
@@ -52,7 +52,7 @@ const CryptoDashboard = () => {
         },
         // onPositionClosed
         (data) => {
-            console.log('📉 Position closed via WebSocket:', data);
+            // WebSocket position closed logging removed
             addNotification({ ...data, type: 'closed' });
             // Play sound based on profit/loss
             if (data.profit_loss >= 0) {
@@ -85,7 +85,7 @@ const CryptoDashboard = () => {
                 });
                 if (fixRes.ok) {
                     const fixData = await fixRes.json();
-                    console.log('🔧 [AUTO-FIX] P&L corretti automaticamente:', fixData);
+                    // Auto-fix P&L logging removed
                 }
             } catch (fixError) {
                 console.warn('⚠️ [AUTO-FIX] Errore correzione automatica P&L:', fixError);
@@ -95,7 +95,7 @@ const CryptoDashboard = () => {
             const res = await fetch(`${apiBase}/api/crypto/dashboard`);
             if (res.ok) {
                 const data = await res.json();
-                console.log('📊 Dashboard data received:', {
+                // Dashboard data received logging removed
                     portfolio: data.portfolio,
                     tradesCount: data.recent_trades?.length || 0,
                     allTradesCount: data.all_trades?.length || 0,
@@ -121,7 +121,7 @@ const CryptoDashboard = () => {
                 }
                 // Load performance stats for Kelly Criterion
                 if (data.performance_stats) {
-                    console.log('📊 [KELLY] Performance stats ricevuti:', data.performance_stats);
+                    // Kelly performance stats logging removed
                     setPerformanceStats(data.performance_stats);
                 } else {
                     console.warn('⚠️ [KELLY] Performance stats non presenti nella risposta');
@@ -140,7 +140,7 @@ const CryptoDashboard = () => {
             const res = await fetch(`${apiBase}/api/crypto/symbols/available`);
             if (res.ok) {
                 const data = await res.json();
-                console.log('📊 Available symbols received:', data.symbols?.length || 0, 'symbols');
+                // Available symbols logging removed
                 setAvailableSymbols(data.symbols || []);
             } else {
                 console.error('❌ Error fetching symbols:', res.status, res.statusText);
@@ -391,7 +391,7 @@ const CryptoDashboard = () => {
             const currentBot = activeBots.find(b => b.symbol === targetSymbol);
             const newStatus = currentBot ? !currentBot.is_active : true;
 
-            console.log(`🤖 Toggling bot for ${targetSymbol}, new status: ${newStatus}`);
+            // Bot toggle logging removed
 
             const response = await fetch(`${apiBase}/api/crypto/bot/toggle`, {
                 method: 'POST',
@@ -411,7 +411,7 @@ const CryptoDashboard = () => {
             }
 
             const result = await response.json();
-            console.log('✅ Bot toggle result:', result);
+            // Bot toggle result logging removed
 
             // Update local state
             if (targetSymbol === currentSymbol) {
@@ -585,7 +585,7 @@ const CryptoDashboard = () => {
     const rawBalance = parseFloat(portfolio.balance_usd) || 0;
 
     // ✅ DEBUG CRITICO: Log valori PRIMA della validazione per capire da dove viene il problema
-    console.log('🔍 [BALANCE DEBUG - RAW VALUES]', {
+    // Balance debug logging removed
         'portfolio.balance_usd (raw)': portfolio.balance_usd,
         'rawBalance (parsed)': rawBalance,
         'totalLongValue': totalLongValue,
@@ -598,7 +598,7 @@ const CryptoDashboard = () => {
 
     // ✅ DEBUG: Log dettagli per ogni posizione aperta
     if (validOpenPositions.length > 0) {
-        console.log('🔍 [BALANCE DEBUG - OPEN POSITIONS]', validOpenPositions.map(pos => ({
+        // Balance debug open positions logging removed
             ticket_id: pos.ticket_id,
             symbol: pos.symbol,
             type: pos.type,
@@ -620,7 +620,7 @@ const CryptoDashboard = () => {
     }
 
     // ✅ DEBUG: Log valori DOPO la validazione
-    console.log('🔍 [BALANCE DEBUG - VALIDATED VALUES]', {
+    // Balance debug validated values logging removed
         'validatedBalance (available cash)': validatedBalance,
         'totalLongValue (invested in LONG)': totalLongValue,
         'totalShortLiability (SHORT debt)': totalShortLiability,
@@ -715,7 +715,7 @@ const CryptoDashboard = () => {
 
     // ✅ DEBUG: Log componenti balance (solo se ci sono valori anomali)
     if (Math.abs(validatedBalance) > 100000 || Math.abs(totalLongValue) > 100000 || Math.abs(totalShortLiability) > 100000) {
-        console.log('📊 [BALANCE DEBUG]', {
+        // Balance debug logging removed
             validatedBalance: validatedBalance.toFixed(2),
             totalLongValue: totalLongValue.toFixed(2),
             totalShortLiability: totalShortLiability.toFixed(2),
@@ -843,7 +843,7 @@ const CryptoDashboard = () => {
                                 try {
                                     const newStatus = !botStatus.active;
 
-                                    console.log(`🤖 Toggling ALL bots to ${newStatus ? 'ACTIVE' : 'PAUSED'}`);
+                                    // Toggle all bots logging removed
 
                                     const response = await fetch(`${apiBase}/api/crypto/bot/toggle-all`, {
                                         method: 'POST',
@@ -859,7 +859,7 @@ const CryptoDashboard = () => {
                                     }
 
                                     const data = await response.json();
-                                    console.log(`✅ ${data.message}`);
+                                    // Toggle all bots result logging removed
 
                                     // Aggiorna stato locale
                                     setBotStatus(prev => ({ ...prev, active: newStatus }));
@@ -1111,6 +1111,8 @@ const CryptoDashboard = () => {
                                     <th style={{ padding: '10px', textAlign: 'right' }}>Amount</th>
                                     <th style={{ padding: '10px', textAlign: 'right' }}>Total</th>
                                     <th style={{ padding: '10px', textAlign: 'right' }}>P&L</th>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Durata</th>
+                                    <th style={{ padding: '10px', textAlign: 'left' }}>Motivo Chiusura</th>
                                     <th style={{ padding: '10px', textAlign: 'center' }}>Details</th>
                                 </tr>
                             </thead>
@@ -1125,6 +1127,44 @@ const CryptoDashboard = () => {
                                     const totalValue = remainingVolume * closePrice;
                                     let pnl = parseFloat(pos.profit_loss) || 0;
                                     const closedAt = pos.closed_at ? new Date(pos.closed_at) : null;
+                                    const openedAt = pos.opened_at ? new Date(pos.opened_at) : null;
+                                    
+                                    // ✅ NUOVO: Calcola durata della posizione
+                                    let durationSeconds = 0;
+                                    let durationDisplay = 'N/A';
+                                    if (openedAt && closedAt) {
+                                        durationSeconds = Math.floor((closedAt.getTime() - openedAt.getTime()) / 1000);
+                                        if (durationSeconds < 60) {
+                                            durationDisplay = `${durationSeconds}s`;
+                                        } else if (durationSeconds < 3600) {
+                                            durationDisplay = `${Math.floor(durationSeconds / 60)}m`;
+                                        } else {
+                                            const hours = Math.floor(durationSeconds / 3600);
+                                            const minutes = Math.floor((durationSeconds % 3600) / 60);
+                                            durationDisplay = `${hours}h ${minutes}m`;
+                                        }
+                                    }
+
+                                    // ✅ NUOVO: Estrai motivo di chiusura
+                                    const closeReason = pos.close_reason || 'N/A';
+                                    let mainReason = 'Sconosciuto';
+                                    let isImmediate = durationSeconds < 5;
+                                    
+                                    if (closeReason.includes('SmartExit') || closeReason.includes('smart exit') || closeReason.includes('SMART EXIT')) {
+                                        mainReason = 'SmartExit';
+                                    } else if (closeReason.includes('cleanup')) {
+                                        mainReason = 'Cleanup';
+                                    } else if (closeReason.includes('replacement') || closeReason.includes('smart replacement')) {
+                                        mainReason = 'Smart Replacement';
+                                    } else if (closeReason.includes('manual')) {
+                                        mainReason = 'Manuale';
+                                    } else if (closeReason.includes('stop') || closeReason.includes('Stop Loss')) {
+                                        mainReason = 'Stop Loss';
+                                    } else if (closeReason.includes('take') || closeReason.includes('Take Profit')) {
+                                        mainReason = 'Take Profit';
+                                    } else if (closeReason && closeReason !== 'N/A') {
+                                        mainReason = closeReason.length > 30 ? closeReason.substring(0, 30) + '...' : closeReason;
+                                    }
 
                                     // ✅ FIX CRITICO: Valida e ricalcola P&L se anomale
                                     const MAX_REASONABLE_PNL = 1000000; // 1 milione USDT max
@@ -1171,7 +1211,7 @@ const CryptoDashboard = () => {
                                                 pnl = (entryPrice - closePrice) * remainingVolume;
                                             }
 
-                                            console.log(`   → P&L ricalcolato: $${pnl.toFixed(2)} USDT (entry: $${entryPrice.toFixed(6)}, close: $${closePrice.toFixed(6)}, vol: ${remainingVolume.toFixed(4)})`);
+                                            // P&L recalculation logging removed
                                         } else {
                                             // Se non possiamo ricalcolare, mostra 0
                                             pnl = 0;
@@ -1222,6 +1262,26 @@ const CryptoDashboard = () => {
                                             <td style={{ padding: '10px', textAlign: 'right' }}>
                                                 {displayPnl}
                                             </td>
+                                            <td style={{ padding: '10px', textAlign: 'left', color: isImmediate ? '#ef4444' : '#9ca3af' }}>
+                                                {durationDisplay}
+                                                {isImmediate && <span style={{ color: '#ef4444', marginLeft: '5px' }}>⚠️</span>}
+                                            </td>
+                                            <td style={{ padding: '10px', textAlign: 'left', color: '#9ca3af', fontSize: '0.85rem', maxWidth: '200px' }}>
+                                                <div style={{ 
+                                                    color: mainReason === 'SmartExit' ? '#f59e0b' : 
+                                                           mainReason === 'Cleanup' ? '#8b5cf6' : 
+                                                           mainReason === 'Stop Loss' ? '#ef4444' : 
+                                                           mainReason === 'Take Profit' ? '#4ade80' : '#9ca3af',
+                                                    fontWeight: mainReason !== 'Sconosciuto' ? '500' : 'normal'
+                                                }}>
+                                                    {mainReason}
+                                                </div>
+                                                {closeReason && closeReason !== 'N/A' && closeReason.length > 30 && (
+                                                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '2px' }}>
+                                                        {closeReason}
+                                                    </div>
+                                                )}
+                                            </td>
                                             <td style={{ padding: '10px', textAlign: 'center' }}>
                                                 {pos.signal_details ? (
                                                     <button
@@ -1232,6 +1292,19 @@ const CryptoDashboard = () => {
                                                                     : pos.signal_details;
 
                                                                 const details = [
+                                                                    `📊 POSITION DETAILS`,
+                                                                    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+                                                                    `Ticket ID: ${pos.ticket_id}`,
+                                                                    `Symbol: ${symbolDisplay}`,
+                                                                    `Type: ${pos.type.toUpperCase()}`,
+                                                                    `Entry: $${entryPrice.toFixed(2)}`,
+                                                                    `Close: $${closePrice.toFixed(2)}`,
+                                                                    `Volume: ${remainingVolume.toFixed(4)}`,
+                                                                    `P&L: $${pnl.toFixed(2)}`,
+                                                                    `Durata: ${durationDisplay}${isImmediate ? ' ⚠️ IMMEDIATA' : ''}`,
+                                                                    `Motivo: ${mainReason}`,
+                                                                    closeReason && closeReason !== 'N/A' ? `Dettagli: ${closeReason}` : '',
+                                                                    ``,
                                                                     `📊 SIGNAL DETAILS`,
                                                                     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
                                                                     `Direction: ${signalData.direction || 'N/A'}`,
@@ -1244,7 +1317,7 @@ const CryptoDashboard = () => {
                                                                     `📊 INDICATORS:`,
                                                                     `  RSI: ${signalData.indicators?.rsi?.toFixed(2) || 'N/A'}`,
                                                                     `  Trend: ${signalData.indicators?.trend || 'N/A'}`
-                                                                ].join('\n');
+                                                                ].filter(line => line !== '').join('\n');
                                                                 alert(details);
                                                             } catch (err) {
                                                                 alert('Dettagli non disponibili');
