@@ -5700,7 +5700,7 @@ router.get('/bot-analysis', async (req, res) => {
                     console.error(`❌ [BOT-ANALYSIS] Errore conversione timestamp:`, e.message, 'open_time:', row.open_time);
                     timestamp = new Date().toISOString();
                 }
-                
+
                 return {
                     price: parseFloat(row.close_price) || 0,
                     high: parseFloat(row.high_price) || 0,
@@ -5741,7 +5741,7 @@ router.get('/bot-analysis', async (req, res) => {
                     console.warn(`⚠️ [BOT-ANALYSIS] timestamp tipo sconosciuto:`, typeof timestamp, timestamp);
                     timestamp = new Date().toISOString();
                 }
-                
+
                 return {
                     price: parseFloat(row.price) || 0,
                     timestamp: timestamp
@@ -6930,7 +6930,7 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = n
                     console.error(`❌ [SCANNER] Errore conversione timestamp per ${symbol}:`, e.message);
                     timestamp = new Date().toISOString();
                 }
-                
+
                 return {
                     timestamp: timestamp,
                     open: parseFloat(row.open_price) || 0,
@@ -8458,6 +8458,180 @@ router.get('/balance-diagnostic', async (req, res) => {
         });
     } catch (error) {
         console.error('❌ Error in balance diagnostic:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 🔍 DEBUG: Verifica se i filtri professionali sono attivi
+router.get('/debug-positions', async (req, res) => {
+    try {
+        console.log('🔍 [DEBUG-POSITIONS] Verifica filtri professionali...');
+
+        const openPositions = await dbAll(`
+            SELECT 
+                ticket_id,
+                symbol,
+                type,
+                entry_price,
+                current_price,
+                profit_loss,
+                profit_loss_pct,
+                opened_at,
+                volume,
+                signal_details
+            FROM open_positions 
+            WHERE status = 'open'
+            ORDER BY opened_at DESC 
+            LIMIT 10
+        `);
+
+        const closedPositions = await dbAll(`
+            SELECT 
+                ticket_id,
+                symbol,
+                type,
+                entry_price,
+                current_price,
+                profit_loss,
+                profit_loss_pct,
+                opened_at,
+                closed_at,
+                volume,
+                signal_details
+            FROM open_positions 
+            WHERE status IN ('closed', 'stopped', 'taken')
+            ORDER BY closed_at DESC 
+            LIMIT 10
+        `);
+
+        // Analizza posizioni aperte
+        const openAnalysis = openPositions.map(pos => {
+            let hasProfessionalFilters = false;
+            let professionalData = null;
+            let botVersion = 'UNKNOWN';
+
+            if (pos.signal_details) {
+                try {
+                    const signal = typeof pos.signal_details === 'string'
+                        ? JSON.parse(pos.signal_details)
+                        : pos.signal_details;
+
+                    if (signal.professionalAnalysis) {
+                        hasProfessionalFilters = true;
+                        botVersion = 'NEW (Professional)';
+                        professionalData = {
+                            momentumQuality: signal.professionalAnalysis.momentumQuality ? {
+                                score: signal.professionalAnalysis.momentumQuality.score,
+                                isHealthy: signal.professionalAnalysis.momentumQuality.isHealthy,
+                                warnings: signal.professionalAnalysis.momentumQuality.warnings
+                            } : null,
+                            reversalRisk: signal.professionalAnalysis.reversalRisk ? {
+                                risk: signal.professionalAnalysis.reversalRisk.risk,
+                                score: signal.professionalAnalysis.reversalRisk.score,
+                                reasons: signal.professionalAnalysis.reversalRisk.reasons
+                            } : null,
+                            marketStructure: signal.professionalAnalysis.marketStructure ? {
+                                nearestResistance: signal.professionalAnalysis.marketStructure.nearestResistance,
+                                nearestSupport: signal.professionalAnalysis.marketStructure.nearestSupport
+                            } : null,
+                            riskReward: signal.professionalAnalysis.riskReward
+                        };
+                    } else {
+                        botVersion = 'OLD (No Professional Filters)';
+                    }
+                } catch (e) {
+                    botVersion = 'ERROR (Cannot parse signal_details)';
+                }
+            } else {
+                botVersion = 'VERY OLD (No signal_details)';
+            }
+
+            return {
+                ticket_id: pos.ticket_id,
+                symbol: pos.symbol,
+                type: pos.type,
+                entry_price: pos.entry_price,
+                current_price: pos.current_price,
+                profit_loss: pos.profit_loss,
+                profit_loss_pct: pos.profit_loss_pct,
+                opened_at: pos.opened_at,
+                botVersion,
+                hasProfessionalFilters,
+                professionalData
+            };
+        });
+
+        // Analizza posizioni chiuse
+        const closedAnalysis = closedPositions.map(pos => {
+            let hasProfessionalFilters = false;
+            let botVersion = 'UNKNOWN';
+
+            if (pos.signal_details) {
+                try {
+                    const signal = typeof pos.signal_details === 'string'
+                        ? JSON.parse(pos.signal_details)
+                        : pos.signal_details;
+
+                    if (signal.professionalAnalysis) {
+                        hasProfessionalFilters = true;
+                        botVersion = 'NEW (Professional)';
+                    } else {
+                        botVersion = 'OLD (No Professional Filters)';
+                    }
+                } catch (e) {
+                    botVersion = 'ERROR';
+                }
+            } else {
+                botVersion = 'VERY OLD';
+            }
+
+            const duration = pos.closed_at && pos.opened_at
+                ? Math.round((new Date(pos.closed_at) - new Date(pos.opened_at)) / 1000 / 60)
+                : 0;
+
+            return {
+                ticket_id: pos.ticket_id,
+                symbol: pos.symbol,
+                type: pos.type,
+                entry_price: pos.entry_price,
+                exit_price: pos.current_price,
+                profit_loss: pos.profit_loss,
+                profit_loss_pct: pos.profit_loss_pct,
+                opened_at: pos.opened_at,
+                closed_at: pos.closed_at,
+                duration_minutes: duration,
+                botVersion,
+                hasProfessionalFilters
+            };
+        });
+
+        // Summary
+        const summary = {
+            openPositions: {
+                total: openPositions.length,
+                withProfessionalFilters: openAnalysis.filter(p => p.hasProfessionalFilters).length,
+                withoutProfessionalFilters: openAnalysis.filter(p => !p.hasProfessionalFilters).length
+            },
+            closedPositions: {
+                total: closedPositions.length,
+                withProfessionalFilters: closedAnalysis.filter(p => p.hasProfessionalFilters).length,
+                withoutProfessionalFilters: closedAnalysis.filter(p => !p.hasProfessionalFilters).length
+            }
+        };
+
+        res.json({
+            summary,
+            openPositions: openAnalysis,
+            closedPositions: closedAnalysis,
+            message: summary.openPositions.withProfessionalFilters > 0
+                ? '✅ Bot NUOVO attivo - Filtri professionali funzionanti'
+                : summary.openPositions.total > 0
+                    ? '⚠️ Bot VECCHIO - Posizioni aperte SENZA filtri professionali'
+                    : '⚠️ Nessuna posizione aperta per verificare'
+        });
+
+    } catch (error) {
+        console.error('❌ Error in debug-positions:', error);
         res.status(500).json({ error: error.message });
     }
 });
