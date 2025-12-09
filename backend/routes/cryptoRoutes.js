@@ -6207,15 +6207,26 @@ router.get('/bot-analysis', async (req, res) => {
 
         // ✅ FIX CRITICO: Ricalcola requirements con adjusted strength e controllo ATR (stessa logica del bot reale)
         const MIN_SIGNAL_STRENGTH = 70; // Stessa soglia del bot reale
+        
+        // ✅ FIX: Controlla filtri professionali che bloccano LONG
+        const longProfessionalFilters = signal.professionalAnalysis?.filters?.long || [];
+        const longBlockedByFilters = longProfessionalFilters.some(f => f.includes('🚫 BLOCKED'));
+        
         const longMeetsRequirements = signal.direction === 'LONG' &&
             longAdjustedStrength >= MIN_SIGNAL_STRENGTH &&
             signal.confirmations >= LONG_MIN_CONFIRMATIONS &&
-            !(signal.atrBlocked || false);
+            !(signal.atrBlocked || false) &&
+            !longBlockedByFilters; // ✅ Aggiunto controllo filtri professionali
 
+        // ✅ FIX: Controlla filtri professionali che bloccano SHORT
+        const shortProfessionalFilters = signal.professionalAnalysis?.filters?.short || [];
+        const shortBlockedByFilters = shortProfessionalFilters.some(f => f.includes('🚫 BLOCKED'));
+        
         const shortMeetsRequirements = signal.direction === 'SHORT' &&
             shortAdjustedStrength >= MIN_SIGNAL_STRENGTH &&
             signal.confirmations >= SHORT_MIN_CONFIRMATIONS &&
-            !(signal.atrBlocked || false);
+            !(signal.atrBlocked || false) &&
+            !shortBlockedByFilters; // ✅ Aggiunto controllo filtri professionali
 
         // Calculate max position size
         const maxAvailableForNewPosition = Math.min(
@@ -6233,6 +6244,14 @@ router.get('/bot-analysis', async (req, res) => {
         if (signal.direction === 'LONG') {
             if (longMeetsRequirements && canOpenCheck.allowed) {
                 longReason = '✅ PRONTO AD APRIRE LONG';
+            } else if (longBlockedByFilters) {
+                // ✅ FIX CRITICO: Mostra filtri professionali che bloccano
+                const blockingFilters = longProfessionalFilters.filter(f => f.includes('🚫 BLOCKED'));
+                if (blockingFilters.length > 0) {
+                    longReason = `🚫 BLOCCATO: ${blockingFilters[0].replace('🚫 BLOCKED: ', '')}`;
+                } else {
+                    longReason = '🚫 BLOCCATO da filtri professionali';
+                }
             } else if (!longMeetsRequirements) {
                 if (longNeedsStrength > 0 && longNeedsConfirmations > 0) {
                     longReason = `Serve strength +${longNeedsStrength} e ${longNeedsConfirmations} conferme in più`;
@@ -6250,6 +6269,14 @@ router.get('/bot-analysis', async (req, res) => {
             // ✅ FIX: Verifica anche ATR blocking e MTF adjustment
             if (shortMeetsRequirements && canOpenCheck.allowed) {
                 shortReason = '✅ PRONTO AD APRIRE SHORT';
+            } else if (shortBlockedByFilters) {
+                // ✅ FIX CRITICO: Mostra filtri professionali che bloccano
+                const blockingFilters = shortProfessionalFilters.filter(f => f.includes('🚫 BLOCKED'));
+                if (blockingFilters.length > 0) {
+                    shortReason = `🚫 BLOCCATO: ${blockingFilters[0].replace('🚫 BLOCKED: ', '')}`;
+                } else {
+                    shortReason = '🚫 BLOCCATO da filtri professionali';
+                }
             } else if (signal.atrBlocked) {
                 shortReason = `ATR blocca trading (${signal.atrPct?.toFixed(2)}% ${signal.atrPct < signal.minAtrRequired ? '<' : '>'} ${signal.minAtrRequired}%)`;
             } else if (shortAdjustedStrength < MIN_SIGNAL_STRENGTH) {
@@ -6268,8 +6295,28 @@ router.get('/bot-analysis', async (req, res) => {
                 shortReason = canOpenCheck.reason || 'Risk manager blocca';
             }
         } else {
-            longReason = 'Nessun segnale LONG attivo';
-            shortReason = 'Nessun segnale SHORT attivo';
+            // ✅ FIX: Se direction è NEUTRAL ma ci sono segnali LONG/SHORT con filtri che bloccano, mostrali
+            if (longCurrentStrength > 0 && longBlockedByFilters) {
+                const blockingFilters = longProfessionalFilters.filter(f => f.includes('🚫 BLOCKED'));
+                if (blockingFilters.length > 0) {
+                    longReason = `🚫 BLOCCATO: ${blockingFilters[0].replace('🚫 BLOCKED: ', '')}`;
+                } else {
+                    longReason = '🚫 BLOCCATO da filtri professionali';
+                }
+            } else {
+                longReason = 'Nessun segnale LONG attivo';
+            }
+            
+            if (shortCurrentStrength > 0 && shortBlockedByFilters) {
+                const blockingFilters = shortProfessionalFilters.filter(f => f.includes('🚫 BLOCKED'));
+                if (blockingFilters.length > 0) {
+                    shortReason = `🚫 BLOCCATO: ${blockingFilters[0].replace('🚫 BLOCKED: ', '')}`;
+                } else {
+                    shortReason = '🚫 BLOCCATO da filtri professionali';
+                }
+            } else {
+                shortReason = 'Nessun segnale SHORT attivo';
+            }
         }
 
         console.log('🔍 [BOT-ANALYSIS] Preparing response...');
