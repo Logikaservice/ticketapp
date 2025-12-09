@@ -44,7 +44,7 @@ const CandleMascot = ({ mood = 'happy', size = 40 }) => {
     );
 };
 
-const AiAssistant = ({ currentSymbol, currentPrice }) => {
+const AiAssistant = ({ currentSymbol, currentPrice, apiBase }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
         { id: 1, type: 'bot', text: 'Ciao! Sono Greeny, il tuo assistente di trading. 🕯️\nPosso analizzare grafici, spiegarti le mie mosse o controllare lo stato del mercato. Dimmi tutto!' }
@@ -72,8 +72,6 @@ const AiAssistant = ({ currentSymbol, currentPrice }) => {
 
         // Chiamata reale al Backend AI
         try {
-            const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3000/api/crypto' : '/api/crypto';
-
             const response = await fetch(`${apiBase}/bot/ai-chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

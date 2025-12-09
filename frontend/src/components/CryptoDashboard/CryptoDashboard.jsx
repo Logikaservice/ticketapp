@@ -1645,7 +1645,8 @@ const CryptoDashboard = () => {
             )}
 
             {/* AI Assistant - Floating Button */}
-            <AiAssistant currentSymbol={currentSymbol} currentPrice={currentPrice} />
+            <AiAssistant currentSymbol={currentSymbol} currentPrice={currentPrice} apiBase={apiBase} />
+
 
         </div >
     );
