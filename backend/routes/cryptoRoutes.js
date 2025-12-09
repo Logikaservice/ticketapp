@@ -6906,20 +6906,41 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = n
         // 1. Get History from DB (LIMIT 100)
         let deepAnalysisHistory = [];
         const deepAnalysisHistoryData = await dbAll(
-            "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
+            "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
             [symbol]
         );
 
         if (deepAnalysisHistoryData && deepAnalysisHistoryData.length > 0) {
-            deepAnalysisHistory = deepAnalysisHistoryData.reverse().map(row => ({
-                timestamp: new Date(row.open_time).toISOString(),
-                open: parseFloat(row.open_price),
-                high: parseFloat(row.high_price),
-                low: parseFloat(row.low_price),
-                close: parseFloat(row.close_price),
-                price: parseFloat(row.close_price),
-                volume: 0
-            }));
+            deepAnalysisHistory = deepAnalysisHistoryData.reverse().map(row => {
+                // ✅ FIX: Gestisci correttamente open_time da PostgreSQL (stesso fix di bot-analysis)
+                let timestamp;
+                try {
+                    const openTime = row.open_time;
+                    if (typeof openTime === 'number') {
+                        timestamp = new Date(openTime > 1000000000000 ? openTime : openTime * 1000).toISOString();
+                    } else if (typeof openTime === 'string') {
+                        timestamp = new Date(openTime).toISOString();
+                    } else if (openTime instanceof Date) {
+                        timestamp = openTime.toISOString();
+                    } else {
+                        console.warn(`⚠️ [SCANNER] open_time non valido per ${symbol}:`, openTime);
+                        timestamp = new Date().toISOString();
+                    }
+                } catch (e) {
+                    console.error(`❌ [SCANNER] Errore conversione timestamp per ${symbol}:`, e.message);
+                    timestamp = new Date().toISOString();
+                }
+                
+                return {
+                    timestamp: timestamp,
+                    open: parseFloat(row.open_price) || 0,
+                    high: parseFloat(row.high_price) || 0,
+                    low: parseFloat(row.low_price) || 0,
+                    close: parseFloat(row.close_price) || 0,
+                    price: parseFloat(row.close_price) || 0,
+                    volume: 0
+                };
+            });
         }
 
         // Check Stale & Fetch Fallback
@@ -7139,7 +7160,7 @@ router.get('/scanner', async (req, res) => {
                             priceFound = currentPrice > 0;
                         } else {
                             // Fallback DB
-                            const lastPriceDb = await dbGet("SELECT price FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 1", [s.symbol]);
+                            const lastPriceDb = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [s.symbol]);
                             if (lastPriceDb && lastPriceDb.price) {
                                 currentPrice = parseFloat(lastPriceDb.price);
                                 priceFound = currentPrice > 0;
