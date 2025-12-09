@@ -207,6 +207,289 @@ class BidirectionalSignalGenerator {
     }
 
     /**
+     * 🎯 PROFESSIONAL TRADING: Market Structure Analysis
+     * Identifica supporti e resistenze chiave basati su swing highs/lows
+     * @param {Array} prices - Array di prezzi
+     * @param {number} lookback - Periodi per identificare swing points (default 5)
+     * @returns {Object} { supports: [], resistances: [], nearestSupport, nearestResistance }
+     */
+    analyzeMarketStructure(prices, lookback = 5) {
+        if (prices.length < lookback * 3) {
+            return { supports: [], resistances: [], nearestSupport: null, nearestResistance: null };
+        }
+
+        const swingHighs = [];
+        const swingLows = [];
+        const currentPrice = prices[prices.length - 1];
+
+        // Identifica swing highs e lows
+        for (let i = lookback; i < prices.length - lookback; i++) {
+            let isSwingHigh = true;
+            let isSwingLow = true;
+
+            // Verifica se è un swing high (massimo locale)
+            for (let j = i - lookback; j <= i + lookback; j++) {
+                if (j !== i) {
+                    if (prices[j] >= prices[i]) isSwingHigh = false;
+                    if (prices[j] <= prices[i]) isSwingLow = false;
+                }
+            }
+
+            if (isSwingHigh) {
+                swingHighs.push({ index: i, price: prices[i], distance: Math.abs(prices[i] - currentPrice) / currentPrice });
+            }
+            if (isSwingLow) {
+                swingLows.push({ index: i, price: prices[i], distance: Math.abs(prices[i] - currentPrice) / currentPrice });
+            }
+        }
+
+        // Trova supporto e resistenza più vicini
+        const resistances = swingHighs.filter(h => h.price > currentPrice).sort((a, b) => a.distance - b.distance);
+        const supports = swingLows.filter(l => l.price < currentPrice).sort((a, b) => a.distance - b.distance);
+
+        return {
+            supports: supports.slice(0, 3), // Top 3 supporti
+            resistances: resistances.slice(0, 3), // Top 3 resistenze
+            nearestSupport: supports.length > 0 ? supports[0] : null,
+            nearestResistance: resistances.length > 0 ? resistances[0] : null,
+            swingHighs: swingHighs.slice(-5), // Ultimi 5 swing highs
+            swingLows: swingLows.slice(-5) // Ultimi 5 swing lows
+        };
+    }
+
+    /**
+     * 🎯 PROFESSIONAL TRADING: Momentum Quality Check
+     * Verifica se il momentum è sostenibile o sta esaurendosi
+     * @param {Array} prices - Array di prezzi
+     * @param {Array} priceHistory - Array completo con high/low/volume se disponibile
+     * @returns {Object} { isHealthy, score, warnings, volumeTrend, momentumStrength }
+     */
+    analyzeMomentumQuality(prices, priceHistory = null) {
+        if (prices.length < 20) {
+            return { isHealthy: false, score: 0, warnings: ['Insufficient data'], volumeTrend: 'unknown', momentumStrength: 0 };
+        }
+
+        const warnings = [];
+        let qualityScore = 100; // Parte da 100, sottraiamo per problemi
+
+        // 1. Verifica se il momentum sta rallentando (price change decrescente)
+        const recentChanges = [];
+        for (let i = prices.length - 10; i < prices.length - 1; i++) {
+            const change = (prices[i + 1] - prices[i]) / prices[i] * 100;
+            recentChanges.push(change);
+        }
+
+        // Se gli ultimi movimenti sono più piccoli dei precedenti, momentum sta rallentando
+        const firstHalf = recentChanges.slice(0, 5).reduce((a, b) => a + Math.abs(b), 0) / 5;
+        const secondHalf = recentChanges.slice(5).reduce((a, b) => a + Math.abs(b), 0) / 4;
+
+        if (secondHalf < firstHalf * 0.7) {
+            qualityScore -= 30;
+            warnings.push('Momentum slowing down (price moves getting smaller)');
+        }
+
+        // 2. Verifica volume trend (se disponibile)
+        let volumeTrend = 'unknown';
+        if (priceHistory && priceHistory.length > 10 && priceHistory[0].volume !== undefined) {
+            const recentVolumes = priceHistory.slice(-5).map(h => h.volume || 0);
+            const olderVolumes = priceHistory.slice(-15, -5).map(h => h.volume || 0);
+
+            const avgRecentVol = recentVolumes.reduce((a, b) => a + b, 0) / recentVolumes.length;
+            const avgOlderVol = olderVolumes.reduce((a, b) => a + b, 0) / olderVolumes.length;
+
+            if (avgRecentVol < avgOlderVol * 0.8) {
+                volumeTrend = 'decreasing';
+                qualityScore -= 25;
+                warnings.push('Volume decreasing during rally (weak momentum)');
+            } else if (avgRecentVol > avgOlderVol * 1.2) {
+                volumeTrend = 'increasing';
+                qualityScore += 10; // Bonus per volume crescente
+            } else {
+                volumeTrend = 'stable';
+            }
+        }
+
+        // 3. Calcola momentum strength (ROC - Rate of Change)
+        const roc10 = prices.length >= 10 ? (prices[prices.length - 1] - prices[prices.length - 10]) / prices[prices.length - 10] * 100 : 0;
+        const roc20 = prices.length >= 20 ? (prices[prices.length - 1] - prices[prices.length - 20]) / prices[prices.length - 20] * 100 : 0;
+
+        // Se ROC sta diminuendo, momentum si sta esaurendo
+        if (roc10 > 0 && roc20 > 0 && roc10 < roc20 * 0.5) {
+            qualityScore -= 20;
+            warnings.push('Momentum weakening (ROC10 < ROC20/2)');
+        }
+
+        const momentumStrength = Math.max(roc10, roc20);
+        const isHealthy = qualityScore >= 60 && warnings.length <= 1;
+
+        return {
+            isHealthy: isHealthy,
+            score: Math.max(0, Math.min(100, qualityScore)),
+            warnings: warnings,
+            volumeTrend: volumeTrend,
+            momentumStrength: momentumStrength,
+            roc10: roc10,
+            roc20: roc20
+        };
+    }
+
+    /**
+     * 🎯 PROFESSIONAL TRADING: Reversal Risk Assessment
+     * Valuta il rischio che il prezzo inverta dopo un rally/dump
+     * @param {Array} prices - Array di prezzi
+     * @param {number} rsi - RSI corrente
+     * @param {Object} macd - MACD object
+     * @returns {Object} { risk: 'low'|'medium'|'high', score: 0-100, reasons: [] }
+     */
+    assessReversalRisk(prices, rsi, macd) {
+        if (prices.length < 30) {
+            return { risk: 'unknown', score: 0, reasons: ['Insufficient data'] };
+        }
+
+        let riskScore = 0; // 0 = low risk, 100 = high risk
+        const reasons = [];
+
+        const currentPrice = prices[prices.length - 1];
+        const priceChange10 = (currentPrice - prices[prices.length - 10]) / prices[prices.length - 10] * 100;
+        const priceChange20 = (currentPrice - prices[prices.length - 20]) / prices[prices.length - 20] * 100;
+
+        // 1. RSI Extreme Levels (overbought/oversold estremi)
+        if (rsi !== null) {
+            if (rsi > 80 && priceChange10 > 3) {
+                riskScore += 35;
+                reasons.push(`RSI extremely overbought (${rsi.toFixed(1)}) after rally - high reversal risk`);
+            } else if (rsi > 75 && priceChange10 > 2) {
+                riskScore += 20;
+                reasons.push(`RSI overbought (${rsi.toFixed(1)}) - moderate reversal risk`);
+            } else if (rsi < 20 && priceChange10 < -3) {
+                riskScore += 35;
+                reasons.push(`RSI extremely oversold (${rsi.toFixed(1)}) after dump - high bounce risk`);
+            } else if (rsi < 25 && priceChange10 < -2) {
+                riskScore += 20;
+                reasons.push(`RSI oversold (${rsi.toFixed(1)}) - moderate bounce risk`);
+            }
+        }
+
+        // 2. Parabolic Move (movimento parabolico = alto rischio reversal)
+        // Se prezzo sale/scende molto più velocemente su 10 periodi che su 20
+        if (Math.abs(priceChange10) > Math.abs(priceChange20) * 1.5 && Math.abs(priceChange10) > 5) {
+            riskScore += 30;
+            reasons.push(`Parabolic move detected (${priceChange10.toFixed(2)}% in 10 periods) - exhaustion likely`);
+        }
+
+        // 3. MACD Divergence (se MACD non conferma il movimento del prezzo)
+        if (macd && macd.histogram !== undefined) {
+            const rsiHistory = this.calculateRSIHistory(prices, 14);
+            if (rsiHistory.length >= 15) {
+                const divergence = this.detectRSIDivergence(prices, rsiHistory);
+
+                if (divergence.type === 'bearish' && priceChange10 > 2) {
+                    riskScore += 25;
+                    reasons.push('Bearish divergence detected - reversal signal');
+                } else if (divergence.type === 'bullish' && priceChange10 < -2) {
+                    riskScore += 25;
+                    reasons.push('Bullish divergence detected - bounce signal');
+                }
+            }
+        }
+
+        // 4. Extended Move (prezzo troppo lontano dalla media)
+        const sma20 = this.calculateSMA(prices, 20);
+        if (sma20) {
+            const distanceFromSMA = ((currentPrice - sma20) / sma20) * 100;
+            if (Math.abs(distanceFromSMA) > 8) {
+                riskScore += 20;
+                reasons.push(`Price ${distanceFromSMA > 0 ? 'above' : 'below'} SMA20 by ${Math.abs(distanceFromSMA).toFixed(2)}% - mean reversion likely`);
+            }
+        }
+
+        // 5. Consecutive Candles (troppi candles consecutivi nella stessa direzione)
+        let consecutiveUp = 0;
+        let consecutiveDown = 0;
+        for (let i = prices.length - 1; i > prices.length - 8 && i > 0; i--) {
+            if (prices[i] > prices[i - 1]) {
+                consecutiveUp++;
+                consecutiveDown = 0;
+            } else if (prices[i] < prices[i - 1]) {
+                consecutiveDown++;
+                consecutiveUp = 0;
+            } else {
+                break;
+            }
+        }
+
+        if (consecutiveUp >= 6) {
+            riskScore += 15;
+            reasons.push(`${consecutiveUp} consecutive up candles - pullback likely`);
+        } else if (consecutiveDown >= 6) {
+            riskScore += 15;
+            reasons.push(`${consecutiveDown} consecutive down candles - bounce likely`);
+        }
+
+        // Determina livello di rischio
+        let riskLevel = 'low';
+        if (riskScore >= 60) {
+            riskLevel = 'high';
+        } else if (riskScore >= 35) {
+            riskLevel = 'medium';
+        }
+
+        return {
+            risk: riskLevel,
+            score: Math.min(100, riskScore),
+            reasons: reasons,
+            priceChange10: priceChange10,
+            priceChange20: priceChange20
+        };
+    }
+
+    /**
+     * 🎯 PROFESSIONAL TRADING: Calculate Risk/Reward Ratio
+     * Calcola il rapporto rischio/rendimento basato su struttura di mercato
+     * @param {number} entryPrice - Prezzo di entrata
+     * @param {Object} marketStructure - Struttura di mercato (supporti/resistenze)
+     * @param {string} direction - 'LONG' o 'SHORT'
+     * @returns {Object} { ratio, stopLoss, takeProfit, isAcceptable }
+     */
+    calculateRiskReward(entryPrice, marketStructure, direction = 'LONG') {
+        if (!marketStructure || !marketStructure.nearestSupport || !marketStructure.nearestResistance) {
+            return { ratio: 0, stopLoss: null, takeProfit: null, isAcceptable: false, reason: 'No market structure available' };
+        }
+
+        let stopLoss, takeProfit, risk, reward;
+
+        if (direction === 'LONG') {
+            // Stop loss sotto il supporto più vicino
+            stopLoss = marketStructure.nearestSupport ? marketStructure.nearestSupport.price * 0.995 : entryPrice * 0.97;
+            // Take profit alla resistenza più vicina
+            takeProfit = marketStructure.nearestResistance ? marketStructure.nearestResistance.price * 0.995 : entryPrice * 1.05;
+
+            risk = entryPrice - stopLoss;
+            reward = takeProfit - entryPrice;
+        } else {
+            // SHORT
+            stopLoss = marketStructure.nearestResistance ? marketStructure.nearestResistance.price * 1.005 : entryPrice * 1.03;
+            takeProfit = marketStructure.nearestSupport ? marketStructure.nearestSupport.price * 1.005 : entryPrice * 0.95;
+
+            risk = stopLoss - entryPrice;
+            reward = entryPrice - takeProfit;
+        }
+
+        const ratio = risk > 0 ? reward / risk : 0;
+        const isAcceptable = ratio >= 1.5; // Minimo 1:1.5 risk/reward
+
+        return {
+            ratio: ratio,
+            stopLoss: stopLoss,
+            takeProfit: takeProfit,
+            risk: risk,
+            reward: reward,
+            isAcceptable: isAcceptable,
+            reason: isAcceptable ? `Good R/R ratio (1:${ratio.toFixed(2)})` : `Poor R/R ratio (1:${ratio.toFixed(2)}) - need at least 1:1.5`
+        };
+    }
+
+    /**
      * Trova picchi e valli (local maxima e minima)
      */
     findPeaksAndValleys(values, lookback = 5) {
@@ -745,25 +1028,131 @@ class BidirectionalSignalGenerator {
             shortSignal.strengthContributions.push({ indicator: 'High volume', points, reason: `High volume (${volume.ratio.toFixed(2)}x)` });
         }
 
-        // 5. DECISIONE FINALE - SISTEMA MULTI-CONFERMA CON SICUREZZA 90%
+        // 5. 🎯 PROFESSIONAL TRADING FILTERS - Analisi professionale prima della decisione finale
 
-        // ✅ Requisiti bilanciati per mostrare segnali validi senza essere troppo restrittivi
-        // LONG: Richiede minimo 3 conferme + strength >= 50 (bilanciato tra sicurezza e opportunità)
-        const LONG_MIN_CONFIRMATIONS = 3;
-        const LONG_MIN_STRENGTH = 50; // Abbassato da 70 per mostrare più segnali
-        const longMeetsRequirements = longSignal.confirmations >= LONG_MIN_CONFIRMATIONS &&
-            longSignal.strength >= LONG_MIN_STRENGTH;
+        // ✅ ANALISI STRUTTURA DI MERCATO (Supporti/Resistenze)
+        const marketStructure = this.analyzeMarketStructure(prices, 5);
 
-        // SHORT: Richiede minimo 4 conferme + strength >= 50 (leggermente più rigoroso di LONG)
-        const SHORT_MIN_CONFIRMATIONS = 4; // Abbassato da 5 per mostrare più segnali
-        const SHORT_MIN_STRENGTH = 50; // Abbassato da 70 per mostrare più segnali
+        // ✅ ANALISI QUALITÀ MOMENTUM (Volume, Esaurimento)
+        const momentumQuality = this.analyzeMomentumQuality(prices, priceHistory);
+
+        // ✅ VALUTAZIONE RISCHIO REVERSAL (Divergenze, Overbought/Oversold estremi)
+        const reversalRisk = this.assessReversalRisk(prices, rsi, macd);
 
         // ✅ FIX CRITICO: Cappa strength a max 100 (evita valori impossibili come 130/100)
         longSignal.strength = Math.min(100, longSignal.strength);
         shortSignal.strength = Math.min(100, shortSignal.strength);
 
-        const shortMeetsRequirements = shortSignal.confirmations >= SHORT_MIN_CONFIRMATIONS &&
+        // 🎯 PROFESSIONAL DECISION LOGIC - Requisiti più rigorosi e intelligenti
+
+        // LONG: Requisiti base + filtri professionali
+        const LONG_MIN_CONFIRMATIONS = 3;
+        const LONG_MIN_STRENGTH = 60; // Aumentato da 50 per maggiore selettività
+
+        let longMeetsRequirements = longSignal.confirmations >= LONG_MIN_CONFIRMATIONS &&
+            longSignal.strength >= LONG_MIN_STRENGTH;
+
+        // 🚫 FILTRI PROFESSIONALI PER LONG - Blocca entry se:
+        const longProfessionalFilters = [];
+
+        // 1. MOMENTUM ESAURITO - Non entrare se il momentum sta rallentando
+        if (priceChange3 > 1.0 && !momentumQuality.isHealthy) {
+            longMeetsRequirements = false;
+            longProfessionalFilters.push(`🚫 BLOCKED: Momentum exhausted (quality: ${momentumQuality.score}/100) - ${momentumQuality.warnings.join(', ')}`);
+            longSignal.reasons.push(`⚠️ Professional Filter: ${momentumQuality.warnings.join(', ')}`);
+        }
+
+        // 2. ALTO RISCHIO REVERSAL - Non entrare se rischio reversal è alto/medio durante rally
+        if (priceChange10 > 2 && (reversalRisk.risk === 'high' || reversalRisk.risk === 'medium')) {
+            longMeetsRequirements = false;
+            longProfessionalFilters.push(`🚫 BLOCKED: High reversal risk after rally (${reversalRisk.risk}, score: ${reversalRisk.score}/100) - ${reversalRisk.reasons.join(', ')}`);
+            longSignal.reasons.push(`⚠️ Professional Filter: ${reversalRisk.reasons[0] || 'High reversal risk'}`);
+        }
+
+        // 3. VOLUME DECRESCENTE DURANTE RALLY - Segnale di debolezza
+        if (priceChange3 > 0.8 && momentumQuality.volumeTrend === 'decreasing') {
+            longMeetsRequirements = false;
+            longProfessionalFilters.push(`🚫 BLOCKED: Volume decreasing during rally - weak momentum, likely reversal`);
+            longSignal.reasons.push(`⚠️ Professional Filter: Volume decreasing during rally`);
+        }
+
+        // 4. VICINO A RESISTENZA FORTE - Non comprare vicino a resistenza
+        if (marketStructure.nearestResistance && marketStructure.nearestResistance.distance < 0.02) {
+            // Se siamo a meno del 2% dalla resistenza, riduci strength
+            const penalty = 30;
+            longSignal.strength = Math.max(0, longSignal.strength - penalty);
+            longProfessionalFilters.push(`⚠️ WARNING: Near resistance (${(marketStructure.nearestResistance.distance * 100).toFixed(2)}% away) - reduced strength by ${penalty}`);
+            longSignal.reasons.push(`⚠️ Professional Filter: Near resistance at €${marketStructure.nearestResistance.price.toFixed(2)}`);
+
+            // Se dopo la penalità non raggiunge più i requisiti, blocca
+            if (longSignal.strength < LONG_MIN_STRENGTH) {
+                longMeetsRequirements = false;
+            }
+        }
+
+        // 5. RISK/REWARD RATIO - Calcola e verifica se accettabile
+        let riskReward = null;
+        if (marketStructure.nearestSupport && marketStructure.nearestResistance) {
+            riskReward = this.calculateRiskReward(currentPrice, marketStructure, 'LONG');
+            if (!riskReward.isAcceptable) {
+                // Non bloccare completamente, ma riduci strength
+                const penalty = 20;
+                longSignal.strength = Math.max(0, longSignal.strength - penalty);
+                longProfessionalFilters.push(`⚠️ WARNING: Poor R/R ratio (1:${riskReward.ratio.toFixed(2)}) - reduced strength by ${penalty}`);
+                longSignal.reasons.push(`⚠️ Professional Filter: ${riskReward.reason}`);
+
+                if (longSignal.strength < LONG_MIN_STRENGTH) {
+                    longMeetsRequirements = false;
+                }
+            }
+        }
+
+        // SHORT: Requisiti base + filtri professionali
+        const SHORT_MIN_CONFIRMATIONS = 4;
+        const SHORT_MIN_STRENGTH = 60; // Aumentato da 50 per maggiore selettività
+
+        let shortMeetsRequirements = shortSignal.confirmations >= SHORT_MIN_CONFIRMATIONS &&
             shortSignal.strength >= SHORT_MIN_STRENGTH;
+
+        // 🚫 FILTRI PROFESSIONALI PER SHORT - Blocca entry se:
+        const shortProfessionalFilters = [];
+
+        // 1. MOMENTUM ESAURITO - Non entrare SHORT se il momentum ribassista sta rallentando
+        if (priceChange3 < -1.0 && !momentumQuality.isHealthy) {
+            shortMeetsRequirements = false;
+            shortProfessionalFilters.push(`🚫 BLOCKED: Bearish momentum exhausted (quality: ${momentumQuality.score}/100) - ${momentumQuality.warnings.join(', ')}`);
+            shortSignal.reasons.push(`⚠️ Professional Filter: ${momentumQuality.warnings.join(', ')}`);
+        }
+
+        // 2. ALTO RISCHIO BOUNCE - Non entrare SHORT se rischio bounce è alto
+        if (priceChange10 < -2 && (reversalRisk.risk === 'high' || reversalRisk.risk === 'medium')) {
+            shortMeetsRequirements = false;
+            shortProfessionalFilters.push(`🚫 BLOCKED: High bounce risk after dump (${reversalRisk.risk}, score: ${reversalRisk.score}/100) - ${reversalRisk.reasons.join(', ')}`);
+            shortSignal.reasons.push(`⚠️ Professional Filter: ${reversalRisk.reasons[0] || 'High bounce risk'}`);
+        }
+
+        // 3. VICINO A SUPPORTO FORTE - Non vendere vicino a supporto
+        if (marketStructure.nearestSupport && marketStructure.nearestSupport.distance < 0.02) {
+            const penalty = 30;
+            shortSignal.strength = Math.max(0, shortSignal.strength - penalty);
+            shortProfessionalFilters.push(`⚠️ WARNING: Near support (${(marketStructure.nearestSupport.distance * 100).toFixed(2)}% away) - reduced strength by ${penalty}`);
+            shortSignal.reasons.push(`⚠️ Professional Filter: Near support at €${marketStructure.nearestSupport.price.toFixed(2)}`);
+
+            if (shortSignal.strength < SHORT_MIN_STRENGTH) {
+                shortMeetsRequirements = false;
+            }
+        }
+
+        // Log filtri professionali se presenti
+        if (symbol && (longProfessionalFilters.length > 0 || shortProfessionalFilters.length > 0)) {
+            console.log(`🎯 [PROFESSIONAL FILTERS - ${symbol}]`);
+            if (longProfessionalFilters.length > 0) {
+                console.log(`   LONG Filters: ${longProfessionalFilters.join(' | ')}`);
+            }
+            if (shortProfessionalFilters.length > 0) {
+                console.log(`   SHORT Filters: ${shortProfessionalFilters.join(' | ')}`);
+            }
+        }
 
         if (longMeetsRequirements) {
             return {
@@ -796,6 +1185,17 @@ class BidirectionalSignalGenerator {
                     ema20: ema20,
                     ema50: ema50,
                     ema200: ema200
+                },
+                // 🎯 PROFESSIONAL ANALYSIS DATA
+                professionalAnalysis: {
+                    marketStructure: marketStructure,
+                    momentumQuality: momentumQuality,
+                    reversalRisk: reversalRisk,
+                    riskReward: riskReward,
+                    filters: {
+                        long: longProfessionalFilters,
+                        short: shortProfessionalFilters
+                    }
                 }
             };
         }
@@ -831,6 +1231,17 @@ class BidirectionalSignalGenerator {
                     ema20: ema20,
                     ema50: ema50,
                     ema200: ema200
+                },
+                // 🎯 PROFESSIONAL ANALYSIS DATA
+                professionalAnalysis: {
+                    marketStructure: marketStructure,
+                    momentumQuality: momentumQuality,
+                    reversalRisk: reversalRisk,
+                    riskReward: riskReward,
+                    filters: {
+                        long: longProfessionalFilters,
+                        short: shortProfessionalFilters
+                    }
                 }
             };
         }
@@ -877,6 +1288,17 @@ class BidirectionalSignalGenerator {
                 ema20: ema20,
                 ema50: ema50,
                 ema200: ema200
+            },
+            // 🎯 PROFESSIONAL ANALYSIS DATA (anche per NEUTRAL)
+            professionalAnalysis: {
+                marketStructure: marketStructure,
+                momentumQuality: momentumQuality,
+                reversalRisk: reversalRisk,
+                riskReward: riskReward,
+                filters: {
+                    long: longProfessionalFilters,
+                    short: shortProfessionalFilters
+                }
             }
         };
     }
