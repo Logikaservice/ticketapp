@@ -1,5 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { X, Send, Sparkles, Loader2, Minimize2 } from 'lucide-react';
 import './AiAssistant.css';
 
@@ -86,7 +86,8 @@ const AiAssistant = ({ currentSymbol, currentPrice }) => {
         }, 1500);
     };
 
-    return (
+    // Use Portal to render outside of any overflow/transform container
+    return ReactDOM.createPortal(
         <div className={`ai-assistant-container ${isOpen ? 'open' : ''}`}>
             {/* Chat Window */}
             {isOpen && (
@@ -150,7 +151,8 @@ const AiAssistant = ({ currentSymbol, currentPrice }) => {
                     </div>
                 </button>
             )}
-        </div>
+        </div>,
+        document.body
     );
 };
 
