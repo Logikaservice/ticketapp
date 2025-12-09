@@ -70,20 +70,39 @@ const AiAssistant = ({ currentSymbol, currentPrice }) => {
         setInputValue('');
         setIsTyping(true);
 
-        // Simulazione risposta AI (in futuro sarà una chiamata API reale)
-        setTimeout(() => {
-            const responses = [
-                `Ho dato un'occhiata a ${currentSymbol}. Il trend sembra rialzista sul 15m! 🚀`,
-                `Attenzione alla volatilità su ${currentSymbol}, l'ATR sta salendo.`,
-                "Sto monitorando i livelli di supporto. Ti avviso se rompiamo al ribasso.",
-                `Con il prezzo attuale di ${currentPrice}, siamo vicini a una zona interessante.`,
-                "Non vedo segnali chiari al momento. Meglio attendere conferme. 🧘"
-            ];
-            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+        // Chiamata reale al Backend AI
+        try {
+            const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3000/api/crypto' : '/api/crypto';
 
-            setMessages(prev => [...prev, { id: Date.now() + 1, type: 'bot', text: randomResponse }]);
+            const response = await fetch(`${apiBase}/bot/ai-chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: inputValue,
+                    symbol: currentSymbol || 'BTCUSDT'
+                })
+            });
+
+            if (!response.ok) throw new Error('Errore API');
+
+            const data = await response.json();
+
+            setMessages(prev => [...prev, {
+                id: Date.now() + 1,
+                type: 'bot',
+                text: data.reply || "Scusa, non ho capito. Riprova! 🕯️"
+            }]);
+
+        } catch (error) {
+            console.error("Errore chat:", error);
+            setMessages(prev => [...prev, {
+                id: Date.now() + 1,
+                type: 'bot',
+                text: "Ho perso la connessione con il cervello centrale... 🔌 Riprova tra poco."
+            }]);
+        } finally {
             setIsTyping(false);
-        }, 1500);
+        }
     };
 
     // Use Portal to render outside of any overflow/transform container

@@ -5743,12 +5743,12 @@ router.get('/bot-analysis', async (req, res) => {
         // Get symbol from query parameter, default to bitcoin
         let symbol = req.query.symbol || 'bitcoin';
         console.log('🔍 [BOT-ANALYSIS] Symbol originale:', symbol);
-        
+
         // ✅ FIX CRITICO: Normalizza il simbolo per il database
         // Gestisce vari formati: "BTC/USDT", "bitcoin_usdt", "bitcoin", "BTC", ecc.
         // Prima normalizza rimuovendo "/" e convertendo in lowercase
         let normalizedInput = symbol.toLowerCase().replace(/\//g, '_').replace(/-/g, '_');
-        
+
         // Mappa completa per normalizzazione
         const SYMBOL_NORMALIZATION_MAP = {
             // Formati con _usdt
@@ -5798,23 +5798,23 @@ router.get('/bot-analysis', async (req, res) => {
             'chainlink': 'chainlink',
             'litecoin': 'litecoin'
         };
-        
+
         // Prova prima con il mapping completo
         let normalizedSymbol = SYMBOL_NORMALIZATION_MAP[normalizedInput];
-        
+
         // Se non trovato, prova a rimuovere "_usdt" e riprovare
         if (!normalizedSymbol) {
             const withoutUsdt = normalizedInput.replace('_usdt', '').replace('usdt', '');
             normalizedSymbol = SYMBOL_NORMALIZATION_MAP[withoutUsdt] || withoutUsdt;
         }
-        
+
         // Se ancora non trovato, usa il simbolo originale senza modifiche (potrebbe essere già corretto)
         if (!normalizedSymbol || normalizedSymbol === '') {
             normalizedSymbol = normalizedInput.replace('_usdt', '').replace('usdt', '');
         }
-        
+
         console.log('🔍 [BOT-ANALYSIS] Symbol normalizzato per DB:', normalizedSymbol, '(da:', symbol, ')');
-        
+
         // Usa il simbolo normalizzato per le query al database, ma mantieni l'originale per getSymbolPrice
         const dbSymbol = normalizedSymbol;
 
@@ -6086,7 +6086,7 @@ router.get('/bot-analysis', async (req, res) => {
         if (!historyForSignal || historyForSignal.length === 0) {
             console.error(`❌ [BOT-ANALYSIS] Nessun dato storico disponibile per ${symbol} (normalized: ${dbSymbol})`);
             console.error(`   → Prova a verificare che il simbolo sia corretto e che ci siano klines nel database`);
-            return res.status(500).json({ 
+            return res.status(500).json({
                 error: `Nessun dato storico disponibile per ${symbol}`,
                 symbol: symbol,
                 normalizedSymbol: dbSymbol,
@@ -8886,6 +8886,87 @@ router.get('/debug-positions', async (req, res) => {
     } catch (error) {
         console.error('❌ Error in debug-positions:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// ✅ AI ASSISTANT ENDPOINT (Smart Rule-Based Analysis)
+router.post('/bot/ai-chat', async (req, res) => {
+    try {
+        const { message, symbol } = req.body;
+        const normalizedSymbol = symbol ? symbol.toUpperCase().replace('/', '') : 'BTCUSDT';
+
+        console.log(`🤖 [AI-CHAT] Richiesta ricevuta: "${message}" su ${normalizedSymbol}`);
+
+        // 1. Recupera dati tecnici reali
+        const history = await getKlinesData(normalizedSymbol, '15m', 150); // recupera klines per analisi
+        if (!history || history.length < 50) {
+            return res.json({
+                reply: "Non ho abbastanza dati storici per analizzare questo grafico al momento. 📉 Riprova tra poco!"
+            });
+        }
+
+        // 2. Esegui analisi tecnica completa
+        const signal = signalGenerator.generateSignal(history, normalizedSymbol);
+        const lastCandle = history[history.length - 1];
+        const closePrice = lastCandle.close;
+
+        // 3. Generazione Risposta Contestuale (Rule-Based NLP)
+        let reply = "";
+
+        // Riconoscimento intenti base (molto semplice)
+        const lowerMsg = message.toLowerCase();
+
+        if (lowerMsg.includes('prezzo') || lowerMsg.includes('quanto')) {
+            reply = `Il prezzo attuale di **${normalizedSymbol}** è **$${closePrice.toFixed(4)}**. `;
+            if (signal.trend === 'bullish') reply += "Il trend di breve termine è rialzista! 📈";
+            else if (signal.trend === 'bearish') reply += "Siamo in un trend ribassista al momento. 📉";
+            else reply += "Il mercato è laterale/neutro. 😐";
+        }
+        else if (lowerMsg.includes('analizz') || lowerMsg.includes('situazione') || lowerMsg.includes('come vedi')) {
+            // Analisi Tecnica Dettagliata
+            reply = `Ecco la mia analisi su **${normalizedSymbol}**: \n\n`;
+
+            // Score
+            reply += `📊 **Score Tecnico:** ${signal.score}/100 `;
+            if (signal.score > 70) reply += "(Molto Forte 🔥)\n";
+            else if (signal.score < 30) reply += "(Debole ❄️)\n";
+            else reply += "(Neutrale)\n";
+
+            // RSI
+            reply += `📈 **RSI:** ${signal.indicators.rsi.toFixed(2)} - `;
+            if (signal.indicators.rsi > 70) reply += "Siamo in Ipercomprato (rischio ritracciamento). \n";
+            else if (signal.indicators.rsi < 30) reply += "Siamo in Ipervenduto (possibile rimbalzo). \n";
+            else reply += "Zona neutrale. \n";
+
+            // Trend & Direzione
+            reply += `🧭 **Trend:** ${signal.trend === 'bullish' ? 'Rialzista 🟢' : signal.trend === 'bearish' ? 'Ribassista 🔴' : 'Laterale ⚪'}\n`;
+
+            // Bloccanti
+            if (signal.direction === 'NEUTRAL' && signal.reasons.length > 0) {
+                reply += `\n⚠️ **Note:** Non entrerei adesso perché: ${signal.reasons[0]}`;
+            } else if (signal.direction !== 'NEUTRAL') {
+                reply += `\n✅ **Segnale:** Vedo una possibile opportunità **${signal.direction}**!`;
+            }
+        }
+        else if (lowerMsg.includes('consigli') || lowerMsg.includes('fare')) {
+            if (signal.score >= 80) reply = `Con uno score di ${signal.score}, il segnale è molto forte LONG! 🚀 Valuta un ingresso se confermato dalla tua strategia.`;
+            else if (signal.score <= 20) reply = `Lo score è bassissimo (${signal.score}). Se hai posizioni LONG, fai attenzione! Potrebbe essere momento di vendere o shortare.`;
+            else reply = "Al momento c'è incertezza. Il miglior trade ora è... stare fermi e osservare. 🧘‍♂️";
+        }
+        else {
+            // Fallback generico ma intelligente
+            reply = `Tengo d'occhio **${normalizedSymbol}** ($${closePrice.toFixed(2)}). `;
+            reply += `La volatilità (ATR) è ${((signal.indicators.atr / closePrice) * 100).toFixed(2)}%. `;
+            if (Math.abs(signal.indicators.macd.histogram) > 0) {
+                reply += `Il Momentum (MACD) sta ${signal.indicators.macd.histogram > 0 ? 'spingendo su 🟢' : 'flettendo giù 🔴'}.`;
+            }
+        }
+
+        return res.json({ reply });
+
+    } catch (error) {
+        console.error("❌ [AI-CHAT-ERROR]", error);
+        res.status(500).json({ reply: "Ho avuto un piccolo mal di testa digitale... Riprova tra un attimo! 🤕" });
     }
 });
 
