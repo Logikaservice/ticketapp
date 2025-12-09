@@ -8920,17 +8920,23 @@ router.post('/bot/ai-chat', async (req, res) => {
 
         // 1. Recupera dati tecnici reali
         // 1. Recupera dati tecnici reali dal DB
+        // 1. Recupera dati tecnici reali dal DB
         const historyRows = await dbAll(
             `SELECT open_time, open_price, high_price, low_price, close_price, volume 
              FROM klines 
-             WHERE symbol = $1 AND interval = '15m' 
+             WHERE symbol = ? AND interval = '15m' 
              ORDER BY open_time DESC 
-             LIMIT $2`,
+             LIMIT ?`,
             [normalizedSymbol, 150]
         );
 
+        if (!historyRows || historyRows.length === 0) {
+            return res.json({ reply: `Non trovo dati per ${normalizedSymbol} nel DB. Il bot sta raccogliendo i dati, riprova tra poco! 🕒` });
+        }
+
         const history = historyRows.map(row => ({
-            timestamp: new Date(row.open_time).toISOString(),
+            // ✅ FIX: PG restituisce BIGINT come stringa. Converti in Number per new Date()
+            timestamp: new Date(Number(row.open_time)).toISOString(),
             open: parseFloat(row.open_price),
             high: parseFloat(row.high_price),
             low: parseFloat(row.low_price),
