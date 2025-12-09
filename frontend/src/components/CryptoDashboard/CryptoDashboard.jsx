@@ -589,14 +589,7 @@ const CryptoDashboard = () => {
         validatedBalance = 10000; // Fallback a 10k USDT
     }
 
-    // ✅ DEBUG: Log valori DOPO la validazione
     // Balance debug validated values logging removed
-        'validatedBalance (available cash)': validatedBalance,
-        'totalLongValue (invested in LONG)': totalLongValue,
-        'totalShortLiability (SHORT debt)': totalShortLiability,
-        'totalBalance (available cash only)': validatedBalance,
-        'portfolio equity (cash + positions)': validatedBalance + totalLongValue - totalShortLiability
-    });
 
     // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
     // Se hai $1000 USDT totali e investi $500, il Total Balance deve mostrare $500 (capitale disponibile)
