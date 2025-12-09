@@ -71,6 +71,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
             "locale": "it",
             "enable_publishing": false,
             "hide_top_toolbar": false, // FALSE = mostra toolbar (pulsanti tipo grafico, indicatori, ecc.)
+            "hide_side_toolbar": false, // ✅ ABILITATO: Mostra toolbar laterale per strumenti di disegno (Trend Line, ecc.)
             "hide_legend": false,
             "save_image": false,
             "calendar": false,
