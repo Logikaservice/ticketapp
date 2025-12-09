@@ -2521,7 +2521,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                     // Verifica se possiamo aprire LONG
                     // ✅ LOGICA OTTIMALE: Calcola dimensione posizione basata su maxExposure / maxPositions
-                    // Esempio: €1000, maxExposure 80% = €800, maxPositions 10 → €800/10 = €80 per posizione
+                    // Esempio: $1000 USDT, maxExposure 80% = $800 USDT, maxPositions 10 → $800/10 = $80 USDT per posizione
                     const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
                     const cashBalance = parseFloat(portfolio?.balance_usd || 0);
 
@@ -2539,7 +2539,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                     // Calcola maxExposure e maxPositions
                     const dynamicLimits = await riskManager.getDynamicLimits();
-                    const maxExposure = totalEquity * dynamicLimits.maxExposurePct; // Es. €1000 * 80% = €800
+                    const maxExposure = totalEquity * dynamicLimits.maxExposurePct; // Es. $1000 USDT * 80% = $800 USDT
 
                     // Calcola maxPositions basato su win rate
                     let maxTotalPositions = HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
@@ -2553,22 +2553,22 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         // Usa default
                     }
 
-                    // ✅ FIXED POSITION SIZING: Usa dimensione dal RiskManager (minimo €80)
-                    // Il RiskManager già calcola la dimensione ottimale (8% portfolio o €80 minimo)
+                    // ✅ FIXED POSITION SIZING: Usa dimensione dal RiskManager (minimo $80 USDT)
+                    // Il RiskManager già calcola la dimensione ottimale (8% portfolio o $80 USDT minimo)
                     // Limitiamo solo all'exposure disponibile per non superare i limiti
                     const maxAvailableForNewPosition = Math.min(
-                        riskCheck.maxPositionSize,  // €80 minimo (o più se portfolio cresce)
+                        riskCheck.maxPositionSize,  // $80 USDT minimo (o più se portfolio cresce)
                         riskCheck.availableExposure // Exposure disponibile (non superare limiti)
                     );
 
-                    console.log(`📊 [POSITION-SIZE] Total Equity: €${totalEquity.toFixed(2)} | Risk Manager Size: €${riskCheck.maxPositionSize.toFixed(2)} | Available Exposure: €${riskCheck.availableExposure.toFixed(2)} | Final: €${maxAvailableForNewPosition.toFixed(2)}`);
+                    console.log(`📊 [POSITION-SIZE] Total Equity: $${totalEquity.toFixed(2)} USDT | Risk Manager Size: $${riskCheck.maxPositionSize.toFixed(2)} USDT | Available Exposure: $${riskCheck.availableExposure.toFixed(2)} USDT | Final: $${maxAvailableForNewPosition.toFixed(2)} USDT`);
                     const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
-                    console.log(`🔍 LONG SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
+                    console.log(`🔍 LONG SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length} | AvailableExposure=$${riskCheck.availableExposure.toFixed(2)} USDT`);
 
                     // ✅ FIX: Rimuovo controllo longPositions.length === 0 - permetto multiple posizioni
                     if (canOpen.allowed) {
-                        console.log(`✅ [BOT-OPEN-LONG] Opening position for ${symbol} - Price: ${currentPrice.toFixed(2)}, Size: ${maxAvailableForNewPosition.toFixed(2)}€`);
+                        console.log(`✅ [BOT-OPEN-LONG] Opening position for ${symbol} - Price: $${currentPrice.toFixed(2)} USDT, Size: $${maxAvailableForNewPosition.toFixed(2)} USDT`);
                         // Apri LONG position
                         const amount = maxAvailableForNewPosition / currentPrice;
                         const stopLoss = currentPrice * (1 - params.stop_loss_pct / 100);
@@ -2614,10 +2614,10 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                             trailing_stop_enabled: true,
                             trailing_stop_distance_pct: 1.5 // Trailing stop a 1.5% dal massimo raggiunto
                         });
-                        console.log(`✅ BOT LONG: Opened position #${longPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
+                        console.log(`✅ BOT LONG: Opened position #${longPositions.length + 1} @ $${currentPrice.toFixed(2)} USDT | Size: $${maxAvailableForNewPosition.toFixed(2)} USDT | Signal: ${signal.reasons.join(', ')}`);
                         riskManager.invalidateCache(); // Invalida cache dopo operazione
                     } else if (!canOpen.allowed) {
-                        console.log(`⚠️ BOT LONG: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: €${riskCheck.availableExposure.toFixed(2)}`);
+                        console.log(`⚠️ BOT LONG: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: $${riskCheck.availableExposure.toFixed(2)} USDT`);
                     }
                 }
             }
@@ -2723,7 +2723,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         // Verifica se possiamo aprire SHORT
                         // ✅ FIX: Calcola position size considerando posizioni già aperte (per permettere multiple)
                         // ✅ LOGICA OTTIMALE: Calcola dimensione posizione basata su maxExposure / maxPositions
-                        // Stessa logica di LONG: €1000, maxExposure 80% = €800, maxPositions 10 → €800/10 = €80
+                        // Stessa logica di LONG: $1000 USDT, maxExposure 80% = $800 USDT, maxPositions 10 → $800/10 = $80 USDT
                         const portfolio = await dbGet("SELECT balance_usd FROM portfolio WHERE id = 1");
                         const cashBalance = parseFloat(portfolio?.balance_usd || 0);
 
@@ -2741,7 +2741,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                         // Calcola maxExposure e maxPositions
                         const dynamicLimits = await riskManager.getDynamicLimits();
-                        const maxExposure = totalEquity * dynamicLimits.maxExposurePct; // Es. €1000 * 80% = €800
+                        const maxExposure = totalEquity * dynamicLimits.maxExposurePct; // Es. $1000 USDT * 80% = $800 USDT
 
                         // Calcola maxPositions basato su win rate
                         let maxTotalPositions = HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
@@ -2755,22 +2755,22 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                             // Usa default
                         }
 
-                        // ✅ FIXED POSITION SIZING: Usa dimensione dal RiskManager (minimo €80)
-                        // Il RiskManager già calcola la dimensione ottimale (8% portfolio o €80 minimo)
+                        // ✅ FIXED POSITION SIZING: Usa dimensione dal RiskManager (minimo $80 USDT)
+                        // Il RiskManager già calcola la dimensione ottimale (8% portfolio o $80 USDT minimo)
                         // Limitiamo solo all'exposure disponibile per non superare i limiti
                         const maxAvailableForNewPosition = Math.min(
-                            riskCheck.maxPositionSize,  // €80 minimo (o più se portfolio cresce)
+                            riskCheck.maxPositionSize,  // $80 USDT minimo (o più se portfolio cresce)
                             riskCheck.availableExposure // Exposure disponibile (non superare limiti)
                         );
 
-                        console.log(`📊 [SHORT-POSITION-SIZE] Total Equity: €${totalEquity.toFixed(2)} | Risk Manager Size: €${riskCheck.maxPositionSize.toFixed(2)} | Available Exposure: €${riskCheck.availableExposure.toFixed(2)} | Final: €${maxAvailableForNewPosition.toFixed(2)}`);
+                        console.log(`📊 [SHORT-POSITION-SIZE] Total Equity: $${totalEquity.toFixed(2)} USDT | Risk Manager Size: $${riskCheck.maxPositionSize.toFixed(2)} USDT | Available Exposure: $${riskCheck.availableExposure.toFixed(2)} USDT | Final: $${maxAvailableForNewPosition.toFixed(2)} USDT`);
                         const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
-                        console.log(`🔍 SHORT SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length} | AvailableExposure=${riskCheck.availableExposure.toFixed(2)}€`);
+                        console.log(`🔍 SHORT SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length} | AvailableExposure=$${riskCheck.availableExposure.toFixed(2)} USDT`);
 
                         // ✅ FIX: Rimuovo controllo shortPositions.length === 0 - permetto multiple posizioni
                         if (canOpen.allowed) {
-                            console.log(`✅ [BOT-OPEN-SHORT] Opening position for ${symbol} - Price: ${currentPrice.toFixed(2)}, Size: ${maxAvailableForNewPosition.toFixed(2)}€`);
+                            console.log(`✅ [BOT-OPEN-SHORT] Opening position for ${symbol} - Price: $${currentPrice.toFixed(2)} USDT, Size: $${maxAvailableForNewPosition.toFixed(2)} USDT`);
                             // Apri SHORT position
                             const amount = maxAvailableForNewPosition / currentPrice;
                             const stopLoss = currentPrice * (1 + params.stop_loss_pct / 100); // Per SHORT, SL è sopra
@@ -2816,12 +2816,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                                 trailing_stop_enabled: true,
                                 trailing_stop_distance_pct: 1.5 // Trailing stop a 1.5% dal minimo raggiunto
                             });
-                            console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ €${currentPrice.toFixed(2)} | Size: €${maxAvailableForNewPosition.toFixed(2)} | Signal: ${signal.reasons.join(', ')}`);
+                            console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ $${currentPrice.toFixed(2)} USDT | Size: $${maxAvailableForNewPosition.toFixed(2)} USDT | Signal: ${signal.reasons.join(', ')}`);
                             riskManager.invalidateCache(); // Invalida cache dopo operazione
                         } else if (!canOpen.allowed) {
-                            console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: €${riskCheck.availableExposure.toFixed(2)}`);
+                            console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: $${riskCheck.availableExposure.toFixed(2)} USDT`);
                             console.log(`   📊 [SHORT-DEBUG] Risk check failed for ${symbol}: ${canOpen.reason}`);
-                            console.log(`   📊 [SHORT-DEBUG] Max available for new position: €${maxAvailableForNewPosition.toFixed(2)} | Trade size: €${params.trade_size_eur} | Max position size: €${riskCheck.maxPositionSize.toFixed(2)}`);
+                            console.log(`   📊 [SHORT-DEBUG] Max available for new position: $${maxAvailableForNewPosition.toFixed(2)} USDT | Trade size: $${params.trade_size_usdt || params.trade_size_eur || 0} USDT | Max position size: $${riskCheck.maxPositionSize.toFixed(2)} USDT`);
                         }
                     }
                 }

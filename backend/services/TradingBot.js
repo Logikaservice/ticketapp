@@ -35,8 +35,8 @@ const BOT_CONFIG = {
     MIN_CONFIRMATIONS_SHORT: 4,
 
     // Risk Management
-    DEFAULT_TRADE_SIZE_EUR: 100,  // €100 per posizione (più capitale per trade)
-    MAX_POSITION_SIZE_EUR: 150,   // Max €150 per posizione
+    DEFAULT_TRADE_SIZE_USDT: 100,  // $100 USDT per posizione (più capitale per trade)
+    MAX_POSITION_SIZE_USDT: 150,   // Max $150 USDT per posizione
 
     // ✅ CHIUSURE PIÙ RAPIDE per capitale che gira velocemente
     STOP_LOSS_PCT: 2.5,           // 2.5% stop loss (più stretto)
@@ -434,7 +434,7 @@ async function runBotCycleForSymbol(symbol, botSettings) {
         }
 
         // 13. Check Risk Manager
-        const tradeSize = BOT_CONFIG.DEFAULT_TRADE_SIZE_EUR;
+        const tradeSize = BOT_CONFIG.DEFAULT_TRADE_SIZE_USDT;
         const riskCheck = await riskManager.canOpenPosition(tradeSize);
         if (!riskCheck.allowed) {
             console.log(`⏸️ [BOT] ${symbol} - Risk Manager blocked: ${riskCheck.reason}`);
@@ -529,7 +529,7 @@ console.log('   Configuration:');
 console.log(`   - Check interval: ${BOT_CONFIG.CHECK_INTERVAL_MS}ms`);
 console.log(`   - LONG requirements: Strength >= ${BOT_CONFIG.MIN_STRENGTH_LONG}, Confirmations >= ${BOT_CONFIG.MIN_CONFIRMATIONS_LONG}`);
 console.log(`   - SHORT requirements: Strength >= ${BOT_CONFIG.MIN_STRENGTH_SHORT}, Confirmations >= ${BOT_CONFIG.MIN_CONFIRMATIONS_SHORT}`);
-console.log(`   - Trade size: €${BOT_CONFIG.DEFAULT_TRADE_SIZE_EUR}`);
+console.log(`   - Trade size: $${BOT_CONFIG.DEFAULT_TRADE_SIZE_USDT} USDT`);
 console.log(`   - Stop Loss: ${BOT_CONFIG.STOP_LOSS_PCT}%`);
 console.log(`   - Take Profit: ${BOT_CONFIG.TAKE_PROFIT_PCT}%`);
 console.log('');

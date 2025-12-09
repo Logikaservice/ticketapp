@@ -158,11 +158,11 @@ class SeriousRiskManager {
             const drawdown = peak > 0 ? (peak - totalEquity) / peak : 0;
 
             // 5. VERIFICA LIMITI ASSOLUTI
-            // ✅ FIX: Base capital a €50 e check su Equity
+            // ✅ FIX: Base capital a $50 USDT e check su Equity
             if (totalEquity < 50) {
                 this.cachedResult = {
                     canTrade: false,
-                    reason: 'Equity below base protection (€50)',
+                    reason: 'Equity below base protection ($50 USDT)',
                     maxPositionSize: 0,
                     availableExposure: 0,
                     dailyLoss: dailyLossPct,
@@ -237,33 +237,33 @@ class SeriousRiskManager {
 
             // CALCOLA RISCHIO RESIDUO DISPONIBILE
             const availableExposurePct = Math.max(0, maxExposurePct - currentExposurePct);
-            // Available Exposure in EUR = Total Equity * Available %
+            // Available Exposure in USDT = Total Equity * Available %
             const availableExposure = totalEquity * availableExposurePct;
 
             // ✅ FIXED POSITION SIZING: Logica semplice e aggressiva
             // - 80% del portfolio diviso in 10 posizioni = 8% per posizione
-            // - Minimo assoluto: €80 per posizione (anche con portfolio piccolo)
+            // - Minimo assoluto: $80 USDT per posizione (anche con portfolio piccolo)
             // - Cresce con il portfolio: se portfolio cresce, posizioni crescono
 
             const FIXED_POSITION_PCT = 0.08;  // 8% del portfolio (10 posizioni = 80% exposure)
-            const MIN_POSITION_SIZE = 80.0;   // Minimo assoluto €80
+            const MIN_POSITION_SIZE = 80.0;   // Minimo assoluto $80 USDT
 
             // Calcola dimensione posizione basata su portfolio
             let calculatedPositionSize = totalEquity * FIXED_POSITION_PCT;
 
-            // Applica minimo assoluto (mai meno di €80)
+            // Applica minimo assoluto (mai meno di $80 USDT)
             let maxPositionSize = Math.max(calculatedPositionSize, MIN_POSITION_SIZE);
 
             // Limita al cash disponibile (non puoi investire più di quanto hai)
             maxPositionSize = Math.min(maxPositionSize, cashBalance);
 
-            console.log(`💰 [FIXED SIZING] Portfolio: €${totalEquity.toFixed(2)} | Position: €${maxPositionSize.toFixed(2)} (${FIXED_POSITION_PCT * 100}% o min €${MIN_POSITION_SIZE})`);
+            console.log(`💰 [FIXED SIZING] Portfolio: $${totalEquity.toFixed(2)} USDT | Position: $${maxPositionSize.toFixed(2)} USDT (${FIXED_POSITION_PCT * 100}% o min $${MIN_POSITION_SIZE} USDT)`);
 
             // ✅ FIX AGGIUNTIVO: Verifica che il cash disponibile sia ragionevole
             // Se cashBalance è anomalo (>10M), usa un limite più conservativo
-            const MAX_REASONABLE_CASH = 1000000; // 1 milione EUR max ragionevole
+            const MAX_REASONABLE_CASH = 1000000; // 1 milione USDT max ragionevole
             if (cashBalance > MAX_REASONABLE_CASH) {
-                console.warn(`⚠️ [RISK MANAGER] Cash balance anomalo (€${cashBalance.toLocaleString()}), usando limite conservativo €${MAX_REASONABLE_CASH.toLocaleString()}`);
+                console.warn(`⚠️ [RISK MANAGER] Cash balance anomalo ($${cashBalance.toLocaleString()} USDT), usando limite conservativo $${MAX_REASONABLE_CASH.toLocaleString()} USDT`);
                 const conservativeMax = Math.min(totalEquity * maxPositionSizePct, MAX_REASONABLE_CASH);
                 // Se il maxPositionSize calcolato è troppo alto, limitalo
                 if (maxPositionSize > conservativeMax) {
@@ -279,7 +279,7 @@ class SeriousRiskManager {
                 }
             }
 
-            // ✅ Minimo già gestito sopra (€80) nella logica Fixed Sizing
+            // ✅ Minimo già gestito sopra ($80 USDT) nella logica Fixed Sizing
 
             this.cachedResult = {
                 canTrade: true,
@@ -312,7 +312,7 @@ class SeriousRiskManager {
 
     /**
      * Verifica se può aprire una nuova posizione
-     * @param {number} positionSize - Dimensione posizione in EUR
+     * @param {number} positionSize - Dimensione posizione in USDT
      * @returns {Object} { allowed, reason }
      */
     async canOpenPosition(positionSize) {
@@ -328,7 +328,7 @@ class SeriousRiskManager {
         if (positionSize > risk.maxPositionSize) {
             return {
                 allowed: false,
-                reason: `Position size (€${positionSize.toFixed(2)}) exceeds max (€${risk.maxPositionSize.toFixed(2)})`
+                reason: `Position size ($${positionSize.toFixed(2)} USDT) exceeds max ($${risk.maxPositionSize.toFixed(2)} USDT)`
             };
         }
 
