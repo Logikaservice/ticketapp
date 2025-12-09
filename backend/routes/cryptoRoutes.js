@@ -6422,7 +6422,18 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = n
         let isStale = false;
         if (deepAnalysisHistory.length > 0) {
             const lastTs = new Date(deepAnalysisHistory[deepAnalysisHistory.length - 1].timestamp).getTime();
+            const lastClose = deepAnalysisHistory[deepAnalysisHistory.length - 1].close;
+
             isStale = (new Date().getTime() - lastTs) > 20 * 60 * 1000;
+
+            // ✅ SANITY CHECK: Se il prezzo nel DB è troppo diverso dal prezzo attuale (>10%), è un dato corrotto/vecchio
+            if (!isStale && currentPrice > 0 && lastClose > 0) {
+                const priceDiffPct = Math.abs(currentPrice - lastClose) / lastClose;
+                if (priceDiffPct > 0.10) { // 10% differenza
+                    // console.log(`⚠️ [SCANNER] Dati DB corrotti/disallineati per ${symbol} (Diff: ${(priceDiffPct*100).toFixed(1)}%). Forzo riscaricamento.`);
+                    isStale = true; // Forziamo riscaricamento
+                }
+            }
         }
 
         // Se dati mancanti o obsoleti, scarica da Binance
