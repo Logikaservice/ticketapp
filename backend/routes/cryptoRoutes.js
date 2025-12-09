@@ -5581,7 +5581,17 @@ router.get('/bot-analysis', async (req, res) => {
         let isStale = false;
         if (historyForSignal.length > 0) {
             const lastTs = new Date(historyForSignal[historyForSignal.length - 1].timestamp).getTime();
+            const lastClose = historyForSignal[historyForSignal.length - 1].close;
             isStale = (new Date().getTime() - lastTs) > 15 * 60 * 1000;
+
+            // ✅ SANITY CHECK: Se DB disallineato > 10%, invalida e riscarica
+            if (!isStale && currentPrice > 0 && lastClose > 0) {
+                const diffPct = Math.abs(currentPrice - lastClose) / lastClose;
+                if (diffPct > 0.10) { // 10%
+                    console.log(`⚠️ [BOT-ANALYSIS] DB Corrotto rilevato (Diff: ${(diffPct * 100).toFixed(1)}%). Forzo refresh.`);
+                    isStale = true;
+                }
+            }
         }
 
         if (!historyForSignal || historyForSignal.length < 20 || isStale) {
