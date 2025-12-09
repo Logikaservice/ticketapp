@@ -3266,7 +3266,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
         }
         
         for (const pos of positions) {
-            // ✅ FIX CRITICO: Normalizza il simbolo per gestire varianti (es. "xrp" → "ripple", "bnb" → "binance_coin")
+            // ✅ FIX CRITICO: Normalizza il simbolo per gestire varianti (es. "xrp" → "ripple", "bnb" → "binance_coin", "FLOKI" → "floki")
             let normalizedSymbol = pos.symbol.toLowerCase();
             const symbolVariants = {
                 'xrp': 'ripple',
@@ -3290,11 +3290,18 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 'shib': 'shiba',
                 'shibusdt': 'shiba',
                 'doge': 'dogecoin',
-                'dogeusdt': 'dogecoin'
+                'dogeusdt': 'dogecoin',
+                'floki': 'floki', // Mantieni floki (già nel mapping)
+                'fet': 'fet'      // Mantieni fet (già nel mapping)
             };
             
             if (symbolVariants[normalizedSymbol]) {
                 normalizedSymbol = symbolVariants[normalizedSymbol];
+            }
+            
+            // ✅ FIX: Se il simbolo normalizzato non è nel mapping, prova con il simbolo originale
+            if (!SYMBOL_TO_PAIR[normalizedSymbol] && SYMBOL_TO_PAIR[pos.symbol]) {
+                normalizedSymbol = pos.symbol;
             }
             
             // ✅ FIX CRITICO: Recupera il prezzo corrente per questa posizione da Binance
@@ -3338,24 +3345,42 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
             }
 
             let entryPrice = parseFloat(pos.entry_price);
-
-            // ✅ FIX CRITICO: Rileva e converte entry_price da EUR a USDT se necessario
-            // Se entry_price è significativamente più basso di currentPrice (>15% differenza),
-            // probabilmente è in EUR e va convertito
-            const priceRatio = entryPrice > 0 ? currentPrice / entryPrice : 0;
             const EUR_TO_USDT_RATE = 1.08; // Tasso approssimativo
 
-            if (priceRatio > 1.15 && entryPrice < currentPrice * 0.85) {
-                // Probabilmente entry_price è in EUR, converti a USDT
-                const convertedEntryPrice = entryPrice * EUR_TO_USDT_RATE;
-                console.warn(`⚠️ [CURRENCY-FIX] ${pos.ticket_id} (${pos.symbol}): entry_price sembra in EUR (${entryPrice.toFixed(6)}), convertendo a USDT (${convertedEntryPrice.toFixed(6)})`);
-                entryPrice = convertedEntryPrice;
+            // ✅ FIX CRITICO: Rileva e converte entry_price e current_price da EUR a USDT se necessario
+            // Se currentPrice da Binance è significativamente più alto di entryPrice,
+            // potrebbe essere che entry_price è in EUR
+            if (entryPrice > 0 && currentPrice > 0) {
+                const entryInUSDT = entryPrice * EUR_TO_USDT_RATE;
+                const priceDiff = Math.abs(currentPrice - entryInUSDT) / currentPrice;
+                
+                // Se entry_price * 1.08 ≈ currentPrice (differenza < 5%), probabilmente entry_price è in EUR
+                if (priceDiff < 0.05 && entryPrice < currentPrice * 0.95) {
+                    // Probabilmente entry_price è in EUR, converti a USDT
+                    const convertedEntryPrice = entryPrice * EUR_TO_USDT_RATE;
+                    console.warn(`⚠️ [CURRENCY-FIX] ${pos.ticket_id} (${pos.symbol}): entry_price sembra in EUR (${entryPrice.toFixed(6)}), convertendo a USDT (${convertedEntryPrice.toFixed(6)})`);
+                    entryPrice = convertedEntryPrice;
 
-                // ✅ AGGIORNA entry_price nel database per evitare riconversioni future
-                await dbRun(
-                    "UPDATE open_positions SET entry_price = ? WHERE ticket_id = ?",
-                    [convertedEntryPrice, pos.ticket_id]
-                );
+                    // ✅ AGGIORNA entry_price nel database per evitare riconversioni future
+                    await dbRun(
+                        "UPDATE open_positions SET entry_price = ? WHERE ticket_id = ?",
+                        [convertedEntryPrice, pos.ticket_id]
+                    );
+                }
+            }
+            
+            // ✅ FIX CRITICO: Verifica anche se current_price nel database è in EUR
+            // Se current_price nel DB * 1.08 ≈ currentPrice da Binance, allora current_price nel DB è in EUR
+            const dbCurrentPrice = parseFloat(pos.current_price) || 0;
+            if (dbCurrentPrice > 0 && currentPrice > 0) {
+                const dbCurrentInUSDT = dbCurrentPrice * EUR_TO_USDT_RATE;
+                const currentPriceDiff = Math.abs(currentPrice - dbCurrentInUSDT) / currentPrice;
+                
+                // Se current_price nel DB * 1.08 ≈ currentPrice da Binance (differenza < 5%), allora è in EUR
+                if (currentPriceDiff < 0.05 && dbCurrentPrice < currentPrice * 0.95) {
+                    console.warn(`⚠️ [CURRENCY-FIX] ${pos.ticket_id} (${pos.symbol}): current_price nel DB sembra in EUR (${dbCurrentPrice.toFixed(6)}), prezzo reale USDT: ${currentPrice.toFixed(6)}`);
+                    // Il prezzo verrà aggiornato con il valore corretto in USDT più sotto
+                }
             }
 
             let pnl = 0;
