@@ -196,7 +196,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                                             <div className="trade-row">
                                                 <span className="trade-type">{pos.type.toUpperCase()}</span>
                                                 <span className="trade-price">
-                                                    ${pos.entry_price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
+                                                    ${pos.entry_price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </span>
                                             </div>
                                             <div className="trade-row">

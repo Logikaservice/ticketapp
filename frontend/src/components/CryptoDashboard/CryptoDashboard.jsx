@@ -246,7 +246,7 @@ const CryptoDashboard = () => {
 
             if (res.ok) {
                 const result = await res.json();
-                alert(`✅ Fondi aggiunti con successo!\n\nImporto: $${amount} USDT\nNuovo saldo: $${result.new_balance.toFixed(2)} USDT`);
+                alert(`✅ Fondi aggiunti con successo!\n\nImporto: $${amount}\nNuovo saldo: $${result.new_balance.toFixed(2)}`);
                 // Refresh data
                 fetchData();
                 setShowAddFundsModal(false);
@@ -524,7 +524,7 @@ const CryptoDashboard = () => {
 
             // ✅ FIX CRITICO: Valida che il prezzo sia ragionevole
             if (price > MAX_REASONABLE_PRICE) {
-                console.error(`🚨 [BALANCE] Prezzo anomale per ${pos.symbol}: $${price.toLocaleString()} USDT. Usando entry_price come fallback.`);
+                console.error(`🚨 [BALANCE] Prezzo anomale per ${pos.symbol}: $${price.toLocaleString()}. Usando entry_price come fallback.`);
                 // Usa entry_price come fallback se il prezzo è anomale
                 const fallbackPrice = parseFloat(pos.entry_price) || 0;
                 if (fallbackPrice > 0 && fallbackPrice <= MAX_REASONABLE_PRICE) {
@@ -539,7 +539,7 @@ const CryptoDashboard = () => {
                 const longValue = remainingVolume * price;
                 // ✅ FIX: Valida che il valore calcolato sia ragionevole
                 if (longValue > MAX_REASONABLE_BALANCE) {
-                    console.error(`🚨 [BALANCE] Valore LONG anomale per ${pos.ticket_id}: $${longValue.toLocaleString()} USDT. Skipping.`);
+                    console.error(`🚨 [BALANCE] Valore LONG anomale per ${pos.ticket_id}: $${longValue.toLocaleString()}. Skipping.`);
                     return;
                 }
                 totalLongValue += longValue;
@@ -550,7 +550,7 @@ const CryptoDashboard = () => {
 
                 // ✅ FIX: Valida entry_price
                 if (entryPrice > MAX_REASONABLE_PRICE) {
-                    console.error(`🚨 [BALANCE] Entry price anomale per SHORT ${pos.ticket_id}: $${entryPrice.toLocaleString()} USDT. Skipping.`);
+                    console.error(`🚨 [BALANCE] Entry price anomale per SHORT ${pos.ticket_id}: $${entryPrice.toLocaleString()}. Skipping.`);
                     return;
                 }
 
@@ -558,7 +558,7 @@ const CryptoDashboard = () => {
                     const shortLiability = remainingVolume * entryPrice;
                     // ✅ FIX: Valida che il valore calcolato sia ragionevole
                     if (shortLiability > MAX_REASONABLE_BALANCE) {
-                        console.error(`🚨 [BALANCE] Valore SHORT anomale per ${pos.ticket_id}: $${shortLiability.toLocaleString()} USDT. Skipping.`);
+                        console.error(`🚨 [BALANCE] Valore SHORT anomale per ${pos.ticket_id}: $${shortLiability.toLocaleString()}. Skipping.`);
                         return;
                     }
                     totalShortLiability += shortLiability;
@@ -585,7 +585,7 @@ const CryptoDashboard = () => {
 
     let validatedBalance = rawBalance;
     if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
-        console.error(`🚨 [BALANCE] Valore anomale di balance_usd: $${rawBalance.toLocaleString()} USDT. Usando fallback: $10000 USDT`);
+        console.error(`🚨 [BALANCE] Valore anomale di balance_usd: $${rawBalance.toLocaleString()}. Usando fallback: $10000`);
         validatedBalance = 10000; // Fallback a 10k USDT
     }
 
@@ -620,7 +620,7 @@ const CryptoDashboard = () => {
             // ✅ FIX: Valida valori anomali (evita errori di calcolo)
             const MAX_REASONABLE_PNL = 1000000; // 1 milione USDT max
             if (Math.abs(positionPnL) > MAX_REASONABLE_PNL) {
-                console.warn(`⚠️ [P&L] Skipping anomalous profit_loss for position ${pos.ticket_id}: $${positionPnL.toFixed(2)} USDT`);
+                console.warn(`⚠️ [P&L] Skipping anomalous profit_loss for position ${pos.ticket_id}: $${positionPnL.toFixed(2)}`);
                 return;
             }
 
@@ -757,7 +757,7 @@ const CryptoDashboard = () => {
             <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.8fr 0.6fr', gap: '20px', marginBottom: '20px' }}>
                 <div className="balance-card" style={{ marginBottom: 0 }}>
                     <div className="balance-label">Total Balance (Available Cash)</div>
-                    <div className="balance-amount">${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</div>
+                    <div className="balance-amount">${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     <div className="balance-change change-positive">
                         <ArrowUpRight size={16} /> +2.4% Today
                     </div>
@@ -766,12 +766,12 @@ const CryptoDashboard = () => {
                 <div className="balance-card" style={{ marginBottom: 0, background: 'linear-gradient(145deg, #1c1c1e, #2a2a2d)' }}>
                     <div className="balance-label">Open Position P&L</div>
                     <div className={`balance-amount ${pnlValue >= 0 ? 'text-green-500' : 'text-red-500'}`} style={{ fontSize: '2.5rem' }}>
-                        {pnlValue >= 0 ? '+' : ''}${pnlValue.toFixed(2)} USDT
+                        {pnlValue >= 0 ? '+' : ''}${pnlValue.toFixed(2)}
                     </div>
                     <div style={{ color: pnlValue >= 0 ? '#4ade80' : '#f87171', fontWeight: 'bold' }}>
                         {pnlValue >= 0 ? '▲' : '▼'} {pnlPercent.toFixed(2)}%
                         <span style={{ color: '#9ca3af', marginLeft: '10px', fontSize: '0.9rem', fontWeight: 'normal' }}>
-                            (Avg: ${avgPrice.toFixed(2)} USDT)
+                            (Avg: ${avgPrice.toFixed(2)})
                         </span>
                     </div>
                 </div>
@@ -1163,7 +1163,7 @@ const CryptoDashboard = () => {
                                             if (closePrice > MAX_REASONABLE_PRICE || closePrice <= 0 || isPriceAnomalous) {
                                                 // ✅ FIX: Per SAND, se entry è $0.12 e close è $77246, usa entry
                                                 closePrice = entryPrice;
-                                                console.warn(`   → Prezzo chiusura anomale (ratio: ${priceRatio.toFixed(2)}x), uso entry price: $${entryPrice.toFixed(6)} USDT`);
+                                                console.warn(`   → Prezzo chiusura anomale (ratio: ${priceRatio.toFixed(2)}x), uso entry price: $${entryPrice.toFixed(6)}`);
                                             }
 
                                             // Ricalcola P&L
@@ -1193,7 +1193,7 @@ const CryptoDashboard = () => {
                                     // ✅ FIX: Formato unificato P&L: sempre +$X.XX o -$X.XX USDT (segno prima del simbolo)
                                     const displayPnl = (
                                         <span style={{ color: pnl >= 0 ? '#4ade80' : '#ef4444', fontWeight: 'bold' }}>
-                                            {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)} USDT
+                                            {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
                                         </span>
                                     );
 
@@ -1215,13 +1215,13 @@ const CryptoDashboard = () => {
                                                 </span>
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
-                                                ${closePrice > 1000000 ? entryPrice.toFixed(2) : closePrice.toFixed(2)} USDT
+                                                ${closePrice > 1000000 ? entryPrice.toFixed(2) : closePrice.toFixed(2)}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
                                                 {volume.toFixed(4)}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#9ca3af' }}>
-                                                ${totalValue.toFixed(2)} USDT
+                                                ${totalValue.toFixed(2)}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right' }}>
                                                 {displayPnl}
@@ -1441,7 +1441,7 @@ const CryptoDashboard = () => {
                                             e.target.style.borderColor = '#4b5563';
                                         }}
                                     >
-                                        ${amount} USDT
+                                        ${amount}
                                     </button>
                                 ))}
                             </div>

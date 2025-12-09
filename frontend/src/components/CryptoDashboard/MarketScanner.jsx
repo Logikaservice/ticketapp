@@ -109,7 +109,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                             {item.display}
                                         </td>
                                         <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
-                                            ${item.price.toFixed(4)} USDT
+                                            ${item.price.toFixed(4)}
                                         </td>
                                         <td style={{ padding: '10px', textAlign: 'right' }}>
                                             {(() => {

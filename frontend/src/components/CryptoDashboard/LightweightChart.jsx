@@ -454,7 +454,7 @@ const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, p
                 lineWidth: 2,
                 lineStyle: 2, // Dashed
                 axisLabelVisible: true,
-                title: `$${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`,
+                title: `$${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
             });
             priceLinesRef.current.push(currentPriceLine);
         } catch (e) {
@@ -474,7 +474,7 @@ const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, p
                             lineWidth: 1,
                             lineStyle: 0, // Solid
                             axisLabelVisible: true,
-                            title: `Entry ${isBuy ? 'BUY' : 'SELL'}: $${entryPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`,
+                            title: `Entry ${isBuy ? 'BUY' : 'SELL'}: $${entryPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
                         });
                         priceLinesRef.current.push(entryLine);
                     } catch (e) {
@@ -586,7 +586,7 @@ const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, p
                                         <div className="trade-row">
                                             <span className="trade-type">{trade.type.toUpperCase()}</span>
                                             <span className="trade-price">
-                                                ${parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
+                                                ${parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </span>
                                         </div>
                                         <div className="trade-row">
@@ -658,7 +658,7 @@ const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, p
             {/* Current Price Display */}
             {currentPrice > 0 && (
                 <div className="current-price-display">
-                    1 BTC = ${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
+                    1 BTC = ${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
             )}
 

@@ -70,7 +70,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                             fontWeight: '600',
                             color: totalPnL >= 0 ? '#10b981' : '#ef4444'
                         }}>
-                            {totalPnL >= 0 ? '+' : ''}${(totalPnL || 0).toFixed(2)} USDT
+                            {totalPnL >= 0 ? '+' : ''}${(totalPnL || 0).toFixed(2)}
                         </div>
                     </div>
                     {isUpdating && (
@@ -214,7 +214,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                         {(volume || 0).toFixed(4)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600', color: '#fbbf24' }}>
-                                        ${((entryPrice || 0) * (volume || 0)).toFixed(2)} USDT
+                                        ${((entryPrice || 0) * (volume || 0)).toFixed(2)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#9ca3af' }}>
                                         {entryPrice > 0 ? (
@@ -267,7 +267,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                         fontWeight: '600',
                                         color: pnl >= 0 ? '#10b981' : '#ef4444'
                                     }}>
-                                        {pnl >= 0 ? '+' : ''}${(pnl || 0).toFixed(2)} USDT
+                                        {pnl >= 0 ? '+' : ''}${(pnl || 0).toFixed(2)}
                                     </td>
                                     <td style={{
                                         padding: '10px 8px',
