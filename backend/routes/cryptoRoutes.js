@@ -6302,6 +6302,300 @@ router.get('/bot-analysis', async (req, res) => {
                 takeProfitPct: params.take_profit_pct,
                 tradeSizeEur: params.trade_size_eur
             },
+            // 🎯 READINESS ANALYSIS - Cosa vede il bot e perché (non) apre
+            readiness: {
+                long: (() => {
+                    const analysis = {
+                        canOpen: longMeetsRequirements && canOpenCheck.allowed,
+                        status: 'not_ready', // 'ready', 'waiting', 'blocked'
+                        positiveSignals: [], // Cosa è positivo
+                        missingRequirements: [], // Cosa manca
+                        professionalFilters: [], // Filtri professionali attivi
+                        summary: ''
+                    };
+
+                    // 1. SEGNALI POSITIVI (cosa vede di buono)
+                    if (longStrengthContributions.length > 0) {
+                        longStrengthContributions.forEach(contrib => {
+                            analysis.positiveSignals.push({
+                                indicator: contrib.indicator,
+                                points: contrib.points,
+                                reason: contrib.reason,
+                                emoji: '✅'
+                            });
+                        });
+                    }
+
+                    // 2. COSA MANCA (requirements non soddisfatti)
+                    if (longNeedsStrength > 0) {
+                        analysis.missingRequirements.push({
+                            type: 'Strength',
+                            current: longAdjustedStrength,
+                            required: LONG_MIN_STRENGTH,
+                            missing: longNeedsStrength,
+                            message: `Serve +${longNeedsStrength} punti di strength (${longAdjustedStrength}/${LONG_MIN_STRENGTH})`,
+                            emoji: '⏳'
+                        });
+                    }
+
+                    if (longNeedsConfirmations > 0) {
+                        analysis.missingRequirements.push({
+                            type: 'Confirmations',
+                            current: longCurrentConfirmations,
+                            required: LONG_MIN_CONFIRMATIONS,
+                            missing: longNeedsConfirmations,
+                            message: `Serve ${longNeedsConfirmations} conferme in più (${longCurrentConfirmations}/${LONG_MIN_CONFIRMATIONS})`,
+                            emoji: '⏳'
+                        });
+                    }
+
+                    // 3. FILTRI PROFESSIONALI (da signal.professionalAnalysis se disponibile)
+                    if (signal.professionalAnalysis) {
+                        const prof = signal.professionalAnalysis;
+
+                        // Momentum Quality
+                        if (prof.momentumQuality) {
+                            if (!prof.momentumQuality.isHealthy && longAdjustedStrength > 0) {
+                                analysis.professionalFilters.push({
+                                    type: 'Momentum Quality',
+                                    status: 'warning',
+                                    score: prof.momentumQuality.score,
+                                    warnings: prof.momentumQuality.warnings,
+                                    message: `Momentum quality: ${prof.momentumQuality.score}/100 - ${prof.momentumQuality.warnings.join(', ')}`,
+                                    emoji: '⚠️'
+                                });
+                            } else if (prof.momentumQuality.isHealthy && longAdjustedStrength > 0) {
+                                analysis.professionalFilters.push({
+                                    type: 'Momentum Quality',
+                                    status: 'ok',
+                                    score: prof.momentumQuality.score,
+                                    message: `Momentum quality: ${prof.momentumQuality.score}/100 - Healthy`,
+                                    emoji: '✅'
+                                });
+                            }
+                        }
+
+                        // Reversal Risk
+                        if (prof.reversalRisk) {
+                            if (prof.reversalRisk.risk === 'high' || prof.reversalRisk.risk === 'medium') {
+                                analysis.professionalFilters.push({
+                                    type: 'Reversal Risk',
+                                    status: 'warning',
+                                    risk: prof.reversalRisk.risk,
+                                    score: prof.reversalRisk.score,
+                                    reasons: prof.reversalRisk.reasons,
+                                    message: `Reversal risk: ${prof.reversalRisk.risk.toUpperCase()} (${prof.reversalRisk.score}/100) - ${prof.reversalRisk.reasons[0] || ''}`,
+                                    emoji: '🚫'
+                                });
+                            } else if (prof.reversalRisk.risk === 'low') {
+                                analysis.professionalFilters.push({
+                                    type: 'Reversal Risk',
+                                    status: 'ok',
+                                    risk: prof.reversalRisk.risk,
+                                    score: prof.reversalRisk.score,
+                                    message: `Reversal risk: LOW (${prof.reversalRisk.score}/100)`,
+                                    emoji: '✅'
+                                });
+                            }
+                        }
+
+                        // Market Structure
+                        if (prof.marketStructure && prof.marketStructure.nearestResistance) {
+                            const distancePct = (prof.marketStructure.nearestResistance.distance * 100).toFixed(2);
+                            if (prof.marketStructure.nearestResistance.distance < 0.02) {
+                                analysis.professionalFilters.push({
+                                    type: 'Market Structure',
+                                    status: 'warning',
+                                    message: `Vicino a resistenza (${distancePct}% distanza) a €${prof.marketStructure.nearestResistance.price.toFixed(2)}`,
+                                    emoji: '⚠️'
+                                });
+                            } else {
+                                analysis.professionalFilters.push({
+                                    type: 'Market Structure',
+                                    status: 'ok',
+                                    message: `Resistenza a ${distancePct}% distanza (€${prof.marketStructure.nearestResistance.price.toFixed(2)})`,
+                                    emoji: '✅'
+                                });
+                            }
+                        }
+
+                        // Risk/Reward
+                        if (prof.riskReward) {
+                            if (!prof.riskReward.isAcceptable) {
+                                analysis.professionalFilters.push({
+                                    type: 'Risk/Reward',
+                                    status: 'warning',
+                                    ratio: prof.riskReward.ratio,
+                                    message: `R/R ratio: 1:${prof.riskReward.ratio.toFixed(2)} (minimo 1:1.5 richiesto)`,
+                                    emoji: '⚠️'
+                                });
+                            } else {
+                                analysis.professionalFilters.push({
+                                    type: 'Risk/Reward',
+                                    status: 'ok',
+                                    ratio: prof.riskReward.ratio,
+                                    message: `R/R ratio: 1:${prof.riskReward.ratio.toFixed(2)} ✅`,
+                                    emoji: '✅'
+                                });
+                            }
+                        }
+                    }
+
+                    // 4. DETERMINA STATUS E SUMMARY
+                    if (analysis.canOpen) {
+                        analysis.status = 'ready';
+                        analysis.summary = `✅ PRONTO AD APRIRE LONG - Tutti i requisiti soddisfatti (Strength: ${longAdjustedStrength}/${LONG_MIN_STRENGTH}, Confirmations: ${longCurrentConfirmations}/${LONG_MIN_CONFIRMATIONS})`;
+                    } else if (analysis.missingRequirements.length > 0) {
+                        analysis.status = 'waiting';
+                        const missing = analysis.missingRequirements.map(m => m.message).join(', ');
+                        analysis.summary = `⏳ IN ATTESA - ${missing}`;
+                    } else if (analysis.professionalFilters.some(f => f.status === 'warning')) {
+                        analysis.status = 'blocked';
+                        const warnings = analysis.professionalFilters.filter(f => f.status === 'warning').map(f => f.message).join(', ');
+                        analysis.summary = `🚫 BLOCCATO DA FILTRI PROFESSIONALI - ${warnings}`;
+                    } else {
+                        analysis.status = 'blocked';
+                        analysis.summary = longReason;
+                    }
+
+                    return analysis;
+                })(),
+                short: (() => {
+                    const analysis = {
+                        canOpen: shortMeetsRequirements && canOpenCheck.allowed,
+                        status: 'not_ready',
+                        positiveSignals: [],
+                        missingRequirements: [],
+                        professionalFilters: [],
+                        summary: ''
+                    };
+
+                    // 1. SEGNALI POSITIVI
+                    if (shortStrengthContributions.length > 0) {
+                        shortStrengthContributions.forEach(contrib => {
+                            analysis.positiveSignals.push({
+                                indicator: contrib.indicator,
+                                points: contrib.points,
+                                reason: contrib.reason,
+                                emoji: '✅'
+                            });
+                        });
+                    }
+
+                    // 2. COSA MANCA
+                    if (shortNeedsStrength > 0) {
+                        analysis.missingRequirements.push({
+                            type: 'Strength',
+                            current: shortAdjustedStrength,
+                            required: SHORT_MIN_STRENGTH,
+                            missing: shortNeedsStrength,
+                            message: `Serve +${shortNeedsStrength} punti di strength (${shortAdjustedStrength}/${SHORT_MIN_STRENGTH})`,
+                            emoji: '⏳'
+                        });
+                    }
+
+                    if (shortNeedsConfirmations > 0) {
+                        analysis.missingRequirements.push({
+                            type: 'Confirmations',
+                            current: shortCurrentConfirmations,
+                            required: SHORT_MIN_CONFIRMATIONS,
+                            missing: shortNeedsConfirmations,
+                            message: `Serve ${shortNeedsConfirmations} conferme in più (${shortCurrentConfirmations}/${SHORT_MIN_CONFIRMATIONS})`,
+                            emoji: '⏳'
+                        });
+                    }
+
+                    // 3. FILTRI PROFESSIONALI
+                    if (signal.professionalAnalysis) {
+                        const prof = signal.professionalAnalysis;
+
+                        // Momentum Quality
+                        if (prof.momentumQuality) {
+                            if (!prof.momentumQuality.isHealthy && shortAdjustedStrength > 0) {
+                                analysis.professionalFilters.push({
+                                    type: 'Momentum Quality',
+                                    status: 'warning',
+                                    score: prof.momentumQuality.score,
+                                    warnings: prof.momentumQuality.warnings,
+                                    message: `Momentum quality: ${prof.momentumQuality.score}/100 - ${prof.momentumQuality.warnings.join(', ')}`,
+                                    emoji: '⚠️'
+                                });
+                            } else if (prof.momentumQuality.isHealthy && shortAdjustedStrength > 0) {
+                                analysis.professionalFilters.push({
+                                    type: 'Momentum Quality',
+                                    status: 'ok',
+                                    score: prof.momentumQuality.score,
+                                    message: `Momentum quality: ${prof.momentumQuality.score}/100 - Healthy`,
+                                    emoji: '✅'
+                                });
+                            }
+                        }
+
+                        // Reversal Risk
+                        if (prof.reversalRisk) {
+                            if (prof.reversalRisk.risk === 'high' || prof.reversalRisk.risk === 'medium') {
+                                analysis.professionalFilters.push({
+                                    type: 'Reversal Risk',
+                                    status: 'warning',
+                                    risk: prof.reversalRisk.risk,
+                                    score: prof.reversalRisk.score,
+                                    reasons: prof.reversalRisk.reasons,
+                                    message: `Reversal risk: ${prof.reversalRisk.risk.toUpperCase()} (${prof.reversalRisk.score}/100) - ${prof.reversalRisk.reasons[0] || ''}`,
+                                    emoji: '🚫'
+                                });
+                            } else if (prof.reversalRisk.risk === 'low') {
+                                analysis.professionalFilters.push({
+                                    type: 'Reversal Risk',
+                                    status: 'ok',
+                                    risk: prof.reversalRisk.risk,
+                                    score: prof.reversalRisk.score,
+                                    message: `Reversal risk: LOW (${prof.reversalRisk.score}/100)`,
+                                    emoji: '✅'
+                                });
+                            }
+                        }
+
+                        // Market Structure
+                        if (prof.marketStructure && prof.marketStructure.nearestSupport) {
+                            const distancePct = (prof.marketStructure.nearestSupport.distance * 100).toFixed(2);
+                            if (prof.marketStructure.nearestSupport.distance < 0.02) {
+                                analysis.professionalFilters.push({
+                                    type: 'Market Structure',
+                                    status: 'warning',
+                                    message: `Vicino a supporto (${distancePct}% distanza) a €${prof.marketStructure.nearestSupport.price.toFixed(2)}`,
+                                    emoji: '⚠️'
+                                });
+                            } else {
+                                analysis.professionalFilters.push({
+                                    type: 'Market Structure',
+                                    status: 'ok',
+                                    message: `Supporto a ${distancePct}% distanza (€${prof.marketStructure.nearestSupport.price.toFixed(2)})`,
+                                    emoji: '✅'
+                                });
+                            }
+                        }
+                    }
+
+                    // 4. DETERMINA STATUS E SUMMARY
+                    if (analysis.canOpen) {
+                        analysis.status = 'ready';
+                        analysis.summary = `✅ PRONTO AD APRIRE SHORT - Tutti i requisiti soddisfatti (Strength: ${shortAdjustedStrength}/${SHORT_MIN_STRENGTH}, Confirmations: ${shortCurrentConfirmations}/${SHORT_MIN_CONFIRMATIONS})`;
+                    } else if (analysis.missingRequirements.length > 0) {
+                        analysis.status = 'waiting';
+                        const missing = analysis.missingRequirements.map(m => m.message).join(', ');
+                        analysis.summary = `⏳ IN ATTESA - ${missing}`;
+                    } else if (analysis.professionalFilters.some(f => f.status === 'warning')) {
+                        analysis.status = 'blocked';
+                        const warnings = analysis.professionalFilters.filter(f => f.status === 'warning').map(f => f.message).join(', ');
+                        analysis.summary = `🚫 BLOCCATO DA FILTRI PROFESSIONALI - ${warnings}`;
+                    } else {
+                        analysis.status = 'blocked';
+                        analysis.summary = shortReason;
+                    }
+
+                    return analysis;
+                })()
+            },
             blockers: {
                 long: (() => {
                     const blocks = [];
