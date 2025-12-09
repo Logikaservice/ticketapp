@@ -96,11 +96,6 @@ const CryptoDashboard = () => {
             if (res.ok) {
                 const data = await res.json();
                 // Dashboard data received logging removed
-                    portfolio: data.portfolio,
-                    tradesCount: data.recent_trades?.length || 0,
-                    allTradesCount: data.all_trades?.length || 0,
-                    openPositionsCount: data.open_positions?.length || 0
-                });
                 setPortfolio({ ...data.portfolio, rsi: data.rsi });
                 setTrades(data.recent_trades || []);
                 setAllTrades(data.all_trades || []); // Store full history for chart
