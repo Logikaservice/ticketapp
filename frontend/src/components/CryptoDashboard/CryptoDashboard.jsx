@@ -1053,68 +1053,6 @@ const CryptoDashboard = () => {
 
             {/* Kelly Criterion rimosso - ora usiamo Fixed Position Sizing */}
 
-            {/* PERFORMANCE ANALYTICS */}
-            {performanceAnalytics && (
-                <div className="crypto-card" style={{ marginTop: '20px' }}>
-                    <div className="card-title">
-                        <TrendingUp size={20} className="text-blue-400" />
-                        Portfolio Performance Analytics
-                    </div>
-                    
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginTop: '15px' }}>
-                        {['daily', 'weekly', 'monthly', 'yearly', 'all_time'].map(period => {
-                            const stats = performanceAnalytics[period];
-                            if (!stats) return null;
-                            
-                            const periodLabel = {
-                                'daily': 'Today',
-                                'weekly': 'This Week',
-                                'monthly': 'This Month',
-                                'yearly': 'This Year',
-                                'all_time': 'All Time'
-                            }[period];
-                            
-                            const isPositive = stats.net_profit >= 0;
-                            
-                            return (
-                                <div key={period} style={{ 
-                                    background: '#1f2937', 
-                                    padding: '15px', 
-                                    borderRadius: '8px', 
-                                    border: '1px solid #374151',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '5px'
-                                }}>
-                                    <div style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: '5px' }}>{periodLabel}</div>
-                                    <div style={{ 
-                                        fontSize: '1.5rem', 
-                                        fontWeight: 'bold', 
-                                        color: isPositive ? '#10b981' : '#ef4444' 
-                                    }}>
-                                        {isPositive ? '+' : ''}{parseFloat(stats.net_profit).toFixed(2)} $
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                                        <span style={{ color: '#d1d5db' }}>ROI:</span>
-                                        <span style={{ color: stats.roi_percent >= 0 ? '#34d399' : '#f87171', fontWeight: 'bold' }}>
-                                            {parseFloat(stats.roi_percent).toFixed(2)}%
-                                        </span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                                        <span style={{ color: '#d1d5db' }}>Win Rate:</span>
-                                        <span style={{ color: '#fbbf24' }}>{parseFloat(stats.win_rate).toFixed(1)}%</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                                        <span style={{ color: '#d1d5db' }}>Trades:</span>
-                                        <span style={{ color: '#fff' }}>{stats.total_trades} ({stats.winning_trades}W/{stats.losing_trades}L)</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-
             {/* RECENT TRADES HISTORY */}
             <div className="crypto-card" style={{ marginTop: '20px' }}>
                 <div className="card-title">
