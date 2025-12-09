@@ -1059,7 +1059,6 @@ const CryptoDashboard = () => {
                 onSelectSymbol={(symbol) => {
                     setCurrentSymbol(symbol);
                     setPriceData([]);
-                    setApexHistory([]);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
             />
