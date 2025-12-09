@@ -5676,13 +5676,39 @@ router.get('/bot-analysis', async (req, res) => {
         // Se non ci sono klines, usa price_history
         let historyForSignal = [];
         if (priceHistoryData && priceHistoryData.length > 0) {
-            historyForSignal = priceHistoryData.reverse().map(row => ({
-                price: parseFloat(row.close_price),
-                high: parseFloat(row.high_price),
-                low: parseFloat(row.low_price),
-                close: parseFloat(row.close_price),
-                timestamp: new Date(row.open_time).toISOString()
-            }));
+            historyForSignal = priceHistoryData.reverse().map(row => {
+                // ✅ FIX CRITICO: Gestisci correttamente open_time da PostgreSQL
+                // PostgreSQL può restituire timestamp come numero (bigint) o come stringa
+                let timestamp;
+                try {
+                    const openTime = row.open_time;
+                    if (typeof openTime === 'number') {
+                        // Se è un numero (timestamp in millisecondi o secondi)
+                        timestamp = new Date(openTime > 1000000000000 ? openTime : openTime * 1000).toISOString();
+                    } else if (typeof openTime === 'string') {
+                        // Se è una stringa, prova a parsarla
+                        timestamp = new Date(openTime).toISOString();
+                    } else if (openTime instanceof Date) {
+                        // Se è già un oggetto Date
+                        timestamp = openTime.toISOString();
+                    } else {
+                        // Fallback: usa timestamp corrente
+                        console.warn(`⚠️ [BOT-ANALYSIS] open_time non valido per riga:`, row);
+                        timestamp = new Date().toISOString();
+                    }
+                } catch (e) {
+                    console.error(`❌ [BOT-ANALYSIS] Errore conversione timestamp:`, e.message, 'open_time:', row.open_time);
+                    timestamp = new Date().toISOString();
+                }
+                
+                return {
+                    price: parseFloat(row.close_price) || 0,
+                    high: parseFloat(row.high_price) || 0,
+                    low: parseFloat(row.low_price) || 0,
+                    close: parseFloat(row.close_price) || 0,
+                    timestamp: timestamp
+                };
+            });
         } else {
             const priceHistoryRows = await dbAll(
                 "SELECT price, timestamp FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 100",
