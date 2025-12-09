@@ -14,15 +14,29 @@
     gap: 0;
     align-items: stretch;
     width: 100%;
-    min-height: 500px;
+    min-height: 750px;
 }
 
 .tradingview-chart-wrapper {
     flex: 1;
     min-width: 0;
-    height: 500px;
+    height: 750px;
     position: relative;
-    overflow: visible; /* Permette ai marker di essere visibili */
+    overflow: visible; /* Permette ai markers di essere visibili */
+}
+
+/* ... */
+
+.trades-legend-right {
+    width: 300px;
+    flex-shrink: 0;
+    padding: 15px;
+    background: #27272a;
+    border-left: 1px solid #3f3f46;
+    height: 750px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
 }
 
 .trade-markers-overlay {
