@@ -73,7 +73,7 @@ const ApexChart = ({
         // Prepare markers for open positions (entry points)
         const markers = [];
         if (openPositions && openPositions.length > 0) {
-            console.log(`📊 [ApexChart] Preparando marker per ${openPositions.length} posizioni aperte`);
+            // Preparing markers for open positions
             openPositions.forEach((pos, index) => {
                 // ✅ FIX: Usa opened_at (campo corretto dal database) invece di entry_time o Date.now()
                 const entryTime = pos.opened_at ? new Date(pos.opened_at).getTime() :
@@ -89,7 +89,7 @@ const ApexChart = ({
 
                 const entryPrice = parseFloat(pos.entry_price || pos.price || 0);
                 if (entryPrice > 0) {
-                    console.log(`📍 [ApexChart] Marker ${index + 1}: ${pos.symbol} @ $${entryPrice.toFixed(6)} USDT, time: ${new Date(entryTime).toLocaleString()}`);
+                    // Marker created for position
                     markers.push({
                         x: entryTime,
                         y: entryPrice,
@@ -122,8 +122,8 @@ const ApexChart = ({
                 }
             });
         }
-        
-        console.log(`✅ [ApexChart] Creati ${markers.length} marker per il grafico`);
+
+        // Markers created successfully
 
         const options = {
             chart: {

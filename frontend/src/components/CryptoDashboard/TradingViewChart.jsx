@@ -23,12 +23,12 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
         // Map symbol to TradingView format
         // ✅ FIX: Normalizza simboli comuni e gestisci EUR -> USDT
         let normalizedSymbol = symbol;
-        
+
         // Converti EUR a USDT se presente
         if (symbol.includes('EUR')) {
             normalizedSymbol = symbol.replace('EUR', 'USDT');
         }
-        
+
         // Mappa simboli comuni a formato TradingView
         const symbolMap = {
             'BTCUSDT': 'BTCUSDT',
@@ -50,7 +50,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
             'BNBUSDT': 'BNBUSDT',
             'BNBEUR': 'BNBUSDT'
         };
-        
+
         normalizedSymbol = symbolMap[normalizedSymbol] || normalizedSymbol;
         const tradingViewSymbol = `BINANCE:${normalizedSymbol}`;
 
@@ -89,11 +89,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
         script.innerHTML = JSON.stringify(widgetConfig);
         container.appendChild(script);
 
-        console.log('📊 TradingView Widget inizializzato:', {
-            container_id: uniqueId,
-            hide_top_toolbar: widgetConfig.hide_top_toolbar,
-            symbol: widgetConfig.symbol
-        });
+        // TradingView Widget initialized
 
         return () => {
             if (containerRef.current && container.parentNode) {
@@ -135,15 +131,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                 strategy: pos.strategy || 'Bot'
             }));
 
-        console.log('🔍 TradingViewChart - Posizioni aperte:', {
-            totalOpenPositions: positions.length,
-            positions: positions.map(p => ({
-                ticket_id: p.ticket_id,
-                type: p.type,
-                entry_price: p.entry_price,
-                timestamp: p.timestamp
-            }))
-        });
+        // Open positions loaded
 
         return positions;
     }, [openPositions]);

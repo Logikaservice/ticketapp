@@ -52,12 +52,7 @@ const BotAnalysisPageNew = () => {
             setError(null);
             setLoading(false);
 
-            console.log(`🚀 [VERSIONE 3.0 - BUILD ${new Date().toLocaleDateString('it-IT')}] [${symbol}] Data fetched at ${new Date().toLocaleTimeString()} - Counter: ${counterRef.current} - AGGIORNAMENTO AUTOMATICO`, {
-                signal: jsonData.signal?.direction,
-                strength: jsonData.signal?.strength,
-                price: jsonData.currentPrice,
-                timestamp: new Date().toISOString()
-            });
+            // Data fetched successfully
         } catch (err) {
             console.error(`❌ [NUOVA VERSIONE] [${symbol}] Fetch error:`, err);
             setError(err.message);

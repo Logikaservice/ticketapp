@@ -672,24 +672,7 @@ const CryptoDashboard = () => {
 
     const unrealizedPnL = pnlValue; // Ora pnlValue è già calcolato sopra
 
-    // ✅ DEBUG: Log per verificare calcolo (solo in console, non visibile all'utente)
-    if (Math.abs(totalBalance - (validatedBalance + totalLongValue - totalShortLiability)) > 0.01) {
-        console.warn('⚠️ [BALANCE] Discrepanza nel calcolo totalBalance');
-    }
-
-    // ✅ DEBUG: Log componenti balance (solo se ci sono valori anomali)
-    if (Math.abs(validatedBalance) > 100000 || Math.abs(totalLongValue) > 100000 || Math.abs(totalShortLiability) > 100000) {
-        // Balance debug logging removed
-        console.warn('⚠️ [BALANCE] Valori anomali rilevati:', {
-            validatedBalance: validatedBalance.toFixed(2),
-            totalLongValue: totalLongValue.toFixed(2),
-            totalShortLiability: totalShortLiability.toFixed(2),
-            totalBalance: totalBalance.toFixed(2),
-            realizedPnL: realizedPnL.toFixed(2),
-            unrealizedPnL: unrealizedPnL.toFixed(2),
-            openPositionsCount: validOpenPositions.length
-        });
-    }
+    // Debug logging removed for cleaner console output
 
     // TradingView Chart doesn't need chartData preparation anymore
 
