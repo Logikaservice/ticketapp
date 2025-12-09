@@ -120,7 +120,6 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
     // Usa direttamente le posizioni aperte invece di filtrare i trades
     const displayPositions = useMemo(() => {
         if (!openPositions || openPositions.length === 0) {
-            console.log('🔍 TradingViewChart: Nessuna posizione aperta');
             return [];
         }
 

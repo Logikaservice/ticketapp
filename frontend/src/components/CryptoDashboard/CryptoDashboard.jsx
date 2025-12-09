@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Settings, BarChart2, Wallet, Maximize2, Minimize2, DollarSign } from 'lucide-react';
 import OpenPositions from './OpenPositions';
 import TradingViewChart from './TradingViewChart';
@@ -693,6 +693,22 @@ const CryptoDashboard = () => {
 
     // TradingView Chart doesn't need chartData preparation anymore
 
+    // ✅ FIX: Memorizza array filtrati per evitare ricreazioni ad ogni render
+    const filteredOpenPositions = useMemo(() => {
+        return (openPositions || []).filter(p => p.symbol === currentSymbol);
+    }, [openPositions, currentSymbol]);
+
+    const filteredTrades = useMemo(() => {
+        return (allTrades || []).filter(t => t.symbol === currentSymbol).map(trade => ({
+            type: trade.type,
+            timestamp: trade.timestamp,
+            price: typeof trade.price === 'number' ? trade.price : parseFloat(trade.price),
+            amount: typeof trade.amount === 'number' ? trade.amount : parseFloat(trade.amount),
+            strategy: trade.strategy || 'Bot',
+            ticket_id: trade.ticket_id || null
+        }));
+    }, [allTrades, currentSymbol]);
+
     return (
         <div className="crypto-dashboard">
             <div className="crypto-header" style={{ position: 'relative' }}>
@@ -969,15 +985,8 @@ const CryptoDashboard = () => {
                                 const upperSymbol = currentSymbol.toUpperCase().replace(/_/g, '');
                                 return `${upperSymbol}USDT`;
                             })()}
-                            trades={(allTrades || []).filter(t => t.symbol === currentSymbol).map(trade => ({
-                                type: trade.type,
-                                timestamp: trade.timestamp,
-                                price: typeof trade.price === 'number' ? trade.price : parseFloat(trade.price),
-                                amount: typeof trade.amount === 'number' ? trade.amount : parseFloat(trade.amount),
-                                strategy: trade.strategy || 'Bot',
-                                ticket_id: trade.ticket_id || null
-                            }))}
-                            openPositions={(openPositions || []).filter(p => p.symbol === currentSymbol)}
+                            trades={filteredTrades}
+                            openPositions={filteredOpenPositions}
                             currentPrice={currentPrice}
                             priceHistory={apexHistory.length > 0 ? apexHistory : priceData || []}
                             currentInterval={apexInterval}
@@ -1013,15 +1022,8 @@ const CryptoDashboard = () => {
                                 const upperSymbol = currentSymbol.toUpperCase().replace(/_/g, '');
                                 return `${upperSymbol}USDT`;
                             })()}
-                            trades={(allTrades || []).filter(t => t.symbol === currentSymbol).map(trade => ({
-                                type: trade.type,
-                                timestamp: trade.timestamp,
-                                price: typeof trade.price === 'number' ? trade.price : parseFloat(trade.price),
-                                amount: typeof trade.amount === 'number' ? trade.amount : parseFloat(trade.amount),
-                                strategy: trade.strategy || 'Bot',
-                                ticket_id: trade.ticket_id || null
-                            }))}
-                            openPositions={(openPositions || []).filter(p => p.symbol === currentSymbol)}
+                            trades={filteredTrades}
+                            openPositions={filteredOpenPositions}
                             currentPrice={currentPrice}
                             priceHistory={priceData || []}
                         />
