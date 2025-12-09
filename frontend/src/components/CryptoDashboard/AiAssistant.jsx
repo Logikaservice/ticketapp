@@ -72,7 +72,7 @@ const AiAssistant = ({ currentSymbol, currentPrice, apiBase }) => {
 
         // Chiamata reale al Backend AI
         try {
-            const response = await fetch(`${apiBase}/bot/ai-chat`, {
+            const response = await fetch(`${apiBase}/api/crypto/bot/ai-chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
