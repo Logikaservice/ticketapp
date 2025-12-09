@@ -6397,7 +6397,7 @@ router.get('/symbols/available', async (req, res) => {
 
 // ✅ FUNZIONE UNIFICATA per Analisi Deep (usata da Scanner e Bot Analysis)
 // Questa funzione è l'UNICA fonte di verità per il calcolo dei segnali nello Scanner
-const performUnifiedDeepAnalysis = async (symbol, currentPrice) => {
+const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = null) => {
     try {
         // 1. Get History from DB (LIMIT 100)
         let deepAnalysisHistory = [];
@@ -6418,13 +6418,42 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice) => {
             }));
         }
 
-        // Check Stale
+        // Check Stale & Fetch Fallback
+        let isStale = false;
         if (deepAnalysisHistory.length > 0) {
             const lastTs = new Date(deepAnalysisHistory[deepAnalysisHistory.length - 1].timestamp).getTime();
-            // Se i dati sono più vecchi di 20 minuti, considerali STALE
-            if ((new Date().getTime() - lastTs) > 20 * 60 * 1000) {
-                return null; // Stale data -> No signal (Strength 0)
+            isStale = (new Date().getTime() - lastTs) > 20 * 60 * 1000;
+        }
+
+        // Se dati mancanti o obsoleti, scarica da Binance
+        if (deepAnalysisHistory.length < 20 || isStale) {
+            try {
+                const tradingPair = explicitPair || SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
+                // Timeout 2.5s per non rallentare troppo lo scanner
+                const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
+                const klines = await httpsGet(binanceUrl, 2500);
+
+                if (Array.isArray(klines) && klines.length > 0) {
+                    deepAnalysisHistory = klines.map(k => ({
+                        timestamp: new Date(k[0]).toISOString(),
+                        open: parseFloat(k[1]),
+                        high: parseFloat(k[2]),
+                        low: parseFloat(k[3]),
+                        close: parseFloat(k[4]),
+                        price: parseFloat(k[4]),
+                        volume: parseFloat(k[5])
+                    }));
+                }
+            } catch (err) {
+                // Se fallisce anche Binance, e i dati sono stale o vuoti, allora return null
+                if (deepAnalysisHistory.length === 0) return null;
             }
+        }
+
+        if (deepAnalysisHistory.length === 0) return null;
+
+        if (deepAnalysisHistory.length > 0) {
+            // Logic to append/update last candle
 
             // Logic to append/update last candle
             const lastCandle = deepAnalysisHistory[deepAnalysisHistory.length - 1];
@@ -6600,7 +6629,8 @@ router.get('/scanner', async (req, res) => {
 
 
                 // ✅ ANALISI UNIFICATA: Usa la stessa logica di Bot Analysis
-                const unifiedResult = await performUnifiedDeepAnalysis(s.symbol, currentPrice);
+                // Passing s.pair is CRITICAL for correct Binance fetching
+                const unifiedResult = await performUnifiedDeepAnalysis(s.symbol, currentPrice, s.pair);
 
                 let signal;
                 let rsiDeepAnalysis = null;
