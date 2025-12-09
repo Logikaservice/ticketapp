@@ -710,55 +710,13 @@ router.get('/price/:symbol', async (req, res) => {
     const { currency } = req.query; // 'usdt' or 'usd' (normalized to USDT)
     let price = 0;
 
+
     try {
-        // ✅ FIX CRITICO: Normalizza il simbolo rimuovendo "/" e "_"
-        let normalizedSymbol = symbol.toLowerCase().replace('/', '').replace('_', '');
-        
-        // ✅ FIX: Usa getSymbolPrice che ha già tutta la logica di normalizzazione corretta
         try {
-            price = await getSymbolPrice(normalizedSymbol);
-            
-            // ✅ FIX: Se getSymbolPrice ritorna null o 0, prova varianti
-            if (!price || price <= 0) {
-                // Prova con il simbolo originale (senza normalizzazione)
-                if (normalizedSymbol !== symbol.toLowerCase()) {
-                    price = await getSymbolPrice(symbol.toLowerCase());
-                }
-                
-                // Se ancora non funziona, prova varianti comuni
-                if (!price || price <= 0) {
-                    const symbolVariants = {
-                        'ada': 'cardano',
-                        'adausdt': 'cardano',
-                        'xrp': 'ripple',
-                        'xrpusdt': 'ripple',
-                        'bnb': 'binance_coin',
-                        'bnbusdt': 'binance_coin',
-                        'btc': 'bitcoin',
-                        'btcusdt': 'bitcoin',
-                        'eth': 'ethereum',
-                        'ethusdt': 'ethereum',
-                        'sol': 'solana',
-                        'solusdt': 'solana'
-                    };
-                    
-                    if (symbolVariants[normalizedSymbol]) {
-                        price = await getSymbolPrice(symbolVariants[normalizedSymbol]);
-                    }
-                }
-            }
-            
-            // ✅ FIX: Valida che il prezzo sia ragionevole
-            if (price && price > 0) {
-                const MAX_REASONABLE_PRICE = 200000; // BTC può essere ~100k, ma con margine
-                if (price > MAX_REASONABLE_PRICE && normalizedSymbol !== 'bitcoin' && normalizedSymbol !== 'btc' && normalizedSymbol !== 'btcusdt') {
-                    console.error(`❌ [PRICE-ENDPOINT] Prezzo anomale per ${symbol} (normalized: ${normalizedSymbol}): $${price.toLocaleString()}. Ritorno null.`);
-                    price = 0; // Non restituire prezzi anomali
-                }
-            }
+            // Use helper function to get price (handles normalization, caching, api selection)
+            price = await getSymbolPrice(symbol);
         } catch (e) {
-            console.error(`❌ [PRICE-ENDPOINT] getSymbolPrice failed for ${symbol} (normalized: ${normalizedSymbol}):`, e.message);
-            price = 0;
+            console.error(`Price fetch failed for ${symbol}:`, e.message);
         }
 
         // 2. Fallback to CoinGecko (for Bitcoin, not Solana!)
@@ -2402,6 +2360,14 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         }
         // Analysis separator logging removed
 
+        // ✅ FIX CRITICO: Controlla filtri professionali che bloccano LONG
+        const longProfessionalFilters = signal.professionalAnalysis?.filters?.long || [];
+        const longBlockedByFilters = longProfessionalFilters.some(f => f.includes('🚫 BLOCKED'));
+        
+        // ✅ FIX CRITICO: Controlla filtri professionali che bloccano SHORT
+        const shortProfessionalFilters = signal.professionalAnalysis?.filters?.short || [];
+        const shortBlockedByFilters = shortProfessionalFilters.some(f => f.includes('🚫 BLOCKED'));
+
         // ✅ FIX: Non aprire posizioni se ATR blocca il trading
         if (signal.atrBlocked) {
             console.log(`\n🛑 [BLOCCATO] ${symbol.toUpperCase()}: Trading bloccato da filtro ATR (${signal.atrPct?.toFixed(2)}%)`);
@@ -2413,6 +2379,18 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         } else if (marketRegimeBlock) {
             console.log(`\n🛑 [BLOCCATO] ${symbol.toUpperCase()}: Trading bloccato - ${marketRegimeReason}`);
             console.log(`   💡 Il bot aspetta che il trend BTC si allinei prima di aprire\n`);
+        } else if (signal.direction === 'LONG' && longBlockedByFilters) {
+            // ✅ FIX CRITICO: Mostra filtri professionali che bloccano LONG
+            const blockingFilters = longProfessionalFilters.filter(f => f.includes('🚫 BLOCKED'));
+            if (blockingFilters.length > 0) {
+                console.log(`\n🛑 [BLOCCATO] ${symbol.toUpperCase()}: Trading bloccato da filtri professionali LONG`);
+                blockingFilters.forEach(filter => {
+                    console.log(`   🚫 ${filter.replace('🚫 BLOCKED: ', '')}`);
+                });
+                console.log(`   💡 Il bot aspetta che le condizioni di mercato migliorino prima di aprire\n`);
+            } else {
+                console.log(`\n🛑 [BLOCCATO] ${symbol.toUpperCase()}: Trading bloccato da filtri professionali LONG\n`);
+            }
         } else if (signal.direction === 'LONG' && signal.strength >= MIN_SIGNAL_STRENGTH) {
             // LONG approved logging removed
             // ✅ MULTI-TIMEFRAME CONFIRMATION (con sistema a punteggio)
