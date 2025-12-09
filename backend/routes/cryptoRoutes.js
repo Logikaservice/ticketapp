@@ -6393,6 +6393,79 @@ router.get('/symbols/available', async (req, res) => {
     }
 });
 
+// ✅ FUNZIONE UNIFICATA per Analisi Deep (usata da Scanner e Bot Analysis)
+// Questa funzione è l'UNICA fonte di verità per il calcolo dei segnali nello Scanner
+const performUnifiedDeepAnalysis = async (symbol, currentPrice) => {
+    try {
+        // 1. Get History from DB (LIMIT 100)
+        let deepAnalysisHistory = [];
+        const deepAnalysisHistoryData = await dbAll(
+            "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
+            [symbol]
+        );
+
+        if (deepAnalysisHistoryData && deepAnalysisHistoryData.length > 0) {
+            deepAnalysisHistory = deepAnalysisHistoryData.reverse().map(row => ({
+                timestamp: new Date(row.open_time).toISOString(),
+                open: parseFloat(row.open_price),
+                high: parseFloat(row.high_price),
+                low: parseFloat(row.low_price),
+                close: parseFloat(row.close_price),
+                price: parseFloat(row.close_price),
+                volume: 0
+            }));
+        }
+
+        // Check Stale
+        if (deepAnalysisHistory.length > 0) {
+            const lastTs = new Date(deepAnalysisHistory[deepAnalysisHistory.length - 1].timestamp).getTime();
+            // Se i dati sono più vecchi di 20 minuti, considerali STALE
+            if ((new Date().getTime() - lastTs) > 20 * 60 * 1000) {
+                return null; // Stale data -> No signal (Strength 0)
+            }
+
+            // Logic to append/update last candle
+            const lastCandle = deepAnalysisHistory[deepAnalysisHistory.length - 1];
+            const lastCandleTime = new Date(lastCandle.timestamp);
+            const now = new Date();
+            const currentIntervalStart = Math.floor(now.getTime() / (15 * 60 * 1000)) * (15 * 60 * 1000);
+            const lastCandleIntervalStart = Math.floor(lastCandleTime.getTime() / (15 * 60 * 1000)) * (15 * 60 * 1000);
+
+            if (currentIntervalStart > lastCandleIntervalStart) {
+                // New candle
+                deepAnalysisHistory.push({
+                    timestamp: new Date(currentIntervalStart).toISOString(),
+                    open: currentPrice, high: currentPrice, low: currentPrice, close: currentPrice, price: currentPrice,
+                    volume: 0
+                });
+            } else {
+                // Update existing
+                lastCandle.close = currentPrice;
+                lastCandle.price = currentPrice;
+                lastCandle.high = Math.max(lastCandle.high || lastCandle.close, currentPrice);
+                lastCandle.low = Math.min(lastCandle.low || lastCandle.close, currentPrice);
+            }
+        } else {
+            return null; // No history
+        }
+
+        // Generate Signal
+        const signal = signalGenerator.generateSignal(deepAnalysisHistory, symbol);
+
+        // Calculate RSI Deep
+        let rsiDeep = null;
+        const prices = deepAnalysisHistory.map(h => h.close || h.price);
+        if (prices.length >= 15) {
+            rsiDeep = calculateRSI(prices, 14);
+        }
+
+        return { signal, rsi: rsiDeep };
+    } catch (e) {
+        // console.error(`Unified Analysis Error for ${symbol}:`, e.message);
+        return null;
+    }
+};
+
 // GET /api/crypto/scanner - Scan all symbols for opportunities
 router.get('/scanner', async (req, res) => {
     console.log('🔍 [SCANNER] Starting market scan...');
@@ -6503,118 +6576,24 @@ router.get('/scanner', async (req, res) => {
 
         const results = await Promise.all(symbolsToScan.map(async (s) => {
             try {
-                // 1. Get Price History (reuse logic from bot-analysis)
-                // Try DB first
-                let historyForSignal = [];
-                const priceHistoryData = await dbAll(
-                    "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
-                    [s.symbol]
-                );
+                // ✅ ANALISI UNIFICATA: Usa la stessa logica di Bot Analysis
+                const unifiedResult = await performUnifiedDeepAnalysis(s.symbol, currentPrice);
 
-                if (priceHistoryData && priceHistoryData.length > 0) {
-                    historyForSignal = priceHistoryData.reverse().map(row => ({
-                        price: parseFloat(row.close_price),
-                        high: parseFloat(row.high_price),
-                        low: parseFloat(row.low_price),
-                        close: parseFloat(row.close_price),
-                        timestamp: new Date(row.open_time).toISOString()
-                    }));
-                }
-
-                // Check staleness
-                const lastTimestamp = historyForSignal.length > 0 ? new Date(historyForSignal[historyForSignal.length - 1].timestamp) : new Date(0);
-                const isStale = (new Date() - lastTimestamp) > 15 * 60 * 1000;
-
-                // Fetch from Binance if stale or empty
-                if (isStale || historyForSignal.length < 50) {
-                    const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${s.pair}&interval=15m&limit=100`;
-                    const klines = await httpsGet(binanceUrl);
-                    if (Array.isArray(klines)) {
-                        historyForSignal = klines.map(k => ({
-                            timestamp: new Date(k[0]).toISOString(),
-                            open: parseFloat(k[1]),
-                            high: parseFloat(k[2]),
-                            low: parseFloat(k[3]),
-                            close: parseFloat(k[4]),
-                            price: parseFloat(k[4]),
-                            volume: parseFloat(k[5])
-                        }));
-                    }
-                }
-
-                if (historyForSignal.length < 30) return null; // Not enough data
-
-                // ✅ FIX: Aggiorna sempre l'ultima candela con il prezzo corrente (stessa logica di /bot-analysis)
-                // Questo garantisce che RSI e altri indicatori siano calcolati con dati in tempo reale
-                let currentPrice = historyForSignal[historyForSignal.length - 1].close;
-
-                // 1. Prova Bulk Map (Velocissimo e sincronizzato)
-                if (allPricesMap.has(s.pair)) {
-                    currentPrice = allPricesMap.get(s.pair);
-                } else {
-                    try {
-                        // 2. Fallback: Prova fetch singolo (se bulk fallito o simbolo mancante)
-                        const priceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${s.pair}`;
-                        // Timeout breve per evitare rallentamenti eccessivi (1.5s)
-                        const priceData = await httpsGet(priceUrl, 1500).catch(() => null);
-
-                        if (priceData && priceData.price) {
-                            const livePrice = parseFloat(priceData.price);
-                            if (livePrice > 0) {
-                                currentPrice = livePrice;
-                            }
-                        } else {
-                            // 3. Fallback finale: Database
-                            const lastPriceDb = await dbGet("SELECT price FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 1", [s.symbol]);
-                            if (lastPriceDb && lastPriceDb.price) {
-                                currentPrice = parseFloat(lastPriceDb.price);
-                            }
-                        }
-                    } catch (err) {
-                        // Silenzioso, usa close price
-                    }
-                }
-
-                // Aggiorna l'ultima candela con il prezzo corrente se è ancora aperta (o sempre per scanner)
-                if (historyForSignal.length > 0) {
-                    const lastCandle = historyForSignal[historyForSignal.length - 1];
-                    const lastCandleTime = new Date(lastCandle.timestamp);
-                    const now = new Date();
-                    const timeSinceLastCandle = now - lastCandleTime;
-
-                    // Se l'ultima candela è ancora aperta (< 15 minuti), aggiornala con il prezzo corrente
-                    if (timeSinceLastCandle < 15 * 60 * 1000) {
-                        // Aggiorna high, low, close con il prezzo corrente
-                        lastCandle.high = Math.max(lastCandle.high || lastCandle.close, currentPrice);
-                        lastCandle.low = Math.min(lastCandle.low || lastCandle.close, currentPrice);
-                        lastCandle.close = currentPrice;
-                        lastCandle.price = currentPrice; // Per backward compatibility
-                    } else {
-                        // ⚠️ Se l'ultima candela è CHIUSA (> 15 min), significa che il DB non è aggiornato con la candela corrente
-                        // Per lo scanner, DOBBIAMO considerare il prezzo corrente come una "nuova candela parziale" o aggiornare l'ultima
-                        // Per semplicità e coerenza con bot-analysis, aggiorniamo l'ultima candela "esistente" forzandola al prezzo corrente
-                        // Questo può distorcere leggermente il grafico storico ma dà RSI corretto sull'ultimo tick
-                        lastCandle.close = currentPrice;
-                        lastCandle.price = currentPrice;
-                        // Nota: non aggiorniamo high/low qui perché potrebbe essere una candela vecchia, 
-                        // ma per RSI conta quasi solo il close.
-                    }
-                }
-
-                // 2. Generate Signal (ora con dati aggiornati in tempo reale)
                 let signal;
-                try {
-                    signal = signalGenerator.generateSignal(historyForSignal);
-                } catch (signalErr) {
-                    console.error(`[SCANNER] Errore generazione segnale per ${s.symbol}:`, signalErr.message);
-                    // Fallback: crea segnale NEUTRAL di default
+                let rsiDeepAnalysis = null;
+
+                if (unifiedResult && unifiedResult.signal) {
+                    signal = unifiedResult.signal;
+                    rsiDeepAnalysis = unifiedResult.rsi;
+                } else {
+                    // Dati stale o mancanti -> Nessun segnale valido (Strength 0)
                     signal = {
                         direction: 'NEUTRAL',
                         strength: 0,
+                        longSignal: { strength: 0 },
+                        shortSignal: { strength: 0 },
+                        reasons: [],
                         confirmations: 0,
-                        reasons: ['Errore generazione segnale'],
-                        longSignal: { strength: 0, confirmations: 0, reasons: [], strengthContributions: [] },
-                        shortSignal: { strength: 0, confirmations: 0, reasons: [], strengthContributions: [] },
                         indicators: { rsi: null }
                     };
                 }
@@ -6623,22 +6602,20 @@ router.get('/scanner', async (req, res) => {
                 const volume24h = await get24hVolume(s.symbol).catch(() => 0);
 
                 // ✅ CRITICAL FIX: Apply MTF (Multi-Timeframe) adjustment to match Bot Analysis
-                // This ensures Market Scanner shows the SAME strength values as Bot Analysis
 
-                // Calculate MTF trends (same logic as bot-analysis)
+                // Calculate MTF trends (skip if no signal to save resources on failures)
                 let trend1h = 'neutral';
                 let trend4h = 'neutral';
-                try {
-                    trend1h = await detectTrendOnTimeframe(s.symbol, '1h', 50);
-                    trend4h = await detectTrendOnTimeframe(s.symbol, '4h', 50);
-                } catch (mtfError) {
-                    // Fallback: neutral if MTF fails
-                    trend1h = 'neutral';
-                    trend4h = 'neutral';
+                if (signal.strength > 0 || (signal.longSignal && signal.longSignal.strength > 0) || (signal.shortSignal && signal.shortSignal.strength > 0)) {
+                    try {
+                        trend1h = await detectTrendOnTimeframe(s.symbol, '1h', 50);
+                        trend4h = await detectTrendOnTimeframe(s.symbol, '4h', 50);
+                    } catch (mtfError) {
+                        trend1h = 'neutral'; trend4h = 'neutral';
+                    }
                 }
 
                 // ✅ STRENGTH UNIFICATO: Usa sempre i valori parziali (come Quick Analysis)
-                // Questo evita il bug dove signal.strength è già cappato a 100
                 const longStrength = signal.longSignal?.strength || 0;
                 const shortStrength = signal.shortSignal?.strength || 0;
 
@@ -6653,16 +6630,12 @@ router.get('/scanner', async (req, res) => {
                     displayDirection = 'SHORT';
                     rawStrength = shortStrength;
                 } else if (longStrength > 0 || shortStrength > 0) {
-                    // Se uguali, usa il maggiore
                     displayDirection = longStrength >= shortStrength ? 'LONG' : 'SHORT';
                     rawStrength = Math.max(longStrength, shortStrength);
                 } else {
                     displayDirection = 'NEUTRAL';
                     rawStrength = 0;
                 }
-
-                // 🔍 DEBUG LOG
-                console.log(`[SCANNER-STRENGTH] ${s.display}: LONG=${longStrength}, SHORT=${shortStrength}, RAW=${rawStrength}, DIR=${displayDirection}`);
 
                 // Calculate MTF bonus/penalty (SAME logic as bot-analysis)
                 let mtfBonus = 0;
@@ -6673,8 +6646,6 @@ router.get('/scanner', async (req, res) => {
                         mtfBonus = +5;
                     } else if (trend1h === 'bearish' || trend4h === 'bearish') {
                         mtfBonus = -15;
-                    } else {
-                        mtfBonus = 0;
                     }
                 } else if (displayDirection === 'SHORT') {
                     if (trend1h === 'bearish' && trend4h === 'bearish') {
@@ -6683,143 +6654,29 @@ router.get('/scanner', async (req, res) => {
                         mtfBonus = +5;
                     } else if (trend1h === 'bullish' || trend4h === 'bullish') {
                         mtfBonus = -15;
-                    } else {
-                        mtfBonus = 0;
                     }
                 }
 
                 // Apply MTF adjustment to get FINAL strength (same as bot-analysis)
                 const adjustedStrength = Math.max(0, rawStrength + mtfBonus);
-                const displayStrength = Math.min(adjustedStrength, 100); // Cap at 100 for display
+                const displayStrength = Math.min(adjustedStrength, 100);
 
-                // ✅ RSI SEMPLICE (Fallback se Deep Analysis fallisce)
+                // RSI Simple Fallback
                 let rsiSimple = null;
                 try {
-                    const simplePrices = historyForSignal.map(h => h.close || h.price);
-                    if (simplePrices.length >= 15) {
-                        rsiSimple = calculateRSI(simplePrices, 14);
+                    // Se unifiedResult ha fallito, non abbiamo historyForSignal qui.
+                    // Possiamo provare a recuperarlo o lasciare null.
+                    // Per ora null se unified fallisce.
+                    if (signal && signal.indicators && signal.indicators.rsi) {
+                        rsiSimple = signal.indicators.rsi;
                     }
-                } catch (rsiError) {
-                    rsiSimple = signal?.indicators?.rsi || null;
-                }
+                } catch (e) { rsiSimple = null; }
 
-                // ✅ RSI DEEP ANALYSIS: Chiama INTERNAMENTE la stessa logica di bot-analysis
-                // Invece di replicare, creiamo una funzione helper che fa ESATTAMENTE quello che fa bot-analysis
-                let rsiDeepAnalysis = null;
-                try {
-                    // ✅ CRITICAL: Usa getSymbolPrice() come Deep Analysis (riga 5521)
-                    const deepCurrentPrice = await getSymbolPrice(s.symbol).catch(() => currentPrice);
+                // Preparare oggetto finale
 
-                    // ✅ REPLICA ESATTA: Stessa query e preparazione di bot-analysis (righe 5540-5564)
-                    const deepAnalysisHistoryData = await dbAll(
-                        "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
-                        [s.symbol]
-                    );
 
-                    let deepAnalysisHistory = [];
-                    if (deepAnalysisHistoryData && deepAnalysisHistoryData.length > 0) {
-                        deepAnalysisHistory = deepAnalysisHistoryData.reverse().map(row => ({
-                            price: parseFloat(row.close_price),
-                            high: parseFloat(row.high_price),
-                            low: parseFloat(row.low_price),
-                            close: parseFloat(row.close_price),
-                            timestamp: new Date(row.open_time).toISOString()
-                        }));
-                    } else {
-                        const priceHistoryRows = await dbAll(
-                            "SELECT price, timestamp FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 100",
-                            [s.symbol]
-                        );
-                        deepAnalysisHistory = priceHistoryRows.reverse().map(row => ({
-                            price: parseFloat(row.price),
-                            timestamp: row.timestamp
-                        }));
-                    }
 
-                    // ✅ REPLICA ESATTA: Fallback Binance se obsoleto (righe 5585-5614)
-                    let isStale = false;
-                    if (deepAnalysisHistory.length > 0) {
-                        const lastTs = new Date(deepAnalysisHistory[deepAnalysisHistory.length - 1].timestamp).getTime();
-                        isStale = (new Date().getTime() - lastTs) > 15 * 60 * 1000;
-                    }
-
-                    if (!deepAnalysisHistory || deepAnalysisHistory.length < 20 || isStale) {
-                        try {
-                            const tradingPair = SYMBOL_TO_PAIR[s.symbol] || s.pair;
-                            const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
-                            const klines = await httpsGet(binanceUrl);
-                            if (Array.isArray(klines) && klines.length > 0) {
-                                deepAnalysisHistory = klines.map(k => ({
-                                    timestamp: new Date(k[0]).toISOString(),
-                                    open: parseFloat(k[1]),
-                                    high: parseFloat(k[2]),
-                                    low: parseFloat(k[3]),
-                                    close: parseFloat(k[4]),
-                                    price: parseFloat(k[4]),
-                                    volume: parseFloat(k[5])
-                                }));
-                            }
-                        } catch (binanceError) {
-                            // Silenzioso
-                        }
-                    }
-
-                    // ✅ FIX: Aggiorna SEMPRE l'ultima candela con il prezzo corrente per analisi in tempo reale
-                    // Spostato qui DOPO il fallback Binance per assicurare che anche i dati scaricati siano aggiornati
-                    if (deepAnalysisHistory.length > 0) {
-                        // Verifica se i dati sono ancora stale dopo il tentativo di download
-                        const lastTs = new Date(deepAnalysisHistory[deepAnalysisHistory.length - 1].timestamp).getTime();
-                        const isStillStale = (new Date().getTime() - lastTs) > 20 * 60 * 1000; // Tolleranza 20 min
-
-                        if (!isStillStale) {
-                            const lastCandle = deepAnalysisHistory[deepAnalysisHistory.length - 1];
-                            const lastCandleTime = new Date(lastCandle.timestamp);
-                            const now = new Date();
-
-                            // Calcola l'inizio della finestra 15m corrente e della candela
-                            const currentIntervalStart = Math.floor(now.getTime() / (15 * 60 * 1000)) * (15 * 60 * 1000);
-                            const lastCandleIntervalStart = Math.floor(lastCandleTime.getTime() / (15 * 60 * 1000)) * (15 * 60 * 1000);
-
-                            if (currentIntervalStart > lastCandleIntervalStart) {
-                                // Siamo in una NUOVA candela rispetto all'ultima nel DB.
-                                // NON modificare la vecchia. Aggiungi una nuova candela temporanea.
-                                const newCandle = {
-                                    timestamp: new Date(currentIntervalStart).toISOString(),
-                                    open: deepCurrentPrice,
-                                    high: deepCurrentPrice,
-                                    low: deepCurrentPrice,
-                                    close: deepCurrentPrice,
-                                    price: deepCurrentPrice,
-                                    volume: 0 // Volume sconosciuto per ora
-                                };
-                                deepAnalysisHistory.push(newCandle);
-                                // console.log(`[SCANNER] Added new temp candle for ${s.symbol} at ${newCandle.timestamp}`);
-                            } else {
-                                // Siamo ancora nella stessa finestra temporale dell'ultima candela. Aggiornala.
-                                lastCandle.close = deepCurrentPrice;
-                                lastCandle.price = deepCurrentPrice;
-                                lastCandle.high = Math.max(lastCandle.high || lastCandle.close, deepCurrentPrice);
-                                lastCandle.low = Math.min(lastCandle.low || lastCandle.close, deepCurrentPrice);
-                            }
-                        } else {
-                            // Se i dati sono vecchi e Binance ha fallito (rate limit), NON usare questi dati.
-                            console.warn(`[SCANNER] Dati stale per ${s.display} e fallback fallito. Annullo analisi deep.`);
-                            deepAnalysisHistory = []; // Svuota array per generare strength 0
-                        }
-                    }
-
-                    // ✅ REPLICA ESATTA: Calcola RSI (riga 5751-5753)
-                    const deepPrices = deepAnalysisHistory.map(h => h.close || h.price);
-                    if (deepPrices.length >= 15) {
-                        rsiDeepAnalysis = calculateRSI(deepPrices, 14);
-                        // console.log(`📊 [SCANNER-RSI-DEEP] ${s.display}: RSI=${rsiDeepAnalysis?.toFixed(2)}`);
-                    } else {
-                        rsiDeepAnalysis = null;
-                    }
-                } catch (deepRsiError) {
-                    console.error(`❌ [SCANNER-RSI-DEEP] Errore per ${s.symbol}:`, deepRsiError.message);
-                    rsiDeepAnalysis = null;
-                }
+                // (Codice duplicato rimosso - scanner ora completamente unificato)
 
                 // ✅ LOG per debug - DETAILED
                 console.log(`[SCANNER] ${s.display}:`);
