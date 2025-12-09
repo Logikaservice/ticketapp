@@ -34,6 +34,7 @@ const CryptoDashboard = () => {
     const [showBacktestPanel, setShowBacktestPanel] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [botParameters, setBotParameters] = useState(null);
+    const [performanceStats, setPerformanceStats] = useState(null); // ✅ FIX: Aggiunto stato mancante per performance stats
     const [useApexChart, setUseApexChart] = useState(false); // Toggle tra TradingView e ApexChart
     const [showAddFundsModal, setShowAddFundsModal] = useState(false); // Modal per aggiungere fondi
     const [showGeneralSettings, setShowGeneralSettings] = useState(false); // Modal per impostazioni generali
