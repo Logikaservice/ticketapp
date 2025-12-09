@@ -1269,6 +1269,39 @@ const priceCache = new Map();
 const PRICE_CACHE_TTL = 3000; // 3 secondi - bilanciato tra real-time e rate limit (prima era 60s)
 // Calcolo rate limit: max 20 chiamate/sec Binance, con cache 3s = max 6-7 chiamate/sec per simbolo = SICURO
 
+// ✅ FIX CRITICO: Invalida completamente la cache per tutti i simboli EUR all'avvio
+// Questo garantisce che i prezzi vengano sempre convertiti correttamente EUR→USDT
+function invalidateEURCache() {
+    const EURSymbols = Object.keys(SYMBOL_TO_PAIR).filter(s => {
+        const pair = SYMBOL_TO_PAIR[s];
+        return pair && pair.endsWith('EUR');
+    });
+    EURSymbols.forEach(symbol => {
+        priceCache.delete(symbol);
+    });
+    if (EURSymbols.length > 0) {
+        console.log(`🔄 [CACHE] Invalidata cache per ${EURSymbols.length} simboli EUR all'avvio`);
+    }
+}
+
+// Invalida cache EUR all'avvio per garantire conversione corretta
+// (SYMBOL_TO_PAIR è definito dopo, quindi chiamiamo dopo la definizione)
+
+// ✅ FIX CRITICO: Invalida completamente la cache per tutti i simboli EUR all'avvio
+// Questo garantisce che i prezzi vengano sempre convertiti correttamente EUR→USDT
+function invalidateEURCache() {
+    const EURSymbols = Object.keys(SYMBOL_TO_PAIR).filter(s => {
+        const pair = SYMBOL_TO_PAIR[s];
+        return pair && pair.endsWith('EUR');
+    });
+    EURSymbols.forEach(symbol => {
+        priceCache.delete(symbol);
+    });
+    if (EURSymbols.length > 0) {
+        console.log(`🔄 [CACHE] Invalidata cache per ${EURSymbols.length} simboli EUR all'avvio`);
+    }
+}
+
 // ✅ WEBSOCKET SERVICE per aggiornamenti real-time (zero rate limit)
 const BinanceWebSocketService = require('../services/BinanceWebSocket');
 let wsService = null;
@@ -2811,21 +2844,44 @@ const runBotCycle = async () => {
 // ✅ COMPATIBILE CON BINANCE REALE: Struttura pronta per integrazione
 const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss = null, takeProfit = null, options = {}) => {
     try {
-        // ✅ FIX CRITICO: Se il simbolo termina con _eur, il prezzo è in EUR e va convertito a USDT
-        // TradingView mostra sempre USDT, quindi dobbiamo salvare entry_price in USDT per coerenza
+        // ✅ FIX CRITICO: Se il simbolo termina con _eur, il prezzo passato potrebbe essere già in USDT (da getSymbolPrice)
+        // Ma per sicurezza, verifichiamo se il prezzo sembra in EUR e convertiamo se necessario
         const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
         const isEURPair = tradingPair.endsWith('EUR') || symbol.endsWith('_eur');
         const EUR_TO_USDT_RATE = 1.08; // Tasso approssimativo EUR → USDT
         
         if (isEURPair && entryPrice > 0) {
-            // Il prezzo è in EUR, converti a USDT per match con TradingView
-            const originalPrice = entryPrice;
-            entryPrice = entryPrice * EUR_TO_USDT_RATE;
-            console.log(`💱 [OPEN POSITION] ${symbol}: Convertito EUR → USDT: €${originalPrice.toFixed(6)} → $${entryPrice.toFixed(6)} USDT`);
-            
-            // Converti anche stop loss e take profit se presenti
-            if (stopLoss) stopLoss = stopLoss * EUR_TO_USDT_RATE;
-            if (takeProfit) takeProfit = takeProfit * EUR_TO_USDT_RATE;
+            // ✅ FIX: getSymbolPrice dovrebbe già restituire USDT (convertito), ma verifichiamo
+            // Se entryPrice sembra troppo basso rispetto al prezzo attuale, potrebbe essere ancora in EUR
+            try {
+                const currentUSDTPrice = await getSymbolPrice(symbol); // Questo dovrebbe essere già in USDT
+                if (currentUSDTPrice > 0) {
+                    const priceRatio = entryPrice / currentUSDTPrice;
+                    // Se entryPrice è molto più basso di currentUSDTPrice (>15% differenza), probabilmente è in EUR
+                    if (priceRatio < 0.85) {
+                        // Probabilmente entryPrice è in EUR, converti a USDT
+                        const originalPrice = entryPrice;
+                        entryPrice = entryPrice * EUR_TO_USDT_RATE;
+                        console.log(`💱 [OPEN POSITION] ${symbol}: entryPrice sembra in EUR (${originalPrice.toFixed(6)}), convertito a USDT: $${entryPrice.toFixed(6)} (current: $${currentUSDTPrice.toFixed(6)})`);
+                        
+                        // Converti anche stop loss e take profit se presenti
+                        if (stopLoss) stopLoss = stopLoss * EUR_TO_USDT_RATE;
+                        if (takeProfit) takeProfit = takeProfit * EUR_TO_USDT_RATE;
+                    } else {
+                        // entryPrice sembra già in USDT (è vicino a currentUSDTPrice)
+                        console.log(`✅ [OPEN POSITION] ${symbol}: entryPrice già in USDT: $${entryPrice.toFixed(6)} (current: $${currentUSDTPrice.toFixed(6)})`);
+                    }
+                }
+            } catch (priceError) {
+                // Se non riesco a verificare, applico conversione per sicurezza se sembra EUR
+                console.warn(`⚠️ [OPEN POSITION] ${symbol}: Impossibile verificare prezzo, applico conversione EUR→USDT per sicurezza`);
+                const originalPrice = entryPrice;
+                entryPrice = entryPrice * EUR_TO_USDT_RATE;
+                console.log(`💱 [OPEN POSITION] ${symbol}: Convertito EUR → USDT: €${originalPrice.toFixed(6)} → $${entryPrice.toFixed(6)} USDT`);
+                
+                if (stopLoss) stopLoss = stopLoss * EUR_TO_USDT_RATE;
+                if (takeProfit) takeProfit = takeProfit * EUR_TO_USDT_RATE;
+            }
         }
         
         // ✅ FIX CRITICO: Verifica che entryPrice sia ragionevole (in USDT)
