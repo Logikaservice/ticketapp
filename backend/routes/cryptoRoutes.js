@@ -8898,7 +8898,24 @@ router.post('/bot/ai-chat', async (req, res) => {
         console.log(`🤖 [AI-CHAT] Richiesta ricevuta: "${message}" su ${normalizedSymbol}`);
 
         // 1. Recupera dati tecnici reali
-        const history = await getKlinesData(normalizedSymbol, '15m', 150); // recupera klines per analisi
+        // 1. Recupera dati tecnici reali dal DB
+        const historyRows = await dbAll(
+            `SELECT open_time, open_price, high_price, low_price, close_price, volume 
+             FROM klines 
+             WHERE symbol = $1 AND interval = '15m' 
+             ORDER BY open_time DESC 
+             LIMIT $2`,
+            [normalizedSymbol, 150]
+        );
+
+        const history = historyRows.map(row => ({
+            timestamp: new Date(row.open_time).toISOString(),
+            open: parseFloat(row.open_price),
+            high: parseFloat(row.high_price),
+            low: parseFloat(row.low_price),
+            close: parseFloat(row.close_price),
+            volume: parseFloat(row.volume || 0)
+        })).reverse();
         if (!history || history.length < 50) {
             return res.json({
                 reply: "Non ho abbastanza dati storici per analizzare questo grafico al momento. 📉 Riprova tra poco!"
