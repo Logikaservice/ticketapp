@@ -7,7 +7,7 @@ import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
 import MarketScanner from './MarketScanner';
 import GeneralSettings from './GeneralSettings';
-import AiAssistant from './AiAssistant'; // ✅ AI Assistant implementation
+
 import cryptoSounds from '../../utils/cryptoSounds';
 import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
 import './CryptoLayout.css';
@@ -1644,8 +1644,7 @@ const CryptoDashboard = () => {
                 </div>
             )}
 
-            {/* AI Assistant - Floating Button */}
-            <AiAssistant currentSymbol={currentSymbol} currentPrice={currentPrice} apiBase={apiBase} />
+
 
 
         </div >
