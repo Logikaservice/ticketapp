@@ -5714,10 +5714,39 @@ router.get('/bot-analysis', async (req, res) => {
                 "SELECT price, timestamp FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 100",
                 [symbol]
             );
-            historyForSignal = priceHistoryRows.reverse().map(row => ({
-                price: parseFloat(row.price),
-                timestamp: row.timestamp
-            }));
+            historyForSignal = priceHistoryRows.reverse().map(row => {
+                // ✅ FIX: Gestisci timestamp da price_history (potrebbe essere stringa o Date)
+                let timestamp = row.timestamp;
+                if (timestamp instanceof Date) {
+                    timestamp = timestamp.toISOString();
+                } else if (typeof timestamp === 'string') {
+                    // Se è già una stringa ISO, usala direttamente
+                    // Altrimenti prova a convertirla
+                    try {
+                        timestamp = new Date(timestamp).toISOString();
+                    } catch (e) {
+                        console.warn(`⚠️ [BOT-ANALYSIS] timestamp non valido:`, timestamp);
+                        timestamp = new Date().toISOString();
+                    }
+                } else if (typeof timestamp === 'number') {
+                    // Se è un numero (timestamp)
+                    try {
+                        timestamp = new Date(timestamp > 1000000000000 ? timestamp : timestamp * 1000).toISOString();
+                    } catch (e) {
+                        console.warn(`⚠️ [BOT-ANALYSIS] timestamp numero non valido:`, timestamp);
+                        timestamp = new Date().toISOString();
+                    }
+                } else {
+                    // Fallback
+                    console.warn(`⚠️ [BOT-ANALYSIS] timestamp tipo sconosciuto:`, typeof timestamp, timestamp);
+                    timestamp = new Date().toISOString();
+                }
+                
+                return {
+                    price: parseFloat(row.price) || 0,
+                    timestamp: timestamp
+                };
+            });
         }
 
         // ✅ FIX: Sempre aggiorna l'ultima candela con il prezzo corrente per analisi in tempo reale
