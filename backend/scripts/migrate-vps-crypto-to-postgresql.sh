@@ -21,6 +21,16 @@ if [ ! -f "crypto.db" ]; then
     exit 1
 fi
 
+# Carica variabili d'ambiente da .env
+if [ -f ".env" ]; then
+    echo -e "${YELLOW}📋 Caricamento variabili d'ambiente da .env...${NC}"
+    export $(grep -v '^#' .env | grep -v '^$' | xargs)
+    echo -e "${GREEN}✅ Variabili d'ambiente caricate${NC}"
+else
+    echo -e "${RED}❌ File .env non trovato!${NC}"
+    exit 1
+fi
+
 # STEP 1: Backup SQLite
 echo -e "${YELLOW}📦 STEP 1: Backup Database SQLite...${NC}"
 BACKUP_NAME="crypto.db.backup-$(date +%Y%m%d-%H%M%S)"
