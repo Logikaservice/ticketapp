@@ -1326,7 +1326,12 @@ initWebSocketService();
 
 const getSymbolPrice = async (symbol) => {
     // ✅ FIX CRITICO: Normalizza il simbolo prima di cercare nel mapping
-    let normalizedSymbol = symbol.toLowerCase().replace('/', '').replace('_', '');
+    // Rimuovi slash, underscore multipli e suffissi USDT/EUR per ottenere il simbolo base
+    let normalizedSymbol = symbol.toLowerCase()
+        .replace(/\//g, '') // Rimuovi tutti gli slash
+        .replace(/_/g, '') // Rimuovi TUTTI gli underscore (non solo il primo)
+        .replace(/usdt$/, '') // Rimuovi suffisso USDT
+        .replace(/eur$/, ''); // Rimuovi suffisso EUR
 
     // ✅ FIX: Mappa locale robusta per garantire che i simboli principali siano sempre risolti
     const SYMBOL_MAP_FALLBACK = {
@@ -1348,7 +1353,8 @@ const getSymbolPrice = async (symbol) => {
         'stellar': 'XLMUSDT', 'xlm': 'XLMUSDT', 'xlmusdt': 'XLMUSDT',
         'monero': 'XMRUSDT', 'xmr': 'XMRUSDT', 'xmrusdt': 'XMRUSDT',
         'cosmos': 'ATOMUSDT', 'atom': 'ATOMUSDT', 'atomusdt': 'ATOMUSDT',
-        'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniusdt': 'UNIUSDT'
+        'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniusdt': 'UNIUSDT',
+        'icp': 'ICPUSDT', 'icpusdt': 'ICPUSDT' // Internet Computer
     };
 
     // ✅ Controlla cache prima di chiamare Binance
@@ -3202,8 +3208,14 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
 
         for (const pos of positions) {
             // ✅ FIX CRITICO: Normalizza il simbolo per gestire varianti (es. "ada/usdt" → "cardano", "xrp" → "ripple")
-            // Rimuovi slash e underscore, poi normalizza
-            let normalizedSymbol = pos.symbol.toLowerCase().replace('/', '').replace('_', '');
+            // Rimuovi slash, underscore e suffissi USDT/EUR per ottenere il simbolo base
+            let symbolBase = pos.symbol.toLowerCase()
+                .replace('/', '')
+                .replace(/_/g, '') // Rimuovi TUTTI gli underscore (non solo il primo)
+                .replace(/usdt$/, '') // Rimuovi suffisso USDT
+                .replace(/eur$/, ''); // Rimuovi suffisso EUR
+            
+            let normalizedSymbol = symbolBase;
 
             const symbolVariants = {
                 'xrp': 'ripple',
@@ -3231,19 +3243,45 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 'floki': 'floki',
                 'fet': 'fet',
                 'ton': 'ton',
-                'tonusdt': 'ton'
+                'tonusdt': 'ton',
+                // ✅ FIX: Simboli che richiedono conversione (non sono nella mappa con il nome base)
+                'avax': 'avalanche', // AVAX → avalanche
+                'avaxusdt': 'avalanche',
+                'uni': 'uniswap', // UNI → uniswap
+                'uniusdt': 'uniswap',
+                'pol': 'pol_polygon', // POL → pol_polygon
+                'polusdt': 'pol_polygon',
+                // ✅ Varianti comuni che potrebbero essere nel database
+                'icp': 'icp', // ICP è già corretto
+                'icpusdt': 'icp',
+                'atom': 'atom', // ATOM è già corretto
+                'atomusdt': 'atom',
+                'sui': 'sui', // SUI è già corretto
+                'suiusdt': 'sui',
+                'near': 'near', // NEAR è già corretto
+                'nearusdt': 'near',
+                'apt': 'apt',
+                'aptusdt': 'apt',
+                'inj': 'inj',
+                'injusdt': 'inj',
+                'algo': 'algo',
+                'algousdt': 'algo',
+                'vet': 'vet',
+                'vetusdt': 'vet'
             };
 
             if (symbolVariants[normalizedSymbol]) {
                 normalizedSymbol = symbolVariants[normalizedSymbol];
             }
 
-            // ✅ FIX: Se il simbolo normalizzato non è nel mapping, prova varianti
+            // ✅ FIX: Se il simbolo normalizzato non è nel mapping, prova varianti più complete
             if (!SYMBOL_TO_PAIR[normalizedSymbol]) {
                 const variants = [
-                    pos.symbol.toLowerCase().replace('/', '').replace('_', ''),
-                    pos.symbol.toLowerCase(),
-                    pos.symbol
+                    symbolBase, // Simbolo base senza suffissi
+                    pos.symbol.toLowerCase().replace(/_/g, '').replace(/\//g, ''), // Rimuovi tutti underscore e slash
+                    pos.symbol.toLowerCase().replace(/_/g, ''), // Solo underscore rimossi
+                    pos.symbol.toLowerCase(), // Solo lowercase
+                    pos.symbol // Originale
                 ];
 
                 for (const variant of variants) {
@@ -3253,26 +3291,45 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                     }
                 }
             }
+            
+            // ✅ DEBUG: Log se il simbolo non è stato trovato nella mappa
+            if (!SYMBOL_TO_PAIR[normalizedSymbol]) {
+                console.warn(`⚠️ [UPDATE P&L] Simbolo ${pos.symbol} (normalized: ${normalizedSymbol}) non trovato in SYMBOL_TO_PAIR. Provo con getSymbolPrice direttamente.`);
+            }
 
             // ✅ FIX CRITICO: Recupera il prezzo corrente per questa posizione da Binance
             let currentPrice = null;
             const oldPrice = parseFloat(pos.current_price) || 0;
 
             try {
+                // Prova prima con il simbolo normalizzato
                 currentPrice = await getSymbolPrice(normalizedSymbol);
+                
+                // Se fallisce, prova con il simbolo originale e altre varianti
                 if (!currentPrice || currentPrice <= 0) {
-                    // Prova anche con il simbolo originale se il normalizzato fallisce
-                    if (normalizedSymbol !== pos.symbol.toLowerCase()) {
-                        currentPrice = await getSymbolPrice(pos.symbol);
+                    const fallbackSymbols = [
+                        pos.symbol.toLowerCase(),
+                        symbolBase,
+                        pos.symbol
+                    ];
+                    
+                    for (const fallbackSymbol of fallbackSymbols) {
+                        if (fallbackSymbol !== normalizedSymbol) {
+                            currentPrice = await getSymbolPrice(fallbackSymbol);
+                            if (currentPrice && currentPrice > 0) {
+                                console.log(`✅ [UPDATE P&L] Prezzo recuperato per ${pos.symbol} usando fallback symbol: ${fallbackSymbol}`);
+                                break;
+                            }
+                        }
                     }
+                }
 
-                    if (!currentPrice || currentPrice <= 0) {
-                        console.warn(`⚠️ [UPDATE P&L] Impossibile recuperare prezzo per ${pos.symbol} (normalized: ${normalizedSymbol}), uso prezzo dal database (${oldPrice})`);
-                        currentPrice = oldPrice;
-                    }
+                if (!currentPrice || currentPrice <= 0) {
+                    console.warn(`⚠️ [UPDATE P&L] Impossibile recuperare prezzo per ${pos.symbol} (normalized: ${normalizedSymbol}), uso prezzo dal database (${oldPrice})`);
+                    currentPrice = oldPrice;
                 } else {
-                    // ✅ DEBUG: Log aggiornamento prezzo se c'è una differenza significativa (>5%)
-                    if (oldPrice > 0 && Math.abs(currentPrice - oldPrice) > oldPrice * 0.05) {
+                    // ✅ DEBUG: Log aggiornamento prezzo se c'è una differenza significativa (>1%)
+                    if (oldPrice > 0 && Math.abs(currentPrice - oldPrice) > oldPrice * 0.01) {
                         console.log(`💰 [UPDATE P&L] ${pos.symbol} (${pos.ticket_id}): $${oldPrice.toFixed(6)} → $${currentPrice.toFixed(6)} USDT (diff: ${((currentPrice - oldPrice) / oldPrice * 100).toFixed(2)}%)`);
                     }
                 }
