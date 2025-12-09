@@ -1021,11 +1021,10 @@ router.post('/trade', async (req, res) => {
         }
 
         // Update DB
-        db.serialize(() => {
-            db.run("UPDATE portfolio SET balance_usd = ?, holdings = ?", [balance, JSON.stringify(holdings)]);
-            db.run("INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
-                [symbol, type, amount, price, strategy]);
-        });
+        // ✅ MIGRAZIONE POSTGRESQL: Usa dbRun invece di db.run
+        await dbRun("UPDATE portfolio SET balance_usd = ?, holdings = ?", [balance, JSON.stringify(holdings)]);
+        await dbRun("INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
+            [symbol, type, amount, price, strategy]);
 
         res.json({ success: true, new_balance: balance, new_holdings: holdings });
     } catch (err) {
@@ -1655,13 +1654,8 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = 
     // ✅ LOGICA DINAMICA: Calcola limite max posizioni basato su win rate
     let maxTotalPositions = HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
     try {
-        const db = require('../crypto_db');
-        const stats = await new Promise((resolve, reject) => {
-            db.get("SELECT * FROM performance_stats WHERE id = 1", (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
+        // ✅ MIGRAZIONE POSTGRESQL: Usa dbGet invece di db.get
+        const stats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
 
         if (stats && stats.total_trades >= 10) {
             const winRate = stats.total_trades > 0 ? stats.winning_trades / stats.total_trades : 0.5;
