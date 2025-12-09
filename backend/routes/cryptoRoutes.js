@@ -1422,11 +1422,16 @@ const getSymbolPrice = async (symbol) => {
     const cached = priceCache.get(symbol);
     const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';  // ✅ FIX: Default USDT invece di EUR
 
-    console.log(`💱 [PRICE] Fetching price for symbol: ${symbol} → tradingPair: ${tradingPair}`);
+    // ✅ DEBUG: Log ridotto per non intasare (solo ~5% delle chiamate)
+    if (Math.random() < 0.05) {
+        console.log(`💱 [PRICE] Fetching price for symbol: ${symbol} → tradingPair: ${tradingPair}`);
+    }
 
     // ✅ Cache valida - usa prezzo cached
     if (cached && (Date.now() - cached.timestamp) < PRICE_CACHE_TTL) {
-        console.log(`💾 [PRICE-CACHE] Using cached price for ${symbol}: $${cached.price.toFixed(6)}`);
+        if (Math.random() < 0.05) { // Log solo ~5% delle volte
+            console.log(`💾 [PRICE-CACHE] Using cached price for ${symbol}: $${cached.price.toFixed(6)}`);
+        }
         return cached.price;
     }
 
@@ -1440,12 +1445,13 @@ const getSymbolPrice = async (symbol) => {
 
     try {
         const binanceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${tradingPair}`;
-        console.log(`🔍 [PRICE] Fetching from Binance: ${binanceUrl}`);
-
+        
         const data = await httpsGet(binanceUrl);
         if (data && data.price) {
             const price = parseFloat(data.price);
-            console.log(`✅ [PRICE] Got price from Binance for ${symbol} (${tradingPair}): $${price.toFixed(6)}`);
+            if (Math.random() < 0.05) { // Log solo ~5% delle volte
+                console.log(`✅ [PRICE] Got price from Binance for ${symbol} (${tradingPair}): $${price.toFixed(6)}`);
+            }
 
             // ✅ Salva in cache (sempre in USDT)
             priceCache.set(symbol, { price, timestamp: Date.now() });
@@ -3254,19 +3260,69 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
         // ✅ FIX CRITICO: Valida che currentPrice sia ragionevole (in USDT)
         const MAX_REASONABLE_USDT_PRICE = 200000; // BTC può essere ~100k USDT, ma con margine
 
+        // ✅ DEBUG: Log solo se ci sono posizioni da aggiornare
+        if (positions.length > 0 && Math.random() < 0.1) { // Log solo ~10% delle volte
+            console.log(`🔄 [UPDATE P&L] Aggiornando ${positions.length} posizioni aperte...`);
+        }
+        
         for (const pos of positions) {
+            // ✅ FIX CRITICO: Normalizza il simbolo per gestire varianti (es. "xrp" → "ripple", "bnb" → "binance_coin")
+            let normalizedSymbol = pos.symbol.toLowerCase();
+            const symbolVariants = {
+                'xrp': 'ripple',
+                'xrpusdt': 'ripple',
+                'bnb': 'binance_coin',
+                'bnbusdt': 'binance_coin',
+                'btc': 'bitcoin',
+                'btcusdt': 'bitcoin',
+                'eth': 'ethereum',
+                'ethusdt': 'ethereum',
+                'sol': 'solana',
+                'solusdt': 'solana',
+                'ada': 'cardano',
+                'adausdt': 'cardano',
+                'dot': 'polkadot',
+                'dotusdt': 'polkadot',
+                'link': 'chainlink',
+                'linkusdt': 'chainlink',
+                'ltc': 'litecoin',
+                'ltcusdt': 'litecoin',
+                'shib': 'shiba',
+                'shibusdt': 'shiba',
+                'doge': 'dogecoin',
+                'dogeusdt': 'dogecoin'
+            };
+            
+            if (symbolVariants[normalizedSymbol]) {
+                normalizedSymbol = symbolVariants[normalizedSymbol];
+            }
+            
             // ✅ FIX CRITICO: Recupera il prezzo corrente per questa posizione da Binance
             let currentPrice = null;
+            const oldPrice = parseFloat(pos.current_price) || 0;
+            
             try {
-                currentPrice = await getSymbolPrice(pos.symbol);
+                currentPrice = await getSymbolPrice(normalizedSymbol);
                 if (!currentPrice || currentPrice <= 0) {
-                    console.warn(`⚠️ [UPDATE P&L] Impossibile recuperare prezzo per ${pos.symbol}, uso prezzo dal database`);
-                    currentPrice = parseFloat(pos.current_price) || 0;
+                    // Prova anche con il simbolo originale se il normalizzato fallisce
+                    if (normalizedSymbol !== pos.symbol.toLowerCase()) {
+                        currentPrice = await getSymbolPrice(pos.symbol);
+                    }
+                    
+                    if (!currentPrice || currentPrice <= 0) {
+                        console.warn(`⚠️ [UPDATE P&L] Impossibile recuperare prezzo per ${pos.symbol} (normalized: ${normalizedSymbol}), uso prezzo dal database (${oldPrice})`);
+                        currentPrice = oldPrice;
+                    }
+                } else {
+                    // ✅ DEBUG: Log aggiornamento prezzo se c'è una differenza significativa (>5%)
+                    if (oldPrice > 0 && Math.abs(currentPrice - oldPrice) > oldPrice * 0.05) {
+                        console.log(`💰 [UPDATE P&L] ${pos.symbol} (${pos.ticket_id}): $${oldPrice.toFixed(6)} → $${currentPrice.toFixed(6)} USDT (diff: ${((currentPrice - oldPrice) / oldPrice * 100).toFixed(2)}%)`);
+                    }
                 }
             } catch (priceError) {
-                console.error(`❌ [UPDATE P&L] Errore recupero prezzo per ${pos.symbol}:`, priceError.message);
+                console.error(`❌ [UPDATE P&L] Errore recupero prezzo per ${pos.symbol} (normalized: ${normalizedSymbol}):`, priceError.message);
                 // Usa il prezzo dal database come fallback
-                currentPrice = parseFloat(pos.current_price) || 0;
+                currentPrice = oldPrice;
             }
 
             // Valida che currentPrice sia ragionevole
