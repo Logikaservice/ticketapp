@@ -5745,36 +5745,75 @@ router.get('/bot-analysis', async (req, res) => {
         console.log('🔍 [BOT-ANALYSIS] Symbol originale:', symbol);
         
         // ✅ FIX CRITICO: Normalizza il simbolo per il database
-        // Il database potrebbe avere "bitcoin" ma la richiesta arriva come "bitcoin_usdt"
-        // Usa SYMBOL_TO_COINGECKO per normalizzare (es. "bitcoin_usdt" -> "bitcoin")
-        const SYMBOL_TO_COINGECKO_NORMALIZED = {
+        // Gestisce vari formati: "BTC/USDT", "bitcoin_usdt", "bitcoin", "BTC", ecc.
+        // Prima normalizza rimuovendo "/" e convertendo in lowercase
+        let normalizedInput = symbol.toLowerCase().replace(/\//g, '_').replace(/-/g, '_');
+        
+        // Mappa completa per normalizzazione
+        const SYMBOL_NORMALIZATION_MAP = {
+            // Formati con _usdt
             'bitcoin_usdt': 'bitcoin',
-            'bitcoin': 'bitcoin',
+            'btc_usdt': 'bitcoin',
+            'btc': 'bitcoin',
             'ethereum_usdt': 'ethereum',
-            'ethereum': 'ethereum',
+            'eth_usdt': 'ethereum',
+            'eth': 'ethereum',
             'solana_usdt': 'solana',
-            'solana': 'solana',
+            'sol_usdt': 'solana',
+            'sol': 'solana',
             'cardano_usdt': 'cardano',
-            'cardano': 'cardano',
+            'ada_usdt': 'cardano',
+            'ada': 'cardano',
             'ripple_usdt': 'ripple',
-            'ripple': 'ripple',
+            'xrp_usdt': 'ripple',
+            'xrp': 'ripple',
             'polkadot_usdt': 'polkadot',
-            'polkadot': 'polkadot',
+            'dot_usdt': 'polkadot',
+            'dot': 'polkadot',
             'dogecoin_usdt': 'dogecoin',
-            'dogecoin': 'dogecoin',
+            'doge_usdt': 'dogecoin',
+            'doge': 'dogecoin',
             'shiba_inu_usdt': 'shiba_inu',
-            'shiba_inu': 'shiba_inu',
+            'shib_usdt': 'shiba_inu',
+            'shib': 'shiba_inu',
             'binance_coin_usdt': 'binance_coin',
-            'binance_coin': 'binance_coin',
+            'bnb_usdt': 'binance_coin',
+            'bnb': 'binance_coin',
             'chainlink_usdt': 'chainlink',
-            'chainlink': 'chainlink',
+            'link_usdt': 'chainlink',
+            'link': 'chainlink',
             'litecoin_usdt': 'litecoin',
+            'ltc_usdt': 'litecoin',
+            'ltc': 'litecoin',
+            // Formati base (già normalizzati)
+            'bitcoin': 'bitcoin',
+            'ethereum': 'ethereum',
+            'solana': 'solana',
+            'cardano': 'cardano',
+            'ripple': 'ripple',
+            'polkadot': 'polkadot',
+            'dogecoin': 'dogecoin',
+            'shiba_inu': 'shiba_inu',
+            'binance_coin': 'binance_coin',
+            'chainlink': 'chainlink',
             'litecoin': 'litecoin'
         };
         
-        // Normalizza il simbolo per il database (rimuovi _usdt se presente)
-        const normalizedSymbol = SYMBOL_TO_COINGECKO_NORMALIZED[symbol.toLowerCase()] || symbol.toLowerCase().replace('_usdt', '').replace('_', '');
-        console.log('🔍 [BOT-ANALYSIS] Symbol normalizzato per DB:', normalizedSymbol);
+        // Prova prima con il mapping completo
+        let normalizedSymbol = SYMBOL_NORMALIZATION_MAP[normalizedInput];
+        
+        // Se non trovato, prova a rimuovere "_usdt" e riprovare
+        if (!normalizedSymbol) {
+            const withoutUsdt = normalizedInput.replace('_usdt', '').replace('usdt', '');
+            normalizedSymbol = SYMBOL_NORMALIZATION_MAP[withoutUsdt] || withoutUsdt;
+        }
+        
+        // Se ancora non trovato, usa il simbolo originale senza modifiche (potrebbe essere già corretto)
+        if (!normalizedSymbol || normalizedSymbol === '') {
+            normalizedSymbol = normalizedInput.replace('_usdt', '').replace('usdt', '');
+        }
+        
+        console.log('🔍 [BOT-ANALYSIS] Symbol normalizzato per DB:', normalizedSymbol, '(da:', symbol, ')');
         
         // Usa il simbolo normalizzato per le query al database, ma mantieni l'originale per getSymbolPrice
         const dbSymbol = normalizedSymbol;
