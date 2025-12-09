@@ -472,14 +472,14 @@ router.get('/dashboard', async (req, res) => {
                     // Verifica se le klines sono in EUR o USDT confrontando con prezzo corrente Binance
                     const currentBinancePrice = await getSymbolPrice(position.symbol).catch(() => null); // USDT
                     const latestKlinePrice = parseFloat(klinesChronological[klinesChronological.length - 1]?.close_price || 0);
-                    
+
                     // Se il prezzo più recente è significativamente diverso dal prezzo Binance, potrebbe essere in EUR
                     // Tolleranza: se differenza > 10%, probabilmente è in EUR
                     let conversionRate = 1.0;
                     if (currentBinancePrice && latestKlinePrice > 0) {
                         const priceDiff = Math.abs((currentBinancePrice - latestKlinePrice) / latestKlinePrice);
                         const needsConversion = priceDiff > 0.10 && latestKlinePrice < currentBinancePrice * 0.9; // Se kline è ~10% più bassa, probabilmente EUR
-                        
+
                         if (needsConversion) {
                             try {
                                 const usdtToEurRate = await getUSDTtoEURRate();
@@ -491,7 +491,7 @@ router.get('/dashboard', async (req, res) => {
                             }
                         }
                     }
-                    
+
                     const historyForSignal = klinesChronological.map(kline => ({
                         close: parseFloat(kline.close_price) * conversionRate,  // ✅ Normalizza a USDT
                         high: parseFloat(kline.high_price) * conversionRate,     // ✅ Normalizza a USDT
@@ -1022,39 +1022,40 @@ const getBotParameters = async (symbol = 'bitcoin') => {
 
 // Symbol to Trading Pair mapping
 const SYMBOL_TO_PAIR = {
-    'bitcoin': 'BTCEUR',
+    // ✅ FIX: Usa SOLO coppie USDT per evitare mismatch EUR/USDT
+    'bitcoin': 'BTCUSDT',        // Era BTCEUR
     'bitcoin_usdt': 'BTCUSDT',
     'solana': 'SOLUSDT',
-    'solana_eur': 'SOLEUR',
-    'ethereum': 'ETHEUR',
+    'solana_eur': 'SOLUSDT',     // Era SOLEUR
+    'ethereum': 'ETHUSDT',       // Era ETHEUR
     'ethereum_usdt': 'ETHUSDT',
-    'cardano': 'ADAEUR',
+    'cardano': 'ADAUSDT',        // Era ADAEUR - FIX PRINCIPALE
     'cardano_usdt': 'ADAUSDT',
-    'polkadot': 'DOTEUR',
+    'polkadot': 'DOTUSDT',       // Era DOTEUR
     'polkadot_usdt': 'DOTUSDT',
-    'chainlink': 'LINKEUR',
+    'chainlink': 'LINKUSDT',     // Era LINKEUR
     'chainlink_usdt': 'LINKUSDT',
-    'litecoin': 'LTCEUR',
+    'litecoin': 'LTCUSDT',       // Era LTCEUR
     'litecoin_usdt': 'LTCUSDT',
     'ripple': 'XRPUSDT',
-    'ripple_eur': 'XRPEUR',
+    'ripple_eur': 'XRPUSDT',     // Era XRPEUR
     'binance_coin': 'BNBUSDT',
-    'binance_coin_eur': 'BNBEUR',
-    'pol_polygon': 'POLUSDT', // Replaces MATIC
-    'pol_polygon_eur': 'POLEUR', // Replaces MATIC
+    'binance_coin_eur': 'BNBUSDT', // Era BNBEUR
+    'pol_polygon': 'POLUSDT',
+    'pol_polygon_eur': 'POLUSDT',  // Era POLEUR
     'avalanche': 'AVAXUSDT',
-    'avalanche_eur': 'AVAXEUR',
+    'avalanche_eur': 'AVAXUSDT', // Era AVAXEUR
     'uniswap': 'UNIUSDT',
-    'uniswap_eur': 'UNIEUR',
+    'uniswap_eur': 'UNIUSDT',    // Era UNIEUR
     'dogecoin': 'DOGEUSDT',
-    'dogecoin_eur': 'DOGEEUR',
+    'dogecoin_eur': 'DOGEUSDT',  // Era DOGEEUR
     'shiba': 'SHIBUSDT',
-    'shiba_eur': 'SHIBEUR',
+    'shiba_eur': 'SHIBUSDT',     // Era SHIBEUR
     // Layer 1 Alternatives
     'near': 'NEARUSDT',
-    'near_eur': 'NEAREUR',
+    'near_eur': 'NEARUSDT',      // Era NEAREUR
     'atom': 'ATOMUSDT',
-    'atom_eur': 'ATOMEUR',
+    'atom_eur': 'ATOMUSDT',      // Era ATOMEUR
     // DeFi Blue Chips
     'aave': 'AAVEUSDT',
     // ❌ 'aave_eur': 'AAVEEUR', // Non disponibile su Binance
@@ -1066,18 +1067,18 @@ const SYMBOL_TO_PAIR = {
     // ❌ 'fil_eur': 'FILEUR', // Non disponibile su Binance
     // Layer 1 / Payments
     'trx': 'TRXUSDT',
-    'trx_eur': 'TRXEUR',
+    'trx_eur': 'TRXUSDT',        // Era TRXEUR
     'xlm': 'XLMUSDT',
-    'xlm_eur': 'XLMEUR',
+    'xlm_eur': 'XLMUSDT',        // Era XLMEUR
     // ❌ 'eos': 'EOSUSDT', // Delisted from Binance
     // ❌ 'eos_eur': 'EOSEUR', // Not available on Binance
     // Layer 2 / Scaling
     'arb': 'ARBUSDT',
-    'arb_eur': 'ARBEUR',
+    'arb_eur': 'ARBUSDT',        // Era ARBEUR
     'op': 'OPUSDT',
-    'op_eur': 'OPEUR',
+    'op_eur': 'OPUSDT',          // Era OPEUR
     'matic': 'MATICUSDT',
-    'matic_eur': 'MATICEUR',
+    'matic_eur': 'MATICUSDT',    // Era MATICEUR
     // DeFi Blue Chips (solo USDT disponibile)
     'crv': 'CRVUSDT',
     // ❌ 'crv_eur': 'CRVEUR', // Non disponibile su Binance
@@ -1093,9 +1094,9 @@ const SYMBOL_TO_PAIR = {
     // Stablecoins
     'usdc': 'USDCUSDT', // Volume: €1343M/day
 
-    // Layer 1 Emergenti (High Volume)
+    // New Listings (High Volume)
     'sui': 'SUIUSDT', // Volume: €81M/day
-    'sui_eur': 'SUIEUR',
+    'sui_eur': 'SUIUSDT',        // Era SUIEUR
     'apt': 'APTUSDT', // Aptos - Volume: €18.88M/day
     'sei': 'SEIUSDT', // Volume: €8.92M/day
     'ton': 'TONUSDT', // Telegram Open Network - Volume: €7.60M/day
@@ -1118,11 +1119,11 @@ const SYMBOL_TO_PAIR = {
     'imx': 'IMXUSDT', // Immutable X - Volume: €1.38M/day
     'gala': 'GALAUSDT', // Gala Games - Volume: €3.46M/day
     'enj': 'ENJUSDT', // Enjin Coin - Volume: €0.45M/day
-    'enj_eur': 'ENJEUR',
+    'enj_eur': 'ENJUSDT',        // Era ENJEUR
 
     // Meme Coins (High Volume)
     'pepe': 'PEPEUSDT', // Volume: €32.29M/day
-    'pepe_eur': 'PEPEEUR',
+    'pepe_eur': 'PEPEUSDT',      // Era PEPEEUR
     'floki': 'FLOKIUSDT', // Volume: €5.71M/day
     'bonk': 'BONKUSDT', // Volume: €8.79M/day
 
@@ -1338,7 +1339,7 @@ const getSymbolPrice = async (symbol) => {
     const cached = priceCache.get(symbol);
     const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
     const isEURPair = tradingPair.endsWith('EUR');
-    
+
     // ✅ FIX CRITICO: Per coppie EUR, invalidiamo la cache se è più vecchia di 1 secondo
     // Questo garantisce che i prezzi siano sempre convertiti EUR→USDT correttamente
     // La cache potrebbe contenere ancora prezzi vecchi in EUR non convertiti
@@ -1388,14 +1389,14 @@ const getSymbolPrice = async (symbol) => {
             return price;
         }
         throw new Error("Invalid data from Binance");
-        } catch (e) {
+    } catch (e) {
         console.error(`Error fetching ${symbol} price from Binance:`, e.message);
         try {
             // ✅ CAMBIATO: CoinGecko ora restituisce USDT direttamente
             const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd&precision=18`);
             if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].usd !== undefined) {
                 let price = parseFloat(geckoData[coingeckoId].usd);
-                
+
                 // ✅ FIX: Verifica che il prezzo sia valido (anche se molto basso, es. 0.000007)
                 if (price > 0 && !isNaN(price) && isFinite(price)) {
                     console.log(`💱 [PRICE] ${symbol} from CoinGecko: $${price.toFixed(8)} USDT`);
@@ -1977,12 +1978,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             // Verifica se le klines sono in EUR o USDT confrontando con prezzo corrente Binance
             const currentBinancePrice = await getSymbolPrice(symbol); // USDT
             const latestKlinePrice = parseFloat(klinesChronological[klinesChronological.length - 1]?.close_price || 0);
-            
+
             // Se il prezzo più recente è significativamente diverso dal prezzo Binance, potrebbe essere in EUR
             // Tolleranza: se differenza > 10%, probabilmente è in EUR
             const priceDiff = latestKlinePrice > 0 ? Math.abs((currentBinancePrice - latestKlinePrice) / latestKlinePrice) : 0;
             const needsConversion = priceDiff > 0.10 && latestKlinePrice < currentBinancePrice * 0.9; // Se kline è ~10% più bassa, probabilmente EUR
-            
+
             let conversionRate = 1.0;
             if (needsConversion) {
                 try {
@@ -1994,7 +1995,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     conversionRate = 1.08; // Fallback: 1 EUR = 1.08 USDT
                 }
             }
-            
+
             // Formatta come array di oggetti { close, high, low, volume, price } per signalGenerator
             const historyForSignal = klinesChronological.map(kline => ({
                 close: parseFloat(kline.close_price) * conversionRate,  // ✅ Normalizza a USDT
@@ -2849,7 +2850,7 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
         const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
         const isEURPair = tradingPair.endsWith('EUR') || symbol.endsWith('_eur');
         const EUR_TO_USDT_RATE = 1.08; // Tasso approssimativo EUR → USDT
-        
+
         if (isEURPair && entryPrice > 0) {
             // ✅ FIX: getSymbolPrice dovrebbe già restituire USDT (convertito), ma verifichiamo
             // Se entryPrice sembra troppo basso rispetto al prezzo attuale, potrebbe essere ancora in EUR
@@ -2863,7 +2864,7 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
                         const originalPrice = entryPrice;
                         entryPrice = entryPrice * EUR_TO_USDT_RATE;
                         console.log(`💱 [OPEN POSITION] ${symbol}: entryPrice sembra in EUR (${originalPrice.toFixed(6)}), convertito a USDT: $${entryPrice.toFixed(6)} (current: $${currentUSDTPrice.toFixed(6)})`);
-                        
+
                         // Converti anche stop loss e take profit se presenti
                         if (stopLoss) stopLoss = stopLoss * EUR_TO_USDT_RATE;
                         if (takeProfit) takeProfit = takeProfit * EUR_TO_USDT_RATE;
@@ -2878,12 +2879,12 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
                 const originalPrice = entryPrice;
                 entryPrice = entryPrice * EUR_TO_USDT_RATE;
                 console.log(`💱 [OPEN POSITION] ${symbol}: Convertito EUR → USDT: €${originalPrice.toFixed(6)} → $${entryPrice.toFixed(6)} USDT`);
-                
+
                 if (stopLoss) stopLoss = stopLoss * EUR_TO_USDT_RATE;
                 if (takeProfit) takeProfit = takeProfit * EUR_TO_USDT_RATE;
             }
         }
-        
+
         // ✅ FIX CRITICO: Verifica che entryPrice sia ragionevole (in USDT)
         // Se entryPrice sembra troppo alto (es. > 100000), potrebbe essere un errore
         const MAX_REASONABLE_ENTRY_PRICE = 100000; // 100k USDT max per qualsiasi crypto
@@ -3185,238 +3186,238 @@ const updatePositionsPnL = async (currentPrice, symbol = 'bitcoin') => {
     try {
         const positions = await dbAll("SELECT * FROM open_positions WHERE symbol = ? AND status = 'open'", [symbol]);
 
-            // ✅ FIX CRITICO: Valida che currentPrice sia ragionevole (in USDT)
-            // Se è troppo grande, potrebbe essere un errore
-            const MAX_REASONABLE_USDT_PRICE = 200000; // BTC può essere ~100k USDT, ma con margine
-            if (currentPrice > MAX_REASONABLE_USDT_PRICE && symbol !== 'bitcoin') {
-                console.error(`🚨 [UPDATE P&L] currentPrice ${currentPrice} seems too high for ${symbol}, might be an error!`);
-                // Non crashare, ma logga l'errore
+        // ✅ FIX CRITICO: Valida che currentPrice sia ragionevole (in USDT)
+        // Se è troppo grande, potrebbe essere un errore
+        const MAX_REASONABLE_USDT_PRICE = 200000; // BTC può essere ~100k USDT, ma con margine
+        if (currentPrice > MAX_REASONABLE_USDT_PRICE && symbol !== 'bitcoin') {
+            console.error(`🚨 [UPDATE P&L] currentPrice ${currentPrice} seems too high for ${symbol}, might be an error!`);
+            // Non crashare, ma logga l'errore
+        }
+
+        // ✅ FIX: Verifica se entry_price è in EUR (vecchie posizioni) e converte a USDT se necessario
+        // Se entry_price è molto più basso di currentPrice (>20% differenza), potrebbe essere in EUR
+        // Conversione approssimativa: 1 EUR ≈ 1.08 USDT
+
+        for (const pos of positions) {
+            let entryPrice = parseFloat(pos.entry_price);
+
+            // ✅ FIX CRITICO: Rileva e converte entry_price da EUR a USDT se necessario
+            // Se entry_price è significativamente più basso di currentPrice (>15% differenza),
+            // probabilmente è in EUR e va convertito
+            const priceRatio = entryPrice > 0 ? currentPrice / entryPrice : 0;
+            const EUR_TO_USDT_RATE = 1.08; // Tasso approssimativo
+
+            if (priceRatio > 1.15 && entryPrice < currentPrice * 0.85) {
+                // Probabilmente entry_price è in EUR, converti a USDT
+                const convertedEntryPrice = entryPrice * EUR_TO_USDT_RATE;
+                console.warn(`⚠️ [CURRENCY-FIX] ${pos.ticket_id} (${symbol}): entry_price sembra in EUR (${entryPrice.toFixed(6)}), convertendo a USDT (${convertedEntryPrice.toFixed(6)})`);
+                entryPrice = convertedEntryPrice;
+
+                // ✅ AGGIORNA entry_price nel database per evitare riconversioni future
+                await dbRun(
+                    "UPDATE open_positions SET entry_price = ? WHERE ticket_id = ?",
+                    [convertedEntryPrice, pos.ticket_id]
+                );
             }
-            
-            // ✅ FIX: Verifica se entry_price è in EUR (vecchie posizioni) e converte a USDT se necessario
-            // Se entry_price è molto più basso di currentPrice (>20% differenza), potrebbe essere in EUR
-            // Conversione approssimativa: 1 EUR ≈ 1.08 USDT
 
-            for (const pos of positions) {
-                let entryPrice = parseFloat(pos.entry_price);
-                
-                // ✅ FIX CRITICO: Rileva e converte entry_price da EUR a USDT se necessario
-                // Se entry_price è significativamente più basso di currentPrice (>15% differenza),
-                // probabilmente è in EUR e va convertito
-                const priceRatio = entryPrice > 0 ? currentPrice / entryPrice : 0;
-                const EUR_TO_USDT_RATE = 1.08; // Tasso approssimativo
-                
-                if (priceRatio > 1.15 && entryPrice < currentPrice * 0.85) {
-                    // Probabilmente entry_price è in EUR, converti a USDT
-                    const convertedEntryPrice = entryPrice * EUR_TO_USDT_RATE;
-                    console.warn(`⚠️ [CURRENCY-FIX] ${pos.ticket_id} (${symbol}): entry_price sembra in EUR (${entryPrice.toFixed(6)}), convertendo a USDT (${convertedEntryPrice.toFixed(6)})`);
-                    entryPrice = convertedEntryPrice;
-                    
-                    // ✅ AGGIORNA entry_price nel database per evitare riconversioni future
-                    await dbRun(
-                        "UPDATE open_positions SET entry_price = ? WHERE ticket_id = ?",
-                        [convertedEntryPrice, pos.ticket_id]
-                    );
-                }
-                
-                let pnl = 0;
-                let pnlPct = 0;
-                let remainingVolume = pos.volume - (pos.volume_closed || 0);
+            let pnl = 0;
+            let pnlPct = 0;
+            let remainingVolume = pos.volume - (pos.volume_closed || 0);
 
-                if (pos.type === 'buy') {
-                    // Long position: profit when price goes up
-                    pnl = (currentPrice - entryPrice) * remainingVolume;
-                    pnlPct = ((currentPrice - entryPrice) / entryPrice) * 100;
-                } else {
-                    // Short position: profit when price goes down
-                    pnl = (entryPrice - currentPrice) * remainingVolume;
-                    pnlPct = ((entryPrice - currentPrice) / entryPrice) * 100;
-                }
+            if (pos.type === 'buy') {
+                // Long position: profit when price goes up
+                pnl = (currentPrice - entryPrice) * remainingVolume;
+                pnlPct = ((currentPrice - entryPrice) / entryPrice) * 100;
+            } else {
+                // Short position: profit when price goes down
+                pnl = (entryPrice - currentPrice) * remainingVolume;
+                pnlPct = ((entryPrice - currentPrice) / entryPrice) * 100;
+            }
 
-                // Track highest price for trailing stop loss
-                let highestPrice = pos.highest_price || entryPrice;
-                let stopLoss = pos.stop_loss;
-                let shouldUpdateStopLoss = false;
+            // Track highest price for trailing stop loss
+            let highestPrice = pos.highest_price || entryPrice;
+            let stopLoss = pos.stop_loss;
+            let shouldUpdateStopLoss = false;
 
-                // Update highest price for long positions (buy)
-                if (pos.type === 'buy' && currentPrice > highestPrice) {
-                    highestPrice = currentPrice;
+            // Update highest price for long positions (buy)
+            if (pos.type === 'buy' && currentPrice > highestPrice) {
+                highestPrice = currentPrice;
+                shouldUpdateStopLoss = true;
+            }
+            // Update lowest price for short positions (sell) - for trailing stop
+            // NOTE: We use highest_price column to track lowest price for SHORT (database limitation)
+            // For SHORT: profit when price goes DOWN, so we track the LOWEST price reached
+            else if (pos.type === 'sell') {
+                // For SHORT, highest_price actually stores the LOWEST price (confusing but works)
+                const currentLowest = pos.highest_price || entryPrice;
+                if (currentPrice < currentLowest) {
+                    highestPrice = currentPrice; // Track new lowest price for SHORT
                     shouldUpdateStopLoss = true;
                 }
-                // Update lowest price for short positions (sell) - for trailing stop
-                // NOTE: We use highest_price column to track lowest price for SHORT (database limitation)
-                // For SHORT: profit when price goes DOWN, so we track the LOWEST price reached
-                else if (pos.type === 'sell') {
-                    // For SHORT, highest_price actually stores the LOWEST price (confusing but works)
-                    const currentLowest = pos.highest_price || entryPrice;
-                    if (currentPrice < currentLowest) {
-                        highestPrice = currentPrice; // Track new lowest price for SHORT
-                        shouldUpdateStopLoss = true;
-                    }
-                }
+            }
 
-                // Trailing Stop Loss Logic - ✅ DYNAMIC ATR-BASED
-                if (pos.trailing_stop_enabled && pos.trailing_stop_distance_pct > 0) {
-                    // Load recent klines for ATR calculation
-                    let dynamicDistance = pos.trailing_stop_distance_pct; // Fallback to configured value
+            // Trailing Stop Loss Logic - ✅ DYNAMIC ATR-BASED
+            if (pos.trailing_stop_enabled && pos.trailing_stop_distance_pct > 0) {
+                // Load recent klines for ATR calculation
+                let dynamicDistance = pos.trailing_stop_distance_pct; // Fallback to configured value
 
-                    try {
-                        const recentKlines = await dbAll(
-                            "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 20",
-                            [pos.symbol]
-                        );
-
-                        if (recentKlines && recentKlines.length >= 15) {
-                            const atr = calculateATR(recentKlines.reverse(), 14);
-                            dynamicDistance = calculateDynamicTrailingDistance(atr, currentPrice, 1.5);
-
-                            console.log(`📊 [ATR-TRAILING] ${pos.ticket_id} | ATR: ${atr.toFixed(4)} | Dynamic Distance: ${dynamicDistance.toFixed(2)}% (was ${pos.trailing_stop_distance_pct.toFixed(2)}%)`);
-                        }
-                    } catch (atrError) {
-                        console.warn(`⚠️ ATR calculation failed for ${pos.symbol}, using fixed distance:`, atrError.message);
-                    }
-
-                    if (pos.type === 'buy') {
-                        // For long positions, trailing stop moves up as price increases
-                        if (currentPrice > highestPrice) {
-                            // Calculate new trailing stop loss with dynamic distance
-                            const trailingStopPrice = highestPrice * (1 - dynamicDistance / 100);
-                            // Only update if new stop loss is higher than current
-                            if (!stopLoss || trailingStopPrice > stopLoss) {
-                                stopLoss = trailingStopPrice;
-                                shouldUpdateStopLoss = true;
-                                console.log(`📈 TRAILING STOP UPDATE (LONG): ${pos.ticket_id} | Highest: €${highestPrice.toFixed(2)} | New SL: €${trailingStopPrice.toFixed(2)} | Distance: ${dynamicDistance.toFixed(2)}%`);
-                            }
-                        }
-                    } else {
-                        // For short positions, trailing stop moves down as price decreases
-                        // highest_price actually stores the LOWEST price for SHORT positions
-                        const lowestPrice = highestPrice || entryPrice;
-                        if (currentPrice < lowestPrice) {
-                            // Trailing stop for SHORT: SL = lowest_price * (1 + distance%)
-                            // This moves the SL DOWN as price goes DOWN (protecting profit)
-                            const trailingStopPrice = currentPrice * (1 + dynamicDistance / 100);
-                            // Only update if new stop loss is LOWER than current (for SHORT, lower SL = better)
-                            if (!stopLoss || trailingStopPrice < stopLoss) {
-                                stopLoss = trailingStopPrice;
-                                shouldUpdateStopLoss = true;
-                                console.log(`📈 TRAILING STOP UPDATE (SHORT): ${pos.ticket_id} | Lowest: €${currentPrice.toFixed(2)} | New SL: €${trailingStopPrice.toFixed(2)} | Distance: ${dynamicDistance.toFixed(2)}%`);
-                            }
-                        }
-                    }
-                }
-
-                // Update position with current price, P&L, and potentially new stop loss/highest price
-                const updateFields = ['current_price = ?', 'profit_loss = ?', 'profit_loss_pct = ?'];
-                const updateValues = [currentPrice, pnl, pnlPct];
-                
-                // ✅ DEBUG: Log aggiornamento prezzo per verificare correttezza
-                const oldCurrentPrice = parseFloat(pos.current_price) || 0;
-                if (Math.abs(currentPrice - oldCurrentPrice) > oldCurrentPrice * 0.05) { // Se differenza > 5%
-                    console.log(`💰 [UPDATE P&L] ${pos.ticket_id} (${symbol}): current_price aggiornato: $${oldCurrentPrice.toFixed(6)} → $${currentPrice.toFixed(6)} USDT`);
-                }
-
-                if (shouldUpdateStopLoss) {
-                    updateFields.push('highest_price = ?', 'stop_loss = ?');
-                    updateValues.push(highestPrice, stopLoss);
-                }
-
-                updateValues.push(pos.ticket_id);
-                await dbRun(
-                    `UPDATE open_positions SET ${updateFields.join(', ')} WHERE ticket_id = ?`,
-                    updateValues
-                );
-
-                // Partial Close: Check TP1 (if configured)
-                if (pos.take_profit_1 && !pos.tp1_hit && remainingVolume > 0) {
-                    let tp1Hit = false;
-                    if (pos.type === 'buy' && currentPrice >= pos.take_profit_1) {
-                        tp1Hit = true;
-                    } else if (pos.type === 'sell' && currentPrice <= pos.take_profit_1) {
-                        tp1Hit = true;
-                    }
-
-                    if (tp1Hit) {
-                        // Close 50% of remaining position at TP1
-                        const volumeToClose = remainingVolume * 0.5;
-                        console.log(`📊 PARTIAL CLOSE TP1: ${pos.ticket_id} | Closing 50% (${volumeToClose.toFixed(8)}) at €${currentPrice.toFixed(2)}`);
-                        await partialClosePosition(pos.ticket_id, volumeToClose, currentPrice, 'TP1');
-                        // Mark TP1 as hit (partialClosePosition already updates volume_closed, so we only mark the flag)
-                        await dbRun(
-                            "UPDATE open_positions SET tp1_hit = 1 WHERE ticket_id = ?",
-                            [pos.ticket_id]
-                        );
-                        console.log(`✅ PARTIAL CLOSE TP1 COMPLETE: ${pos.ticket_id}`);
-                    }
-                }
-
-                // Re-fetch position to get updated values after partial close
-                const updatedPos = await dbGet("SELECT * FROM open_positions WHERE ticket_id = ?", [pos.ticket_id]);
-                if (!updatedPos || updatedPos.status !== 'open') continue; // Skip if closed
-
-                const finalRemainingVolume = updatedPos.volume - (updatedPos.volume_closed || 0);
-                if (finalRemainingVolume <= 0.0001) {
-                    // Position fully closed by partial close, mark as closed
-                    await dbRun(
-                        "UPDATE open_positions SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE ticket_id = ?",
-                        [pos.ticket_id]
+                try {
+                    const recentKlines = await dbAll(
+                        "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 20",
+                        [pos.symbol]
                     );
-                    continue;
+
+                    if (recentKlines && recentKlines.length >= 15) {
+                        const atr = calculateATR(recentKlines.reverse(), 14);
+                        dynamicDistance = calculateDynamicTrailingDistance(atr, currentPrice, 1.5);
+
+                        console.log(`📊 [ATR-TRAILING] ${pos.ticket_id} | ATR: ${atr.toFixed(4)} | Dynamic Distance: ${dynamicDistance.toFixed(2)}% (was ${pos.trailing_stop_distance_pct.toFixed(2)}%)`);
+                    }
+                } catch (atrError) {
+                    console.warn(`⚠️ ATR calculation failed for ${pos.symbol}, using fixed distance:`, atrError.message);
                 }
 
-                // Check stop loss and take profit (TP2 if TP1 was hit, otherwise original TP)
-                const activeTakeProfit = (updatedPos.tp1_hit && updatedPos.take_profit_2) ? updatedPos.take_profit_2 : updatedPos.take_profit;
-                const activeStopLoss = updatedPos.stop_loss;
-
-                if (activeStopLoss || activeTakeProfit) {
-                    let shouldClose = false;
-                    let closeReason = '';
-
-                    if (updatedPos.type === 'buy') {
-                        // Long position
-                        if (activeStopLoss && currentPrice <= activeStopLoss) {
-                            shouldClose = true;
-                            closeReason = 'stopped';
-                            console.log(`🛑 STOP LOSS TRIGGERED: ${updatedPos.ticket_id} | LONG | Price: €${currentPrice.toFixed(2)} <= SL: €${activeStopLoss.toFixed(2)}`);
-                        } else if (activeTakeProfit && currentPrice >= activeTakeProfit) {
-                            shouldClose = true;
-                            closeReason = updatedPos.tp1_hit ? 'taken (TP2)' : 'taken';
-                            console.log(`🎯 TAKE PROFIT TRIGGERED: ${updatedPos.ticket_id} | LONG | Price: €${currentPrice.toFixed(2)} >= TP: €${activeTakeProfit.toFixed(2)}`);
-                        }
-                    } else {
-                        // Short position
-                        if (activeStopLoss && currentPrice >= activeStopLoss) {
-                            shouldClose = true;
-                            closeReason = 'stopped';
-                            console.log(`🛑 STOP LOSS TRIGGERED: ${updatedPos.ticket_id} | SHORT | Price: €${currentPrice.toFixed(2)} >= SL: €${activeStopLoss.toFixed(2)}`);
-                        } else if (activeTakeProfit && currentPrice <= activeTakeProfit) {
-                            shouldClose = true;
-                            closeReason = updatedPos.tp1_hit ? 'taken (TP2)' : 'taken';
-                            console.log(`🎯 TAKE PROFIT TRIGGERED: ${updatedPos.ticket_id} | SHORT | Price: €${currentPrice.toFixed(2)} <= TP: €${activeTakeProfit.toFixed(2)}`);
+                if (pos.type === 'buy') {
+                    // For long positions, trailing stop moves up as price increases
+                    if (currentPrice > highestPrice) {
+                        // Calculate new trailing stop loss with dynamic distance
+                        const trailingStopPrice = highestPrice * (1 - dynamicDistance / 100);
+                        // Only update if new stop loss is higher than current
+                        if (!stopLoss || trailingStopPrice > stopLoss) {
+                            stopLoss = trailingStopPrice;
+                            shouldUpdateStopLoss = true;
+                            console.log(`📈 TRAILING STOP UPDATE (LONG): ${pos.ticket_id} | Highest: €${highestPrice.toFixed(2)} | New SL: €${trailingStopPrice.toFixed(2)} | Distance: ${dynamicDistance.toFixed(2)}%`);
                         }
                     }
-
-                    if (shouldClose) {
-                        // Close remaining position automatically
-                        // ✅ FIX CRITICO: currentPrice dovrebbe già essere in EUR (da getSymbolPrice chiamato in runBotCycle)
-                        // Ma verifichiamo che sia ragionevole per sicurezza
-                        let validatedClosePrice = currentPrice;
-                        const tradingPair = SYMBOL_TO_PAIR[updatedPos.symbol] || 'BTCEUR';
-                        const isUSDT = tradingPair.endsWith('USDT');
-
-                        if (isUSDT && currentPrice > 200000 && updatedPos.symbol !== 'bitcoin') {
-                            console.warn(`⚠️ [AUTO-CLOSE] currentPrice ${currentPrice} seems too high for ${updatedPos.symbol}, might need conversion`);
-                            // Se sembra troppo alto, potrebbe essere in USDT - ma getSymbolPrice dovrebbe averlo già convertito
-                            // Logga solo per debug
+                } else {
+                    // For short positions, trailing stop moves down as price decreases
+                    // highest_price actually stores the LOWEST price for SHORT positions
+                    const lowestPrice = highestPrice || entryPrice;
+                    if (currentPrice < lowestPrice) {
+                        // Trailing stop for SHORT: SL = lowest_price * (1 + distance%)
+                        // This moves the SL DOWN as price goes DOWN (protecting profit)
+                        const trailingStopPrice = currentPrice * (1 + dynamicDistance / 100);
+                        // Only update if new stop loss is LOWER than current (for SHORT, lower SL = better)
+                        if (!stopLoss || trailingStopPrice < stopLoss) {
+                            stopLoss = trailingStopPrice;
+                            shouldUpdateStopLoss = true;
+                            console.log(`📈 TRAILING STOP UPDATE (SHORT): ${pos.ticket_id} | Lowest: €${currentPrice.toFixed(2)} | New SL: €${trailingStopPrice.toFixed(2)} | Distance: ${dynamicDistance.toFixed(2)}%`);
                         }
-
-                        console.log(`⚡ AUTO-CLOSING POSITION: ${updatedPos.ticket_id} | Reason: ${closeReason} | Price: €${validatedClosePrice.toFixed(2)}`);
-                        await closePosition(updatedPos.ticket_id, validatedClosePrice, closeReason);
                     }
                 }
             }
 
-            return positions.length;
+            // Update position with current price, P&L, and potentially new stop loss/highest price
+            const updateFields = ['current_price = ?', 'profit_loss = ?', 'profit_loss_pct = ?'];
+            const updateValues = [currentPrice, pnl, pnlPct];
+
+            // ✅ DEBUG: Log aggiornamento prezzo per verificare correttezza
+            const oldCurrentPrice = parseFloat(pos.current_price) || 0;
+            if (Math.abs(currentPrice - oldCurrentPrice) > oldCurrentPrice * 0.05) { // Se differenza > 5%
+                console.log(`💰 [UPDATE P&L] ${pos.ticket_id} (${symbol}): current_price aggiornato: $${oldCurrentPrice.toFixed(6)} → $${currentPrice.toFixed(6)} USDT`);
+            }
+
+            if (shouldUpdateStopLoss) {
+                updateFields.push('highest_price = ?', 'stop_loss = ?');
+                updateValues.push(highestPrice, stopLoss);
+            }
+
+            updateValues.push(pos.ticket_id);
+            await dbRun(
+                `UPDATE open_positions SET ${updateFields.join(', ')} WHERE ticket_id = ?`,
+                updateValues
+            );
+
+            // Partial Close: Check TP1 (if configured)
+            if (pos.take_profit_1 && !pos.tp1_hit && remainingVolume > 0) {
+                let tp1Hit = false;
+                if (pos.type === 'buy' && currentPrice >= pos.take_profit_1) {
+                    tp1Hit = true;
+                } else if (pos.type === 'sell' && currentPrice <= pos.take_profit_1) {
+                    tp1Hit = true;
+                }
+
+                if (tp1Hit) {
+                    // Close 50% of remaining position at TP1
+                    const volumeToClose = remainingVolume * 0.5;
+                    console.log(`📊 PARTIAL CLOSE TP1: ${pos.ticket_id} | Closing 50% (${volumeToClose.toFixed(8)}) at €${currentPrice.toFixed(2)}`);
+                    await partialClosePosition(pos.ticket_id, volumeToClose, currentPrice, 'TP1');
+                    // Mark TP1 as hit (partialClosePosition already updates volume_closed, so we only mark the flag)
+                    await dbRun(
+                        "UPDATE open_positions SET tp1_hit = 1 WHERE ticket_id = ?",
+                        [pos.ticket_id]
+                    );
+                    console.log(`✅ PARTIAL CLOSE TP1 COMPLETE: ${pos.ticket_id}`);
+                }
+            }
+
+            // Re-fetch position to get updated values after partial close
+            const updatedPos = await dbGet("SELECT * FROM open_positions WHERE ticket_id = ?", [pos.ticket_id]);
+            if (!updatedPos || updatedPos.status !== 'open') continue; // Skip if closed
+
+            const finalRemainingVolume = updatedPos.volume - (updatedPos.volume_closed || 0);
+            if (finalRemainingVolume <= 0.0001) {
+                // Position fully closed by partial close, mark as closed
+                await dbRun(
+                    "UPDATE open_positions SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE ticket_id = ?",
+                    [pos.ticket_id]
+                );
+                continue;
+            }
+
+            // Check stop loss and take profit (TP2 if TP1 was hit, otherwise original TP)
+            const activeTakeProfit = (updatedPos.tp1_hit && updatedPos.take_profit_2) ? updatedPos.take_profit_2 : updatedPos.take_profit;
+            const activeStopLoss = updatedPos.stop_loss;
+
+            if (activeStopLoss || activeTakeProfit) {
+                let shouldClose = false;
+                let closeReason = '';
+
+                if (updatedPos.type === 'buy') {
+                    // Long position
+                    if (activeStopLoss && currentPrice <= activeStopLoss) {
+                        shouldClose = true;
+                        closeReason = 'stopped';
+                        console.log(`🛑 STOP LOSS TRIGGERED: ${updatedPos.ticket_id} | LONG | Price: €${currentPrice.toFixed(2)} <= SL: €${activeStopLoss.toFixed(2)}`);
+                    } else if (activeTakeProfit && currentPrice >= activeTakeProfit) {
+                        shouldClose = true;
+                        closeReason = updatedPos.tp1_hit ? 'taken (TP2)' : 'taken';
+                        console.log(`🎯 TAKE PROFIT TRIGGERED: ${updatedPos.ticket_id} | LONG | Price: €${currentPrice.toFixed(2)} >= TP: €${activeTakeProfit.toFixed(2)}`);
+                    }
+                } else {
+                    // Short position
+                    if (activeStopLoss && currentPrice >= activeStopLoss) {
+                        shouldClose = true;
+                        closeReason = 'stopped';
+                        console.log(`🛑 STOP LOSS TRIGGERED: ${updatedPos.ticket_id} | SHORT | Price: €${currentPrice.toFixed(2)} >= SL: €${activeStopLoss.toFixed(2)}`);
+                    } else if (activeTakeProfit && currentPrice <= activeTakeProfit) {
+                        shouldClose = true;
+                        closeReason = updatedPos.tp1_hit ? 'taken (TP2)' : 'taken';
+                        console.log(`🎯 TAKE PROFIT TRIGGERED: ${updatedPos.ticket_id} | SHORT | Price: €${currentPrice.toFixed(2)} <= TP: €${activeTakeProfit.toFixed(2)}`);
+                    }
+                }
+
+                if (shouldClose) {
+                    // Close remaining position automatically
+                    // ✅ FIX CRITICO: currentPrice dovrebbe già essere in EUR (da getSymbolPrice chiamato in runBotCycle)
+                    // Ma verifichiamo che sia ragionevole per sicurezza
+                    let validatedClosePrice = currentPrice;
+                    const tradingPair = SYMBOL_TO_PAIR[updatedPos.symbol] || 'BTCEUR';
+                    const isUSDT = tradingPair.endsWith('USDT');
+
+                    if (isUSDT && currentPrice > 200000 && updatedPos.symbol !== 'bitcoin') {
+                        console.warn(`⚠️ [AUTO-CLOSE] currentPrice ${currentPrice} seems too high for ${updatedPos.symbol}, might need conversion`);
+                        // Se sembra troppo alto, potrebbe essere in USDT - ma getSymbolPrice dovrebbe averlo già convertito
+                        // Logga solo per debug
+                    }
+
+                    console.log(`⚡ AUTO-CLOSING POSITION: ${updatedPos.ticket_id} | Reason: ${closeReason} | Price: €${validatedClosePrice.toFixed(2)}`);
+                    await closePosition(updatedPos.ticket_id, validatedClosePrice, closeReason);
+                }
+            }
+        }
+
+        return positions.length;
     } catch (err) {
         console.error('❌ Error in updatePositionsPnL:', err.message);
         throw err;
@@ -4847,11 +4848,11 @@ router.get('/statistics', async (req, res) => {
                         if (!symbolPrices[symbol]) {
                             // ✅ FIX: Timeout per chiamate prezzo per evitare blocchi
                             const pricePromise = getSymbolPrice(symbol);
-                            const timeoutPromise = new Promise((_, reject) => 
+                            const timeoutPromise = new Promise((_, reject) =>
                                 setTimeout(() => reject(new Error('Price fetch timeout')), 3000)
                             );
                             const price = await Promise.race([pricePromise, timeoutPromise]);
-                            
+
                             if (price > 0) {
                                 symbolPrices[symbol] = price;
                             } else {
@@ -6807,11 +6808,11 @@ router.get('/scanner', async (req, res) => {
                                 priceFound = currentPrice > 0;
                             }
                         }
-                    } catch (e) { 
+                    } catch (e) {
                         console.warn(`⚠️ [SCANNER] Errore recupero prezzo per ${s.pair}:`, e.message);
                     }
                 }
-                
+
                 // ✅ FIX: Se non troviamo il prezzo, salta questo simbolo (evita errori downstream)
                 if (!priceFound || currentPrice <= 0) {
                     console.warn(`⚠️ [SCANNER] Prezzo non disponibile per ${s.symbol} (${s.pair}), skip`);
