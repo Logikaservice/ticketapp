@@ -5601,6 +5601,36 @@ router.get('/bot-analysis', async (req, res) => {
                         volume: parseFloat(k[5])
                     }));
                     console.log(`✅ [BOT-ANALYSIS] Downloaded ${historyForSignal.length} candles from Binance`);
+
+                    // ✅ FIX: Salva i dati freschi nel DB così lo Scanner li vede!
+                    // Questo risolve la discrepanza tra Quick Analysis (fresco) e Scanner (vecchio/corrotto)
+                    try {
+                        const savePromises = klines.map(k => {
+                            const openTime = parseInt(k[0]);
+                            const open = parseFloat(k[1]);
+                            const high = parseFloat(k[2]);
+                            const low = parseFloat(k[3]);
+                            const close = parseFloat(k[4]);
+                            const volume = parseFloat(k[5]);
+                            const closeTime = parseInt(k[6]);
+
+                            // Usa INSERT OR REPLACE per aggiornare dati vecchi/corrotti
+                            return dbRun(
+                                `INSERT OR REPLACE INTO klines 
+                                (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                [symbol, '15m', openTime, open, high, low, close, volume, closeTime]
+                            );
+                        });
+
+                        // Non bloccare la risposta, salva in background
+                        Promise.all(savePromises)
+                            .then(() => console.log(`💾 [BOT-ANALYSIS] Sincronizzate ${klines.length} klines nel DB per ${symbol}`))
+                            .catch(err => console.error(`❌ [BOT-ANALYSIS] Errore salvataggio DB:`, err.message));
+
+                    } catch (dbError) {
+                        console.error(`❌ [BOT-ANALYSIS] Errore preparazione salvataggio:`, dbError.message);
+                    }
                 }
             } catch (binanceError) {
                 console.error('❌ [BOT-ANALYSIS] Binance fallback failed:', binanceError.message);
