@@ -1317,21 +1317,25 @@ const getSymbolPrice = async (symbol) => {
     const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
     const coingeckoId = SYMBOL_TO_COINGECKO[symbol] || 'bitcoin';
 
-    // ✅ FIX: Verifica se la coppia è in USDT (serve conversione)
+    // ✅ FIX CRITICO: Verifica se la coppia è in EUR (serve conversione a USDT)
+    const isEURPair = tradingPair.endsWith('EUR');
     const isUSDT = tradingPair.endsWith('USDT');
+    const EUR_TO_USDT_RATE = 1.08; // Tasso approssimativo EUR → USDT
 
     try {
         const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=${tradingPair}`);
         if (data && data.price) {
             let price = parseFloat(data.price);
 
-            // ✅ CAMBIATO: Non convertiamo più USDT → EUR, manteniamo USDT per match con grafico TradingView
-            // Il sistema ora usa USDT ovunque per coerenza con il grafico
-            // if (isUSDT) {
-            //     // Conversione rimossa - manteniamo prezzo in USDT
-            // }
+            // ✅ FIX CRITICO: Se la coppia è in EUR, converti a USDT per match con TradingView
+            // TradingView mostra sempre USDT, quindi dobbiamo convertire EUR → USDT
+            if (isEURPair) {
+                const originalPrice = price;
+                price = price * EUR_TO_USDT_RATE;
+                console.log(`💱 [PRICE] ${symbol} (${tradingPair}): Convertito EUR → USDT: €${originalPrice.toFixed(6)} → $${price.toFixed(6)} USDT`);
+            }
 
-            // ✅ Salva in cache
+            // ✅ Salva in cache (sempre in USDT)
             priceCache.set(symbol, { price, timestamp: Date.now() });
             return price;
         }
