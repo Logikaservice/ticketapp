@@ -291,3 +291,4 @@ Per evitare che il bot continui ad aprire posizioni SHORT su ATOM con win rate 0
 3. **Riduzione dimensione** posizioni per simboli con win rate < 30%
 
 
+

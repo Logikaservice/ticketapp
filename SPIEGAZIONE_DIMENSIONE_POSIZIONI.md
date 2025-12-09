@@ -180,3 +180,4 @@ Il bot apre posizioni da **€10.98** perché:
 **Soluzione**: Chiudi posizioni esistenti per liberare exposure, oppure aumenta la percentuale dell'exposure disponibile usata per nuove posizioni.
 
 
+

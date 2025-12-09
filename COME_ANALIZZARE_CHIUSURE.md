@@ -150,3 +150,4 @@ Se vedi posizioni chiuse in < 1 secondo con perdite elevate, controlla:
 - SmartExit logga sempre il motivo prima di chiudere una posizione
 
 
+
