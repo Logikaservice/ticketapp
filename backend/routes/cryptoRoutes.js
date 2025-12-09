@@ -3762,7 +3762,7 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
             volume: pos.volume,
             profit_loss: finalPnl,
             profit_loss_percent: profitLossPercent,
-            close_time: closedAt.toISOString(),
+            close_time: closedAtForEmail.toISOString(),
             duration
         }).catch(err => console.error('Email notification error:', err));
 
