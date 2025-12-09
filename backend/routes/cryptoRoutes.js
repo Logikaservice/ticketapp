@@ -4725,6 +4725,13 @@ router.put('/bot/parameters', async (req, res) => {
 
 // GET /api/crypto/statistics - Get advanced trading statistics
 router.get('/statistics', async (req, res) => {
+    // ✅ FIX: Aggiungi timeout per evitare 502 Bad Gateway
+    const requestTimeout = setTimeout(() => {
+        if (!res.headersSent) {
+            res.status(504).json({ error: 'Request timeout: Statistics calculation took too long' });
+        }
+    }, 25000); // 25 secondi timeout
+
     try {
         const portfolio = await getPortfolio();
         const allTrades = await dbAll("SELECT * FROM trades ORDER BY timestamp ASC");
@@ -4732,7 +4739,7 @@ router.get('/statistics', async (req, res) => {
         const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC");
 
         // Initial portfolio value (assumed starting balance)
-        const initialBalance = 262.5; // Default starting balance in EUR
+        const initialBalance = 262.5; // Default starting balance in USDT
 
         // ✅ FIX: Calculate current total balance considerando TUTTI i simboli, non solo Bitcoin
         const holdings = JSON.parse(portfolio.holdings || '{}');
@@ -4755,7 +4762,13 @@ router.get('/statistics', async (req, res) => {
                 if (amount > 0.0001) { // Solo se ci sono holdings significative
                     try {
                         if (!symbolPrices[symbol]) {
-                            const price = await getSymbolPrice(symbol);
+                            // ✅ FIX: Timeout per chiamate prezzo per evitare blocchi
+                            const pricePromise = getSymbolPrice(symbol);
+                            const timeoutPromise = new Promise((_, reject) => 
+                                setTimeout(() => reject(new Error('Price fetch timeout')), 3000)
+                            );
+                            const price = await Promise.race([pricePromise, timeoutPromise]);
+                            
                             if (price > 0) {
                                 symbolPrices[symbol] = price;
                             } else {
@@ -4804,7 +4817,7 @@ router.get('/statistics', async (req, res) => {
                 // ✅ FIX CRITICO: Valida valori anomali di profit_loss
                 const MAX_REASONABLE_PNL = 1000000;
                 if (Math.abs(pnl) > MAX_REASONABLE_PNL) {
-                    console.warn(`⚠️ Skipping anomalous profit_loss for position ${pos.ticket_id}: €${pnl.toFixed(2)}`);
+                    console.warn(`⚠️ Skipping anomalous profit_loss for position ${pos.ticket_id}: $${pnl.toFixed(2)} USDT`);
                     return;
                 }
 
@@ -4843,7 +4856,7 @@ router.get('/statistics', async (req, res) => {
                 // ✅ FIX CRITICO: Valida valori anomali di profit_loss
                 const MAX_REASONABLE_PNL = 1000000;
                 if (Math.abs(unrealizedPnL) > MAX_REASONABLE_PNL) {
-                    console.warn(`⚠️ Skipping anomalous profit_loss for open position ${pos.ticket_id}: €${unrealizedPnL.toFixed(2)}`);
+                    console.warn(`⚠️ Skipping anomalous profit_loss for open position ${pos.ticket_id}: $${unrealizedPnL.toFixed(2)} USDT`);
                     continue;
                 }
 
@@ -5033,13 +5046,17 @@ router.get('/statistics', async (req, res) => {
                 cash_balance: currentBalance
             }
         });
+        clearTimeout(requestTimeout);
     } catch (error) {
+        clearTimeout(requestTimeout);
         console.error('❌ Error calculating statistics:', error);
         console.error('❌ Stack:', error.stack);
-        res.status(500).json({
-            error: error.message || 'Errore nel calcolo delle statistiche',
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
+        if (!res.headersSent) {
+            res.status(500).json({
+                error: error.message || 'Errore nel calcolo delle statistiche',
+                details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            });
+        }
     }
 });
 
