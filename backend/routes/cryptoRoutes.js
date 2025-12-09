@@ -711,61 +711,54 @@ router.get('/price/:symbol', async (req, res) => {
     let price = 0;
 
     try {
-        // 1. Try Binance (Best for USDT)
+        // ✅ FIX CRITICO: Normalizza il simbolo rimuovendo "/" e "_"
+        let normalizedSymbol = symbol.toLowerCase().replace('/', '').replace('_', '');
+        
+        // ✅ FIX: Usa getSymbolPrice che ha già tutta la logica di normalizzazione corretta
         try {
-            // Map common names to Binance USDT pairs
-            const SYMBOL_MAP = {
-                'bitcoin': 'BTCUSDT',
-                'ethereum': 'ETHUSDT',
-                'solana': 'SOLUSDT',
-                'cardano': 'ADAUSDT',
-                'ripple': 'XRPUSDT',
-                'polkadot': 'DOTUSDT',
-                'dogecoin': 'DOGEUSDT',
-                'shiba_inu': 'SHIBUSDT',
-                'avalanche': 'AVAXUSDT',
-                'binance_coin': 'BNBUSDT',
-                'chainlink': 'LINKUSDT',
-                'litecoin': 'LTCUSDT',
-                'matic': 'MATICUSDT',
-                'polygon': 'MATICUSDT',
-                'ton': 'TONUSDT',
-                'toncoin': 'TONUSDT',
-                'tron': 'TRXUSDT',
-                'stellar': 'XLMUSDT',
-                'monero': 'XMRUSDT',
-                'cosmos': 'ATOMUSDT',
-                'uniswap': 'UNIUSDT'
-            };
-
-            // Determine correct pair
-            let pair = SYMBOL_MAP[symbol.toLowerCase()];
-
-            if (!pair) {
-                // Heuristic for other symbols:
-                // If it contains '_', remove it (e.g. bitcoin_usdt -> BTCUSDT)
-                // If input is like 'BTC', append USDT
-                const cleanSymbol = symbol.toUpperCase().replace(/_/g, '');
-
-                // If it ends with USDT/EUR/BUSD, use as is (ensure uppercase)
-                if (cleanSymbol.endsWith('USDT') || cleanSymbol.endsWith('EUR') || cleanSymbol.endsWith('BUSD')) {
-                    pair = cleanSymbol;
-                } else {
-                    // Default to appending USDT
-                    pair = cleanSymbol + 'USDT';
+            price = await getSymbolPrice(normalizedSymbol);
+            
+            // ✅ FIX: Se getSymbolPrice ritorna null o 0, prova varianti
+            if (!price || price <= 0) {
+                // Prova con il simbolo originale (senza normalizzazione)
+                if (normalizedSymbol !== symbol.toLowerCase()) {
+                    price = await getSymbolPrice(symbol.toLowerCase());
+                }
+                
+                // Se ancora non funziona, prova varianti comuni
+                if (!price || price <= 0) {
+                    const symbolVariants = {
+                        'ada': 'cardano',
+                        'adausdt': 'cardano',
+                        'xrp': 'ripple',
+                        'xrpusdt': 'ripple',
+                        'bnb': 'binance_coin',
+                        'bnbusdt': 'binance_coin',
+                        'btc': 'bitcoin',
+                        'btcusdt': 'bitcoin',
+                        'eth': 'ethereum',
+                        'ethusdt': 'ethereum',
+                        'sol': 'solana',
+                        'solusdt': 'solana'
+                    };
+                    
+                    if (symbolVariants[normalizedSymbol]) {
+                        price = await getSymbolPrice(symbolVariants[normalizedSymbol]);
+                    }
                 }
             }
-
-            // Fix for specific edge cases if needed
-            if (pair === 'BITCOINUSDT') pair = 'BTCUSDT';
-            if (pair === 'ETHEREUMUSDT') pair = 'ETHUSDT';
-
-            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`);
-            if (data && data.price) {
-                price = parseFloat(data.price);
+            
+            // ✅ FIX: Valida che il prezzo sia ragionevole
+            if (price && price > 0) {
+                const MAX_REASONABLE_PRICE = 200000; // BTC può essere ~100k, ma con margine
+                if (price > MAX_REASONABLE_PRICE && normalizedSymbol !== 'bitcoin' && normalizedSymbol !== 'btc' && normalizedSymbol !== 'btcusdt') {
+                    console.error(`❌ [PRICE-ENDPOINT] Prezzo anomale per ${symbol} (normalized: ${normalizedSymbol}): $${price.toLocaleString()}. Ritorno null.`);
+                    price = 0; // Non restituire prezzi anomali
+                }
             }
         } catch (e) {
-            console.error(`Binance API failed for ${symbol}:`, e.message);
+            console.error(`❌ [PRICE-ENDPOINT] getSymbolPrice failed for ${symbol} (normalized: ${normalizedSymbol}):`, e.message);
+            price = 0;
         }
 
         // 2. Fallback to CoinGecko (for Bitcoin, not Solana!)
