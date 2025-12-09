@@ -679,6 +679,7 @@ const CryptoDashboard = () => {
     // ✅ DEBUG: Log componenti balance (solo se ci sono valori anomali)
     if (Math.abs(validatedBalance) > 100000 || Math.abs(totalLongValue) > 100000 || Math.abs(totalShortLiability) > 100000) {
         // Balance debug logging removed
+        console.warn('⚠️ [BALANCE] Valori anomali rilevati:', {
             validatedBalance: validatedBalance.toFixed(2),
             totalLongValue: totalLongValue.toFixed(2),
             totalShortLiability: totalShortLiability.toFixed(2),
