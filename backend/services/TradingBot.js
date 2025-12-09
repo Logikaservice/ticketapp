@@ -35,18 +35,18 @@ const BOT_CONFIG = {
     MIN_CONFIRMATIONS_SHORT: 4,
 
     // Risk Management
-    DEFAULT_TRADE_SIZE_EUR: 50,
-    MAX_POSITION_SIZE_EUR: 100,
+    DEFAULT_TRADE_SIZE_EUR: 100,  // €100 per posizione (più capitale per trade)
+    MAX_POSITION_SIZE_EUR: 150,   // Max €150 per posizione
 
-    // Stop Loss e Take Profit
-    STOP_LOSS_PCT: 3.0,      // 3% stop loss
-    TAKE_PROFIT_PCT: 5.0,    // 5% take profit
+    // ✅ CHIUSURE PIÙ RAPIDE per capitale che gira velocemente
+    STOP_LOSS_PCT: 2.5,           // 2.5% stop loss (più stretto)
+    TAKE_PROFIT_PCT: 4.0,         // 4% take profit (più veloce!)
 
     // Volume minimo 24h (in USDT)
-    MIN_VOLUME_24H: 500000,
+    MIN_VOLUME_24H: 500000,       // Manteniamo alto per liquidità
 
-    // Cooldown tra trades sullo stesso simbolo (in ms)
-    TRADE_COOLDOWN_MS: 5 * 60 * 1000, // 5 minuti
+    // ✅ COOLDOWN RIDOTTO per rientrare prima su opportunità sicure
+    TRADE_COOLDOWN_MS: 3 * 60 * 1000, // 3 minuti (più veloce)
 };
 
 // Mappa simboli a coppie Binance
@@ -78,11 +78,12 @@ const CORRELATION_GROUPS = {
     'INDEPENDENT': ['ripple', 'ripple_eur', 'litecoin', 'litecoin_usdt', 'binance_coin', 'binance_coin_eur'],
 };
 
-// Limiti strategia ibrida
+// ✅ LIMITI AUMENTATI per più posizioni contemporanee
+// MA solo quando il bot è SICURO al 100% (strength e confirmations alte)
 const HYBRID_STRATEGY_CONFIG = {
-    MAX_TOTAL_POSITIONS: 5,
-    MAX_POSITIONS_PER_GROUP: 2,
-    MAX_POSITIONS_PER_SYMBOL: 1,
+    MAX_TOTAL_POSITIONS: 8,        // Da 5 a 8 posizioni totali
+    MAX_POSITIONS_PER_GROUP: 4,    // Da 2 a 4 per gruppo di correlazione
+    MAX_POSITIONS_PER_SYMBOL: 2,   // Da 1 a 2 per simbolo (LONG + SHORT)
 };
 
 // Cooldown tracker
