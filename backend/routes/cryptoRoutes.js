@@ -1339,8 +1339,11 @@ const getSymbolPrice = async (symbol) => {
     const cached = priceCache.get(symbol);
     const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';  // ✅ FIX: Default USDT invece di EUR
 
+    console.log(`💱 [PRICE] Fetching price for symbol: ${symbol} → tradingPair: ${tradingPair}`);
+
     // ✅ Cache valida - usa prezzo cached
     if (cached && (Date.now() - cached.timestamp) < PRICE_CACHE_TTL) {
+        console.log(`💾 [PRICE-CACHE] Using cached price for ${symbol}: $${cached.price.toFixed(6)}`);
         return cached.price;
     }
 
@@ -1353,9 +1356,13 @@ const getSymbolPrice = async (symbol) => {
     const coingeckoId = SYMBOL_TO_COINGECKO[symbol] || 'bitcoin';
 
     try {
-        const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=${tradingPair}`);
+        const binanceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${tradingPair}`;
+        console.log(`🔍 [PRICE] Fetching from Binance: ${binanceUrl}`);
+
+        const data = await httpsGet(binanceUrl);
         if (data && data.price) {
             const price = parseFloat(data.price);
+            console.log(`✅ [PRICE] Got price from Binance for ${symbol} (${tradingPair}): $${price.toFixed(6)}`);
 
             // ✅ Salva in cache (sempre in USDT)
             priceCache.set(symbol, { price, timestamp: Date.now() });
@@ -1363,7 +1370,7 @@ const getSymbolPrice = async (symbol) => {
         }
         throw new Error("Invalid data from Binance");
     } catch (e) {
-        console.error(`Error fetching ${symbol} price from Binance:`, e.message);
+        console.error(`❌ [PRICE] Binance fetch failed for ${symbol} (${tradingPair}):`, e.message);
         try {
             // ✅ CAMBIATO: CoinGecko ora restituisce USDT direttamente
             const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd&precision=18`);
