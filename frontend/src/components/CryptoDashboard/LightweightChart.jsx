@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import './LightweightChart.css';
 
-const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, priceHistory = [], openPositions = [], onIntervalChange, currentInterval = '15m' }) => {
+const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, priceHistory = [], openPositions = [], onIntervalChange, currentInterval = '15m' }) => {
     const [selectedInterval, setSelectedInterval] = useState(currentInterval);
     
     // Aggiorna quando cambia l'intervallo esterno
@@ -454,7 +454,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                 lineWidth: 2,
                 lineStyle: 2, // Dashed
                 axisLabelVisible: true,
-                title: `€${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                title: `$${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`,
             });
             priceLinesRef.current.push(currentPriceLine);
         } catch (e) {
@@ -474,7 +474,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                             lineWidth: 1,
                             lineStyle: 0, // Solid
                             axisLabelVisible: true,
-                            title: `Entry ${isBuy ? 'BUY' : 'SELL'}: €${entryPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                            title: `Entry ${isBuy ? 'BUY' : 'SELL'}: $${entryPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`,
                         });
                         priceLinesRef.current.push(entryLine);
                     } catch (e) {
@@ -586,7 +586,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
                                         <div className="trade-row">
                                             <span className="trade-type">{trade.type.toUpperCase()}</span>
                                             <span className="trade-price">
-                                                €{parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                ${parseFloat(trade.price).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
                                             </span>
                                         </div>
                                         <div className="trade-row">
@@ -658,7 +658,7 @@ const LightweightChart = ({ symbol = 'BTCEUR', trades = [], currentPrice = 0, pr
             {/* Current Price Display */}
             {currentPrice > 0 && (
                 <div className="current-price-display">
-                    1 BTC = €{currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    1 BTC = ${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
                 </div>
             )}
 

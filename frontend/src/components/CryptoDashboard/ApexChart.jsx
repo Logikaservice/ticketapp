@@ -3,7 +3,7 @@ import Chart from 'react-apexcharts';
 import './ApexChart.css';
 
 const ApexChart = ({
-    symbol = 'BTCEUR',
+    symbol = 'BTCUSDT',
     trades = [],
     currentPrice = 0,
     priceHistory = [],
@@ -140,7 +140,7 @@ const ApexChart = ({
                     enabled: true,
                 },
                 labels: {
-                    formatter: (val) => `€${val.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    formatter: (val) => `$${val.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`,
                 },
             },
             plotOptions: {
@@ -161,10 +161,10 @@ const ApexChart = ({
                     const [open, high, low, close] = data.y;
                     return `
                         <div style="padding: 10px; background: #1c1c1e; border-radius: 4px;">
-                            <div><strong>Open:</strong> €${open.toFixed(2)}</div>
-                            <div><strong>High:</strong> €${high.toFixed(2)}</div>
-                            <div><strong>Low:</strong> €${low.toFixed(2)}</div>
-                            <div><strong>Close:</strong> €${close.toFixed(2)}</div>
+                            <div><strong>Open:</strong> ${open.toFixed(2)} USDT</div>
+                            <div><strong>High:</strong> ${high.toFixed(2)} USDT</div>
+                            <div><strong>Low:</strong> ${low.toFixed(2)} USDT</div>
+                            <div><strong>Close:</strong> ${close.toFixed(2)} USDT</div>
                         </div>
                     `;
                 },
@@ -189,7 +189,7 @@ const ApexChart = ({
 
         setChartOptions(options);
         setChartSeries([{
-            name: 'Bitcoin/EUR',
+            name: 'Bitcoin/USDT',
             data: candlestickData,
         }]);
     }, [currentInterval]); // ✅ RIMOSSO priceHistory e openPositions - aggiorna SOLO quando cambi interval!
@@ -235,7 +235,7 @@ const ApexChart = ({
             // ✅ USA updateSeries INVECE DI setState per evitare re-render
             if (chartRef.current.chart) {
                 chartRef.current.chart.updateSeries([{
-                    name: 'Bitcoin/EUR',
+                    name: 'Bitcoin/USDT',
                     data: updatedSeries,
                 }], false); // false = non animare, non resettare zoom
             }
@@ -325,9 +325,9 @@ const ApexChart = ({
                                                     <span className="trade-number">#{index + 1}</span>
                                                 </div>
                                                 <div className="trade-details">
-                                                    <div>Prezzo: €{entryPrice.toFixed(2)}</div>
+                                                    <div>Prezzo: ${entryPrice.toFixed(2)} USDT</div>
                                                     <div className={currentPnL >= 0 ? 'profit' : 'loss'}>
-                                                        P&L: {currentPnL >= 0 ? '+' : ''}€{currentPnL.toFixed(2)} ({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%)
+                                                        P&L: {currentPnL >= 0 ? '+' : ''}${currentPnL.toFixed(2)} USDT ({pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%)
                                                     </div>
                                                     <div className="trade-time">
                                                         {new Date(position.entry_time || position.timestamp || Date.now()).toLocaleString('it-IT')}
@@ -367,7 +367,7 @@ const ApexChart = ({
             {/* Current Price Display */}
             {currentPrice > 0 && (
                 <div className="current-price-display">
-                    1 BTC = €{currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    1 BTC = ${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
                 </div>
             )}
         </div>

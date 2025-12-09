@@ -46,7 +46,7 @@ const TradingViewOverlay = ({
                     type: 'stop-loss',
                     price: stopLoss,
                     timestamp: timestamp,
-                    label: `SL: €${stopLoss.toFixed(2)}`,
+                    label: `SL: $${stopLoss.toFixed(2)} USDT`,
                     parentId: pos.ticket_id || index
                 });
             }
@@ -58,7 +58,7 @@ const TradingViewOverlay = ({
                     type: 'take-profit',
                     price: takeProfit,
                     timestamp: timestamp,
-                    label: `TP: €${takeProfit.toFixed(2)}`,
+                    label: `TP: $${takeProfit.toFixed(2)} USDT`,
                     parentId: pos.ticket_id || index
                 });
             }
@@ -122,7 +122,7 @@ const TradingViewOverlay = ({
                             key={marker.id}
                             className={`marker marker-open marker-${marker.direction} ${marker.large ? 'marker-large' : 'marker-small'}`}
                             style={{ top: `${yPosition}%` }}
-                            title={`${marker.label} @ €${marker.price.toFixed(2)}`}
+                            title={`${marker.label} @ $${marker.price.toFixed(2)} USDT`}
                         >
                             <div className="marker-icon">
                                 {marker.direction === 'long' ? '▲' : '▼'}
@@ -138,7 +138,7 @@ const TradingViewOverlay = ({
                             key={marker.id}
                             className={`marker marker-closed marker-${marker.result} marker-small`}
                             style={{ top: `${yPosition}%` }}
-                            title={`Chiuso @ €${marker.price.toFixed(2)} | P&L: €${marker.pnl?.toFixed(2) || '0.00'}`}
+                            title={`Chiuso @ $${marker.price.toFixed(2)} USDT | P&L: $${marker.pnl?.toFixed(2) || '0.00'} USDT`}
                         >
                             <div className="marker-icon-small">
                                 {marker.label}

@@ -77,7 +77,7 @@ const StatisticsPanel = ({ apiBase }) => {
                         P&L Totale
                     </div>
                     <div className={`stat-value ${stats.pnl_total >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {stats.pnl_total >= 0 ? '+' : ''}€{stats.pnl_total.toFixed(2)}
+                        {stats.pnl_total >= 0 ? '+' : ''}${stats.pnl_total.toFixed(2)} USDT
                     </div>
                     <div className="stat-change">
                         <Percent size={14} />
@@ -127,13 +127,13 @@ const StatisticsPanel = ({ apiBase }) => {
                         <div style={{ flex: 1 }}>
                             <div className="stat-mini-label" style={{ color: '#4ade80' }}>Vincita Media</div>
                             <div className="stat-mini-value" style={{ color: '#4ade80' }}>
-                                +€{stats.avg_win.toFixed(2)}
+                                +${stats.avg_win.toFixed(2)} USDT
                             </div>
                         </div>
                         <div style={{ flex: 1 }}>
                             <div className="stat-mini-label" style={{ color: '#f87171' }}>Perdita Media</div>
                             <div className="stat-mini-value" style={{ color: '#f87171' }}>
-                                -€{stats.avg_loss.toFixed(2)}
+                                -${stats.avg_loss.toFixed(2)} USDT
                             </div>
                         </div>
                     </div>
@@ -145,7 +145,7 @@ const StatisticsPanel = ({ apiBase }) => {
                         <BarChart3 size={18} />
                         Volume Totale
                     </div>
-                    <div className="stat-value">€{stats.total_volume_eur.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="stat-value">${stats.total_volume_usdt?.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || stats.total_volume_eur?.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} USDT</div>
                     <div className="stat-sublabel">Volume totale scambiato</div>
                 </div>
 
@@ -159,13 +159,13 @@ const StatisticsPanel = ({ apiBase }) => {
                         <div style={{ flex: 1 }}>
                             <div className="stat-mini-label" style={{ color: '#4ade80' }}>Profitti</div>
                             <div className="stat-mini-value" style={{ color: '#4ade80' }}>
-                                +€{stats.total_profit.toFixed(2)}
+                                +${stats.total_profit.toFixed(2)} USDT
                             </div>
                         </div>
                         <div style={{ flex: 1 }}>
                             <div className="stat-mini-label" style={{ color: '#f87171' }}>Perdite</div>
                             <div className="stat-mini-value" style={{ color: '#f87171' }}>
-                                -€{stats.total_loss.toFixed(2)}
+                                -${stats.total_loss.toFixed(2)} USDT
                             </div>
                         </div>
                     </div>

@@ -59,7 +59,7 @@ const BotAnalysisPanel = ({ isCollapsed: initialCollapsed = false }) => {
                     <div className="info-section">
                         <div className="info-card">
                             <div className="info-label">Prezzo Corrente</div>
-                            <div className="info-value">€{currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="info-value">${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</div>
                         </div>
                         <div className="info-card">
                             <div className="info-label">RSI (14 periodi)</div>
@@ -252,11 +252,11 @@ const BotAnalysisPanel = ({ isCollapsed: initialCollapsed = false }) => {
                                 </div>
                                 <div className="risk-item">
                                     <span>Exposure disponibile:</span>
-                                    <span className="highlight">€{risk.availableExposure.toFixed(2)}</span>
+                                    <span className="highlight">${risk.availableExposure.toFixed(2)} USDT</span>
                                 </div>
                                 <div className="risk-item">
                                     <span>Dimensione max posizione:</span>
-                                    <span className="highlight">€{risk.maxAvailableForNewPosition.toFixed(2)}</span>
+                                    <span className="highlight">${risk.maxAvailableForNewPosition.toFixed(2)} USDT</span>
                                 </div>
                                 {!risk.canTrade && (
                                     <div className="risk-reason">

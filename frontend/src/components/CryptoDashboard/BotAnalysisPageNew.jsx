@@ -169,7 +169,7 @@ const BotAnalysisPageNew = () => {
                         <div className="info-card">
                             <div className="info-label">Prezzo Corrente</div>
                             <div className="info-value">
-                                €{currentPrice?.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                                ${currentPrice?.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'} USDT
                             </div>
                         </div>
                         <div className="info-card">
@@ -511,11 +511,11 @@ const BotAnalysisPageNew = () => {
                                     </div>
                                     <div className="risk-item">
                                         <span>Exposure disponibile:</span>
-                                        <span className="highlight">€{risk.availableExposure?.toFixed(2) || '0.00'}</span>
+                                        <span className="highlight">${risk.availableExposure?.toFixed(2) || '0.00'} USDT</span>
                                     </div>
                                     <div className="risk-item">
                                         <span>Dimensione max posizione:</span>
-                                        <span className="highlight">€{risk.maxAvailableForNewPosition?.toFixed(2) || '0.00'}</span>
+                                        <span className="highlight">${risk.maxAvailableForNewPosition?.toFixed(2) || '0.00'} USDT</span>
                                     </div>
                                     {!risk.canTrade && (
                                         <div className="risk-reason">

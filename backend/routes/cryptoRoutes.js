@@ -107,12 +107,12 @@ const getPortfolio = async () => {
 
         if (!row) {
             // ✅ FIX: Se non esiste, ritorna default
-            return { balance_usd: 10800.0, holdings: '{}' }; // Default: 10800 USDT ≈ 10000 EUR
+            return { balance_usd: 10800.0, holdings: '{}' }; // Default: 10800 USDT
         }
 
         // ✅ FIX CRITICO: Valida balance_usd per evitare valori assurdi
         const rawBalance = parseFloat(row.balance_usd) || 0;
-        const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni di euro max
+        const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni USDT max
         const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min
 
         // ✅ CAMBIATO: balance_usd ora è in USDT (non più EUR) per match con grafico TradingView
@@ -121,7 +121,7 @@ const getPortfolio = async () => {
 
         if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
             console.error(`🚨 [PORTFOLIO] Valore anomale di balance_usd nel database: $${rawBalance.toLocaleString()} USDT. Correggendo automaticamente a $10800 USDT`);
-            // ✅ FIX CRITICO: Aggiorna il database con valore valido (10800 USDT ≈ 10000 EUR)
+            // ✅ FIX CRITICO: Aggiorna il database con valore valido (10800 USDT)
             try {
                 await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [10800]);
                 console.log('✅ [PORTFOLIO] Balance corretto automaticamente nel database a $10800 USDT');
@@ -210,7 +210,7 @@ router.get('/history', async (req, res) => {
             try {
                 // Load klines from Binance with specified interval
                 const https = require('https');
-                const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCEUR';
+                const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
                 const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=${interval}&limit=${binanceLimit}`;
 
                 // ✅ FIX: Aggiungi timeout di 10 secondi per evitare 504 Gateway Timeout
@@ -673,13 +673,13 @@ router.get('/dashboard', async (req, res) => {
 // GET /api/crypto/price/:symbol (Proxy to get real price)
 router.get('/price/:symbol', async (req, res) => {
     const { symbol } = req.params;
-    const { currency } = req.query; // 'eur' or 'usd'
+    const { currency } = req.query; // 'usdt' or 'usd' (normalized to USDT)
     let price = 0;
 
     try {
-        // 1. Try Binance (Best for EUR)
+        // 1. Try Binance (Best for USDT)
         try {
-            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR`);
+            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT`);
             if (data && data.price) {
                 price = parseFloat(data.price);
             }
@@ -690,9 +690,9 @@ router.get('/price/:symbol', async (req, res) => {
         // 2. Fallback to CoinGecko (for Bitcoin, not Solana!)
         if (!price) {
             try {
-                const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur');
-                if (geckoData && geckoData.bitcoin && geckoData.bitcoin.eur) {
-                    price = parseFloat(geckoData.bitcoin.eur);
+                const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+                if (geckoData && geckoData.bitcoin && geckoData.bitcoin.usd) {
+                    price = parseFloat(geckoData.bitcoin.usd);
                 }
             } catch (e) {
                 console.error('CoinGecko API failed:', e.message);
@@ -705,11 +705,11 @@ router.get('/price/:symbol', async (req, res) => {
             price = 120.00 + (Math.random() * 0.8); // Random between 120.00 and 120.80
         }
 
-        // Return price in EUR (same format as bot uses from Binance)
+        // Return price in USDT (normalized from Binance)
         res.json({
             success: true,
-            price: price, // EUR price from Binance
-            currency: 'EUR',
+            price: price, // USDT price from Binance
+            currency: 'USDT',
             source: price > 0 ? 'Binance' : 'Fallback',
             timestamp: new Date().toISOString()
         });
@@ -753,7 +753,7 @@ router.post('/reset', async (req, res) => {
 
         res.json({
             success: true,
-            message: `Portfolio resettato completamente a €${newBalance.toFixed(2)}. Cancellate ${positionCount} posizione/i, ${tradeCount} trade/i e resettate statistiche Kelly.`,
+            message: `Portfolio resettato completamente a $${newBalance.toFixed(2)} USDT. Cancellate ${positionCount} posizione/i, ${tradeCount} trade/i e resettate statistiche Kelly.`,
             deleted_positions: positionCount,
             deleted_trades: tradeCount,
             new_balance: newBalance
@@ -957,7 +957,7 @@ router.post('/add-funds', async (req, res) => {
         // Update portfolio balance
         await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [newBalance]);
 
-        console.log(`💰 Fondi aggiunti: €${fundsToAdd.toFixed(2)} | Saldo precedente: €${currentBalance.toFixed(2)} | Nuovo saldo: €${newBalance.toFixed(2)}`);
+        console.log(`💰 Fondi aggiunti: $${fundsToAdd.toFixed(2)} USDT | Saldo precedente: $${currentBalance.toFixed(2)} USDT | Nuovo saldo: $${newBalance.toFixed(2)} USDT`);
 
         res.json({
             success: true,
@@ -1024,7 +1024,7 @@ const DEFAULT_PARAMS = {
     rsi_overbought: 70,
     stop_loss_pct: 2.0,
     take_profit_pct: 3.0,
-    trade_size_eur: 50,
+    trade_size_usdt: 50,
     trailing_stop_enabled: false,
     trailing_stop_distance_pct: 1.0,
     partial_close_enabled: false,
@@ -1309,7 +1309,7 @@ const initWebSocketService = () => {
             priceCache.set(symbol, { price, timestamp: Date.now() });
             // Log solo occasionalmente
             if (Math.random() < 0.05) {
-                console.log(`📡 [WEBSOCKET] Prezzo aggiornato ${symbol}: €${price.toFixed(2)}`);
+                console.log(`📡 [WEBSOCKET] Prezzo aggiornato ${symbol}: $${price.toFixed(2)} USDT`);
             }
         });
 
@@ -1367,26 +1367,14 @@ const getSymbolPrice = async (symbol) => {
         } catch (e) {
         console.error(`Error fetching ${symbol} price from Binance:`, e.message);
         try {
-            // ✅ CAMBIATO: CoinGecko ora restituisce USDT invece di EUR per match con grafico
-            // Se la coppia è USDT, convertiamo EUR → USDT
-            const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=eur&precision=18`);
-            if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].eur !== undefined) {
-                let price = parseFloat(geckoData[coingeckoId].eur);
-                
-                // ✅ CAMBIATO: Se la coppia è USDT, convertiamo EUR → USDT
-                if (isUSDT) {
-                    try {
-                        const usdtToEurRate = await getUSDTtoEURRate();
-                        price = price / usdtToEurRate; // EUR → USDT (inverso della conversione precedente)
-                    } catch (rateError) {
-                        console.error(`⚠️ Error converting EUR to USDT for ${tradingPair}:`, rateError.message);
-                        price = price / 0.92; // Fallback: 1 EUR = 1.08 USDT, quindi 1 USDT = 1/0.92 EUR
-                    }
-                }
+            // ✅ CAMBIATO: CoinGecko ora restituisce USDT direttamente
+            const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd&precision=18`);
+            if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].usd !== undefined) {
+                let price = parseFloat(geckoData[coingeckoId].usd);
                 
                 // ✅ FIX: Verifica che il prezzo sia valido (anche se molto basso, es. 0.000007)
                 if (price > 0 && !isNaN(price) && isFinite(price)) {
-                    console.log(`💱 [PRICE] ${symbol} from CoinGecko: ${isUSDT ? '$' : '€'}${price.toFixed(8)} ${isUSDT ? 'USDT' : 'EUR'}`);
+                    console.log(`💱 [PRICE] ${symbol} from CoinGecko: $${price.toFixed(8)} USDT`);
                     // ✅ Salva in cache anche per CoinGecko
                     priceCache.set(symbol, { price, timestamp: Date.now() });
                     return price;
@@ -1485,7 +1473,7 @@ const detectTrendOnTimeframe = async (symbol, interval, limit = 50) => {
 /**
  * Ottiene il volume di trading 24h per un simbolo
  * @param {string} symbol - Simbolo crypto (es. 'bitcoin')
- * @returns {Promise<number>} Volume 24h in quote currency (EUR o USDT)
+ * @returns {Promise<number>} Volume 24h in quote currency (USDT)
  */
 const get24hVolume = async (symbol) => {
     try {
@@ -1503,7 +1491,7 @@ const get24hVolume = async (symbol) => {
             return 0;
         }
 
-        // Volume in quote currency (EUR o USDT)
+        // Volume in quote currency (USDT)
         const volumeQuote = parseFloat(data.quoteVolume);
         return volumeQuote;
     } catch (err) {
@@ -5014,7 +5002,7 @@ router.get('/statistics', async (req, res) => {
                 avg_loss: avgLoss,
 
                 // Volume
-                total_volume_eur: totalVolume,
+                total_volume_usdt: totalVolume,
 
                 // Period Stats
                 trades_today: tradesToday,
@@ -5861,7 +5849,7 @@ router.get('/bot-analysis', async (req, res) => {
                 rsi_overbought: 70,
                 stop_loss_pct: 2.0,
                 take_profit_pct: 3.0,
-                trade_size_eur: 50,
+                trade_size_usdt: 50,
                 trailing_stop_enabled: false,
                 trailing_stop_distance_pct: 1.0,
                 partial_close_enabled: false,
@@ -6818,7 +6806,7 @@ router.get('/scanner', async (req, res) => {
                     symbol: s.symbol,
                     display: s.display,
                     price: currentPrice, // Prezzo corrente aggiornato in tempo reale
-                    volume24h: volume24h || 0, // Volume 24h in EUR/USDT
+                    volume24h: volume24h || 0, // Volume 24h in USDT
                     direction: displayDirection, // Usa direzione migliorata per display
                     strength: displayStrength, // MTF-adjusted strength (0-100) - Mantengo per sort
                     strength_long: longStrength, // ✅ Valore puro LONG (come in Deep Analysis)

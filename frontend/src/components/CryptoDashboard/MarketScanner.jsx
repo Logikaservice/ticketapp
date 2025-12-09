@@ -109,7 +109,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                             {item.display}
                                         </td>
                                         <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
-                                            {item.display && item.display.includes('USDT') ? '$' : '€'}{item.price.toFixed(4)}
+                                            ${item.price.toFixed(4)} USDT
                                         </td>
                                         <td style={{ padding: '10px', textAlign: 'right' }}>
                                             {(() => {
@@ -117,7 +117,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                                 const MIN_VOLUME = 500_000;
                                                 const volumeColor = vol >= MIN_VOLUME * 2 ? '#22c55e' : vol >= MIN_VOLUME ? '#eab308' : '#ef4444';
 
-                                                const currency = item.display && item.display.includes('USDT') ? '$' : '€';
+                                                const currency = '$'; // Always USDT
 
                                                 let formatted = '';
                                                 if (vol >= 1_000_000) {

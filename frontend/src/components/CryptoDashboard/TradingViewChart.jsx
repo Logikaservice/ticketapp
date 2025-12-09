@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import TradingViewOverlay from './TradingViewOverlay';
 import './TradingViewChart.css';
 
-const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], currentPrice = 0, priceHistory = [], closedTrades = [] }) => {
+const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [], currentPrice = 0, priceHistory = [], closedTrades = [] }) => {
     const containerRef = useRef(null);
     const widgetRef = useRef(null);
     const [markers, setMarkers] = useState([]);
@@ -21,7 +21,7 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
         script.type = 'text/javascript';
         script.async = true;
         // Map symbol to TradingView format
-        const tradingViewSymbol = symbol === 'BTCEUR' ? 'BINANCE:BTCEUR' :
+        const tradingViewSymbol = symbol === 'BTCUSDT' ? 'BINANCE:BTCUSDT' : symbol.includes('EUR') ? `BINANCE:${symbol.replace('EUR', 'USDT')}` :
             symbol === 'BTCUSDT' ? 'BINANCE:BTCUSDT' :
                 `BINANCE:${symbol}`;
 
@@ -167,7 +167,7 @@ const TradingViewChart = ({ symbol = 'BTCEUR', trades = [], openPositions = [], 
                                             <div className="trade-row">
                                                 <span className="trade-type">{pos.type.toUpperCase()}</span>
                                                 <span className="trade-price">
-                                                    €{pos.entry_price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    ${pos.entry_price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
                                                 </span>
                                             </div>
                                             <div className="trade-row">

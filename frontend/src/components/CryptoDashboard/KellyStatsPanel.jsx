@@ -101,7 +101,7 @@ const KellyStatsPanel = ({ stats }) => {
                         {riskRewardRatio.toFixed(2)}x
                     </div>
                     <div style={{ color: '#6b7280', fontSize: '0.75rem', marginTop: '4px' }}>
-                        €{avgWin.toFixed(2)} / €{avgLoss.toFixed(2)}
+                        ${avgWin.toFixed(2)} / ${avgLoss.toFixed(2)} USDT
                     </div>
                 </div>
 
@@ -165,13 +165,13 @@ const KellyStatsPanel = ({ stats }) => {
                         <div>
                             <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '4px' }}>Total Profit</div>
                             <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#22c55e' }}>
-                                +€{stats.total_profit.toFixed(2)}
+                                +${stats.total_profit.toFixed(2)} USDT
                             </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                             <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '4px' }}>Total Loss</div>
                             <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#ef4444' }}>
-                                €{Math.abs(stats.total_loss).toFixed(2)}
+                                ${Math.abs(stats.total_loss).toFixed(2)} USDT
                             </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
@@ -181,7 +181,7 @@ const KellyStatsPanel = ({ stats }) => {
                                 fontWeight: 'bold',
                                 color: (stats.total_profit + stats.total_loss) >= 0 ? '#22c55e' : '#ef4444'
                             }}>
-                                {(stats.total_profit + stats.total_loss) >= 0 ? '+' : ''}€{(stats.total_profit + stats.total_loss).toFixed(2)}
+                                {(stats.total_profit + stats.total_loss) >= 0 ? '+' : ''}${(stats.total_profit + stats.total_loss).toFixed(2)} USDT
                             </div>
                         </div>
                     </div>

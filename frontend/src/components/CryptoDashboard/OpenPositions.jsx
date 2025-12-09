@@ -188,7 +188,7 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                                 return `${baseSymbol}/USDT`;
                                             } else if (pos.symbol && pos.symbol.includes('_eur')) {
                                                 const baseSymbol = pos.symbol.replace('_eur', '').toUpperCase();
-                                                return `${baseSymbol}/EUR`;
+                                                return `${baseSymbol}/USDT`;
                                             }
                                             // Fallback finale: uppercase semplice
                                             return (pos.symbol || '').toUpperCase().replace(/_/g, '/');
@@ -219,19 +219,16 @@ const OpenPositions = ({ positions, currentPrice, onClosePosition, onUpdatePnL, 
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#9ca3af' }}>
                                         {entryPrice > 0 ? (
                                             <>
-                                                <span title="Prezzo in EUR (convertito da USDT)">
+                                                <span title="Prezzo in USDT">
                                                     {entryPrice < 0.01 
-                                                        ? `€${entryPrice.toFixed(6)}` 
+                                                        ? `$${entryPrice.toFixed(6)}` 
                                                         : entryPrice < 1 
-                                                        ? `€${entryPrice.toFixed(4)}` 
-                                                        : `€${entryPrice.toFixed(2)}`}
+                                                        ? `$${entryPrice.toFixed(4)}` 
+                                                        : `$${entryPrice.toFixed(2)}`}
                                                 </span>
-                                                {pos.symbol && pos.symbol.includes('_usdt') && (
-                                                    <span style={{ fontSize: '10px', color: '#6b7280', marginLeft: '4px' }} title="Prezzo convertito da USDT a EUR">(EUR)</span>
-                                                )}
                                             </>
                                         ) : (
-                                            <span style={{ color: '#ef4444' }} title="Prezzo non disponibile">€0.00</span>
+                                            <span style={{ color: '#ef4444' }} title="Prezzo non disponibile">$0.00</span>
                                         )}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600' }}>

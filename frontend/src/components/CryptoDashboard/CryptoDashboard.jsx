@@ -209,7 +209,7 @@ const CryptoDashboard = () => {
 
         // Chiedi l'importo iniziale
         const defaultBalance = '1000';
-        const initialBalanceInput = window.prompt("Inserisci il saldo iniziale (EUR) per il nuovo portfolio:", defaultBalance);
+        const initialBalanceInput = window.prompt("Inserisci il saldo iniziale (USDT) per il nuovo portfolio:", defaultBalance);
 
         if (initialBalanceInput === null) return; // Annullato dall'utente
 
@@ -251,7 +251,7 @@ const CryptoDashboard = () => {
 
             if (res.ok) {
                 const result = await res.json();
-                alert(`✅ Fondi aggiunti con successo!\n\nImporto: €${amount}\nNuovo saldo: €${result.new_balance.toFixed(2)}`);
+                alert(`✅ Fondi aggiunti con successo!\n\nImporto: $${amount} USDT\nNuovo saldo: $${result.new_balance.toFixed(2)} USDT`);
                 // Refresh data
                 fetchData();
                 setShowAddFundsModal(false);
@@ -268,10 +268,10 @@ const CryptoDashboard = () => {
     const fetchPrice = async () => {
         try {
             // Fetch real price for current symbol from Binance (same source as bot)
-            const res = await fetch(`${apiBase}/api/crypto/price/${currentSymbol}?currency=eur`);
+            const res = await fetch(`${apiBase}/api/crypto/price/${currentSymbol}?currency=usdt`);
             if (res.ok) {
                 const data = await res.json();
-                // Read price directly (EUR from Binance, same as bot uses)
+                // Read price directly (USDT from Binance, same as bot uses)
                 const price = parseFloat(data.price || data.data?.priceUsd || 0);
                 if (price > 0) {
                     setCurrentPrice(price);
@@ -435,7 +435,7 @@ const CryptoDashboard = () => {
         }
     };
 
-    // Calculate total balance (EUR + All Crypto values)
+    // Calculate total balance (USDT + All Crypto values)
     const [allSymbolPrices, setAllSymbolPrices] = useState({});
 
     // Fetch prices for all symbols in holdings AND open positions
@@ -456,7 +456,7 @@ const CryptoDashboard = () => {
 
             for (const symbol of allSymbols) {
                 try {
-                    const res = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=eur`);
+                    const res = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=usdt`);
                     if (res.ok) {
                         const data = await res.json();
                         prices[symbol] = parseFloat(data.price || 0);
@@ -473,9 +473,9 @@ const CryptoDashboard = () => {
         fetchAllPrices();
     }, [portfolio.holdings, openPositions, apiBase]);
 
-    // Calculate total balance (EUR + All Crypto values - Short Liabilities)
+    // Calculate total balance (USDT + All Crypto values - Short Liabilities)
     // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
-    // Se hai €1000 totali e investi €500, il Total Balance mostra €500 (capitale disponibile)
+    // Se hai $1000 USDT totali e investi $500, il Total Balance mostra $500 (capitale disponibile)
     // Il valore delle posizioni è già "bloccato" e non è disponibile come cash
     // ✅ FIX: Use ONLY open positions effectively ignoring 'portfolio.holdings' which might be corrupted
     const holdings = portfolio.holdings || {}; // Restore this for fallback logic
@@ -494,10 +494,10 @@ const CryptoDashboard = () => {
     });
 
     // ✅ FIX CRITICO: Dichiarare tutte le costanti PRIMA del loro utilizzo
-    const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni di euro max (soglia di sicurezza)
+    const MAX_REASONABLE_BALANCE = 10000000; // 10 milioni USDT max (soglia di sicurezza)
     const MIN_REASONABLE_BALANCE = -1000000; // -1 milione min (per permettere debiti)
     const MAX_REASONABLE_VOLUME = 1000000; // 1 milione di unità max
-    const MAX_REASONABLE_PRICE = 1000000; // 1 milione EUR max per unità
+    const MAX_REASONABLE_PRICE = 1000000; // 1 milione USDT max per unità
 
     let totalLongValue = 0;
     let totalShortLiability = 0;
@@ -529,7 +529,7 @@ const CryptoDashboard = () => {
 
             // ✅ FIX CRITICO: Valida che il prezzo sia ragionevole
             if (price > MAX_REASONABLE_PRICE) {
-                console.error(`🚨 [BALANCE] Prezzo anomale per ${pos.symbol}: €${price.toLocaleString()}. Usando entry_price come fallback.`);
+                console.error(`🚨 [BALANCE] Prezzo anomale per ${pos.symbol}: $${price.toLocaleString()} USDT. Usando entry_price come fallback.`);
                 // Usa entry_price come fallback se il prezzo è anomale
                 const fallbackPrice = parseFloat(pos.entry_price) || 0;
                 if (fallbackPrice > 0 && fallbackPrice <= MAX_REASONABLE_PRICE) {
@@ -544,7 +544,7 @@ const CryptoDashboard = () => {
                 const longValue = remainingVolume * price;
                 // ✅ FIX: Valida che il valore calcolato sia ragionevole
                 if (longValue > MAX_REASONABLE_BALANCE) {
-                    console.error(`🚨 [BALANCE] Valore LONG anomale per ${pos.ticket_id}: €${longValue.toLocaleString()}. Skipping.`);
+                    console.error(`🚨 [BALANCE] Valore LONG anomale per ${pos.ticket_id}: $${longValue.toLocaleString()} USDT. Skipping.`);
                     return;
                 }
                 totalLongValue += longValue;
@@ -555,7 +555,7 @@ const CryptoDashboard = () => {
 
                 // ✅ FIX: Valida entry_price
                 if (entryPrice > MAX_REASONABLE_PRICE) {
-                    console.error(`🚨 [BALANCE] Entry price anomale per SHORT ${pos.ticket_id}: €${entryPrice.toLocaleString()}. Skipping.`);
+                    console.error(`🚨 [BALANCE] Entry price anomale per SHORT ${pos.ticket_id}: $${entryPrice.toLocaleString()} USDT. Skipping.`);
                     return;
                 }
 
@@ -563,7 +563,7 @@ const CryptoDashboard = () => {
                     const shortLiability = remainingVolume * entryPrice;
                     // ✅ FIX: Valida che il valore calcolato sia ragionevole
                     if (shortLiability > MAX_REASONABLE_BALANCE) {
-                        console.error(`🚨 [BALANCE] Valore SHORT anomale per ${pos.ticket_id}: €${shortLiability.toLocaleString()}. Skipping.`);
+                        console.error(`🚨 [BALANCE] Valore SHORT anomale per ${pos.ticket_id}: $${shortLiability.toLocaleString()} USDT. Skipping.`);
                         return;
                     }
                     totalShortLiability += shortLiability;
@@ -615,8 +615,8 @@ const CryptoDashboard = () => {
 
     let validatedBalance = rawBalance;
     if (rawBalance > MAX_REASONABLE_BALANCE || rawBalance < MIN_REASONABLE_BALANCE) {
-        console.error(`🚨 [BALANCE] Valore anomale di balance_usd: €${rawBalance.toLocaleString()}. Usando fallback: €10000`);
-        validatedBalance = 10000; // Fallback a 10k EUR
+        console.error(`🚨 [BALANCE] Valore anomale di balance_usd: $${rawBalance.toLocaleString()} USDT. Usando fallback: $10000 USDT`);
+        validatedBalance = 10000; // Fallback a 10k USDT
     }
 
     // ✅ DEBUG: Log valori DOPO la validazione
@@ -629,7 +629,7 @@ const CryptoDashboard = () => {
     });
 
     // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
-    // Se hai €1000 totali e investi €500, il Total Balance deve mostrare €500 (capitale disponibile)
+    // Se hai $1000 USDT totali e investi $500, il Total Balance deve mostrare $500 (capitale disponibile)
     // Il valore delle posizioni (totalLongValue - totalShortLiability) è già "bloccato" e non è disponibile
     const totalBalance = validatedBalance; // Solo capitale disponibile, non equity totale
 
@@ -655,9 +655,9 @@ const CryptoDashboard = () => {
             const positionPnL = parseFloat(pos.profit_loss) || 0;
 
             // ✅ FIX: Valida valori anomali (evita errori di calcolo)
-            const MAX_REASONABLE_PNL = 1000000; // 1 milione di euro max
+            const MAX_REASONABLE_PNL = 1000000; // 1 milione USDT max
             if (Math.abs(positionPnL) > MAX_REASONABLE_PNL) {
-                console.warn(`⚠️ [P&L] Skipping anomalous profit_loss for position ${pos.ticket_id}: €${positionPnL.toFixed(2)}`);
+                console.warn(`⚠️ [P&L] Skipping anomalous profit_loss for position ${pos.ticket_id}: $${positionPnL.toFixed(2)} USDT`);
                 return;
             }
 
@@ -793,7 +793,7 @@ const CryptoDashboard = () => {
             <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.8fr 0.6fr', gap: '20px', marginBottom: '20px' }}>
                 <div className="balance-card" style={{ marginBottom: 0 }}>
                     <div className="balance-label">Total Balance (Available Cash)</div>
-                    <div className="balance-amount">€{totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="balance-amount">${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</div>
                     <div className="balance-change change-positive">
                         <ArrowUpRight size={16} /> +2.4% Today
                     </div>
@@ -802,12 +802,12 @@ const CryptoDashboard = () => {
                 <div className="balance-card" style={{ marginBottom: 0, background: 'linear-gradient(145deg, #1c1c1e, #2a2a2d)' }}>
                     <div className="balance-label">Open Position P&L</div>
                     <div className={`balance-amount ${pnlValue >= 0 ? 'text-green-500' : 'text-red-500'}`} style={{ fontSize: '2.5rem' }}>
-                        {pnlValue >= 0 ? '+' : ''}€{pnlValue.toFixed(2)}
+                        {pnlValue >= 0 ? '+' : ''}${pnlValue.toFixed(2)} USDT
                     </div>
                     <div style={{ color: pnlValue >= 0 ? '#4ade80' : '#f87171', fontWeight: 'bold' }}>
                         {pnlValue >= 0 ? '▲' : '▼'} {pnlPercent.toFixed(2)}%
                         <span style={{ color: '#9ca3af', marginLeft: '10px', fontSize: '0.9rem', fontWeight: 'normal' }}>
-                            (Avg: €{avgPrice.toFixed(2)})
+                            (Avg: ${avgPrice.toFixed(2)} USDT)
                         </span>
                     </div>
                 </div>
@@ -1111,11 +1111,11 @@ const CryptoDashboard = () => {
                                     const closedAt = pos.closed_at ? new Date(pos.closed_at) : null;
 
                                     // ✅ FIX CRITICO: Valida e ricalcola P&L se anomale
-                                    const MAX_REASONABLE_PNL = 1000000; // 1 milione EUR max
-                                    const MAX_REASONABLE_PRICE = 1000000; // 1 milione EUR max
+                                    const MAX_REASONABLE_PNL = 1000000; // 1 milione USDT max
+                                    const MAX_REASONABLE_PRICE = 1000000; // 1 milione USDT max
 
-                                    // ✅ FIX: Verifica anche se il prezzo è completamente fuori range (es. €77246 per SAND)
-                                    // Se entry_price è ragionevole (es. €0.12) ma closePrice è assurdo (es. €77246),
+                                    // ✅ FIX: Verifica anche se il prezzo è completamente fuori range (es. $77246 per SAND)
+                                    // Se entry_price è ragionevole (es. $0.12) ma closePrice è assurdo (es. $77246),
                                     // il P&L sarà assurdo anche se non supera MAX_REASONABLE_PNL in valore assoluto
                                     const priceRatio = entryPrice > 0 ? closePrice / entryPrice : 0;
                                     const isPriceAnomalous = priceRatio > 100 || (priceRatio < 0.01 && priceRatio > 0);
@@ -1141,9 +1141,9 @@ const CryptoDashboard = () => {
 
                                             // Se il prezzo di chiusura è anomale, usa entry price (P&L = 0)
                                             if (closePrice > MAX_REASONABLE_PRICE || closePrice <= 0 || isPriceAnomalous) {
-                                                // ✅ FIX: Per SAND, se entry è €0.12 e close è €77246, usa entry
+                                                // ✅ FIX: Per SAND, se entry è $0.12 e close è $77246, usa entry
                                                 closePrice = entryPrice;
-                                                console.warn(`   → Prezzo chiusura anomale (ratio: ${priceRatio.toFixed(2)}x), uso entry price: €${entryPrice.toFixed(6)}`);
+                                                console.warn(`   → Prezzo chiusura anomale (ratio: ${priceRatio.toFixed(2)}x), uso entry price: $${entryPrice.toFixed(6)} USDT`);
                                             }
 
                                             // Ricalcola P&L
@@ -1155,7 +1155,7 @@ const CryptoDashboard = () => {
                                                 pnl = (entryPrice - closePrice) * remainingVolume;
                                             }
 
-                                            console.log(`   → P&L ricalcolato: €${pnl.toFixed(2)} (entry: €${entryPrice.toFixed(6)}, close: €${closePrice.toFixed(6)}, vol: ${remainingVolume.toFixed(4)})`);
+                                            console.log(`   → P&L ricalcolato: $${pnl.toFixed(2)} USDT (entry: $${entryPrice.toFixed(6)}, close: $${closePrice.toFixed(6)}, vol: ${remainingVolume.toFixed(4)})`);
                                         } else {
                                             // Se non possiamo ricalcolare, mostra 0
                                             pnl = 0;
@@ -1164,16 +1164,16 @@ const CryptoDashboard = () => {
                                     }
 
                                     // Get symbol display name
-                                    const symbolDisplay = pos.symbol ? (pos.symbol === 'bitcoin' ? 'BTC/EUR' :
+                                    const symbolDisplay = pos.symbol ? (pos.symbol === 'bitcoin' ? 'BTC/USDT' :
                                         pos.symbol === 'bitcoin_usdt' ? 'BTC/USDT' :
                                             pos.symbol === 'solana' ? 'SOL/USDT' :
-                                                pos.symbol === 'solana_eur' ? 'SOL/EUR' :
-                                                    pos.symbol.toUpperCase().replace('_', '/')) : '-';
+                                                pos.symbol === 'solana_eur' ? 'SOL/USDT' :
+                                                    pos.symbol.toUpperCase().replace('_', '/').replace('EUR', 'USDT')) : '-';
 
-                                    // ✅ FIX: Formato unificato P&L: sempre +€X.XX o -€X.XX (segno prima del simbolo)
+                                    // ✅ FIX: Formato unificato P&L: sempre +$X.XX o -$X.XX USDT (segno prima del simbolo)
                                     const displayPnl = (
                                         <span style={{ color: pnl >= 0 ? '#4ade80' : '#ef4444', fontWeight: 'bold' }}>
-                                            {pnl >= 0 ? '+' : '-'}€{Math.abs(pnl).toFixed(2)}
+                                            {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)} USDT
                                         </span>
                                     );
 
@@ -1195,13 +1195,13 @@ const CryptoDashboard = () => {
                                                 </span>
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
-                                                €{closePrice > 1000000 ? entryPrice.toFixed(2) : closePrice.toFixed(2)}
+                                                ${closePrice > 1000000 ? entryPrice.toFixed(2) : closePrice.toFixed(2)} USDT
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
                                                 {volume.toFixed(4)}
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right', color: '#9ca3af' }}>
-                                                €{totalValue.toFixed(2)}
+                                                ${totalValue.toFixed(2)} USDT
                                             </td>
                                             <td style={{ padding: '10px', textAlign: 'right' }}>
                                                 {displayPnl}
@@ -1329,7 +1329,7 @@ const CryptoDashboard = () => {
 
                         <div style={{ marginBottom: '20px' }}>
                             <label style={{ color: '#e5e7eb', fontSize: '0.9rem', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                                Importo da aggiungere (€)
+                                Importo da aggiungere (USDT)
                             </label>
                             <input
                                 type="number"
@@ -1388,7 +1388,7 @@ const CryptoDashboard = () => {
                                             e.target.style.borderColor = '#4b5563';
                                         }}
                                     >
-                                        €{amount}
+                                        ${amount} USDT
                                     </button>
                                 ))}
                             </div>
