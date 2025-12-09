@@ -8893,9 +8893,30 @@ router.get('/debug-positions', async (req, res) => {
 router.post('/bot/ai-chat', async (req, res) => {
     try {
         const { message, symbol } = req.body;
-        const normalizedSymbol = symbol ? symbol.toUpperCase().replace('/', '') : 'BTCUSDT';
+        // Normalizzazione simbolo per DB (es. "bitcoin" invece di "BTC/EUR")
+        let dbSymbol = symbol.toLowerCase();
 
-        console.log(`🤖 [AI-CHAT] Richiesta ricevuta: "${message}" su ${normalizedSymbol}`);
+        // Mappa veloce per simboli comuni se arrivano come Ticker
+        const TICKER_MAP = {
+            'btc': 'bitcoin', 'btceur': 'bitcoin', 'btcusdt': 'bitcoin',
+            'eth': 'ethereum', 'etheur': 'ethereum', 'ethusdt': 'ethereum',
+            'sol': 'solana', 'soleur': 'solana', 'solusdt': 'solana',
+            'ada': 'cardano', 'adaeur': 'cardano', 'adausdt': 'cardano',
+            'xrp': 'ripple', 'xrpeur': 'ripple', 'xrpusdt': 'ripple',
+            'dot': 'polkadot', 'doteur': 'polkadot', 'dotusdt': 'polkadot',
+            'doge': 'dogecoin', 'dogeeur': 'dogecoin', 'dogeusdt': 'dogecoin',
+            'shib': 'shiba_inu', 'shibeur': 'shiba_inu', 'shibusdt': 'shiba_inu',
+            'bnb': 'binance_coin', 'bnbeur': 'binance_coin', 'bnbusdt': 'binance_coin',
+            'link': 'chainlink', 'linkeur': 'chainlink', 'linkusdt': 'chainlink',
+            'ltc': 'litecoin', 'ltceur': 'litecoin', 'ltcusdt': 'litecoin'
+        };
+
+        // Pulisci input
+        let cleanInput = dbSymbol.replace('/', '').replace('_', '');
+        // Cerca mapping o usa input pulito
+        let normalizedSymbol = TICKER_MAP[cleanInput] || TICKER_MAP[dbSymbol] || dbSymbol;
+
+        console.log(`🤖 [AI-CHAT] Richiesta: "${message}" | Input: ${symbol} -> DB: ${normalizedSymbol}`);
 
         // 1. Recupera dati tecnici reali
         // 1. Recupera dati tecnici reali dal DB
