@@ -54,7 +54,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
         const container = document.createElement('div');
         container.id = uniqueId;
         container.style.width = '100%';
-        container.style.height = '500px';
+        container.style.height = '750px'; // Aumentato da 500px a 750px
         containerRef.current.appendChild(container);
         widgetRef.current = container;
 
@@ -77,7 +77,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
             "calendar": false,
             "withdateranges": true,
             "support_host": "https://www.tradingview.com",
-            "height": 500,
+            "height": 750, // Aumentato da 500 a 750
             "width": "100%",
             "container_id": uniqueId
         };

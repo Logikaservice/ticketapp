@@ -453,7 +453,7 @@ const CryptoDashboard = () => {
                 if (symbol === currentSymbol && prices[symbol]) {
                     continue;
                 }
-                
+
                 try {
                     const res = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=usdt`);
                     if (res.ok) {
@@ -473,12 +473,12 @@ const CryptoDashboard = () => {
 
         // Aggiorna prezzi quando cambiano holdings o posizioni aperte
         fetchAllPrices();
-        
+
         // ✅ FIX CRITICO: Aggiorna prezzi anche periodicamente (ogni 2 secondi) per garantire sincronizzazione
         const priceUpdateInterval = setInterval(() => {
             fetchAllPrices();
         }, 2000); // Aggiorna ogni 2 secondi
-        
+
         return () => clearInterval(priceUpdateInterval);
     }, [portfolio.holdings, openPositions, apiBase, currentSymbol, currentPrice]);
 
@@ -536,17 +536,17 @@ const CryptoDashboard = () => {
             // ✅ FIX CRITICO: Usa sempre il prezzo più aggiornato disponibile
             // Priorità: 1) allSymbolPrices (aggiornato ogni fetch), 2) currentPrice se stesso simbolo, 3) current_price dal DB
             let price = allSymbolPrices[pos.symbol];
-            
+
             // Se non c'è in allSymbolPrices ma è il simbolo corrente, usa currentPrice (aggiornato ogni secondo)
             if (!price && pos.symbol === currentSymbol && currentPrice > 0) {
                 price = currentPrice;
             }
-            
+
             // Fallback: usa prezzo dal database
             if (!price || price === 0) {
                 price = parseFloat(pos.current_price) || 0;
             }
-            
+
             // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
 
             // ✅ FIX CRITICO: Valida che il prezzo sia ragionevole
@@ -563,7 +563,7 @@ const CryptoDashboard = () => {
 
             if (pos.type === 'buy' && pos.status === 'open') {
                 const longValue = remainingVolume * price;
-                
+
                 // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
                 if (longValue > MAX_REASONABLE_BALANCE) {
                     console.error(`🚨 [BALANCE] Valore LONG anomale per ${pos.ticket_id}: $${longValue.toLocaleString()}. Volume: ${remainingVolume}, Prezzo: $${price.toFixed(8)}. Skipping.`);
@@ -924,9 +924,6 @@ const CryptoDashboard = () => {
                 </div>
             </div>
 
-            {/* ADVANCED STATISTICS PANEL */}
-            <StatisticsPanel apiBase={apiBase} />
-
             {/* MAIN CRYPTO GRID - CHART & OPEN POSITIONS */}
             <div className="crypto-grid">
                 <div className="crypto-card">
@@ -967,52 +964,52 @@ const CryptoDashboard = () => {
                         </div>
                     </div>
                     <TradingViewChart
-                            symbol={(() => {
-                                const found = availableSymbols.find(s => s.symbol === currentSymbol);
-                                if (found) return found.pair;
+                        symbol={(() => {
+                            const found = availableSymbols.find(s => s.symbol === currentSymbol);
+                            if (found) return found.pair;
 
-                                // ✅ FIX: Auto-generate pair if not found - mappa simboli comuni
-                                const symbolMap = {
-                                    'bitcoin': 'BTCUSDT',
-                                    'ethereum': 'ETHUSDT',
-                                    'solana': 'SOLUSDT',
-                                    'cardano': 'ADAUSDT',
-                                    'polkadot': 'DOTUSDT',
-                                    'chainlink': 'LINKUSDT',
-                                    'litecoin': 'LTCUSDT',
-                                    'ripple': 'XRPUSDT',
-                                    'binance_coin': 'BNBUSDT'
-                                };
+                            // ✅ FIX: Auto-generate pair if not found - mappa simboli comuni
+                            const symbolMap = {
+                                'bitcoin': 'BTCUSDT',
+                                'ethereum': 'ETHUSDT',
+                                'solana': 'SOLUSDT',
+                                'cardano': 'ADAUSDT',
+                                'polkadot': 'DOTUSDT',
+                                'chainlink': 'LINKUSDT',
+                                'litecoin': 'LTCUSDT',
+                                'ripple': 'XRPUSDT',
+                                'binance_coin': 'BNBUSDT'
+                            };
 
-                                if (symbolMap[currentSymbol]) {
-                                    return symbolMap[currentSymbol];
-                                }
+                            if (symbolMap[currentSymbol]) {
+                                return symbolMap[currentSymbol];
+                            }
 
-                                // Fallback: genera da nome simbolo
-                                const upperSymbol = currentSymbol.toUpperCase().replace(/_/g, '');
-                                return `${upperSymbol}USDT`;
-                            })()}
-                            trades={filteredTrades}
-                            openPositions={filteredOpenPositions}
-                            currentPrice={currentPrice}
-                            priceHistory={priceData || []}
-                        />
+                            // Fallback: genera da nome simbolo
+                            const upperSymbol = currentSymbol.toUpperCase().replace(/_/g, '');
+                            return `${upperSymbol}USDT`;
+                        })()}
+                        trades={filteredTrades}
+                        openPositions={filteredOpenPositions}
+                        currentPrice={currentPrice}
+                        priceHistory={priceData || []}
+                    />
                     )}
                 </div>
 
                 {/* MT5 Style Open Positions */}
                 <div className="crypto-card" style={{ gridColumn: 'span 2' }}>
-                        <OpenPositions
-                            positions={openPositions}
-                            currentPrice={currentPrice}
-                            currentSymbol={currentSymbol}
-                            allSymbolPrices={allSymbolPrices}
-                            onClosePosition={handleClosePosition}
-                            onUpdatePnL={handleUpdatePnL}
-                            availableSymbols={availableSymbols}
-                            onSelectSymbol={setCurrentSymbol}
-                            apiBase={apiBase}
-                        />
+                    <OpenPositions
+                        positions={openPositions}
+                        currentPrice={currentPrice}
+                        currentSymbol={currentSymbol}
+                        allSymbolPrices={allSymbolPrices}
+                        onClosePosition={handleClosePosition}
+                        onUpdatePnL={handleUpdatePnL}
+                        availableSymbols={availableSymbols}
+                        onSelectSymbol={setCurrentSymbol}
+                        apiBase={apiBase}
+                    />
                 </div>
             </div>
 
@@ -1121,6 +1118,10 @@ const CryptoDashboard = () => {
                 </div>
             </div>
 
+
+            {/* ADVANCED STATISTICS PANEL - Moved here per user request */}
+            <StatisticsPanel apiBase={apiBase} />
+
             {/* 📊 PERFORMANCE ANALYTICS - Day/Week/Month/Year */}
             {performanceAnalytics && (
                 <div className="crypto-card" style={{ marginTop: '20px' }}>
@@ -1201,447 +1202,447 @@ const CryptoDashboard = () => {
                     </div>
                 </div>
             )}
-    {/* Bot Settings Modal */ }
-    <BotSettings
-isOpen = { showBotSettings }
-onClose = {() => setShowBotSettings(false)}
-apiBase = { apiBase }
-    />
+            {/* Bot Settings Modal */}
+            <BotSettings
+                isOpen={showBotSettings}
+                onClose={() => setShowBotSettings(false)}
+                apiBase={apiBase}
+            />
 
-    {/* General Settings Modal */ }
-    <GeneralSettings
-isOpen = { showGeneralSettings }
-onClose = {() => setShowGeneralSettings(false)}
-onResetPortfolio = { handleResetPortfolio }
-onAddFunds = {() => {
-    setShowGeneralSettings(false);
-    setShowAddFundsModal(true);
-}}
-    />
+            {/* General Settings Modal */}
+            <GeneralSettings
+                isOpen={showGeneralSettings}
+                onClose={() => setShowGeneralSettings(false)}
+                onResetPortfolio={handleResetPortfolio}
+                onAddFunds={() => {
+                    setShowGeneralSettings(false);
+                    setShowAddFundsModal(true);
+                }}
+            />
 
-{/* Add Funds Modal */ }
-{
-    showAddFundsModal && (
-        <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 2000
-        }}>
-            <div style={{
-                background: 'linear-gradient(145deg, #1f2937, #111827)',
-                borderRadius: '16px',
-                padding: '30px',
-                maxWidth: '500px',
-                width: '90%',
-                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
-                border: '1px solid #374151'
-            }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h2 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <DollarSign size={24} className="text-green-500" />
-                        Aggiungi Fondi
-                    </h2>
-                    <button
-                        onClick={() => setShowAddFundsModal(false)}
-                        style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#9ca3af',
-                            fontSize: '1.5rem',
-                            cursor: 'pointer',
-                            padding: '0',
-                            width: '30px',
-                            height: '30px'
-                        }}
-                    >
-                        ×
-                    </button>
-                </div>
-
-                <div style={{ color: '#9ca3af', marginBottom: '20px', fontSize: '0.9rem' }}>
-                    Simula un deposito di fondi nel tuo portfolio. L'importo verrà aggiunto al saldo attuale.
-                </div>
-
-                <div style={{ marginBottom: '20px' }}>
-                    <label style={{ color: '#e5e7eb', fontSize: '0.9rem', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                        Importo da aggiungere (USDT)
-                    </label>
-                    <input
-                        type="number"
-                        id="addFundsAmount"
-                        min="1"
-                        step="0.01"
-                        placeholder="Inserisci importo..."
-                        style={{
-                            width: '100%',
-                            padding: '12px',
-                            background: '#111827',
-                            border: '1px solid #374151',
-                            borderRadius: '8px',
-                            color: '#fff',
-                            fontSize: '1.1rem',
-                            fontWeight: 'bold'
-                        }}
-                        onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                                const amount = document.getElementById('addFundsAmount').value;
-                                if (amount && parseFloat(amount) > 0) {
-                                    handleAddFunds(amount);
-                                }
-                            }
-                        }}
-                    />
-                </div>
-
-                {/* Quick Amount Buttons */}
-                <div style={{ marginBottom: '25px' }}>
-                    <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '10px' }}>Importi rapidi:</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-                        {[50, 100, 250, 500].map(amount => (
-                            <button
-                                key={amount}
-                                onClick={() => {
-                                    const input = document.getElementById('addFundsAmount');
-                                    if (input) input.value = amount;
-                                }}
-                                style={{
-                                    padding: '10px',
-                                    background: '#374151',
-                                    border: '1px solid #4b5563',
-                                    borderRadius: '8px',
-                                    color: '#fff',
-                                    cursor: 'pointer',
-                                    fontSize: '0.9rem',
-                                    fontWeight: '500',
-                                    transition: 'all 0.2s'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.target.style.background = '#4b5563';
-                                    e.target.style.borderColor = '#6366f1';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.target.style.background = '#374151';
-                                    e.target.style.borderColor = '#4b5563';
-                                }}
-                            >
-                                ${amount}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button
-                        onClick={() => setShowAddFundsModal(false)}
-                        style={{
-                            flex: 1,
-                            padding: '12px',
-                            background: '#374151',
-                            border: '1px solid #4b5563',
-                            borderRadius: '8px',
-                            color: '#fff',
-                            cursor: 'pointer',
-                            fontSize: '1rem',
-                            fontWeight: '500'
-                        }}
-                    >
-                        Annulla
-                    </button>
-                    <button
-                        onClick={() => {
-                            const amount = document.getElementById('addFundsAmount').value;
-                            if (!amount || parseFloat(amount) <= 0) {
-                                alert('⚠️ Inserisci un importo valido maggiore di 0');
-                                return;
-                            }
-                            handleAddFunds(amount);
-                        }}
-                        style={{
-                            flex: 1,
-                            padding: '12px',
-                            background: 'linear-gradient(135deg, #10b981, #059669)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            color: '#fff',
-                            cursor: 'pointer',
-                            fontSize: '1rem',
-                            fontWeight: 'bold',
-                            boxShadow: '0 4px 6px rgba(16, 185, 129, 0.3)'
-                        }}
-                    >
-                        Conferma Deposito
-                    </button>
-                </div>
-
-                <div style={{ marginTop: '20px', padding: '12px', background: '#1f2937', borderRadius: '8px', border: '1px solid #374151' }}>
-                    <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '6px' }}>
-                        💡 <strong>Nota:</strong> Questa è una simulazione
-                    </div>
-                    <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
-                        I fondi aggiunti sono virtuali e servono solo per testare la strategia di trading.
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-{/* Real-time Notifications */ }
-<div className="crypto-notifications-container">
-    {notifications.map(notification => (
-        <CryptoNotification
-            key={notification.id}
-            notification={notification}
-            onClose={() => removeNotification(notification.id)}
-        />
-    ))}
-</div>
-
-{/* Position Details Modal */}
-{showDetailsModal && selectedPositionDetails && (
-    <div
-        style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            padding: '20px'
-        }}
-        onClick={() => setShowDetailsModal(false)}
-    >
-        <div
-            style={{
-                background: '#1a1a1a',
-                borderRadius: '12px',
-                padding: '24px',
-                maxWidth: '90vw',
-                maxHeight: '90vh',
-                width: '800px',
-                color: '#fff',
-                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
-                overflow: 'visible'
-            }}
-            onClick={(e) => e.stopPropagation()}
-        >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>
-                    Dettagli Posizione - {selectedPositionDetails.symbol}
-                </h2>
-                <button
-                    onClick={() => setShowDetailsModal(false)}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#9ca3af',
-                        cursor: 'pointer',
-                        fontSize: '24px',
-                        padding: '0',
-                        width: '32px',
-                        height: '32px',
+            {/* Add Funds Modal */}
+            {
+                showAddFundsModal && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0, 0, 0, 0.8)',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        zIndex: 2000
+                    }}>
+                        <div style={{
+                            background: 'linear-gradient(145deg, #1f2937, #111827)',
+                            borderRadius: '16px',
+                            padding: '30px',
+                            maxWidth: '500px',
+                            width: '90%',
+                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+                            border: '1px solid #374151'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <h2 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <DollarSign size={24} className="text-green-500" />
+                                    Aggiungi Fondi
+                                </h2>
+                                <button
+                                    onClick={() => setShowAddFundsModal(false)}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: '#9ca3af',
+                                        fontSize: '1.5rem',
+                                        cursor: 'pointer',
+                                        padding: '0',
+                                        width: '30px',
+                                        height: '30px'
+                                    }}
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            <div style={{ color: '#9ca3af', marginBottom: '20px', fontSize: '0.9rem' }}>
+                                Simula un deposito di fondi nel tuo portfolio. L'importo verrà aggiunto al saldo attuale.
+                            </div>
+
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ color: '#e5e7eb', fontSize: '0.9rem', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                                    Importo da aggiungere (USDT)
+                                </label>
+                                <input
+                                    type="number"
+                                    id="addFundsAmount"
+                                    min="1"
+                                    step="0.01"
+                                    placeholder="Inserisci importo..."
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px',
+                                        background: '#111827',
+                                        border: '1px solid #374151',
+                                        borderRadius: '8px',
+                                        color: '#fff',
+                                        fontSize: '1.1rem',
+                                        fontWeight: 'bold'
+                                    }}
+                                    onKeyPress={(e) => {
+                                        if (e.key === 'Enter') {
+                                            const amount = document.getElementById('addFundsAmount').value;
+                                            if (amount && parseFloat(amount) > 0) {
+                                                handleAddFunds(amount);
+                                            }
+                                        }
+                                    }}
+                                />
+                            </div>
+
+                            {/* Quick Amount Buttons */}
+                            <div style={{ marginBottom: '25px' }}>
+                                <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '10px' }}>Importi rapidi:</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                                    {[50, 100, 250, 500].map(amount => (
+                                        <button
+                                            key={amount}
+                                            onClick={() => {
+                                                const input = document.getElementById('addFundsAmount');
+                                                if (input) input.value = amount;
+                                            }}
+                                            style={{
+                                                padding: '10px',
+                                                background: '#374151',
+                                                border: '1px solid #4b5563',
+                                                borderRadius: '8px',
+                                                color: '#fff',
+                                                cursor: 'pointer',
+                                                fontSize: '0.9rem',
+                                                fontWeight: '500',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                e.target.style.background = '#4b5563';
+                                                e.target.style.borderColor = '#6366f1';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                e.target.style.background = '#374151';
+                                                e.target.style.borderColor = '#4b5563';
+                                            }}
+                                        >
+                                            ${amount}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button
+                                    onClick={() => setShowAddFundsModal(false)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px',
+                                        background: '#374151',
+                                        border: '1px solid #4b5563',
+                                        borderRadius: '8px',
+                                        color: '#fff',
+                                        cursor: 'pointer',
+                                        fontSize: '1rem',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    Annulla
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const amount = document.getElementById('addFundsAmount').value;
+                                        if (!amount || parseFloat(amount) <= 0) {
+                                            alert('⚠️ Inserisci un importo valido maggiore di 0');
+                                            return;
+                                        }
+                                        handleAddFunds(amount);
+                                    }}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px',
+                                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                                        border: 'none',
+                                        borderRadius: '8px',
+                                        color: '#fff',
+                                        cursor: 'pointer',
+                                        fontSize: '1rem',
+                                        fontWeight: 'bold',
+                                        boxShadow: '0 4px 6px rgba(16, 185, 129, 0.3)'
+                                    }}
+                                >
+                                    Conferma Deposito
+                                </button>
+                            </div>
+
+                            <div style={{ marginTop: '20px', padding: '12px', background: '#1f2937', borderRadius: '8px', border: '1px solid #374151' }}>
+                                <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginBottom: '6px' }}>
+                                    💡 <strong>Nota:</strong> Questa è una simulazione
+                                </div>
+                                <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
+                                    I fondi aggiunti sono virtuali e servono solo per testare la strategia di trading.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* Real-time Notifications */}
+            <div className="crypto-notifications-container">
+                {notifications.map(notification => (
+                    <CryptoNotification
+                        key={notification.id}
+                        notification={notification}
+                        onClose={() => removeNotification(notification.id)}
+                    />
+                ))}
+            </div>
+
+            {/* Position Details Modal */}
+            {showDetailsModal && selectedPositionDetails && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0, 0, 0, 0.8)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 10000,
+                        padding: '20px'
                     }}
+                    onClick={() => setShowDetailsModal(false)}
                 >
-                    ×
-                </button>
-            </div>
+                    <div
+                        style={{
+                            background: '#1a1a1a',
+                            borderRadius: '12px',
+                            padding: '24px',
+                            maxWidth: '90vw',
+                            maxHeight: '90vh',
+                            width: '800px',
+                            color: '#fff',
+                            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                            overflow: 'visible'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>
+                                Dettagli Posizione - {selectedPositionDetails.symbol}
+                            </h2>
+                            <button
+                                onClick={() => setShowDetailsModal(false)}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#9ca3af',
+                                    cursor: 'pointer',
+                                    fontSize: '24px',
+                                    padding: '0',
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
 
-            <div style={{ 
-                background: '#0f0f0f', 
-                borderRadius: '8px', 
-                padding: '20px',
-                marginBottom: '16px',
-                border: '1px solid #2d2d2d'
-            }}>
-                <div style={{ marginBottom: '16px' }}>
-                    <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '4px' }}>Informazioni Posizione</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
-                        <div>
-                            <span style={{ color: '#6b7280' }}>Tipo:</span>
-                            <span style={{ marginLeft: '8px', color: selectedPositionDetails.type === 'buy' ? '#10b981' : '#ef4444' }}>
-                                {selectedPositionDetails.type === 'buy' ? 'LONG' : 'SHORT'}
-                            </span>
+                        <div style={{
+                            background: '#0f0f0f',
+                            borderRadius: '8px',
+                            padding: '20px',
+                            marginBottom: '16px',
+                            border: '1px solid #2d2d2d'
+                        }}>
+                            <div style={{ marginBottom: '16px' }}>
+                                <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '4px' }}>Informazioni Posizione</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
+                                    <div>
+                                        <span style={{ color: '#6b7280' }}>Tipo:</span>
+                                        <span style={{ marginLeft: '8px', color: selectedPositionDetails.type === 'buy' ? '#10b981' : '#ef4444' }}>
+                                            {selectedPositionDetails.type === 'buy' ? 'LONG' : 'SHORT'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: '#6b7280' }}>Entry Price:</span>
+                                        <span style={{ marginLeft: '8px' }}>${parseFloat(selectedPositionDetails.entry_price || 0).toFixed(4)}</span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: '#6b7280' }}>Volume:</span>
+                                        <span style={{ marginLeft: '8px' }}>{parseFloat(selectedPositionDetails.volume || 0).toFixed(4)}</span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: '#6b7280' }}>P&L:</span>
+                                        <span style={{
+                                            marginLeft: '8px',
+                                            color: parseFloat(selectedPositionDetails.profit_loss || 0) >= 0 ? '#10b981' : '#ef4444'
+                                        }}>
+                                            {parseFloat(selectedPositionDetails.profit_loss || 0) >= 0 ? '+' : ''}
+                                            ${parseFloat(selectedPositionDetails.profit_loss || 0).toFixed(2)}
+                                            ({parseFloat(selectedPositionDetails.profit_loss_pct || 0) >= 0 ? '+' : ''}
+                                            {parseFloat(selectedPositionDetails.profit_loss_pct || 0).toFixed(2)}%)
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: '#6b7280' }}>Aperta:</span>
+                                        <span style={{ marginLeft: '8px' }}>
+                                            {new Date(selectedPositionDetails.opened_at).toLocaleString()}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: '#6b7280' }}>Chiusa:</span>
+                                        <span style={{ marginLeft: '8px' }}>
+                                            {selectedPositionDetails.closed_at ? new Date(selectedPositionDetails.closed_at).toLocaleString() : 'N/A'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <span style={{ color: '#6b7280' }}>Entry Price:</span>
-                            <span style={{ marginLeft: '8px' }}>${parseFloat(selectedPositionDetails.entry_price || 0).toFixed(4)}</span>
-                        </div>
-                        <div>
-                            <span style={{ color: '#6b7280' }}>Volume:</span>
-                            <span style={{ marginLeft: '8px' }}>{parseFloat(selectedPositionDetails.volume || 0).toFixed(4)}</span>
-                        </div>
-                        <div>
-                            <span style={{ color: '#6b7280' }}>P&L:</span>
-                            <span style={{ 
-                                marginLeft: '8px',
-                                color: parseFloat(selectedPositionDetails.profit_loss || 0) >= 0 ? '#10b981' : '#ef4444'
+
+                        {selectedPositionDetails.parsedDetails && Object.keys(selectedPositionDetails.parsedDetails).length > 0 && (
+                            <div style={{
+                                background: '#0f0f0f',
+                                borderRadius: '8px',
+                                padding: '20px',
+                                border: '1px solid #2d2d2d',
+                                maxHeight: 'calc(90vh - 300px)',
+                                overflowY: 'auto'
                             }}>
-                                {parseFloat(selectedPositionDetails.profit_loss || 0) >= 0 ? '+' : ''}
-                                ${parseFloat(selectedPositionDetails.profit_loss || 0).toFixed(2)} 
-                                ({parseFloat(selectedPositionDetails.profit_loss_pct || 0) >= 0 ? '+' : ''}
-                                {parseFloat(selectedPositionDetails.profit_loss_pct || 0).toFixed(2)}%)
-                            </span>
-                        </div>
-                        <div>
-                            <span style={{ color: '#6b7280' }}>Aperta:</span>
-                            <span style={{ marginLeft: '8px' }}>
-                                {new Date(selectedPositionDetails.opened_at).toLocaleString()}
-                            </span>
-                        </div>
-                        <div>
-                            <span style={{ color: '#6b7280' }}>Chiusa:</span>
-                            <span style={{ marginLeft: '8px' }}>
-                                {selectedPositionDetails.closed_at ? new Date(selectedPositionDetails.closed_at).toLocaleString() : 'N/A'}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                                <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '12px', fontWeight: '600' }}>
+                                    Analisi Segnale
+                                </div>
 
-            {selectedPositionDetails.parsedDetails && Object.keys(selectedPositionDetails.parsedDetails).length > 0 && (
-                <div style={{ 
-                    background: '#0f0f0f', 
-                    borderRadius: '8px', 
-                    padding: '20px',
-                    border: '1px solid #2d2d2d',
-                    maxHeight: 'calc(90vh - 300px)',
-                    overflowY: 'auto'
-                }}>
-                    <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '12px', fontWeight: '600' }}>
-                        Analisi Segnale
-                    </div>
-                    
-                    {selectedPositionDetails.parsedDetails.mtf && (
-                        <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
-                            <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Multi-Timeframe</div>
-                            <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
-                                <div><span style={{ color: '#6b7280' }}>Trend 1h:</span> <span style={{ color: selectedPositionDetails.parsedDetails.mtf.trend1h === 'bullish' ? '#10b981' : selectedPositionDetails.parsedDetails.mtf.trend1h === 'bearish' ? '#ef4444' : '#9ca3af' }}>{selectedPositionDetails.parsedDetails.mtf.trend1h || 'N/A'}</span></div>
-                                <div><span style={{ color: '#6b7280' }}>Trend 4h:</span> <span style={{ color: selectedPositionDetails.parsedDetails.mtf.trend4h === 'bullish' ? '#10b981' : selectedPositionDetails.parsedDetails.mtf.trend4h === 'bearish' ? '#ef4444' : '#9ca3af' }}>{selectedPositionDetails.parsedDetails.mtf.trend4h || 'N/A'}</span></div>
-                                <div><span style={{ color: '#6b7280' }}>MTF Bonus:</span> <span style={{ color: selectedPositionDetails.parsedDetails.mtf.bonus >= 0 ? '#10b981' : '#ef4444' }}>{selectedPositionDetails.parsedDetails.mtf.bonus >= 0 ? '+' : ''}{selectedPositionDetails.parsedDetails.mtf.bonus || 0}</span></div>
-                                <div><span style={{ color: '#6b7280' }}>Strength Aggiustata:</span> <span style={{ fontWeight: '600' }}>{selectedPositionDetails.parsedDetails.mtf.adjustedStrength || 'N/A'}/100</span></div>
-                            </div>
-                        </div>
-                    )}
-
-                    {selectedPositionDetails.parsedDetails.direction && (
-                        <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
-                            <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Segnale</div>
-                            <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
-                                <div><span style={{ color: '#6b7280' }}>Direzione:</span> <span style={{ color: selectedPositionDetails.parsedDetails.direction === 'LONG' ? '#10b981' : '#ef4444' }}>{selectedPositionDetails.parsedDetails.direction || 'N/A'}</span></div>
-                                <div><span style={{ color: '#6b7280' }}>Strength:</span> <span style={{ fontWeight: '600' }}>{selectedPositionDetails.parsedDetails.strength || 0}/100</span></div>
-                                <div><span style={{ color: '#6b7280' }}>Conferme:</span> <span>{selectedPositionDetails.parsedDetails.confirmations || 0}</span></div>
-                            </div>
-                        </div>
-                    )}
-
-                    {selectedPositionDetails.parsedDetails.reasons && selectedPositionDetails.parsedDetails.reasons.length > 0 && (
-                        <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
-                            <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Motivi del Segnale</div>
-                            <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', lineHeight: '1.8', color: '#d1d5db' }}>
-                                {selectedPositionDetails.parsedDetails.reasons.map((reason, idx) => (
-                                    <li key={idx} style={{ marginBottom: '4px' }}>{reason}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-
-                    {selectedPositionDetails.parsedDetails.indicators && (
-                        <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
-                            <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Indicatori</div>
-                            <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
-                                {selectedPositionDetails.parsedDetails.indicators.rsi && (
-                                    <div><span style={{ color: '#6b7280' }}>RSI:</span> <span>{parseFloat(selectedPositionDetails.parsedDetails.indicators.rsi).toFixed(2)}</span></div>
+                                {selectedPositionDetails.parsedDetails.mtf && (
+                                    <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
+                                        <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Multi-Timeframe</div>
+                                        <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
+                                            <div><span style={{ color: '#6b7280' }}>Trend 1h:</span> <span style={{ color: selectedPositionDetails.parsedDetails.mtf.trend1h === 'bullish' ? '#10b981' : selectedPositionDetails.parsedDetails.mtf.trend1h === 'bearish' ? '#ef4444' : '#9ca3af' }}>{selectedPositionDetails.parsedDetails.mtf.trend1h || 'N/A'}</span></div>
+                                            <div><span style={{ color: '#6b7280' }}>Trend 4h:</span> <span style={{ color: selectedPositionDetails.parsedDetails.mtf.trend4h === 'bullish' ? '#10b981' : selectedPositionDetails.parsedDetails.mtf.trend4h === 'bearish' ? '#ef4444' : '#9ca3af' }}>{selectedPositionDetails.parsedDetails.mtf.trend4h || 'N/A'}</span></div>
+                                            <div><span style={{ color: '#6b7280' }}>MTF Bonus:</span> <span style={{ color: selectedPositionDetails.parsedDetails.mtf.bonus >= 0 ? '#10b981' : '#ef4444' }}>{selectedPositionDetails.parsedDetails.mtf.bonus >= 0 ? '+' : ''}{selectedPositionDetails.parsedDetails.mtf.bonus || 0}</span></div>
+                                            <div><span style={{ color: '#6b7280' }}>Strength Aggiustata:</span> <span style={{ fontWeight: '600' }}>{selectedPositionDetails.parsedDetails.mtf.adjustedStrength || 'N/A'}/100</span></div>
+                                        </div>
+                                    </div>
                                 )}
-                                {selectedPositionDetails.parsedDetails.indicators.trend && (
-                                    <div><span style={{ color: '#6b7280' }}>Trend:</span> <span>{selectedPositionDetails.parsedDetails.indicators.trend}</span></div>
+
+                                {selectedPositionDetails.parsedDetails.direction && (
+                                    <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
+                                        <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Segnale</div>
+                                        <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
+                                            <div><span style={{ color: '#6b7280' }}>Direzione:</span> <span style={{ color: selectedPositionDetails.parsedDetails.direction === 'LONG' ? '#10b981' : '#ef4444' }}>{selectedPositionDetails.parsedDetails.direction || 'N/A'}</span></div>
+                                            <div><span style={{ color: '#6b7280' }}>Strength:</span> <span style={{ fontWeight: '600' }}>{selectedPositionDetails.parsedDetails.strength || 0}/100</span></div>
+                                            <div><span style={{ color: '#6b7280' }}>Conferme:</span> <span>{selectedPositionDetails.parsedDetails.confirmations || 0}</span></div>
+                                        </div>
+                                    </div>
                                 )}
-                                {selectedPositionDetails.parsedDetails.indicators.macd && (
-                                    <div style={{ marginTop: '8px' }}>
-                                        <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>MACD:</div>
-                                        <div style={{ paddingLeft: '12px', fontSize: '12px' }}>
-                                            {selectedPositionDetails.parsedDetails.indicators.macd.macdLine && (
-                                                <div>MACD Line: {parseFloat(selectedPositionDetails.parsedDetails.indicators.macd.macdLine).toFixed(4)}</div>
+
+                                {selectedPositionDetails.parsedDetails.reasons && selectedPositionDetails.parsedDetails.reasons.length > 0 && (
+                                    <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
+                                        <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Motivi del Segnale</div>
+                                        <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', lineHeight: '1.8', color: '#d1d5db' }}>
+                                            {selectedPositionDetails.parsedDetails.reasons.map((reason, idx) => (
+                                                <li key={idx} style={{ marginBottom: '4px' }}>{reason}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {selectedPositionDetails.parsedDetails.indicators && (
+                                    <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
+                                        <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Indicatori</div>
+                                        <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
+                                            {selectedPositionDetails.parsedDetails.indicators.rsi && (
+                                                <div><span style={{ color: '#6b7280' }}>RSI:</span> <span>{parseFloat(selectedPositionDetails.parsedDetails.indicators.rsi).toFixed(2)}</span></div>
                                             )}
-                                            {selectedPositionDetails.parsedDetails.indicators.macd.signalLine && (
-                                                <div>Signal Line: {parseFloat(selectedPositionDetails.parsedDetails.indicators.macd.signalLine).toFixed(4)}</div>
+                                            {selectedPositionDetails.parsedDetails.indicators.trend && (
+                                                <div><span style={{ color: '#6b7280' }}>Trend:</span> <span>{selectedPositionDetails.parsedDetails.indicators.trend}</span></div>
                                             )}
-                                            {selectedPositionDetails.parsedDetails.indicators.macd.histogram && (
-                                                <div>Histogram: {parseFloat(selectedPositionDetails.parsedDetails.indicators.macd.histogram).toFixed(4)}</div>
+                                            {selectedPositionDetails.parsedDetails.indicators.macd && (
+                                                <div style={{ marginTop: '8px' }}>
+                                                    <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>MACD:</div>
+                                                    <div style={{ paddingLeft: '12px', fontSize: '12px' }}>
+                                                        {selectedPositionDetails.parsedDetails.indicators.macd.macdLine && (
+                                                            <div>MACD Line: {parseFloat(selectedPositionDetails.parsedDetails.indicators.macd.macdLine).toFixed(4)}</div>
+                                                        )}
+                                                        {selectedPositionDetails.parsedDetails.indicators.macd.signalLine && (
+                                                            <div>Signal Line: {parseFloat(selectedPositionDetails.parsedDetails.indicators.macd.signalLine).toFixed(4)}</div>
+                                                        )}
+                                                        {selectedPositionDetails.parsedDetails.indicators.macd.histogram && (
+                                                            <div>Histogram: {parseFloat(selectedPositionDetails.parsedDetails.indicators.macd.histogram).toFixed(4)}</div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedPositionDetails.parsedDetails.longSignal && (
+                                    <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
+                                        <div style={{ color: '#10b981', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Segnale LONG</div>
+                                        <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
+                                            <div><span style={{ color: '#6b7280' }}>Strength:</span> <span style={{ fontWeight: '600' }}>{selectedPositionDetails.parsedDetails.longSignal.strength || 0}/100</span></div>
+                                            <div><span style={{ color: '#6b7280' }}>Conferme:</span> <span>{selectedPositionDetails.parsedDetails.longSignal.confirmations || 0}</span></div>
+                                            {selectedPositionDetails.parsedDetails.longSignal.reasons && selectedPositionDetails.parsedDetails.longSignal.reasons.length > 0 && (
+                                                <div style={{ marginTop: '8px' }}>
+                                                    <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>Motivi:</div>
+                                                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', lineHeight: '1.6' }}>
+                                                        {selectedPositionDetails.parsedDetails.longSignal.reasons.map((reason, idx) => (
+                                                            <li key={idx} style={{ marginBottom: '2px', color: '#d1d5db' }}>{reason}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
                                 )}
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {selectedPositionDetails.parsedDetails.longSignal && (
-                        <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
-                            <div style={{ color: '#10b981', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Segnale LONG</div>
-                            <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
-                                <div><span style={{ color: '#6b7280' }}>Strength:</span> <span style={{ fontWeight: '600' }}>{selectedPositionDetails.parsedDetails.longSignal.strength || 0}/100</span></div>
-                                <div><span style={{ color: '#6b7280' }}>Conferme:</span> <span>{selectedPositionDetails.parsedDetails.longSignal.confirmations || 0}</span></div>
-                                {selectedPositionDetails.parsedDetails.longSignal.reasons && selectedPositionDetails.parsedDetails.longSignal.reasons.length > 0 && (
-                                    <div style={{ marginTop: '8px' }}>
-                                        <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>Motivi:</div>
-                                        <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', lineHeight: '1.6' }}>
-                                            {selectedPositionDetails.parsedDetails.longSignal.reasons.map((reason, idx) => (
-                                                <li key={idx} style={{ marginBottom: '2px', color: '#d1d5db' }}>{reason}</li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
+                        {(!selectedPositionDetails.parsedDetails || Object.keys(selectedPositionDetails.parsedDetails).length === 0) && (
+                            <div style={{
+                                padding: '20px',
+                                textAlign: 'center',
+                                color: '#6b7280',
+                                fontSize: '14px'
+                            }}>
+                                Nessun dettaglio segnale disponibile per questa posizione.
                             </div>
+                        )}
+
+                        <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => setShowDetailsModal(false)}
+                                style={{
+                                    padding: '10px 24px',
+                                    background: '#3b82f6',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    color: '#fff',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: '600'
+                                }}
+                            >
+                                Chiudi
+                            </button>
                         </div>
-                    )}
+                    </div>
                 </div>
             )}
-
-            {(!selectedPositionDetails.parsedDetails || Object.keys(selectedPositionDetails.parsedDetails).length === 0) && (
-                <div style={{ 
-                    padding: '20px', 
-                    textAlign: 'center', 
-                    color: '#6b7280',
-                    fontSize: '14px'
-                }}>
-                    Nessun dettaglio segnale disponibile per questa posizione.
-                </div>
-            )}
-
-            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                    onClick={() => setShowDetailsModal(false)}
-                    style={{
-                        padding: '10px 24px',
-                        background: '#3b82f6',
-                        border: 'none',
-                        borderRadius: '6px',
-                        color: '#fff',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '600'
-                    }}
-                >
-                    Chiudi
-                </button>
-            </div>
-        </div>
-    </div>
-)}
         </div >
     );
 };
