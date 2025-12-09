@@ -5741,8 +5741,43 @@ router.get('/bot-analysis', async (req, res) => {
         console.log('🔍 [BOT-ANALYSIS] Tutte le dipendenze verificate OK');
 
         // Get symbol from query parameter, default to bitcoin
-        const symbol = req.query.symbol || 'bitcoin';
-        console.log('🔍 [BOT-ANALYSIS] Symbol:', symbol);
+        let symbol = req.query.symbol || 'bitcoin';
+        console.log('🔍 [BOT-ANALYSIS] Symbol originale:', symbol);
+        
+        // ✅ FIX CRITICO: Normalizza il simbolo per il database
+        // Il database potrebbe avere "bitcoin" ma la richiesta arriva come "bitcoin_usdt"
+        // Usa SYMBOL_TO_COINGECKO per normalizzare (es. "bitcoin_usdt" -> "bitcoin")
+        const SYMBOL_TO_COINGECKO_NORMALIZED = {
+            'bitcoin_usdt': 'bitcoin',
+            'bitcoin': 'bitcoin',
+            'ethereum_usdt': 'ethereum',
+            'ethereum': 'ethereum',
+            'solana_usdt': 'solana',
+            'solana': 'solana',
+            'cardano_usdt': 'cardano',
+            'cardano': 'cardano',
+            'ripple_usdt': 'ripple',
+            'ripple': 'ripple',
+            'polkadot_usdt': 'polkadot',
+            'polkadot': 'polkadot',
+            'dogecoin_usdt': 'dogecoin',
+            'dogecoin': 'dogecoin',
+            'shiba_inu_usdt': 'shiba_inu',
+            'shiba_inu': 'shiba_inu',
+            'binance_coin_usdt': 'binance_coin',
+            'binance_coin': 'binance_coin',
+            'chainlink_usdt': 'chainlink',
+            'chainlink': 'chainlink',
+            'litecoin_usdt': 'litecoin',
+            'litecoin': 'litecoin'
+        };
+        
+        // Normalizza il simbolo per il database (rimuovi _usdt se presente)
+        const normalizedSymbol = SYMBOL_TO_COINGECKO_NORMALIZED[symbol.toLowerCase()] || symbol.toLowerCase().replace('_usdt', '').replace('_', '');
+        console.log('🔍 [BOT-ANALYSIS] Symbol normalizzato per DB:', normalizedSymbol);
+        
+        // Usa il simbolo normalizzato per le query al database, ma mantieni l'originale per getSymbolPrice
+        const dbSymbol = normalizedSymbol;
 
         // Get current price from Binance
         // Get current price using the helper function that handles correct symbol mapping and USDT conversion
@@ -5752,8 +5787,8 @@ router.get('/bot-analysis', async (req, res) => {
             currentPrice = await getSymbolPrice(symbol);
         } catch (err) {
             console.error('Error fetching current price:', err);
-            // Fallback: get last price from DB (PostgreSQL syntax)
-            const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [symbol]);
+            // Fallback: get last price from DB (PostgreSQL syntax) - usa simbolo normalizzato
+            const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [dbSymbol]);
             if (lastPrice) {
                 currentPrice = parseFloat(lastPrice.price);
             }
@@ -5770,7 +5805,7 @@ router.get('/bot-analysis', async (req, res) => {
         console.log('🔍 [BOT-ANALYSIS] Fetching price history...');
         const priceHistoryData = await dbAll(
             "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
-            [symbol]
+            [dbSymbol] // ✅ FIX: Usa simbolo normalizzato per query DB
         );
 
         // Se non ci sono klines, usa price_history
@@ -5812,7 +5847,7 @@ router.get('/bot-analysis', async (req, res) => {
         } else {
             const priceHistoryRows = await dbAll(
                 "SELECT price, timestamp FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 100",
-                [symbol]
+                [dbSymbol] // ✅ FIX: Usa simbolo normalizzato per query DB
             );
             historyForSignal = priceHistoryRows.reverse().map(row => {
                 // ✅ FIX: Gestisci timestamp da price_history (potrebbe essere stringa o Date)
@@ -5931,7 +5966,7 @@ router.get('/bot-analysis', async (req, res) => {
                                     close_price = EXCLUDED.close_price,
                                     volume = EXCLUDED.volume,
                                     close_time = EXCLUDED.close_time`,
-                                [symbol, '15m', openTime, open, high, low, close, volume, closeTime]
+                                [dbSymbol, '15m', openTime, open, high, low, close, volume, closeTime] // ✅ FIX: Usa simbolo normalizzato per salvataggio DB
                             );
                         });
 
