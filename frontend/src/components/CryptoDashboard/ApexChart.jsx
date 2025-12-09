@@ -72,42 +72,58 @@ const ApexChart = ({
 
         // Prepare markers for open positions (entry points)
         const markers = [];
-        openPositions.forEach((pos, index) => {
-            // ✅ FIX: Usa opened_at (campo corretto dal database) invece di entry_time o Date.now()
-            const entryTime = pos.opened_at ? new Date(pos.opened_at).getTime() :
-                pos.timestamp ? new Date(pos.timestamp).getTime() :
-                    pos.entry_time ? new Date(pos.entry_time).getTime() :
-                        null; // Non usare Date.now() - se non c'è timestamp, non mostrare il marker
+        if (openPositions && openPositions.length > 0) {
+            console.log(`📊 [ApexChart] Preparando marker per ${openPositions.length} posizioni aperte`);
+            openPositions.forEach((pos, index) => {
+                // ✅ FIX: Usa opened_at (campo corretto dal database) invece di entry_time o Date.now()
+                const entryTime = pos.opened_at ? new Date(pos.opened_at).getTime() :
+                    pos.timestamp ? new Date(pos.timestamp).getTime() :
+                        pos.entry_time ? new Date(pos.entry_time).getTime() :
+                            null; // Non usare Date.now() - se non c'è timestamp, non mostrare il marker
 
-            // Se non c'è timestamp valido, salta questo marker
-            if (!entryTime) {
-                console.warn(`⚠️ [ApexChart] Posizione ${pos.ticket_id || index} senza timestamp valido (opened_at/timestamp), marker saltato`);
-                return;
-            }
+                // Se non c'è timestamp valido, salta questo marker
+                if (!entryTime) {
+                    console.warn(`⚠️ [ApexChart] Posizione ${pos.ticket_id || index} senza timestamp valido (opened_at/timestamp), marker saltato`);
+                    return;
+                }
 
-            const entryPrice = parseFloat(pos.entry_price || pos.price || 0);
-            if (entryPrice > 0) {
-                markers.push({
-                    x: entryTime,
-                    y: entryPrice,
-                    marker: {
-                        size: 8,
-                        fillColor: pos.type === 'buy' ? '#10b981' : '#ef4444',
-                        strokeColor: pos.type === 'buy' ? '#10b981' : '#ef4444',
-                        radius: 4,
-                    },
-                    label: {
-                        text: `${index + 1}`,
-                        style: {
-                            color: '#fff',
-                            fontSize: '12px',
-                            fontWeight: 'bold',
+                const entryPrice = parseFloat(pos.entry_price || pos.price || 0);
+                if (entryPrice > 0) {
+                    console.log(`📍 [ApexChart] Marker ${index + 1}: ${pos.symbol} @ $${entryPrice.toFixed(6)} USDT, time: ${new Date(entryTime).toLocaleString()}`);
+                    markers.push({
+                        x: entryTime,
+                        y: entryPrice,
+                        marker: {
+                            size: 10, // ✅ Aumentato da 8 a 10 per maggiore visibilità
+                            fillColor: pos.type === 'buy' ? '#10b981' : '#ef4444',
+                            strokeColor: pos.type === 'buy' ? '#10b981' : '#ef4444',
+                            strokeWidth: 2, // ✅ Aggiunto strokeWidth per maggiore visibilità
+                            radius: 5, // ✅ Aumentato da 4 a 5
                         },
-                        offsetY: -15,
-                    }
-                });
-            }
-        });
+                        label: {
+                            text: `${pos.type === 'buy' ? '↑' : '↓'} ${index + 1}`, // ✅ Aggiunto freccia per indicare direzione
+                            style: {
+                                color: '#fff',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                background: pos.type === 'buy' ? '#10b981' : '#ef4444',
+                                padding: {
+                                    left: 4,
+                                    right: 4,
+                                    top: 2,
+                                    bottom: 2
+                                }
+                            },
+                            offsetY: -20, // ✅ Aumentato offset per maggiore visibilità
+                        }
+                    });
+                } else {
+                    console.warn(`⚠️ [ApexChart] Posizione ${pos.ticket_id || index} ha entry_price = 0, marker saltato`);
+                }
+            });
+        }
+        
+        console.log(`✅ [ApexChart] Creati ${markers.length} marker per il grafico`);
 
         const options = {
             chart: {
@@ -179,12 +195,25 @@ const ApexChart = ({
                 },
             },
             annotations: {
-                points: markers.map(m => ({
+                points: markers.length > 0 ? markers.map(m => ({
                     x: m.x,
                     y: m.y,
-                    marker: m.marker,
-                    label: m.label,
-                })),
+                    marker: {
+                        size: m.marker.size || 10,
+                        fillColor: m.marker.fillColor,
+                        strokeColor: m.marker.strokeColor,
+                        strokeWidth: m.marker.strokeWidth || 2,
+                        radius: m.marker.radius || 5,
+                        shape: 'circle',
+                    },
+                    label: {
+                        text: m.label.text,
+                        style: {
+                            ...m.label.style,
+                        },
+                        offsetY: m.label.offsetY || -20,
+                    },
+                })) : [], // ✅ Assicura che sia sempre un array
             },
             theme: {
                 mode: 'dark',
@@ -201,7 +230,7 @@ const ApexChart = ({
             name: 'Bitcoin/USDT',
             data: candlestickData,
         }]);
-    }, [currentInterval]); // ✅ RIMOSSO priceHistory e openPositions - aggiorna SOLO quando cambi interval!
+    }, [priceHistory, openPositions, currentInterval]); // ✅ FIX: Includi openPositions per aggiornare marker quando cambiano
 
     // ✅ Aggiorna solo l'ultima candela quando cambia il prezzo (senza reset)
     useEffect(() => {
