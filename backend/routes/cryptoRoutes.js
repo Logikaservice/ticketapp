@@ -7283,12 +7283,39 @@ router.get('/bot-analysis', async (req, res) => {
                         });
                     }
 
+                    // ✅ FIX CRITICO: Controllo MTF - Adjusted strength dopo bonus/malus timeframe
+                    // Mostra se strength originale è ok ma dopo MTF non lo è più
+                    if (shortCurrentStrength >= SHORT_MIN_STRENGTH && shortAdjustedStrength < SHORT_MIN_STRENGTH) {
+                        const mtfPenalty = shortAdjustedStrength - shortCurrentStrength;
+                        blocks.push({
+                            type: 'Multi-Timeframe',
+                            reason: `Strength originale (${shortCurrentStrength}/100) ma dopo MTF adjustment (${mtfPenalty >= 0 ? '+' : ''}${mtfPenalty.toFixed(0)}) = ${shortAdjustedStrength.toFixed(0)}/100 < minimo richiesto (${SHORT_MIN_STRENGTH}). ${shortMtfReason || 'Timeframes superiori non allineati'}`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX CRITICO: Mostra anche se strength è insufficiente (sia originale che adjusted)
+                    if (shortAdjustedStrength < SHORT_MIN_STRENGTH) {
+                        const needsStrength = SHORT_MIN_STRENGTH - shortAdjustedStrength;
+                        blocks.push({
+                            type: 'Strength insufficiente',
+                            reason: `Strength aggiustata ${shortAdjustedStrength.toFixed(0)}/100 < minimo ${SHORT_MIN_STRENGTH} (original: ${shortCurrentStrength.toFixed(0)}, MTF: ${shortMtfBonus >= 0 ? '+' : ''}${shortMtfBonus.toFixed(0)}). Mancano ${needsStrength.toFixed(0)} punti. ${shortMtfBonus < 0 ? shortMtfReason : ''}`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX CRITICO: Controllo conferme
+                    if (shortCurrentConfirmations < SHORT_MIN_CONFIRMATIONS) {
+                        const needsConfirmations = SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations;
+                        blocks.push({
+                            type: 'Conferme insufficienti',
+                            reason: `Conferme ${shortCurrentConfirmations}/${SHORT_MIN_CONFIRMATIONS} - mancano ${needsConfirmations} conferme`,
+                            severity: 'high'
+                        });
+                    }
+
                     // ✅ FIX CRITICO: Mostra blocker anche se requirements sono soddisfatti ma canOpen è false
                     const canOpen = meetsRequirements && canOpenCheck.allowed && !signal.atrBlocked && supportsShort;
-
-                    if (!meetsRequirements) {
-                        return []; // No blockers to show if requirements not met
-                    }
 
                     // ✅ FIX CRITICO: Mostra filtri professionali che bloccano SHORT
                     if (shortBlockedByFilters) {
