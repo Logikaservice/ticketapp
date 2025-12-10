@@ -290,13 +290,20 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                                             menuRefs.current[pos.ticket_id] = el;
                                                             // Calcola posizione quando il menu viene aperto
                                                             if (el) {
-                                                                // Trova il pulsante che ha aperto il menu
-                                                                const button = el.parentElement?.querySelector('button');
-                                                                if (button) {
-                                                                    const buttonRect = button.getBoundingClientRect();
+                                                                const savedPos = menuRefs.current[`${pos.ticket_id}_pos`];
+                                                                if (savedPos) {
                                                                     el.style.position = 'fixed';
-                                                                    el.style.top = `${buttonRect.bottom + 4}px`;
-                                                                    el.style.left = `${buttonRect.right - 180}px`;
+                                                                    el.style.top = `${savedPos.top + 4}px`;
+                                                                    el.style.left = `${savedPos.left}px`;
+                                                                } else {
+                                                                    // Fallback: trova il pulsante
+                                                                    const button = menuRefs.current[`${pos.ticket_id}_btn`];
+                                                                    if (button) {
+                                                                        const buttonRect = button.getBoundingClientRect();
+                                                                        el.style.position = 'fixed';
+                                                                        el.style.top = `${buttonRect.bottom + 4}px`;
+                                                                        el.style.left = `${buttonRect.right - 180}px`;
+                                                                    }
                                                                 }
                                                             }
                                                         }}
@@ -404,7 +411,20 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                             </button>
                                         </div>
                                     </td>
-                                    <td style={{ padding: '10px 8px', fontWeight: '600' }}>
+                                    <td 
+                                        style={{ 
+                                            padding: '10px 8px', 
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            userSelect: 'none'
+                                        }}
+                                        onClick={() => {
+                                            if (onSelectSymbol) {
+                                                onSelectSymbol(pos.symbol);
+                                            }
+                                        }}
+                                        title="Clicca per evidenziare tutte le posizioni di questo simbolo"
+                                    >
                                         {(() => {
                                             // Cerca il simbolo in availableSymbols per ottenere il display corretto
                                             const symbolInfo = availableSymbols.find(s => s.symbol === pos.symbol);
