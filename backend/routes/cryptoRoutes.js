@@ -1524,8 +1524,8 @@ const detectTrendOnTimeframe = async (symbol, interval, limit = 50) => {
         // Carica klines dal DB
         const klines = await dbAll(
             `SELECT close_price FROM klines 
-             WHERE symbol = ? AND interval = ? 
-             ORDER BY open_time DESC LIMIT ?`,
+             WHERE symbol = $1 AND interval = $2 
+             ORDER BY open_time DESC LIMIT $3`,
             [symbol, interval, limit]
         );
 
@@ -2008,7 +2008,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         const klinesData = await dbAll(
             `SELECT open_time, open_price, high_price, low_price, close_price, volume, close_time 
              FROM klines 
-             WHERE symbol = ? AND interval = ? 
+             WHERE symbol = $1 AND interval = $2 
              ORDER BY open_time DESC 
              LIMIT 100`,
             [symbol, timeframe]
@@ -2020,7 +2020,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             console.log(`⚠️ BOT [${symbol.toUpperCase()}]: Insufficient klines data (${klinesData?.length || 0} < 20). Using price_history fallback.`);
             // Fallback a price_history se non ci sono abbastanza candele
             const priceHistoryData = await dbAll(
-                "SELECT price, timestamp FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 50",
+                "SELECT price, timestamp FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 50",
                 [symbol]
             );
             const historyForSignal = priceHistoryData.reverse().map(row => ({
@@ -2237,7 +2237,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         let symbolWinRateReason = '';
         try {
             const symbolClosed = await dbAll(
-                "SELECT * FROM open_positions WHERE symbol = ? AND status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 20",
+                "SELECT * FROM open_positions WHERE symbol = $1 AND status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 20",
                 [symbol]
             );
             if (symbolClosed.length >= 10) {
@@ -2997,7 +2997,7 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
 
         // Update database using Promise-based operations (sequentially to ensure order)
         await dbRun(
-            "UPDATE portfolio SET balance_usd = ?, holdings = ?",
+            "UPDATE portfolio SET balance_usd = $1, holdings = $2",
             [balance, JSON.stringify(holdings)]
         );
 
@@ -3016,13 +3016,13 @@ const openPosition = async (symbol, type, volume, entryPrice, strategy, stopLoss
             (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status,
              trailing_stop_enabled, trailing_stop_distance_pct, highest_price,
              take_profit_1, take_profit_2, signal_details)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?)`,
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open', $10, $11, $12, $13, $14, $15)`,
             [ticketId, symbol, type, volume, entryPrice, entryPrice, stopLoss, takeProfit, strategy || 'Bot',
                 trailingStopEnabled, trailingStopDistance, entryPrice, takeProfit1, takeProfit2, signalDetails]
         );
 
         await dbRun(
-            "INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO trades (symbol, type, amount, price, strategy) VALUES ($1, $2, $3, $4, $5)",
             [symbol, type, volume, entryPrice, strategy || 'Bot Open']
         );
 
@@ -3109,7 +3109,7 @@ const executeTrade = async (symbol, type, amount, price, strategy, realizedPnl =
         try {
             // Use Promise-based db.get to properly await the result
             const pos = await dbGet(
-                "SELECT * FROM open_positions WHERE symbol = ? AND type = 'buy' AND status = 'open' ORDER BY opened_at ASC LIMIT 1",
+                "SELECT * FROM open_positions WHERE symbol = $1 AND type = 'buy' AND status = 'open' ORDER BY opened_at ASC LIMIT 1",
                 [symbol]
             );
 
@@ -3128,11 +3128,11 @@ const executeTrade = async (symbol, type, amount, price, strategy, realizedPnl =
 
                     // Use Promise-based operations for consistency
                     await dbRun(
-                        "UPDATE portfolio SET balance_usd = ?, holdings = ?",
+                        "UPDATE portfolio SET balance_usd = $1, holdings = $2",
                         [balance, JSON.stringify(holdings)]
                     );
                     await dbRun(
-                        "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES (?, ?, ?, ?, ?, ?)",
+                        "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss) VALUES ($1, $2, $3, $4, $5, $6)",
                         [symbol, type, amount, price, strategy, realizedPnl]
                     );
                     console.log(`✅ Fallback trade executed: ${type.toUpperCase()} ${amount} ${symbol} @ ${price}`);
@@ -3462,7 +3462,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
 
                     try {
                         const recentKlines = await dbAll(
-                            "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 20",
+                            "SELECT * FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 20",
                             [pos.symbol]
                         );
 
@@ -3507,7 +3507,9 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 }
 
                 // Update position with current price, P&L, and potentially new stop loss/highest price
-                const updateFields = ['current_price = ?', 'profit_loss = ?', 'profit_loss_pct = ?'];
+                // ✅ POSTGRESQL: Usa placeholder $1, $2, ... invece di ?
+                let paramIndex = 1;
+                const updateFields = [`current_price = $${paramIndex++}`, `profit_loss = $${paramIndex++}`, `profit_loss_pct = $${paramIndex++}`];
                 const updateValues = [currentPrice, pnl, pnlPct];
 
                 // ✅ DEBUG: Log aggiornamento prezzo per verificare correttezza
@@ -3520,10 +3522,11 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 }
 
                 if (shouldUpdateStopLoss) {
-                    updateFields.push('highest_price = ?', 'stop_loss = ?');
+                    updateFields.push(`highest_price = $${paramIndex++}`, `stop_loss = $${paramIndex++}`);
                     updateValues.push(highestPrice, stopLoss);
                 }
 
+                const ticketIdPlaceholder = `$${paramIndex++}`;
                 updateValues.push(pos.ticket_id);
 
                 // ✅ FIX CRITICO: Usa WHERE con current_price per evitare sovrascritture di aggiornamenti più recenti
@@ -3534,7 +3537,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 // Aggiorna sempre, ma verifica che il prezzo nuovo sia più recente del vecchio
                 // Se il prezzo è cambiato significativamente (>1%), potrebbe essere un aggiornamento più recente
                 const result = await dbRun(
-                    `UPDATE open_positions SET ${updateFields.join(', ')} WHERE ticket_id = ?`,
+                    `UPDATE open_positions SET ${updateFields.join(', ')} WHERE ticket_id = ${ticketIdPlaceholder}`,
                     updateValues
                 );
 
@@ -3585,7 +3588,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                         await partialClosePosition(pos.ticket_id, volumeToClose, currentPrice, 'TP1');
                         // Mark TP1 as hit (partialClosePosition already updates volume_closed, so we only mark the flag)
                         await dbRun(
-                            "UPDATE open_positions SET tp1_hit = 1 WHERE ticket_id = ?",
+                            "UPDATE open_positions SET tp1_hit = 1 WHERE ticket_id = $1",
                             [pos.ticket_id]
                         );
                         console.log(`✅ PARTIAL CLOSE TP1 COMPLETE: ${pos.ticket_id}`);
@@ -3600,7 +3603,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 if (finalRemainingVolume <= 0.0001) {
                     // Position fully closed by partial close, mark as closed
                     await dbRun(
-                        "UPDATE open_positions SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE ticket_id = ?",
+                        "UPDATE open_positions SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE ticket_id = $1",
                         [pos.ticket_id]
                     );
                     continue;
@@ -3682,7 +3685,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
 const partialClosePosition = async (ticketId, volumeToClose, closePrice, reason = 'TP1') => {
     try {
         const pos = await dbGet(
-            "SELECT * FROM open_positions WHERE ticket_id = ? AND status = 'open'",
+            "SELECT * FROM open_positions WHERE ticket_id = $1 AND status = 'open'",
             [ticketId]
         );
 
@@ -3729,13 +3732,13 @@ const partialClosePosition = async (ticketId, volumeToClose, closePrice, reason 
 
         // Update database
         await dbRun(
-            "UPDATE portfolio SET balance_usd = ?, holdings = ?",
+            "UPDATE portfolio SET balance_usd = $1, holdings = $2",
             [balance, JSON.stringify(holdings)]
         );
 
         // Update position (don't close it, just mark partial close)
         await dbRun(
-            "UPDATE open_positions SET volume_closed = volume_closed + ?, current_price = ? WHERE ticket_id = ?",
+            "UPDATE open_positions SET volume_closed = volume_closed + $1, current_price = $2 WHERE ticket_id = $3",
             [actualVolumeToClose, closePrice, ticketId]
         );
 
@@ -3795,7 +3798,7 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
 
         // Use Promise-based db.get to properly await the result
         const pos = await dbGet(
-            "SELECT * FROM open_positions WHERE ticket_id = ? AND status = 'open'",
+            "SELECT * FROM open_positions WHERE ticket_id = $1 AND status = 'open'",
             [ticketId]
         );
 
@@ -3829,7 +3832,7 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
             console.log(`⚠️ closePosition: Position ${ticketId} already fully closed (volume_closed: ${pos.volume_closed || 0})`);
             // Mark as closed if not already
             await dbRun(
-                "UPDATE open_positions SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE ticket_id = ?",
+                "UPDATE open_positions SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE ticket_id = $1",
                 [ticketId]
             );
             return { success: true, pnl: 0, message: 'Position already fully closed' };
@@ -3951,7 +3954,7 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
 
         // Update database using Promise-based operations (sequentially to ensure order)
         await dbRun(
-            "UPDATE portfolio SET balance_usd = ?, holdings = ?",
+            "UPDATE portfolio SET balance_usd = $1, holdings = $2",
             [balance, JSON.stringify(holdings)]
         );
 
@@ -3970,14 +3973,14 @@ const closePosition = async (ticketId, closePrice, reason = 'manual') => {
 
         // ✅ FIX CRITICO: Salva anche profit_loss_pct quando si chiude la posizione
         await dbRun(
-            "UPDATE open_positions SET status = ?, closed_at = CURRENT_TIMESTAMP, current_price = ?, profit_loss = ?, profit_loss_pct = ? WHERE ticket_id = ?",
+            "UPDATE open_positions SET status = $1, closed_at = CURRENT_TIMESTAMP, current_price = $2, profit_loss = $3, profit_loss_pct = $4 WHERE ticket_id = $5",
             [status, closePrice, finalPnl, profitLossPct, ticketId]
         );
 
         // Record in trades history (use remaining volume, not full volume)
         // ✅ FIX: Salva anche signal_details e ticket_id per tracciare la posizione originale
         await dbRun(
-            "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss, ticket_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO trades (symbol, type, amount, price, strategy, profit_loss, ticket_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
             [pos.symbol, pos.type === 'buy' ? 'sell' : 'buy', remainingVolume, closePrice, pos.strategy || 'Manual Close', finalPnl, pos.ticket_id]
         );
 
@@ -4108,7 +4111,7 @@ router.get('/positions', async (req, res) => {
                 query = "SELECT * FROM open_positions WHERE status = 'open' ORDER BY opened_at DESC";
             } else {
                 // Per altri status, usa query normale ma con validazione
-                query = "SELECT * FROM open_positions WHERE status = ? ORDER BY opened_at DESC";
+                query = "SELECT * FROM open_positions WHERE status = $1 ORDER BY opened_at DESC";
                 params = [status];
             }
         } else {
@@ -4202,20 +4205,20 @@ router.post('/positions/open', async (req, res) => {
         // Create position
         // ✅ MIGRAZIONE POSTGRESQL: Usa dbRun invece di db.serialize()/db.run()
         await dbRun(
-            "UPDATE portfolio SET balance_usd = ?, holdings = ?",
+            "UPDATE portfolio SET balance_usd = $1, holdings = $2",
             [balance, JSON.stringify(holdings)]
         );
 
         await dbRun(
             `INSERT INTO open_positions 
             (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')`,
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'open')`,
             [ticketId, symbol, type, volume, entry_price, entry_price, stop_loss || null, take_profit || null, strategy || 'Manual']
         );
 
         // Record initial trade
         await dbRun(
-            "INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO trades (symbol, type, amount, price, strategy) VALUES ($1, $2, $3, $4, $5)",
             [symbol, type, volume, entry_price, strategy || 'Manual Open']
         );
 
@@ -4880,7 +4883,7 @@ router.post('/bot/toggle', async (req, res) => {
 
         // Check if bot settings exist for this symbol, if not create them
         const existing = await dbGet(
-            "SELECT * FROM bot_settings WHERE strategy_name = ? AND symbol = ?",
+            "SELECT * FROM bot_settings WHERE strategy_name = $1 AND symbol = $2",
             [strategy_name, targetSymbol]
         );
 
@@ -5598,7 +5601,7 @@ const runBacktest = async (params, startDate, endDate, initialBalance = 10000) =
 
         // Try to load from database first
         const dbPrices = await dbAll(
-            "SELECT price, timestamp FROM price_history WHERE symbol = 'bitcoin' AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC",
+            "SELECT price, timestamp FROM price_history WHERE symbol = 'bitcoin' AND timestamp >= $1 AND timestamp <= $2 ORDER BY timestamp ASC",
             [startDate, endDate]
         );
 
@@ -5935,7 +5938,7 @@ router.post('/backtest/run', async (req, res) => {
             (test_name, strategy_params, start_date, end_date, initial_balance, final_balance,
              total_trades, winning_trades, losing_trades, total_pnl, total_pnl_pct,
              win_rate, profit_factor, max_drawdown, max_drawdown_pct, sharpe_ratio, results_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
             [
                 testName || 'Backtest',
                 JSON.stringify(params),
@@ -8280,7 +8283,7 @@ router.post('/fix-closed-positions-pnl', async (req, res) => {
                             correctedClosePrice > 0 && correctedClosePrice <= MAX_REASONABLE_PRICE) {
 
                             await dbRun(
-                                "UPDATE open_positions SET current_price = ?, profit_loss = ?, profit_loss_pct = ? WHERE ticket_id = ?",
+                                "UPDATE open_positions SET current_price = $1, profit_loss = $2, profit_loss_pct = $3 WHERE ticket_id = $4",
                                 [correctedClosePrice, correctedPnL, correctedPnLPct, pos.ticket_id]
                             );
 
