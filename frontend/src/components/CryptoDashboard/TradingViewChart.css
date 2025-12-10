@@ -95,6 +95,13 @@
     margin-top: 20px;
 }
 
+/* In chart-only mode, la sezione posizioni occupa tutta la larghezza */
+.chart-only-mode .fullscreen-positions-section {
+    width: 100%;
+    margin-left: 0;
+    max-width: 100vw;
+}
+
 .fullscreen-positions-header {
     display: flex;
     justify-content: space-between;
