@@ -1156,6 +1156,7 @@ const CryptoDashboard = () => {
             {/* MARKET SCANNER */}
             <MarketScanner
                 apiBase={apiBase}
+                currentSymbol={currentSymbol}
                 onSelectSymbol={(symbol) => {
                     setCurrentSymbol(symbol);
                     setPriceData([]);

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { RefreshCw, TrendingUp, TrendingDown, AlertCircle, Play, Activity, BarChart2, ChevronDown, ChevronUp, Lock, ChevronsDown, ExternalLink } from 'lucide-react';
 import './CryptoLayout.css';
 
-const MarketScanner = ({ apiBase, onSelectSymbol }) => {
+const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
     const [scanResults, setScanResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [lastScan, setLastScan] = useState(null);
@@ -117,7 +117,14 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
 
                             return (
                                 <React.Fragment key={idx}>
-                                    <tr style={{ borderBottom: expandedSymbol === item.symbol ? 'none' : '1px solid #1f2937', background: item.strength >= 70 ? 'rgba(34, 197, 94, 0.05)' : 'transparent' }}>
+                                    <tr style={{ 
+                                        borderBottom: expandedSymbol === item.symbol ? 'none' : '1px solid #1f2937', 
+                                        background: item.symbol === currentSymbol 
+                                            ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(124, 58, 237, 0.15))' 
+                                            : (item.strength >= 70 ? 'rgba(34, 197, 94, 0.05)' : 'transparent'),
+                                        borderLeft: item.symbol === currentSymbol ? '3px solid rgba(139, 92, 246, 0.6)' : 'none',
+                                        transition: 'all 0.2s'
+                                    }}>
                                         <td
                                             onClick={() => toggleExpand(item.symbol)}
                                             style={{ padding: '10px', fontWeight: 'bold', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}

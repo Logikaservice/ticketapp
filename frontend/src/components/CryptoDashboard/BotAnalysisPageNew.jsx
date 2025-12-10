@@ -83,6 +83,20 @@ const BotAnalysisPageNew = () => {
         }
     };
 
+    // Helper function per identificare se una conferma riguarda il grafico
+    const isChartRelatedConfirmation = (reason) => {
+        if (!reason || typeof reason !== 'string') return false;
+        const reasonLower = reason.toLowerCase();
+        // Keywords che indicano indicatori grafici/tecnici
+        const chartKeywords = [
+            'rsi', 'macd', 'ema', 'bollinger', 'trend', 'volume', 'atr', 
+            'divergence', 'momentum', 'breakout', 'price', 'candlestick',
+            'bullish', 'bearish', 'oversold', 'overbought', 'moving average',
+            'support', 'resistance', 'indicator', 'technical'
+        ];
+        return chartKeywords.some(keyword => reasonLower.includes(keyword));
+    };
+
     if (loading && !data) {
         return (
             <div className="bot-analysis-page" data-new-version="true">
@@ -200,14 +214,6 @@ const BotAnalysisPageNew = () => {
                                 <div className="signal-item">
                                     <span>Conferme ottenute:</span>
                                     <span className="highlight">{signal?.confirmations || 0}</span>
-                                </div>
-                                <div className="signal-reasons">
-                                    <strong>Motivi del segnale:</strong>
-                                    <ul>
-                                        {(signal?.reasons || []).map((reason, idx) => (
-                                            <li key={idx}>{reason}</li>
-                                        ))}
-                                    </ul>
                                 </div>
                             </div>
                         </div>
@@ -549,6 +555,42 @@ const BotAnalysisPageNew = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* Conferme del Segnale - SOTTO il bot */}
+                    {signal?.reasons && signal.reasons.length > 0 && (
+                        <div className="confirmations-section" key={`confirmations-${updateKey}`} style={{ marginTop: '20px' }}>
+                            <h3>✅ Conferme del Segnale ({signal.confirmations || 0})</h3>
+                            <div className="confirmations-list">
+                                {(signal.reasons || []).map((reason, idx) => {
+                                    const isChartRelated = isChartRelatedConfirmation(reason);
+                                    return (
+                                        <div 
+                                            key={idx} 
+                                            className={`confirmation-item ${isChartRelated ? 'chart-related' : ''}`}
+                                            style={{
+                                                background: isChartRelated 
+                                                    ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(124, 58, 237, 0.1))'
+                                                    : 'rgba(59, 130, 246, 0.1)',
+                                                border: isChartRelated
+                                                    ? '1px solid rgba(139, 92, 246, 0.3)'
+                                                    : '1px solid rgba(59, 130, 246, 0.2)',
+                                                borderRadius: '8px',
+                                                padding: '12px',
+                                                marginBottom: '8px',
+                                                color: '#fff',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                {isChartRelated && <span style={{ color: '#a78bfa', fontSize: '1.1rem' }}>📊</span>}
+                                                <span>{reason}</span>
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Blocchi Attivi */}
                     {data.blockers && (data.blockers.long.length > 0 || data.blockers.short.length > 0) && (
