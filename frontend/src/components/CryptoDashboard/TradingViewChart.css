@@ -40,9 +40,11 @@
     width: 100%;
     max-width: 100vw;
     height: 75vh;
+    min-height: 75vh;
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    overflow: visible;
 }
 
 .chart-only-mode .tradingview-chart-container .chart-main-wrapper {
