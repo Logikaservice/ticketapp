@@ -1056,16 +1056,16 @@ const MAX_ATR_PCT = 5.0; // Maximum ATR percentage to block trading (volatility 
 // Default strategy parameters (fallback if not configured)
 const DEFAULT_PARAMS = {
     rsi_period: 14,
-    rsi_oversold: 30,
+    rsi_oversold: 35,  // Aggiornato da 30 a 35
     rsi_overbought: 70,
-    stop_loss_pct: 2.0,
-    take_profit_pct: 3.0,
-    trade_size_usdt: 50,
-    trailing_stop_enabled: false,
-    trailing_stop_distance_pct: 1.0,
-    partial_close_enabled: false,
-    take_profit_1_pct: 1.5,
-    take_profit_2_pct: 3.0
+    stop_loss_pct: 3.0,  // Aggiornato da 2.0 a 3.0
+    take_profit_pct: 5.0,  // Aggiornato da 3.0 a 5.0
+    trade_size_eur: 100,  // Aggiornato da 50 a 100
+    trailing_stop_enabled: true,  // Aggiornato da false a true
+    trailing_stop_distance_pct: 1.5,  // Aggiornato da 1.0 a 1.5
+    partial_close_enabled: true,  // Aggiornato da false a true
+    take_profit_1_pct: 2.5,  // Aggiornato da 1.5 a 2.5
+    take_profit_2_pct: 5.0  // Aggiornato da 3.0 a 5.0
 };
 
 // Helper to get bot strategy parameters from database (supports multi-symbol)
@@ -1073,12 +1073,12 @@ const getBotParameters = async (symbol = 'bitcoin') => {
     try {
         // ✅ NUOVO: Prima cerca parametri specifici per simbolo, poi globali
         let bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = ?", [symbol]);
-        
+
         // Se non trovato per simbolo, usa parametri globali
         if (!bot) {
             bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global'", []);
         }
-        
+
         if (bot && bot.parameters) {
             const params = typeof bot.parameters === 'string' ? JSON.parse(bot.parameters) : bot.parameters;
             // Merge with defaults to ensure all parameters exist
@@ -3228,7 +3228,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
             const lockKey = pos.ticket_id;
             const now = Date.now();
             const lastUpdate = updatePnLLock.get(lockKey);
-            
+
             // Se c'è un aggiornamento in corso da meno di 1 secondo, salta questa posizione
             if (lastUpdate && (now - lastUpdate) < 1000) {
                 if (Math.random() < 0.05) { // Log solo occasionalmente
@@ -3236,10 +3236,10 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 }
                 continue;
             }
-            
+
             // Imposta lock
             updatePnLLock.set(lockKey, now);
-            
+
             try {
                 // ✅ FIX CRITICO: Normalizza il simbolo per gestire varianti (es. "ada/usdt" → "cardano", "xrp" → "ripple")
                 // Rimuovi slash, underscore e suffissi USDT/EUR per ottenere il simbolo base
@@ -3248,381 +3248,381 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                     .replace(/_/g, '') // Rimuovi TUTTI gli underscore (non solo il primo)
                     .replace(/usdt$/, '') // Rimuovi suffisso USDT
                     .replace(/eur$/, ''); // Rimuovi suffisso EUR
-                
+
                 let normalizedSymbol = symbolBase;
 
-            const symbolVariants = {
-                'xrp': 'ripple',
-                'xrpusdt': 'ripple',
-                'bnb': 'binance_coin',
-                'bnbusdt': 'binance_coin',
-                'btc': 'bitcoin',
-                'btcusdt': 'bitcoin',
-                'eth': 'ethereum',
-                'ethusdt': 'ethereum',
-                'sol': 'solana',
-                'solusdt': 'solana',
-                'ada': 'cardano',
-                'adausdt': 'cardano',
-                'dot': 'polkadot',
-                'dotusdt': 'polkadot',
-                'link': 'chainlink',
-                'linkusdt': 'chainlink',
-                'ltc': 'litecoin',
-                'ltcusdt': 'litecoin',
-                'shib': 'shiba',
-                'shibusdt': 'shiba',
-                'doge': 'dogecoin',
-                'dogeusdt': 'dogecoin',
-                'floki': 'floki',
-                'fet': 'fet',
-                'ton': 'ton',
-                'tonusdt': 'ton',
-                // ✅ FIX: Simboli che richiedono conversione (non sono nella mappa con il nome base)
-                'avax': 'avalanche', // AVAX → avalanche
-                'avaxusdt': 'avalanche',
-                'uni': 'uniswap', // UNI → uniswap
-                'uniusdt': 'uniswap',
-                'pol': 'pol_polygon', // POL → pol_polygon
-                'polusdt': 'pol_polygon',
-                // ✅ Varianti comuni che potrebbero essere nel database
-                'icp': 'icp', // ICP è già corretto
-                'icpusdt': 'icp',
-                'atom': 'atom', // ATOM è già corretto
-                'atomusdt': 'atom',
-                'sui': 'sui', // SUI è già corretto
-                'suiusdt': 'sui',
-                'near': 'near', // NEAR è già corretto
-                'nearusdt': 'near',
-                'apt': 'apt',
-                'aptusdt': 'apt',
-                'inj': 'inj',
-                'injusdt': 'inj',
-                'algo': 'algo',
-                'algousdt': 'algo',
-                'vet': 'vet',
-                'vetusdt': 'vet'
-            };
+                const symbolVariants = {
+                    'xrp': 'ripple',
+                    'xrpusdt': 'ripple',
+                    'bnb': 'binance_coin',
+                    'bnbusdt': 'binance_coin',
+                    'btc': 'bitcoin',
+                    'btcusdt': 'bitcoin',
+                    'eth': 'ethereum',
+                    'ethusdt': 'ethereum',
+                    'sol': 'solana',
+                    'solusdt': 'solana',
+                    'ada': 'cardano',
+                    'adausdt': 'cardano',
+                    'dot': 'polkadot',
+                    'dotusdt': 'polkadot',
+                    'link': 'chainlink',
+                    'linkusdt': 'chainlink',
+                    'ltc': 'litecoin',
+                    'ltcusdt': 'litecoin',
+                    'shib': 'shiba',
+                    'shibusdt': 'shiba',
+                    'doge': 'dogecoin',
+                    'dogeusdt': 'dogecoin',
+                    'floki': 'floki',
+                    'fet': 'fet',
+                    'ton': 'ton',
+                    'tonusdt': 'ton',
+                    // ✅ FIX: Simboli che richiedono conversione (non sono nella mappa con il nome base)
+                    'avax': 'avalanche', // AVAX → avalanche
+                    'avaxusdt': 'avalanche',
+                    'uni': 'uniswap', // UNI → uniswap
+                    'uniusdt': 'uniswap',
+                    'pol': 'pol_polygon', // POL → pol_polygon
+                    'polusdt': 'pol_polygon',
+                    // ✅ Varianti comuni che potrebbero essere nel database
+                    'icp': 'icp', // ICP è già corretto
+                    'icpusdt': 'icp',
+                    'atom': 'atom', // ATOM è già corretto
+                    'atomusdt': 'atom',
+                    'sui': 'sui', // SUI è già corretto
+                    'suiusdt': 'sui',
+                    'near': 'near', // NEAR è già corretto
+                    'nearusdt': 'near',
+                    'apt': 'apt',
+                    'aptusdt': 'apt',
+                    'inj': 'inj',
+                    'injusdt': 'inj',
+                    'algo': 'algo',
+                    'algousdt': 'algo',
+                    'vet': 'vet',
+                    'vetusdt': 'vet'
+                };
 
-            if (symbolVariants[normalizedSymbol]) {
-                normalizedSymbol = symbolVariants[normalizedSymbol];
-            }
+                if (symbolVariants[normalizedSymbol]) {
+                    normalizedSymbol = symbolVariants[normalizedSymbol];
+                }
 
-            // ✅ FIX: Se il simbolo normalizzato non è nel mapping, prova varianti più complete
-            if (!SYMBOL_TO_PAIR[normalizedSymbol]) {
-                const variants = [
-                    symbolBase, // Simbolo base senza suffissi
-                    pos.symbol.toLowerCase().replace(/_/g, '').replace(/\//g, ''), // Rimuovi tutti underscore e slash
-                    pos.symbol.toLowerCase().replace(/_/g, ''), // Solo underscore rimossi
-                    pos.symbol.toLowerCase(), // Solo lowercase
-                    pos.symbol // Originale
-                ];
+                // ✅ FIX: Se il simbolo normalizzato non è nel mapping, prova varianti più complete
+                if (!SYMBOL_TO_PAIR[normalizedSymbol]) {
+                    const variants = [
+                        symbolBase, // Simbolo base senza suffissi
+                        pos.symbol.toLowerCase().replace(/_/g, '').replace(/\//g, ''), // Rimuovi tutti underscore e slash
+                        pos.symbol.toLowerCase().replace(/_/g, ''), // Solo underscore rimossi
+                        pos.symbol.toLowerCase(), // Solo lowercase
+                        pos.symbol // Originale
+                    ];
 
-                for (const variant of variants) {
-                    if (SYMBOL_TO_PAIR[variant]) {
-                        normalizedSymbol = variant;
-                        break;
+                    for (const variant of variants) {
+                        if (SYMBOL_TO_PAIR[variant]) {
+                            normalizedSymbol = variant;
+                            break;
+                        }
                     }
                 }
-            }
-            
-            // ✅ DEBUG: Log se il simbolo non è stato trovato nella mappa
-            if (!SYMBOL_TO_PAIR[normalizedSymbol]) {
-                console.warn(`⚠️ [UPDATE P&L] Simbolo ${pos.symbol} (normalized: ${normalizedSymbol}) non trovato in SYMBOL_TO_PAIR. Provo con getSymbolPrice direttamente.`);
-            }
 
-            // ✅ FIX CRITICO: Recupera il prezzo corrente per questa posizione da Binance
-            let currentPrice = null;
-            const oldPrice = parseFloat(pos.current_price) || 0;
+                // ✅ DEBUG: Log se il simbolo non è stato trovato nella mappa
+                if (!SYMBOL_TO_PAIR[normalizedSymbol]) {
+                    console.warn(`⚠️ [UPDATE P&L] Simbolo ${pos.symbol} (normalized: ${normalizedSymbol}) non trovato in SYMBOL_TO_PAIR. Provo con getSymbolPrice direttamente.`);
+                }
 
-            try {
-                // Prova prima con il simbolo normalizzato
-                currentPrice = await getSymbolPrice(normalizedSymbol);
-                
-                // Se fallisce, prova con il simbolo originale e altre varianti
-                if (!currentPrice || currentPrice <= 0) {
-                    const fallbackSymbols = [
-                        pos.symbol.toLowerCase(),
-                        symbolBase,
-                        pos.symbol
-                    ];
-                    
-                    for (const fallbackSymbol of fallbackSymbols) {
-                        if (fallbackSymbol !== normalizedSymbol) {
-                            currentPrice = await getSymbolPrice(fallbackSymbol);
-                            if (currentPrice && currentPrice > 0) {
-                                console.log(`✅ [UPDATE P&L] Prezzo recuperato per ${pos.symbol} usando fallback symbol: ${fallbackSymbol}`);
-                                break;
+                // ✅ FIX CRITICO: Recupera il prezzo corrente per questa posizione da Binance
+                let currentPrice = null;
+                const oldPrice = parseFloat(pos.current_price) || 0;
+
+                try {
+                    // Prova prima con il simbolo normalizzato
+                    currentPrice = await getSymbolPrice(normalizedSymbol);
+
+                    // Se fallisce, prova con il simbolo originale e altre varianti
+                    if (!currentPrice || currentPrice <= 0) {
+                        const fallbackSymbols = [
+                            pos.symbol.toLowerCase(),
+                            symbolBase,
+                            pos.symbol
+                        ];
+
+                        for (const fallbackSymbol of fallbackSymbols) {
+                            if (fallbackSymbol !== normalizedSymbol) {
+                                currentPrice = await getSymbolPrice(fallbackSymbol);
+                                if (currentPrice && currentPrice > 0) {
+                                    console.log(`✅ [UPDATE P&L] Prezzo recuperato per ${pos.symbol} usando fallback symbol: ${fallbackSymbol}`);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!currentPrice || currentPrice <= 0) {
+                        console.warn(`⚠️ [UPDATE P&L] Impossibile recuperare prezzo per ${pos.symbol} (normalized: ${normalizedSymbol}), uso prezzo dal database (${oldPrice})`);
+                        currentPrice = oldPrice;
+                    } else {
+                        // ✅ DEBUG: Log aggiornamento prezzo se c'è una differenza significativa (>1%)
+                        if (oldPrice > 0 && Math.abs(currentPrice - oldPrice) > oldPrice * 0.01) {
+                            console.log(`💰 [UPDATE P&L] ${pos.symbol} (${pos.ticket_id}): $${oldPrice.toFixed(6)} → $${currentPrice.toFixed(6)} USDT (diff: ${((currentPrice - oldPrice) / oldPrice * 100).toFixed(2)}%)`);
+                        }
+                    }
+                } catch (priceError) {
+                    console.error(`❌ [UPDATE P&L] Errore recupero prezzo per ${pos.symbol} (normalized: ${normalizedSymbol}):`, priceError.message);
+                    // Usa il prezzo dal database come fallback
+                    currentPrice = oldPrice;
+                }
+
+                // Valida che currentPrice sia ragionevole
+                if (currentPrice > MAX_REASONABLE_USDT_PRICE && pos.symbol !== 'bitcoin') {
+                    console.error(`🚨 [UPDATE P&L] currentPrice ${currentPrice} seems too high for ${pos.symbol}, might be an error!`);
+                    // Usa il prezzo dal database come fallback
+                    currentPrice = parseFloat(pos.current_price) || 0;
+                }
+
+                if (currentPrice <= 0) {
+                    console.warn(`⚠️ [UPDATE P&L] Prezzo non valido per ${pos.symbol} (${currentPrice}), salto questa posizione`);
+                    updatePnLLock.delete(lockKey); // Rimuovi lock prima di continuare
+                    continue; // Salta questa posizione se il prezzo non è valido
+                }
+
+                let entryPrice = parseFloat(pos.entry_price);
+                // ✅ RIMOSSO: EUR_TO_USDT_RATE - tutto è già in USDT
+
+                // ✅ FIX CRITICO: Rileva e converte entry_price e current_price da EUR a USDT se necessario
+                // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT nel database
+
+                let pnl = 0;
+                let pnlPct = 0;
+                let remainingVolume = pos.volume - (pos.volume_closed || 0);
+
+                if (pos.type === 'buy') {
+                    // Long position: profit when price goes up
+                    pnl = (currentPrice - entryPrice) * remainingVolume;
+                    pnlPct = ((currentPrice - entryPrice) / entryPrice) * 100;
+                } else {
+                    // Short position: profit when price goes down
+                    pnl = (entryPrice - currentPrice) * remainingVolume;
+                    pnlPct = ((entryPrice - currentPrice) / entryPrice) * 100;
+                }
+
+                // Track highest price for trailing stop loss
+                let highestPrice = pos.highest_price || entryPrice;
+                let stopLoss = pos.stop_loss;
+                let shouldUpdateStopLoss = false;
+
+                // Update highest price for long positions (buy)
+                if (pos.type === 'buy' && currentPrice > highestPrice) {
+                    highestPrice = currentPrice;
+                    shouldUpdateStopLoss = true;
+                }
+                // Update lowest price for short positions (sell) - for trailing stop
+                // NOTE: We use highest_price column to track lowest price for SHORT (database limitation)
+                // For SHORT: profit when price goes DOWN, so we track the LOWEST price reached
+                else if (pos.type === 'sell') {
+                    // For SHORT, highest_price actually stores the LOWEST price (confusing but works)
+                    const currentLowest = pos.highest_price || entryPrice;
+                    if (currentPrice < currentLowest) {
+                        highestPrice = currentPrice; // Track new lowest price for SHORT
+                        shouldUpdateStopLoss = true;
+                    }
+                }
+
+                // Trailing Stop Loss Logic - ✅ DYNAMIC ATR-BASED
+                if (pos.trailing_stop_enabled && pos.trailing_stop_distance_pct > 0) {
+                    // Load recent klines for ATR calculation
+                    let dynamicDistance = pos.trailing_stop_distance_pct; // Fallback to configured value
+
+                    try {
+                        const recentKlines = await dbAll(
+                            "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 20",
+                            [pos.symbol]
+                        );
+
+                        if (recentKlines && recentKlines.length >= 15) {
+                            const atr = calculateATR(recentKlines.reverse(), 14);
+                            dynamicDistance = calculateDynamicTrailingDistance(atr, currentPrice, 1.5);
+
+                            console.log(`📊 [ATR-TRAILING] ${pos.ticket_id} | ATR: ${atr.toFixed(4)} | Dynamic Distance: ${dynamicDistance.toFixed(2)}% (was ${pos.trailing_stop_distance_pct.toFixed(2)}%)`);
+                        }
+                    } catch (atrError) {
+                        console.warn(`⚠️ ATR calculation failed for ${pos.symbol}, using fixed distance:`, atrError.message);
+                    }
+
+                    if (pos.type === 'buy') {
+                        // For long positions, trailing stop moves up as price increases
+                        if (currentPrice > highestPrice) {
+                            // Calculate new trailing stop loss with dynamic distance
+                            const trailingStopPrice = highestPrice * (1 - dynamicDistance / 100);
+                            // Only update if new stop loss is higher than current
+                            if (!stopLoss || trailingStopPrice > stopLoss) {
+                                stopLoss = trailingStopPrice;
+                                shouldUpdateStopLoss = true;
+                                console.log(`📈 TRAILING STOP UPDATE (LONG): ${pos.ticket_id} | Highest: €${highestPrice.toFixed(2)} | New SL: €${trailingStopPrice.toFixed(2)} | Distance: ${dynamicDistance.toFixed(2)}%`);
+                            }
+                        }
+                    } else {
+                        // For short positions, trailing stop moves down as price decreases
+                        // highest_price actually stores the LOWEST price for SHORT positions
+                        const lowestPrice = highestPrice || entryPrice;
+                        if (currentPrice < lowestPrice) {
+                            // Trailing stop for SHORT: SL = lowest_price * (1 + distance%)
+                            // This moves the SL DOWN as price goes DOWN (protecting profit)
+                            const trailingStopPrice = currentPrice * (1 + dynamicDistance / 100);
+                            // Only update if new stop loss is LOWER than current (for SHORT, lower SL = better)
+                            if (!stopLoss || trailingStopPrice < stopLoss) {
+                                stopLoss = trailingStopPrice;
+                                shouldUpdateStopLoss = true;
+                                console.log(`📈 TRAILING STOP UPDATE (SHORT): ${pos.ticket_id} | Lowest: €${currentPrice.toFixed(2)} | New SL: €${trailingStopPrice.toFixed(2)} | Distance: ${dynamicDistance.toFixed(2)}%`);
                             }
                         }
                     }
                 }
 
-                if (!currentPrice || currentPrice <= 0) {
-                    console.warn(`⚠️ [UPDATE P&L] Impossibile recuperare prezzo per ${pos.symbol} (normalized: ${normalizedSymbol}), uso prezzo dal database (${oldPrice})`);
-                    currentPrice = oldPrice;
-                } else {
-                    // ✅ DEBUG: Log aggiornamento prezzo se c'è una differenza significativa (>1%)
-                    if (oldPrice > 0 && Math.abs(currentPrice - oldPrice) > oldPrice * 0.01) {
-                        console.log(`💰 [UPDATE P&L] ${pos.symbol} (${pos.ticket_id}): $${oldPrice.toFixed(6)} → $${currentPrice.toFixed(6)} USDT (diff: ${((currentPrice - oldPrice) / oldPrice * 100).toFixed(2)}%)`);
+                // Update position with current price, P&L, and potentially new stop loss/highest price
+                const updateFields = ['current_price = ?', 'profit_loss = ?', 'profit_loss_pct = ?'];
+                const updateValues = [currentPrice, pnl, pnlPct];
+
+                // ✅ DEBUG: Log aggiornamento prezzo per verificare correttezza
+                const oldCurrentPrice = parseFloat(pos.current_price) || 0;
+                // ✅ FIX: Log sempre se c'è una differenza significativa (>1%) per debug
+                if (oldCurrentPrice > 0 && Math.abs(currentPrice - oldCurrentPrice) > oldCurrentPrice * 0.01) { // Se differenza > 1%
+                    console.log(`💰 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}): current_price aggiornato: $${oldCurrentPrice.toFixed(8)} → $${currentPrice.toFixed(8)} USDT (diff: ${((currentPrice - oldCurrentPrice) / oldCurrentPrice * 100).toFixed(2)}%)`);
+                } else if (oldCurrentPrice === 0 && currentPrice > 0) {
+                    console.log(`💰 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}): current_price impostato per la prima volta: $${currentPrice.toFixed(8)} USDT`);
+                }
+
+                if (shouldUpdateStopLoss) {
+                    updateFields.push('highest_price = ?', 'stop_loss = ?');
+                    updateValues.push(highestPrice, stopLoss);
+                }
+
+                updateValues.push(pos.ticket_id);
+
+                // ✅ FIX CRITICO: Usa WHERE con current_price per evitare sovrascritture di aggiornamenti più recenti
+                // Questo previene che un aggiornamento lento sovrascriva un aggiornamento più recente
+                // Usa timestamp o versione per evitare race condition (ma per ora usiamo current_price come controllo)
+                const currentPriceInDb = parseFloat(pos.current_price) || 0;
+
+                // Aggiorna sempre, ma verifica che il prezzo nuovo sia più recente del vecchio
+                // Se il prezzo è cambiato significativamente (>1%), potrebbe essere un aggiornamento più recente
+                const result = await dbRun(
+                    `UPDATE open_positions SET ${updateFields.join(', ')} WHERE ticket_id = ?`,
+                    updateValues
+                );
+
+                // ✅ FIX: Verifica che il nuovo prezzo sia ragionevole rispetto al vecchio
+                // Se la differenza è troppo grande (>50%), potrebbe essere un errore
+                if (currentPriceInDb > 0 && Math.abs(currentPrice - currentPriceInDb) > currentPriceInDb * 0.5) {
+                    console.warn(`⚠️  [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}) variazione prezzo sospetta: $${currentPriceInDb.toFixed(6)} → $${currentPrice.toFixed(6)} (${((currentPrice - currentPriceInDb) / currentPriceInDb * 100).toFixed(2)}%)`);
+                    // Verifica che il nuovo prezzo sia valido confrontandolo con il prezzo di entry
+                    const entryPrice = parseFloat(pos.entry_price) || 0;
+                    if (entryPrice > 0 && Math.abs(currentPrice - entryPrice) > entryPrice * 2) {
+                        console.error(`🚨 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}) prezzo sospetto: $${currentPrice.toFixed(6)} vs entry: $${entryPrice.toFixed(6)}`);
+                        // Non aggiornare se il prezzo è troppo diverso dall'entry (potrebbe essere un errore)
+                        updatePnLLock.delete(lockKey);
+                        continue;
                     }
                 }
-            } catch (priceError) {
-                console.error(`❌ [UPDATE P&L] Errore recupero prezzo per ${pos.symbol} (normalized: ${normalizedSymbol}):`, priceError.message);
-                // Usa il prezzo dal database come fallback
-                currentPrice = oldPrice;
-            }
 
-            // Valida che currentPrice sia ragionevole
-            if (currentPrice > MAX_REASONABLE_USDT_PRICE && pos.symbol !== 'bitcoin') {
-                console.error(`🚨 [UPDATE P&L] currentPrice ${currentPrice} seems too high for ${pos.symbol}, might be an error!`);
-                // Usa il prezzo dal database come fallback
-                currentPrice = parseFloat(pos.current_price) || 0;
-            }
-
-            if (currentPrice <= 0) {
-                console.warn(`⚠️ [UPDATE P&L] Prezzo non valido per ${pos.symbol} (${currentPrice}), salto questa posizione`);
-                updatePnLLock.delete(lockKey); // Rimuovi lock prima di continuare
-                continue; // Salta questa posizione se il prezzo non è valido
-            }
-
-            let entryPrice = parseFloat(pos.entry_price);
-            // ✅ RIMOSSO: EUR_TO_USDT_RATE - tutto è già in USDT
-
-            // ✅ FIX CRITICO: Rileva e converte entry_price e current_price da EUR a USDT se necessario
-            // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT nel database
-
-            let pnl = 0;
-            let pnlPct = 0;
-            let remainingVolume = pos.volume - (pos.volume_closed || 0);
-
-            if (pos.type === 'buy') {
-                // Long position: profit when price goes up
-                pnl = (currentPrice - entryPrice) * remainingVolume;
-                pnlPct = ((currentPrice - entryPrice) / entryPrice) * 100;
-            } else {
-                // Short position: profit when price goes down
-                pnl = (entryPrice - currentPrice) * remainingVolume;
-                pnlPct = ((entryPrice - currentPrice) / entryPrice) * 100;
-            }
-
-            // Track highest price for trailing stop loss
-            let highestPrice = pos.highest_price || entryPrice;
-            let stopLoss = pos.stop_loss;
-            let shouldUpdateStopLoss = false;
-
-            // Update highest price for long positions (buy)
-            if (pos.type === 'buy' && currentPrice > highestPrice) {
-                highestPrice = currentPrice;
-                shouldUpdateStopLoss = true;
-            }
-            // Update lowest price for short positions (sell) - for trailing stop
-            // NOTE: We use highest_price column to track lowest price for SHORT (database limitation)
-            // For SHORT: profit when price goes DOWN, so we track the LOWEST price reached
-            else if (pos.type === 'sell') {
-                // For SHORT, highest_price actually stores the LOWEST price (confusing but works)
-                const currentLowest = pos.highest_price || entryPrice;
-                if (currentPrice < currentLowest) {
-                    highestPrice = currentPrice; // Track new lowest price for SHORT
-                    shouldUpdateStopLoss = true;
-                }
-            }
-
-            // Trailing Stop Loss Logic - ✅ DYNAMIC ATR-BASED
-            if (pos.trailing_stop_enabled && pos.trailing_stop_distance_pct > 0) {
-                // Load recent klines for ATR calculation
-                let dynamicDistance = pos.trailing_stop_distance_pct; // Fallback to configured value
-
-                try {
-                    const recentKlines = await dbAll(
-                        "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 20",
-                        [pos.symbol]
-                    );
-
-                    if (recentKlines && recentKlines.length >= 15) {
-                        const atr = calculateATR(recentKlines.reverse(), 14);
-                        dynamicDistance = calculateDynamicTrailingDistance(atr, currentPrice, 1.5);
-
-                        console.log(`📊 [ATR-TRAILING] ${pos.ticket_id} | ATR: ${atr.toFixed(4)} | Dynamic Distance: ${dynamicDistance.toFixed(2)}% (was ${pos.trailing_stop_distance_pct.toFixed(2)}%)`);
+                // Partial Close: Check TP1 (if configured)
+                if (pos.take_profit_1 && !pos.tp1_hit && remainingVolume > 0) {
+                    let tp1Hit = false;
+                    if (pos.type === 'buy' && currentPrice >= pos.take_profit_1) {
+                        tp1Hit = true;
+                    } else if (pos.type === 'sell' && currentPrice <= pos.take_profit_1) {
+                        tp1Hit = true;
                     }
-                } catch (atrError) {
-                    console.warn(`⚠️ ATR calculation failed for ${pos.symbol}, using fixed distance:`, atrError.message);
-                }
 
-                if (pos.type === 'buy') {
-                    // For long positions, trailing stop moves up as price increases
-                    if (currentPrice > highestPrice) {
-                        // Calculate new trailing stop loss with dynamic distance
-                        const trailingStopPrice = highestPrice * (1 - dynamicDistance / 100);
-                        // Only update if new stop loss is higher than current
-                        if (!stopLoss || trailingStopPrice > stopLoss) {
-                            stopLoss = trailingStopPrice;
-                            shouldUpdateStopLoss = true;
-                            console.log(`📈 TRAILING STOP UPDATE (LONG): ${pos.ticket_id} | Highest: €${highestPrice.toFixed(2)} | New SL: €${trailingStopPrice.toFixed(2)} | Distance: ${dynamicDistance.toFixed(2)}%`);
-                        }
-                    }
-                } else {
-                    // For short positions, trailing stop moves down as price decreases
-                    // highest_price actually stores the LOWEST price for SHORT positions
-                    const lowestPrice = highestPrice || entryPrice;
-                    if (currentPrice < lowestPrice) {
-                        // Trailing stop for SHORT: SL = lowest_price * (1 + distance%)
-                        // This moves the SL DOWN as price goes DOWN (protecting profit)
-                        const trailingStopPrice = currentPrice * (1 + dynamicDistance / 100);
-                        // Only update if new stop loss is LOWER than current (for SHORT, lower SL = better)
-                        if (!stopLoss || trailingStopPrice < stopLoss) {
-                            stopLoss = trailingStopPrice;
-                            shouldUpdateStopLoss = true;
-                            console.log(`📈 TRAILING STOP UPDATE (SHORT): ${pos.ticket_id} | Lowest: €${currentPrice.toFixed(2)} | New SL: €${trailingStopPrice.toFixed(2)} | Distance: ${dynamicDistance.toFixed(2)}%`);
-                        }
+                    if (tp1Hit) {
+                        // Close 50% of remaining position at TP1
+                        const volumeToClose = remainingVolume * 0.5;
+                        console.log(`📊 PARTIAL CLOSE TP1: ${pos.ticket_id} | Closing 50% (${volumeToClose.toFixed(8)}) at €${currentPrice.toFixed(2)}`);
+                        await partialClosePosition(pos.ticket_id, volumeToClose, currentPrice, 'TP1');
+                        // Mark TP1 as hit (partialClosePosition already updates volume_closed, so we only mark the flag)
+                        await dbRun(
+                            "UPDATE open_positions SET tp1_hit = 1 WHERE ticket_id = ?",
+                            [pos.ticket_id]
+                        );
+                        console.log(`✅ PARTIAL CLOSE TP1 COMPLETE: ${pos.ticket_id}`);
                     }
                 }
-            }
 
-            // Update position with current price, P&L, and potentially new stop loss/highest price
-            const updateFields = ['current_price = ?', 'profit_loss = ?', 'profit_loss_pct = ?'];
-            const updateValues = [currentPrice, pnl, pnlPct];
+                // Re-fetch position to get updated values after partial close
+                const updatedPos = await dbGet("SELECT * FROM open_positions WHERE ticket_id = ?", [pos.ticket_id]);
+                if (!updatedPos || updatedPos.status !== 'open') continue; // Skip if closed
 
-            // ✅ DEBUG: Log aggiornamento prezzo per verificare correttezza
-            const oldCurrentPrice = parseFloat(pos.current_price) || 0;
-            // ✅ FIX: Log sempre se c'è una differenza significativa (>1%) per debug
-            if (oldCurrentPrice > 0 && Math.abs(currentPrice - oldCurrentPrice) > oldCurrentPrice * 0.01) { // Se differenza > 1%
-                console.log(`💰 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}): current_price aggiornato: $${oldCurrentPrice.toFixed(8)} → $${currentPrice.toFixed(8)} USDT (diff: ${((currentPrice - oldCurrentPrice) / oldCurrentPrice * 100).toFixed(2)}%)`);
-            } else if (oldCurrentPrice === 0 && currentPrice > 0) {
-                console.log(`💰 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}): current_price impostato per la prima volta: $${currentPrice.toFixed(8)} USDT`);
-            }
-
-            if (shouldUpdateStopLoss) {
-                updateFields.push('highest_price = ?', 'stop_loss = ?');
-                updateValues.push(highestPrice, stopLoss);
-            }
-
-            updateValues.push(pos.ticket_id);
-            
-            // ✅ FIX CRITICO: Usa WHERE con current_price per evitare sovrascritture di aggiornamenti più recenti
-            // Questo previene che un aggiornamento lento sovrascriva un aggiornamento più recente
-            // Usa timestamp o versione per evitare race condition (ma per ora usiamo current_price come controllo)
-            const currentPriceInDb = parseFloat(pos.current_price) || 0;
-            
-            // Aggiorna sempre, ma verifica che il prezzo nuovo sia più recente del vecchio
-            // Se il prezzo è cambiato significativamente (>1%), potrebbe essere un aggiornamento più recente
-            const result = await dbRun(
-                `UPDATE open_positions SET ${updateFields.join(', ')} WHERE ticket_id = ?`,
-                updateValues
-            );
-            
-            // ✅ FIX: Verifica che il nuovo prezzo sia ragionevole rispetto al vecchio
-            // Se la differenza è troppo grande (>50%), potrebbe essere un errore
-            if (currentPriceInDb > 0 && Math.abs(currentPrice - currentPriceInDb) > currentPriceInDb * 0.5) {
-                console.warn(`⚠️  [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}) variazione prezzo sospetta: $${currentPriceInDb.toFixed(6)} → $${currentPrice.toFixed(6)} (${((currentPrice - currentPriceInDb) / currentPriceInDb * 100).toFixed(2)}%)`);
-                // Verifica che il nuovo prezzo sia valido confrontandolo con il prezzo di entry
-                const entryPrice = parseFloat(pos.entry_price) || 0;
-                if (entryPrice > 0 && Math.abs(currentPrice - entryPrice) > entryPrice * 2) {
-                    console.error(`🚨 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}) prezzo sospetto: $${currentPrice.toFixed(6)} vs entry: $${entryPrice.toFixed(6)}`);
-                    // Non aggiornare se il prezzo è troppo diverso dall'entry (potrebbe essere un errore)
-                    updatePnLLock.delete(lockKey);
-                    continue;
-                }
-            }
-
-            // Partial Close: Check TP1 (if configured)
-            if (pos.take_profit_1 && !pos.tp1_hit && remainingVolume > 0) {
-                let tp1Hit = false;
-                if (pos.type === 'buy' && currentPrice >= pos.take_profit_1) {
-                    tp1Hit = true;
-                } else if (pos.type === 'sell' && currentPrice <= pos.take_profit_1) {
-                    tp1Hit = true;
-                }
-
-                if (tp1Hit) {
-                    // Close 50% of remaining position at TP1
-                    const volumeToClose = remainingVolume * 0.5;
-                    console.log(`📊 PARTIAL CLOSE TP1: ${pos.ticket_id} | Closing 50% (${volumeToClose.toFixed(8)}) at €${currentPrice.toFixed(2)}`);
-                    await partialClosePosition(pos.ticket_id, volumeToClose, currentPrice, 'TP1');
-                    // Mark TP1 as hit (partialClosePosition already updates volume_closed, so we only mark the flag)
+                const finalRemainingVolume = updatedPos.volume - (updatedPos.volume_closed || 0);
+                if (finalRemainingVolume <= 0.0001) {
+                    // Position fully closed by partial close, mark as closed
                     await dbRun(
-                        "UPDATE open_positions SET tp1_hit = 1 WHERE ticket_id = ?",
+                        "UPDATE open_positions SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE ticket_id = ?",
                         [pos.ticket_id]
                     );
-                    console.log(`✅ PARTIAL CLOSE TP1 COMPLETE: ${pos.ticket_id}`);
+                    continue;
                 }
-            }
 
-            // Re-fetch position to get updated values after partial close
-            const updatedPos = await dbGet("SELECT * FROM open_positions WHERE ticket_id = ?", [pos.ticket_id]);
-            if (!updatedPos || updatedPos.status !== 'open') continue; // Skip if closed
+                // Check stop loss and take profit (TP2 if TP1 was hit, otherwise original TP)
+                const activeTakeProfit = (updatedPos.tp1_hit && updatedPos.take_profit_2) ? updatedPos.take_profit_2 : updatedPos.take_profit;
+                const activeStopLoss = updatedPos.stop_loss;
 
-            const finalRemainingVolume = updatedPos.volume - (updatedPos.volume_closed || 0);
-            if (finalRemainingVolume <= 0.0001) {
-                // Position fully closed by partial close, mark as closed
-                await dbRun(
-                    "UPDATE open_positions SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE ticket_id = ?",
-                    [pos.ticket_id]
-                );
+                if (activeStopLoss || activeTakeProfit) {
+                    let shouldClose = false;
+                    let closeReason = '';
+
+                    if (updatedPos.type === 'buy') {
+                        // Long position
+                        if (activeStopLoss && currentPrice <= activeStopLoss) {
+                            shouldClose = true;
+                            closeReason = 'stopped';
+                            console.log(`🛑 STOP LOSS TRIGGERED: ${updatedPos.ticket_id} | LONG | Price: €${currentPrice.toFixed(2)} <= SL: €${activeStopLoss.toFixed(2)}`);
+                        } else if (activeTakeProfit && currentPrice >= activeTakeProfit) {
+                            shouldClose = true;
+                            closeReason = updatedPos.tp1_hit ? 'taken (TP2)' : 'taken';
+                            console.log(`🎯 TAKE PROFIT TRIGGERED: ${updatedPos.ticket_id} | LONG | Price: €${currentPrice.toFixed(2)} >= TP: €${activeTakeProfit.toFixed(2)}`);
+                        }
+                    } else {
+                        // Short position
+                        if (activeStopLoss && currentPrice >= activeStopLoss) {
+                            shouldClose = true;
+                            closeReason = 'stopped';
+                            console.log(`🛑 STOP LOSS TRIGGERED: ${updatedPos.ticket_id} | SHORT | Price: €${currentPrice.toFixed(2)} >= SL: €${activeStopLoss.toFixed(2)}`);
+                        } else if (activeTakeProfit && currentPrice <= activeTakeProfit) {
+                            shouldClose = true;
+                            closeReason = updatedPos.tp1_hit ? 'taken (TP2)' : 'taken';
+                            console.log(`🎯 TAKE PROFIT TRIGGERED: ${updatedPos.ticket_id} | SHORT | Price: €${currentPrice.toFixed(2)} <= TP: €${activeTakeProfit.toFixed(2)}`);
+                        }
+                    }
+
+                    if (shouldClose) {
+                        // Close remaining position automatically
+                        // ✅ FIX CRITICO: currentPrice dovrebbe già essere in EUR (da getSymbolPrice chiamato in runBotCycle)
+                        // Ma verifichiamo che sia ragionevole per sicurezza
+                        let validatedClosePrice = currentPrice;
+                        const tradingPair = SYMBOL_TO_PAIR[updatedPos.symbol] || 'BTCEUR';
+                        const isUSDT = tradingPair.endsWith('USDT');
+
+                        if (isUSDT && currentPrice > 200000 && updatedPos.symbol !== 'bitcoin') {
+                            console.warn(`⚠️ [AUTO-CLOSE] currentPrice ${currentPrice} seems too high for ${updatedPos.symbol}, might need conversion`);
+                            // Se sembra troppo alto, potrebbe essere in USDT - ma getSymbolPrice dovrebbe averlo già convertito
+                            // Logga solo per debug
+                        }
+
+                        console.log(`⚡ AUTO-CLOSING POSITION: ${updatedPos.ticket_id} | Reason: ${closeReason} | Price: €${validatedClosePrice.toFixed(2)}`);
+                        await closePosition(updatedPos.ticket_id, validatedClosePrice, closeReason);
+                    }
+                }
+
+                // ✅ FIX CRITICO: Rilascia lock dopo aver completato l'aggiornamento
+                updatePnLLock.delete(lockKey);
+
+            } catch (posError) {
+                // ✅ FIX: Rilascia lock anche in caso di errore
+                updatePnLLock.delete(lockKey);
+                console.error(`❌ [UPDATE P&L] Errore aggiornamento posizione ${pos.ticket_id} (${pos.symbol}):`, posError.message);
+                // Continua con la prossima posizione invece di fermare tutto
                 continue;
             }
-
-            // Check stop loss and take profit (TP2 if TP1 was hit, otherwise original TP)
-            const activeTakeProfit = (updatedPos.tp1_hit && updatedPos.take_profit_2) ? updatedPos.take_profit_2 : updatedPos.take_profit;
-            const activeStopLoss = updatedPos.stop_loss;
-
-            if (activeStopLoss || activeTakeProfit) {
-                let shouldClose = false;
-                let closeReason = '';
-
-                if (updatedPos.type === 'buy') {
-                    // Long position
-                    if (activeStopLoss && currentPrice <= activeStopLoss) {
-                        shouldClose = true;
-                        closeReason = 'stopped';
-                        console.log(`🛑 STOP LOSS TRIGGERED: ${updatedPos.ticket_id} | LONG | Price: €${currentPrice.toFixed(2)} <= SL: €${activeStopLoss.toFixed(2)}`);
-                    } else if (activeTakeProfit && currentPrice >= activeTakeProfit) {
-                        shouldClose = true;
-                        closeReason = updatedPos.tp1_hit ? 'taken (TP2)' : 'taken';
-                        console.log(`🎯 TAKE PROFIT TRIGGERED: ${updatedPos.ticket_id} | LONG | Price: €${currentPrice.toFixed(2)} >= TP: €${activeTakeProfit.toFixed(2)}`);
-                    }
-                } else {
-                    // Short position
-                    if (activeStopLoss && currentPrice >= activeStopLoss) {
-                        shouldClose = true;
-                        closeReason = 'stopped';
-                        console.log(`🛑 STOP LOSS TRIGGERED: ${updatedPos.ticket_id} | SHORT | Price: €${currentPrice.toFixed(2)} >= SL: €${activeStopLoss.toFixed(2)}`);
-                    } else if (activeTakeProfit && currentPrice <= activeTakeProfit) {
-                        shouldClose = true;
-                        closeReason = updatedPos.tp1_hit ? 'taken (TP2)' : 'taken';
-                        console.log(`🎯 TAKE PROFIT TRIGGERED: ${updatedPos.ticket_id} | SHORT | Price: €${currentPrice.toFixed(2)} <= TP: €${activeTakeProfit.toFixed(2)}`);
-                    }
-                }
-
-                if (shouldClose) {
-                    // Close remaining position automatically
-                    // ✅ FIX CRITICO: currentPrice dovrebbe già essere in EUR (da getSymbolPrice chiamato in runBotCycle)
-                    // Ma verifichiamo che sia ragionevole per sicurezza
-                    let validatedClosePrice = currentPrice;
-                    const tradingPair = SYMBOL_TO_PAIR[updatedPos.symbol] || 'BTCEUR';
-                    const isUSDT = tradingPair.endsWith('USDT');
-
-                    if (isUSDT && currentPrice > 200000 && updatedPos.symbol !== 'bitcoin') {
-                        console.warn(`⚠️ [AUTO-CLOSE] currentPrice ${currentPrice} seems too high for ${updatedPos.symbol}, might need conversion`);
-                        // Se sembra troppo alto, potrebbe essere in USDT - ma getSymbolPrice dovrebbe averlo già convertito
-                        // Logga solo per debug
-                    }
-
-                    console.log(`⚡ AUTO-CLOSING POSITION: ${updatedPos.ticket_id} | Reason: ${closeReason} | Price: €${validatedClosePrice.toFixed(2)}`);
-                    await closePosition(updatedPos.ticket_id, validatedClosePrice, closeReason);
-                }
-            }
-            
-            // ✅ FIX CRITICO: Rilascia lock dopo aver completato l'aggiornamento
-            updatePnLLock.delete(lockKey);
-            
-        } catch (posError) {
-            // ✅ FIX: Rilascia lock anche in caso di errore
-            updatePnLLock.delete(lockKey);
-            console.error(`❌ [UPDATE P&L] Errore aggiornamento posizione ${pos.ticket_id} (${pos.symbol}):`, posError.message);
-            // Continua con la prossima posizione invece di fermare tutto
-            continue;
-        }
         }
 
         return positions.length;
@@ -4966,11 +4966,11 @@ router.put('/bot/parameters', async (req, res) => {
 
         // ✅ NUOVO: Recupera parametri esistenti per merge (mantiene valori non specificati)
         const existingParams = await getBotParameters('bitcoin');
-        
+
         // ✅ VALIDAZIONE COMPLETA - Tutti i parametri sono personalizzabili
         const validParams = {
             // Parametri RSI
-            rsi_period: parameters.rsi_period !== undefined 
+            rsi_period: parameters.rsi_period !== undefined
                 ? Math.max(5, Math.min(30, parseInt(parameters.rsi_period) || existingParams.rsi_period || DEFAULT_PARAMS.rsi_period))
                 : (existingParams.rsi_period || DEFAULT_PARAMS.rsi_period),
             rsi_oversold: parameters.rsi_oversold !== undefined
@@ -4979,7 +4979,7 @@ router.put('/bot/parameters', async (req, res) => {
             rsi_overbought: parameters.rsi_overbought !== undefined
                 ? Math.max(50, Math.min(100, parseFloat(parameters.rsi_overbought) || existingParams.rsi_overbought || DEFAULT_PARAMS.rsi_overbought))
                 : (existingParams.rsi_overbought || DEFAULT_PARAMS.rsi_overbought),
-            
+
             // Parametri Trading
             stop_loss_pct: parameters.stop_loss_pct !== undefined
                 ? Math.max(0.1, Math.min(10, parseFloat(parameters.stop_loss_pct) || existingParams.stop_loss_pct || DEFAULT_PARAMS.stop_loss_pct))
@@ -4990,7 +4990,7 @@ router.put('/bot/parameters', async (req, res) => {
             trade_size_usdt: parameters.trade_size_usdt !== undefined
                 ? Math.max(10, Math.min(1000, parseFloat(parameters.trade_size_usdt || parameters.trade_size_eur) || existingParams.trade_size_usdt || DEFAULT_PARAMS.trade_size_usdt))
                 : (existingParams.trade_size_usdt || DEFAULT_PARAMS.trade_size_usdt),
-            
+
             // Trailing Stop
             trailing_stop_enabled: parameters.trailing_stop_enabled !== undefined
                 ? (parameters.trailing_stop_enabled === true || parameters.trailing_stop_enabled === 'true' || parameters.trailing_stop_enabled === 1)
@@ -4998,7 +4998,7 @@ router.put('/bot/parameters', async (req, res) => {
             trailing_stop_distance_pct: parameters.trailing_stop_distance_pct !== undefined
                 ? Math.max(0.1, Math.min(5, parseFloat(parameters.trailing_stop_distance_pct) || existingParams.trailing_stop_distance_pct || DEFAULT_PARAMS.trailing_stop_distance_pct))
                 : (existingParams.trailing_stop_distance_pct || DEFAULT_PARAMS.trailing_stop_distance_pct),
-            
+
             // Partial Close
             partial_close_enabled: parameters.partial_close_enabled !== undefined
                 ? (parameters.partial_close_enabled === true || parameters.partial_close_enabled === 'true' || parameters.partial_close_enabled === 1)
@@ -5009,7 +5009,7 @@ router.put('/bot/parameters', async (req, res) => {
             take_profit_2_pct: parameters.take_profit_2_pct !== undefined
                 ? Math.max(0.1, Math.min(10, parseFloat(parameters.take_profit_2_pct) || existingParams.take_profit_2_pct || DEFAULT_PARAMS.take_profit_2_pct))
                 : (existingParams.take_profit_2_pct || DEFAULT_PARAMS.take_profit_2_pct),
-            
+
             // ✅ NUOVI: Filtri Avanzati (personalizzabili)
             min_signal_strength: parameters.min_signal_strength !== undefined
                 ? Math.max(50, Math.min(100, parseInt(parameters.min_signal_strength) || existingParams.min_signal_strength || 70))
@@ -5029,7 +5029,7 @@ router.put('/bot/parameters', async (req, res) => {
             min_volume_24h: parameters.min_volume_24h !== undefined
                 ? Math.max(10000, Math.min(10000000, parseFloat(parameters.min_volume_24h) || existingParams.min_volume_24h || 500000))
                 : (existingParams.min_volume_24h || 500000),
-            
+
             // ✅ NUOVI: Risk Management (personalizzabili)
             max_daily_loss_pct: parameters.max_daily_loss_pct !== undefined
                 ? Math.max(1.0, Math.min(20.0, parseFloat(parameters.max_daily_loss_pct) || existingParams.max_daily_loss_pct || 5.0))
@@ -5040,12 +5040,12 @@ router.put('/bot/parameters', async (req, res) => {
             max_positions: parameters.max_positions !== undefined
                 ? Math.max(1, Math.min(20, parseInt(parameters.max_positions) || existingParams.max_positions || 5))
                 : (existingParams.max_positions || 5),
-            
+
             // ✅ NUOVO: Timeframe
             analysis_timeframe: parameters.analysis_timeframe !== undefined
                 ? (['15m', '1h', '4h', '1d'].includes(parameters.analysis_timeframe) ? parameters.analysis_timeframe : '15m')
                 : (existingParams.analysis_timeframe || '15m'),
-            
+
             // Note (opzionale)
             notes: parameters.notes || existingParams.notes || ''
         };
@@ -5073,7 +5073,7 @@ router.put('/bot/parameters', async (req, res) => {
         const existing = await dbGet(
             "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global' LIMIT 1"
         );
-        
+
         if (existing) {
             await dbRun(
                 "UPDATE bot_settings SET parameters = ? WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global'",
