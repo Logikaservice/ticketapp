@@ -137,7 +137,7 @@ class SeriousRiskManager {
             const todayStart = today.toISOString();
 
             const todayTrades = await dbAll(
-                "SELECT * FROM trades WHERE timestamp >= ? AND profit_loss < 0",
+                "SELECT * FROM trades WHERE timestamp >= $1 AND profit_loss < 0",
                 [todayStart]
             );
 
