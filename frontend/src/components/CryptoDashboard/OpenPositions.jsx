@@ -147,8 +147,8 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                 </div>
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <div style={{ overflowX: 'auto', overflowY: 'visible', position: 'relative' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', position: 'relative' }}>
                     <thead>
                         <tr style={{ borderBottom: '1px solid #2d2d2d', color: '#9ca3af' }}>
                             <th style={{ padding: '8px', textAlign: 'center', fontWeight: '500', fontSize: '11px' }}>Azioni</th>
@@ -220,10 +220,10 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                     onMouseEnter={(e) => e.currentTarget.style.background = '#252525'}
                                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                                 >
-                                    <td style={{ padding: '10px 8px', textAlign: 'center' }}>
-                                        <div style={{ display: 'flex', gap: '5px', justifyContent: 'center', position: 'relative' }}>
+                                    <td style={{ padding: '10px 8px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+                                        <div style={{ display: 'flex', gap: '5px', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
                                             {/* Menu dropdown per aprire grafico */}
-                                            <div style={{ position: 'relative', display: 'inline-block' }}>
+                                            <div style={{ position: 'relative', display: 'inline-block', zIndex: 9999 }}>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -261,7 +261,7 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                                             border: '1px solid #374151',
                                                             borderRadius: '6px',
                                                             padding: '4px',
-                                                            zIndex: 1000,
+                                                            zIndex: 9999,
                                                             minWidth: '180px',
                                                             boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
                                                         }}
