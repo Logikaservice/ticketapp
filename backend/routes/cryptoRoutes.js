@@ -2717,10 +2717,22 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 // Main Bot Loop Function - Iterates over all active symbols
 const runBotCycle = async () => {
     try {
-        // Get all active bots
+        // Get all active bots (o simboli senza entry - sono attivi di default)
         const activeBots = await dbAll(
             "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND is_active = 1"
         );
+
+        // ✅ FIX: Ottieni tutti i simboli disponibili e aggiungi quelli senza entry (sono attivi di default)
+        const allSymbols = Object.keys(SYMBOL_TO_PAIR);
+        const symbolsWithEntry = new Set(activeBots.map(b => b.symbol));
+        
+        // Aggiungi simboli senza entry come "bot attivi" (default: attivo)
+        for (const symbol of allSymbols) {
+            if (!symbolsWithEntry.has(symbol)) {
+                // Simbolo senza entry = bot attivo di default
+                activeBots.push({ symbol, is_active: 1, strategy_name: 'RSI_Strategy' });
+            }
+        }
 
         if (activeBots.length === 0) {
             // No active bots, but we still want to update prices for monitoring
