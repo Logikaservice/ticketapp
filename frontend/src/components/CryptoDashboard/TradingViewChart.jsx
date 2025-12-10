@@ -298,15 +298,18 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
             {/* Posizioni Aperte sotto il grafico quando è in fullscreen O in chart-only mode */}
             {(() => {
                 const shouldShow = (isFullscreen || isChartOnly) && displayPositions.length > 0;
-                console.log('🔍 [TradingViewChart] Condizione posizioni:', {
-                    isFullscreen,
-                    isChartOnly,
-                    displayPositionsLength: displayPositions.length,
-                    shouldShow,
-                    openPositionsLength: openPositions?.length || 0
-                });
+                if (isChartOnly || isFullscreen) {
+                    console.log('🔍 [TradingViewChart] Condizione posizioni:', {
+                        isFullscreen,
+                        isChartOnly,
+                        displayPositionsLength: displayPositions.length,
+                        shouldShow,
+                        openPositionsLength: openPositions?.length || 0,
+                        openPositions: openPositions
+                    });
+                }
                 return shouldShow;
-            })() && (
+            })() ? (
                 <div className="fullscreen-positions-section">
                     <div className="fullscreen-positions-header">
                         <h3>📊 Posizioni Aperte</h3>
@@ -381,7 +384,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                             })}
                     </div>
                 </div>
-            )}
+            ) : null}
         </div>
     );
 };
