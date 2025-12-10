@@ -7,6 +7,16 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
     const [openMenuFor, setOpenMenuFor] = useState(null);
     const menuRefs = useRef({});
 
+    // Debug: log posizioni ricevute
+    useEffect(() => {
+        console.log(`📋 [OPEN POSITIONS] Ricevute ${positions?.length || 0} posizioni`);
+        if (positions && positions.length > 0) {
+            positions.forEach((pos, idx) => {
+                console.log(`  ${idx + 1}. ${pos.symbol} - ${pos.type} - ${pos.status} - Ticket: ${pos.ticket_id}`);
+            });
+        }
+    }, [positions]);
+
     // Update P&L periodically (real-time updates)
     useEffect(() => {
         const interval = setInterval(() => {

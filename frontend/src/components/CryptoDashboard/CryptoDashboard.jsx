@@ -111,6 +111,12 @@ const CryptoDashboard = () => {
             if (res.ok) {
                 const data = await res.json();
                 // Dashboard data received logging removed
+                console.log(`📊 [DASHBOARD] Posizioni ricevute: ${data.open_positions?.length || 0}`);
+                if (data.open_positions && data.open_positions.length > 0) {
+                    data.open_positions.forEach((pos, idx) => {
+                        console.log(`  ${idx + 1}. ${pos.symbol} - ${pos.type} - ${pos.status} - Ticket: ${pos.ticket_id}`);
+                    });
+                }
                 setPortfolio({ ...data.portfolio, rsi: data.rsi });
                 setTrades(data.recent_trades || []);
                 setAllTrades(data.all_trades || []); // Store full history for chart
@@ -812,18 +818,16 @@ const CryptoDashboard = () => {
         }));
     }, [allTrades, currentSymbol]);
 
-    // If chart-only mode, show only the chart (75vh height, full width, no positions)
+    // If chart-only mode, show only the chart in fullscreen
     if (isChartOnly) {
         return (
             <div className="crypto-dashboard chart-only-mode" style={{ 
-                width: '100%', 
-                maxWidth: '100vw',
-                height: '75vh', 
+                width: '100vw', 
+                height: '100vh', 
                 margin: 0, 
                 padding: 0,
                 overflow: 'hidden',
-                background: '#1c1c1e',
-                boxSizing: 'border-box'
+                background: '#1c1c1e'
             }}>
                 <TradingViewChart
                     symbol={(() => {
@@ -1156,7 +1160,6 @@ const CryptoDashboard = () => {
             {/* MARKET SCANNER */}
             <MarketScanner
                 apiBase={apiBase}
-                currentSymbol={currentSymbol}
                 onSelectSymbol={(symbol) => {
                     setCurrentSymbol(symbol);
                     setPriceData([]);
@@ -1690,54 +1693,16 @@ const CryptoDashboard = () => {
                                     </div>
                                 )}
 
-                                {/* Helper function per identificare conferme grafiche */}
-                                {(() => {
-                                    const isChartRelatedConfirmation = (reason) => {
-                                        if (!reason || typeof reason !== 'string') return false;
-                                        const reasonLower = reason.toLowerCase();
-                                        const chartKeywords = [
-                                            'rsi', 'macd', 'ema', 'bollinger', 'trend', 'volume', 'atr', 
-                                            'divergence', 'momentum', 'breakout', 'price', 'candlestick',
-                                            'bullish', 'bearish', 'oversold', 'overbought', 'moving average',
-                                            'support', 'resistance', 'indicator', 'technical'
-                                        ];
-                                        return chartKeywords.some(keyword => reasonLower.includes(keyword));
-                                    };
-
-                                    return selectedPositionDetails.parsedDetails.reasons && selectedPositionDetails.parsedDetails.reasons.length > 0 ? (
-                                        <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
-                                            <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>✅ Conferme del Segnale</div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                {selectedPositionDetails.parsedDetails.reasons.map((reason, idx) => {
-                                                    const isChartRelated = isChartRelatedConfirmation(reason);
-                                                    return (
-                                                        <div 
-                                                            key={idx} 
-                                                            style={{
-                                                                background: isChartRelated 
-                                                                    ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(124, 58, 237, 0.1))'
-                                                                    : 'rgba(59, 130, 246, 0.1)',
-                                                                border: isChartRelated
-                                                                    ? '1px solid rgba(139, 92, 246, 0.3)'
-                                                                    : '1px solid rgba(59, 130, 246, 0.2)',
-                                                                borderRadius: '6px',
-                                                                padding: '8px 12px',
-                                                                color: '#fff',
-                                                                fontSize: '12px',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: '6px'
-                                                            }}
-                                                        >
-                                                            {isChartRelated && <span style={{ color: '#a78bfa', fontSize: '1rem' }}>📊</span>}
-                                                            <span>{reason}</span>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    ) : null;
-                                })()}
+                                {selectedPositionDetails.parsedDetails.reasons && selectedPositionDetails.parsedDetails.reasons.length > 0 && (
+                                    <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
+                                        <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Motivi del Segnale</div>
+                                        <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', lineHeight: '1.8', color: '#d1d5db' }}>
+                                            {selectedPositionDetails.parsedDetails.reasons.map((reason, idx) => (
+                                                <li key={idx} style={{ marginBottom: '4px' }}>{reason}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
 
                                 {selectedPositionDetails.parsedDetails.indicators && (
                                     <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
@@ -1775,53 +1740,16 @@ const CryptoDashboard = () => {
                                         <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
                                             <div><span style={{ color: '#6b7280' }}>Strength:</span> <span style={{ fontWeight: '600' }}>{selectedPositionDetails.parsedDetails.longSignal.strength || 0}/100</span></div>
                                             <div><span style={{ color: '#6b7280' }}>Conferme:</span> <span>{selectedPositionDetails.parsedDetails.longSignal.confirmations || 0}</span></div>
-                                            {(() => {
-                                                const isChartRelatedConfirmation = (reason) => {
-                                                    if (!reason || typeof reason !== 'string') return false;
-                                                    const reasonLower = reason.toLowerCase();
-                                                    const chartKeywords = [
-                                                        'rsi', 'macd', 'ema', 'bollinger', 'trend', 'volume', 'atr', 
-                                                        'divergence', 'momentum', 'breakout', 'price', 'candlestick',
-                                                        'bullish', 'bearish', 'oversold', 'overbought', 'moving average',
-                                                        'support', 'resistance', 'indicator', 'technical'
-                                                    ];
-                                                    return chartKeywords.some(keyword => reasonLower.includes(keyword));
-                                                };
-
-                                                return selectedPositionDetails.parsedDetails.longSignal.reasons && selectedPositionDetails.parsedDetails.longSignal.reasons.length > 0 ? (
-                                                    <div style={{ marginTop: '8px' }}>
-                                                        <div style={{ color: '#6366f1', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>✅ Conferme LONG:</div>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                                            {selectedPositionDetails.parsedDetails.longSignal.reasons.map((reason, idx) => {
-                                                                const isChartRelated = isChartRelatedConfirmation(reason);
-                                                                return (
-                                                                    <div 
-                                                                        key={idx} 
-                                                                        style={{
-                                                                            background: isChartRelated 
-                                                                                ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(124, 58, 237, 0.1))'
-                                                                                : 'rgba(59, 130, 246, 0.1)',
-                                                                            border: isChartRelated
-                                                                                ? '1px solid rgba(139, 92, 246, 0.3)'
-                                                                                : '1px solid rgba(59, 130, 246, 0.2)',
-                                                                            borderRadius: '4px',
-                                                                            padding: '6px 10px',
-                                                                            color: '#fff',
-                                                                            fontSize: '11px',
-                                                                            display: 'flex',
-                                                                            alignItems: 'center',
-                                                                            gap: '6px'
-                                                                        }}
-                                                                    >
-                                                                        {isChartRelated && <span style={{ color: '#a78bfa', fontSize: '0.9rem' }}>📊</span>}
-                                                                        <span>{reason}</span>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                ) : null;
-                                            })()}
+                                            {selectedPositionDetails.parsedDetails.longSignal.reasons && selectedPositionDetails.parsedDetails.longSignal.reasons.length > 0 && (
+                                                <div style={{ marginTop: '8px' }}>
+                                                    <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>Motivi:</div>
+                                                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', lineHeight: '1.6' }}>
+                                                        {selectedPositionDetails.parsedDetails.longSignal.reasons.map((reason, idx) => (
+                                                            <li key={idx} style={{ marginBottom: '2px', color: '#d1d5db' }}>{reason}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -1868,4 +1796,3 @@ const CryptoDashboard = () => {
 };
 
 export default CryptoDashboard;
-
