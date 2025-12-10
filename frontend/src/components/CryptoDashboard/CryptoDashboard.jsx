@@ -1705,15 +1705,39 @@ const CryptoDashboard = () => {
                                     };
 
                                     return selectedPositionDetails.parsedDetails.reasons && selectedPositionDetails.parsedDetails.reasons.length > 0 ? (
-                                    <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
-                                        <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Motivi del Segnale</div>
-                                        <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', lineHeight: '1.8', color: '#d1d5db' }}>
-                                            {selectedPositionDetails.parsedDetails.reasons.map((reason, idx) => (
-                                                <li key={idx} style={{ marginBottom: '4px' }}>{reason}</li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
+                                        <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
+                                            <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>✅ Conferme del Segnale</div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                {selectedPositionDetails.parsedDetails.reasons.map((reason, idx) => {
+                                                    const isChartRelated = isChartRelatedConfirmation(reason);
+                                                    return (
+                                                        <div 
+                                                            key={idx} 
+                                                            style={{
+                                                                background: isChartRelated 
+                                                                    ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(124, 58, 237, 0.1))'
+                                                                    : 'rgba(59, 130, 246, 0.1)',
+                                                                border: isChartRelated
+                                                                    ? '1px solid rgba(139, 92, 246, 0.3)'
+                                                                    : '1px solid rgba(59, 130, 246, 0.2)',
+                                                                borderRadius: '6px',
+                                                                padding: '8px 12px',
+                                                                color: '#fff',
+                                                                fontSize: '12px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '6px'
+                                                            }}
+                                                        >
+                                                            {isChartRelated && <span style={{ color: '#a78bfa', fontSize: '1rem' }}>📊</span>}
+                                                            <span>{reason}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ) : null;
+                                })()}
 
                                 {selectedPositionDetails.parsedDetails.indicators && (
                                     <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
