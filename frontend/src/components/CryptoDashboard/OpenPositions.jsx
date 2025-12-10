@@ -288,6 +288,7 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                                                 e.stopPropagation();
                                                                 const url = new URL(window.location);
                                                                 url.searchParams.set('domain', 'crypto');
+                                                                url.searchParams.set('page', 'chart-only');
                                                                 url.searchParams.set('symbol', pos.symbol);
                                                                 url.searchParams.set('_v', Date.now());
                                                                 window.open(url.toString(), '_blank');

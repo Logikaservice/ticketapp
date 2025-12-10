@@ -19,6 +19,35 @@
     min-height: 750px;
 }
 
+/* Chart-only mode - fullscreen */
+.chart-only-mode .chart-main-wrapper {
+    height: 100vh;
+    min-height: 100vh;
+    width: 100vw;
+}
+
+.chart-only-mode .tradingview-chart-wrapper {
+    width: 100%;
+    height: 100%;
+}
+
+.chart-only-mode .tradingview-chart-container {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.chart-only-mode .tradingview-chart-container .chart-main-wrapper {
+    height: 100%;
+}
+
+/* Ensure TradingView widget fills fullscreen in chart-only mode */
+.chart-only-mode .tradingview-chart-wrapper > div {
+    height: 100vh !important;
+    width: 100% !important;
+}
+
 /* Fullscreen mode - grafico allargato del 25% */
 .tradingview-chart-container.fullscreen-mode {
     width: 125%;

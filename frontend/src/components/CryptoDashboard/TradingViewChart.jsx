@@ -58,7 +58,9 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
         const container = document.createElement('div');
         container.id = uniqueId;
         container.style.width = '100%';
-        container.style.height = '750px'; // Aumentato da 500px a 750px
+        // In chart-only mode, usa tutta l'altezza dello schermo
+        const isChartOnly = window.location.search.includes('page=chart-only');
+        container.style.height = isChartOnly ? '100vh' : '750px';
         containerRef.current.appendChild(container);
         widgetRef.current = container;
 
@@ -81,7 +83,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
             "calendar": false,
             "withdateranges": true,
             "support_host": "https://www.tradingview.com",
-            "height": 750, // Aumentato da 500 a 750
+            "height": isChartOnly ? window.innerHeight : 750, // Fullscreen in chart-only mode
             "width": "100%",
             "container_id": uniqueId
         };

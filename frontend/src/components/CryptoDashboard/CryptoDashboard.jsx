@@ -14,18 +14,30 @@ import './CryptoLayout.css';
 import './CryptoStandalone.css';
 
 const CryptoDashboard = () => {
+    // Check if we're in chart-only mode (fullscreen chart in new window)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isChartOnly = urlParams.get('page') === 'chart-only';
+    const symbolFromUrl = urlParams.get('symbol');
+
     const [portfolio, setPortfolio] = useState({ balance_usd: 10800, holdings: {}, rsi: null }); // balance_usd is now in USDT (10800 USDT ≈ 10000 EUR)
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [trades, setTrades] = useState([]);
     const [botStatus, setBotStatus] = useState({ active: false, strategy: 'RSI_Strategy' });
     const [priceData, setPriceData] = useState([]);
     const [currentPrice, setCurrentPrice] = useState(0);
-    const [currentSymbol, setCurrentSymbol] = useState('bitcoin'); // Current symbol being viewed
+    const [currentSymbol, setCurrentSymbol] = useState(symbolFromUrl || 'bitcoin'); // Current symbol being viewed
     const [availableSymbols, setAvailableSymbols] = useState([]);
     const [activeBots, setActiveBots] = useState([]);
 
     // Determine API base URL
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
+
+    // Set symbol from URL on mount if in chart-only mode
+    useEffect(() => {
+        if (isChartOnly && symbolFromUrl) {
+            setCurrentSymbol(symbolFromUrl);
+        }
+    }, [isChartOnly, symbolFromUrl]);
 
     const [allTrades, setAllTrades] = useState([]); // For chart plotting
     const [openPositions, setOpenPositions] = useState([]);

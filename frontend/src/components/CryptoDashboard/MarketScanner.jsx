@@ -323,6 +323,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                                                     e.stopPropagation();
                                                                     const url = new URL(window.location);
                                                                     url.searchParams.set('domain', 'crypto');
+                                                                    url.searchParams.set('page', 'chart-only');
                                                                     url.searchParams.set('symbol', item.symbol);
                                                                     url.searchParams.set('_v', Date.now());
                                                                     window.open(url.toString(), '_blank');
