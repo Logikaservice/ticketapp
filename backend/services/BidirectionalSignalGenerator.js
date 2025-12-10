@@ -929,26 +929,34 @@ class BidirectionalSignalGenerator {
 
 
         // BLOCCA SHORT se:
-        // 1. Prezzo sta ancora salendo significativamente (>0.1%)
+        // 1. Prezzo sta ancora salendo significativamente (>0.15%)
         // 2. Prezzo è stabile/neutrale (non scende in modo significativo su più timeframe)
         // Questo evita di generare SHORT su mercati laterali/neutri
-        const isPriceRising = priceChange > 0.1;
+        // ✅ FIX: Soglia leggermente più alta (0.15% invece di 0.1%) per evitare falsi positivi
+        const isPriceRising = priceChange > 0.15;
         // ✅ FIX: Mercato neutrale = nessun movimento significativo in nessuna direzione
         // ✅ MIGLIORATO: Considera neutrale solo se NON c'è movimento su TUTTI i timeframe
+        // ✅ FIX: Soglie più flessibili per riconoscere mercati davvero neutri
         // Se almeno un timeframe mostra movimento al ribasso, NON è neutrale
-        const isPriceNeutral = (priceChange > -0.3 && priceChange < 0.3) &&
-            (priceChange5 > -0.5 && priceChange5 < 0.5) &&
-            (priceChange10 > -0.8 && priceChange10 < 0.8);
+        const isPriceNeutral = (priceChange > -0.2 && priceChange < 0.2) &&
+            (priceChange5 > -0.3 && priceChange5 < 0.3) &&
+            (priceChange10 > -0.5 && priceChange10 < 0.5);
 
         // ✅ FIX CRITICO: Verifica se prezzo sta scendendo attivamente E in modo consistente
         // Se il prezzo è neutrale o laterale, NON generare segnali SHORT
         // Questo previene SHORT su mercati neutri/laterali (es. MANA/USDT senza movimento)
         // ✅ MIGLIORATO: Rileva trend al ribasso anche se non estremamente aggressivo
+        // ✅ FIX: Soglie più flessibili per riconoscere discese graduali ma consistenti
         // Verifica movimento CONSISTENTE: deve scendere su almeno uno dei timeframe
-        const isPriceActivelyFalling = (priceChange < -0.3 && priceChange5 < -0.5) || 
-                                       (priceChange < -0.5) || 
-                                       (priceChange5 < -0.8) ||
-                                       (priceChange10 < -1.0);
+        // Nuove soglie più realistiche (ridotte ulteriormente per catturare discese graduali):
+        // - Se scende >0.2% su 3 periodi E >0.2% su 5 periodi = discesa consistente (anche graduale)
+        // - OPPURE scende >0.3% su 3 periodi = discesa più rapida
+        // - OPPURE scende >0.4% su 5 periodi = trend al ribasso medio termine
+        // - OPPURE scende >0.5% su 10 periodi = trend al ribasso lungo termine
+        const isPriceActivelyFalling = (priceChange < -0.2 && priceChange5 < -0.2) || 
+                                       (priceChange < -0.3) || 
+                                       (priceChange5 < -0.4) ||
+                                       (priceChange10 < -0.5);
 
         // ✅ FIX CRITICO: Se mercato è neutrale O prezzo sta salendo, BLOCCA solo SHORT ma continua a calcolare LONG
         // NON fare return early per permettere ai segnali LONG di essere generati
