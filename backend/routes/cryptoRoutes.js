@@ -7392,18 +7392,23 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = n
                 let timestamp;
                 try {
                     const openTime = row.open_time;
-                    if (typeof openTime === 'number') {
+
+                    // ✅ FIX CRITICO: Controlla null/undefined prima della conversione
+                    if (openTime === null || openTime === undefined) {
+                        console.warn(`⚠️ [SCANNER] open_time null/undefined per ${symbol}, uso timestamp corrente`);
+                        timestamp = new Date().toISOString();
+                    } else if (typeof openTime === 'number') {
                         timestamp = new Date(openTime > 1000000000000 ? openTime : openTime * 1000).toISOString();
                     } else if (typeof openTime === 'string') {
                         timestamp = new Date(openTime).toISOString();
                     } else if (openTime instanceof Date) {
                         timestamp = openTime.toISOString();
                     } else {
-                        console.warn(`⚠️ [SCANNER] open_time non valido per ${symbol}:`, openTime);
+                        console.warn(`⚠️ [SCANNER] open_time tipo non valido per ${symbol}:`, typeof openTime);
                         timestamp = new Date().toISOString();
                     }
                 } catch (e) {
-                    console.error(`❌ [SCANNER] Errore conversione timestamp per ${symbol}:`, e.message);
+                    console.error(`❌ [SCANNER] Errore conversione timestamp per ${symbol}:`, e.message, 'open_time:', row.open_time);
                     timestamp = new Date().toISOString();
                 }
 
