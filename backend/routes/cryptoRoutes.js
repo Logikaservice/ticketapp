@@ -4819,8 +4819,8 @@ router.post('/bot/toggle-all', async (req, res) => {
             const mainSymbols = ['bitcoin', 'ethereum', 'solana', 'cardano', 'polkadot', 'chainlink'];
             for (const symbol of mainSymbols) {
                 await dbRun(
-                    "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES ($1, $2, 1, $4)",
-                    ['RSI_Strategy', symbol, activeValue, JSON.stringify(DEFAULT_PARAMS)]
+                    "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES ($1, $2, 1, $3)",
+                    ['RSI_Strategy', symbol, JSON.stringify(DEFAULT_PARAMS)]
                 );
             }
             console.log(`✅ [BOT-TOGGLE-ALL] Created ${mainSymbols.length} bot settings and set to ${activeValue === 1 ? 'ACTIVE' : 'INACTIVE'}`);
