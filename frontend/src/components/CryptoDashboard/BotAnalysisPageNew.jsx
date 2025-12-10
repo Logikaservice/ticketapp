@@ -325,17 +325,17 @@ const BotAnalysisPageNew = () => {
                             </div>
                             <div className="requirement-progress">
                                 <div className="progress-item">
-                                    <span>Strength richiesto:</span>
-                                    <span className="value">{requirements?.long?.minStrength || 70}/100</span>
-                                </div>
-                                <div className="progress-item">
                                     <span>Strength attuale:</span>
                                     <span className={`value ${(requirements?.long?.currentStrength || 0) >= (requirements?.long?.minStrength || 70) ? 'ok' : 'missing'}`}>
                                         {requirements?.long?.currentStrength || 0}/100
                                     </span>
                                     {(requirements?.long?.needsStrength || 0) > 0 && (
-                                        <span className="needs">+{requirements.long.needsStrength} punti</span>
+                                        <span className="needs" style={{ color: '#ef4444', fontWeight: 'bold' }}>Mancano {requirements.long.needsStrength} punti!</span>
                                     )}
+                                </div>
+                                <div className="progress-item">
+                                    <span>Minimo richiesto:</span>
+                                    <span className="value" style={{ color: '#10b981' }}>{requirements?.long?.minStrength || 70}/100</span>
                                 </div>
                                 <div className="progress-bar">
                                     <div
@@ -411,17 +411,17 @@ const BotAnalysisPageNew = () => {
                             </div>
                             <div className="requirement-progress">
                                 <div className="progress-item">
-                                    <span>Strength richiesto:</span>
-                                    <span className="value">{requirements?.short?.minStrength || 70}/100</span>
-                                </div>
-                                <div className="progress-item">
                                     <span>Strength attuale:</span>
                                     <span className={`value ${(requirements?.short?.currentStrength || 0) >= (requirements?.short?.minStrength || 70) ? 'ok' : 'missing'}`}>
                                         {requirements?.short?.currentStrength || 0}/100
                                     </span>
                                     {(requirements?.short?.needsStrength || 0) > 0 && (
-                                        <span className="needs">+{requirements.short.needsStrength} punti</span>
+                                        <span className="needs" style={{ color: '#ef4444', fontWeight: 'bold' }}>Mancano {requirements.short.needsStrength} punti!</span>
                                     )}
+                                </div>
+                                <div className="progress-item">
+                                    <span>Minimo richiesto:</span>
+                                    <span className="value" style={{ color: '#10b981' }}>{requirements?.short?.minStrength || 70}/100</span>
                                 </div>
                                 <div className="progress-bar">
                                     <div
