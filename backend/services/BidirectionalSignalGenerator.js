@@ -1104,27 +1104,51 @@ class BidirectionalSignalGenerator {
             longSignal.strength >= LONG_MIN_STRENGTH;
 
         // 🚫 FILTRI PROFESSIONALI PER LONG - Blocca entry se:
+        // ✅ MIGLIORATO: Con segnali molto forti (strength > 80), i filtri diventano warning invece di block
+        // Questo permette di "aprire e seguire" anche con alcuni rischi, gestendo con stop loss dinamico
         const longProfessionalFilters = [];
+        const isVeryStrongSignal = longSignal.strength > 80 && longSignal.confirmations >= LONG_MIN_CONFIRMATIONS;
 
         // 1. MOMENTUM ESAURITO - Non entrare se il momentum sta rallentando
+        // ✅ Con segnali molto forti, diventa warning invece di block
         if (priceChange3 > 1.0 && !momentumQuality.isHealthy) {
-            longMeetsRequirements = false;
-            longProfessionalFilters.push(`🚫 BLOCCATO: Momentum esaurito (qualità: ${momentumQuality.score}/100) - ${momentumQuality.warnings.join(', ')}`);
-            longSignal.reasons.push(`⚠️ Filtro Professionale: ${momentumQuality.warnings.join(', ')}`);
+            if (isVeryStrongSignal) {
+                // Segnale forte: warning ma permette entry (stop loss più stretto)
+                longProfessionalFilters.push(`⚠️ ATTENZIONE: Momentum esaurito (qualità: ${momentumQuality.score}/100) - Entry permessa ma stop loss più stretto`);
+                longSignal.reasons.push(`⚠️ Filtro Professionale: ${momentumQuality.warnings.join(', ')} - Entry permessa per segnale forte`);
+            } else {
+                longMeetsRequirements = false;
+                longProfessionalFilters.push(`🚫 BLOCCATO: Momentum esaurito (qualità: ${momentumQuality.score}/100) - ${momentumQuality.warnings.join(', ')}`);
+                longSignal.reasons.push(`⚠️ Filtro Professionale: ${momentumQuality.warnings.join(', ')}`);
+            }
         }
 
         // 2. ALTO RISCHIO REVERSAL - Non entrare se rischio reversal è alto/medio durante rally
+        // ✅ Con segnali molto forti, diventa warning invece di block
         if (priceChange10 > 2 && (reversalRisk.risk === 'high' || reversalRisk.risk === 'medium')) {
-            longMeetsRequirements = false;
-            longProfessionalFilters.push(`🚫 BLOCCATO: Alto rischio inversione dopo rally (${reversalRisk.risk}, score: ${reversalRisk.score}/100) - ${reversalRisk.reasons.join(', ')}`);
-            longSignal.reasons.push(`⚠️ Filtro Professionale: ${reversalRisk.reasons[0] || 'Alto rischio inversione'}`);
+            if (isVeryStrongSignal) {
+                // Segnale forte: warning ma permette entry (stop loss più stretto)
+                longProfessionalFilters.push(`⚠️ ATTENZIONE: Alto rischio inversione (${reversalRisk.risk}) - Entry permessa ma stop loss più stretto`);
+                longSignal.reasons.push(`⚠️ Filtro Professionale: ${reversalRisk.reasons[0] || 'Alto rischio inversione'} - Entry permessa per segnale forte`);
+            } else {
+                longMeetsRequirements = false;
+                longProfessionalFilters.push(`🚫 BLOCCATO: Alto rischio inversione dopo rally (${reversalRisk.risk}, score: ${reversalRisk.score}/100) - ${reversalRisk.reasons.join(', ')}`);
+                longSignal.reasons.push(`⚠️ Filtro Professionale: ${reversalRisk.reasons[0] || 'Alto rischio inversione'}`);
+            }
         }
 
         // 3. VOLUME DECRESCENTE DURANTE RALLY - Segnale di debolezza
+        // ✅ Con segnali molto forti, diventa warning invece di block
         if (priceChange3 > 0.8 && momentumQuality.volumeTrend === 'decreasing') {
-            longMeetsRequirements = false;
-            longProfessionalFilters.push(`🚫 BLOCCATO: Volume in calo durante il rialzo - momentum debole, probabile inversione`);
-            longSignal.reasons.push(`⚠️ Filtro Professionale: Volume in calo durante il rialzo`);
+            if (isVeryStrongSignal) {
+                // Segnale forte: warning ma permette entry
+                longProfessionalFilters.push(`⚠️ ATTENZIONE: Volume in calo durante il rialzo - Entry permessa per segnale forte`);
+                longSignal.reasons.push(`⚠️ Filtro Professionale: Volume in calo durante il rialzo - Entry permessa per segnale forte`);
+            } else {
+                longMeetsRequirements = false;
+                longProfessionalFilters.push(`🚫 BLOCCATO: Volume in calo durante il rialzo - momentum debole, probabile inversione`);
+                longSignal.reasons.push(`⚠️ Filtro Professionale: Volume in calo durante il rialzo`);
+            }
         }
 
         // 4. VICINO A RESISTENZA FORTE - Non comprare vicino a resistenza
@@ -1167,20 +1191,37 @@ class BidirectionalSignalGenerator {
             shortSignal.strength >= SHORT_MIN_STRENGTH;
 
         // 🚫 FILTRI PROFESSIONALI PER SHORT - Blocca entry se:
+        // ✅ MIGLIORATO: Con segnali molto forti (strength > 80), i filtri diventano warning invece di block
+        // Questo permette di "aprire e seguire" anche con alcuni rischi, gestendo con stop loss dinamico
         const shortProfessionalFilters = [];
+        const isVeryStrongShortSignal = shortSignal.strength > 80 && shortSignal.confirmations >= SHORT_MIN_CONFIRMATIONS;
 
         // 1. MOMENTUM ESAURITO - Non entrare SHORT se il momentum ribassista sta rallentando
+        // ✅ Con segnali molto forti, diventa warning invece di block
         if (priceChange3 < -1.0 && !momentumQuality.isHealthy) {
-            shortMeetsRequirements = false;
-            shortProfessionalFilters.push(`🚫 BLOCCATO: Momentum ribassista esaurito (qualità: ${momentumQuality.score}/100) - ${momentumQuality.warnings.join(', ')}`);
-            shortSignal.reasons.push(`⚠️ Filtro Professionale: ${momentumQuality.warnings.join(', ')}`);
+            if (isVeryStrongShortSignal) {
+                // Segnale forte: warning ma permette entry (stop loss più stretto)
+                shortProfessionalFilters.push(`⚠️ ATTENZIONE: Momentum ribassista esaurito (qualità: ${momentumQuality.score}/100) - Entry permessa ma stop loss più stretto`);
+                shortSignal.reasons.push(`⚠️ Filtro Professionale: ${momentumQuality.warnings.join(', ')} - Entry permessa per segnale forte`);
+            } else {
+                shortMeetsRequirements = false;
+                shortProfessionalFilters.push(`🚫 BLOCCATO: Momentum ribassista esaurito (qualità: ${momentumQuality.score}/100) - ${momentumQuality.warnings.join(', ')}`);
+                shortSignal.reasons.push(`⚠️ Filtro Professionale: ${momentumQuality.warnings.join(', ')}`);
+            }
         }
 
         // 2. ALTO RISCHIO BOUNCE - Non entrare SHORT se rischio bounce è alto
+        // ✅ Con segnali molto forti, diventa warning invece di block
         if (priceChange10 < -2 && (reversalRisk.risk === 'high' || reversalRisk.risk === 'medium')) {
-            shortMeetsRequirements = false;
-            shortProfessionalFilters.push(`🚫 BLOCCATO: Alto rischio rimbalzo dopo crollo (${reversalRisk.risk}, score: ${reversalRisk.score}/100) - ${reversalRisk.reasons.join(', ')}`);
-            shortSignal.reasons.push(`⚠️ Filtro Professionale: ${reversalRisk.reasons[0] || 'Alto rischio rimbalzo'}`);
+            if (isVeryStrongShortSignal) {
+                // Segnale forte: warning ma permette entry (stop loss più stretto)
+                shortProfessionalFilters.push(`⚠️ ATTENZIONE: Alto rischio rimbalzo (${reversalRisk.risk}) - Entry permessa ma stop loss più stretto`);
+                shortSignal.reasons.push(`⚠️ Filtro Professionale: ${reversalRisk.reasons[0] || 'Alto rischio rimbalzo'} - Entry permessa per segnale forte`);
+            } else {
+                shortMeetsRequirements = false;
+                shortProfessionalFilters.push(`🚫 BLOCCATO: Alto rischio rimbalzo dopo crollo (${reversalRisk.risk}, score: ${reversalRisk.score}/100) - ${reversalRisk.reasons.join(', ')}`);
+                shortSignal.reasons.push(`⚠️ Filtro Professionale: ${reversalRisk.reasons[0] || 'Alto rischio rimbalzo'}`);
+            }
         }
 
         // 3. VICINO A SUPPORTO FORTE - Non vendere vicino a supporto

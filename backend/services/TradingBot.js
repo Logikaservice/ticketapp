@@ -445,9 +445,20 @@ async function runBotCycleForSymbol(symbol, botSettings) {
         const volume = tradeSize / currentPrice;
 
         // 15. Calculate Stop Loss and Take Profit
+        // ✅ MIGLIORATO: Stop loss più stretto se ci sono warning professionali su segnali forti
+        // Questo implementa la strategia "apri e segui, se fa scherzi chiudi" per segnali molto forti
+        const hasProfessionalWarnings = signal.professionalAnalysis?.filters?.[signal.direction.toLowerCase()]?.some(f => 
+            f.includes('⚠️ ATTENZIONE') && f.includes('Entry permessa')
+        ) || false;
+        
+        // Stop loss più stretto (1.5% invece di 2.5%) se ci sono warning ma segnale forte
+        const stopLossPct = hasProfessionalWarnings && adjustedStrength > 80 
+            ? 1.5  // Stop loss più stretto per proteggere quando ci sono warning
+            : BOT_CONFIG.STOP_LOSS_PCT;
+        
         const stopLoss = signal.direction === 'LONG'
-            ? currentPrice * (1 - BOT_CONFIG.STOP_LOSS_PCT / 100)
-            : currentPrice * (1 + BOT_CONFIG.STOP_LOSS_PCT / 100);
+            ? currentPrice * (1 - stopLossPct / 100)
+            : currentPrice * (1 + stopLossPct / 100);
 
         const takeProfit = signal.direction === 'LONG'
             ? currentPrice * (1 + BOT_CONFIG.TAKE_PROFIT_PCT / 100)
