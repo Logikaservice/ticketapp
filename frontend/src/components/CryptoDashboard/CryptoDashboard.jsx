@@ -812,6 +812,51 @@ const CryptoDashboard = () => {
         }));
     }, [allTrades, currentSymbol]);
 
+    // If chart-only mode, show only the chart in fullscreen
+    if (isChartOnly) {
+        return (
+            <div className="crypto-dashboard chart-only-mode" style={{ 
+                width: '100vw', 
+                height: '100vh', 
+                margin: 0, 
+                padding: 0,
+                overflow: 'hidden',
+                background: '#1c1c1e'
+            }}>
+                <TradingViewChart
+                    symbol={(() => {
+                        const found = availableSymbols.find(s => s.symbol === currentSymbol);
+                        if (found) return found.pair;
+
+                        // Auto-generate pair if not found
+                        const symbolMap = {
+                            'bitcoin': 'BTCUSDT',
+                            'ethereum': 'ETHUSDT',
+                            'solana': 'SOLUSDT',
+                            'cardano': 'ADAUSDT',
+                            'polkadot': 'DOTUSDT',
+                            'chainlink': 'LINKUSDT',
+                            'litecoin': 'LTCUSDT',
+                            'ripple': 'XRPUSDT',
+                            'binance_coin': 'BNBUSDT'
+                        };
+
+                        if (symbolMap[currentSymbol]) {
+                            return symbolMap[currentSymbol];
+                        }
+
+                        const upperSymbol = currentSymbol.toUpperCase().replace(/_/g, '');
+                        return `${upperSymbol}USDT`;
+                    })()}
+                    trades={filteredTrades}
+                    openPositions={filteredOpenPositions}
+                    currentPrice={currentPrice}
+                    priceHistory={priceData || []}
+                />
+            </div>
+        );
+    }
+
     return (
         <div className="crypto-dashboard">
             <div className="crypto-header" style={{ position: 'relative' }}>
