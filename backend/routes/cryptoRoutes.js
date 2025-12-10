@@ -2145,8 +2145,8 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     // Segnali FORTI (90-100%) → ATR minimo 0.2% (più permissivo)
                     // Segnali NORMALI (70-89%) → ATR minimo 0.3% (standard, più sicuro)
                     // ✅ CONFIGURABILE: Usa min_atr_pct come base, con logica speciale per segnali forti
-                    const MIN_ATR_FOR_STRONG_SIGNAL = analysisParams.min_atr_pct || 0.2; // Per segnali 90-100%
-                    const MIN_ATR_FOR_NORMAL_SIGNAL = Math.max((analysisParams.min_atr_pct || 0.2), 0.3); // Per segnali 70-89% (almeno 0.3%)
+                    const MIN_ATR_FOR_STRONG_SIGNAL = params.min_atr_pct || 0.2; // Per segnali 90-100%
+                    const MIN_ATR_FOR_NORMAL_SIGNAL = Math.max((params.min_atr_pct || 0.2), 0.3); // Per segnali 70-89% (almeno 0.3%)
                 const STRONG_SIGNAL_THRESHOLD = 90;
 
                 const isStrongSignal = signal.strength >= STRONG_SIGNAL_THRESHOLD;
