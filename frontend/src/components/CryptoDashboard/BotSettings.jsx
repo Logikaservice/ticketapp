@@ -12,6 +12,7 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
         trade_size_usdt: 50,
         trailing_stop_enabled: false,
         trailing_stop_distance_pct: 1.0,
+        trailing_profit_protection_enabled: true,
         partial_close_enabled: false,
         take_profit_1_pct: 1.5,
         take_profit_2_pct: 3.0,
@@ -47,7 +48,16 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
             const res = await fetch(`${apiBase}/api/crypto/bot/parameters`);
             if (res.ok) {
                 const data = await res.json();
-                setParameters(data.parameters);
+                // ✅ FIX: Merge con valori di default per assicurarsi che tutti i parametri esistano
+                const mergedParams = {
+                    ...parameters, // Mantiene i default iniziali
+                    ...data.parameters // Sovrascrive con valori dal database
+                };
+                setParameters(mergedParams);
+                console.log('✅ [BOT-SETTINGS] Parametri caricati:', {
+                    hasTrailingProfit: 'trailing_profit_protection_enabled' in mergedParams,
+                    trailingProfitValue: mergedParams.trailing_profit_protection_enabled
+                });
             } else {
                 setError('Errore nel caricamento dei parametri');
             }
@@ -90,7 +100,7 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
     };
 
     const handleChange = (key, value) => {
-        if (key === 'trailing_stop_enabled' || key === 'partial_close_enabled') {
+        if (key === 'trailing_stop_enabled' || key === 'partial_close_enabled' || key === 'trailing_profit_protection_enabled') {
             setParameters(prev => ({ ...prev, [key]: value === true || value === 'true' || value === 1 }));
         } else if (key === 'analysis_timeframe') {
             setParameters(prev => ({ ...prev, [key]: value }));
@@ -291,6 +301,22 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                                     </div>
                                 </div>
                             )}
+
+                            {/* Trailing Profit Protection Enabled */}
+                            <div className="parameter-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={parameters.trailing_profit_protection_enabled !== undefined ? parameters.trailing_profit_protection_enabled : true}
+                                        onChange={(e) => handleChange('trailing_profit_protection_enabled', e.target.checked)}
+                                        style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                                    />
+                                    <span>Abilita Trailing Profit Protection</span>
+                                </label>
+                                <div className="parameter-desc">
+                                    Protegge i profitti quando raggiungi un picco: se il profitto scende sotto una soglia minima (es. 75% del picco), chiude automaticamente la posizione per bloccare i guadagni. <strong>Attivo solo dopo 5 minuti dall'apertura</strong> per evitare chiusure premature.
+                                </div>
+                            </div>
 
                             {/* Partial Close Enabled */}
                             <div className="parameter-group">

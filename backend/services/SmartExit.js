@@ -24,6 +24,30 @@ const dbAll = cryptoDb.dbAll;
 const dbRun = cryptoDb.dbRun;
 
 /**
+ * Helper function to get bot parameters from database
+ * Returns trailing_profit_protection_enabled setting
+ */
+async function getTrailingProfitProtectionEnabled() {
+    try {
+        const bot = await dbGet(
+            "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global' LIMIT 1"
+        );
+        
+        if (bot && bot.parameters) {
+            const params = typeof bot.parameters === 'string' ? JSON.parse(bot.parameters) : bot.parameters;
+            // Return the setting if present, otherwise default to true
+            return params.trailing_profit_protection_enabled !== undefined 
+                ? params.trailing_profit_protection_enabled 
+                : SMART_EXIT_CONFIG.TRAILING_PROFIT_ENABLED;
+        }
+    } catch (err) {
+        console.error('Error loading trailing_profit_protection_enabled:', err.message);
+    }
+    // Default to config value if error or not found
+    return SMART_EXIT_CONFIG.TRAILING_PROFIT_ENABLED;
+}
+
+/**
  * Smart Exit Configuration
  */
 const SMART_EXIT_CONFIG = {
@@ -707,8 +731,11 @@ async function checkPortfolioDrawdown() {
 /**
  * Calcola trailing profit protection - blocca percentuale del profitto massimo
  */
-function calculateTrailingProfitProtection(currentPnLPct, peakProfit) {
-    if (!SMART_EXIT_CONFIG.TRAILING_PROFIT_ENABLED || peakProfit <= 0) {
+async function calculateTrailingProfitProtection(currentPnLPct, peakProfit) {
+    // ✅ Check if trailing profit protection is enabled from database
+    const isEnabled = await getTrailingProfitProtectionEnabled();
+    
+    if (!isEnabled || peakProfit <= 0) {
         return null;
     }
 
@@ -792,7 +819,7 @@ async function shouldClosePosition(position, priceHistory) {
         const MIN_TIME_FOR_TRAILING_PROFIT_MS = 5 * 60 * 1000; // 5 minuti
         if (timeInPosition >= MIN_TIME_FOR_TRAILING_PROFIT_MS) {
             const peakProfit = calculatePeakProfit(position, priceHistory);
-            const trailingProfit = calculateTrailingProfitProtection(currentPnLPct, peakProfit);
+            const trailingProfit = await calculateTrailingProfitProtection(currentPnLPct, peakProfit);
 
             if (trailingProfit && trailingProfit.shouldLock) {
                 return {

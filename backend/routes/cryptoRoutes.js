@@ -1063,6 +1063,7 @@ const DEFAULT_PARAMS = {
     trade_size_eur: 100,  // Aggiornato da 50 a 100
     trailing_stop_enabled: true,  // Aggiornato da false a true
     trailing_stop_distance_pct: 1.5,  // Aggiornato da 1.0 a 1.5
+    trailing_profit_protection_enabled: true,  // ✅ NUOVO: Trailing Profit Protection abilitato di default
     partial_close_enabled: true,  // Aggiornato da false a true
     take_profit_1_pct: 2.5,  // Aggiornato da 1.5 a 2.5
     take_profit_2_pct: 5.0  // Aggiornato da 3.0 a 5.0
@@ -1072,7 +1073,7 @@ const DEFAULT_PARAMS = {
 const getBotParameters = async (symbol = 'bitcoin') => {
     try {
         // ✅ NUOVO: Prima cerca parametri specifici per simbolo, poi globali
-        let bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = ?", [symbol]);
+        let bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = $1", [symbol]);
 
         // Se non trovato per simbolo, usa parametri globali
         if (!bot) {
@@ -1081,8 +1082,16 @@ const getBotParameters = async (symbol = 'bitcoin') => {
 
         if (bot && bot.parameters) {
             const params = typeof bot.parameters === 'string' ? JSON.parse(bot.parameters) : bot.parameters;
-            // Merge with defaults to ensure all parameters exist
-            return { ...DEFAULT_PARAMS, ...params };
+            // ✅ FIX: Merge con defaults per assicurarsi che tutti i parametri esistano (incluso trailing_profit_protection_enabled)
+            const merged = { ...DEFAULT_PARAMS, ...params };
+            
+            // Debug log solo per trailing_profit_protection_enabled
+            if (merged.trailing_profit_protection_enabled === undefined) {
+                console.warn('⚠️ [BOT-PARAMS] trailing_profit_protection_enabled non trovato, uso default:', DEFAULT_PARAMS.trailing_profit_protection_enabled);
+                merged.trailing_profit_protection_enabled = DEFAULT_PARAMS.trailing_profit_protection_enabled;
+            }
+            
+            return merged;
         }
     } catch (err) {
         console.error(`Error loading bot parameters for ${symbol}:`, err.message);
@@ -5081,6 +5090,11 @@ router.put('/bot/parameters', async (req, res) => {
                 ? (['15m', '1h', '4h', '1d'].includes(parameters.analysis_timeframe) ? parameters.analysis_timeframe : '15m')
                 : (existingParams.analysis_timeframe || '15m'),
 
+            // ✅ NUOVO: Trailing Profit Protection
+            trailing_profit_protection_enabled: parameters.trailing_profit_protection_enabled !== undefined
+                ? (parameters.trailing_profit_protection_enabled === true || parameters.trailing_profit_protection_enabled === 'true' || parameters.trailing_profit_protection_enabled === 1)
+                : (existingParams.trailing_profit_protection_enabled !== undefined ? existingParams.trailing_profit_protection_enabled : true),
+
             // Note (opzionale)
             notes: parameters.notes || existingParams.notes || ''
         };
@@ -5109,16 +5123,40 @@ router.put('/bot/parameters', async (req, res) => {
             "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global' LIMIT 1"
         );
 
+        // ✅ FIX: Serializza correttamente per PostgreSQL TEXT
+        const parametersJson = JSON.stringify(validParams);
+        
+        console.log('💾 [BOT-PARAMS] Salvataggio parametri:', {
+            hasExisting: !!existing,
+            paramsCount: Object.keys(validParams).length,
+            hasTrailingProfit: 'trailing_profit_protection_enabled' in validParams,
+            trailingProfitValue: validParams.trailing_profit_protection_enabled
+        });
+
         if (existing) {
-            await dbRun(
-                "UPDATE bot_settings SET parameters = ? WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global'",
-                [JSON.stringify(validParams)]
+            const result = await dbRun(
+                "UPDATE bot_settings SET parameters = $1::text WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global'",
+                [parametersJson]
             );
+            console.log('✅ [BOT-PARAMS] UPDATE eseguito, righe modificate:', result.changes);
         } else {
-            await dbRun(
-                "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES ('RSI_Strategy', 'global', 1, ?)",
-                [JSON.stringify(validParams)]
+            const result = await dbRun(
+                "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES ('RSI_Strategy', 'global', 1, $1::text)",
+                [parametersJson]
             );
+            console.log('✅ [BOT-PARAMS] INSERT eseguito, ID:', result.lastID);
+        }
+        
+        // ✅ Verifica che sia stato salvato correttamente
+        const verification = await dbGet(
+            "SELECT parameters FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global' LIMIT 1"
+        );
+        if (verification && verification.parameters) {
+            const savedParams = typeof verification.parameters === 'string' ? JSON.parse(verification.parameters) : verification.parameters;
+            console.log('✅ [BOT-PARAMS] Verifica salvataggio:', {
+                savedHasTrailingProfit: 'trailing_profit_protection_enabled' in savedParams,
+                savedTrailingProfitValue: savedParams.trailing_profit_protection_enabled
+            });
         }
 
         res.json({
