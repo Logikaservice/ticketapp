@@ -4,6 +4,63 @@
  */
 
 /**
+ * Formatta un simbolo in formato unificato (es. "SAND/USDT" o "BTC/EUR")
+ * @param {string} symbol - Simbolo grezzo (es. "sand", "bitcoin", "sand_eur")
+ * @param {Array} availableSymbols - Array di simboli disponibili con display
+ * @returns {string} Simbolo formattato (es. "SAND/USDT")
+ */
+export const formatSymbol = (symbol, availableSymbols = []) => {
+    if (!symbol) return '';
+    
+    // Cerca il simbolo in availableSymbols per ottenere il display corretto
+    const symbolInfo = availableSymbols.find(s => s.symbol === symbol);
+    if (symbolInfo && symbolInfo.display) {
+        return symbolInfo.display;
+    }
+    
+    // Fallback: formatta manualmente
+    const symbolLower = symbol.toLowerCase();
+    
+    // Rimuovi suffissi _usdt, _eur, ecc. e aggiungi /USDT o /EUR
+    if (symbolLower.includes('_usdt')) {
+        const baseSymbol = symbolLower.replace('_usdt', '').toUpperCase();
+        return `${baseSymbol}/USDT`;
+    } else if (symbolLower.includes('_eur')) {
+        const baseSymbol = symbolLower.replace('_eur', '').toUpperCase();
+        return `${baseSymbol}/EUR`;
+    }
+    
+    // Mappa simboli comuni
+    const symbolMap = {
+        'bitcoin': 'BTC/USDT',
+        'ethereum': 'ETH/USDT',
+        'solana': 'SOL/USDT',
+        'cardano': 'ADA/USDT',
+        'polkadot': 'DOT/USDT',
+        'chainlink': 'LINK/USDT',
+        'litecoin': 'LTC/USDT',
+        'ripple': 'XRP/USDT',
+        'binance_coin': 'BNB/USDT',
+        'sand': 'SAND/USDT',
+        'mana': 'MANA/USDT',
+        'axs': 'AXS/USDT',
+        'gala': 'GALA/USDT',
+        'enj': 'ENJ/USDT',
+        'bonk': 'BONK/USDT',
+        'shiba_inu': 'SHIB/USDT',
+        'shib': 'SHIB/USDT'
+    };
+    
+    if (symbolMap[symbolLower]) {
+        return symbolMap[symbolLower];
+    }
+    
+    // Fallback finale: uppercase semplice con /USDT
+    const upperSymbol = symbol.toUpperCase().replace(/_/g, '');
+    return `${upperSymbol}/USDT`;
+};
+
+/**
  * Formatta un prezzo con il numero di decimali appropriato
  * @param {number} price - Il prezzo da formattare
  * @param {number} decimals - Numero di decimali (default: auto-calcolato in base al valore)

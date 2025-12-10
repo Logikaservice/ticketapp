@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, TrendingUp, TrendingDown, AlertCircle, BarChart2, ChevronsDown, ExternalLink } from 'lucide-react';
-import { formatPrice, formatPriceWithSymbol, formatVolume } from '../../utils/priceFormatter';
+import { formatPrice, formatPriceWithSymbol, formatVolume, formatSymbol } from '../../utils/priceFormatter';
 
 const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices = {}, onClosePosition, onUpdatePnL, availableSymbols = [], onSelectSymbol, apiBase }) => {
     const [isUpdating, setIsUpdating] = useState(false);
@@ -425,23 +425,7 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                         }}
                                         title="Clicca per evidenziare tutte le posizioni di questo simbolo"
                                     >
-                                        {(() => {
-                                            // Cerca il simbolo in availableSymbols per ottenere il display corretto
-                                            const symbolInfo = availableSymbols.find(s => s.symbol === pos.symbol);
-                                            if (symbolInfo && symbolInfo.display) {
-                                                return symbolInfo.display;
-                                            }
-                                            // Fallback: formatta manualmente se non trovato
-                                            if (pos.symbol && pos.symbol.includes('_usdt')) {
-                                                const baseSymbol = pos.symbol.replace('_usdt', '').toUpperCase();
-                                                return `${baseSymbol}/USDT`;
-                                            } else if (pos.symbol && pos.symbol.includes('_eur')) {
-                                                const baseSymbol = pos.symbol.replace('_eur', '').toUpperCase();
-                                                return `${baseSymbol}/USDT`;
-                                            }
-                                            // Fallback finale: uppercase semplice
-                                            return (pos.symbol || '').toUpperCase().replace(/_/g, '/');
-                                        })()}
+                                        {formatSymbol(pos.symbol, availableSymbols)}
                                     </td>
                                     <td style={{ padding: '10px 8px' }}>
                                         <div style={{

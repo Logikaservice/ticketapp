@@ -111,12 +111,6 @@ const CryptoDashboard = () => {
             if (res.ok) {
                 const data = await res.json();
                 // Dashboard data received logging removed
-                console.log(`📊 [DASHBOARD] Posizioni ricevute: ${data.open_positions?.length || 0}`);
-                if (data.open_positions && data.open_positions.length > 0) {
-                    data.open_positions.forEach((pos, idx) => {
-                        console.log(`  ${idx + 1}. ${pos.symbol} - ${pos.type} - ${pos.status} - Ticket: ${pos.ticket_id}`);
-                    });
-                }
                 setPortfolio({ ...data.portfolio, rsi: data.rsi });
                 setTrades(data.recent_trades || []);
                 setAllTrades(data.all_trades || []); // Store full history for chart
@@ -1206,7 +1200,49 @@ const CryptoDashboard = () => {
                                     return (
                                         <tr key={i} style={{ borderBottom: '1px solid #2d3748', background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
                                             <td style={{ padding: '10px' }}>{new Date(pos.closed_at).toLocaleTimeString()}</td>
-                                            <td style={{ padding: '10px', fontWeight: 'bold' }}>{pos.symbol}</td>
+                                            <td style={{ padding: '10px', fontWeight: 'bold' }}>
+                                                {(() => {
+                                                    // Usa la stessa logica di formattazione di OpenPositions
+                                                    const symbolInfo = availableSymbols.find(s => s.symbol === pos.symbol);
+                                                    if (symbolInfo && symbolInfo.display) {
+                                                        return symbolInfo.display;
+                                                    }
+                                                    // Fallback: formatta manualmente
+                                                    const symbolLower = (pos.symbol || '').toLowerCase();
+                                                    if (symbolLower.includes('_usdt')) {
+                                                        const baseSymbol = symbolLower.replace('_usdt', '').toUpperCase();
+                                                        return `${baseSymbol}/USDT`;
+                                                    } else if (symbolLower.includes('_eur')) {
+                                                        const baseSymbol = symbolLower.replace('_eur', '').toUpperCase();
+                                                        return `${baseSymbol}/EUR`;
+                                                    }
+                                                    // Mappa simboli comuni
+                                                    const symbolMap = {
+                                                        'bitcoin': 'BTC/USDT',
+                                                        'ethereum': 'ETH/USDT',
+                                                        'solana': 'SOL/USDT',
+                                                        'cardano': 'ADA/USDT',
+                                                        'polkadot': 'DOT/USDT',
+                                                        'chainlink': 'LINK/USDT',
+                                                        'litecoin': 'LTC/USDT',
+                                                        'ripple': 'XRP/USDT',
+                                                        'binance_coin': 'BNB/USDT',
+                                                        'sand': 'SAND/USDT',
+                                                        'mana': 'MANA/USDT',
+                                                        'axs': 'AXS/USDT',
+                                                        'gala': 'GALA/USDT',
+                                                        'enj': 'ENJ/USDT',
+                                                        'bonk': 'BONK/USDT',
+                                                        'shiba_inu': 'SHIB/USDT',
+                                                        'shib': 'SHIB/USDT'
+                                                    };
+                                                    if (symbolMap[symbolLower]) {
+                                                        return symbolMap[symbolLower];
+                                                    }
+                                                    // Fallback finale
+                                                    return (pos.symbol || '').toUpperCase().replace(/_/g, '/') + '/USDT';
+                                                })()}
+                                            </td>
                                             <td style={{ padding: '10px' }}>
                                                 <span style={{
                                                     color: pos.type === 'buy' ? '#10b981' : '#ef4444',
