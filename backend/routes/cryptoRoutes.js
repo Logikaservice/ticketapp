@@ -6584,6 +6584,61 @@ router.get('/bot-analysis', async (req, res) => {
         const MIN_VOLUME = analysisParams.min_volume_24h || 500_000;
         const volumeBlocked = volume24h < MIN_VOLUME;
 
+        // ✅ PORTFOLIO DRAWDOWN PROTECTION
+        let portfolioDrawdownBlock = false;
+        let portfolioDrawdownReason = '';
+        try {
+            const portfolio = await dbGet("SELECT * FROM portfolio WHERE id = 1");
+            if (portfolio) {
+                const balance = parseFloat(portfolio.balance_usd || 10000);
+                const initialBalance = 1000;
+                const portfolioPnLPct = balance > 0 ? ((balance - initialBalance) / initialBalance) * 100 : -100;
+
+                let avgOpenPnL = 0;
+                if (allOpenPositions.length > 0) {
+                    const totalOpenPnL = allOpenPositions.reduce((sum, p) => sum + (parseFloat(p.profit_loss_pct) || 0), 0);
+                    avgOpenPnL = totalOpenPnL / allOpenPositions.length;
+                }
+
+                if (portfolioPnLPct < -5.0) {
+                    portfolioDrawdownBlock = true;
+                    portfolioDrawdownReason = `Portfolio drawdown troppo alto: ${portfolioPnLPct.toFixed(2)}% (soglia: -5%)`;
+                } else if (avgOpenPnL < -2.0 && allOpenPositions.length >= 5) {
+                    portfolioDrawdownBlock = true;
+                    portfolioDrawdownReason = `P&L medio posizioni aperte troppo negativo: ${avgOpenPnL.toFixed(2)}% (soglia: -2%)`;
+                }
+            }
+        } catch (e) {
+            console.error('⚠️ Error checking portfolio drawdown:', e.message);
+        }
+
+        // ✅ MARKET REGIME DETECTION (BTC Trend)
+        let marketRegimeBlock = false;
+        let marketRegimeReason = '';
+        try {
+            const btcPrice = await getSymbolPrice('bitcoin');
+            if (btcPrice > 0) {
+                const btcHistory = await dbAll(
+                    "SELECT price FROM price_history WHERE symbol = 'bitcoin' ORDER BY timestamp DESC LIMIT 100"
+                );
+                if (btcHistory.length >= 50) {
+                    const btcPrice24hAgo = parseFloat(btcHistory[49].price);
+                    const btcChange24h = ((btcPrice - btcPrice24hAgo) / btcPrice24hAgo) * 100;
+
+                    if (signal.direction === 'LONG' && btcChange24h < -3.0) {
+                        marketRegimeBlock = true;
+                        marketRegimeReason = `BTC in downtrend forte (-${Math.abs(btcChange24h).toFixed(2)}%) - Mercato ribassista, bloccare LONG`;
+                    }
+                    if (signal.direction === 'SHORT' && btcChange24h > 3.0) {
+                        marketRegimeBlock = true;
+                        marketRegimeReason = `BTC in uptrend forte (+${btcChange24h.toFixed(2)}%) - Mercato rialzista, bloccare SHORT`;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('⚠️ Error checking market regime:', e.message);
+        }
+
         // ✅ Check Hybrid Strategy (pass ALL positions)
         const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions);
         console.log(`📊 [BOT-ANALYSIS] Hybrid Check: ${hybridCheck.allowed ? 'OK' : 'BLOCKED'} (${hybridCheck.reason})`);
