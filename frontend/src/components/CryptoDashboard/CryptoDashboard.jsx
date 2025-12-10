@@ -1132,7 +1132,6 @@ const CryptoDashboard = () => {
                         openPositions={filteredOpenPositions}
                         currentPrice={currentPrice}
                         priceHistory={priceData || []}
-                        currentSymbol={currentSymbol}
                     />
                 </div>
 

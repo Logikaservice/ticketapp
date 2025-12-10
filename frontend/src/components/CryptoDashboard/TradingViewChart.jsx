@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import TradingViewOverlay from './TradingViewOverlay';
-import { formatPriceWithSymbol } from '../../utils/priceFormatter';
+import { formatPriceWithSymbol, formatSymbol } from '../../utils/priceFormatter';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import './TradingViewChart.css';
 
