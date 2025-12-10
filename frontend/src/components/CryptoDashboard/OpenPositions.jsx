@@ -29,6 +29,27 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
         return () => clearInterval(interval);
     }, [onUpdatePnL]);
 
+    // Chiudi menu quando si clicca fuori
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (openMenuFor) {
+                const menuElement = menuRefs.current[openMenuFor];
+                if (menuElement && !menuElement.contains(event.target)) {
+                    // Verifica se il click è sul pulsante che apre il menu
+                    const button = event.target.closest('button');
+                    if (!button || !button.querySelector('svg')) {
+                        setOpenMenuFor(null);
+                    }
+                }
+            }
+        };
+
+        if (openMenuFor) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => document.removeEventListener('mousedown', handleClickOutside);
+        }
+    }, [openMenuFor]);
+
     if (!positions || positions.length === 0) {
         return (
             <div className="open-positions-container" style={{
@@ -210,15 +231,29 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                 pnlPct = parseFloat(pos.profit_loss_pct) || 0;
                             }
 
+                            // Evidenziazione viola se il simbolo corrisponde a currentSymbol
+                            const isSelected = pos.symbol === currentSymbol;
+                            
                             return (
                                 <tr
                                     key={pos.ticket_id}
                                     style={{
                                         borderBottom: '1px solid #2d2d2d',
-                                        transition: 'background 0.2s'
+                                        transition: 'background 0.2s',
+                                        background: isSelected ? 'rgba(139, 92, 246, 0.15)' : 'transparent'
                                     }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = '#252525'}
-                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                    onMouseEnter={(e) => {
+                                        if (!isSelected) {
+                                            e.currentTarget.style.background = '#252525';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!isSelected) {
+                                            e.currentTarget.style.background = 'transparent';
+                                        } else {
+                                            e.currentTarget.style.background = 'rgba(139, 92, 246, 0.15)';
+                                        }
+                                    }}
                                 >
                                     <td style={{ padding: '10px 8px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
                                         <div style={{ display: 'flex', gap: '5px', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
@@ -251,20 +286,31 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                                 </button>
                                                 {openMenuFor === pos.ticket_id && (
                                                     <div
-                                                        ref={el => menuRefs.current[pos.ticket_id] = el}
+                                                        ref={el => {
+                                                            menuRefs.current[pos.ticket_id] = el;
+                                                            // Calcola posizione quando il menu viene aperto
+                                                            if (el) {
+                                                                // Trova il pulsante che ha aperto il menu
+                                                                const button = el.parentElement?.querySelector('button');
+                                                                if (button) {
+                                                                    const buttonRect = button.getBoundingClientRect();
+                                                                    el.style.position = 'fixed';
+                                                                    el.style.top = `${buttonRect.bottom + 4}px`;
+                                                                    el.style.left = `${buttonRect.right - 180}px`;
+                                                                }
+                                                            }
+                                                        }}
                                                         style={{
-                                                            position: 'absolute',
-                                                            top: '100%',
-                                                            right: 0,
-                                                            marginTop: '4px',
+                                                            position: 'fixed',
                                                             background: '#1f2937',
                                                             border: '1px solid #374151',
                                                             borderRadius: '6px',
                                                             padding: '4px',
-                                                            zIndex: 9999,
+                                                            zIndex: 99999,
                                                             minWidth: '180px',
                                                             boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
                                                         }}
+                                                        onClick={(e) => e.stopPropagation()}
                                                     >
                                                         <button
                                                             onClick={(e) => {
