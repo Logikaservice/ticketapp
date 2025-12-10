@@ -15,14 +15,20 @@ export const formatPrice = (price, decimals = null) => {
     }
 
     // Se non specificato, calcola automaticamente il numero di decimali in base al valore
-    // ✅ Allineato con formato TradingView che mostra sempre 2 decimali per la maggior parte dei valori
+    // ✅ Allineato ESATTAMENTE con formato TradingView
     if (decimals === null) {
-        if (price < 0.01) {
-            decimals = 6; // Per valori molto piccoli (< 0.01), mostra 6 decimali
+        if (price < 0.0001) {
+            decimals = 8; // Per valori molto piccoli (< 0.0001), mostra 8 decimali (es. 0.00001234)
+        } else if (price < 0.01) {
+            decimals = 6; // Per valori piccoli (< 0.01), mostra 6 decimali (es. 0.000123)
         } else if (price < 1) {
-            decimals = 4; // Per valori < 1, mostra 4 decimali
+            decimals = 5; // Per valori < 1, mostra 5 decimali (es. 0.12345)
+        } else if (price < 10) {
+            decimals = 3; // ✅ Per valori tra 1 e 10 (es. DOT/USDT ~2.165), mostra 3 decimali come TradingView
+        } else if (price < 100) {
+            decimals = 2; // Per valori tra 10 e 100, mostra 2 decimali
         } else {
-            decimals = 2; // ✅ Per valori >= 1 (es. DOT/USDT ~2.20), mostra 2 decimali come TradingView
+            decimals = 2; // Per valori >= 100 (es. BTC ~43250.25), mostra 2 decimali
         }
     }
 
