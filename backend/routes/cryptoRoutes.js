@@ -7078,18 +7078,49 @@ router.get('/bot-analysis', async (req, res) => {
                     // 4. DETERMINA STATUS E SUMMARY
                     if (analysis.canOpen) {
                         analysis.status = 'ready';
-                        analysis.summary = `✅ PRONTO AD APRIRE LONG - Tutti i requisiti soddisfatti (Strength: ${longAdjustedStrength}/${LONG_MIN_STRENGTH}, Confirmations: ${longCurrentConfirmations}/${LONG_MIN_CONFIRMATIONS})`;
-                    } else if (analysis.missingRequirements.length > 0) {
-                        analysis.status = 'waiting';
-                        const missing = analysis.missingRequirements.map(m => m.message).join(', ');
-                        analysis.summary = `⏳ IN ATTESA - ${missing}`;
-                    } else if (analysis.professionalFilters.some(f => f.status === 'warning')) {
-                        analysis.status = 'blocked';
-                        const warnings = analysis.professionalFilters.filter(f => f.status === 'warning').map(f => f.message).join(', ');
-                        analysis.summary = `🚫 BLOCCATO DA FILTRI PROFESSIONALI - ${warnings}`;
+                        analysis.summary = `✅ PRONTO AD APRIRE LONG - Tutti i requisiti soddisfatti (Strength: ${longAdjustedStrength}/${MIN_SIGNAL_STRENGTH}, Confirmations: ${longCurrentConfirmations}/${LONG_MIN_CONFIRMATIONS})`;
                     } else {
-                        analysis.status = 'blocked';
-                        analysis.summary = longReason;
+                        // ✅ FIX: Spiega ESATTAMENTE perché non apre, anche se sembra pronto
+                        const blockReasons = [];
+
+                        // Check 1: Strength insufficiente
+                        if (longAdjustedStrength < MIN_SIGNAL_STRENGTH) {
+                            blockReasons.push(`Strength troppo bassa (${longAdjustedStrength}/${MIN_SIGNAL_STRENGTH}, mancano ${MIN_SIGNAL_STRENGTH - longAdjustedStrength} punti)`);
+                        }
+
+                        // Check 2: Conferme insufficienti
+                        if (longCurrentConfirmations < LONG_MIN_CONFIRMATIONS) {
+                            blockReasons.push(`Conferme insufficienti (${longCurrentConfirmations}/${LONG_MIN_CONFIRMATIONS}, mancano ${LONG_MIN_CONFIRMATIONS - longCurrentConfirmations})`);
+                        }
+
+                        // Check 3: Bloccato da ATR
+                        if (signal.atrBlocked) {
+                            blockReasons.push('Bloccato da ATR (volatilità fuori range)');
+                        }
+
+                        // Check 4: Bloccato da filtri professionali
+                        if (longBlockedByFilters) {
+                            const filterWarnings = analysis.professionalFilters.filter(f => f.status === 'warning').map(f => f.message);
+                            blockReasons.push(`Filtri professionali: ${filterWarnings.join(', ')}`);
+                        }
+
+                        // Check 5: Bloccato da Risk Manager
+                        if (longMeetsRequirements && !canOpenCheck.allowed) {
+                            blockReasons.push(`Risk Manager: ${canOpenCheck.reason}`);
+                        }
+
+                        // Determina status e summary
+                        if (blockReasons.length > 0) {
+                            analysis.status = 'blocked';
+                            analysis.summary = `🚫 NON PUÒ APRIRE - ${blockReasons.join(' | ')}`;
+                        } else if (analysis.missingRequirements.length > 0) {
+                            analysis.status = 'waiting';
+                            const missing = analysis.missingRequirements.map(m => m.message).join(', ');
+                            analysis.summary = `⏳ IN ATTESA - ${missing}`;
+                        } else {
+                            analysis.status = 'blocked';
+                            analysis.summary = longReason;
+                        }
                     }
 
                     return analysis;
@@ -7213,18 +7244,49 @@ router.get('/bot-analysis', async (req, res) => {
                     // 4. DETERMINA STATUS E SUMMARY
                     if (analysis.canOpen) {
                         analysis.status = 'ready';
-                        analysis.summary = `✅ PRONTO AD APRIRE SHORT - Tutti i requisiti soddisfatti (Strength: ${shortAdjustedStrength}/${SHORT_MIN_STRENGTH}, Confirmations: ${shortCurrentConfirmations}/${SHORT_MIN_CONFIRMATIONS})`;
-                    } else if (analysis.missingRequirements.length > 0) {
-                        analysis.status = 'waiting';
-                        const missing = analysis.missingRequirements.map(m => m.message).join(', ');
-                        analysis.summary = `⏳ IN ATTESA - ${missing}`;
-                    } else if (analysis.professionalFilters.some(f => f.status === 'warning')) {
-                        analysis.status = 'blocked';
-                        const warnings = analysis.professionalFilters.filter(f => f.status === 'warning').map(f => f.message).join(', ');
-                        analysis.summary = `🚫 BLOCCATO DA FILTRI PROFESSIONALI - ${warnings}`;
+                        analysis.summary = `✅ PRONTO AD APRIRE SHORT - Tutti i requisiti soddisfatti (Strength: ${shortAdjustedStrength}/${MIN_SIGNAL_STRENGTH}, Confirmations: ${shortCurrentConfirmations}/${SHORT_MIN_CONFIRMATIONS})`;
                     } else {
-                        analysis.status = 'blocked';
-                        analysis.summary = shortReason;
+                        // ✅ FIX: Spiega ESATTAMENTE perché non apre, anche se sembra pronto
+                        const blockReasons = [];
+
+                        // Check 1: Strength insufficiente
+                        if (shortAdjustedStrength < MIN_SIGNAL_STRENGTH) {
+                            blockReasons.push(`Strength troppo bassa (${shortAdjustedStrength}/${MIN_SIGNAL_STRENGTH}, mancano ${MIN_SIGNAL_STRENGTH - shortAdjustedStrength} punti)`);
+                        }
+
+                        // Check 2: Conferme insufficienti
+                        if (shortCurrentConfirmations < SHORT_MIN_CONFIRMATIONS) {
+                            blockReasons.push(`Conferme insufficienti (${shortCurrentConfirmations}/${SHORT_MIN_CONFIRMATIONS}, mancano ${SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations})`);
+                        }
+
+                        // Check 3: Bloccato da ATR
+                        if (signal.atrBlocked) {
+                            blockReasons.push('Bloccato da ATR (volatilità fuori range)');
+                        }
+
+                        // Check 4: Bloccato da filtri professionali
+                        if (shortBlockedByFilters) {
+                            const filterWarnings = analysis.professionalFilters.filter(f => f.status === 'warning').map(f => f.message);
+                            blockReasons.push(`Filtri professionali: ${filterWarnings.join(', ')}`);
+                        }
+
+                        // Check 5: Bloccato da Risk Manager
+                        if (shortMeetsRequirements && !canOpenCheck.allowed) {
+                            blockReasons.push(`Risk Manager: ${canOpenCheck.reason}`);
+                        }
+
+                        // Determina status e summary
+                        if (blockReasons.length > 0) {
+                            analysis.status = 'blocked';
+                            analysis.summary = `🚫 NON PUÒ APRIRE - ${blockReasons.join(' | ')}`;
+                        } else if (analysis.missingRequirements.length > 0) {
+                            analysis.status = 'waiting';
+                            const missing = analysis.missingRequirements.map(m => m.message).join(', ');
+                            analysis.summary = `⏳ IN ATTESA - ${missing}`;
+                        } else {
+                            analysis.status = 'blocked';
+                            analysis.summary = shortReason;
+                        }
                     }
 
                     return analysis;
