@@ -455,7 +455,7 @@ const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, p
                 lineWidth: 2,
                 lineStyle: 2, // Dashed
                 axisLabelVisible: true,
-                title: formatPriceWithSymbol(currentPrice, 2),
+                title: formatPriceWithSymbol(currentPrice), // ✅ Usa formato automatico (3 decimali per valori 1-10)
             });
             priceLinesRef.current.push(currentPriceLine);
         } catch (e) {
@@ -475,7 +475,7 @@ const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, p
                             lineWidth: 1,
                             lineStyle: 0, // Solid
                             axisLabelVisible: true,
-                            title: `Entry ${isBuy ? 'BUY' : 'SELL'}: ${formatPriceWithSymbol(entryPrice, 2)}`,
+                            title: `Entry ${isBuy ? 'BUY' : 'SELL'}: ${formatPriceWithSymbol(entryPrice)}`, // ✅ Usa formato automatico
                         });
                         priceLinesRef.current.push(entryLine);
                     } catch (e) {
@@ -659,7 +659,7 @@ const LightweightChart = ({ symbol = 'BTCUSDT', trades = [], currentPrice = 0, p
             {/* Current Price Display */}
             {currentPrice > 0 && (
                 <div className="current-price-display">
-                    1 BTC = {formatPriceWithSymbol(currentPrice, 2)}
+                    1 BTC = {formatPriceWithSymbol(currentPrice)} {/* ✅ Usa formato automatico */}
                 </div>
             )}
 

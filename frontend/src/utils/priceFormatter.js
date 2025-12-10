@@ -15,13 +15,18 @@ export const formatPrice = (price, decimals = null) => {
     }
 
     // Se non specificato, calcola automaticamente il numero di decimali in base al valore
+    // ✅ Allineato con formato TradingView che mostra 3 decimali per valori tra 1 e 10
     if (decimals === null) {
         if (price < 0.01) {
             decimals = 6; // Per valori molto piccoli (< 0.01), mostra 6 decimali
         } else if (price < 1) {
             decimals = 4; // Per valori < 1, mostra 4 decimali
+        } else if (price < 10) {
+            decimals = 3; // ✅ Per valori tra 1 e 10 (es. DOT/USDT ~2.19), mostra 3 decimali come TradingView
+        } else if (price < 100) {
+            decimals = 2; // Per valori tra 10 e 100, mostra 2 decimali
         } else {
-            decimals = 2; // Per valori >= 1, mostra 2 decimali
+            decimals = 2; // Per valori >= 100, mostra 2 decimali
         }
     }
 
