@@ -78,11 +78,14 @@
 .tradingview-chart-container.fullscreen-mode {
     width: 125%;
     margin-left: -12.5%;
+    overflow: visible !important;
+    position: relative;
 }
 
 .tradingview-chart-container.fullscreen-mode .chart-main-wrapper.fullscreen-chart {
     height: calc((100vh - 200px) * 1.25);
     min-height: calc((100vh - 200px) * 1.25);
+    overflow: visible !important;
 }
 
 /* Sezione posizioni sotto il grafico in fullscreen */
@@ -93,6 +96,9 @@
     border-top: 2px solid #374151;
     padding: 20px;
     margin-top: 20px;
+    position: relative;
+    z-index: 10;
+    overflow: visible !important;
 }
 
 /* In chart-only mode, la sezione posizioni occupa tutta la larghezza */
