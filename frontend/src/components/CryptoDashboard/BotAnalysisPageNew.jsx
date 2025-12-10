@@ -326,31 +326,35 @@ const BotAnalysisPageNew = () => {
                             <div className="requirement-progress">
                                 <div className="progress-item">
                                     <span>Strength attuale:</span>
-                                    <span className={`value ${(requirements?.long?.currentStrength || 0) >= (requirements?.long?.minStrength || 70) ? 'ok' : 'missing'}`}>
+                                    <span className={`value ${(requirements?.long?.currentStrength || 0) >= (requirements?.long?.minStrength || 65) ? 'ok' : 'missing'}`}>
                                         {requirements?.long?.currentStrength || 0}/100
                                     </span>
-                                    {(requirements?.long?.needsStrength || 0) > 0 && (
-                                        <span className="needs" style={{ color: '#ef4444', fontWeight: 'bold' }}>Mancano {requirements.long.needsStrength} punti!</span>
-                                    )}
                                 </div>
                                 <div className="progress-item">
                                     <span>Minimo richiesto:</span>
-                                    <span className="value" style={{ color: '#10b981' }}>{requirements?.long?.minStrength || 70}/100</span>
+                                    <span className="value" style={{ color: '#10b981', fontWeight: 'bold' }}>
+                                        {requirements?.long?.minStrength || 65}
+                                    </span>
+                                    {(requirements?.long?.needsStrength || 0) > 0 && (
+                                        <span className="needs" style={{ color: '#ef4444', fontWeight: 'bold', marginLeft: '10px' }}>
+                                            (Mancano {requirements.long.needsStrength} punti!)
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="progress-bar">
                                     <div
                                         className="progress-fill"
                                         style={{
-                                            width: `${Math.min(100, ((requirements?.long?.currentStrength || 0) / (requirements?.long?.minStrength || 70)) * 100)}%`,
+                                            width: `${Math.min(100, ((requirements?.long?.currentStrength || 0) / (requirements?.long?.minStrength || 65)) * 100)}%`,
                                             transition: 'width 0.5s ease-in-out',
-                                            background: (requirements?.long?.currentStrength || 0) >= (requirements?.long?.minStrength || 70)
+                                            background: (requirements?.long?.currentStrength || 0) >= (requirements?.long?.minStrength || 65)
                                                 ? 'linear-gradient(90deg, #10b981, #059669)'
                                                 : 'linear-gradient(90deg, #3b82f6, #2563eb)'
                                         }}
                                     />
                                 </div>
                                 <div className="strength-percentage">
-                                    {Math.round(((requirements?.long?.currentStrength || 0) / (requirements?.long?.minStrength || 70)) * 100)}% del target raggiunto
+                                    {Math.round(((requirements?.long?.currentStrength || 0) / (requirements?.long?.minStrength || 65)) * 100)}% del target raggiunto
                                 </div>
                             </div>
                             {requirements?.long?.strengthContributions && requirements.long.strengthContributions.length > 0 && (
@@ -412,31 +416,35 @@ const BotAnalysisPageNew = () => {
                             <div className="requirement-progress">
                                 <div className="progress-item">
                                     <span>Strength attuale:</span>
-                                    <span className={`value ${(requirements?.short?.currentStrength || 0) >= (requirements?.short?.minStrength || 70) ? 'ok' : 'missing'}`}>
+                                    <span className={`value ${(requirements?.short?.currentStrength || 0) >= (requirements?.short?.minStrength || 65) ? 'ok' : 'missing'}`}>
                                         {requirements?.short?.currentStrength || 0}/100
                                     </span>
-                                    {(requirements?.short?.needsStrength || 0) > 0 && (
-                                        <span className="needs" style={{ color: '#ef4444', fontWeight: 'bold' }}>Mancano {requirements.short.needsStrength} punti!</span>
-                                    )}
                                 </div>
                                 <div className="progress-item">
                                     <span>Minimo richiesto:</span>
-                                    <span className="value" style={{ color: '#10b981' }}>{requirements?.short?.minStrength || 70}/100</span>
+                                    <span className="value" style={{ color: '#10b981', fontWeight: 'bold' }}>
+                                        {requirements?.short?.minStrength || 65}
+                                    </span>
+                                    {(requirements?.short?.needsStrength || 0) > 0 && (
+                                        <span className="needs" style={{ color: '#ef4444', fontWeight: 'bold', marginLeft: '10px' }}>
+                                            (Mancano {requirements.short.needsStrength} punti!)
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="progress-bar">
                                     <div
                                         className="progress-fill"
                                         style={{
-                                            width: `${Math.min(100, ((requirements?.short?.currentStrength || 0) / (requirements?.short?.minStrength || 70)) * 100)}%`,
+                                            width: `${Math.min(100, ((requirements?.short?.currentStrength || 0) / (requirements?.short?.minStrength || 65)) * 100)}%`,
                                             transition: 'width 0.5s ease-in-out',
-                                            background: (requirements?.short?.currentStrength || 0) >= (requirements?.short?.minStrength || 70)
+                                            background: (requirements?.short?.currentStrength || 0) >= (requirements?.short?.minStrength || 65)
                                                 ? 'linear-gradient(90deg, #10b981, #059669)'
                                                 : 'linear-gradient(90deg, #3b82f6, #2563eb)'
                                         }}
                                     />
                                 </div>
                                 <div className="strength-percentage">
-                                    {Math.round(((requirements?.short?.currentStrength || 0) / (requirements?.short?.minStrength || 70)) * 100)}% del target raggiunto
+                                    {Math.round(((requirements?.short?.currentStrength || 0) / (requirements?.short?.minStrength || 65)) * 100)}% del target raggiunto
                                 </div>
                             </div>
                             {requirements?.short?.strengthContributions && requirements.short.strengthContributions.length > 0 && (

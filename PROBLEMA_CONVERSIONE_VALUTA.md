@@ -186,3 +186,4 @@ Se c'è questo problema:
 **Questo potrebbe spiegare perché il bot ha aperto RENDER BUY a €1.42 quando il sentiment è "Neutro"!**
 
 
+

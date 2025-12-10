@@ -6573,9 +6573,15 @@ router.get('/bot-analysis', async (req, res) => {
         const longPositions = openPositions.filter(p => p.type === 'buy');
         const shortPositions = openPositions.filter(p => p.type === 'sell');
 
-        // Calculate what's needed for LONG
-        const LONG_MIN_CONFIRMATIONS = 3; // Abbassato da 4 per più opportunità
-        const LONG_MIN_STRENGTH = 60; // Abbassato da 70 per più opportunità
+        // Calculate what's needed for LONG and SHORT
+        // ✅ FIX: Usa parametri dal database invece di hardcoded
+        const LONG_MIN_CONFIRMATIONS = params.min_confirmations_long || 3;
+        const LONG_MIN_STRENGTH = params.min_signal_strength || 65; // Legge dal DB (default 65)
+        const SHORT_MIN_CONFIRMATIONS = params.min_confirmations_short || 4;
+        const SHORT_MIN_STRENGTH = params.min_signal_strength || 65; // Stesso valore per SHORT
+        const MIN_SIGNAL_STRENGTH = params.min_signal_strength || 65; // Per compatibilità
+
+        console.log(`📊 [BOT-ANALYSIS] Parametri: MIN_STRENGTH=${MIN_SIGNAL_STRENGTH}, LONG_CONF=${LONG_MIN_CONFIRMATIONS}, SHORT_CONF=${SHORT_MIN_CONFIRMATIONS}`);
 
         // ✅ FIX: Mostra SEMPRE i valori parziali di longSignal, indipendentemente da direction
         // Questo rende il Quick Analysis coerente con il Market Scanner
@@ -6589,10 +6595,6 @@ router.get('/bot-analysis', async (req, res) => {
         const longMeetsRequirementsInitial = signal.direction === 'LONG' &&
             signal.strength >= LONG_MIN_STRENGTH &&
             signal.confirmations >= LONG_MIN_CONFIRMATIONS;
-
-        // Calculate what's needed for SHORT
-        const SHORT_MIN_CONFIRMATIONS = 4; // Abbassato da 5 per più opportunità
-        const SHORT_MIN_STRENGTH = 60; // Abbassato da 70 per più opportunità
 
         // ✅ FIX: Mostra SEMPRE i valori parziali di shortSignal, indipendentemente da direction
         // Questo rende il Quick Analysis coerente con il Market Scanner
@@ -6734,7 +6736,7 @@ router.get('/bot-analysis', async (req, res) => {
         console.log(`📊 [MTF] Trends: 1h=${trend1h}, 4h=${trend4h}`);
 
         // ✅ FIX CRITICO: Ricalcola requirements con adjusted strength e controllo ATR (stessa logica del bot reale)
-        const MIN_SIGNAL_STRENGTH = 70; // Stessa soglia del bot reale
+        // MIN_SIGNAL_STRENGTH già definito sopra con valore dal database
 
         // ✅ FIX: Controlla filtri professionali che bloccano LONG
         const longProfessionalFilters = signal.professionalAnalysis?.filters?.long || [];

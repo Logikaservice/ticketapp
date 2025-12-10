@@ -233,3 +233,4 @@ Il bot **implementa**:
 - Conferma volume su breakout
 
 
+
