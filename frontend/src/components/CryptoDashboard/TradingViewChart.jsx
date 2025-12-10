@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import TradingViewOverlay from './TradingViewOverlay';
 import { formatPriceWithSymbol } from '../../utils/priceFormatter';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import './TradingViewChart.css';
 
 const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [], currentPrice = 0, priceHistory = [], closedTrades = [] }) => {
@@ -9,6 +10,8 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
     const [markers, setMarkers] = useState([]);
     const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
     const [timeRange, setTimeRange] = useState({ min: 0, max: 0 });
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const fullscreenContainerRef = useRef(null);
 
     useEffect(() => {
         // Cleanup previous widget
@@ -143,8 +146,62 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
         }
     });
 
+    // Fullscreen handler
+    const toggleFullscreen = () => {
+        if (!isFullscreen) {
+            // Enter fullscreen
+            const container = containerRef.current?.parentElement;
+            if (container && container.requestFullscreen) {
+                container.requestFullscreen();
+                setIsFullscreen(true);
+            }
+        } else {
+            // Exit fullscreen
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+                setIsFullscreen(false);
+            }
+        }
+    };
+
+    // Listen for fullscreen changes
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    }, []);
+
     return (
-        <div className="tradingview-chart-container">
+        <div className="tradingview-chart-container" style={{ position: 'relative' }}>
+            {/* Pulsante ingrandimento */}
+            <button
+                onClick={toggleFullscreen}
+                style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    background: 'rgba(31, 41, 55, 0.9)',
+                    color: '#fff',
+                    border: '1px solid #374151',
+                    borderRadius: '6px',
+                    padding: '8px',
+                    cursor: 'pointer',
+                    zIndex: 100,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'background 0.2s',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(55, 65, 81, 0.95)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(31, 41, 55, 0.9)'}
+                title={isFullscreen ? "Riduci" : "Ingrandisci"}
+            >
+                {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+
             <div className="chart-main-wrapper">
                 {/* TradingView Chart - stesso di Binance */}
                 <div ref={containerRef} className="tradingview-chart-wrapper" style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'visible' }}>

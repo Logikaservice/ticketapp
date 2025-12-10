@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { RefreshCw, TrendingUp, TrendingDown, AlertCircle, Play, Activity, BarChart2, ChevronDown, ChevronUp, Lock } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { RefreshCw, TrendingUp, TrendingDown, AlertCircle, Play, Activity, BarChart2, ChevronDown, ChevronUp, Lock, ChevronsDown, ExternalLink } from 'lucide-react';
 import './CryptoLayout.css';
 
 const MarketScanner = ({ apiBase, onSelectSymbol }) => {
@@ -11,6 +11,10 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
     const [expandedSymbol, setExpandedSymbol] = useState(null);
     const [quickAnalysis, setQuickAnalysis] = useState(null);
     const [analysisLoading, setAnalysisLoading] = useState(false);
+
+    // Chart open mode menu state
+    const [openMenuFor, setOpenMenuFor] = useState(null);
+    const menuRefs = useRef({});
 
     const toggleExpand = async (symbol) => {
         if (expandedSymbol === symbol) {
@@ -58,6 +62,19 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
         const interval = setInterval(runScan, 60000);
         return () => clearInterval(interval);
     }, [apiBase]);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (openMenuFor && menuRefs.current[openMenuFor]) {
+                if (!menuRefs.current[openMenuFor].contains(event.target)) {
+                    setOpenMenuFor(null);
+                }
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [openMenuFor]);
 
     return (
         <div className="crypto-card" style={{ marginTop: '20px' }}>
@@ -232,22 +249,109 @@ const MarketScanner = ({ apiBase, onSelectSymbol }) => {
                                             {item.reasons[0] || '-'}
                                         </td>
                                         <td style={{ padding: '10px', textAlign: 'center' }}>
-                                            <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
-                                                <button
-                                                    onClick={() => onSelectSymbol(item.symbol)}
-                                                    style={{
-                                                        background: '#3b82f6',
-                                                        color: '#fff',
-                                                        border: 'none',
-                                                        borderRadius: '4px',
-                                                        padding: '4px 8px',
-                                                        cursor: 'pointer',
-                                                        fontSize: '0.75rem'
-                                                    }}
-                                                    title="View Chart"
-                                                >
-                                                    <BarChart2 size={14} />
-                                                </button>
+                                            <div style={{ display: 'flex', gap: '5px', justifyContent: 'center', position: 'relative' }}>
+                                                {/* Menu dropdown per aprire grafico */}
+                                                <div style={{ position: 'relative', display: 'inline-block' }}>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setOpenMenuFor(openMenuFor === item.symbol ? null : item.symbol);
+                                                        }}
+                                                        style={{
+                                                            background: '#3b82f6',
+                                                            color: '#fff',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            padding: '4px 8px',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.75rem',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
+                                                        }}
+                                                        title="Apri Grafico - Menu"
+                                                    >
+                                                        <BarChart2 size={14} />
+                                                        <ChevronsDown size={10} />
+                                                    </button>
+                                                    {openMenuFor === item.symbol && (
+                                                        <div
+                                                            ref={el => menuRefs.current[item.symbol] = el}
+                                                            style={{
+                                                                position: 'absolute',
+                                                                top: '100%',
+                                                                right: 0,
+                                                                marginTop: '4px',
+                                                                background: '#1f2937',
+                                                                border: '1px solid #374151',
+                                                                borderRadius: '6px',
+                                                                padding: '4px',
+                                                                zIndex: 1000,
+                                                                minWidth: '180px',
+                                                                boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
+                                                            }}
+                                                        >
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onSelectSymbol(item.symbol);
+                                                                    setOpenMenuFor(null);
+                                                                }}
+                                                                style={{
+                                                                    width: '100%',
+                                                                    background: 'transparent',
+                                                                    color: '#fff',
+                                                                    border: 'none',
+                                                                    borderRadius: '4px',
+                                                                    padding: '8px 12px',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '0.85rem',
+                                                                    textAlign: 'left',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '8px',
+                                                                    transition: 'background 0.2s'
+                                                                }}
+                                                                onMouseEnter={(e) => e.currentTarget.style.background = '#374151'}
+                                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                                            >
+                                                                <BarChart2 size={14} />
+                                                                Nella stessa pagina
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const url = new URL(window.location);
+                                                                    url.searchParams.set('domain', 'crypto');
+                                                                    url.searchParams.set('symbol', item.symbol);
+                                                                    url.searchParams.set('_v', Date.now());
+                                                                    window.open(url.toString(), '_blank');
+                                                                    setOpenMenuFor(null);
+                                                                }}
+                                                                style={{
+                                                                    width: '100%',
+                                                                    background: 'transparent',
+                                                                    color: '#fff',
+                                                                    border: 'none',
+                                                                    borderRadius: '4px',
+                                                                    padding: '8px 12px',
+                                                                    cursor: 'pointer',
+                                                                    fontSize: '0.85rem',
+                                                                    textAlign: 'left',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '8px',
+                                                                    transition: 'background 0.2s'
+                                                                }}
+                                                                onMouseEnter={(e) => e.currentTarget.style.background = '#374151'}
+                                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                                            >
+                                                                <ExternalLink size={14} />
+                                                                In nuova pagina
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 <button
                                                     onClick={() => {
                                                         const url = new URL(window.location);
