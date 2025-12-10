@@ -1084,13 +1084,13 @@ const getBotParameters = async (symbol = 'bitcoin') => {
             const params = typeof bot.parameters === 'string' ? JSON.parse(bot.parameters) : bot.parameters;
             // ✅ FIX: Merge con defaults per assicurarsi che tutti i parametri esistano (incluso trailing_profit_protection_enabled)
             const merged = { ...DEFAULT_PARAMS, ...params };
-            
+
             // Debug log solo per trailing_profit_protection_enabled
             if (merged.trailing_profit_protection_enabled === undefined) {
                 console.warn('⚠️ [BOT-PARAMS] trailing_profit_protection_enabled non trovato, uso default:', DEFAULT_PARAMS.trailing_profit_protection_enabled);
                 merged.trailing_profit_protection_enabled = DEFAULT_PARAMS.trailing_profit_protection_enabled;
             }
-            
+
             return merged;
         }
     } catch (err) {
@@ -3351,7 +3351,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 try {
                     // Prova prima con il simbolo normalizzato
                     currentPrice = await getSymbolPrice(normalizedSymbol);
-                    
+
                     // ✅ DEBUG: Log sempre il prezzo recuperato per debug
                     console.log(`🔍 [UPDATE P&L] ${pos.symbol} (${pos.ticket_id}): getSymbolPrice("${normalizedSymbol}") → $${currentPrice ? currentPrice.toFixed(6) : 'null'} USDT | Entry: $${entryPriceForDebug.toFixed(6)} | DB: $${oldPrice.toFixed(6)}`);
 
@@ -3384,7 +3384,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                         if (oldPrice > 0 && Math.abs(currentPrice - oldPrice) > oldPrice * 0.01) {
                             console.log(`💰 [UPDATE P&L] ${pos.symbol} (${pos.ticket_id}): $${oldPrice.toFixed(6)} → $${currentPrice.toFixed(6)} USDT (diff: ${((currentPrice - oldPrice) / oldPrice * 100).toFixed(2)}%)`);
                         }
-                        
+
                         // ✅ DEBUG: Verifica anche rispetto all'entry price
                         if (entryPriceForDebug > 0) {
                             const diffFromEntry = Math.abs(currentPrice - entryPriceForDebug) / entryPriceForDebug;
@@ -3549,7 +3549,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                         // ✅ FIX: Se il prezzo nel DB è molto diverso dall'entry, potrebbe essere un errore di inizializzazione
                         // In questo caso, se il nuovo prezzo è più vicino all'entry, aggiorniamo comunque
                         const dbPriceDiffFromEntry = Math.abs(currentPriceInDb - entryPriceCheck) / entryPriceCheck;
-                        
+
                         if (priceDiffFromEntry > 2.0) {
                             // Il nuovo prezzo è troppo diverso dall'entry (>200%), potrebbe essere un errore
                             console.error(`🚨 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}) prezzo sospetto: $${currentPrice.toFixed(6)} vs entry: $${entryPriceCheck.toFixed(6)} (diff: ${(priceDiffFromEntry * 100).toFixed(2)}%)`);
@@ -5146,7 +5146,7 @@ router.put('/bot/parameters', async (req, res) => {
 
         // ✅ FIX: Serializza correttamente per PostgreSQL TEXT
         const parametersJson = JSON.stringify(validParams);
-        
+
         console.log('💾 [BOT-PARAMS] Salvataggio parametri:', {
             hasExisting: !!existing,
             paramsCount: Object.keys(validParams).length,
@@ -5167,7 +5167,7 @@ router.put('/bot/parameters', async (req, res) => {
             );
             console.log('✅ [BOT-PARAMS] INSERT eseguito, ID:', result.lastID);
         }
-        
+
         // ✅ Verifica che sia stato salvato correttamente
         const verification = await dbGet(
             "SELECT parameters FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global' LIMIT 1"
@@ -5188,10 +5188,40 @@ router.put('/bot/parameters', async (req, res) => {
             console.error('❌ [BOT-PARAMS] ERRORE: Parametri non salvati correttamente!');
         }
 
+        // ✅ FIX CRITICO: Aggiorna TUTTI i simboli attivi con i nuovi parametri globali
+        // Questo risolve il problema dove getBotParameters trova parametri vecchi per simbolo specifico
+        console.log('🔄 [BOT-PARAMS] Aggiornamento parametri per tutti i simboli attivi...');
+
+        const allSymbols = await dbAll(
+            "SELECT symbol FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND is_active = 1 AND symbol != 'global'"
+        );
+
+        if (allSymbols && allSymbols.length > 0) {
+            console.log(`📊 [BOT-PARAMS] Trovati ${allSymbols.length} simboli attivi da aggiornare`);
+
+            let updated = 0;
+            for (const row of allSymbols) {
+                try {
+                    await dbRun(
+                        "UPDATE bot_settings SET parameters = $1::text WHERE strategy_name = 'RSI_Strategy' AND symbol = $2",
+                        [parametersJson, row.symbol]
+                    );
+                    updated++;
+                } catch (updateErr) {
+                    console.error(`❌ [BOT-PARAMS] Errore aggiornamento ${row.symbol}:`, updateErr.message);
+                }
+            }
+
+            console.log(`✅ [BOT-PARAMS] Aggiornati ${updated}/${allSymbols.length} simboli con i nuovi parametri`);
+        } else {
+            console.log('ℹ️  [BOT-PARAMS] Nessun simbolo specifico da aggiornare (solo global)');
+        }
+
         res.json({
             success: true,
             parameters: validParams,
-            message: 'Parametri aggiornati con successo. Tutti i parametri sono ora personalizzabili!'
+            symbolsUpdated: allSymbols ? allSymbols.length : 0,
+            message: 'Parametri aggiornati con successo per tutti i simboli!'
         });
     } catch (error) {
         console.error('Error updating bot parameters:', error);
