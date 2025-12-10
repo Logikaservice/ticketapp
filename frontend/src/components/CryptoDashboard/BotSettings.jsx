@@ -14,7 +14,20 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
         trailing_stop_distance_pct: 1.0,
         partial_close_enabled: false,
         take_profit_1_pct: 1.5,
-        take_profit_2_pct: 3.0
+        take_profit_2_pct: 3.0,
+        // Filtri Avanzati
+        min_signal_strength: 70,
+        min_confirmations_long: 3,
+        min_confirmations_short: 4,
+        min_atr_pct: 0.2,
+        max_atr_pct: 5.0,
+        min_volume_24h: 500000,
+        // Risk Management
+        max_daily_loss_pct: 5.0,
+        max_exposure_pct: 50.0,
+        max_positions: 5,
+        // Timeframe
+        analysis_timeframe: '15m'
     });
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -79,6 +92,10 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
     const handleChange = (key, value) => {
         if (key === 'trailing_stop_enabled' || key === 'partial_close_enabled') {
             setParameters(prev => ({ ...prev, [key]: value === true || value === 'true' || value === 1 }));
+        } else if (key === 'analysis_timeframe') {
+            setParameters(prev => ({ ...prev, [key]: value }));
+        } else if (key === 'min_confirmations_long' || key === 'min_confirmations_short' || key === 'max_positions' || key === 'min_signal_strength') {
+            setParameters(prev => ({ ...prev, [key]: parseInt(value) || 0 }));
         } else {
             setParameters(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
         }
@@ -333,6 +350,228 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                                     </div>
                                 </>
                             )}
+
+                            {/* Separatore - Filtri Avanzati */}
+                            <div style={{ gridColumn: '1 / -1', borderTop: '2px solid #e5e7eb', marginTop: '20px', paddingTop: '20px' }}>
+                                <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px', color: '#3b82f6' }}>
+                                    🎯 Filtri Avanzati
+                                </h3>
+                            </div>
+
+                            {/* Min Signal Strength */}
+                            <div className="parameter-group">
+                                <label htmlFor="min_signal_strength">
+                                    Forza Minima Segnale
+                                    <span className="parameter-hint">(50-100)</span>
+                                </label>
+                                <input
+                                    id="min_signal_strength"
+                                    type="number"
+                                    min="50"
+                                    max="100"
+                                    step="1"
+                                    value={parameters.min_signal_strength || 70}
+                                    onChange={(e) => handleChange('min_signal_strength', e.target.value)}
+                                />
+                                <div className="parameter-desc">
+                                    Forza minima del segnale (0-100) richiesta per aprire una posizione. Valore più alto = più selettivo, meno trade ma più sicuri.
+                                </div>
+                            </div>
+
+                            {/* Min Confirmations LONG */}
+                            <div className="parameter-group">
+                                <label htmlFor="min_confirmations_long">
+                                    Min Conferme LONG
+                                    <span className="parameter-hint">(1-10)</span>
+                                </label>
+                                <input
+                                    id="min_confirmations_long"
+                                    type="number"
+                                    min="1"
+                                    max="10"
+                                    step="1"
+                                    value={parameters.min_confirmations_long || 3}
+                                    onChange={(e) => handleChange('min_confirmations_long', e.target.value)}
+                                />
+                                <div className="parameter-desc">
+                                    Numero minimo di indicatori che devono confermare per aprire una posizione LONG. Più alto = più sicuro ma meno trade.
+                                </div>
+                            </div>
+
+                            {/* Min Confirmations SHORT */}
+                            <div className="parameter-group">
+                                <label htmlFor="min_confirmations_short">
+                                    Min Conferme SHORT
+                                    <span className="parameter-hint">(1-10)</span>
+                                </label>
+                                <input
+                                    id="min_confirmations_short"
+                                    type="number"
+                                    min="1"
+                                    max="10"
+                                    step="1"
+                                    value={parameters.min_confirmations_short || 4}
+                                    onChange={(e) => handleChange('min_confirmations_short', e.target.value)}
+                                />
+                                <div className="parameter-desc">
+                                    Numero minimo di indicatori che devono confermare per aprire una posizione SHORT. SHORT richiede più conferme (più rischioso).
+                                </div>
+                            </div>
+
+                            {/* Min ATR */}
+                            <div className="parameter-group">
+                                <label htmlFor="min_atr_pct">
+                                    ATR Minimo (%)
+                                    <span className="parameter-hint">(0.1-2.0)</span>
+                                </label>
+                                <input
+                                    id="min_atr_pct"
+                                    type="number"
+                                    min="0.1"
+                                    max="2.0"
+                                    step="0.1"
+                                    value={parameters.min_atr_pct || 0.2}
+                                    onChange={(e) => handleChange('min_atr_pct', e.target.value)}
+                                />
+                                <div className="parameter-desc">
+                                    Volatilità minima (ATR) richiesta per tradare. Blocca trade su mercati troppo piatti (bassa volatilità).
+                                </div>
+                            </div>
+
+                            {/* Max ATR */}
+                            <div className="parameter-group">
+                                <label htmlFor="max_atr_pct">
+                                    ATR Massimo (%)
+                                    <span className="parameter-hint">(2.0-10.0)</span>
+                                </label>
+                                <input
+                                    id="max_atr_pct"
+                                    type="number"
+                                    min="2.0"
+                                    max="10.0"
+                                    step="0.1"
+                                    value={parameters.max_atr_pct || 5.0}
+                                    onChange={(e) => handleChange('max_atr_pct', e.target.value)}
+                                />
+                                <div className="parameter-desc">
+                                    Volatilità massima (ATR) consentita per tradare. Blocca trade su mercati troppo volatili (rischio elevato).
+                                </div>
+                            </div>
+
+                            {/* Min Volume 24h */}
+                            <div className="parameter-group">
+                                <label htmlFor="min_volume_24h">
+                                    Volume Minimo 24h (USDT)
+                                    <span className="parameter-hint">(10K-10M)</span>
+                                </label>
+                                <input
+                                    id="min_volume_24h"
+                                    type="number"
+                                    min="10000"
+                                    max="10000000"
+                                    step="10000"
+                                    value={parameters.min_volume_24h || 500000}
+                                    onChange={(e) => handleChange('min_volume_24h', e.target.value)}
+                                />
+                                <div className="parameter-desc">
+                                    Volume minimo 24h richiesto per tradare un simbolo. Evita coin illiquide (pump & dump, spread alti).
+                                </div>
+                            </div>
+
+                            {/* Separatore - Risk Management */}
+                            <div style={{ gridColumn: '1 / -1', borderTop: '2px solid #e5e7eb', marginTop: '20px', paddingTop: '20px' }}>
+                                <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px', color: '#ef4444' }}>
+                                    🛡️ Risk Management
+                                </h3>
+                            </div>
+
+                            {/* Max Daily Loss */}
+                            <div className="parameter-group">
+                                <label htmlFor="max_daily_loss_pct">
+                                    Perdita Massima Giornaliera (%)
+                                    <span className="parameter-hint">(1.0-20.0)</span>
+                                </label>
+                                <input
+                                    id="max_daily_loss_pct"
+                                    type="number"
+                                    min="1.0"
+                                    max="20.0"
+                                    step="0.5"
+                                    value={parameters.max_daily_loss_pct || 5.0}
+                                    onChange={(e) => handleChange('max_daily_loss_pct', e.target.value)}
+                                />
+                                <div className="parameter-desc">
+                                    Se la perdita giornaliera supera questa percentuale, il bot smette di tradare per il resto della giornata. Protezione capitale.
+                                </div>
+                            </div>
+
+                            {/* Max Exposure */}
+                            <div className="parameter-group">
+                                <label htmlFor="max_exposure_pct">
+                                    Esposizione Massima (%)
+                                    <span className="parameter-hint">(10.0-100.0)</span>
+                                </label>
+                                <input
+                                    id="max_exposure_pct"
+                                    type="number"
+                                    min="10.0"
+                                    max="100.0"
+                                    step="5.0"
+                                    value={parameters.max_exposure_pct || 50.0}
+                                    onChange={(e) => handleChange('max_exposure_pct', e.target.value)}
+                                />
+                                <div className="parameter-desc">
+                                    Percentuale massima del capitale che può essere investita in posizioni aperte simultaneamente. Diversificazione rischio.
+                                </div>
+                            </div>
+
+                            {/* Max Positions */}
+                            <div className="parameter-group">
+                                <label htmlFor="max_positions">
+                                    Numero Massimo Posizioni
+                                    <span className="parameter-hint">(1-20)</span>
+                                </label>
+                                <input
+                                    id="max_positions"
+                                    type="number"
+                                    min="1"
+                                    max="20"
+                                    step="1"
+                                    value={parameters.max_positions || 5}
+                                    onChange={(e) => handleChange('max_positions', e.target.value)}
+                                />
+                                <div className="parameter-desc">
+                                    Numero massimo di posizioni che possono essere aperte simultaneamente. Limita l'esposizione e favorisce la diversificazione.
+                                </div>
+                            </div>
+
+                            {/* Separatore - Timeframe */}
+                            <div style={{ gridColumn: '1 / -1', borderTop: '2px solid #e5e7eb', marginTop: '20px', paddingTop: '20px' }}>
+                                <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px', color: '#10b981' }}>
+                                    ⏱️ Timeframe Analisi
+                                </h3>
+                            </div>
+
+                            {/* Analysis Timeframe */}
+                            <div className="parameter-group">
+                                <label htmlFor="analysis_timeframe">
+                                    Timeframe Analisi
+                                </label>
+                                <select
+                                    id="analysis_timeframe"
+                                    value={parameters.analysis_timeframe || '15m'}
+                                    onChange={(e) => handleChange('analysis_timeframe', e.target.value)}
+                                    style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '8px' }}
+                                >
+                                    <option value="15m">15 minuti (scalping)</option>
+                                    <option value="1h">1 ora (intraday)</option>
+                                    <option value="4h">4 ore (swing trading)</option>
+                                    <option value="1d">1 giorno (position trading)</option>
+                                </select>
+                                <div className="parameter-desc">
+                                    Timeframe utilizzato per l'analisi dei segnali. Timeframe più lunghi = segnali più stabili ma meno frequenti.
+                                </div>
+                            </div>
                         </div>
 
                         <div className="bot-settings-footer">
