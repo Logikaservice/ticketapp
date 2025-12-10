@@ -852,6 +852,7 @@ const CryptoDashboard = () => {
                     openPositions={filteredOpenPositions}
                     currentPrice={currentPrice}
                     priceHistory={priceData || []}
+                    currentSymbol={currentSymbol}
                 />
             </div>
         );
@@ -1200,7 +1201,7 @@ const CryptoDashboard = () => {
                                     return (
                                         <tr key={i} style={{ borderBottom: '1px solid #2d3748', background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
                                             <td style={{ padding: '10px' }}>{new Date(pos.closed_at).toLocaleTimeString()}</td>
-                                            <td style={{ padding: '10px', fontWeight: 'bold' }}>{formatSymbol(pos.symbol, availableSymbols)}</td>
+                                            <td style={{ padding: '10px', fontWeight: 'bold' }}>{pos.symbol}</td>
                                             <td style={{ padding: '10px' }}>
                                                 <span style={{
                                                     color: pos.type === 'buy' ? '#10b981' : '#ef4444',

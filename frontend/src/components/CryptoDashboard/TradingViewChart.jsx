@@ -4,7 +4,7 @@ import { formatPriceWithSymbol } from '../../utils/priceFormatter';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import './TradingViewChart.css';
 
-const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [], currentPrice = 0, priceHistory = [], closedTrades = [] }) => {
+const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [], currentPrice = 0, priceHistory = [], closedTrades = [], currentSymbol = null }) => {
     const containerRef = useRef(null);
     const widgetRef = useRef(null);
     const [markers, setMarkers] = useState([]);
@@ -147,6 +147,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
             .filter(pos => pos.status === 'open')
             .map(pos => ({
                 ticket_id: pos.ticket_id,
+                symbol: pos.symbol, // Aggiungi simbolo per evidenziazione
                 type: pos.type, // 'buy' or 'sell'
                 entry_price: parseFloat(pos.entry_price) || 0,
                 volume: parseFloat(pos.volume) || 0,
@@ -288,8 +289,8 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                 )}
             </div>
 
-            {/* Posizioni Aperte sotto il grafico quando è in fullscreen (NON in chart-only mode) */}
-            {isFullscreen && !isChartOnly && displayPositions.length > 0 && (
+            {/* Posizioni Aperte sotto il grafico quando è in fullscreen O in chart-only mode */}
+            {(isFullscreen || isChartOnly) && displayPositions.length > 0 && (
                 <div className="fullscreen-positions-section">
                     <div className="fullscreen-positions-header">
                         <h3>📊 Posizioni Aperte</h3>
@@ -306,9 +307,19 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                                         : ((pos.entry_price - currentPrice) / pos.entry_price * 100)
                                     : 0;
                                 const pnlColor = pnl >= 0 ? '#4ade80' : '#f87171';
+                                
+                                // Evidenzia in viola se è il simbolo del grafico corrente
+                                const isCurrentSymbol = currentSymbol && pos.symbol === currentSymbol;
 
                                 return (
-                                    <div key={pos.ticket_id || index} className={`fullscreen-position-card ${pos.type}`}>
+                                    <div 
+                                        key={pos.ticket_id || index} 
+                                        className={`fullscreen-position-card ${pos.type}`}
+                                        style={{
+                                            background: isCurrentSymbol ? 'rgba(139, 92, 246, 0.15)' : undefined,
+                                            border: isCurrentSymbol ? '2px solid rgba(139, 92, 246, 0.5)' : undefined
+                                        }}
+                                    >
                                         <div className="position-card-header">
                                             <div className="position-type-badge">
                                                 <span className="position-icon">{pos.type === 'buy' ? '↑' : '↓'}</span>
@@ -319,6 +330,12 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                                             </div>
                                         </div>
                                         <div className="position-card-body">
+                                            <div className="position-info-row">
+                                                <span className="position-label">Simbolo:</span>
+                                                <span className="position-value" style={{ fontWeight: 'bold', color: isCurrentSymbol ? '#8b5cf6' : '#fff' }}>
+                                                    {pos.symbol ? pos.symbol.toUpperCase().replace(/_/g, '/') : 'N/A'}
+                                                </span>
+                                            </div>
                                             <div className="position-info-row">
                                                 <span className="position-label">Entry:</span>
                                                 <span className="position-value">{formatPriceWithSymbol(pos.entry_price, 2)}</span>
