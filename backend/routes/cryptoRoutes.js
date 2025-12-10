@@ -1073,7 +1073,8 @@ const DEFAULT_PARAMS = {
     trailing_profit_protection_enabled: true,  // ✅ NUOVO: Trailing Profit Protection abilitato di default
     partial_close_enabled: true,  // Aggiornato da false a true
     take_profit_1_pct: 2.5,  // Aggiornato da 1.5 a 2.5
-    take_profit_2_pct: 5.0  // Aggiornato da 3.0 a 5.0
+    take_profit_2_pct: 5.0,  // Aggiornato da 3.0 a 5.0
+    min_signal_strength: 70  // ✅ Soglia minima strength richiesta per aprire posizioni (configurabile dal frontend)
 };
 
 // Helper to get bot strategy parameters from database (supports multi-symbol)
@@ -2221,9 +2222,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         // ✅ STRATEGY: 1000 posizioni piccole su analisi giuste > 1 posizione ogni tanto
         // Permettiamo MULTIPLE posizioni se il segnale è forte e il risk manager lo permette
 
-        // ✅ SOGLIA FISSA: 70/100 (semplice e prevedibile)
+        // ✅ SOGLIA CONFIGURABILE: Legge da parametri bot (default 70)
         // I filtri di protezione reali (Risk Manager, ATR, Market Regime, Portfolio Drawdown) gestiscono il rischio
-        const MIN_SIGNAL_STRENGTH = 70;
+        const MIN_SIGNAL_STRENGTH = params.min_signal_strength || 70;
 
         console.log(`🎯 Segnale: ${signal.direction} | Strength Attuale: ${signal.strength}/100 | Strength Richiesta: ${MIN_SIGNAL_STRENGTH}/100`);
 
@@ -6415,7 +6416,7 @@ router.get('/bot-analysis', async (req, res) => {
         const LONG_MIN_STRENGTH = params.min_signal_strength || 65; // Legge dal DB (default 65)
         const SHORT_MIN_CONFIRMATIONS = params.min_confirmations_short || 4;
         const SHORT_MIN_STRENGTH = params.min_signal_strength || 65; // Stesso valore per SHORT
-        const MIN_SIGNAL_STRENGTH = params.min_signal_strength || 65; // Per compatibilità
+        const MIN_SIGNAL_STRENGTH = params.min_signal_strength || 70; // Legge da parametri bot (default 70)
 
         console.log(`📊 [BOT-ANALYSIS] Parametri: MIN_STRENGTH=${MIN_SIGNAL_STRENGTH}, LONG_CONF=${LONG_MIN_CONFIRMATIONS}, SHORT_CONF=${SHORT_MIN_CONFIRMATIONS}`);
 
