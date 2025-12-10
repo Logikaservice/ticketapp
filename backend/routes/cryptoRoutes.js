@@ -1303,6 +1303,9 @@ const priceCache = new Map();
 const PRICE_CACHE_TTL = 3000; // 3 secondi - bilanciato tra real-time e rate limit (prima era 60s)
 // Calcolo rate limit: max 20 chiamate/sec Binance, con cache 3s = max 6-7 chiamate/sec per simbolo = SICURO
 
+// ✅ LOCK per evitare race condition nell'aggiornamento P&L
+const updatePnLLock = new Map();
+
 // ✅ RIMOSSO: Funzione invalidateEURCache - non più necessaria, tutto in USDT
 
 // ✅ WEBSOCKET SERVICE per aggiornamenti real-time (zero rate limit)
