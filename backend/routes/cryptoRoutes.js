@@ -3491,7 +3491,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                             if (!stopLoss || trailingStopPrice < stopLoss) {
                                 stopLoss = trailingStopPrice;
                                 shouldUpdateStopLoss = true;
-                                console.log(`📈 TRAILING STOP UPDATE (SHORT): ${pos.ticket_id} | Lowest: €${currentPrice.toFixed(2)} | New SL: €${trailingStopPrice.toFixed(2)} | Distance: ${dynamicDistance.toFixed(2)}%`);
+                                console.log(`📈 TRAILING STOP UPDATE (SHORT): ${pos.ticket_id} | Lowest: $${currentPrice.toFixed(6)} USDT | New SL: $${trailingStopPrice.toFixed(6)} USDT | Distance: ${dynamicDistance.toFixed(2)}%`);
                             }
                         }
                     }

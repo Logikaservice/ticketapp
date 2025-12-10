@@ -148,55 +148,16 @@ class BinanceWebSocketService {
                 if (ticker.s === pair) {
                     const price = parseFloat(ticker.c); // 'c' = last price
                     
-                    // Se è USDT pair, converti in EUR
-                    if (pair.endsWith('USDT')) {
-                        this.convertUSDTtoEUR(price, symbol, ticker);
-                    } else {
-                        // EUR pair - usa direttamente
-                        this.updatePriceCache(symbol, price);
-                    }
+                    // ✅ FIX CRITICO: Tutti i prezzi sono già in USDT, nessuna conversione necessaria
+                    // Tutte le coppie sono USDT pairs (es. BTCUSDT, DOTUSDT, etc.)
+                    this.updatePriceCache(symbol, price);
                     break;
                 }
             }
         });
     }
 
-    /**
-     * Converte prezzo USDT in EUR e aggiorna cache
-     */
-    async convertUSDTtoEUR(usdtPrice, symbol, ticker) {
-        try {
-            // Usa tasso di cambio cached o fallback
-            const eurUsdData = await this.getUSDTtoEURRate();
-            const eurPrice = usdtPrice * eurUsdData;
-            this.updatePriceCache(symbol, eurPrice);
-        } catch (error) {
-            // Fallback a tasso fisso se errore
-            const eurPrice = usdtPrice * 0.92;
-            this.updatePriceCache(symbol, eurPrice);
-        }
-    }
-
-    /**
-     * Ottiene tasso USDT/EUR (con cache)
-     */
-    async getUSDTtoEURRate() {
-        return new Promise((resolve, reject) => {
-            https.get('https://api.binance.com/api/v3/ticker/price?symbol=EURUSDT', (res) => {
-                let data = '';
-                res.on('data', chunk => data += chunk);
-                res.on('end', () => {
-                    try {
-                        const json = JSON.parse(data);
-                        const rate = 1 / parseFloat(json.price);
-                        resolve(rate);
-                    } catch (err) {
-                        reject(err);
-                    }
-                });
-            }).on('error', reject);
-        });
-    }
+    // ✅ RIMOSSO: Funzioni convertUSDTtoEUR e getUSDTtoEURRate - non più necessarie, tutto è già in USDT
 
     /**
      * Aggiorna cache prezzi tramite callback
