@@ -1690,7 +1690,21 @@ const CryptoDashboard = () => {
                                     </div>
                                 )}
 
-                                {selectedPositionDetails.parsedDetails.reasons && selectedPositionDetails.parsedDetails.reasons.length > 0 && (
+                                {/* Helper function per identificare conferme grafiche */}
+                                {(() => {
+                                    const isChartRelatedConfirmation = (reason) => {
+                                        if (!reason || typeof reason !== 'string') return false;
+                                        const reasonLower = reason.toLowerCase();
+                                        const chartKeywords = [
+                                            'rsi', 'macd', 'ema', 'bollinger', 'trend', 'volume', 'atr', 
+                                            'divergence', 'momentum', 'breakout', 'price', 'candlestick',
+                                            'bullish', 'bearish', 'oversold', 'overbought', 'moving average',
+                                            'support', 'resistance', 'indicator', 'technical'
+                                        ];
+                                        return chartKeywords.some(keyword => reasonLower.includes(keyword));
+                                    };
+
+                                    return selectedPositionDetails.parsedDetails.reasons && selectedPositionDetails.parsedDetails.reasons.length > 0 ? (
                                     <div style={{ marginBottom: '16px', padding: '12px', background: '#1a1a1a', borderRadius: '6px' }}>
                                         <div style={{ color: '#6366f1', fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Motivi del Segnale</div>
                                         <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', lineHeight: '1.8', color: '#d1d5db' }}>
