@@ -12,6 +12,9 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
     const [timeRange, setTimeRange] = useState({ min: 0, max: 0 });
     const [isFullscreen, setIsFullscreen] = useState(false);
     const fullscreenContainerRef = useRef(null);
+    
+    // Check if in chart-only mode (new window with only chart)
+    const isChartOnly = typeof window !== 'undefined' && window.location.search.includes('page=chart-only');
 
     useEffect(() => {
         // Cleanup previous widget
