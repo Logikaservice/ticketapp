@@ -4,7 +4,7 @@ import { formatPriceWithSymbol, formatSymbol } from '../../utils/priceFormatter'
 import { Maximize2, Minimize2 } from 'lucide-react';
 import './TradingViewChart.css';
 
-const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [], currentPrice = 0, priceHistory = [], closedTrades = [], currentSymbol = null }) => {
+const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [], currentPrice = 0, priceHistory = [], closedTrades = [], currentSymbol = null, availableSymbols = [] }) => {
     const containerRef = useRef(null);
     const widgetRef = useRef(null);
     const [markers, setMarkers] = useState([]);
@@ -333,7 +333,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                                             <div className="position-info-row">
                                                 <span className="position-label">Simbolo:</span>
                                                 <span className="position-value" style={{ fontWeight: 'bold', color: isCurrentSymbol ? '#8b5cf6' : '#fff' }}>
-                                                    {pos.symbol ? pos.symbol.toUpperCase().replace(/_/g, '/') : 'N/A'}
+                                                    {formatSymbol(pos.symbol, availableSymbols)}
                                                 </span>
                                             </div>
                                             <div className="position-info-row">
