@@ -1,0 +1,151 @@
+{
+  "symbol": "bitcoin",
+  "period": "60 days",
+  "testDate": "2025-12-10T00:46:05.282Z",
+  "baseline": {
+    "initialBalance": 1000,
+    "finalBalance": 1019.9774100874514,
+    "totalReturn": 1.9977410087451404,
+    "totalTrades": 17,
+    "winningTrades": 11,
+    "losingTrades": 6,
+    "winRate": 64.70588235294117,
+    "profitFactor": 2.8022655660861653,
+    "avgWin": 2.8238199661319046,
+    "avgLoss": 1.8474349233332585,
+    "maxDrawdown": 1.026107573299067,
+    "sharpeRatio": 0.4644531679771571
+  },
+  "best": {
+    "scenario": "BASELINE (Tutti i filtri)",
+    "filters": {
+      "trendFilter": true,
+      "volatilityFilter": true,
+      "rrFilter": true,
+      "bollingerFilter": true,
+      "rsiFilter": true
+    },
+    "summary": {
+      "initialBalance": 1000,
+      "finalBalance": 1019.9774100874514,
+      "totalReturn": 1.9977410087451404,
+      "totalTrades": 17,
+      "winningTrades": 11,
+      "losingTrades": 6,
+      "winRate": 64.70588235294117,
+      "profitFactor": 2.8022655660861653,
+      "avgWin": 2.8238199661319046,
+      "avgLoss": 1.8474349233332585,
+      "maxDrawdown": 1.026107573299067,
+      "sharpeRatio": 0.4644531679771571
+    },
+    "improvement": 0,
+    "profitImprovement": 0
+  },
+  "allResults": [
+    {
+      "scenario": "BASELINE (Tutti i filtri)",
+      "filters": {
+        "trendFilter": true,
+        "volatilityFilter": true,
+        "rrFilter": true,
+        "bollingerFilter": true,
+        "rsiFilter": true
+      },
+      "return": 1.9977410087451404,
+      "trades": 17,
+      "winRate": 64.70588235294117
+    },
+    {
+      "scenario": "NO Trend 4h Filter",
+      "filters": {
+        "trendFilter": false,
+        "volatilityFilter": true,
+        "rrFilter": true,
+        "bollingerFilter": true,
+        "rsiFilter": true
+      },
+      "return": 1.9977410087451404,
+      "trades": 17,
+      "winRate": 64.70588235294117
+    },
+    {
+      "scenario": "NO Volatility Filter",
+      "filters": {
+        "trendFilter": true,
+        "volatilityFilter": false,
+        "rrFilter": true,
+        "bollingerFilter": true,
+        "rsiFilter": true
+      },
+      "return": 1.9977410087451404,
+      "trades": 17,
+      "winRate": 64.70588235294117
+    },
+    {
+      "scenario": "NO R/R Filter",
+      "filters": {
+        "trendFilter": true,
+        "volatilityFilter": true,
+        "rrFilter": false,
+        "bollingerFilter": true,
+        "rsiFilter": true
+      },
+      "return": 1.9977410087451404,
+      "trades": 17,
+      "winRate": 64.70588235294117
+    },
+    {
+      "scenario": "NO Bollinger Filter",
+      "filters": {
+        "trendFilter": true,
+        "volatilityFilter": true,
+        "rrFilter": true,
+        "bollingerFilter": false,
+        "rsiFilter": true
+      },
+      "return": 1.9977410087451404,
+      "trades": 17,
+      "winRate": 64.70588235294117
+    },
+    {
+      "scenario": "NO RSI Extremes Filter",
+      "filters": {
+        "trendFilter": true,
+        "volatilityFilter": true,
+        "rrFilter": true,
+        "bollingerFilter": true,
+        "rsiFilter": false
+      },
+      "return": 1.9977410087451404,
+      "trades": 17,
+      "winRate": 64.70588235294117
+    },
+    {
+      "scenario": "MINIMAL Filters",
+      "filters": {
+        "trendFilter": true,
+        "volatilityFilter": true,
+        "rrFilter": false,
+        "bollingerFilter": false,
+        "rsiFilter": false
+      },
+      "return": 1.9977410087451404,
+      "trades": 17,
+      "winRate": 64.70588235294117
+    },
+    {
+      "scenario": "NO Filters",
+      "filters": {
+        "trendFilter": false,
+        "volatilityFilter": false,
+        "rrFilter": false,
+        "bollingerFilter": false,
+        "rsiFilter": false
+      },
+      "return": 1.9977410087451404,
+      "trades": 17,
+      "winRate": 64.70588235294117
+    }
+  ]
+}
