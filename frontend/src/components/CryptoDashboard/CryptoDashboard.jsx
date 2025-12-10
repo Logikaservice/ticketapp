@@ -488,32 +488,38 @@ const CryptoDashboard = () => {
     // Calculate total balance (USDT + All Crypto values)
     const [allSymbolPrices, setAllSymbolPrices] = useState({});
 
-    // Fetch prices for all symbols in holdings AND open positions
+    // ✅ REAL-TIME CRITICO: Fetch prices for ALL symbols in open positions - INDIPENDENTE dal grafico
     useEffect(() => {
         const fetchAllPrices = async () => {
             const holdings = portfolio.holdings || {};
             const holdingsSymbols = Object.keys(holdings).filter(s => holdings[s] > 0);
 
-            // ✅ FIX: Recupera prezzi anche per tutti i simboli delle posizioni aperte
-            const openPositionSymbols = openPositions
-                .filter(pos => pos.status === 'open')
+            // ✅ CRITICO: Recupera prezzi per TUTTI i simboli delle posizioni aperte (INDIPENDENTE dal grafico)
+            const openPositionSymbols = (openPositions || [])
+                .filter(pos => pos && pos.status === 'open')
                 .map(pos => pos.symbol)
-                .filter((symbol, index, self) => self.indexOf(symbol) === index); // Remove duplicates
+                .filter((symbol, index, self) => symbol && self.indexOf(symbol) === index); // Remove duplicates
 
-            // Combina tutti i simboli unici
-            const allSymbols = [...new Set([...holdingsSymbols, ...openPositionSymbols])];
+            // Combina tutti i simboli unici (posizioni aperte hanno PRIORITÀ)
+            const allSymbols = [...new Set([...openPositionSymbols, ...holdingsSymbols])];
+            
+            if (allSymbols.length === 0) {
+                return; // Nessun simbolo da recuperare
+            }
+
             const prices = {};
 
-            // ✅ REAL-TIME FIX: Se il simbolo corrente è nella lista, usa currentPrice (più aggiornato, ogni 500ms)
-            if (allSymbols.includes(currentSymbol) && currentPrice > 0) {
+            // ✅ OTTIMIZZAZIONE: Se il simbolo corrente è nella lista, usa currentPrice (più veloce, già aggiornato)
+            if (currentPrice > 0 && currentSymbol && allSymbols.includes(currentSymbol)) {
                 prices[currentSymbol] = currentPrice;
             }
 
-            // ✅ REAL-TIME FIX: Fetch prezzi per tutti gli altri simboli in parallelo per velocità
+            // ✅ REAL-TIME CRITICO: Fetch prezzi per TUTTI i simboli in parallelo (INDIPENDENTE dal grafico)
             const pricePromises = allSymbols
                 .filter(symbol => !(symbol === currentSymbol && prices[symbol])) // Skip se già abbiamo il prezzo
                 .map(async (symbol) => {
                     try {
+                        // ✅ Aggiungi timestamp per evitare cache
                         const res = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=usdt&_t=${Date.now()}`);
                         if (res.ok) {
                             const data = await res.json();
@@ -535,13 +541,22 @@ const CryptoDashboard = () => {
                 }
             });
 
-            setAllSymbolPrices(prices);
+            // ✅ CRITICO: Aggiorna allSymbolPrices mantenendo i prezzi esistenti e aggiornando quelli nuovi/modificati
+            setAllSymbolPrices(prev => {
+                const updated = { ...prev };
+                Object.keys(prices).forEach(symbol => {
+                    if (prices[symbol] > 0) {
+                        updated[symbol] = prices[symbol];
+                    }
+                });
+                return updated;
+            });
         };
 
         // Aggiorna prezzi quando cambiano holdings o posizioni aperte
         fetchAllPrices();
 
-        // ✅ REAL-TIME: Aggiorna prezzi anche periodicamente (ogni 500ms) per garantire sincronizzazione in tempo reale
+        // ✅ REAL-TIME CRITICO: Aggiorna prezzi per TUTTI i simboli delle posizioni ogni 500ms (INDIPENDENTE dal grafico)
         const priceUpdateInterval = setInterval(() => {
             fetchAllPrices();
         }, 500); // ✅ REAL-TIME: Aggiorna ogni 500ms per aggiornamenti in tempo reale

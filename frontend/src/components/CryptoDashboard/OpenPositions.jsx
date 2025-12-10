@@ -31,7 +31,7 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
         );
     }
 
-    // ✅ REAL-TIME: Calcola P&L totale in tempo reale usando i prezzi aggiornati
+    // ✅ REAL-TIME: Calcola P&L totale in tempo reale usando i prezzi aggiornati (INDIPENDENTE dal grafico)
     const calculateTotalPnL = () => {
         let total = 0;
         positions.forEach(pos => {
@@ -39,9 +39,9 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
             const volume = parseFloat(pos.volume) || 0;
             const isLong = pos.type === 'buy';
             
-            // Usa prezzo aggiornato
+            // ✅ CRITICO: Usa prezzo aggiornato da allSymbolPrices (aggiornato ogni 500ms per TUTTI i simboli)
             let currentPriceValue = 0;
-            if (allSymbolPrices && allSymbolPrices[pos.symbol]) {
+            if (allSymbolPrices && allSymbolPrices[pos.symbol] && allSymbolPrices[pos.symbol] > 0) {
                 currentPriceValue = parseFloat(allSymbolPrices[pos.symbol]);
             } else if (pos.symbol === currentSymbol && currentPrice) {
                 currentPriceValue = parseFloat(currentPrice);
@@ -69,8 +69,9 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
             const volume = parseFloat(pos.volume) || 0;
             const isLong = pos.type === 'buy';
             
+            // ✅ CRITICO: Usa prezzo aggiornato da allSymbolPrices (aggiornato ogni 500ms per TUTTI i simboli)
             let currentPriceValue = 0;
-            if (allSymbolPrices && allSymbolPrices[pos.symbol]) {
+            if (allSymbolPrices && allSymbolPrices[pos.symbol] && allSymbolPrices[pos.symbol] > 0) {
                 currentPriceValue = parseFloat(allSymbolPrices[pos.symbol]);
             } else if (pos.symbol === currentSymbol && currentPrice) {
                 currentPriceValue = parseFloat(currentPrice);
@@ -159,17 +160,15 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                             // ✅ FIX: Usa valori dal database, non fallback a 0 se sono null/undefined
                             // Per simboli con prezzi molto piccoli (es. SHIB), i valori potrebbero essere molto piccoli ma validi
                             const entryPrice = pos.entry_price != null ? parseFloat(pos.entry_price) : 0;
-                            // ✅ REAL-TIME FIX: Priorità per prezzo corrente: 
-                            // 1) currentPrice se stesso simbolo (più aggiornato, ogni 500ms)
-                            // 2) allSymbolPrices (aggiornato ogni 500ms)
-                            // 3) current_price dal DB (fallback)
+                            // ✅ REAL-TIME CRITICO: Prezzo corrente INDIPENDENTE dal grafico
+                            // Priorità: 1) allSymbolPrices (aggiornato ogni 500ms per TUTTI i simboli), 2) currentPrice se stesso simbolo, 3) current_price dal DB
                             let currentPriceValue = 0;
-                            if (pos.symbol === currentSymbol && currentPrice && currentPrice > 0) {
-                                // ✅ FIX CRITICO: Se la posizione è per il simbolo corrente, usa il prezzo del grafico (più aggiornato)
-                                currentPriceValue = parseFloat(currentPrice);
-                            } else if (allSymbolPrices && allSymbolPrices[pos.symbol] && allSymbolPrices[pos.symbol] > 0) {
-                                // ✅ Usa allSymbolPrices se disponibile
+                            if (allSymbolPrices && allSymbolPrices[pos.symbol] && allSymbolPrices[pos.symbol] > 0) {
+                                // ✅ CRITICO: Usa allSymbolPrices che viene aggiornato ogni 500ms per TUTTI i simboli delle posizioni (indipendente dal grafico)
                                 currentPriceValue = parseFloat(allSymbolPrices[pos.symbol]);
+                            } else if (pos.symbol === currentSymbol && currentPrice && currentPrice > 0) {
+                                // Ottimizzazione: se la posizione è per il simbolo corrente, usa il prezzo del grafico
+                                currentPriceValue = parseFloat(currentPrice);
                             } else if (pos.current_price != null && parseFloat(pos.current_price) > 0) {
                                 // Fallback al prezzo dal database
                                 currentPriceValue = parseFloat(pos.current_price);
