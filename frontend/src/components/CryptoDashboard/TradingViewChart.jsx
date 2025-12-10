@@ -139,12 +139,19 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
     // Usa direttamente le posizioni aperte invece di filtrare i trades
     const displayPositions = useMemo(() => {
         if (!openPositions || openPositions.length === 0) {
+            console.log('🔍 [TradingViewChart] displayPositions: openPositions è vuoto o undefined', openPositions);
             return [];
         }
 
         // Filtra solo posizioni aperte e crea oggetti per display
         const positions = openPositions
-            .filter(pos => pos.status === 'open')
+            .filter(pos => {
+                const isOpen = pos && pos.status === 'open';
+                if (!isOpen) {
+                    console.log('🔍 [TradingViewChart] Posizione filtrata (non open):', pos);
+                }
+                return isOpen;
+            })
             .map(pos => ({
                 ticket_id: pos.ticket_id,
                 symbol: pos.symbol, // Aggiungi simbolo per evidenziazione
@@ -155,8 +162,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                 strategy: pos.strategy || 'Bot'
             }));
 
-        // Open positions loaded
-
+        console.log('🔍 [TradingViewChart] displayPositions calcolato:', positions.length, 'posizioni', positions);
         return positions;
     }, [openPositions]);
 
@@ -290,7 +296,17 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
             </div>
 
             {/* Posizioni Aperte sotto il grafico quando è in fullscreen O in chart-only mode */}
-            {(isFullscreen || isChartOnly) && displayPositions.length > 0 && (
+            {(() => {
+                const shouldShow = (isFullscreen || isChartOnly) && displayPositions.length > 0;
+                console.log('🔍 [TradingViewChart] Condizione posizioni:', {
+                    isFullscreen,
+                    isChartOnly,
+                    displayPositionsLength: displayPositions.length,
+                    shouldShow,
+                    openPositionsLength: openPositions?.length || 0
+                });
+                return shouldShow;
+            })() && (
                 <div className="fullscreen-positions-section">
                     <div className="fullscreen-positions-header">
                         <h3>📊 Posizioni Aperte</h3>
