@@ -788,18 +788,22 @@ async function shouldClosePosition(position, priceHistory) {
         }
 
         // ✅ PRIORITÀ 1: Trailing Profit Protection - CRITICO
-        const peakProfit = calculatePeakProfit(position, priceHistory);
-        const trailingProfit = calculateTrailingProfitProtection(currentPnLPct, peakProfit);
+        // ✅ FIX: Applica solo dopo almeno 5 minuti dall'apertura per evitare chiusure premature su volatilità iniziale
+        const MIN_TIME_FOR_TRAILING_PROFIT_MS = 5 * 60 * 1000; // 5 minuti
+        if (timeInPosition >= MIN_TIME_FOR_TRAILING_PROFIT_MS) {
+            const peakProfit = calculatePeakProfit(position, priceHistory);
+            const trailingProfit = calculateTrailingProfitProtection(currentPnLPct, peakProfit);
 
-        if (trailingProfit && trailingProfit.shouldLock) {
-            return {
-                shouldClose: true,
-                reason: `Trailing Profit Protection: Profitto sceso da ${peakProfit.toFixed(2)}% a ${currentPnLPct.toFixed(2)}% (sotto soglia bloccata ${trailingProfit.lockedProfit.toFixed(2)}%) - Chiusura per bloccare ${(trailingProfit.lockPercent * 100).toFixed(0)}% del profitto massimo`,
-                currentPnL: currentPnLPct,
-                peakProfit: peakProfit,
-                lockedProfit: trailingProfit.lockedProfit,
-                decisionFactor: 'trailing_profit_protection'
-            };
+            if (trailingProfit && trailingProfit.shouldLock) {
+                return {
+                    shouldClose: true,
+                    reason: `Trailing Profit Protection: Profitto sceso da ${peakProfit.toFixed(2)}% a ${currentPnLPct.toFixed(2)}% (sotto soglia bloccata ${trailingProfit.lockedProfit.toFixed(2)}%) - Chiusura per bloccare ${(trailingProfit.lockPercent * 100).toFixed(0)}% del profitto massimo`,
+                    currentPnL: currentPnLPct,
+                    peakProfit: peakProfit,
+                    lockedProfit: trailingProfit.lockedProfit,
+                    decisionFactor: 'trailing_profit_protection'
+                };
+            }
         }
 
         // ✅ NUOVO PRIORITÀ 3: Divergence Detection - Rileva reversal PRIMA che accada
