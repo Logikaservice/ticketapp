@@ -480,8 +480,13 @@ router.get('/dashboard', async (req, res) => {
                         timestamp: kline.open_time
                     }));
 
-                    // Genera segnale attuale
-                    const currentSignal = signalGenerator.generateSignal(historyForSignal, position.symbol);
+                    // Genera segnale attuale (usa parametri RSI di default se non disponibili)
+                    const positionParams = await getBotParameters(position.symbol).catch(() => ({}));
+                    const currentSignal = signalGenerator.generateSignal(historyForSignal, position.symbol, {
+                        rsi_period: positionParams.rsi_period || 14,
+                        rsi_oversold: positionParams.rsi_oversold || 30,
+                        rsi_overbought: positionParams.rsi_overbought || 70
+                    });
 
                     // Determina sentimento
                     let sentiment = 'NEUTRAL';
@@ -1066,9 +1071,16 @@ const DEFAULT_PARAMS = {
 // Helper to get bot strategy parameters from database (supports multi-symbol)
 const getBotParameters = async (symbol = 'bitcoin') => {
     try {
-        const bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = ?", [symbol]);
+        // ✅ NUOVO: Prima cerca parametri specifici per simbolo, poi globali
+        let bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = ?", [symbol]);
+        
+        // Se non trovato per simbolo, usa parametri globali
+        if (!bot) {
+            bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global'", []);
+        }
+        
         if (bot && bot.parameters) {
-            const params = JSON.parse(bot.parameters);
+            const params = typeof bot.parameters === 'string' ? JSON.parse(bot.parameters) : bot.parameters;
             // Merge with defaults to ensure all parameters exist
             return { ...DEFAULT_PARAMS, ...params };
         }
@@ -2003,7 +2015,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 price: row.price,
                 timestamp: row.timestamp
             }));
-            signal = signalGenerator.generateSignal(historyForSignal);
+            // ✅ FIX: Passa parametri RSI configurati dall'utente al signalGenerator
+            signal = signalGenerator.generateSignal(historyForSignal, symbol, {
+                rsi_period: params.rsi_period || 14,
+                rsi_oversold: params.rsi_oversold || 30,
+                rsi_overbought: params.rsi_overbought || 70
+            });
         } else {
             // Reverse to chronological order (oldest first)
             const klinesChronological = klinesData.reverse();
@@ -4938,7 +4955,7 @@ router.get('/bot/parameters', async (req, res) => {
     }
 });
 
-// PUT /api/crypto/bot/parameters - Update bot strategy parameters
+// PUT /api/crypto/bot/parameters - Update bot strategy parameters (COMPLETO E PERSONALIZZABILE)
 router.put('/bot/parameters', async (req, res) => {
     try {
         const { parameters } = req.body;
@@ -4947,45 +4964,132 @@ router.put('/bot/parameters', async (req, res) => {
             return res.status(400).json({ error: 'parameters object is required' });
         }
 
-        // Validate parameters
+        // ✅ NUOVO: Recupera parametri esistenti per merge (mantiene valori non specificati)
+        const existingParams = await getBotParameters('bitcoin');
+        
+        // ✅ VALIDAZIONE COMPLETA - Tutti i parametri sono personalizzabili
         const validParams = {
-            rsi_period: Math.max(5, Math.min(30, parseInt(parameters.rsi_period) || DEFAULT_PARAMS.rsi_period)),
-            rsi_oversold: Math.max(0, Math.min(50, parseFloat(parameters.rsi_oversold) || DEFAULT_PARAMS.rsi_oversold)),
-            rsi_overbought: Math.max(50, Math.min(100, parseFloat(parameters.rsi_overbought) || DEFAULT_PARAMS.rsi_overbought)),
-            stop_loss_pct: Math.max(0.1, Math.min(10, parseFloat(parameters.stop_loss_pct) || DEFAULT_PARAMS.stop_loss_pct)),
-            take_profit_pct: Math.max(0.1, Math.min(20, parseFloat(parameters.take_profit_pct) || DEFAULT_PARAMS.take_profit_pct)),
-            trade_size_usdt: Math.max(10, Math.min(1000, parseFloat(parameters.trade_size_usdt || parameters.trade_size_eur) || DEFAULT_PARAMS.trade_size_usdt)),
-            trailing_stop_enabled: parameters.trailing_stop_enabled === true || parameters.trailing_stop_enabled === 'true' || parameters.trailing_stop_enabled === 1 || DEFAULT_PARAMS.trailing_stop_enabled,
-            trailing_stop_distance_pct: Math.max(0.1, Math.min(5, parseFloat(parameters.trailing_stop_distance_pct) || DEFAULT_PARAMS.trailing_stop_distance_pct)),
-            partial_close_enabled: parameters.partial_close_enabled === true || parameters.partial_close_enabled === 'true' || parameters.partial_close_enabled === 1 || DEFAULT_PARAMS.partial_close_enabled,
-            take_profit_1_pct: Math.max(0.1, Math.min(5, parseFloat(parameters.take_profit_1_pct) || DEFAULT_PARAMS.take_profit_1_pct)),
-            take_profit_2_pct: Math.max(0.1, Math.min(10, parseFloat(parameters.take_profit_2_pct) || DEFAULT_PARAMS.take_profit_2_pct))
+            // Parametri RSI
+            rsi_period: parameters.rsi_period !== undefined 
+                ? Math.max(5, Math.min(30, parseInt(parameters.rsi_period) || existingParams.rsi_period || DEFAULT_PARAMS.rsi_period))
+                : (existingParams.rsi_period || DEFAULT_PARAMS.rsi_period),
+            rsi_oversold: parameters.rsi_oversold !== undefined
+                ? Math.max(0, Math.min(50, parseFloat(parameters.rsi_oversold) || existingParams.rsi_oversold || DEFAULT_PARAMS.rsi_oversold))
+                : (existingParams.rsi_oversold || DEFAULT_PARAMS.rsi_oversold),
+            rsi_overbought: parameters.rsi_overbought !== undefined
+                ? Math.max(50, Math.min(100, parseFloat(parameters.rsi_overbought) || existingParams.rsi_overbought || DEFAULT_PARAMS.rsi_overbought))
+                : (existingParams.rsi_overbought || DEFAULT_PARAMS.rsi_overbought),
+            
+            // Parametri Trading
+            stop_loss_pct: parameters.stop_loss_pct !== undefined
+                ? Math.max(0.1, Math.min(10, parseFloat(parameters.stop_loss_pct) || existingParams.stop_loss_pct || DEFAULT_PARAMS.stop_loss_pct))
+                : (existingParams.stop_loss_pct || DEFAULT_PARAMS.stop_loss_pct),
+            take_profit_pct: parameters.take_profit_pct !== undefined
+                ? Math.max(0.1, Math.min(20, parseFloat(parameters.take_profit_pct) || existingParams.take_profit_pct || DEFAULT_PARAMS.take_profit_pct))
+                : (existingParams.take_profit_pct || DEFAULT_PARAMS.take_profit_pct),
+            trade_size_usdt: parameters.trade_size_usdt !== undefined
+                ? Math.max(10, Math.min(1000, parseFloat(parameters.trade_size_usdt || parameters.trade_size_eur) || existingParams.trade_size_usdt || DEFAULT_PARAMS.trade_size_usdt))
+                : (existingParams.trade_size_usdt || DEFAULT_PARAMS.trade_size_usdt),
+            
+            // Trailing Stop
+            trailing_stop_enabled: parameters.trailing_stop_enabled !== undefined
+                ? (parameters.trailing_stop_enabled === true || parameters.trailing_stop_enabled === 'true' || parameters.trailing_stop_enabled === 1)
+                : (existingParams.trailing_stop_enabled !== undefined ? existingParams.trailing_stop_enabled : DEFAULT_PARAMS.trailing_stop_enabled),
+            trailing_stop_distance_pct: parameters.trailing_stop_distance_pct !== undefined
+                ? Math.max(0.1, Math.min(5, parseFloat(parameters.trailing_stop_distance_pct) || existingParams.trailing_stop_distance_pct || DEFAULT_PARAMS.trailing_stop_distance_pct))
+                : (existingParams.trailing_stop_distance_pct || DEFAULT_PARAMS.trailing_stop_distance_pct),
+            
+            // Partial Close
+            partial_close_enabled: parameters.partial_close_enabled !== undefined
+                ? (parameters.partial_close_enabled === true || parameters.partial_close_enabled === 'true' || parameters.partial_close_enabled === 1)
+                : (existingParams.partial_close_enabled !== undefined ? existingParams.partial_close_enabled : DEFAULT_PARAMS.partial_close_enabled),
+            take_profit_1_pct: parameters.take_profit_1_pct !== undefined
+                ? Math.max(0.1, Math.min(5, parseFloat(parameters.take_profit_1_pct) || existingParams.take_profit_1_pct || DEFAULT_PARAMS.take_profit_1_pct))
+                : (existingParams.take_profit_1_pct || DEFAULT_PARAMS.take_profit_1_pct),
+            take_profit_2_pct: parameters.take_profit_2_pct !== undefined
+                ? Math.max(0.1, Math.min(10, parseFloat(parameters.take_profit_2_pct) || existingParams.take_profit_2_pct || DEFAULT_PARAMS.take_profit_2_pct))
+                : (existingParams.take_profit_2_pct || DEFAULT_PARAMS.take_profit_2_pct),
+            
+            // ✅ NUOVI: Filtri Avanzati (personalizzabili)
+            min_signal_strength: parameters.min_signal_strength !== undefined
+                ? Math.max(50, Math.min(100, parseInt(parameters.min_signal_strength) || existingParams.min_signal_strength || 70))
+                : (existingParams.min_signal_strength || 70),
+            min_confirmations_long: parameters.min_confirmations_long !== undefined
+                ? Math.max(1, Math.min(10, parseInt(parameters.min_confirmations_long) || existingParams.min_confirmations_long || 3))
+                : (existingParams.min_confirmations_long || 3),
+            min_confirmations_short: parameters.min_confirmations_short !== undefined
+                ? Math.max(1, Math.min(10, parseInt(parameters.min_confirmations_short) || existingParams.min_confirmations_short || 4))
+                : (existingParams.min_confirmations_short || 4),
+            min_atr_pct: parameters.min_atr_pct !== undefined
+                ? Math.max(0.1, Math.min(2.0, parseFloat(parameters.min_atr_pct) || existingParams.min_atr_pct || 0.2))
+                : (existingParams.min_atr_pct || 0.2),
+            max_atr_pct: parameters.max_atr_pct !== undefined
+                ? Math.max(2.0, Math.min(10.0, parseFloat(parameters.max_atr_pct) || existingParams.max_atr_pct || 5.0))
+                : (existingParams.max_atr_pct || 5.0),
+            min_volume_24h: parameters.min_volume_24h !== undefined
+                ? Math.max(10000, Math.min(10000000, parseFloat(parameters.min_volume_24h) || existingParams.min_volume_24h || 500000))
+                : (existingParams.min_volume_24h || 500000),
+            
+            // ✅ NUOVI: Risk Management (personalizzabili)
+            max_daily_loss_pct: parameters.max_daily_loss_pct !== undefined
+                ? Math.max(1.0, Math.min(20.0, parseFloat(parameters.max_daily_loss_pct) || existingParams.max_daily_loss_pct || 5.0))
+                : (existingParams.max_daily_loss_pct || 5.0),
+            max_exposure_pct: parameters.max_exposure_pct !== undefined
+                ? Math.max(10.0, Math.min(100.0, parseFloat(parameters.max_exposure_pct) || existingParams.max_exposure_pct || 50.0))
+                : (existingParams.max_exposure_pct || 50.0),
+            max_positions: parameters.max_positions !== undefined
+                ? Math.max(1, Math.min(20, parseInt(parameters.max_positions) || existingParams.max_positions || 5))
+                : (existingParams.max_positions || 5),
+            
+            // ✅ NUOVO: Timeframe
+            analysis_timeframe: parameters.analysis_timeframe !== undefined
+                ? (['15m', '1h', '4h', '1d'].includes(parameters.analysis_timeframe) ? parameters.analysis_timeframe : '15m')
+                : (existingParams.analysis_timeframe || '15m'),
+            
+            // Note (opzionale)
+            notes: parameters.notes || existingParams.notes || ''
         };
 
-        // Ensure oversold < overbought
+        // Validazioni incrociate
         if (validParams.rsi_oversold >= validParams.rsi_overbought) {
             return res.status(400).json({
                 error: 'rsi_oversold must be less than rsi_overbought'
             });
         }
 
-        // Ensure TP1 < TP2 when partial close is enabled
         if (validParams.partial_close_enabled && validParams.take_profit_1_pct >= validParams.take_profit_2_pct) {
             return res.status(400).json({
                 error: 'take_profit_1_pct must be less than take_profit_2_pct when partial close is enabled'
             });
         }
 
-        // Update database
-        await dbRun(
-            "UPDATE bot_settings SET parameters = ? WHERE strategy_name = 'RSI_Strategy'",
-            [JSON.stringify(validParams)]
+        if (validParams.min_atr_pct >= validParams.max_atr_pct) {
+            return res.status(400).json({
+                error: 'min_atr_pct must be less than max_atr_pct'
+            });
+        }
+
+        // ✅ FIX: Aggiorna record globale (symbol = 'global') o crea se non esiste
+        const existing = await dbGet(
+            "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global' LIMIT 1"
         );
+        
+        if (existing) {
+            await dbRun(
+                "UPDATE bot_settings SET parameters = ? WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global'",
+                [JSON.stringify(validParams)]
+            );
+        } else {
+            await dbRun(
+                "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES ('RSI_Strategy', 'global', 1, ?)",
+                [JSON.stringify(validParams)]
+            );
+        }
 
         res.json({
             success: true,
             parameters: validParams,
-            message: 'Parametri aggiornati con successo'
+            message: 'Parametri aggiornati con successo. Tutti i parametri sono ora personalizzabili!'
         });
     } catch (error) {
         console.error('Error updating bot parameters:', error);
@@ -6205,9 +6309,15 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         console.log('🔍 [BOT-ANALYSIS] Generating signal...');
+        // ✅ FIX: Recupera parametri RSI configurati per questo simbolo
+        const analysisParams = await getBotParameters(symbol).catch(() => ({}));
         let signal;
         try {
-            signal = signalGenerator.generateSignal(historyForSignal);
+            signal = signalGenerator.generateSignal(historyForSignal, symbol, {
+                rsi_period: analysisParams.rsi_period || 14,
+                rsi_oversold: analysisParams.rsi_oversold || 30,
+                rsi_overbought: analysisParams.rsi_overbought || 70
+            });
             console.log('🔍 [BOT-ANALYSIS] Signal generated:', signal ? signal.direction : 'null');
         } catch (signalError) {
             console.error('❌ [BOT-ANALYSIS] Errore nella generazione del segnale:', signalError.message);
@@ -7379,8 +7489,13 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = n
             return null; // No history
         }
 
-        // Generate Signal
-        const signal = signalGenerator.generateSignal(deepAnalysisHistory, symbol);
+        // Generate Signal (usa parametri RSI configurati per questo simbolo)
+        const deepAnalysisParams = await getBotParameters(symbol).catch(() => ({}));
+        const signal = signalGenerator.generateSignal(deepAnalysisHistory, symbol, {
+            rsi_period: deepAnalysisParams.rsi_period || 14,
+            rsi_oversold: deepAnalysisParams.rsi_oversold || 30,
+            rsi_overbought: deepAnalysisParams.rsi_overbought || 70
+        });
 
         // Calculate RSI Deep
         let rsiDeep = null;

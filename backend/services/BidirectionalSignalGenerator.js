@@ -692,9 +692,10 @@ class BidirectionalSignalGenerator {
      * Genera segnale bidirezionale
      * @param {Array} priceHistory - Array di {price, timestamp}
      * @param {string} symbol - Simbolo (opzionale, per logging)
+     * @param {Object} params - Parametri configurabili (rsi_period, rsi_oversold, rsi_overbought)
      * @returns {Object} { direction: 'LONG'|'SHORT'|'NEUTRAL', strength: 0-100, reasons: [] }
      */
-    generateSignal(priceHistory, symbol = null) {
+    generateSignal(priceHistory, symbol = null, params = {}) {
         if (!priceHistory || priceHistory.length < 20) {
             return {
                 direction: 'NEUTRAL',
@@ -709,8 +710,13 @@ class BidirectionalSignalGenerator {
         const lows = priceHistory.map(h => h.low || h.price || h);
         const closes = prices;
 
+        // ✅ FIX: Usa parametri RSI configurati dall'utente invece di valori hardcoded
+        const rsiPeriod = params.rsi_period || 14;
+        const rsiOversold = params.rsi_oversold || 30;
+        const rsiOverbought = params.rsi_overbought || 70;
+        
         // 1. Calcola indicatori BASE
-        const rsi = this.calculateRSI(prices, 14);
+        const rsi = this.calculateRSI(prices, rsiPeriod);
         const trend = this.detectTrend(prices);
         const majorTrend = this.detectMajorTrend(prices); // EMA 50/200
         const volume = this.analyzeVolume(prices);
@@ -720,8 +726,8 @@ class BidirectionalSignalGenerator {
         const volatility = atr ? atr / currentPrice : 0.02; // Default 2%
         const avgVolatility = this.calculateVolatility(prices.slice(-30)) / avgPrice || 0.02;
 
-        // 2. Calcola RSI storico per divergenze
-        const rsiHistory = this.calculateRSIHistory(prices, 14);
+        // 2. Calcola RSI storico per divergenze (usa periodo configurato)
+        const rsiHistory = this.calculateRSIHistory(prices, rsiPeriod);
         const rsiDivergence = rsiHistory.length >= 15 ?
             this.detectRSIDivergence(prices, rsiHistory) : { type: null, strength: 0 };
 
@@ -743,22 +749,23 @@ class BidirectionalSignalGenerator {
             strengthContributions: [] // Array per tracciare i punti di ogni indicatore
         };
 
-        // CONFERMA 1: RSI oversold + uptrend
-        if (rsi !== null && rsi < 30 && trend === 'bullish') {
+        // CONFERMA 1: RSI oversold + uptrend (usa soglia configurata)
+        if (rsi !== null && rsi < rsiOversold && trend === 'bullish') {
             const points = 25;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`RSI oversold (${rsi.toFixed(1)}) + uptrend`);
-            longSignal.strengthContributions.push({ indicator: 'RSI oversold + uptrend', points, reason: `RSI oversold (${rsi.toFixed(1)}) + uptrend` });
+            longSignal.reasons.push(`RSI oversold (${rsi.toFixed(1)} < ${rsiOversold}) + uptrend`);
+            longSignal.strengthContributions.push({ indicator: 'RSI oversold + uptrend', points, reason: `RSI oversold (${rsi.toFixed(1)} < ${rsiOversold}) + uptrend` });
         }
 
-        // CONFERMA 2: RSI fortemente oversold
-        if (rsi !== null && rsi < 25) {
+        // CONFERMA 2: RSI fortemente oversold (usa soglia configurata - 5 punti)
+        const rsiStronglyOversold = rsiOversold - 5;
+        if (rsi !== null && rsi < rsiStronglyOversold) {
             const points = 20;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`RSI strongly oversold (${rsi.toFixed(1)})`);
-            longSignal.strengthContributions.push({ indicator: 'RSI strongly oversold', points, reason: `RSI strongly oversold (${rsi.toFixed(1)})` });
+            longSignal.reasons.push(`RSI strongly oversold (${rsi.toFixed(1)} < ${rsiStronglyOversold})`);
+            longSignal.strengthContributions.push({ indicator: 'RSI strongly oversold', points, reason: `RSI strongly oversold (${rsi.toFixed(1)} < ${rsiStronglyOversold})` });
         }
 
         // CONFERMA 2.5: BULLISH DIVERGENCE RSI (segnale molto forte!)
@@ -779,8 +786,8 @@ class BidirectionalSignalGenerator {
             longSignal.strengthContributions.push({ indicator: 'MACD bullish', points, reason: `MACD bullish (${macd.macdLine.toFixed(2)} > ${macd.signalLine.toFixed(2)})` });
         }
 
-        // CONFERMA 4: Bollinger - Prezzo tocca lower band
-        if (bollinger && bollinger.priceAtLower && rsi !== null && rsi < 35) {
+        // CONFERMA 4: Bollinger - Prezzo tocca lower band (usa soglia configurata + 5)
+        if (bollinger && bollinger.priceAtLower && rsi !== null && rsi < (rsiOversold + 5)) {
             const points = 25;
             longSignal.strength += points;
             longSignal.confirmations++;
@@ -947,22 +954,23 @@ class BidirectionalSignalGenerator {
             shortSignal.strength += 20; // Bonus forza per il crash
         }
 
-        // CONFERMA 1: RSI overbought + downtrend CONFERMATO - SOLO se prezzo sta scendendo attivamente
-        if (rsi !== null && rsi > 70 && trend === 'bearish' && isPriceActivelyFalling) {
+        // CONFERMA 1: RSI overbought + downtrend CONFERMATO - SOLO se prezzo sta scendendo attivamente (usa soglia configurata)
+        if (rsi !== null && rsi > rsiOverbought && trend === 'bearish' && isPriceActivelyFalling) {
             const points = 35;
             shortSignal.strength += points;
             shortSignal.confirmations++;
-            shortSignal.reasons.push(`RSI overbought (${rsi.toFixed(1)}) + downtrend confirmed + price falling`);
-            shortSignal.strengthContributions.push({ indicator: 'RSI overbought + downtrend', points, reason: `RSI overbought (${rsi.toFixed(1)}) + downtrend confirmed + price falling` });
+            shortSignal.reasons.push(`RSI overbought (${rsi.toFixed(1)} > ${rsiOverbought}) + downtrend confirmed + price falling`);
+            shortSignal.strengthContributions.push({ indicator: 'RSI overbought + downtrend', points, reason: `RSI overbought (${rsi.toFixed(1)} > ${rsiOverbought}) + downtrend confirmed + price falling` });
         }
 
-        // CONFERMA 2: RSI fortemente overbought + trend NON bullish - SOLO se prezzo scende
-        if (rsi !== null && rsi > 75 && trend !== 'bullish' && isPriceActivelyFalling) {
+        // CONFERMA 2: RSI fortemente overbought + trend NON bullish - SOLO se prezzo scende (usa soglia configurata + 5)
+        const rsiStronglyOverbought = rsiOverbought + 5;
+        if (rsi !== null && rsi > rsiStronglyOverbought && trend !== 'bullish' && isPriceActivelyFalling) {
             const points = 25;
             shortSignal.strength += points;
             shortSignal.confirmations++;
-            shortSignal.reasons.push(`RSI strongly overbought (${rsi.toFixed(1)})`);
-            shortSignal.strengthContributions.push({ indicator: 'RSI strongly overbought', points, reason: `RSI strongly overbought (${rsi.toFixed(1)})` });
+            shortSignal.reasons.push(`RSI strongly overbought (${rsi.toFixed(1)} > ${rsiStronglyOverbought})`);
+            shortSignal.strengthContributions.push({ indicator: 'RSI strongly overbought', points, reason: `RSI strongly overbought (${rsi.toFixed(1)} > ${rsiStronglyOverbought})` });
         }
 
         // CONFERMA 2.5: BEARISH DIVERGENCE RSI (segnale molto forte!) - SOLO se prezzo scende
@@ -983,8 +991,8 @@ class BidirectionalSignalGenerator {
             shortSignal.strengthContributions.push({ indicator: 'MACD bearish', points, reason: `MACD bearish (${macd.macdLine.toFixed(2)} < ${macd.signalLine.toFixed(2)})` });
         }
 
-        // CONFERMA 4: Bollinger - Prezzo tocca upper band + RSI overbought - SOLO se prezzo scende
-        if (bollinger && bollinger.priceAtUpper && rsi !== null && rsi > 65 && isPriceActivelyFalling) {
+        // CONFERMA 4: Bollinger - Prezzo tocca upper band + RSI overbought - SOLO se prezzo scende (usa soglia configurata - 5)
+        if (bollinger && bollinger.priceAtUpper && rsi !== null && rsi > (rsiOverbought - 5) && isPriceActivelyFalling) {
             const points = 25;
             shortSignal.strength += points;
             shortSignal.confirmations++;
