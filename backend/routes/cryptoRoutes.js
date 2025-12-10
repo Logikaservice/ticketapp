@@ -7393,11 +7393,17 @@ router.get('/bot-analysis', async (req, res) => {
                         });
                     }
 
-                    // ✅ FIX: Se non ci sono blocker ma canOpen è false, aggiungi un blocker generico
+                    // ✅ FIX: Se non ci sono blocker ma canOpen è false, aggiungi un blocker generico con dettagli
                     if (blocks.length === 0 && !canOpen) {
+                        const missingChecks = [];
+                        if (!meetsRequirements) missingChecks.push('requirements non soddisfatti');
+                        if (!canOpenCheck.allowed) missingChecks.push(`risk manager: ${canOpenCheck.reason || 'sconosciuto'}`);
+                        if (signal.atrBlocked) missingChecks.push('ATR blocked');
+                        if (!supportsShort) missingChecks.push('SHORT non supportato');
+                        
                         blocks.push({
                             type: 'Blocco sconosciuto',
-                            reason: `Requirements soddisfatti ma posizione SHORT non può essere aperta. Verifica log backend per dettagli.`,
+                            reason: `Requirements sembrano soddisfatti ma posizione SHORT non può essere aperta. Motivi possibili: ${missingChecks.join(', ')}. Verifica log backend per dettagli.`,
                             severity: 'medium'
                         });
                     }
