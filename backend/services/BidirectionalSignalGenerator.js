@@ -804,6 +804,15 @@ class BidirectionalSignalGenerator {
             longSignal.strengthContributions.push({ indicator: 'Bullish trend confirmed', points, reason: `Bullish trend confirmed (EMA 10>20, 50>200)` });
         }
 
+        // ✅ NUOVO: CONFERMA 5.5: Trend bullish anche senza RSI estremo (per mercati neutri)
+        if (trend === 'bullish' && rsi !== null && rsi >= 40 && rsi <= 60) {
+            const points = 15;
+            longSignal.strength += points;
+            longSignal.confirmations++;
+            longSignal.reasons.push(`Bullish trend with neutral RSI (${rsi.toFixed(1)}) - trend momentum`);
+            longSignal.strengthContributions.push({ indicator: 'Bullish trend (neutral RSI)', points, reason: `Bullish trend with neutral RSI (${rsi.toFixed(1)})` });
+        }
+
         // CONFERMA 6: Prezzo sopra EMA key levels
         if (ema10 && ema20 && currentPrice > ema10 && ema10 > ema20) {
             const points = 15;
@@ -811,6 +820,15 @@ class BidirectionalSignalGenerator {
             longSignal.confirmations++;
             longSignal.reasons.push(`Price above EMA 10 & EMA 10 > EMA 20`);
             longSignal.strengthContributions.push({ indicator: 'Price above EMA', points, reason: `Price above EMA 10 & EMA 10 > EMA 20` });
+        }
+
+        // ✅ NUOVO: CONFERMA 6.5: MACD bullish anche con RSI neutrale (segnale forte)
+        if (macd && macd.macdAboveSignal && macd.macdAboveZero && rsi !== null && rsi >= 40 && rsi <= 60) {
+            const points = 20;
+            longSignal.strength += points;
+            longSignal.confirmations++;
+            longSignal.reasons.push(`MACD bullish with neutral RSI (${rsi.toFixed(1)}) - momentum building`);
+            longSignal.strengthContributions.push({ indicator: 'MACD bullish (neutral RSI)', points, reason: `MACD bullish with neutral RSI (${rsi.toFixed(1)})` });
         }
 
         // CONFERMA 7: Volume alto (movimento forte) - SOLO se prezzo sale o è stabile
@@ -916,15 +934,21 @@ class BidirectionalSignalGenerator {
         // Questo evita di generare SHORT su mercati laterali/neutri
         const isPriceRising = priceChange > 0.1;
         // ✅ FIX: Mercato neutrale = nessun movimento significativo in nessuna direzione
-        const isPriceNeutral = (priceChange > -0.5 && priceChange < 0.5) ||
-            (priceChange5 > -1.0 && priceChange5 < 1.0) ||
-            (priceChange10 > -1.5 && priceChange10 < 1.5);
+        // ✅ MIGLIORATO: Considera neutrale solo se NON c'è movimento su TUTTI i timeframe
+        // Se almeno un timeframe mostra movimento al ribasso, NON è neutrale
+        const isPriceNeutral = (priceChange > -0.3 && priceChange < 0.3) &&
+            (priceChange5 > -0.5 && priceChange5 < 0.5) &&
+            (priceChange10 > -0.8 && priceChange10 < 0.8);
 
         // ✅ FIX CRITICO: Verifica se prezzo sta scendendo attivamente E in modo consistente
         // Se il prezzo è neutrale o laterale, NON generare segnali SHORT
         // Questo previene SHORT su mercati neutri/laterali (es. MANA/USDT senza movimento)
-        // Verifica movimento CONSISTENTE: deve scendere sia su 3 che su 5 periodi
-        const isPriceActivelyFalling = priceChange < -0.5 && priceChange5 < -0.8;
+        // ✅ MIGLIORATO: Rileva trend al ribasso anche se non estremamente aggressivo
+        // Verifica movimento CONSISTENTE: deve scendere su almeno uno dei timeframe
+        const isPriceActivelyFalling = (priceChange < -0.3 && priceChange5 < -0.5) || 
+                                       (priceChange < -0.5) || 
+                                       (priceChange5 < -0.8) ||
+                                       (priceChange10 < -1.0);
 
         // ✅ FIX CRITICO: Se mercato è neutrale O prezzo sta salendo, BLOCCA solo SHORT ma continua a calcolare LONG
         // NON fare return early per permettere ai segnali LONG di essere generati
@@ -1009,6 +1033,15 @@ class BidirectionalSignalGenerator {
             shortSignal.strengthContributions.push({ indicator: 'Bearish trend confirmed', points, reason: `Bearish trend confirmed (EMA 10<20)` });
         }
 
+        // ✅ NUOVO: CONFERMA 5.5: Trend bearish anche senza RSI estremo (per mercati neutri)
+        if (trend === 'bearish' && isPriceActivelyFalling && rsi !== null && rsi >= 40 && rsi <= 60) {
+            const points = 15;
+            shortSignal.strength += points;
+            shortSignal.confirmations++;
+            shortSignal.reasons.push(`Bearish trend with neutral RSI (${rsi.toFixed(1)}) - trend momentum`);
+            shortSignal.strengthContributions.push({ indicator: 'Bearish trend (neutral RSI)', points, reason: `Bearish trend with neutral RSI (${rsi.toFixed(1)})` });
+        }
+
         // CONFERMA 6: Prezzo sotto EMA key levels - SOLO se prezzo sta scendendo attivamente
         if (ema10 && ema20 && currentPrice < ema10 && ema10 < ema20 && isPriceActivelyFalling) {
             const points = 20;
@@ -1016,6 +1049,15 @@ class BidirectionalSignalGenerator {
             shortSignal.confirmations++;
             shortSignal.reasons.push(`Price below EMA 10 & EMA 10 < EMA 20`);
             shortSignal.strengthContributions.push({ indicator: 'Price below EMA', points, reason: `Price below EMA 10 & EMA 10 < EMA 20` });
+        }
+
+        // ✅ NUOVO: CONFERMA 6.5: MACD bearish anche con RSI neutrale (segnale forte)
+        if (macd && !macd.macdAboveSignal && !macd.macdAboveZero && isPriceActivelyFalling && rsi !== null && rsi >= 40 && rsi <= 60) {
+            const points = 20;
+            shortSignal.strength += points;
+            shortSignal.confirmations++;
+            shortSignal.reasons.push(`MACD bearish with neutral RSI (${rsi.toFixed(1)}) - momentum building`);
+            shortSignal.strengthContributions.push({ indicator: 'MACD bearish (neutral RSI)', points, reason: `MACD bearish with neutral RSI (${rsi.toFixed(1)})` });
         }
 
         // CONFERMA 7: Prezzo STA SCENDENDO (non solo "potrebbe") - SOLO se scende significativamente
