@@ -3337,10 +3337,14 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 // ✅ FIX CRITICO: Recupera il prezzo corrente per questa posizione da Binance
                 let currentPrice = null;
                 const oldPrice = parseFloat(pos.current_price) || 0;
+                const entryPriceForDebug = parseFloat(pos.entry_price) || 0;
 
                 try {
                     // Prova prima con il simbolo normalizzato
                     currentPrice = await getSymbolPrice(normalizedSymbol);
+                    
+                    // ✅ DEBUG: Log sempre il prezzo recuperato per debug
+                    console.log(`🔍 [UPDATE P&L] ${pos.symbol} (${pos.ticket_id}): getSymbolPrice("${normalizedSymbol}") → $${currentPrice ? currentPrice.toFixed(6) : 'null'} USDT | Entry: $${entryPriceForDebug.toFixed(6)} | DB: $${oldPrice.toFixed(6)}`);
 
                     // Se fallisce, prova con il simbolo originale e altre varianti
                     if (!currentPrice || currentPrice <= 0) {
@@ -3352,9 +3356,11 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
 
                         for (const fallbackSymbol of fallbackSymbols) {
                             if (fallbackSymbol !== normalizedSymbol) {
-                                currentPrice = await getSymbolPrice(fallbackSymbol);
-                                if (currentPrice && currentPrice > 0) {
-                                    console.log(`✅ [UPDATE P&L] Prezzo recuperato per ${pos.symbol} usando fallback symbol: ${fallbackSymbol}`);
+                                const fallbackPrice = await getSymbolPrice(fallbackSymbol);
+                                console.log(`🔄 [UPDATE P&L] ${pos.symbol}: fallback symbol "${fallbackSymbol}" → $${fallbackPrice ? fallbackPrice.toFixed(6) : 'null'} USDT`);
+                                if (fallbackPrice && fallbackPrice > 0) {
+                                    currentPrice = fallbackPrice;
+                                    console.log(`✅ [UPDATE P&L] Prezzo recuperato per ${pos.symbol} usando fallback symbol: ${fallbackSymbol} → $${currentPrice.toFixed(6)}`);
                                     break;
                                 }
                             }
@@ -3369,9 +3375,18 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                         if (oldPrice > 0 && Math.abs(currentPrice - oldPrice) > oldPrice * 0.01) {
                             console.log(`💰 [UPDATE P&L] ${pos.symbol} (${pos.ticket_id}): $${oldPrice.toFixed(6)} → $${currentPrice.toFixed(6)} USDT (diff: ${((currentPrice - oldPrice) / oldPrice * 100).toFixed(2)}%)`);
                         }
+                        
+                        // ✅ DEBUG: Verifica anche rispetto all'entry price
+                        if (entryPriceForDebug > 0) {
+                            const diffFromEntry = Math.abs(currentPrice - entryPriceForDebug) / entryPriceForDebug;
+                            if (diffFromEntry > 0.5) {
+                                console.warn(`⚠️ [UPDATE P&L] ${pos.symbol} (${pos.ticket_id}): Prezzo recuperato ($${currentPrice.toFixed(6)}) molto diverso da entry ($${entryPriceForDebug.toFixed(6)}), diff: ${(diffFromEntry * 100).toFixed(2)}%`);
+                            }
+                        }
                     }
                 } catch (priceError) {
                     console.error(`❌ [UPDATE P&L] Errore recupero prezzo per ${pos.symbol} (normalized: ${normalizedSymbol}):`, priceError.message);
+                    console.error(`   Stack:`, priceError.stack);
                     // Usa il prezzo dal database come fallback
                     currentPrice = oldPrice;
                 }
@@ -3519,12 +3534,29 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 if (currentPriceInDb > 0 && Math.abs(currentPrice - currentPriceInDb) > currentPriceInDb * 0.5) {
                     console.warn(`⚠️  [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}) variazione prezzo sospetta: $${currentPriceInDb.toFixed(6)} → $${currentPrice.toFixed(6)} (${((currentPrice - currentPriceInDb) / currentPriceInDb * 100).toFixed(2)}%)`);
                     // Verifica che il nuovo prezzo sia valido confrontandolo con il prezzo di entry
-                    const entryPrice = parseFloat(pos.entry_price) || 0;
-                    if (entryPrice > 0 && Math.abs(currentPrice - entryPrice) > entryPrice * 2) {
-                        console.error(`🚨 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}) prezzo sospetto: $${currentPrice.toFixed(6)} vs entry: $${entryPrice.toFixed(6)}`);
-                        // Non aggiornare se il prezzo è troppo diverso dall'entry (potrebbe essere un errore)
-                        updatePnLLock.delete(lockKey);
-                        continue;
+                    const entryPriceCheck = parseFloat(pos.entry_price) || 0;
+                    if (entryPriceCheck > 0) {
+                        const priceDiffFromEntry = Math.abs(currentPrice - entryPriceCheck) / entryPriceCheck;
+                        // ✅ FIX: Se il prezzo nel DB è molto diverso dall'entry, potrebbe essere un errore di inizializzazione
+                        // In questo caso, se il nuovo prezzo è più vicino all'entry, aggiorniamo comunque
+                        const dbPriceDiffFromEntry = Math.abs(currentPriceInDb - entryPriceCheck) / entryPriceCheck;
+                        
+                        if (priceDiffFromEntry > 2.0) {
+                            // Il nuovo prezzo è troppo diverso dall'entry (>200%), potrebbe essere un errore
+                            console.error(`🚨 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}) prezzo sospetto: $${currentPrice.toFixed(6)} vs entry: $${entryPriceCheck.toFixed(6)} (diff: ${(priceDiffFromEntry * 100).toFixed(2)}%)`);
+                            // ✅ FIX: Se il prezzo nel DB è ancora più sbagliato, aggiorniamo comunque
+                            if (dbPriceDiffFromEntry > priceDiffFromEntry) {
+                                console.log(`✅ [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}) Il nuovo prezzo è più corretto del DB (${(priceDiffFromEntry * 100).toFixed(2)}% vs ${(dbPriceDiffFromEntry * 100).toFixed(2)}%), aggiorno comunque`);
+                                // Continua e aggiorna
+                            } else {
+                                // Non aggiornare se il prezzo è troppo diverso dall'entry (potrebbe essere un errore)
+                                updatePnLLock.delete(lockKey);
+                                continue;
+                            }
+                        } else if (dbPriceDiffFromEntry > priceDiffFromEntry) {
+                            // Il nuovo prezzo è più corretto del DB (più vicino all'entry), aggiorniamo
+                            console.log(`✅ [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}) Correzione prezzo: DB era ${(dbPriceDiffFromEntry * 100).toFixed(2)}% dall'entry, nuovo prezzo è ${(priceDiffFromEntry * 100).toFixed(2)}%`);
+                        }
                     }
                 }
 
