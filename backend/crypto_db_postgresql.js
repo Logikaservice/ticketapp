@@ -225,7 +225,7 @@ async function initDb() {
                 id SERIAL PRIMARY KEY,
                 strategy_name TEXT NOT NULL,
                 symbol TEXT NOT NULL DEFAULT 'bitcoin',
-                is_active INTEGER DEFAULT 0,
+                is_active INTEGER DEFAULT 1,
                 parameters TEXT,
                 UNIQUE(strategy_name, symbol)
             )

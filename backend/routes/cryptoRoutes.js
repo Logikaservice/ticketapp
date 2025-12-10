@@ -1805,7 +1805,8 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = 
 // Bot Loop Function for a single symbol
 const runBotCycleForSymbol = async (symbol, botSettings) => {
     try {
-        const isBotActive = botSettings && botSettings.is_active === 1;
+        // ✅ FIX: Bot attivo di default se non c'è entry nel database
+        const isBotActive = botSettings ? (Number(botSettings.is_active) === 1) : true;
 
         // Get current price for this symbol
         let currentPrice = await getSymbolPrice(symbol);
@@ -4806,7 +4807,7 @@ router.post('/bot/toggle-all', async (req, res) => {
             const mainSymbols = ['bitcoin', 'ethereum', 'solana', 'cardano', 'polkadot', 'chainlink'];
             for (const symbol of mainSymbols) {
                 await dbRun(
-                    "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES ($1, $2, $3, $4)",
+                    "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES ($1, $2, 1, $4)",
                     ['RSI_Strategy', symbol, activeValue, JSON.stringify(DEFAULT_PARAMS)]
                 );
             }
@@ -6410,8 +6411,8 @@ router.get('/bot-analysis', async (req, res) => {
                 take_profit_2_pct: 3.0
             };
             await dbRun(
-                "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES ($1, $2, $3, $4)",
-                ['RSI_Strategy', symbol, 1, JSON.stringify(DEFAULT_PARAMS)] // Default: ATTIVO (1)
+                "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES ($1, $2, 1, $3)",
+                ['RSI_Strategy', symbol, JSON.stringify(DEFAULT_PARAMS)] // Default: ATTIVO (1)
             );
             console.log(`✅ [BOT-ANALYSIS] Bot settings creati per ${symbol} (ATTIVO di default)`);
         }
