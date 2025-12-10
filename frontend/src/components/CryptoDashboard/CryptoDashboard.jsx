@@ -173,12 +173,49 @@ const CryptoDashboard = () => {
 
     const handleUpdatePnL = async () => {
         try {
-            await fetch(`${apiBase}/api/crypto/positions/update-pnl?symbol=bitcoin`);
-            // Refresh positions after update
+            // ✅ FIX: Aggiorna P&L per TUTTE le posizioni (il backend aggiorna tutte automaticamente)
+            // Non serve passare un simbolo specifico - il backend gestisce tutti i simboli
+            await fetch(`${apiBase}/api/crypto/positions/update-pnl`);
+            
+            // ✅ FIX: Refresh positions after update - recupera tutte le posizioni aperte
             const res = await fetch(`${apiBase}/api/crypto/positions?status=open`);
             if (res.ok) {
                 const data = await res.json();
-                setOpenPositions(data.positions || []);
+                const updatedPositions = data.positions || [];
+                setOpenPositions(updatedPositions);
+                
+                // ✅ FIX: Aggiorna anche i prezzi per tutti i simboli delle posizioni aperte
+                // Questo assicura che allSymbolPrices sia aggiornato e mostri i prezzi corretti
+                if (updatedPositions.length > 0) {
+                    // Aggiorna i prezzi per tutti i simboli unici nelle posizioni aperte
+                    const uniqueSymbols = [...new Set(updatedPositions.map(pos => pos.symbol))];
+                    const newPrices = {};
+                    
+                    for (const symbol of uniqueSymbols) {
+                        try {
+                            const priceRes = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=usdt`);
+                            if (priceRes.ok) {
+                                const priceData = await priceRes.json();
+                                if (priceData.price) {
+                                    newPrices[symbol] = parseFloat(priceData.price);
+                                }
+                                // ✅ FIX: Usa anche il current_price dalla posizione aggiornata
+                                const pos = updatedPositions.find(p => p.symbol === symbol);
+                                if (pos && pos.current_price) {
+                                    newPrices[symbol] = parseFloat(pos.current_price);
+                                }
+                            }
+                        } catch (err) {
+                            // Ignora errori singoli - non bloccare l'aggiornamento
+                            console.warn(`Warning: Could not fetch price for ${symbol}`, err);
+                        }
+                    }
+                    
+                    // ✅ FIX: Aggiorna allSymbolPrices con i nuovi prezzi
+                    if (Object.keys(newPrices).length > 0) {
+                        setAllSymbolPrices(prev => ({ ...prev, ...newPrices }));
+                    }
+                }
             }
         } catch (error) {
             console.error("Error updating P&L:", error);

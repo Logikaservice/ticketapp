@@ -108,7 +108,15 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                             // ✅ FIX: Usa valori dal database, non fallback a 0 se sono null/undefined
                             // Per simboli con prezzi molto piccoli (es. SHIB), i valori potrebbero essere molto piccoli ma validi
                             const entryPrice = pos.entry_price != null ? parseFloat(pos.entry_price) : 0;
-                            const currentPriceValue = pos.current_price != null ? parseFloat(pos.current_price) : (currentPrice ? parseFloat(currentPrice) : 0);
+                            // ✅ FIX: Priorità per prezzo corrente: 1) allSymbolPrices (più aggiornato), 2) current_price dal DB, 3) currentPrice se stesso simbolo
+                            let currentPriceValue = 0;
+                            if (allSymbolPrices && allSymbolPrices[pos.symbol]) {
+                                currentPriceValue = parseFloat(allSymbolPrices[pos.symbol]);
+                            } else if (pos.current_price != null) {
+                                currentPriceValue = parseFloat(pos.current_price);
+                            } else if (pos.symbol === currentSymbol && currentPrice) {
+                                currentPriceValue = parseFloat(currentPrice);
+                            }
                             const volume = parseFloat(pos.volume) || 0;
                             const stopLoss = pos.stop_loss != null ? parseFloat(pos.stop_loss) : null;
                             const takeProfit = pos.take_profit != null ? parseFloat(pos.take_profit) : null;
