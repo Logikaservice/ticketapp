@@ -48,21 +48,31 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
             const res = await fetch(`${apiBase}/api/crypto/bot/parameters`);
             if (res.ok) {
                 const data = await res.json();
-                // ✅ FIX: Merge con valori di default per assicurarsi che tutti i parametri esistano
-                const mergedParams = {
-                    ...parameters, // Mantiene i default iniziali
-                    ...data.parameters // Sovrascrive con valori dal database
-                };
-                setParameters(mergedParams);
-                console.log('✅ [BOT-SETTINGS] Parametri caricati:', {
-                    hasTrailingProfit: 'trailing_profit_protection_enabled' in mergedParams,
-                    trailingProfitValue: mergedParams.trailing_profit_protection_enabled
-                });
+                // ✅ FIX: I parametri dal backend sono già completi (merge fatto nel backend)
+                // Non serve fare merge qui, usiamo direttamente i parametri dal backend
+                if (data.parameters && typeof data.parameters === 'object') {
+                    setParameters(data.parameters);
+                    console.log('✅ [BOT-SETTINGS] Parametri caricati dal backend:', {
+                        totalParams: Object.keys(data.parameters).length,
+                        hasTrailingProfit: 'trailing_profit_protection_enabled' in data.parameters,
+                        trailingProfitValue: data.parameters.trailing_profit_protection_enabled,
+                        sampleValues: {
+                            trade_size_usdt: data.parameters.trade_size_usdt,
+                            stop_loss_pct: data.parameters.stop_loss_pct,
+                            take_profit_pct: data.parameters.take_profit_pct
+                        }
+                    });
+                } else {
+                    console.error('❌ [BOT-SETTINGS] Parametri non validi dal backend:', data);
+                    setError('Formato parametri non valido');
+                }
             } else {
-                setError('Errore nel caricamento dei parametri');
+                const errorData = await res.json().catch(() => ({}));
+                console.error('❌ [BOT-SETTINGS] Errore caricamento:', errorData);
+                setError(errorData.error || 'Errore nel caricamento dei parametri');
             }
         } catch (err) {
-            console.error('Error loading parameters:', err);
+            console.error('❌ [BOT-SETTINGS] Errore di connessione:', err);
             setError('Errore di connessione');
         } finally {
             setLoading(false);
@@ -75,6 +85,17 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
         setSuccess(false);
 
         try {
+            // ✅ Log dei parametri che stiamo salvando
+            console.log('💾 [BOT-SETTINGS] Salvataggio parametri:', {
+                totalParams: Object.keys(parameters).length,
+                sampleValues: {
+                    trade_size_usdt: parameters.trade_size_usdt,
+                    stop_loss_pct: parameters.stop_loss_pct,
+                    take_profit_pct: parameters.take_profit_pct,
+                    trailing_profit_protection_enabled: parameters.trailing_profit_protection_enabled
+                }
+            });
+
             const res = await fetch(`${apiBase}/api/crypto/bot/parameters`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -82,17 +103,23 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
             });
 
             if (res.ok) {
+                const responseData = await res.json();
+                console.log('✅ [BOT-SETTINGS] Parametri salvati con successo:', responseData);
                 setSuccess(true);
-                setTimeout(() => {
+                
+                // ✅ RICARICA i parametri dal server per verificare che siano stati salvati correttamente
+                setTimeout(async () => {
+                    await loadParameters();
                     setSuccess(false);
-                    onClose();
-                }, 1500);
+                    // Non chiudiamo subito, lasciamo vedere il successo
+                }, 1000);
             } else {
                 const data = await res.json();
+                console.error('❌ [BOT-SETTINGS] Errore salvataggio:', data);
                 setError(data.error || 'Errore nel salvataggio');
             }
         } catch (err) {
-            console.error('Error saving parameters:', err);
+            console.error('❌ [BOT-SETTINGS] Errore di connessione:', err);
             setError('Errore di connessione');
         } finally {
             setSaving(false);

@@ -5011,7 +5011,27 @@ router.put('/bot/parameters', async (req, res) => {
         // ✅ NUOVO: Recupera parametri esistenti per merge (mantiene valori non specificati)
         const existingParams = await getBotParameters('bitcoin');
 
+        console.log('💾 [BOT-PARAMS] Ricevuti dal frontend:', {
+            receivedCount: Object.keys(parameters).length,
+            receivedKeys: Object.keys(parameters),
+            sampleReceived: {
+                trade_size_usdt: parameters.trade_size_usdt,
+                stop_loss_pct: parameters.stop_loss_pct,
+                trailing_profit_protection_enabled: parameters.trailing_profit_protection_enabled
+            }
+        });
+
+        console.log('💾 [BOT-PARAMS] Parametri esistenti nel DB:', {
+            existingCount: Object.keys(existingParams).length,
+            sampleExisting: {
+                trade_size_usdt: existingParams.trade_size_usdt,
+                stop_loss_pct: existingParams.stop_loss_pct,
+                trailing_profit_protection_enabled: existingParams.trailing_profit_protection_enabled
+            }
+        });
+
         // ✅ VALIDAZIONE COMPLETA - Tutti i parametri sono personalizzabili
+        // ✅ FIX: Usa SEMPRE i parametri dal frontend se presenti, altrimenti usa esistenti
         const validParams = {
             // Parametri RSI
             rsi_period: parameters.rsi_period !== undefined
