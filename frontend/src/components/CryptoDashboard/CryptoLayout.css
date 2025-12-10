@@ -105,6 +105,11 @@
   overflow: visible;
 }
 
+/* Permetti overflow quando il grafico è in fullscreen mode */
+.crypto-card:has(.tradingview-chart-container.fullscreen-mode) {
+  overflow: visible !important;
+}
+
 .crypto-card:has(.lightweight-chart-container) .card-title {
   padding: 1.5rem 1.5rem 1rem 1.5rem;
   margin-bottom: 0;
