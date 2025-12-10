@@ -6797,6 +6797,290 @@ router.get('/bot-analysis', async (req, res) => {
                 takeProfitPct: params.take_profit_pct,
                 tradeSizeUsdt: params.trade_size_usdt || params.trade_size_eur || 50
             },
+            diagnostics: (() => {
+                // ✅ NUOVO: Diagnostica completa di TUTTI i controlli
+                const diagnostics = {
+                    timestamp: new Date().toISOString(),
+                    symbol: symbol,
+                    checks: [],
+                    blockedBy: [],
+                    canOpenLong: false,
+                    canOpenShort: false,
+                    summary: ''
+                };
+
+                // 1. Bot Attivo
+                const isBotActive = botSettings ? (Number(botSettings.is_active) === 1) : true;
+                diagnostics.checks.push({
+                    name: 'Bot Attivo',
+                    passed: isBotActive,
+                    severity: 'high',
+                    message: isBotActive 
+                        ? 'Il bot è attivo su questo simbolo' 
+                        : 'Il bot non è attivo su questa moneta. Attivalo dalla Dashboard.'
+                });
+                if (!isBotActive) {
+                    diagnostics.blockedBy.push('Bot disabilitato');
+                }
+
+                // 2. Volume 24h
+                const volumeOK = volume24h >= MIN_VOLUME;
+                diagnostics.checks.push({
+                    name: 'Volume 24h',
+                    passed: volumeOK,
+                    severity: 'high',
+                    value: volume24h,
+                    required: MIN_VOLUME,
+                    message: volumeOK 
+                        ? `Volume sufficiente: €${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })} >= €${MIN_VOLUME.toLocaleString('it-IT')}`
+                        : `Volume troppo basso: €${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })} < €${MIN_VOLUME.toLocaleString('it-IT')}`
+                });
+                if (!volumeOK) {
+                    diagnostics.blockedBy.push(`Volume troppo basso (€${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })})`);
+                }
+
+                // 3. Risk Manager Globale
+                diagnostics.checks.push({
+                    name: 'Risk Manager Globale',
+                    passed: riskCheck.canTrade,
+                    severity: 'high',
+                    message: riskCheck.canTrade 
+                        ? 'Trading permesso dal Risk Manager'
+                        : `Trading bloccato: ${riskCheck.reason || 'sconosciuto'}`
+                });
+                if (!riskCheck.canTrade) {
+                    diagnostics.blockedBy.push(`Risk Manager globale: ${riskCheck.reason || 'sconosciuto'}`);
+                }
+
+                // 4. Dati Storici
+                const hasEnoughData = priceHistoryData && priceHistoryData.length >= 20;
+                diagnostics.checks.push({
+                    name: 'Dati Storici',
+                    passed: hasEnoughData,
+                    severity: 'high',
+                    value: priceHistoryData?.length || 0,
+                    required: 20,
+                    message: hasEnoughData 
+                        ? `Dati sufficienti: ${priceHistoryData.length} candele`
+                        : `Dati insufficienti: ${priceHistoryData?.length || 0} < 20 candele`
+                });
+                if (!hasEnoughData) {
+                    diagnostics.blockedBy.push(`Dati storici insufficienti (${priceHistoryData?.length || 0} candele)`);
+                }
+
+                // 5. LONG Diagnostics
+                if (signal.direction === 'LONG' || longCurrentStrength > 0) {
+                    const longStrengthOK = longAdjustedStrength >= LONG_MIN_STRENGTH;
+                    const longConfirmationsOK = longCurrentConfirmations >= LONG_MIN_CONFIRMATIONS;
+                    const longNotBlocked = !signal.atrBlocked && !portfolioDrawdownBlock && !marketRegimeBlock && !longBlockedByFilters;
+                    const longRiskOK = longMeetsRequirements ? canOpenCheck.allowed : true;
+
+                    diagnostics.checks.push({
+                        name: 'LONG - Strength Segnale',
+                        passed: longStrengthOK,
+                        severity: 'high',
+                        value: longAdjustedStrength,
+                        required: LONG_MIN_STRENGTH,
+                        message: longStrengthOK 
+                            ? `Strength sufficiente: ${longAdjustedStrength}/${LONG_MIN_STRENGTH} (original: ${longCurrentStrength}, MTF: ${longMtfBonus >= 0 ? '+' : ''}${longMtfBonus})`
+                            : `Strength insufficiente: ${longAdjustedStrength}/${LONG_MIN_STRENGTH} (mancano ${LONG_MIN_STRENGTH - longAdjustedStrength} punti)`
+                    });
+                    if (!longStrengthOK) {
+                        diagnostics.blockedBy.push(`LONG Strength insufficiente: ${longAdjustedStrength} < ${LONG_MIN_STRENGTH}`);
+                    }
+
+                    diagnostics.checks.push({
+                        name: 'LONG - Conferme',
+                        passed: longConfirmationsOK,
+                        severity: 'high',
+                        value: longCurrentConfirmations,
+                        required: LONG_MIN_CONFIRMATIONS,
+                        message: longConfirmationsOK 
+                            ? `Conferme sufficienti: ${longCurrentConfirmations}/${LONG_MIN_CONFIRMATIONS}`
+                            : `Conferme insufficienti: ${longCurrentConfirmations}/${LONG_MIN_CONFIRMATIONS} (mancano ${LONG_MIN_CONFIRMATIONS - longCurrentConfirmations})`
+                    });
+                    if (!longConfirmationsOK) {
+                        diagnostics.blockedBy.push(`LONG Conferme insufficienti: ${longCurrentConfirmations} < ${LONG_MIN_CONFIRMATIONS}`);
+                    }
+
+                    diagnostics.checks.push({
+                        name: 'LONG - ATR',
+                        passed: !signal.atrBlocked,
+                        severity: 'high',
+                        message: signal.atrBlocked 
+                            ? `ATR bloccato: ${signal.atrPct?.toFixed(2)}% (richiesto: ${signal.minAtrRequired}% - ${params.max_atr_pct || 5.0}%)`
+                            : `ATR OK: ${signal.atrPct?.toFixed(2)}% (range: ${signal.minAtrRequired}% - ${params.max_atr_pct || 5.0}%)`
+                    });
+                    if (signal.atrBlocked) {
+                        diagnostics.blockedBy.push(`LONG ATR bloccato (${signal.atrPct?.toFixed(2)}%)`);
+                    }
+
+                    diagnostics.checks.push({
+                        name: 'LONG - Multi-Timeframe',
+                        passed: longAdjustedStrength >= LONG_MIN_STRENGTH,
+                        severity: 'high',
+                        message: `Trend 1h: ${trend1h}, 4h: ${trend4h} → MTF Bonus: ${longMtfBonus >= 0 ? '+' : ''}${longMtfBonus} → Strength: ${longCurrentStrength} → ${longAdjustedStrength}`
+                    });
+
+                    diagnostics.checks.push({
+                        name: 'LONG - Filtri Professionali',
+                        passed: !longBlockedByFilters,
+                        severity: 'high',
+                        message: longBlockedByFilters 
+                            ? `Bloccato da filtri professionali: ${longProfessionalFilters.filter(f => f.includes('🚫')).map(f => f.replace('🚫 BLOCKED: ', '')).join(', ')}`
+                            : 'Filtri professionali OK'
+                    });
+                    if (longBlockedByFilters) {
+                        diagnostics.blockedBy.push(`LONG Filtri professionali bloccano`);
+                    }
+
+                    diagnostics.checks.push({
+                        name: 'LONG - Risk Manager Specifico',
+                        passed: longRiskOK,
+                        severity: 'high',
+                        message: longRiskOK 
+                            ? `Risk Manager OK - Disponibile: €${maxAvailableForNewPosition.toFixed(2)}`
+                            : `Risk Manager blocca: ${canOpenCheck.reason || 'sconosciuto'}`
+                    });
+                    if (!longRiskOK && longMeetsRequirements) {
+                        diagnostics.blockedBy.push(`LONG Risk Manager: ${canOpenCheck.reason || 'sconosciuto'}`);
+                    }
+
+                    diagnostics.canOpenLong = longStrengthOK && longConfirmationsOK && longNotBlocked && longRiskOK;
+                }
+
+                // 6. SHORT Diagnostics
+                if (signal.direction === 'SHORT' || shortCurrentStrength > 0) {
+                    const binanceMode = process.env.BINANCE_MODE || 'demo';
+                    const supportsShort = binanceMode === 'demo' || process.env.BINANCE_SUPPORTS_SHORT === 'true';
+                    const isDemo = binanceMode === 'demo';
+
+                    const shortStrengthOK = shortAdjustedStrength >= SHORT_MIN_STRENGTH;
+                    const shortConfirmationsOK = shortCurrentConfirmations >= SHORT_MIN_CONFIRMATIONS;
+                    const shortNotBlocked = !signal.atrBlocked && !portfolioDrawdownBlock && !marketRegimeBlock && !shortBlockedByFilters && (supportsShort || isDemo);
+                    const shortRiskOK = shortMeetsRequirements ? canOpenCheck.allowed : true;
+
+                    diagnostics.checks.push({
+                        name: 'SHORT - Strength Segnale',
+                        passed: shortStrengthOK,
+                        severity: 'high',
+                        value: shortAdjustedStrength,
+                        required: SHORT_MIN_STRENGTH,
+                        message: shortStrengthOK 
+                            ? `Strength sufficiente: ${shortAdjustedStrength}/${SHORT_MIN_STRENGTH} (original: ${shortCurrentStrength}, MTF: ${shortMtfBonus >= 0 ? '+' : ''}${shortMtfBonus})`
+                            : `Strength insufficiente: ${shortAdjustedStrength}/${SHORT_MIN_STRENGTH} (mancano ${SHORT_MIN_STRENGTH - shortAdjustedStrength} punti)`
+                    });
+                    if (!shortStrengthOK) {
+                        diagnostics.blockedBy.push(`SHORT Strength insufficiente: ${shortAdjustedStrength} < ${SHORT_MIN_STRENGTH}`);
+                    }
+
+                    diagnostics.checks.push({
+                        name: 'SHORT - Conferme',
+                        passed: shortConfirmationsOK,
+                        severity: 'high',
+                        value: shortCurrentConfirmations,
+                        required: SHORT_MIN_CONFIRMATIONS,
+                        message: shortConfirmationsOK 
+                            ? `Conferme sufficienti: ${shortCurrentConfirmations}/${SHORT_MIN_CONFIRMATIONS}`
+                            : `Conferme insufficienti: ${shortCurrentConfirmations}/${SHORT_MIN_CONFIRMATIONS} (mancano ${SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations})`
+                    });
+                    if (!shortConfirmationsOK) {
+                        diagnostics.blockedBy.push(`SHORT Conferme insufficienti: ${shortCurrentConfirmations} < ${SHORT_MIN_CONFIRMATIONS}`);
+                    }
+
+                    diagnostics.checks.push({
+                        name: 'SHORT - ATR',
+                        passed: !signal.atrBlocked,
+                        severity: 'high',
+                        message: signal.atrBlocked 
+                            ? `ATR bloccato: ${signal.atrPct?.toFixed(2)}% (richiesto: ${signal.minAtrRequired}% - ${params.max_atr_pct || 5.0}%)`
+                            : `ATR OK: ${signal.atrPct?.toFixed(2)}% (range: ${signal.minAtrRequired}% - ${params.max_atr_pct || 5.0}%)`
+                    });
+                    if (signal.atrBlocked) {
+                        diagnostics.blockedBy.push(`SHORT ATR bloccato (${signal.atrPct?.toFixed(2)}%)`);
+                    }
+
+                    diagnostics.checks.push({
+                        name: 'SHORT - Multi-Timeframe',
+                        passed: shortAdjustedStrength >= SHORT_MIN_STRENGTH,
+                        severity: 'high',
+                        message: `Trend 1h: ${trend1h}, 4h: ${trend4h} → MTF Bonus: ${shortMtfBonus >= 0 ? '+' : ''}${shortMtfBonus} → Strength: ${shortCurrentStrength} → ${shortAdjustedStrength}`
+                    });
+
+                    diagnostics.checks.push({
+                        name: 'SHORT - Filtri Professionali',
+                        passed: !shortBlockedByFilters,
+                        severity: 'high',
+                        message: shortBlockedByFilters 
+                            ? `Bloccato da filtri professionali: ${shortProfessionalFilters.filter(f => f.includes('🚫')).map(f => f.replace('🚫 BLOCKED: ', '')).join(', ')}`
+                            : 'Filtri professionali OK'
+                    });
+                    if (shortBlockedByFilters) {
+                        diagnostics.blockedBy.push(`SHORT Filtri professionali bloccano`);
+                    }
+
+                    diagnostics.checks.push({
+                        name: 'SHORT - Supporto Binance',
+                        passed: supportsShort || isDemo,
+                        severity: 'high',
+                        message: (supportsShort || isDemo)
+                            ? `SHORT supportato (${binanceMode} mode)`
+                            : 'Binance Spot non supporta SHORT. Configura BINANCE_SUPPORTS_SHORT=true per Futures.'
+                    });
+                    if (!supportsShort && !isDemo) {
+                        diagnostics.blockedBy.push(`SHORT non supportato su Binance Spot`);
+                    }
+
+                    diagnostics.checks.push({
+                        name: 'SHORT - Risk Manager Specifico',
+                        passed: shortRiskOK,
+                        severity: 'high',
+                        message: shortRiskOK 
+                            ? `Risk Manager OK - Disponibile: €${maxAvailableForNewPosition.toFixed(2)}`
+                            : `Risk Manager blocca: ${canOpenCheck.reason || 'sconosciuto'}`
+                    });
+                    if (!shortRiskOK && shortMeetsRequirements) {
+                        diagnostics.blockedBy.push(`SHORT Risk Manager: ${canOpenCheck.reason || 'sconosciuto'}`);
+                    }
+
+                    diagnostics.canOpenShort = shortStrengthOK && shortConfirmationsOK && shortNotBlocked && shortRiskOK;
+                }
+
+                // 7. Portfolio Drawdown
+                diagnostics.checks.push({
+                    name: 'Portfolio Drawdown',
+                    passed: !portfolioDrawdownBlock,
+                    severity: 'high',
+                    message: portfolioDrawdownBlock 
+                        ? portfolioDrawdownReason
+                        : 'Portfolio in salute'
+                });
+                if (portfolioDrawdownBlock) {
+                    diagnostics.blockedBy.push(`Portfolio drawdown: ${portfolioDrawdownReason}`);
+                }
+
+                // 8. Market Regime
+                diagnostics.checks.push({
+                    name: 'Market Regime (BTC)',
+                    passed: !marketRegimeBlock,
+                    severity: 'high',
+                    message: marketRegimeBlock 
+                        ? marketRegimeReason
+                        : 'Market regime OK'
+                });
+                if (marketRegimeBlock) {
+                    diagnostics.blockedBy.push(`Market regime: ${marketRegimeReason}`);
+                }
+
+                // Summary
+                if (diagnostics.blockedBy.length === 0) {
+                    diagnostics.summary = '✅ TUTTI I CONTROLLI PASSATI - Il bot può aprire posizioni';
+                } else {
+                    diagnostics.summary = `❌ BLOCCATO DA ${diagnostics.blockedBy.length} MOTIVO/I: ${diagnostics.blockedBy.join(' | ')}`;
+                }
+
+                return diagnostics;
+            })(),
             // 🎯 READINESS ANALYSIS - Cosa vede il bot e perché (non) apre
             readiness: {
                 long: (() => {
@@ -7269,6 +7553,42 @@ router.get('/bot-analysis', async (req, res) => {
                     // Check if requirements are met
                     const meetsRequirements = shortAdjustedStrength >= SHORT_MIN_STRENGTH &&
                         shortCurrentConfirmations >= SHORT_MIN_CONFIRMATIONS;
+
+                    // ✅ FIX: Controllo Bot Attivo
+                    if (!isBotActive) {
+                        blocks.push({
+                            type: 'Bot Disabilitato',
+                            reason: 'Il bot non è attivo su questa moneta. Attivalo dalla Dashboard.',
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Controllo Volume
+                    if (volumeBlocked) {
+                        blocks.push({
+                            type: 'Volume troppo basso',
+                            reason: `Volume 24h €${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })} < €${MIN_VOLUME.toLocaleString('it-IT')}`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Controllo Portfolio Drawdown
+                    if (portfolioDrawdownBlock) {
+                        blocks.push({
+                            type: 'Portfolio Drawdown',
+                            reason: portfolioDrawdownReason,
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Controllo Market Regime
+                    if (marketRegimeBlock) {
+                        blocks.push({
+                            type: 'Market Regime (BTC)',
+                            reason: marketRegimeReason,
+                            severity: 'high'
+                        });
+                    }
 
                     // ✅ Binance Short Check
                     const binanceMode = process.env.BINANCE_MODE || 'demo';
