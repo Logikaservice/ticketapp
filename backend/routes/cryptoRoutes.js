@@ -5031,27 +5031,28 @@ router.put('/bot/parameters', async (req, res) => {
         });
 
         // ✅ VALIDAZIONE COMPLETA - Tutti i parametri sono personalizzabili
-        // ✅ FIX: Usa SEMPRE i parametri dal frontend se presenti, altrimenti usa esistenti
+        // ✅ FIX: Usa SEMPRE i parametri dal frontend se presenti e validi, altrimenti usa esistenti
+        // ✅ FIX: Gestisce valori vuoti/null/undefined mantenendo il valore esistente
         const validParams = {
             // Parametri RSI
-            rsi_period: parameters.rsi_period !== undefined
+            rsi_period: (parameters.rsi_period !== undefined && parameters.rsi_period !== null && parameters.rsi_period !== '')
                 ? Math.max(5, Math.min(30, parseInt(parameters.rsi_period) || existingParams.rsi_period || DEFAULT_PARAMS.rsi_period))
                 : (existingParams.rsi_period || DEFAULT_PARAMS.rsi_period),
-            rsi_oversold: parameters.rsi_oversold !== undefined
+            rsi_oversold: (parameters.rsi_oversold !== undefined && parameters.rsi_oversold !== null && parameters.rsi_oversold !== '')
                 ? Math.max(0, Math.min(50, parseFloat(parameters.rsi_oversold) || existingParams.rsi_oversold || DEFAULT_PARAMS.rsi_oversold))
                 : (existingParams.rsi_oversold || DEFAULT_PARAMS.rsi_oversold),
-            rsi_overbought: parameters.rsi_overbought !== undefined
+            rsi_overbought: (parameters.rsi_overbought !== undefined && parameters.rsi_overbought !== null && parameters.rsi_overbought !== '')
                 ? Math.max(50, Math.min(100, parseFloat(parameters.rsi_overbought) || existingParams.rsi_overbought || DEFAULT_PARAMS.rsi_overbought))
                 : (existingParams.rsi_overbought || DEFAULT_PARAMS.rsi_overbought),
 
             // Parametri Trading
-            stop_loss_pct: parameters.stop_loss_pct !== undefined
+            stop_loss_pct: (parameters.stop_loss_pct !== undefined && parameters.stop_loss_pct !== null && parameters.stop_loss_pct !== '')
                 ? Math.max(0.1, Math.min(10, parseFloat(parameters.stop_loss_pct) || existingParams.stop_loss_pct || DEFAULT_PARAMS.stop_loss_pct))
                 : (existingParams.stop_loss_pct || DEFAULT_PARAMS.stop_loss_pct),
-            take_profit_pct: parameters.take_profit_pct !== undefined
+            take_profit_pct: (parameters.take_profit_pct !== undefined && parameters.take_profit_pct !== null && parameters.take_profit_pct !== '')
                 ? Math.max(0.1, Math.min(20, parseFloat(parameters.take_profit_pct) || existingParams.take_profit_pct || DEFAULT_PARAMS.take_profit_pct))
                 : (existingParams.take_profit_pct || DEFAULT_PARAMS.take_profit_pct),
-            trade_size_usdt: parameters.trade_size_usdt !== undefined
+            trade_size_usdt: parameters.trade_size_usdt !== undefined && parameters.trade_size_usdt !== null && parameters.trade_size_usdt !== ''
                 ? Math.max(10, Math.min(1000, parseFloat(parameters.trade_size_usdt || parameters.trade_size_eur) || existingParams.trade_size_usdt || DEFAULT_PARAMS.trade_size_usdt))
                 : (existingParams.trade_size_usdt || DEFAULT_PARAMS.trade_size_usdt),
 
@@ -5059,7 +5060,7 @@ router.put('/bot/parameters', async (req, res) => {
             trailing_stop_enabled: parameters.trailing_stop_enabled !== undefined
                 ? (parameters.trailing_stop_enabled === true || parameters.trailing_stop_enabled === 'true' || parameters.trailing_stop_enabled === 1)
                 : (existingParams.trailing_stop_enabled !== undefined ? existingParams.trailing_stop_enabled : DEFAULT_PARAMS.trailing_stop_enabled),
-            trailing_stop_distance_pct: parameters.trailing_stop_distance_pct !== undefined
+            trailing_stop_distance_pct: (parameters.trailing_stop_distance_pct !== undefined && parameters.trailing_stop_distance_pct !== null && parameters.trailing_stop_distance_pct !== '')
                 ? Math.max(0.1, Math.min(5, parseFloat(parameters.trailing_stop_distance_pct) || existingParams.trailing_stop_distance_pct || DEFAULT_PARAMS.trailing_stop_distance_pct))
                 : (existingParams.trailing_stop_distance_pct || DEFAULT_PARAMS.trailing_stop_distance_pct),
 
@@ -5067,41 +5068,41 @@ router.put('/bot/parameters', async (req, res) => {
             partial_close_enabled: parameters.partial_close_enabled !== undefined
                 ? (parameters.partial_close_enabled === true || parameters.partial_close_enabled === 'true' || parameters.partial_close_enabled === 1)
                 : (existingParams.partial_close_enabled !== undefined ? existingParams.partial_close_enabled : DEFAULT_PARAMS.partial_close_enabled),
-            take_profit_1_pct: parameters.take_profit_1_pct !== undefined
+            take_profit_1_pct: (parameters.take_profit_1_pct !== undefined && parameters.take_profit_1_pct !== null && parameters.take_profit_1_pct !== '')
                 ? Math.max(0.1, Math.min(5, parseFloat(parameters.take_profit_1_pct) || existingParams.take_profit_1_pct || DEFAULT_PARAMS.take_profit_1_pct))
                 : (existingParams.take_profit_1_pct || DEFAULT_PARAMS.take_profit_1_pct),
-            take_profit_2_pct: parameters.take_profit_2_pct !== undefined
+            take_profit_2_pct: (parameters.take_profit_2_pct !== undefined && parameters.take_profit_2_pct !== null && parameters.take_profit_2_pct !== '')
                 ? Math.max(0.1, Math.min(10, parseFloat(parameters.take_profit_2_pct) || existingParams.take_profit_2_pct || DEFAULT_PARAMS.take_profit_2_pct))
                 : (existingParams.take_profit_2_pct || DEFAULT_PARAMS.take_profit_2_pct),
 
             // ✅ NUOVI: Filtri Avanzati (personalizzabili)
-            min_signal_strength: parameters.min_signal_strength !== undefined
+            min_signal_strength: (parameters.min_signal_strength !== undefined && parameters.min_signal_strength !== null && parameters.min_signal_strength !== '')
                 ? Math.max(50, Math.min(100, parseInt(parameters.min_signal_strength) || existingParams.min_signal_strength || 70))
                 : (existingParams.min_signal_strength || 70),
-            min_confirmations_long: parameters.min_confirmations_long !== undefined
+            min_confirmations_long: (parameters.min_confirmations_long !== undefined && parameters.min_confirmations_long !== null && parameters.min_confirmations_long !== '')
                 ? Math.max(1, Math.min(10, parseInt(parameters.min_confirmations_long) || existingParams.min_confirmations_long || 3))
                 : (existingParams.min_confirmations_long || 3),
-            min_confirmations_short: parameters.min_confirmations_short !== undefined
+            min_confirmations_short: (parameters.min_confirmations_short !== undefined && parameters.min_confirmations_short !== null && parameters.min_confirmations_short !== '')
                 ? Math.max(1, Math.min(10, parseInt(parameters.min_confirmations_short) || existingParams.min_confirmations_short || 4))
                 : (existingParams.min_confirmations_short || 4),
-            min_atr_pct: parameters.min_atr_pct !== undefined
+            min_atr_pct: (parameters.min_atr_pct !== undefined && parameters.min_atr_pct !== null && parameters.min_atr_pct !== '')
                 ? Math.max(0.1, Math.min(2.0, parseFloat(parameters.min_atr_pct) || existingParams.min_atr_pct || 0.2))
                 : (existingParams.min_atr_pct || 0.2),
-            max_atr_pct: parameters.max_atr_pct !== undefined
+            max_atr_pct: (parameters.max_atr_pct !== undefined && parameters.max_atr_pct !== null && parameters.max_atr_pct !== '')
                 ? Math.max(2.0, Math.min(10.0, parseFloat(parameters.max_atr_pct) || existingParams.max_atr_pct || 5.0))
                 : (existingParams.max_atr_pct || 5.0),
-            min_volume_24h: parameters.min_volume_24h !== undefined
+            min_volume_24h: (parameters.min_volume_24h !== undefined && parameters.min_volume_24h !== null && parameters.min_volume_24h !== '')
                 ? Math.max(10000, Math.min(10000000, parseFloat(parameters.min_volume_24h) || existingParams.min_volume_24h || 500000))
                 : (existingParams.min_volume_24h || 500000),
 
             // ✅ NUOVI: Risk Management (personalizzabili)
-            max_daily_loss_pct: parameters.max_daily_loss_pct !== undefined
+            max_daily_loss_pct: (parameters.max_daily_loss_pct !== undefined && parameters.max_daily_loss_pct !== null && parameters.max_daily_loss_pct !== '')
                 ? Math.max(1.0, Math.min(20.0, parseFloat(parameters.max_daily_loss_pct) || existingParams.max_daily_loss_pct || 5.0))
                 : (existingParams.max_daily_loss_pct || 5.0),
-            max_exposure_pct: parameters.max_exposure_pct !== undefined
+            max_exposure_pct: (parameters.max_exposure_pct !== undefined && parameters.max_exposure_pct !== null && parameters.max_exposure_pct !== '')
                 ? Math.max(10.0, Math.min(100.0, parseFloat(parameters.max_exposure_pct) || existingParams.max_exposure_pct || 50.0))
                 : (existingParams.max_exposure_pct || 50.0),
-            max_positions: parameters.max_positions !== undefined
+            max_positions: (parameters.max_positions !== undefined && parameters.max_positions !== null && parameters.max_positions !== '')
                 ? Math.max(1, Math.min(20, parseInt(parameters.max_positions) || existingParams.max_positions || 5))
                 : (existingParams.max_positions || 5),
 

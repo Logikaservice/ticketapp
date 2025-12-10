@@ -132,9 +132,24 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
         } else if (key === 'analysis_timeframe') {
             setParameters(prev => ({ ...prev, [key]: value }));
         } else if (key === 'min_confirmations_long' || key === 'min_confirmations_short' || key === 'max_positions' || key === 'min_signal_strength') {
-            setParameters(prev => ({ ...prev, [key]: parseInt(value) || 0 }));
+            // ✅ FIX: Se il valore è vuoto, mantieni il valore esistente invece di 0
+            if (value === '' || value === null || value === undefined) {
+                setParameters(prev => ({ ...prev, [key]: prev[key] }));
+            } else {
+                const parsed = parseInt(value);
+                setParameters(prev => ({ ...prev, [key]: isNaN(parsed) ? prev[key] : parsed }));
+            }
         } else {
-            setParameters(prev => ({ ...prev, [key]: parseFloat(value) || 0 }));
+            // ✅ FIX: Se il valore è vuoto, mantieni il valore esistente invece di 0
+            // Gestisce anche virgola come separatore decimale (es. "2,5" -> 2.5)
+            if (value === '' || value === null || value === undefined) {
+                setParameters(prev => ({ ...prev, [key]: prev[key] }));
+            } else {
+                // Converti virgola in punto per parsing corretto
+                const normalizedValue = String(value).replace(',', '.');
+                const parsed = parseFloat(normalizedValue);
+                setParameters(prev => ({ ...prev, [key]: isNaN(parsed) ? prev[key] : parsed }));
+            }
         }
     };
 
