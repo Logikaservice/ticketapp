@@ -1886,7 +1886,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                 // Log solo ogni 10 aggiornamenti per non intasare i log
                 if (Math.random() < 0.1) {
-                    console.log(`📊 [${symbol.toUpperCase()}] Kline ${primaryInterval} aggiornata: ${new Date(candleStartTime).toISOString()} | Price: €${currentPrice.toFixed(2)} | High: €${newHigh.toFixed(2)} | Low: €${newLow.toFixed(2)}`);
+                    console.log(`📊 [${symbol.toUpperCase()}] Kline ${primaryInterval} aggiornata: ${new Date(candleStartTime).toISOString()} | Price: $${currentPrice.toFixed(6)} USDT | High: $${newHigh.toFixed(6)} USDT | Low: $${newLow.toFixed(6)} USDT`);
                 }
             } else {
                 // Crea nuova candela
@@ -1896,7 +1896,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                     [symbol, primaryInterval, candleStartTime, currentPrice, currentPrice, currentPrice, currentPrice, 0, now]
                 );
-                console.log(`🆕 [${symbol.toUpperCase()}] Nuova candela ${primaryInterval} creata: ${new Date(candleStartTime).toISOString()} | Price: €${currentPrice.toFixed(2)}`);
+                console.log(`🆕 [${symbol.toUpperCase()}] Nuova candela ${primaryInterval} creata: ${new Date(candleStartTime).toISOString()} | Price: $${currentPrice.toFixed(6)} USDT`);
             }
         } catch (err) {
             console.error(`⚠️ Error updating kline for interval ${primaryInterval}:`, err.message);
