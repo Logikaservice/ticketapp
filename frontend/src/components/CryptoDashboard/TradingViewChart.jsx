@@ -115,7 +115,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                 containerRef.current.removeChild(container);
             }
         };
-    }, [symbol]);
+    }, [symbol, isFullscreen]); // Rilega anche quando cambia lo stato fullscreen per aggiornare l'altezza
 
     // Convert trades to markers for overlay
     useEffect(() => {
