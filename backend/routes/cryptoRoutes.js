@@ -7448,9 +7448,36 @@ router.get('/bot-analysis', async (req, res) => {
                     // Questo permette di vedere PERCHÉ non apre anche quando segnale è READY
                     const canOpen = meetsRequirements && canOpenCheck.allowed && !signal.atrBlocked;
 
-                    // Se requirements NON sono soddisfatti, non mostrare blocker (mostra solo nel "Top Reason")
+                    // ✅ FIX: Controllo Bot Attivo (mostra sempre, anche se requirements non soddisfatti)
+                    if (!isBotActive) {
+                        blocks.push({
+                            type: 'Bot Disabilitato',
+                            reason: 'Il bot non è attivo su questa moneta. Attivalo dalla Dashboard.',
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Controllo Portfolio Drawdown (mostra sempre)
+                    if (portfolioDrawdownBlock) {
+                        blocks.push({
+                            type: 'Portfolio Drawdown',
+                            reason: portfolioDrawdownReason,
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Controllo Market Regime (mostra sempre)
+                    if (marketRegimeBlock) {
+                        blocks.push({
+                            type: 'Market Regime (BTC)',
+                            reason: marketRegimeReason,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Se requirements NON sono soddisfatti, non mostrare altri blocker (mostra solo nel "Top Reason")
                     if (!meetsRequirements) {
-                        return []; // No blockers to show if requirements not met
+                        return blocks; // Restituisci i blocchi globali anche se requirements non soddisfatti
                     }
 
                     // ✅ IMPORTANTE: Se requirements sono OK ma canOpen è false, mostra TUTTI i blocker
