@@ -4166,7 +4166,7 @@ router.post('/positions/open', async (req, res) => {
             `INSERT INTO open_positions 
             (ticket_id, symbol, type, volume, entry_price, current_price, stop_loss, take_profit, strategy, status)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')`,
-            [ticketId, symbol, type, volume, entry_price, entry_price, stop_loss || null, take_profit || null, strategy || 'Manual', 'open']
+            [ticketId, symbol, type, volume, entry_price, entry_price, stop_loss || null, take_profit || null, strategy || 'Manual']
         );
 
         // Record initial trade
