@@ -7,8 +7,9 @@
     bottom: 0;
     background: rgba(0, 0, 0, 0.7);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    padding-top: 20px;
     z-index: 10000;
     animation: fadeIn 0.2s ease-in-out;
 }
