@@ -182,3 +182,4 @@ Il bot apre posizioni da **€10.98** perché:
 
 
 
+

@@ -39,18 +39,32 @@ class SeriousRiskManager {
             // ✅ MIGRAZIONE POSTGRESQL: Usa dbGet invece di db.get
             const stats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
 
+            // ✅ CONFIGURABILE: Legge max_exposure_pct dal database
+            let baseMaxExposurePct = this.MAX_TOTAL_EXPOSURE_PCT;
+            try {
+                const botParams = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND (symbol = 'global' OR symbol = 'bitcoin') ORDER BY CASE WHEN symbol = 'global' THEN 0 ELSE 1 END LIMIT 1");
+                if (botParams && botParams.parameters) {
+                    const params = typeof botParams.parameters === 'string' ? JSON.parse(botParams.parameters) : botParams.parameters;
+                    if (params.max_exposure_pct !== undefined) {
+                        baseMaxExposurePct = parseFloat(params.max_exposure_pct) / 100; // Converti da % a decimale
+                    }
+                }
+            } catch (paramError) {
+                // Usa default se errore
+            }
+
             if (!stats || !stats.total_trades || stats.total_trades < 10) {
                 // Non abbastanza dati, usa limiti conservativi
                 return {
-                    maxExposurePct: this.MAX_TOTAL_EXPOSURE_PCT,
+                    maxExposurePct: baseMaxExposurePct,
                     maxPositionSizePct: this.MAX_POSITION_SIZE_PCT
                 };
             }
 
             const winRate = stats.total_trades > 0 ? stats.winning_trades / stats.total_trades : 0.5;
 
-            // ✅ LOGICA DINAMICA: Aumenta limiti se win rate è alto
-            let maxExposurePct = this.MAX_TOTAL_EXPOSURE_PCT;
+            // ✅ LOGICA DINAMICA: Aumenta limiti se win rate è alto (ma rispetta max_exposure_pct configurato)
+            let maxExposurePct = baseMaxExposurePct;
             let maxPositionSizePct = this.MAX_POSITION_SIZE_PCT;
 
             if (winRate >= 0.90) {
@@ -119,16 +133,49 @@ class SeriousRiskManager {
                 "SELECT * FROM open_positions WHERE status = 'open'"
             );
 
+            // ✅ FIX CRITICO: Calcola correttamente exposure e total equity
+            // Per LONG: usa current_price (valore attuale) se disponibile, altrimenti entry_price
+            // Per SHORT: usa entry_price (debito fisso)
             let currentExposure = 0;
+            let totalEquityFromPositions = 0;
+
             for (const pos of openPositions) {
-                // Per LONG: volume * entry_price
-                // Per SHORT: volume * entry_price (stesso calcolo approssimativo)
-                currentExposure += (parseFloat(pos.volume) || 0) * (parseFloat(pos.entry_price) || 0);
+                const volume = parseFloat(pos.volume) || 0;
+                const entryPrice = parseFloat(pos.entry_price) || 0;
+                const currentPrice = parseFloat(pos.current_price) || entryPrice; // Usa current_price se disponibile
+                
+                if (pos.type === 'buy') {
+                    // LONG: valore attuale delle crypto possedute
+                    const positionValue = volume * currentPrice;
+                    currentExposure += positionValue;
+                    totalEquityFromPositions += positionValue;
+                } else {
+                    // SHORT: debito fisso all'entry price (quanto dobbiamo restituire)
+                    const shortLiability = volume * entryPrice;
+                    currentExposure += shortLiability;
+                    // Per SHORT, il cash è stato aumentato all'apertura, ma dobbiamo restituire entry_price * volume
+                    // Quindi il valore netto è: cash_aumentato - debito = 0 all'apertura
+                    // Ma il debito rimane fisso, quindi sottraiamo dal total equity
+                    totalEquityFromPositions -= shortLiability;
+                }
             }
 
-            // ✅ FIX: Calcola Equity Totale (Cash + Esposizione)
-            // Il rischio va calcolato sul totale del conto, non solo sul cash disponibile!
-            const totalEquity = cashBalance + currentExposure;
+            // ✅ FIX CRITICO: Calcola Total Equity correttamente
+            // Quando apri una posizione LONG:
+            //   - Cash diminuisce di entry_price * volume
+            //   - Possiedi volume crypto
+            //   - Total Equity = Cash_residuo + Valore_attuale_crypto
+            // 
+            // Quando apri una posizione SHORT:
+            //   - Cash aumenta di entry_price * volume (prestito)
+            //   - Devi restituire volume crypto (debito)
+            //   - Total Equity = Cash_aumentato - Debito_fisso
+            //
+            // Quindi: Total Equity = Cash + Valore_LONG - Debito_SHORT
+            const totalEquity = cashBalance + totalEquityFromPositions;
+            
+            // ✅ FIX CRITICO: Exposure % deve usare totalEquity, non solo cashBalance
+            // L'exposure % rappresenta quanto del totale equity è investito in posizioni
             const currentExposurePct = totalEquity > 0 ? currentExposure / totalEquity : 0;
 
             // 3. Calcola perdita giornaliera
@@ -173,10 +220,10 @@ class SeriousRiskManager {
                 return this.cachedResult;
             }
 
-            if (dailyLossPct >= this.MAX_DAILY_LOSS_PCT) {
+            if (dailyLossPct >= maxDailyLossPct) {
                 this.cachedResult = {
                     canTrade: false,
-                    reason: `Daily loss limit reached (${(dailyLossPct * 100).toFixed(2)}% >= ${(this.MAX_DAILY_LOSS_PCT * 100).toFixed(2)}%)`,
+                    reason: `Daily loss limit reached (${(dailyLossPct * 100).toFixed(2)}% >= ${(maxDailyLossPct * 100).toFixed(2)}%)`,
                     maxPositionSize: 0,
                     availableExposure: 0,
                     dailyLoss: dailyLossPct,
@@ -187,10 +234,12 @@ class SeriousRiskManager {
                 return this.cachedResult;
             }
 
-            if (currentExposurePct >= this.MAX_TOTAL_EXPOSURE_PCT) {
+            // ✅ Verifica limite exposure (sarà verificato anche dopo con limiti dinamici, ma questo è un check preliminare)
+            // Usa maxExposurePct già letto dal database all'inizio
+            if (currentExposurePct >= maxExposurePct) {
                 this.cachedResult = {
                     canTrade: false,
-                    reason: `Max exposure reached (${(currentExposurePct * 100).toFixed(2)}% >= ${(this.MAX_TOTAL_EXPOSURE_PCT * 100).toFixed(2)}%)`,
+                    reason: `Max exposure reached (${(currentExposurePct * 100).toFixed(2)}% >= ${(maxExposurePct * 100).toFixed(2)}%)`,
                     maxPositionSize: 0,
                     availableExposure: 0,
                     dailyLoss: dailyLossPct,

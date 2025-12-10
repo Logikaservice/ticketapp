@@ -491,7 +491,10 @@ router.get('/dashboard', async (req, res) => {
                         const currentSignal = signalGenerator.generateSignal(historyForSignal, position.symbol, {
                             rsi_period: positionParams.rsi_period || 14,
                             rsi_oversold: positionParams.rsi_oversold || 30,
-                            rsi_overbought: positionParams.rsi_overbought || 70
+                            rsi_overbought: positionParams.rsi_overbought || 70,
+                            min_signal_strength: positionParams.min_signal_strength || 60, // ✅ CONFIGURABILE dal database
+                            min_confirmations_long: positionParams.min_confirmations_long || 3,
+                            min_confirmations_short: positionParams.min_confirmations_short || 4
                         });
 
                         // Determina sentimento
@@ -1057,7 +1060,6 @@ router.post('/trade', async (req, res) => {
 let priceHistory = [];
 let latestRSI = null; // Store latest RSI for frontend display
 const CHECK_INTERVAL_MS = 10000; // Check every 10 seconds
-const MAX_ATR_PCT = 5.0; // Maximum ATR percentage to block trading (volatility too high)
 
 
 // Default strategy parameters (fallback if not configured)
@@ -1074,7 +1076,10 @@ const DEFAULT_PARAMS = {
     partial_close_enabled: true,  // Aggiornato da false a true
     take_profit_1_pct: 2.5,  // Aggiornato da 1.5 a 2.5
     take_profit_2_pct: 5.0,  // Aggiornato da 3.0 a 5.0
-    min_signal_strength: 70  // ✅ Soglia minima strength richiesta per aprire posizioni (configurabile dal frontend)
+    min_signal_strength: 70,  // ✅ Soglia minima strength richiesta per aprire posizioni (configurabile dal frontend)
+    min_confirmations_long: 3,  // ✅ Numero minimo di conferme per aprire LONG (configurabile)
+    min_confirmations_short: 4,  // ✅ Numero minimo di conferme per aprire SHORT (configurabile)
+    market_scanner_min_strength: 30  // ✅ Soglia minima per mostrare "potenziale" nel Market Scanner (configurabile)
 };
 
 // Helper to get bot strategy parameters from database (supports multi-symbol)
@@ -1989,7 +1994,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
         // ✅ VOLUME FILTER - Evita coin illiquide (pump & dump, spread alti)
         const volume24h = await get24hVolume(symbol);
-        const MIN_VOLUME = 500_000; // 500K EUR/USDT minimo (personalizzabile)
+        const MIN_VOLUME = params.min_volume_24h || 500_000; // ✅ CONFIGURABILE dal database
 
         if (volume24h < MIN_VOLUME) {
             console.log(`⚠️ [VOLUME-FILTER] ${symbol.toUpperCase()} skipped: Volume 24h €${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })} < €${MIN_VOLUME.toLocaleString('it-IT')}`);
@@ -2012,7 +2017,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
         // ✅ REFACTORING: Usa candele reali (15m) invece di price_history per segnali affidabili
         // 7. Carica ultime 100 candele complete 15m per analisi trend reali
-        const timeframe = '15m'; // Timeframe principale per analisi
+        const timeframe = params.analysis_timeframe || '15m'; // ✅ CONFIGURABILE dal database
         const klinesData = await dbAll(
             `SELECT open_time, open_price, high_price, low_price, close_price, volume, close_time 
              FROM klines 
@@ -2039,7 +2044,10 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             signal = signalGenerator.generateSignal(historyForSignal, symbol, {
                 rsi_period: params.rsi_period || 14,
                 rsi_oversold: params.rsi_oversold || 30,
-                rsi_overbought: params.rsi_overbought || 70
+                rsi_overbought: params.rsi_overbought || 70,
+                min_signal_strength: params.min_signal_strength || 60, // ✅ CONFIGURABILE dal database
+                min_confirmations_long: params.min_confirmations_long || 3,
+                min_confirmations_short: params.min_confirmations_short || 4
             });
         } else {
             // Reverse to chronological order (oldest first)
@@ -2069,8 +2077,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 const atrPct = (atr / currentPrice) * 100; // ATR come % del prezzo
 
                 // Blocca trade se volatilità troppo bassa (mercato piatto) o troppo alta (news event)
-                const MIN_ATR_PCT = 0.2; // Minimo 0.2% ATR (abbassato per permettere trading in mercati meno volatili)
-                const MAX_ATR_PCT = 5.0; // Massimo 5% ATR (evento improvviso, troppo rischioso)
+                // ✅ CONFIGURABILE dal database
+                const MIN_ATR_PCT = params.min_atr_pct || 0.2;
+                const MAX_ATR_PCT = params.max_atr_pct || 5.0;
 
                 if (atrPct < MIN_ATR_PCT) {
                     console.log(`⚠️ BOT [${symbol.toUpperCase()}]: Trading blocked - ATR too low (${atrPct.toFixed(2)}% < ${MIN_ATR_PCT}%) - Market too flat`);
@@ -2088,7 +2097,14 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             // ✅ FIX CRITICO: SEMPRE ricalcola segnali per evitare analisi bloccate
             // Rimossa cache per garantire analisi sempre aggiornate in tempo reale
             console.log(`🆕 BOT [${symbol.toUpperCase()}]: Recalculating signal from ${klinesData.length} klines (cache disabled for real-time updates)`);
-            signal = signalGenerator.generateSignal(historyForSignal);
+            signal = signalGenerator.generateSignal(historyForSignal, symbol, {
+                rsi_period: params.rsi_period || 14,
+                rsi_oversold: params.rsi_oversold || 30,
+                rsi_overbought: params.rsi_overbought || 70,
+                min_signal_strength: params.min_signal_strength || 60, // ✅ CONFIGURABILE dal database
+                min_confirmations_long: params.min_confirmations_long || 3,
+                min_confirmations_short: params.min_confirmations_short || 4
+            });
 
             // ✅ Salva timestamp per logging ma non bloccare ricalcolo
             const lastProcessedCandleKey = `lastProcessedCandle_${symbol}_${timeframe}`;
@@ -2100,11 +2116,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             if (atr && currentPriceForATR > 0) {
                 const atrPct = (atr / currentPriceForATR) * 100;
 
-                // ✅ SMART ATR FILTERING: Soglia dinamica basata sulla forza del segnale
-                // Segnali FORTI (90-100%) → ATR minimo 0.2% (più permissivo)
-                // Segnali NORMALI (70-89%) → ATR minimo 0.3% (standard, più sicuro)
-                const MIN_ATR_FOR_STRONG_SIGNAL = 0.2; // Per segnali 90-100%
-                const MIN_ATR_FOR_NORMAL_SIGNAL = 0.3; // Per segnali 70-89%
+                    // ✅ SMART ATR FILTERING: Soglia dinamica basata sulla forza del segnale
+                    // Segnali FORTI (90-100%) → ATR minimo 0.2% (più permissivo)
+                    // Segnali NORMALI (70-89%) → ATR minimo 0.3% (standard, più sicuro)
+                    // ✅ CONFIGURABILE: Usa min_atr_pct come base, con logica speciale per segnali forti
+                    const MIN_ATR_FOR_STRONG_SIGNAL = analysisParams.min_atr_pct || 0.2; // Per segnali 90-100%
+                    const MIN_ATR_FOR_NORMAL_SIGNAL = Math.max((analysisParams.min_atr_pct || 0.2), 0.3); // Per segnali 70-89% (almeno 0.3%)
                 const STRONG_SIGNAL_THRESHOLD = 90;
 
                 const isStrongSignal = signal.strength >= STRONG_SIGNAL_THRESHOLD;
@@ -6285,7 +6302,10 @@ router.get('/bot-analysis', async (req, res) => {
             signal = signalGenerator.generateSignal(historyForSignal, symbol, {
                 rsi_period: analysisParams.rsi_period || 14,
                 rsi_oversold: analysisParams.rsi_oversold || 30,
-                rsi_overbought: analysisParams.rsi_overbought || 70
+                rsi_overbought: analysisParams.rsi_overbought || 70,
+                min_signal_strength: analysisParams.min_signal_strength || 60, // ✅ CONFIGURABILE dal database
+                min_confirmations_long: analysisParams.min_confirmations_long || 3,
+                min_confirmations_short: analysisParams.min_confirmations_short || 4
             });
             console.log('🔍 [BOT-ANALYSIS] Signal generated:', signal ? signal.direction : 'null');
         } catch (signalError) {
@@ -6318,9 +6338,10 @@ router.get('/bot-analysis', async (req, res) => {
                     const atrPct = (atr / currentPriceForATR) * 100;
 
                     // ✅ SMART ATR FILTERING: Stessa logica del bot reale
-                    const MIN_ATR_FOR_STRONG_SIGNAL = 0.2;
-                    const MIN_ATR_FOR_NORMAL_SIGNAL = 0.3;
-                    const MAX_ATR_PCT = 5.0;
+                    // ✅ CONFIGURABILE dal database
+                    const MIN_ATR_FOR_STRONG_SIGNAL = analysisParams.min_atr_pct || 0.2;
+                    const MIN_ATR_FOR_NORMAL_SIGNAL = Math.max((analysisParams.min_atr_pct || 0.2), 0.3);
+                    const MAX_ATR_PCT = analysisParams.max_atr_pct || 5.0;
                     const STRONG_SIGNAL_THRESHOLD = 90;
 
                     const isStrongSignal = signal.strength >= STRONG_SIGNAL_THRESHOLD;
@@ -6559,7 +6580,8 @@ router.get('/bot-analysis', async (req, res) => {
 
         // ✅ Check Volume
         const volume24h = await get24hVolume(symbol).catch(() => 0);
-        const MIN_VOLUME = 500_000;
+        // ✅ CONFIGURABILE dal database
+        const MIN_VOLUME = analysisParams.min_volume_24h || 500_000;
         const volumeBlocked = volume24h < MIN_VOLUME;
 
         // ✅ Check Hybrid Strategy (pass ALL positions)
@@ -7532,7 +7554,10 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = n
         const signal = signalGenerator.generateSignal(deepAnalysisHistory, symbol, {
             rsi_period: deepAnalysisParams.rsi_period || 14,
             rsi_oversold: deepAnalysisParams.rsi_oversold || 30,
-            rsi_overbought: deepAnalysisParams.rsi_overbought || 70
+            rsi_overbought: deepAnalysisParams.rsi_overbought || 70,
+            min_signal_strength: deepAnalysisParams.min_signal_strength || 60, // ✅ CONFIGURABILE dal database
+            min_confirmations_long: deepAnalysisParams.min_confirmations_long || 3,
+            min_confirmations_short: deepAnalysisParams.min_confirmations_short || 4
         });
 
         // Calculate RSI Deep
@@ -7553,6 +7578,8 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = n
 router.get('/scanner', async (req, res) => {
     console.log('🔍 [SCANNER] Starting market scan...');
     try {
+        // ✅ Carica parametri per soglia Market Scanner configurabile
+        const scannerParams = await getBotParameters('global').catch(() => ({}));
         // List of symbols to scan (same as available)
         // List of symbols to scan (ALL available symbols)
         const symbolsToScan = [
@@ -7751,13 +7778,14 @@ router.get('/scanner', async (req, res) => {
 
                 // ✅ FIX CRITICO: Se direction è NEUTRAL ma ci sono segnali LONG/SHORT validi,
                 // mostra comunque LONG/SHORT nel Market Scanner (per vedere il potenziale)
-                // MA solo se hanno strength significativa (almeno 30 per evitare spam)
-                if (displayDirection === 'NEUTRAL' && (longStrength >= 30 || shortStrength >= 30)) {
+                // ✅ CONFIGURABILE: Legge la soglia dal database (default 30)
+                const marketScannerMinStrength = scannerParams?.market_scanner_min_strength || 30;
+                if (displayDirection === 'NEUTRAL' && (longStrength >= marketScannerMinStrength || shortStrength >= marketScannerMinStrength)) {
                     // Mostra il segnale più forte anche se non raggiunge le soglie minime per aprire
-                    if (longStrength > shortStrength && longStrength >= 30) {
+                    if (longStrength > shortStrength && longStrength >= marketScannerMinStrength) {
                         displayDirection = 'LONG';
                         rawStrength = longStrength;
-                    } else if (shortStrength > longStrength && shortStrength >= 30) {
+                    } else if (shortStrength > longStrength && shortStrength >= marketScannerMinStrength) {
                         displayDirection = 'SHORT';
                         rawStrength = shortStrength;
                     }

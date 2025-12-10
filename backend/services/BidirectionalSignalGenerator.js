@@ -1054,8 +1054,9 @@ class BidirectionalSignalGenerator {
         // 🎯 PROFESSIONAL DECISION LOGIC - Requisiti più rigorosi e intelligenti
 
         // LONG: Requisiti base + filtri professionali
-        const LONG_MIN_CONFIRMATIONS = 3;
-        const LONG_MIN_STRENGTH = 60; // Aumentato da 50 per maggiore selettività
+        // ✅ CONFIGURABILE: Legge da params (se disponibile), altrimenti default
+        const LONG_MIN_CONFIRMATIONS = params.min_confirmations_long || 3;
+        const LONG_MIN_STRENGTH = params.min_signal_strength || 60; // Legge da database (default 60)
 
         let longMeetsRequirements = longSignal.confirmations >= LONG_MIN_CONFIRMATIONS &&
             longSignal.strength >= LONG_MIN_STRENGTH;
@@ -1116,8 +1117,9 @@ class BidirectionalSignalGenerator {
         }
 
         // SHORT: Requisiti base + filtri professionali
-        const SHORT_MIN_CONFIRMATIONS = 4;
-        const SHORT_MIN_STRENGTH = 60; // Aumentato da 50 per maggiore selettività
+        // ✅ CONFIGURABILE: Legge da params (se disponibile), altrimenti default
+        const SHORT_MIN_CONFIRMATIONS = params.min_confirmations_short || 4;
+        const SHORT_MIN_STRENGTH = params.min_signal_strength || 60; // Legge da database (default 60)
 
         let shortMeetsRequirements = shortSignal.confirmations >= SHORT_MIN_CONFIRMATIONS &&
             shortSignal.strength >= SHORT_MIN_STRENGTH;
