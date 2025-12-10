@@ -55,8 +55,8 @@
 }
 
 .tradingview-chart-container.fullscreen-mode .chart-main-wrapper.fullscreen-chart {
-    height: calc(100vh - 200px);
-    min-height: calc(100vh - 200px);
+    height: calc((100vh - 200px) * 1.25);
+    min-height: calc((100vh - 200px) * 1.25);
 }
 
 /* Sezione posizioni sotto il grafico in fullscreen */

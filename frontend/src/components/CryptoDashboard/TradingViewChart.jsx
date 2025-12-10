@@ -59,14 +59,31 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
         container.id = uniqueId;
         container.style.width = '100%';
         // In chart-only mode, usa tutta l'altezza dello schermo
+        // In fullscreen mode, aumenta l'altezza del 25%
         const isChartOnly = window.location.search.includes('page=chart-only');
-        container.style.height = isChartOnly ? '100vh' : '750px';
+        const isInFullscreen = document.fullscreenElement !== null;
+        let containerHeight = '750px';
+        if (isChartOnly) {
+            containerHeight = '100vh';
+        } else if (isInFullscreen) {
+            // Aumenta del 25% l'altezza in fullscreen
+            containerHeight = 'calc((100vh - 200px) * 1.25)';
+        }
+        container.style.height = containerHeight;
         containerRef.current.appendChild(container);
         widgetRef.current = container;
 
         // Configurazione widget TradingView - configurazione minimale per mostrare toolbar completa
         // IMPORTANTE: Non usare parametri che potrebbero nascondere la toolbar
         // Il widget advanced-chart mostra la toolbar di default se non viene nascosta esplicitamente
+        let widgetHeight = 750;
+        if (isChartOnly) {
+            widgetHeight = window.innerHeight;
+        } else if (isInFullscreen) {
+            // Aumenta del 25% l'altezza in fullscreen
+            widgetHeight = Math.floor((window.innerHeight - 200) * 1.25);
+        }
+        
         const widgetConfig = {
             "autosize": true,
             "symbol": tradingViewSymbol,
@@ -83,7 +100,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
             "calendar": false,
             "withdateranges": true,
             "support_host": "https://www.tradingview.com",
-            "height": isChartOnly ? window.innerHeight : 750, // Fullscreen in chart-only mode
+            "height": widgetHeight,
             "width": "100%",
             "container_id": uniqueId
         };
