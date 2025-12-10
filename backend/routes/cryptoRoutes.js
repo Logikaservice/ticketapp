@@ -2581,9 +2581,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                         await openPosition(symbol, 'buy', amount, currentPrice, `LONG Signal (${signal.strength}/100)`, stopLoss, takeProfit, {
                             ...options,
-                            signal_details: signalDetails,
-                            trailing_stop_enabled: true,
-                            trailing_stop_distance_pct: 1.5 // Trailing stop a 1.5% dal massimo raggiunto
+                            signal_details: signalDetails
+                            // ✅ FIX: Usa i parametri configurati dall'utente invece di valori hardcoded
+                            // trailing_stop_enabled e trailing_stop_distance_pct vengono da options (configurati dall'utente)
                         });
                         console.log(`✅ BOT LONG: Opened position #${longPositions.length + 1} @ $${currentPrice.toFixed(2)} USDT | Size: $${maxAvailableForNewPosition.toFixed(2)} USDT | Signal: ${signal.reasons.join(', ')}`);
                         riskManager.invalidateCache(); // Invalida cache dopo operazione
@@ -2795,9 +2795,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                             await openPosition(symbol, 'sell', amount, currentPrice, `SHORT Signal (${signal.strength}/100)`, stopLoss, takeProfit, {
                                 ...options,
-                                signal_details: signalDetails,
-                                trailing_stop_enabled: true,
-                                trailing_stop_distance_pct: 1.5 // Trailing stop a 1.5% dal minimo raggiunto
+                                signal_details: signalDetails
+                                // ✅ FIX: Usa i parametri configurati dall'utente invece di valori hardcoded
+                                // trailing_stop_enabled e trailing_stop_distance_pct vengono da options (configurati dall'utente)
                             });
                             console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ $${currentPrice.toFixed(2)} USDT | Size: $${maxAvailableForNewPosition.toFixed(2)} USDT | Signal: ${signal.reasons.join(', ')}`);
                             riskManager.invalidateCache(); // Invalida cache dopo operazione
