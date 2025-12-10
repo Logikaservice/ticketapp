@@ -4888,7 +4888,7 @@ router.post('/bot/toggle', async (req, res) => {
             console.log(`📝 [BOT-TOGGLE] Creating new bot settings for ${targetSymbol}`);
             // Create new bot settings with default parameters
             await dbRun(
-                "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES (?, ?, ?, ?)",
+                "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES ($1, $2, $3, $4)",
                 [strategy_name, targetSymbol, activeValue, JSON.stringify(DEFAULT_PARAMS)]
             );
             console.log(`✅ [BOT-TOGGLE] Created bot settings for ${targetSymbol}`);
@@ -4896,7 +4896,7 @@ router.post('/bot/toggle', async (req, res) => {
             console.log(`📝 [BOT-TOGGLE] Updating existing bot settings for ${targetSymbol}`);
             // Update existing
             await dbRun(
-                "UPDATE bot_settings SET is_active = ? WHERE strategy_name = ? AND symbol = ?",
+                "UPDATE bot_settings SET is_active = $1 WHERE strategy_name = $2 AND symbol = $3",
                 [activeValue, strategy_name, targetSymbol]
             );
             console.log(`✅ [BOT-TOGGLE] Updated bot settings for ${targetSymbol}`);
@@ -4904,7 +4904,7 @@ router.post('/bot/toggle', async (req, res) => {
 
         // Verify the bot was saved correctly
         const verify = await dbGet(
-            "SELECT * FROM bot_settings WHERE strategy_name = ? AND symbol = ?",
+            "SELECT * FROM bot_settings WHERE strategy_name = $1 AND symbol = $2",
             [strategy_name, targetSymbol]
         );
 
@@ -4952,7 +4952,7 @@ router.post('/bot/toggle-all', async (req, res) => {
             const mainSymbols = ['bitcoin', 'ethereum', 'solana', 'cardano', 'polkadot', 'chainlink'];
             for (const symbol of mainSymbols) {
                 await dbRun(
-                    "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES (?, ?, ?, ?)",
+                    "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES ($1, $2, $3, $4)",
                     ['RSI_Strategy', symbol, activeValue, JSON.stringify(DEFAULT_PARAMS)]
                 );
             }
@@ -4960,7 +4960,7 @@ router.post('/bot/toggle-all', async (req, res) => {
         } else {
             // Update all existing bots
             await dbRun(
-                "UPDATE bot_settings SET is_active = ? WHERE strategy_name = 'RSI_Strategy'",
+                "UPDATE bot_settings SET is_active = $1 WHERE strategy_name = 'RSI_Strategy'",
                 [activeValue]
             );
             console.log(`✅ [BOT-TOGGLE-ALL] Updated ${allBots.length} bots to ${activeValue === 1 ? 'ACTIVE' : 'INACTIVE'}`);
@@ -5155,8 +5155,16 @@ router.put('/bot/parameters', async (req, res) => {
             const savedParams = typeof verification.parameters === 'string' ? JSON.parse(verification.parameters) : verification.parameters;
             console.log('✅ [BOT-PARAMS] Verifica salvataggio:', {
                 savedHasTrailingProfit: 'trailing_profit_protection_enabled' in savedParams,
-                savedTrailingProfitValue: savedParams.trailing_profit_protection_enabled
+                savedTrailingProfitValue: savedParams.trailing_profit_protection_enabled,
+                totalParams: Object.keys(savedParams).length,
+                sampleParams: {
+                    trade_size_usdt: savedParams.trade_size_usdt,
+                    stop_loss_pct: savedParams.stop_loss_pct,
+                    take_profit_pct: savedParams.take_profit_pct
+                }
             });
+        } else {
+            console.error('❌ [BOT-PARAMS] ERRORE: Parametri non salvati correttamente!');
         }
 
         res.json({
@@ -6493,7 +6501,7 @@ router.get('/bot-analysis', async (req, res) => {
                 take_profit_2_pct: 3.0
             };
             await dbRun(
-                "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES (?, ?, ?, ?)",
+                "INSERT INTO bot_settings (strategy_name, symbol, is_active, parameters) VALUES ($1, $2, $3, $4)",
                 ['RSI_Strategy', symbol, 1, JSON.stringify(DEFAULT_PARAMS)] // Default: ATTIVO (1)
             );
             console.log(`✅ [BOT-ANALYSIS] Bot settings creati per ${symbol} (ATTIVO di default)`);
