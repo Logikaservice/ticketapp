@@ -355,19 +355,18 @@ const CryptoDashboard = () => {
         // Update price frequently (every 1 second for real-time feel)
         const priceInterval = setInterval(() => {
             fetchPrice();
-        }, 1000);
+        }, 500); // ✅ REAL-TIME: Update price every 500ms
 
-        // Update data (positions, trades) every 1.5 seconds for instant updates
+        // ✅ REAL-TIME: Update data (positions, trades) every 500ms for instant updates
         const dataInterval = setInterval(() => {
             fetchData();
             fetchActiveBots(); // Also update active bots
-        }, 1500);
+        }, 500); // ✅ REAL-TIME: Reduced from 1500ms to 500ms
 
-        // Update history (candles) more frequently (every 5 seconds) for real-time updates
-        // ✅ FIX: Aggiornamento più frequente per vedere candele in tempo reale
+        // ✅ REAL-TIME: Update history (candles) more frequently for real-time updates
         const historyInterval = setInterval(() => {
             fetchHistory();
-        }, 5000); // Ridotto da 15s a 5s per aggiornamenti più frequenti
+        }, 2000); // ✅ REAL-TIME: Ridotto a 2s per aggiornamenti candele più frequenti
 
         return () => {
             clearInterval(priceInterval);
@@ -512,10 +511,10 @@ const CryptoDashboard = () => {
         // Aggiorna prezzi quando cambiano holdings o posizioni aperte
         fetchAllPrices();
 
-        // ✅ FIX CRITICO: Aggiorna prezzi anche periodicamente (ogni 2 secondi) per garantire sincronizzazione
+        // ✅ REAL-TIME: Aggiorna prezzi anche periodicamente (ogni 500ms) per garantire sincronizzazione in tempo reale
         const priceUpdateInterval = setInterval(() => {
             fetchAllPrices();
-        }, 2000); // Aggiorna ogni 2 secondi
+        }, 500); // ✅ REAL-TIME: Aggiorna ogni 500ms per aggiornamenti in tempo reale
 
         return () => clearInterval(priceUpdateInterval);
     }, [portfolio.holdings, openPositions, apiBase, currentSymbol, currentPrice]);

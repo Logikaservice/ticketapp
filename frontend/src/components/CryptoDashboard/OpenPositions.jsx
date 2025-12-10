@@ -5,14 +5,14 @@ import { formatPrice, formatPriceWithSymbol, formatVolume } from '../../utils/pr
 const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices = {}, onClosePosition, onUpdatePnL, availableSymbols = [], onSelectSymbol, apiBase }) => {
     const [isUpdating, setIsUpdating] = useState(false);
 
-    // Update P&L periodically (more frequently for instant updates)
+    // Update P&L periodically (real-time updates)
     useEffect(() => {
         const interval = setInterval(() => {
             if (onUpdatePnL) {
                 setIsUpdating(true);
                 onUpdatePnL().finally(() => setIsUpdating(false));
             }
-        }, 2000); // Update every 2 seconds for instant feedback
+        }, 500); // ✅ REAL-TIME: Update every 500ms for instant feedback
 
         return () => clearInterval(interval);
     }, [onUpdatePnL]);
