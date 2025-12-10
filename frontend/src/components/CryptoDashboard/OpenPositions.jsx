@@ -31,9 +31,63 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
         );
     }
 
-    const totalPnL = positions.reduce((sum, pos) => sum + (parseFloat(pos.profit_loss) || 0), 0);
+    // ✅ REAL-TIME: Calcola P&L totale in tempo reale usando i prezzi aggiornati
+    const calculateTotalPnL = () => {
+        let total = 0;
+        positions.forEach(pos => {
+            const entryPrice = pos.entry_price != null ? parseFloat(pos.entry_price) : 0;
+            const volume = parseFloat(pos.volume) || 0;
+            const isLong = pos.type === 'buy';
+            
+            // Usa prezzo aggiornato
+            let currentPriceValue = 0;
+            if (allSymbolPrices && allSymbolPrices[pos.symbol]) {
+                currentPriceValue = parseFloat(allSymbolPrices[pos.symbol]);
+            } else if (pos.symbol === currentSymbol && currentPrice) {
+                currentPriceValue = parseFloat(currentPrice);
+            } else if (pos.current_price != null) {
+                currentPriceValue = parseFloat(pos.current_price);
+            }
+            
+            if (entryPrice > 0 && currentPriceValue > 0 && volume > 0) {
+                if (isLong) {
+                    total += (currentPriceValue - entryPrice) * volume;
+                } else {
+                    total += (entryPrice - currentPriceValue) * volume;
+                }
+            } else {
+                total += parseFloat(pos.profit_loss) || 0;
+            }
+        });
+        return total;
+    };
+    
+    const totalPnL = calculateTotalPnL();
     const totalPnLPercent = positions.length > 0
-        ? positions.reduce((sum, pos) => sum + (parseFloat(pos.profit_loss_pct) || 0), 0) / positions.length
+        ? positions.reduce((sum, pos) => {
+            const entryPrice = pos.entry_price != null ? parseFloat(pos.entry_price) : 0;
+            const volume = parseFloat(pos.volume) || 0;
+            const isLong = pos.type === 'buy';
+            
+            let currentPriceValue = 0;
+            if (allSymbolPrices && allSymbolPrices[pos.symbol]) {
+                currentPriceValue = parseFloat(allSymbolPrices[pos.symbol]);
+            } else if (pos.symbol === currentSymbol && currentPrice) {
+                currentPriceValue = parseFloat(currentPrice);
+            } else if (pos.current_price != null) {
+                currentPriceValue = parseFloat(pos.current_price);
+            }
+            
+            if (entryPrice > 0 && currentPriceValue > 0) {
+                if (isLong) {
+                    return sum + (((currentPriceValue - entryPrice) / entryPrice) * 100);
+                } else {
+                    return sum + (((entryPrice - currentPriceValue) / entryPrice) * 100);
+                }
+            } else {
+                return sum + (parseFloat(pos.profit_loss_pct) || 0);
+            }
+        }, 0) / positions.length
         : 0;
 
     return (
@@ -101,25 +155,43 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                     </thead>
                     <tbody>
                         {positions.map((pos) => {
-                            // ✅ FIX: Controlli null/undefined per prevenire errori toFixed()
-                            const pnl = parseFloat(pos.profit_loss) || 0;
-                            const pnlPct = parseFloat(pos.profit_loss_pct) || 0;
                             const isLong = pos.type === 'buy';
                             // ✅ FIX: Usa valori dal database, non fallback a 0 se sono null/undefined
                             // Per simboli con prezzi molto piccoli (es. SHIB), i valori potrebbero essere molto piccoli ma validi
                             const entryPrice = pos.entry_price != null ? parseFloat(pos.entry_price) : 0;
-                            // ✅ FIX: Priorità per prezzo corrente: 1) allSymbolPrices (più aggiornato), 2) current_price dal DB, 3) currentPrice se stesso simbolo
+                            // ✅ REAL-TIME: Priorità per prezzo corrente: 1) allSymbolPrices (più aggiornato), 2) currentPrice se stesso simbolo, 3) current_price dal DB
                             let currentPriceValue = 0;
                             if (allSymbolPrices && allSymbolPrices[pos.symbol]) {
                                 currentPriceValue = parseFloat(allSymbolPrices[pos.symbol]);
-                            } else if (pos.current_price != null) {
-                                currentPriceValue = parseFloat(pos.current_price);
                             } else if (pos.symbol === currentSymbol && currentPrice) {
                                 currentPriceValue = parseFloat(currentPrice);
+                            } else if (pos.current_price != null) {
+                                currentPriceValue = parseFloat(pos.current_price);
                             }
+                            
                             const volume = parseFloat(pos.volume) || 0;
                             const stopLoss = pos.stop_loss != null ? parseFloat(pos.stop_loss) : null;
                             const takeProfit = pos.take_profit != null ? parseFloat(pos.take_profit) : null;
+                            
+                            // ✅ REAL-TIME: Calcola P&L in tempo reale usando il prezzo corrente aggiornato
+                            let pnl = 0;
+                            let pnlPct = 0;
+                            
+                            if (entryPrice > 0 && currentPriceValue > 0 && volume > 0) {
+                                if (isLong) {
+                                    // Long position: profit quando prezzo sale
+                                    pnl = (currentPriceValue - entryPrice) * volume;
+                                    pnlPct = ((currentPriceValue - entryPrice) / entryPrice) * 100;
+                                } else {
+                                    // Short position: profit quando prezzo scende
+                                    pnl = (entryPrice - currentPriceValue) * volume;
+                                    pnlPct = ((entryPrice - currentPriceValue) / entryPrice) * 100;
+                                }
+                            } else {
+                                // Fallback ai valori dal database se non possiamo calcolare
+                                pnl = parseFloat(pos.profit_loss) || 0;
+                                pnlPct = parseFloat(pos.profit_loss_pct) || 0;
+                            }
 
                             return (
                                 <tr
