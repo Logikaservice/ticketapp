@@ -216,7 +216,7 @@ async function checkOpportunityCost(position) {
     try {
         // Cerca altri simboli con segnali migliori
         const allSymbols = await dbAll(
-            "SELECT DISTINCT symbol FROM bot_settings WHERE is_active = 1 AND symbol != ?",
+            "SELECT DISTINCT symbol FROM bot_settings WHERE is_active = 1 AND symbol != $1",
             [position.symbol]
         );
 
@@ -229,7 +229,7 @@ async function checkOpportunityCost(position) {
             const symbol = symbolRow.symbol;
             try {
                 const klines = await dbAll(
-                    "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
+                    "SELECT * FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
                     [symbol]
                 );
 
@@ -594,7 +594,7 @@ async function getMultiTimeframeExitSignal(symbol, positionType) {
         try {
             // Carica klines per questo timeframe
             const klines = await dbAll(
-                "SELECT * FROM klines WHERE symbol = ? AND interval = ? ORDER BY open_time DESC LIMIT 50",
+                "SELECT * FROM klines WHERE symbol = $1 AND interval = $2 ORDER BY open_time DESC LIMIT 50",
                 [symbol, tf]
             );
 
@@ -864,7 +864,7 @@ async function shouldClosePosition(position, priceHistory) {
         if (oppositeStrength >= SMART_EXIT_CONFIG.MIN_OPPOSITE_STRENGTH) {
             // Carica klines per volume analysis
             const klines = await dbAll(
-                "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 30",
+                "SELECT * FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 30",
                 [position.symbol]
             );
 
@@ -909,7 +909,7 @@ async function shouldClosePosition(position, priceHistory) {
 
         // ✅ Carica klines complete dal DB per volume e support/resistance
         const dbKlines = await dbAll(
-            "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
+            "SELECT * FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
             [position.symbol]
         );
         const fullKlines = dbKlines.reverse().map(k => ({
@@ -1149,7 +1149,7 @@ async function runSmartExit() {
             try {
                 // Load price history for this symbol (last 100 klines)
                 const klines = await dbAll(
-                    "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
+                    "SELECT * FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
                     [position.symbol]
                 );
 
@@ -1196,12 +1196,12 @@ async function runSmartExit() {
                         `UPDATE open_positions 
                          SET status = 'closed', 
                              closed_at = CURRENT_TIMESTAMP,
-                             current_price = ?,
-                             profit_loss = ?,
-                             profit_loss_pct = ?,
+                             current_price = $1,
+                             profit_loss = $2,
+                             profit_loss_pct = $3,
                              volume_closed = volume,
-                             close_reason = ?
-                         WHERE ticket_id = ?`,
+                             close_reason = $4
+                         WHERE ticket_id = $5`,
                         [currentPrice, pnl, exitDecision.currentPnL || 0, exitDecision.reason || 'SmartExit', position.ticket_id]
                     );
 
@@ -1211,7 +1211,7 @@ async function runSmartExit() {
                         const currentBalance = parseFloat(portfolio[0].balance_usd) || 0;
                         const newBalance = currentBalance + pnl;
                         await dbRun(
-                            "UPDATE portfolio SET balance_usd = ? WHERE id = ?",
+                            "UPDATE portfolio SET balance_usd = $1 WHERE id = $2",
                             [newBalance, portfolio[0].id]
                         );
                     }

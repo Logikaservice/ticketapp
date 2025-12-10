@@ -1,13 +1,12 @@
 const express = require('express');
 const router = express.Router();
 
-// ✅ POSTGRESQL ONLY: Richiede esplicitamente PostgreSQL
-// Il modulo crypto_db DEVE essere crypto_db_postgresql.js (rinominato a crypto_db.js)
+// PostgreSQL Database Module
 const cryptoDb = require('../crypto_db');
 
 // Verifica che il modulo esporti gli helper PostgreSQL
 if (!cryptoDb.dbAll || !cryptoDb.dbGet || !cryptoDb.dbRun) {
-    throw new Error('❌ CRITICAL: crypto_db must be PostgreSQL module. SQLite support removed.');
+    throw new Error('❌ CRITICAL: crypto_db must be PostgreSQL module.');
 }
 
 const dbAll = cryptoDb.dbAll;
@@ -117,7 +116,7 @@ const getPortfolio = async () => {
             console.error(`🚨 [PORTFOLIO] Valore anomale di balance_usd nel database: $${rawBalance.toLocaleString()} USDT. Correggendo automaticamente a $10800 USDT`);
             // ✅ FIX CRITICO: Aggiorna il database con valore valido (10800 USDT)
             try {
-                await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [10800]);
+                await dbRun("UPDATE portfolio SET balance_usd = $1 WHERE id = 1", [10800]);
                 // Auto-fix balance logging removed
                 row.balance_usd = 10800; // Usa valore valido per questa chiamata
             } catch (updateErr) {
@@ -154,11 +153,11 @@ router.get('/history', async (req, res) => {
         const symbol = req.query.symbol || 'bitcoin'; // Default to bitcoin for backward compatibility
 
         // Check if we have OHLC klines data first (preferred)
-        const klinesCountRows = await dbAll(`SELECT COUNT(*) as count FROM klines WHERE symbol = ? AND interval = ?`, [symbol, interval]);
+        const klinesCountRows = await dbAll(`SELECT COUNT(*) as count FROM klines WHERE symbol = $1 AND interval = $2`, [symbol, interval]);
         const klinesCount = klinesCountRows && klinesCountRows.length > 0 ? klinesCountRows[0].count : 0;
 
         // Also check price_history for backward compatibility
-        const countRows = await dbAll("SELECT COUNT(*) as count FROM price_history WHERE symbol = ?", [symbol]);
+        const countRows = await dbAll("SELECT COUNT(*) as count FROM price_history WHERE symbol = $1", [symbol]);
         const count = countRows && countRows.length > 0 ? countRows[0].count : 0;
 
         console.log(`📊 Klines count: ${klinesCount}, Price history count: ${count}`);
@@ -263,16 +262,17 @@ router.get('/history', async (req, res) => {
                     try {
                         // Save close price for backward compatibility
                         await dbRun(
-                            "INSERT OR IGNORE INTO price_history (symbol, price, timestamp) VALUES (?, ?, ?)",
+                            "INSERT INTO price_history (symbol, price, timestamp) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
                             [symbol, close, timestamp]
                         );
                         saved++;
 
                         // Save complete OHLC kline
                         await dbRun(
-                            `INSERT OR IGNORE INTO klines 
+                            `INSERT INTO klines 
                             (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+                            ON CONFLICT (symbol, interval, open_time) DO NOTHING`,
                             [symbol, interval, openTime, open, high, low, close, volume, closeTime]
                         );
                         savedKlines++;
@@ -315,9 +315,9 @@ router.get('/history', async (req, res) => {
         const klinesRows = await dbAll(
             `SELECT open_time, open_price, high_price, low_price, close_price, volume 
              FROM klines 
-             WHERE symbol = ? AND interval = ? AND open_time >= ? 
+             WHERE symbol = $1 AND interval = $2 AND open_time >= $3 
              ORDER BY open_time ASC 
-             LIMIT ?`,
+             LIMIT $4`,
             [symbol, interval, minTime, Math.max(limit, candlesForPeriod)]
         );
 
@@ -462,7 +462,7 @@ router.get('/dashboard', async (req, res) => {
             try {
                 // Ottieni klines per calcolare segnale attuale
                 const klinesData = await dbAll(
-                    "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
+                    "SELECT * FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
                     [position.symbol]
                 );
 
@@ -605,7 +605,7 @@ router.get('/dashboard', async (req, res) => {
                 if (!stats) {
                     console.log('⚠️ [DASHBOARD] Record performance_stats con id=1 non trovato, creazione...');
                     // Crea record iniziale se non esiste
-                    await dbRun("INSERT OR IGNORE INTO performance_stats (id, total_trades, winning_trades, losing_trades, total_profit, total_loss, avg_win, avg_loss, win_rate) VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0)");
+                    await dbRun("INSERT INTO performance_stats (id, total_trades, winning_trades, losing_trades, total_profit, total_loss, avg_win, avg_loss, win_rate) VALUES (1, 0, 0, 0, 0, 0, 0, 0, 0) ON CONFLICT (id) DO NOTHING");
                     stats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
                     if (stats) {
                         console.log('✅ [DASHBOARD] Record performance_stats creato con successo');
@@ -778,7 +778,7 @@ router.post('/reset', async (req, res) => {
 
         // 4. Reset portfolio a valore custom (default 250 se non specificato o se reset normale)
         const newBalance = (initial_balance && !isNaN(parseFloat(initial_balance))) ? parseFloat(initial_balance) : 250;
-        await dbRun("UPDATE portfolio SET balance_usd = ?, holdings = '{}' WHERE id = 1", [newBalance]);
+        await dbRun("UPDATE portfolio SET balance_usd = $1, holdings = '{}' WHERE id = 1", [newBalance]);
 
         // 5. Reset Kelly Criterion Stats (Performance Stats)
         await dbRun("DELETE FROM performance_stats");
@@ -841,7 +841,7 @@ router.post('/cleanup-positions', async (req, res) => {
                     continue; // Skip se non possiamo ottenere il prezzo
                 }
                 const klines = await dbAll(
-                    "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
+                    "SELECT * FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
                     [pos.symbol]
                 );
 
@@ -992,7 +992,7 @@ router.post('/add-funds', async (req, res) => {
         const newBalance = currentBalance + fundsToAdd;
 
         // Update portfolio balance
-        await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [newBalance]);
+        await dbRun("UPDATE portfolio SET balance_usd = $1 WHERE id = 1", [newBalance]);
 
         console.log(`💰 Fondi aggiunti: $${fundsToAdd.toFixed(2)} USDT | Saldo precedente: $${currentBalance.toFixed(2)} USDT | Nuovo saldo: $${newBalance.toFixed(2)} USDT`);
 
@@ -1032,8 +1032,8 @@ router.post('/trade', async (req, res) => {
 
         // Update DB
         // ✅ MIGRAZIONE POSTGRESQL: Usa dbRun invece di db.run
-        await dbRun("UPDATE portfolio SET balance_usd = ?, holdings = ?", [balance, JSON.stringify(holdings)]);
-        await dbRun("INSERT INTO trades (symbol, type, amount, price, strategy) VALUES (?, ?, ?, ?, ?)",
+        await dbRun("UPDATE portfolio SET balance_usd = $1, holdings = $2", [balance, JSON.stringify(holdings)]);
+        await dbRun("INSERT INTO trades (symbol, type, amount, price, strategy) VALUES ($1, $2, $3, $4, $5)",
             [symbol, type, amount, price, strategy]);
 
         res.json({ success: true, new_balance: balance, new_holdings: holdings });
@@ -1804,11 +1804,11 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
         // ✅ REFACTORING: Manteniamo price_history per backward compatibility (dashboard, RSI legacy)
         // ma non lo usiamo più per i segnali del bot
-        await dbRun("INSERT INTO price_history (symbol, price) VALUES (?, ?)", [symbol, currentPrice]);
+        await dbRun("INSERT INTO price_history (symbol, price) VALUES ($1, $2)", [symbol, currentPrice]);
 
         // Carica price_history per RSI legacy (backward compatibility)
         const symbolPriceHistory = await dbAll(
-            "SELECT price FROM price_history WHERE symbol = ? ORDER BY timestamp DESC LIMIT 50",
+            "SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 50",
             [symbol]
         );
         const priceHistory = symbolPriceHistory.reverse().map(r => parseFloat(r.price));
@@ -1879,7 +1879,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
             // Verifica se esiste già una candela per questo periodo
             const existingKline = await dbGet(
-                "SELECT * FROM klines WHERE symbol = ? AND interval = ? AND open_time = ?",
+                "SELECT * FROM klines WHERE symbol = $1 AND interval = $2 AND open_time = $3",
                 [symbol, primaryInterval, candleStartTime]
             );
 
@@ -1889,7 +1889,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 const newLow = Math.min(existingKline.low_price, currentPrice);
 
                 await dbRun(
-                    "UPDATE klines SET high_price = ?, low_price = ?, close_price = ?, close_time = ? WHERE symbol = ? AND interval = ? AND open_time = ?",
+                    "UPDATE klines SET high_price = $1, low_price = $2, close_price = $3, close_time = $4 WHERE symbol = $5 AND interval = $6 AND open_time = $7",
                     [newHigh, newLow, currentPrice, now, symbol, primaryInterval, candleStartTime]
                 );
 
@@ -1902,7 +1902,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 await dbRun(
                     `INSERT INTO klines 
                     (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
                     [symbol, primaryInterval, candleStartTime, currentPrice, currentPrice, currentPrice, currentPrice, 0, now]
                 );
                 console.log(`🆕 [${symbol.toUpperCase()}] Nuova candela ${primaryInterval} creata: ${new Date(candleStartTime).toISOString()} | Price: $${currentPrice.toFixed(6)} USDT`);
@@ -1921,7 +1921,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     const candleStartTime = calculateAlignedCandleTime(now, interval);
 
                     const existingKline = await dbGet(
-                        "SELECT * FROM klines WHERE symbol = ? AND interval = ? AND open_time = ?",
+                        "SELECT * FROM klines WHERE symbol = $1 AND interval = $2 AND open_time = $3",
                         [symbol, interval, candleStartTime]
                     );
 
@@ -1930,14 +1930,14 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         const newLow = Math.min(existingKline.low_price, currentPrice);
 
                         await dbRun(
-                            "UPDATE klines SET high_price = ?, low_price = ?, close_price = ?, close_time = ? WHERE symbol = ? AND interval = ? AND open_time = ?",
+                            "UPDATE klines SET high_price = $1, low_price = $2, close_price = $3, close_time = $4 WHERE symbol = $5 AND interval = $6 AND open_time = $7",
                             [newHigh, newLow, currentPrice, now, symbol, interval, candleStartTime]
                         );
                     } else {
                         await dbRun(
                             `INSERT INTO klines 
                             (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
                             [symbol, interval, candleStartTime, currentPrice, currentPrice, currentPrice, currentPrice, 0, now]
                         );
                     }
@@ -2875,7 +2875,7 @@ const runBotCycle = async () => {
             // Update price for bitcoin at least (for backward compatibility)
             const currentPrice = await getSymbolPrice('bitcoin');
             if (currentPrice > 0) {
-                await dbRun("INSERT INTO price_history (symbol, price) VALUES (?, ?)", ['bitcoin', currentPrice]);
+                await dbRun("INSERT INTO price_history (symbol, price) VALUES ($1, $2)", ['bitcoin', currentPrice]);
             }
             return;
         }
@@ -3593,7 +3593,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                 }
 
                 // Re-fetch position to get updated values after partial close
-                const updatedPos = await dbGet("SELECT * FROM open_positions WHERE ticket_id = ?", [pos.ticket_id]);
+                const updatedPos = await dbGet("SELECT * FROM open_positions WHERE ticket_id = $1", [pos.ticket_id]);
                 if (!updatedPos || updatedPos.status !== 'open') continue; // Skip if closed
 
                 const finalRemainingVolume = updatedPos.volume - (updatedPos.volume_closed || 0);
@@ -5977,7 +5977,7 @@ router.get('/backtest/results/:id', async (req, res) => {
 router.delete('/backtest/results/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        await dbRun('DELETE FROM backtest_results WHERE id = ?', [id]);
+        await dbRun('DELETE FROM backtest_results WHERE id = $1', [id]);
         res.json({ success: true, message: 'Backtest result deleted' });
     } catch (error) {
         console.error('❌ Error deleting backtest result:', error);
@@ -6476,7 +6476,7 @@ router.get('/bot-analysis', async (req, res) => {
         let params = await getBotParameters(symbol);
 
         // Verifica se esiste entry in bot_settings, se non c'è creala
-        const botSettingsCheck = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = ?", [symbol]);
+        const botSettingsCheck = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = $1", [symbol]);
         if (!botSettingsCheck) {
             console.log(`📝 [BOT-ANALYSIS] Creazione bot_settings per ${symbol} (default: ATTIVO)`);
             const DEFAULT_PARAMS = {
@@ -6603,8 +6603,8 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         // ✅ CHECK DATA FRESHNESS (Diagnostic Discrepancy)
-        const last15m = await dbGet("SELECT MAX(open_time) as last FROM klines WHERE symbol = ? AND interval = '15m'", [symbol]);
-        const last1h = await dbGet("SELECT MAX(open_time) as last FROM klines WHERE symbol = ? AND interval = '1h'", [symbol]);
+        const last15m = await dbGet("SELECT MAX(open_time) as last FROM klines WHERE symbol = $1 AND interval = '15m'", [symbol]);
+        const last1h = await dbGet("SELECT MAX(open_time) as last FROM klines WHERE symbol = $1 AND interval = '1h'", [symbol]);
 
         const now = Date.now();
         const freshnessBlockers = [];
@@ -6612,7 +6612,7 @@ router.get('/bot-analysis', async (req, res) => {
         // Check if Bot is Active in DB
         // ✅ FIX: Se non c'è entry in bot_settings, considera il bot ATTIVO di default (per nuovi simboli)
         // Questo permette ai nuovi simboli di funzionare senza doverli attivare manualmente
-        const botSettings = await dbGet("SELECT is_active FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = ?", [symbol]);
+        const botSettings = await dbGet("SELECT is_active FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = $1", [symbol]);
         console.log(`🔍 [BOT-DEBUG] Symbol: ${symbol}, Settings found: ${!!botSettings}, Active: ${botSettings ? botSettings.is_active : 'DEFAULT (1)'}`);
         const isBotActive = botSettings ? (Number(botSettings.is_active) === 1) : true; // Default: attivo se non esiste entry
 
@@ -8333,7 +8333,7 @@ router.post('/recalculate-balance', async (req, res) => {
         const currentBalanceDB = parseFloat(portfolio.balance_usd) || 0;
 
         // 6. Aggiorna balance nel DB con quello calcolato
-        await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [calculatedBalance]);
+        await dbRun("UPDATE portfolio SET balance_usd = $1 WHERE id = 1", [calculatedBalance]);
 
         console.log(`✅ [RECALCULATE BALANCE] Balance ricalcolato: €${currentBalanceDB.toFixed(2)} → €${calculatedBalance.toFixed(2)}`);
         console.log(`   Capitale disponibile: €${availableBalance.toFixed(2)}`);
@@ -8418,7 +8418,7 @@ router.post('/reset-balance', async (req, res) => {
         const theoreticalInitial = oldBalance + totalInvested - totalReturned;
 
         // Aggiorna balance
-        await dbRun("UPDATE portfolio SET balance_usd = ? WHERE id = 1", [newBalance]);
+        await dbRun("UPDATE portfolio SET balance_usd = $1 WHERE id = 1", [newBalance]);
 
         console.log(`💰 [RESET BALANCE] Balance aggiornato: €${oldBalance.toFixed(2)} → €${newBalance.toFixed(2)}`);
         console.log(`   Analisi: Invested: €${totalInvested.toFixed(2)}, Returned: €${totalReturned.toFixed(2)}, ShortCredits: €${shortCredits.toFixed(2)}`);

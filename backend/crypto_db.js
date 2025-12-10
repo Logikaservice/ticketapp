@@ -1,10 +1,8 @@
 /**
- * Crypto Database Module - PostgreSQL Version
+ * Crypto Database Module - PostgreSQL Only
  * 
- * Questo modulo sostituisce crypto_db.js (SQLite) con una versione PostgreSQL
- * per coerenza con gli altri moduli del progetto.
- * 
- * IMPORTANTE: Dopo la migrazione, rinomina questo file in crypto_db.js
+ * Questo modulo gestisce il database PostgreSQL per il sistema crypto.
+ * PostgreSQL nativo - nessuna conversione o compatibilità con altri database.
  */
 
 const { Pool } = require('pg');
@@ -52,12 +50,10 @@ pool.on('error', (err, client) => {
     // Non crashare il backend per errori del database
 });
 
-// Helper per eseguire query (equivalente a db.all)
+// Helper per eseguire query multiple rows
 const dbAll = async (query, params = []) => {
     try {
-        // Converti placeholders SQLite (?) a PostgreSQL ($1, $2, ...)
-        const pgQuery = convertSqliteToPostgres(query, params);
-        const result = await pool.query(pgQuery.query, pgQuery.params);
+        const result = await pool.query(query, params);
         return result.rows || [];
     } catch (err) {
         console.error('❌ Database query error:', err.message);
@@ -66,11 +62,10 @@ const dbAll = async (query, params = []) => {
     }
 };
 
-// Helper per eseguire query single row (equivalente a db.get)
+// Helper per eseguire query single row
 const dbGet = async (query, params = []) => {
     try {
-        const pgQuery = convertSqliteToPostgres(query, params);
-        const result = await pool.query(pgQuery.query, pgQuery.params);
+        const result = await pool.query(query, params);
         return result.rows[0] || null;
     } catch (err) {
         console.error('❌ Database query error:', err.message);
@@ -79,11 +74,10 @@ const dbGet = async (query, params = []) => {
     }
 };
 
-// Helper per eseguire INSERT/UPDATE/DELETE (equivalente a db.run)
+// Helper per eseguire INSERT/UPDATE/DELETE
 const dbRun = async (query, params = []) => {
     try {
-        const pgQuery = convertSqliteToPostgres(query, params);
-        const result = await pool.query(pgQuery.query, pgQuery.params);
+        const result = await pool.query(query, params);
         return {
             lastID: result.rows[0]?.id || null, // PostgreSQL restituisce id in RETURNING
             changes: result.rowCount || 0
@@ -94,54 +88,6 @@ const dbRun = async (query, params = []) => {
         throw err;
     }
 };
-
-/**
- * Converte query SQLite a PostgreSQL
- * - Placeholders ? -> $1, $2, $3...
- * - INSERT OR IGNORE -> INSERT ... ON CONFLICT DO NOTHING
- * - Gestisce altri casi specifici
- */
-function convertSqliteToPostgres(query, params) {
-    let pgQuery = query;
-    const pgParams = [...params];
-
-    // Converti INSERT OR IGNORE a INSERT ... ON CONFLICT DO NOTHING
-    if (pgQuery.includes('INSERT OR IGNORE')) {
-        const tableMatch = pgQuery.match(/INSERT OR IGNORE INTO\s+(\w+)/i);
-        if (tableMatch) {
-            const tableName = tableMatch[1];
-            pgQuery = pgQuery.replace(/INSERT OR IGNORE/i, 'INSERT');
-            
-            // Determina ON CONFLICT basato sulla tabella
-            let conflictClause = '';
-            if (tableName === 'portfolio') {
-                conflictClause = ' ON CONFLICT (id) DO UPDATE SET balance_usd = EXCLUDED.balance_usd, holdings = EXCLUDED.holdings';
-            } else if (tableName === 'bot_settings') {
-                conflictClause = ' ON CONFLICT (strategy_name, symbol) DO UPDATE SET is_active = EXCLUDED.is_active, parameters = EXCLUDED.parameters';
-            } else if (tableName === 'klines') {
-                conflictClause = ' ON CONFLICT (symbol, interval, open_time) DO NOTHING';
-            } else if (tableName === 'open_positions') {
-                conflictClause = ' ON CONFLICT (ticket_id) DO UPDATE SET current_price = EXCLUDED.current_price, profit_loss = EXCLUDED.profit_loss, status = EXCLUDED.status';
-            } else if (tableName === 'performance_stats') {
-                conflictClause = ' ON CONFLICT (id) DO UPDATE SET total_trades = EXCLUDED.total_trades, winning_trades = EXCLUDED.winning_trades, losing_trades = EXCLUDED.losing_trades, total_profit = EXCLUDED.total_profit, total_loss = EXCLUDED.total_loss, avg_win = EXCLUDED.avg_win, avg_loss = EXCLUDED.avg_loss, win_rate = EXCLUDED.win_rate';
-            } else {
-                // Default: DO NOTHING (per price_history, trades, backtest_results)
-                conflictClause = ' ON CONFLICT DO NOTHING';
-            }
-            
-            // Aggiungi ON CONFLICT prima del punto e virgola finale
-            if (!pgQuery.includes('ON CONFLICT')) {
-                pgQuery = pgQuery.replace(/;?\s*$/, conflictClause + ';');
-            }
-        }
-    }
-
-    // Converti placeholders ? a $1, $2, $3...
-    let paramIndex = 1;
-    pgQuery = pgQuery.replace(/\?/g, () => `$${paramIndex++}`);
-
-    return { query: pgQuery, params: pgParams };
-}
 
 // Inizializza database (crea tabelle se non esistono)
 async function initDb() {
