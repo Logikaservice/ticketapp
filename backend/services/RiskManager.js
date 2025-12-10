@@ -111,6 +111,37 @@ class SeriousRiskManager {
         }
 
         try {
+            // ✅ CONFIGURABILE: Legge max_daily_loss_pct e max_exposure_pct dal database
+            let maxDailyLossPct = this.MAX_DAILY_LOSS_PCT;
+            let maxExposurePct = this.MAX_TOTAL_EXPOSURE_PCT;
+            
+            try {
+                // Prova prima 'global', poi 'bitcoin'
+                let botParams = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = $1 AND symbol = $2 LIMIT 1", ['RSI_Strategy', 'global']);
+                if (!botParams) {
+                    botParams = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = $1 AND symbol = $2 LIMIT 1", ['RSI_Strategy', 'bitcoin']);
+                }
+                
+                if (botParams && botParams.parameters) {
+                    const params = typeof botParams.parameters === 'string' ? JSON.parse(botParams.parameters) : botParams.parameters;
+                    if (params.max_daily_loss_pct !== undefined && params.max_daily_loss_pct !== null && params.max_daily_loss_pct !== '') {
+                        const parsedValue = parseFloat(params.max_daily_loss_pct);
+                        if (!isNaN(parsedValue) && parsedValue > 0) {
+                            maxDailyLossPct = parsedValue / 100; // Converti da % a decimale
+                        }
+                    }
+                    if (params.max_exposure_pct !== undefined && params.max_exposure_pct !== null && params.max_exposure_pct !== '') {
+                        const parsedValue = parseFloat(params.max_exposure_pct);
+                        if (!isNaN(parsedValue) && parsedValue > 0) {
+                            maxExposurePct = parsedValue / 100; // Converti da % a decimale
+                        }
+                    }
+                }
+            } catch (paramError) {
+                console.warn('⚠️ [RISK-MANAGER] Errore lettura parametri, uso defaults:', paramError.message);
+                // Le variabili rimangono con i valori di default già assegnati sopra
+            }
+
             // 1. Ottieni portfolio
             const portfolio = await dbGet("SELECT * FROM portfolio LIMIT 1");
             if (!portfolio) {
