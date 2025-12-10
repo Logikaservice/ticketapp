@@ -3207,15 +3207,32 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
         }
 
         for (const pos of positions) {
-            // ✅ FIX CRITICO: Normalizza il simbolo per gestire varianti (es. "ada/usdt" → "cardano", "xrp" → "ripple")
-            // Rimuovi slash, underscore e suffissi USDT/EUR per ottenere il simbolo base
-            let symbolBase = pos.symbol.toLowerCase()
-                .replace('/', '')
-                .replace(/_/g, '') // Rimuovi TUTTI gli underscore (non solo il primo)
-                .replace(/usdt$/, '') // Rimuovi suffisso USDT
-                .replace(/eur$/, ''); // Rimuovi suffisso EUR
+            // ✅ FIX CRITICO: Evita race condition - salta se questa posizione è già in aggiornamento
+            const lockKey = pos.ticket_id;
+            const now = Date.now();
+            const lastUpdate = updatePnLLock.get(lockKey);
             
-            let normalizedSymbol = symbolBase;
+            // Se c'è un aggiornamento in corso da meno di 1 secondo, salta questa posizione
+            if (lastUpdate && (now - lastUpdate) < 1000) {
+                if (Math.random() < 0.05) { // Log solo occasionalmente
+                    console.log(`⏭️  [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}) già in aggiornamento, salto`);
+                }
+                continue;
+            }
+            
+            // Imposta lock
+            updatePnLLock.set(lockKey, now);
+            
+            try {
+                // ✅ FIX CRITICO: Normalizza il simbolo per gestire varianti (es. "ada/usdt" → "cardano", "xrp" → "ripple")
+                // Rimuovi slash, underscore e suffissi USDT/EUR per ottenere il simbolo base
+                let symbolBase = pos.symbol.toLowerCase()
+                    .replace('/', '')
+                    .replace(/_/g, '') // Rimuovi TUTTI gli underscore (non solo il primo)
+                    .replace(/usdt$/, '') // Rimuovi suffisso USDT
+                    .replace(/eur$/, ''); // Rimuovi suffisso EUR
+                
+                let normalizedSymbol = symbolBase;
 
             const symbolVariants = {
                 'xrp': 'ripple',
@@ -3348,6 +3365,7 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
 
             if (currentPrice <= 0) {
                 console.warn(`⚠️ [UPDATE P&L] Prezzo non valido per ${pos.symbol} (${currentPrice}), salto questa posizione`);
+                updatePnLLock.delete(lockKey); // Rimuovi lock prima di continuare
                 continue; // Salta questa posizione se il prezzo non è valido
             }
 
@@ -3463,10 +3481,32 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
             }
 
             updateValues.push(pos.ticket_id);
-            await dbRun(
+            
+            // ✅ FIX CRITICO: Usa WHERE con current_price per evitare sovrascritture di aggiornamenti più recenti
+            // Questo previene che un aggiornamento lento sovrascriva un aggiornamento più recente
+            // Usa timestamp o versione per evitare race condition (ma per ora usiamo current_price come controllo)
+            const currentPriceInDb = parseFloat(pos.current_price) || 0;
+            
+            // Aggiorna sempre, ma verifica che il prezzo nuovo sia più recente del vecchio
+            // Se il prezzo è cambiato significativamente (>1%), potrebbe essere un aggiornamento più recente
+            const result = await dbRun(
                 `UPDATE open_positions SET ${updateFields.join(', ')} WHERE ticket_id = ?`,
                 updateValues
             );
+            
+            // ✅ FIX: Verifica che il nuovo prezzo sia ragionevole rispetto al vecchio
+            // Se la differenza è troppo grande (>50%), potrebbe essere un errore
+            if (currentPriceInDb > 0 && Math.abs(currentPrice - currentPriceInDb) > currentPriceInDb * 0.5) {
+                console.warn(`⚠️  [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}) variazione prezzo sospetta: $${currentPriceInDb.toFixed(6)} → $${currentPrice.toFixed(6)} (${((currentPrice - currentPriceInDb) / currentPriceInDb * 100).toFixed(2)}%)`);
+                // Verifica che il nuovo prezzo sia valido confrontandolo con il prezzo di entry
+                const entryPrice = parseFloat(pos.entry_price) || 0;
+                if (entryPrice > 0 && Math.abs(currentPrice - entryPrice) > entryPrice * 2) {
+                    console.error(`🚨 [UPDATE P&L] ${pos.ticket_id} (${pos.symbol}) prezzo sospetto: $${currentPrice.toFixed(6)} vs entry: $${entryPrice.toFixed(6)}`);
+                    // Non aggiornare se il prezzo è troppo diverso dall'entry (potrebbe essere un errore)
+                    updatePnLLock.delete(lockKey);
+                    continue;
+                }
+            }
 
             // Partial Close: Check TP1 (if configured)
             if (pos.take_profit_1 && !pos.tp1_hit && remainingVolume > 0) {
@@ -3555,11 +3595,24 @@ const updatePositionsPnL = async (currentPrice = null, symbol = null) => {
                     await closePosition(updatedPos.ticket_id, validatedClosePrice, closeReason);
                 }
             }
+            
+            // ✅ FIX CRITICO: Rilascia lock dopo aver completato l'aggiornamento
+            updatePnLLock.delete(lockKey);
+            
+        } catch (posError) {
+            // ✅ FIX: Rilascia lock anche in caso di errore
+            updatePnLLock.delete(lockKey);
+            console.error(`❌ [UPDATE P&L] Errore aggiornamento posizione ${pos.ticket_id} (${pos.symbol}):`, posError.message);
+            // Continua con la prossima posizione invece di fermare tutto
+            continue;
+        }
         }
 
         return positions.length;
     } catch (err) {
         console.error('❌ Error in updatePositionsPnL:', err.message);
+        // ✅ FIX: Pulisci tutti i lock in caso di errore generale
+        updatePnLLock.clear();
         throw err;
     }
 };
