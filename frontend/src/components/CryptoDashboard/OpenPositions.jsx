@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, TrendingUp, TrendingDown, AlertCircle, BarChart2 } from 'lucide-react';
+import { formatPrice, formatPriceWithSymbol, formatVolume } from '../../utils/priceFormatter';
 
 const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices = {}, onClosePosition, onUpdatePnL, availableSymbols = [], onSelectSymbol, apiBase }) => {
     const [isUpdating, setIsUpdating] = useState(false);
@@ -211,7 +212,7 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                         </div>
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace' }}>
-                                        {(volume || 0).toFixed(4)}
+                                        {formatVolume(volume || 0)}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600', color: '#fbbf24' }}>
                                         ${((entryPrice || 0) * (volume || 0)).toFixed(2)}
@@ -220,11 +221,7 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                         {entryPrice > 0 ? (
                                             <>
                                                 <span title="Prezzo in USDT">
-                                                    {entryPrice < 0.01 
-                                                        ? `$${entryPrice.toFixed(6)}` 
-                                                        : entryPrice < 1 
-                                                        ? `$${entryPrice.toFixed(4)}` 
-                                                        : `$${entryPrice.toFixed(2)}`}
+                                                    {formatPriceWithSymbol(entryPrice)}
                                                 </span>
                                             </>
                                         ) : (
@@ -233,31 +230,19 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: '600' }}>
                                         {currentPriceValue > 0 ? (
-                                            currentPriceValue < 0.01 
-                                                ? `$${currentPriceValue.toFixed(6)}` 
-                                                : currentPriceValue < 1 
-                                                ? `$${currentPriceValue.toFixed(4)}` 
-                                                : `$${currentPriceValue.toFixed(2)}`
+                                            formatPriceWithSymbol(currentPriceValue)
                                         ) : (
                                             <span style={{ color: '#ef4444' }}>$0.00</span>
                                         )}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#ef4444' }}>
                                         {stopLoss != null && stopLoss > 0 ? (
-                                            stopLoss < 0.01 
-                                                ? `$${stopLoss.toFixed(6)}` 
-                                                : stopLoss < 1 
-                                                ? `$${stopLoss.toFixed(4)}` 
-                                                : `$${stopLoss.toFixed(2)}`
+                                            formatPriceWithSymbol(stopLoss)
                                         ) : '-'}
                                     </td>
                                     <td style={{ padding: '10px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#10b981' }}>
                                         {takeProfit != null && takeProfit > 0 ? (
-                                            takeProfit < 0.01 
-                                                ? `$${takeProfit.toFixed(6)}` 
-                                                : takeProfit < 1 
-                                                ? `$${takeProfit.toFixed(4)}` 
-                                                : `$${takeProfit.toFixed(2)}`
+                                            formatPriceWithSymbol(takeProfit)
                                         ) : '-'}
                                     </td>
                                     <td style={{

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, TrendingUp, TrendingDown, AlertCircle, CheckCircle, BarChart3, Shield, DollarSign, RefreshCw } from 'lucide-react';
+import { formatPriceWithSymbol } from '../../utils/priceFormatter';
 import './BotAnalysisPanel.css';
 
 // ✅ COMPONENTE PRINCIPALE - BotAnalysisPage (sostituisce il vecchio)
@@ -164,7 +165,7 @@ const BotAnalysisPageNew = () => {
                         <div className="info-card">
                             <div className="info-label">Prezzo Corrente</div>
                             <div className="info-value">
-                                ${currentPrice?.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                                {formatPriceWithSymbol(currentPrice || 0, 2)}
                             </div>
                         </div>
                         <div className="info-card">

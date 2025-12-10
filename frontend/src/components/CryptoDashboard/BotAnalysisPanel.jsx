@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, TrendingUp, TrendingDown, AlertCircle, CheckCircle, BarChart3, Shield, DollarSign } from 'lucide-react';
+import { formatPriceWithSymbol } from '../../utils/priceFormatter';
 import './BotAnalysisPanel.css';
 
 const BotAnalysisPanel = ({ isCollapsed: initialCollapsed = false }) => {
@@ -59,7 +60,7 @@ const BotAnalysisPanel = ({ isCollapsed: initialCollapsed = false }) => {
                     <div className="info-section">
                         <div className="info-card">
                             <div className="info-label">Prezzo Corrente</div>
-                            <div className="info-value">${currentPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="info-value">{formatPriceWithSymbol(currentPrice, 2)}</div>
                         </div>
                         <div className="info-card">
                             <div className="info-label">RSI (14 periodi)</div>

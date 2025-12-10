@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import TradingViewOverlay from './TradingViewOverlay';
+import { formatPriceWithSymbol } from '../../utils/priceFormatter';
 import './TradingViewChart.css';
 
 const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [], currentPrice = 0, priceHistory = [], closedTrades = [] }) => {
@@ -179,7 +180,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                                             <div className="trade-row">
                                                 <span className="trade-type">{pos.type.toUpperCase()}</span>
                                                 <span className="trade-price">
-                                                    ${pos.entry_price.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    {formatPriceWithSymbol(pos.entry_price, 2)}
                                                 </span>
                                             </div>
                                             <div className="trade-row">

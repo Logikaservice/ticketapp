@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, BarChart3, Target, Activity, DollarSign, Percent } from 'lucide-react';
+import { formatPriceWithSymbol } from '../../utils/priceFormatter';
 import './StatisticsPanel.css';
 
 const StatisticsPanel = ({ apiBase }) => {
@@ -152,7 +153,7 @@ const StatisticsPanel = ({ apiBase }) => {
                         <BarChart3 size={18} />
                         Volume Totale
                     </div>
-                    <div className="stat-value">${stats.total_volume_usdt?.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || stats.total_volume_eur?.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}</div>
+                    <div className="stat-value">{formatPriceWithSymbol(stats.total_volume_usdt || stats.total_volume_eur || 0, 2)}</div>
                     <div className="stat-sublabel">Volume totale scambiato</div>
                 </div>
 
