@@ -7744,22 +7744,26 @@ router.get('/scanner', async (req, res) => {
                 const longStrength = signal.longSignal?.strength || 0;
                 const shortStrength = signal.shortSignal?.strength || 0;
 
-                // Determina direzione dominante
-                let displayDirection = 'NEUTRAL';
-                let rawStrength = 0;
+                // ✅ FIX: Determina direzione dominante usando la STESSA logica del Bot Analysis
+                // Usa signal.direction (che rispetta le soglie minime) invece di calcolare solo da strength
+                let displayDirection = signal?.direction || 'NEUTRAL';
+                let rawStrength = signal?.strength || 0;
 
-                if (longStrength > shortStrength && longStrength >= 1) {
-                    displayDirection = 'LONG';
-                    rawStrength = longStrength;
-                } else if (shortStrength > longStrength && shortStrength >= 1) {
-                    displayDirection = 'SHORT';
-                    rawStrength = shortStrength;
-                } else if (longStrength > 0 || shortStrength > 0) {
-                    displayDirection = longStrength >= shortStrength ? 'LONG' : 'SHORT';
+                // ✅ FIX CRITICO: Se direction è NEUTRAL ma ci sono segnali LONG/SHORT validi,
+                // mostra comunque LONG/SHORT nel Market Scanner (per vedere il potenziale)
+                // MA solo se hanno strength significativa (almeno 30 per evitare spam)
+                if (displayDirection === 'NEUTRAL' && (longStrength >= 30 || shortStrength >= 30)) {
+                    // Mostra il segnale più forte anche se non raggiunge le soglie minime per aprire
+                    if (longStrength > shortStrength && longStrength >= 30) {
+                        displayDirection = 'LONG';
+                        rawStrength = longStrength;
+                    } else if (shortStrength > longStrength && shortStrength >= 30) {
+                        displayDirection = 'SHORT';
+                        rawStrength = shortStrength;
+                    }
+                } else if (displayDirection === 'NEUTRAL') {
+                    // Se entrambi i segnali sono deboli, rimani NEUTRAL
                     rawStrength = Math.max(longStrength, shortStrength);
-                } else {
-                    displayDirection = 'NEUTRAL';
-                    rawStrength = 0;
                 }
 
                 // Calculate MTF bonus/penalty (SAME logic as bot-analysis)
