@@ -1751,16 +1751,53 @@ const CryptoDashboard = () => {
                                         <div style={{ fontSize: '13px', lineHeight: '1.8' }}>
                                             <div><span style={{ color: '#6b7280' }}>Strength:</span> <span style={{ fontWeight: '600' }}>{selectedPositionDetails.parsedDetails.longSignal.strength || 0}/100</span></div>
                                             <div><span style={{ color: '#6b7280' }}>Conferme:</span> <span>{selectedPositionDetails.parsedDetails.longSignal.confirmations || 0}</span></div>
-                                            {selectedPositionDetails.parsedDetails.longSignal.reasons && selectedPositionDetails.parsedDetails.longSignal.reasons.length > 0 && (
-                                                <div style={{ marginTop: '8px' }}>
-                                                    <div style={{ color: '#6b7280', fontSize: '12px', marginBottom: '4px' }}>Motivi:</div>
-                                                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', lineHeight: '1.6' }}>
-                                                        {selectedPositionDetails.parsedDetails.longSignal.reasons.map((reason, idx) => (
-                                                            <li key={idx} style={{ marginBottom: '2px', color: '#d1d5db' }}>{reason}</li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-                                            )}
+                                            {(() => {
+                                                const isChartRelatedConfirmation = (reason) => {
+                                                    if (!reason || typeof reason !== 'string') return false;
+                                                    const reasonLower = reason.toLowerCase();
+                                                    const chartKeywords = [
+                                                        'rsi', 'macd', 'ema', 'bollinger', 'trend', 'volume', 'atr', 
+                                                        'divergence', 'momentum', 'breakout', 'price', 'candlestick',
+                                                        'bullish', 'bearish', 'oversold', 'overbought', 'moving average',
+                                                        'support', 'resistance', 'indicator', 'technical'
+                                                    ];
+                                                    return chartKeywords.some(keyword => reasonLower.includes(keyword));
+                                                };
+
+                                                return selectedPositionDetails.parsedDetails.longSignal.reasons && selectedPositionDetails.parsedDetails.longSignal.reasons.length > 0 ? (
+                                                    <div style={{ marginTop: '8px' }}>
+                                                        <div style={{ color: '#6366f1', fontSize: '12px', fontWeight: '600', marginBottom: '6px' }}>✅ Conferme LONG:</div>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                            {selectedPositionDetails.parsedDetails.longSignal.reasons.map((reason, idx) => {
+                                                                const isChartRelated = isChartRelatedConfirmation(reason);
+                                                                return (
+                                                                    <div 
+                                                                        key={idx} 
+                                                                        style={{
+                                                                            background: isChartRelated 
+                                                                                ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(124, 58, 237, 0.1))'
+                                                                                : 'rgba(59, 130, 246, 0.1)',
+                                                                            border: isChartRelated
+                                                                                ? '1px solid rgba(139, 92, 246, 0.3)'
+                                                                                : '1px solid rgba(59, 130, 246, 0.2)',
+                                                                            borderRadius: '4px',
+                                                                            padding: '6px 10px',
+                                                                            color: '#fff',
+                                                                            fontSize: '11px',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '6px'
+                                                                        }}
+                                                                    >
+                                                                        {isChartRelated && <span style={{ color: '#a78bfa', fontSize: '0.9rem' }}>📊</span>}
+                                                                        <span>{reason}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ) : null;
+                                            })()}
                                         </div>
                                     </div>
                                 )}
