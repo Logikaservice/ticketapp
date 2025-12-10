@@ -58,18 +58,19 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
         const container = document.createElement('div');
         container.id = uniqueId;
         container.style.width = '100%';
-        // In chart-only mode, usa tutta l'altezza dello schermo
+        // In chart-only mode, usa 75% dell'altezza dello schermo (ridotto del 25%)
         // In fullscreen mode, aumenta l'altezza del 25%
         const isChartOnly = window.location.search.includes('page=chart-only');
         const isInFullscreen = document.fullscreenElement !== null;
         let containerHeight = '750px';
         if (isChartOnly) {
-            containerHeight = '100vh';
+            containerHeight = '75vh'; // Ridotto del 25% (da 100vh a 75vh)
         } else if (isInFullscreen) {
             // Aumenta del 25% l'altezza in fullscreen
             containerHeight = 'calc((100vh - 200px) * 1.25)';
         }
         container.style.height = containerHeight;
+        container.style.width = '100%'; // Occupa tutta la larghezza disponibile
         containerRef.current.appendChild(container);
         widgetRef.current = container;
 
@@ -78,7 +79,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
         // Il widget advanced-chart mostra la toolbar di default se non viene nascosta esplicitamente
         let widgetHeight = 750;
         if (isChartOnly) {
-            widgetHeight = window.innerHeight;
+            widgetHeight = Math.floor(window.innerHeight * 0.75); // 75% dell'altezza dello schermo
         } else if (isInFullscreen) {
             // Aumenta del 25% l'altezza in fullscreen
             widgetHeight = Math.floor((window.innerHeight - 200) * 1.25);
@@ -284,8 +285,8 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                 )}
             </div>
 
-            {/* Posizioni Aperte sotto il grafico quando è in fullscreen */}
-            {isFullscreen && displayPositions.length > 0 && (
+            {/* Posizioni Aperte sotto il grafico quando è in fullscreen (NON in chart-only mode) */}
+            {isFullscreen && !isChartOnly && displayPositions.length > 0 && (
                 <div className="fullscreen-positions-section">
                     <div className="fullscreen-positions-header">
                         <h3>📊 Posizioni Aperte</h3>

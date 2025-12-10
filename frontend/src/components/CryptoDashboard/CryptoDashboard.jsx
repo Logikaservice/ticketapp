@@ -812,16 +812,18 @@ const CryptoDashboard = () => {
         }));
     }, [allTrades, currentSymbol]);
 
-    // If chart-only mode, show only the chart in fullscreen
+    // If chart-only mode, show only the chart (75vh height, full width, no positions)
     if (isChartOnly) {
         return (
             <div className="crypto-dashboard chart-only-mode" style={{ 
-                width: '100vw', 
-                height: '100vh', 
+                width: '100%', 
+                maxWidth: '100vw',
+                height: '75vh', 
                 margin: 0, 
                 padding: 0,
                 overflow: 'hidden',
-                background: '#1c1c1e'
+                background: '#1c1c1e',
+                boxSizing: 'border-box'
             }}>
                 <TradingViewChart
                     symbol={(() => {
