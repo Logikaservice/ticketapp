@@ -19,6 +19,143 @@
     min-height: 750px;
 }
 
+/* Fullscreen mode - grafico allargato del 25% */
+.tradingview-chart-container.fullscreen-mode {
+    width: 125%;
+    margin-left: -12.5%;
+}
+
+.tradingview-chart-container.fullscreen-mode .chart-main-wrapper.fullscreen-chart {
+    height: calc(100vh - 200px);
+    min-height: calc(100vh - 200px);
+}
+
+/* Sezione posizioni sotto il grafico in fullscreen */
+.fullscreen-positions-section {
+    width: 125%;
+    margin-left: -12.5%;
+    background: #1a1a1a;
+    border-top: 2px solid #374151;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.fullscreen-positions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #374151;
+}
+
+.fullscreen-positions-header h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.fullscreen-positions-header span {
+    color: #9ca3af;
+    font-size: 0.9rem;
+}
+
+.fullscreen-positions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+}
+
+.fullscreen-position-card {
+    background: #27272a;
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid #3f3f46;
+    transition: all 0.2s;
+}
+
+.fullscreen-position-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border-color: #52525b;
+}
+
+.fullscreen-position-card.buy {
+    border-left: 3px solid #4ade80;
+}
+
+.fullscreen-position-card.sell {
+    border-left: 3px solid #f87171;
+}
+
+.position-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.position-type-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.position-icon {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.fullscreen-position-card.buy .position-icon {
+    color: #4ade80;
+}
+
+.fullscreen-position-card.sell .position-icon {
+    color: #f87171;
+}
+
+.position-type {
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+}
+
+.fullscreen-position-card.buy .position-type {
+    color: #4ade80;
+}
+
+.fullscreen-position-card.sell .position-type {
+    color: #f87171;
+}
+
+.position-pnl {
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.position-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.position-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.position-label {
+    color: #9ca3af;
+}
+
+.position-value {
+    color: #fff;
+    font-weight: 500;
+}
+
 .tradingview-chart-wrapper {
     flex: 1;
     min-width: 0;

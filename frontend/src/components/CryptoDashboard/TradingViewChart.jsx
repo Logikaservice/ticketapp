@@ -174,7 +174,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
     }, []);
 
     return (
-        <div className="tradingview-chart-container" style={{ position: 'relative' }}>
+        <div className={`tradingview-chart-container ${isFullscreen ? 'fullscreen-mode' : ''}`} style={{ position: 'relative' }}>
             {/* Pulsante ingrandimento */}
             <button
                 onClick={toggleFullscreen}
@@ -202,7 +202,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                 {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
 
-            <div className="chart-main-wrapper">
+            <div className={`chart-main-wrapper ${isFullscreen ? 'fullscreen-chart' : ''}`}>
                 {/* TradingView Chart - stesso di Binance */}
                 <div ref={containerRef} className="tradingview-chart-wrapper" style={{ flex: 1, minWidth: 0, position: 'relative', overflow: 'visible' }}>
                     {/* TradingView widget will be inserted here */}
@@ -216,52 +216,116 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                     />
                 </div>
 
-                {/* Operazioni Bot - A DESTRA del grafico */}
-                <div className="trades-legend-right">
-                    <div className="legend-header">
-                        <h4>🤖 Operazioni Bot</h4>
-                        <span className="trade-count">{displayPositions.length} operazioni aperte</span>
-                    </div>
-                    {displayPositions.length > 0 ? (
-                        <div className="trades-list-vertical">
-                            {displayPositions
-                                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) // Più recenti in alto
-                                .map((pos, index) => (
-                                    <div
-                                        key={pos.ticket_id || index}
-                                        className={`trade-badge ${pos.type}`}
-                                        title={`${pos.strategy || 'Bot'} - ${new Date(pos.timestamp).toLocaleString('it-IT')}`}
-                                    >
-                                        <span className="trade-icon">{pos.type === 'buy' ? '↑' : '↓'}</span>
-                                        <div className="trade-details">
-                                            <div className="trade-row">
-                                                <span className="trade-type">{pos.type.toUpperCase()}</span>
-                                                <span className="trade-price">
-                                                    {formatPriceWithSymbol(pos.entry_price, 2)}
-                                                </span>
+                {/* Operazioni Bot - A DESTRA del grafico (solo quando NON è fullscreen) */}
+                {!isFullscreen && (
+                    <div className="trades-legend-right">
+                        <div className="legend-header">
+                            <h4>🤖 Operazioni Bot</h4>
+                            <span className="trade-count">{displayPositions.length} operazioni aperte</span>
+                        </div>
+                        {displayPositions.length > 0 ? (
+                            <div className="trades-list-vertical">
+                                {displayPositions
+                                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)) // Più recenti in alto
+                                    .map((pos, index) => (
+                                        <div
+                                            key={pos.ticket_id || index}
+                                            className={`trade-badge ${pos.type}`}
+                                            title={`${pos.strategy || 'Bot'} - ${new Date(pos.timestamp).toLocaleString('it-IT')}`}
+                                        >
+                                            <span className="trade-icon">{pos.type === 'buy' ? '↑' : '↓'}</span>
+                                            <div className="trade-details">
+                                                <div className="trade-row">
+                                                    <span className="trade-type">{pos.type.toUpperCase()}</span>
+                                                    <span className="trade-price">
+                                                        {formatPriceWithSymbol(pos.entry_price, 2)}
+                                                    </span>
+                                                </div>
+                                                <div className="trade-row">
+                                                    <span className="trade-amount">{pos.volume.toFixed(4)} BTC</span>
+                                                    <span className="trade-time">
+                                                        {new Date(pos.timestamp).toLocaleTimeString('it-IT', {
+                                                            hour: '2-digit',
+                                                            minute: '2-digit',
+                                                            day: '2-digit',
+                                                            month: '2-digit'
+                                                        })}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div className="trade-row">
-                                                <span className="trade-amount">{pos.volume.toFixed(4)} BTC</span>
-                                                <span className="trade-time">
-                                                    {new Date(pos.timestamp).toLocaleTimeString('it-IT', {
-                                                        hour: '2-digit',
-                                                        minute: '2-digit',
+                                        </div>
+                                    ))}
+                            </div>
+                        ) : (
+                            <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>
+                                Nessuna operazione recente
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {/* Posizioni Aperte sotto il grafico quando è in fullscreen */}
+            {isFullscreen && displayPositions.length > 0 && (
+                <div className="fullscreen-positions-section">
+                    <div className="fullscreen-positions-header">
+                        <h3>📊 Posizioni Aperte</h3>
+                        <span>{displayPositions.length} posizione{displayPositions.length !== 1 ? 'i' : ''}</span>
+                    </div>
+                    <div className="fullscreen-positions-grid">
+                        {displayPositions
+                            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+                            .map((pos, index) => {
+                                // Calcola P&L per questa posizione
+                                const pnl = currentPrice > 0 && pos.entry_price > 0
+                                    ? pos.type === 'buy'
+                                        ? ((currentPrice - pos.entry_price) / pos.entry_price * 100)
+                                        : ((pos.entry_price - currentPrice) / pos.entry_price * 100)
+                                    : 0;
+                                const pnlColor = pnl >= 0 ? '#4ade80' : '#f87171';
+
+                                return (
+                                    <div key={pos.ticket_id || index} className={`fullscreen-position-card ${pos.type}`}>
+                                        <div className="position-card-header">
+                                            <div className="position-type-badge">
+                                                <span className="position-icon">{pos.type === 'buy' ? '↑' : '↓'}</span>
+                                                <span className="position-type">{pos.type.toUpperCase()}</span>
+                                            </div>
+                                            <div className="position-pnl" style={{ color: pnlColor }}>
+                                                {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}%
+                                            </div>
+                                        </div>
+                                        <div className="position-card-body">
+                                            <div className="position-info-row">
+                                                <span className="position-label">Entry:</span>
+                                                <span className="position-value">{formatPriceWithSymbol(pos.entry_price, 2)}</span>
+                                            </div>
+                                            <div className="position-info-row">
+                                                <span className="position-label">Prezzo Attuale:</span>
+                                                <span className="position-value">{formatPriceWithSymbol(currentPrice, 2)}</span>
+                                            </div>
+                                            <div className="position-info-row">
+                                                <span className="position-label">Volume:</span>
+                                                <span className="position-value">{pos.volume.toFixed(4)}</span>
+                                            </div>
+                                            <div className="position-info-row">
+                                                <span className="position-label">Aperta:</span>
+                                                <span className="position-value">
+                                                    {new Date(pos.timestamp).toLocaleString('it-IT', {
                                                         day: '2-digit',
-                                                        month: '2-digit'
+                                                        month: '2-digit',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit'
                                                     })}
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
-                                ))}
-                        </div>
-                    ) : (
-                        <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>
-                            Nessuna operazione recente
-                        </div>
-                    )}
+                                );
+                            })}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 };
