@@ -430,8 +430,13 @@ router.get('/dashboard', async (req, res) => {
             dbAll("SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 100") // ✅ FIX: Recupera anche posizioni chiuse per signal_details
         ]);
 
-        // ✅ FIX: Log per debug
-        // Dashboard stats logging removed
+        // ✅ DEBUG: Log posizioni aperte recuperate
+        console.log(`📊 [DASHBOARD] Posizioni aperte recuperate dal DB: ${openPositions?.length || 0}`);
+        if (openPositions && openPositions.length > 0) {
+            openPositions.forEach((pos, idx) => {
+                console.log(`  ${idx + 1}. Ticket: ${pos.ticket_id} | Symbol: ${pos.symbol} | Status: ${pos.status}`);
+            });
+        }
 
         // Calculate Average Buy Price for current holdings
         let avgBuyPrice = 0;
@@ -458,78 +463,93 @@ router.get('/dashboard', async (req, res) => {
         }
 
         // ✅ NUOVO: Calcola sentimento bot per ogni posizione aperta
-        const openPositionsWithSentiment = await Promise.all(openPositions.map(async (position) => {
-            try {
-                // Ottieni klines per calcolare segnale attuale
-                const klinesData = await dbAll(
-                    "SELECT * FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
-                    [position.symbol]
-                );
+        const openPositionsWithSentiment = (openPositions && openPositions.length > 0) 
+            ? await Promise.all(openPositions.map(async (position) => {
+                try {
+                    // Ottieni klines per calcolare segnale attuale
+                    const klinesData = await dbAll(
+                        "SELECT * FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
+                        [position.symbol]
+                    );
 
-                if (klinesData && klinesData.length >= 20) {
-                    const klinesChronological = klinesData.reverse();
-                    // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
+                    if (klinesData && klinesData.length >= 20) {
+                        const klinesChronological = klinesData.reverse();
+                        // ✅ RIMOSSO: Tutte le conversioni EUR/USDT - tutto è già in USDT
 
-                    const historyForSignal = klinesChronological.map(kline => ({
-                        close: parseFloat(kline.close_price),  // ✅ Tutto in USDT
-                        high: parseFloat(kline.high_price),     // ✅ Tutto in USDT
-                        low: parseFloat(kline.low_price),        // ✅ Tutto in USDT
-                        volume: parseFloat(kline.volume || 0),
-                        price: parseFloat(kline.close_price),    // ✅ Tutto in USDT
-                        open: parseFloat(kline.open_price),       // ✅ Tutto in USDT
-                        timestamp: kline.open_time
-                    }));
+                        const historyForSignal = klinesChronological.map(kline => ({
+                            close: parseFloat(kline.close_price),  // ✅ Tutto in USDT
+                            high: parseFloat(kline.high_price),     // ✅ Tutto in USDT
+                            low: parseFloat(kline.low_price),        // ✅ Tutto in USDT
+                            volume: parseFloat(kline.volume || 0),
+                            price: parseFloat(kline.close_price),    // ✅ Tutto in USDT
+                            open: parseFloat(kline.open_price),       // ✅ Tutto in USDT
+                            timestamp: kline.open_time
+                        }));
 
-                    // Genera segnale attuale (usa parametri RSI di default se non disponibili)
-                    const positionParams = await getBotParameters(position.symbol).catch(() => ({}));
-                    const currentSignal = signalGenerator.generateSignal(historyForSignal, position.symbol, {
-                        rsi_period: positionParams.rsi_period || 14,
-                        rsi_oversold: positionParams.rsi_oversold || 30,
-                        rsi_overbought: positionParams.rsi_overbought || 70
-                    });
+                        // Genera segnale attuale (usa parametri RSI di default se non disponibili)
+                        const positionParams = await getBotParameters(position.symbol).catch(() => ({}));
+                        const currentSignal = signalGenerator.generateSignal(historyForSignal, position.symbol, {
+                            rsi_period: positionParams.rsi_period || 14,
+                            rsi_oversold: positionParams.rsi_oversold || 30,
+                            rsi_overbought: positionParams.rsi_overbought || 70
+                        });
 
-                    // Determina sentimento
-                    let sentiment = 'NEUTRAL';
-                    let sentimentStrength = 0;
-                    let sentimentDirection = null;
+                        // Determina sentimento
+                        let sentiment = 'NEUTRAL';
+                        let sentimentStrength = 0;
+                        let sentimentDirection = null;
 
-                    if (currentSignal.direction === 'LONG') {
-                        sentiment = 'BULLISH';
-                        sentimentStrength = currentSignal.strength;
-                        sentimentDirection = 'UP';
-                    } else if (currentSignal.direction === 'SHORT') {
-                        sentiment = 'BEARISH';
-                        sentimentStrength = currentSignal.strength;
-                        sentimentDirection = 'DOWN';
-                    } else {
-                        sentiment = 'NEUTRAL';
-                        sentimentStrength = Math.max(
-                            currentSignal.longSignal?.strength || 0,
-                            currentSignal.shortSignal?.strength || 0
-                        );
-                    }
-
-                    // Verifica se sentimento è contrario alla posizione (WARNING)
-                    const isContrary = (position.type === 'buy' && sentiment === 'BEARISH') ||
-                        (position.type === 'sell' && sentiment === 'BULLISH');
-
-                    return {
-                        ...position,
-                        bot_sentiment: {
-                            sentiment, // 'BULLISH', 'BEARISH', 'NEUTRAL'
-                            direction: sentimentDirection, // 'UP', 'DOWN', null
-                            strength: sentimentStrength, // 0-100
-                            is_contrary: isContrary, // true se contrario alla posizione
-                            signal_details: {
-                                direction: currentSignal.direction,
-                                strength: currentSignal.strength,
-                                confirmations: currentSignal.confirmations,
-                                reasons: currentSignal.reasons || []
-                            }
+                        if (currentSignal.direction === 'LONG') {
+                            sentiment = 'BULLISH';
+                            sentimentStrength = currentSignal.strength;
+                            sentimentDirection = 'UP';
+                        } else if (currentSignal.direction === 'SHORT') {
+                            sentiment = 'BEARISH';
+                            sentimentStrength = currentSignal.strength;
+                            sentimentDirection = 'DOWN';
+                        } else {
+                            sentiment = 'NEUTRAL';
+                            sentimentStrength = Math.max(
+                                currentSignal.longSignal?.strength || 0,
+                                currentSignal.shortSignal?.strength || 0
+                            );
                         }
-                    };
-                } else {
-                    // Dati insufficienti - sentimento neutro
+
+                        // Verifica se sentimento è contrario alla posizione (WARNING)
+                        const isContrary = (position.type === 'buy' && sentiment === 'BEARISH') ||
+                            (position.type === 'sell' && sentiment === 'BULLISH');
+
+                        return {
+                            ...position,
+                            bot_sentiment: {
+                                sentiment, // 'BULLISH', 'BEARISH', 'NEUTRAL'
+                                direction: sentimentDirection, // 'UP', 'DOWN', null
+                                strength: sentimentStrength, // 0-100
+                                is_contrary: isContrary, // true se contrario alla posizione
+                                signal_details: {
+                                    direction: currentSignal.direction,
+                                    strength: currentSignal.strength,
+                                    confirmations: currentSignal.confirmations,
+                                    reasons: currentSignal.reasons || []
+                                }
+                            }
+                        };
+                    } else {
+                        // Dati insufficienti - sentimento neutro
+                        return {
+                            ...position,
+                            bot_sentiment: {
+                                sentiment: 'NEUTRAL',
+                                direction: null,
+                                strength: 0,
+                                is_contrary: false,
+                                signal_details: null
+                            }
+                        };
+                    }
+                } catch (err) {
+                    console.error(`⚠️ [SENTIMENT] Errore calcolo sentimento per ${position.symbol}:`, err.message);
+                    // In caso di errore, restituisci posizione senza sentimento
                     return {
                         ...position,
                         bot_sentiment: {
@@ -537,26 +557,13 @@ router.get('/dashboard', async (req, res) => {
                             direction: null,
                             strength: 0,
                             is_contrary: false,
-                            signal_details: null
+                            signal_details: null,
+                            error: err.message
                         }
                     };
                 }
-            } catch (err) {
-                console.error(`⚠️ [SENTIMENT] Errore calcolo sentimento per ${position.symbol}:`, err.message);
-                // In caso di errore, restituisci posizione senza sentimento
-                return {
-                    ...position,
-                    bot_sentiment: {
-                        sentiment: 'NEUTRAL',
-                        direction: null,
-                        strength: 0,
-                        is_contrary: false,
-                        signal_details: null,
-                        error: err.message
-                    }
-                };
-            }
-        }));
+            }))
+            : [];
 
         // ✅ FIX: Aggiungi signal_details e profit_loss ai trades dalla posizione corrispondente (aperta o chiusa)
         const allPositions = [...openPositionsWithSentiment, ...closedPositions];
