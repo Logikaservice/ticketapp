@@ -297,7 +297,8 @@ class SeriousRiskManager {
 
             // 6. ✅ CALCOLA LIMITI DINAMICI basati su win rate
             const dynamicLimits = await this.getDynamicLimits();
-            const maxExposurePct = dynamicLimits.maxExposurePct;
+            // ✅ FIX: Usa i limiti dinamici invece di quelli del database (maxExposurePct già dichiarata alla riga 116)
+            maxExposurePct = dynamicLimits.maxExposurePct;
             const baseMaxPositionSizePct = dynamicLimits.maxPositionSizePct;
 
             // ✅ Verifica limite exposure con limiti dinamici
