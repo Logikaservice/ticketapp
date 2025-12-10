@@ -2182,29 +2182,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         }
 
         // ==========================================
-        // 10.2. CONSECUTIVE LOSSES PROTECTION
-        // ==========================================
-        let consecutiveLossesBlock = false;
-        let consecutiveLossesReason = '';
-        try {
-            const recentClosed = await dbAll(
-                "SELECT * FROM open_positions WHERE status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 5"
-            );
-            if (recentClosed.length >= 3) {
-                const last3 = recentClosed.slice(0, 3);
-                const allNegative = last3.every(p => (parseFloat(p.profit_loss || 0)) < 0);
-                if (allNegative) {
-                    consecutiveLossesBlock = true;
-                    consecutiveLossesReason = `Ultime 3 posizioni chiuse sono tutte negative - Richiedere strength >= 80`;
-                    console.log(`🛑 [CONSECUTIVE-LOSSES] Blocco parziale: ultime 3 posizioni negative`);
-                }
-            }
-        } catch (e) {
-            console.error('⚠️ Error checking consecutive losses:', e.message);
-        }
-
-        // ==========================================
-        // 10.3. MARKET REGIME DETECTION (BTC Trend)
+        // 10.2. MARKET REGIME DETECTION (BTC Trend)
         // ==========================================
         let marketRegimeBlock = false;
         let marketRegimeReason = '';
@@ -2238,163 +2216,16 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         }
 
         // ==========================================
-        // 10.4. WIN RATE FILTER PER SIMBOLO
-        // ==========================================
-        let symbolWinRateAdjustment = 0; // Aggiustamento soglia strength
-        let symbolWinRateReason = '';
-        try {
-            const symbolClosed = await dbAll(
-                "SELECT * FROM open_positions WHERE symbol = $1 AND status IN ('closed', 'stopped', 'taken') ORDER BY closed_at DESC LIMIT 20",
-                [symbol]
-            );
-            if (symbolClosed.length >= 10) {
-                const winning = symbolClosed.filter(p => (parseFloat(p.profit_loss || 0)) > 0).length;
-                const winRate = winning / symbolClosed.length;
-
-                // Se win rate < 40%, richiedere strength più alta
-                if (winRate < 0.40) {
-                    symbolWinRateAdjustment = 15; // Aumenta soglia di 15 punti
-                    symbolWinRateReason = `Win rate simbolo ${symbol}: ${(winRate * 100).toFixed(1)}% (soglia: 40%) - Richiedere strength +15`;
-                    console.log(`⚠️ [SYMBOL-WIN-RATE] ${symbol}: ${(winRate * 100).toFixed(1)}% win rate - Aumentando soglia strength`);
-                }
-            }
-        } catch (e) {
-            console.error('⚠️ Error checking symbol win rate:', e.message);
-        }
-
-        // ==========================================
-        // 10.5. MOMENTUM REVERSAL DETECTION (BILANCIATO)
-        // ==========================================
-        let momentumAdjustment = 0; // Invece di bloccare, aumenta soglia
-        let momentumReason = '';
-        try {
-            if (klinesData && klinesData.length >= 3) {
-                const recentKlines = klinesData.slice(-3).reverse(); // Ultime 3 candele (più recenti)
-                const closes = recentKlines.map(k => parseFloat(k.close_price));
-
-                if (closes.length >= 3) {
-                    const change1 = ((closes[1] - closes[0]) / closes[0]) * 100; // Cambio candela 1->2
-                    const change2 = ((closes[2] - closes[1]) / closes[1]) * 100; // Cambio candela 2->3
-
-                    // Per LONG: prezzo deve essere salito almeno 0.2% nelle ultime 2 candele (soglia più permissiva)
-                    if (signal.direction === 'LONG') {
-                        const totalRise = ((closes[2] - closes[0]) / closes[0]) * 100;
-                        if (totalRise < 0.2 || change2 < -0.1) { // Permettiamo piccole fluttuazioni
-                            momentumAdjustment = 5; // Aumenta soglia di 5 punti invece di bloccare
-                            momentumReason = `Momentum debole per LONG: prezzo non sta salendo chiaramente (${totalRise.toFixed(2)}% totale) - Richiedere strength +5`;
-                        }
-                    }
-                    // Per SHORT: prezzo deve essere sceso almeno 0.2% nelle ultime 2 candele
-                    if (signal.direction === 'SHORT') {
-                        const totalFall = ((closes[0] - closes[2]) / closes[2]) * 100;
-                        if (totalFall < 0.2 || change2 > 0.1) {
-                            momentumAdjustment = 5; // Aumenta soglia di 5 punti invece di bloccare
-                            momentumReason = `Momentum debole per SHORT: prezzo non sta scendendo chiaramente (${totalFall.toFixed(2)}% totale) - Richiedere strength +5`;
-                        }
-                    }
-
-                    console.log(`📊 [MOMENTUM] ${signal.direction}: Change1=${change1.toFixed(2)}%, Change2=${change2.toFixed(2)}% | Adjustment: +${momentumAdjustment}`);
-                }
-            }
-        } catch (e) {
-            console.error('⚠️ Error checking momentum:', e.message);
-        }
-
-        // ==========================================
-        // 10.6. SUPPORT/RESISTANCE LEVEL CHECK (NON BLOCCANTE)
-        // ==========================================
-        let supportResistanceAdjustment = 0;
-        let supportResistanceReason = '';
-        try {
-            if (klinesData && klinesData.length >= 20) {
-                const prices = klinesData.map(k => parseFloat(k.close_price));
-                const ema200 = signalGenerator.calculateEMA(prices, 200);
-                const currentPriceValue = parseFloat(currentPrice);
-
-                if (ema200 && currentPriceValue > 0) {
-                    const distanceToEMA200 = Math.abs((currentPriceValue - ema200) / ema200) * 100;
-
-                    // Se LONG e prezzo è vicino a EMA200 (resistenza) o sopra EMA200 ma vicino
-                    if (signal.direction === 'LONG') {
-                        if (currentPriceValue < ema200 && distanceToEMA200 < 2.0) {
-                            supportResistanceAdjustment = 10; // Aumenta soglia di 10 punti
-                            supportResistanceReason = `LONG vicino a resistenza EMA200 (${distanceToEMA200.toFixed(2)}% distanza) - Richiedere strength +10`;
-                        }
-                    }
-                    // Se SHORT e prezzo è vicino a EMA200 (supporto) o sotto EMA200 ma vicino
-                    if (signal.direction === 'SHORT') {
-                        if (currentPriceValue > ema200 && distanceToEMA200 < 2.0) {
-                            supportResistanceAdjustment = 10; // Aumenta soglia di 10 punti
-                            supportResistanceReason = `SHORT vicino a supporto EMA200 (${distanceToEMA200.toFixed(2)}% distanza) - Richiedere strength +10`;
-                        }
-                    }
-
-                    if (supportResistanceAdjustment > 0) {
-                        console.log(`⚠️ [SUPPORT/RESISTANCE] ${supportResistanceReason}`);
-                    }
-                }
-            }
-        } catch (e) {
-            console.error('⚠️ Error checking support/resistance:', e.message);
-        }
-
-        // ==========================================
-        // 10.7. TIME-OF-DAY FILTER (OPZIONALE, NON BLOCCANTE)
-        // ==========================================
-        let timeOfDayAdjustment = 0;
-        try {
-            const now = new Date();
-            const hourUTC = now.getUTCHours();
-            const dayOfWeek = now.getUTCDay(); // 0 = Domenica, 6 = Sabato
-
-            // Durante orari notturni (00:00-08:00 UTC) o weekend, aumenta leggermente la soglia
-            if ((hourUTC >= 0 && hourUTC < 8) || dayOfWeek === 0 || dayOfWeek === 6) {
-                timeOfDayAdjustment = 3; // Piccolo aumento (3 punti) invece di bloccare
-                console.log(`🌙 [TIME-OF-DAY] Orario notturno/weekend (UTC ${hourUTC}:00, giorno ${dayOfWeek}) - Richiedere strength +3`);
-            }
-        } catch (e) {
-            console.error('⚠️ Error checking time of day:', e.message);
-        }
-
-        // ==========================================
         // 10. DECISION LOGIC - Solo se segnale FORTISSIMO (90% certezza)
         // ==========================================
         // ✅ STRATEGY: 1000 posizioni piccole su analisi giuste > 1 posizione ogni tanto
         // Permettiamo MULTIPLE posizioni se il segnale è forte e il risk manager lo permette
 
-        // ✅ ADAPTIVE SIGNAL STRENGTH: Adatta soglia in base a condizioni (BILANCIATO)
-        let MIN_SIGNAL_STRENGTH = 70; // Soglia base (non troppo alta per permettere aperture)
-        if (consecutiveLossesBlock) {
-            MIN_SIGNAL_STRENGTH = 80; // Se ultime 3 posizioni negative, richiedere strength più alta
-        }
-        MIN_SIGNAL_STRENGTH += symbolWinRateAdjustment; // Aggiungi aggiustamento win rate simbolo
-        MIN_SIGNAL_STRENGTH += momentumAdjustment; // Aggiungi aggiustamento momentum
-        MIN_SIGNAL_STRENGTH += supportResistanceAdjustment; // Aggiungi aggiustamento support/resistance
-        MIN_SIGNAL_STRENGTH += timeOfDayAdjustment; // Aggiungi aggiustamento time of day
+        // ✅ SOGLIA FISSA: 70/100 (semplice e prevedibile)
+        // I filtri di protezione reali (Risk Manager, ATR, Market Regime, Portfolio Drawdown) gestiscono il rischio
+        const MIN_SIGNAL_STRENGTH = 70;
 
-        // ✅ CAP: Massimo 85 punti (non bloccare completamente)
-        MIN_SIGNAL_STRENGTH = Math.min(85, MIN_SIGNAL_STRENGTH);
-
-        // ✅ LOG DETTAGLIATO: Mostra cosa il bot sta aspettando
-        const baseStrength = 70;
-        const adjustments = [];
-        if (consecutiveLossesBlock) adjustments.push(`Consecutive Losses: +10 (base 70→80)`);
-        if (symbolWinRateAdjustment > 0) adjustments.push(`Win Rate Simbolo: +${symbolWinRateAdjustment}`);
-        if (momentumAdjustment > 0) adjustments.push(`Momentum Debole: +${momentumAdjustment}`);
-        if (supportResistanceAdjustment > 0) adjustments.push(`Support/Resistance: +${supportResistanceAdjustment}`);
-        if (timeOfDayAdjustment > 0) adjustments.push(`Time-of-Day: +${timeOfDayAdjustment}`);
-
-        // Position analysis logging removed - too verbose
         console.log(`🎯 Segnale: ${signal.direction} | Strength Attuale: ${signal.strength}/100 | Strength Richiesta: ${MIN_SIGNAL_STRENGTH}/100`);
-
-        // Mostra dettaglio aggiustamenti
-        if (adjustments.length > 0) {
-            console.log(`   ⚙️  Aggiustamenti Applicati:`);
-            adjustments.forEach(adj => console.log(`      • ${adj}`));
-            // Threshold calculation logging removed
-        } else {
-            // Base threshold logging removed
-        }
 
         // Mostra stato filtri
         console.log(`   🔍 Stato Filtri:`);
@@ -2404,19 +2235,14 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         if (signal.strength < MIN_SIGNAL_STRENGTH && signal.direction !== 'NEUTRAL') {
             const missing = MIN_SIGNAL_STRENGTH - signal.strength;
             console.log(`\n   ⏳ BOT IN ATTESA:`);
-            console.log(`      🔴 Strength insufficiente: ${signal.strength} < ${MIN_SIGNAL_STRENGTH}`);
-            // Missing points logging removed
+            console.log(`      🔴 Strength insufficiente: ${signal.strength} < ${MIN_SIGNAL_STRENGTH} (mancano ${missing} punti)`);
             console.log(`      💡 Il bot aspetta che il segnale si rafforzi a ${MIN_SIGNAL_STRENGTH}+ prima di aprire`);
-            if (adjustments.length > 0) {
-                console.log(`      📝 Motivo soglia alta: ${adjustments.join(', ')}`);
-            }
         } else if (signal.direction === 'NEUTRAL') {
             console.log(`\n   ⏳ BOT IN ATTESA:`);
             console.log(`      🔴 Segnale NEUTRAL - Nessun segnale valido rilevato`);
-            console.log(`      💡 Il bot aspetta un segnale ${signal.strength >= 50 ? 'più forte' : 'valido'} (min ${MIN_SIGNAL_STRENGTH})`);
+            console.log(`      💡 Il bot aspetta un segnale valido (min ${MIN_SIGNAL_STRENGTH})`);
         } else {
-            // Conditions satisfied logging removed
-            console.log(`      🚀 Procedendo con valutazione apertura...`);
+            console.log(`      ✅ Segnale sufficiente (${signal.strength} >= ${MIN_SIGNAL_STRENGTH}) - Procedendo con valutazione apertura...`);
         }
         // Analysis separator logging removed
 
