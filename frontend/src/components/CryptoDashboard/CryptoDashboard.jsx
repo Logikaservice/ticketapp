@@ -184,36 +184,61 @@ const CryptoDashboard = () => {
                 const updatedPositions = data.positions || [];
                 setOpenPositions(updatedPositions);
                 
-                // ✅ FIX: Aggiorna anche i prezzi per tutti i simboli delle posizioni aperte
-                // Questo assicura che allSymbolPrices sia aggiornato e mostri i prezzi corretti
+                // ✅ REAL-TIME FIX: Aggiorna i prezzi per TUTTI i simboli delle posizioni aperte
+                // Questo assicura che allSymbolPrices sia sempre aggiornato con i prezzi più recenti
                 if (updatedPositions.length > 0) {
-                    // Aggiorna i prezzi per tutti i simboli unici nelle posizioni aperte
                     const uniqueSymbols = [...new Set(updatedPositions.map(pos => pos.symbol))];
                     const newPrices = {};
                     
-                    for (const symbol of uniqueSymbols) {
+                    // ✅ FIX CRITICO: Recupera i prezzi in parallelo per velocità
+                    const pricePromises = uniqueSymbols.map(async (symbol) => {
                         try {
-                            const priceRes = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=usdt`);
+                            const priceRes = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=usdt&_t=${Date.now()}`);
                             if (priceRes.ok) {
                                 const priceData = await priceRes.json();
-                                if (priceData.price) {
-                                    newPrices[symbol] = parseFloat(priceData.price);
+                                const fetchedPrice = parseFloat(priceData.price || 0);
+                                if (fetchedPrice > 0) {
+                                    return { symbol, price: fetchedPrice };
                                 }
-                                // ✅ FIX: Usa anche il current_price dalla posizione aggiornata
-                                const pos = updatedPositions.find(p => p.symbol === symbol);
-                                if (pos && pos.current_price) {
-                                    newPrices[symbol] = parseFloat(pos.current_price);
+                            }
+                            // ✅ FALLBACK: Se l'API fallisce, usa il current_price dalla posizione aggiornata
+                            const pos = updatedPositions.find(p => p.symbol === symbol);
+                            if (pos && pos.current_price) {
+                                const dbPrice = parseFloat(pos.current_price);
+                                if (dbPrice > 0) {
+                                    return { symbol, price: dbPrice };
                                 }
                             }
                         } catch (err) {
-                            // Ignora errori singoli - non bloccare l'aggiornamento
                             console.warn(`Warning: Could not fetch price for ${symbol}`, err);
+                            // Fallback al prezzo dal database
+                            const pos = updatedPositions.find(p => p.symbol === symbol);
+                            if (pos && pos.current_price) {
+                                const dbPrice = parseFloat(pos.current_price);
+                                if (dbPrice > 0) {
+                                    return { symbol, price: dbPrice };
+                                }
+                            }
                         }
-                    }
+                        return null;
+                    });
                     
-                    // ✅ FIX: Aggiorna allSymbolPrices con i nuovi prezzi
+                    const priceResults = await Promise.all(pricePromises);
+                    priceResults.forEach(result => {
+                        if (result && result.price > 0) {
+                            newPrices[result.symbol] = result.price;
+                        }
+                    });
+                    
+                    // ✅ FIX CRITICO: Aggiorna allSymbolPrices con i nuovi prezzi (sovrascrive i vecchi)
                     if (Object.keys(newPrices).length > 0) {
-                        setAllSymbolPrices(prev => ({ ...prev, ...newPrices }));
+                        setAllSymbolPrices(prev => {
+                            const updated = { ...prev };
+                            Object.keys(newPrices).forEach(symbol => {
+                                updated[symbol] = newPrices[symbol];
+                            });
+                            return updated;
+                        });
                     }
                 }
             }
@@ -479,31 +504,36 @@ const CryptoDashboard = () => {
             const allSymbols = [...new Set([...holdingsSymbols, ...openPositionSymbols])];
             const prices = {};
 
-            // ✅ FIX: Se il simbolo corrente è nella lista, usa currentPrice (più aggiornato, ogni secondo)
+            // ✅ REAL-TIME FIX: Se il simbolo corrente è nella lista, usa currentPrice (più aggiornato, ogni 500ms)
             if (allSymbols.includes(currentSymbol) && currentPrice > 0) {
                 prices[currentSymbol] = currentPrice;
             }
 
-            // Fetch prezzi per tutti gli altri simboli
-            for (const symbol of allSymbols) {
-                // Skip se già abbiamo il prezzo dal currentPrice
-                if (symbol === currentSymbol && prices[symbol]) {
-                    continue;
-                }
-
-                try {
-                    const res = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=usdt`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        const fetchedPrice = parseFloat(data.price || 0);
-                        if (fetchedPrice > 0) {
-                            prices[symbol] = fetchedPrice;
+            // ✅ REAL-TIME FIX: Fetch prezzi per tutti gli altri simboli in parallelo per velocità
+            const pricePromises = allSymbols
+                .filter(symbol => !(symbol === currentSymbol && prices[symbol])) // Skip se già abbiamo il prezzo
+                .map(async (symbol) => {
+                    try {
+                        const res = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=usdt&_t=${Date.now()}`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            const fetchedPrice = parseFloat(data.price || 0);
+                            if (fetchedPrice > 0) {
+                                return { symbol, price: fetchedPrice };
+                            }
                         }
+                    } catch (error) {
+                        console.error(`Error fetching price for ${symbol}:`, error);
                     }
-                } catch (error) {
-                    console.error(`Error fetching price for ${symbol}:`, error);
+                    return null;
+                });
+
+            const priceResults = await Promise.all(pricePromises);
+            priceResults.forEach(result => {
+                if (result && result.price > 0) {
+                    prices[result.symbol] = result.price;
                 }
-            }
+            });
 
             setAllSymbolPrices(prices);
         };

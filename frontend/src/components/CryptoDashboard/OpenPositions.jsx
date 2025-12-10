@@ -159,13 +159,19 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                             // ✅ FIX: Usa valori dal database, non fallback a 0 se sono null/undefined
                             // Per simboli con prezzi molto piccoli (es. SHIB), i valori potrebbero essere molto piccoli ma validi
                             const entryPrice = pos.entry_price != null ? parseFloat(pos.entry_price) : 0;
-                            // ✅ REAL-TIME: Priorità per prezzo corrente: 1) allSymbolPrices (più aggiornato), 2) currentPrice se stesso simbolo, 3) current_price dal DB
+                            // ✅ REAL-TIME FIX: Priorità per prezzo corrente: 
+                            // 1) currentPrice se stesso simbolo (più aggiornato, ogni 500ms)
+                            // 2) allSymbolPrices (aggiornato ogni 500ms)
+                            // 3) current_price dal DB (fallback)
                             let currentPriceValue = 0;
-                            if (allSymbolPrices && allSymbolPrices[pos.symbol]) {
-                                currentPriceValue = parseFloat(allSymbolPrices[pos.symbol]);
-                            } else if (pos.symbol === currentSymbol && currentPrice) {
+                            if (pos.symbol === currentSymbol && currentPrice && currentPrice > 0) {
+                                // ✅ FIX CRITICO: Se la posizione è per il simbolo corrente, usa il prezzo del grafico (più aggiornato)
                                 currentPriceValue = parseFloat(currentPrice);
-                            } else if (pos.current_price != null) {
+                            } else if (allSymbolPrices && allSymbolPrices[pos.symbol] && allSymbolPrices[pos.symbol] > 0) {
+                                // ✅ Usa allSymbolPrices se disponibile
+                                currentPriceValue = parseFloat(allSymbolPrices[pos.symbol]);
+                            } else if (pos.current_price != null && parseFloat(pos.current_price) > 0) {
+                                // Fallback al prezzo dal database
                                 currentPriceValue = parseFloat(pos.current_price);
                             }
                             
