@@ -436,6 +436,14 @@ router.get('/dashboard', async (req, res) => {
             openPositions.forEach((pos, idx) => {
                 console.log(`  ${idx + 1}. Ticket: ${pos.ticket_id} | Symbol: ${pos.symbol} | Status: ${pos.status}`);
             });
+        } else {
+            console.log(`⚠️ [DASHBOARD] Nessuna posizione aperta trovata nel DB!`);
+            // Verifica direttamente se ci sono posizioni SAND
+            const sandCheck = await dbAll("SELECT ticket_id, symbol, status FROM open_positions WHERE symbol = 'sand'");
+            console.log(`🔍 [DASHBOARD] Verifica diretta posizioni SAND: ${sandCheck.length} trovata/e`);
+            if (sandCheck.length > 0) {
+                sandCheck.forEach(p => console.log(`   - ${p.symbol} (${p.ticket_id}) - status: ${p.status}`));
+            }
         }
 
         // Calculate Average Buy Price for current holdings
@@ -466,11 +474,13 @@ router.get('/dashboard', async (req, res) => {
         const openPositionsWithSentiment = (openPositions && openPositions.length > 0) 
             ? await Promise.all(openPositions.map(async (position) => {
                 try {
+                    console.log(`🔍 [SENTIMENT] Calcolo sentimento per ${position.symbol} (${position.ticket_id})`);
                     // Ottieni klines per calcolare segnale attuale
                     const klinesData = await dbAll(
                         "SELECT * FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 50",
                         [position.symbol]
                     );
+                    console.log(`📊 [SENTIMENT] Klines trovate per ${position.symbol}: ${klinesData?.length || 0}`);
 
                     if (klinesData && klinesData.length >= 20) {
                         const klinesChronological = klinesData.reverse();
@@ -552,6 +562,7 @@ router.get('/dashboard', async (req, res) => {
                     }
                 } catch (err) {
                     console.error(`⚠️ [SENTIMENT] Errore calcolo sentimento per ${position.symbol}:`, err.message);
+                    console.error(`   Stack:`, err.stack);
                     // In caso di errore, restituisci posizione senza sentimento
                     return {
                         ...position,
@@ -567,6 +578,13 @@ router.get('/dashboard', async (req, res) => {
                 }
             }))
             : [];
+
+        console.log(`✅ [DASHBOARD] Posizioni con sentimento calcolato: ${openPositionsWithSentiment?.length || 0}`);
+        if (openPositionsWithSentiment && openPositionsWithSentiment.length > 0) {
+            openPositionsWithSentiment.forEach((pos, idx) => {
+                console.log(`  ${idx + 1}. ${pos.symbol} (${pos.ticket_id}) - Sentiment: ${pos.bot_sentiment?.sentiment || 'N/A'}`);
+            });
+        }
 
         // ✅ FIX: Aggiungi signal_details e profit_loss ai trades dalla posizione corrispondente (aperta o chiusa)
         const allPositions = [...openPositionsWithSentiment, ...closedPositions];
@@ -611,6 +629,12 @@ router.get('/dashboard', async (req, res) => {
             // ✅ KELLY CRITERION: Performance statistics
             // ✅ FIX: Se non esiste record con id=1, crealo
             performance_stats: await (async () => {
+                console.log(`📤 [DASHBOARD] Invio risposta con ${openPositionsWithSentiment?.length || 0} posizioni aperte`);
+                if (openPositionsWithSentiment && openPositionsWithSentiment.length > 0) {
+                    openPositionsWithSentiment.forEach((pos, idx) => {
+                        console.log(`  📤 ${idx + 1}. ${pos.symbol} (${pos.ticket_id})`);
+                    });
+                }
                 let stats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
                 if (!stats) {
                     console.log('⚠️ [DASHBOARD] Record performance_stats con id=1 non trovato, creazione...');
