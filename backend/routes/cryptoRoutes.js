@@ -2245,6 +2245,10 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 // In realtà: Total Equity = Cash + Valore Attuale delle Posizioni
                 const totalEquity = cashBalance + currentExposureValue;
                 
+                // ✅ LOGGING DETTAGLIATO per debug
+                console.log(`🔍 [RUN-BOT-CYCLE PORTFOLIO] Cash: $${cashBalance.toFixed(2)} | Exposure Value: $${currentExposureValue.toFixed(2)} | Total Equity: $${totalEquity.toFixed(2)}`);
+                console.log(`🔍 [RUN-BOT-CYCLE PORTFOLIO] Initial Balance: $${initialBalance} | Total Equity: $${totalEquity.toFixed(2)}`);
+                
                 // ✅ FIX CRITICO: Calcola drawdown rispetto al picco del Total Equity, non rispetto a 1000
                 // Se il portfolio è in profitto rispetto a 1000, NON bloccare
                 const portfolioPnLPct = totalEquity > 0 ? ((totalEquity - initialBalance) / initialBalance) * 100 : -100;
@@ -2252,6 +2256,8 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 // ✅ FIX: Se il portfolio è in profitto (sopra 1000), NON bloccare mai
                 // Il drawdown deve essere calcolato solo se il portfolio è in perdita
                 const isPortfolioInProfit = portfolioPnLPct > 0;
+                
+                console.log(`🔍 [RUN-BOT-CYCLE PORTFOLIO] P&L Portfolio: ${portfolioPnLPct.toFixed(2)}% | In Profitto: ${isPortfolioInProfit}`);
 
                 // Calcola P&L medio posizioni aperte
                 let avgOpenPnL = 0;
@@ -7033,6 +7039,10 @@ router.get('/bot-analysis', async (req, res) => {
                 // ✅ Total Equity = Cash + Valore Attuale delle Posizioni
                 const totalEquity = cashBalance + currentExposureValue;
                 
+                // ✅ LOGGING DETTAGLIATO per debug
+                console.log(`🔍 [BOT-ANALYSIS PORTFOLIO] Cash: $${cashBalance.toFixed(2)} | Exposure Value: $${currentExposureValue.toFixed(2)} | Total Equity: $${totalEquity.toFixed(2)}`);
+                console.log(`🔍 [BOT-ANALYSIS PORTFOLIO] Initial Balance: $${initialBalance} | Total Equity: $${totalEquity.toFixed(2)}`);
+                
                 // ✅ FIX CRITICO: Calcola drawdown rispetto al picco del Total Equity, non rispetto a 1000
                 // Se il portfolio è in profitto rispetto a 1000, NON bloccare
                 const portfolioPnLPct = totalEquity > 0 ? ((totalEquity - initialBalance) / initialBalance) * 100 : -100;
@@ -7040,6 +7050,8 @@ router.get('/bot-analysis', async (req, res) => {
                 // ✅ FIX: Se il portfolio è in profitto (sopra 1000), NON bloccare mai
                 // Il drawdown deve essere calcolato solo se il portfolio è in perdita
                 const isPortfolioInProfit = portfolioPnLPct > 0;
+                
+                console.log(`🔍 [BOT-ANALYSIS PORTFOLIO] P&L Portfolio: ${portfolioPnLPct.toFixed(2)}% | In Profitto: ${isPortfolioInProfit}`);
 
                 let avgOpenPnL = 0;
                 if (allOpenPositions.length > 0) {
