@@ -56,18 +56,54 @@ const SYMBOL_MAP = {
     'enj': 'ENJUSDT',
     'bonk': 'BONKUSDT',
     'shiba_inu': 'SHIBUSDT',
-    'shib': 'SHIBUSDT'
+    'shib': 'SHIBUSDT',
+    'avax_usdt': 'AVAXUSDT',
+    'avalanche': 'AVAXUSDT',
+    'avax': 'AVAXUSDT',
+    'uniswap': 'UNIUSDT',
+    'uni': 'UNIUSDT',
+    'aave': 'AAVEUSDT',
+    'global': null  // "global" non è un simbolo valido su Binance
 };
 
 async function downloadKlines(dbSymbol, binanceSymbol = null, days = 30) {
     try {
         // Determina simbolo Binance
-        const symbol = binanceSymbol || SYMBOL_MAP[dbSymbol] || dbSymbol.toUpperCase().replace('_', '') + 'USDT';
+        let symbol = binanceSymbol || SYMBOL_MAP[dbSymbol.toLowerCase()];
         
-        if (!symbol.endsWith('USDT') && !symbol.endsWith('EUR')) {
-            // Prova ad aggiungere USDT se non presente
-            const symbolWithUSDT = symbol + 'USDT';
-            console.log(`⚠️ Simbolo non standard, provo con ${symbolWithUSDT}`);
+        // Se "global" o null, non è un simbolo valido
+        if (dbSymbol.toLowerCase() === 'global' || symbol === null) {
+            console.log(`❌ "global" non è un simbolo valido su Binance`);
+            console.log(`   💡 Suggerimento: Usa un simbolo specifico (es. avax_usdt, ethereum, bitcoin)`);
+            return { success: false, error: 'Simbolo non valido' };
+        }
+        
+        // Se non trovato nella mappa, prova a normalizzare
+        if (!symbol) {
+            // Normalizza: rimuovi underscore, aggiungi USDT se mancante
+            let normalized = dbSymbol.toLowerCase().replace(/_/g, '').replace(/usdt$/, '').replace(/eur$/, '');
+            
+            // Mapping speciali
+            const specialMap = {
+                'avax': 'AVAXUSDT',
+                'avalanche': 'AVAXUSDT',
+                'uni': 'UNIUSDT',
+                'uniswap': 'UNIUSDT',
+                'aave': 'AAVEUSDT',
+                'sand': 'SANDUSDT',
+                'mana': 'MANAUSDT',
+                'bonk': 'BONKUSDT'
+            };
+            
+            symbol = specialMap[normalized] || (normalized.toUpperCase() + 'USDT');
+            console.log(`⚠️ Simbolo non standard, provo con ${symbol}`);
+        }
+        
+        // Verifica formato simbolo Binance (solo lettere maiuscole, numeri, nessun underscore)
+        if (!/^[A-Z0-9]{1,20}$/.test(symbol)) {
+            console.log(`❌ Formato simbolo Binance non valido: ${symbol}`);
+            console.log(`   💡 Il simbolo deve essere solo lettere maiuscole e numeri (es. AVAXUSDT, non avax_usdt)`);
+            return { success: false, error: 'Formato simbolo non valido' };
         }
 
         console.log(`📥 Scaricamento klines per ${dbSymbol.toUpperCase()} (${symbol})...\n`);
@@ -85,6 +121,13 @@ async function downloadKlines(dbSymbol, binanceSymbol = null, days = 30) {
         console.log(`   Simbolo DB: ${dbSymbol}`);
         console.log(`   Intervallo: ${interval}`);
         console.log(`   Periodo: ${days} giorni\n`);
+        
+        // Verifica formato simbolo Binance prima di procedere
+        if (!/^[A-Z0-9]{1,20}$/.test(symbol)) {
+            console.log(`❌ Formato simbolo Binance non valido: ${symbol}`);
+            console.log(`   💡 Il simbolo deve essere solo lettere maiuscole e numeri (es. AVAXUSDT, non avax_usdt)`);
+            return { success: false, error: 'Formato simbolo non valido' };
+        }
 
         // Scarica a blocchi
         let blockCount = 0;
