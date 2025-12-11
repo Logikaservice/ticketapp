@@ -5,13 +5,26 @@
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
+// Validate environment variables on startup
+const { validateEnv } = require('./utils/envValidator');
+try {
+  validateEnv();
+  console.log('✅ Environment variables validated');
+} catch (err) {
+  console.error('❌ Environment validation failed:', err.message);
+  process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const multer = require('multer');
 const fs = require('fs');
 const { Pool } = require('pg');
 const http = require('http');
 const { Server } = require('socket.io');
+const requestIdMiddleware = require('./utils/requestId');
+const logger = require('./utils/logger');
 
 const app = express();
 const server = http.createServer(app);
@@ -180,6 +193,13 @@ const recordAccessLog = async (user, req) => {
 ensureAccessLogsTable();
 
 // --- MIDDLEWARE ---
+// Request ID tracking
+app.use(requestIdMiddleware);
+
+// Response compression
+app.use(compression());
+
+// CORS configuration with improved security
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
   .map(o => o.trim())
@@ -203,11 +223,17 @@ app.use(cors({
     if (allowedOrigins.length === 0) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
 
-    console.error(`❌ CORS blocked origin: ${origin}`);
+    logger.warn('CORS blocked origin', { origin, requestId: null });
     return callback(new Error(`Not allowed by CORS: ${origin}`));
-  }
+  },
+  credentials: true,
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // 24 hours
 }));
-app.use(express.json());
+
+// Body parsing with size limits
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // --- CONFIGURAZIONE SOCKET.IO ---
 const io = new Server(server, {
@@ -746,23 +772,8 @@ app.get('/api/availability/public', async (req, res) => {
   }
 });
 
-// Funzione helper per generare il footer HTML con link al login
-const getEmailFooter = () => {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com';
-  return `
-    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
-      <p style="color: #6b7280; font-size: 11px; margin: 0 0 8px 0;">
-        <a href="${frontendUrl}" 
-           style="color: #4caf50; text-decoration: none; font-weight: 500; font-size: 12px;">
-          🔐 Accedi al sistema TicketApp
-        </a>
-      </p>
-      <p style="color: #9ca3af; font-size: 10px; margin: 0;">
-        Questa email è stata inviata automaticamente dal sistema TicketApp
-      </p>
-    </div>
-  `;
-};
+// Import email templates utility
+const { getEmailFooter, getTicketCreatedTemplate } = require('./utils/emailTemplates');
 
 // Endpoint pubblico per richiesta assistenza veloce (senza login)
 app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), async (req, res) => {
@@ -866,34 +877,7 @@ app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), a
             to: email,
             subject: `Ticket creato #${createdTicket.numero} - ${createdTicket.titolo}`,
             text: `Ciao ${azienda || 'Cliente'},\n\nIl tuo ticket è stato creato con successo.\n\nNumero: ${createdTicket.numero}\nTitolo: ${createdTicket.titolo}\nDescrizione: ${createdTicket.descrizione}\nPriorità: ${createdTicket.priorita}\nStato: ${createdTicket.stato}\nData apertura: ${new Date(createdTicket.dataapertura).toLocaleDateString('it-IT')}\n\nGrazie,\nTicketApp`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background: linear-gradient(135deg, #4caf50 0%, #45a049 100%); color: white; padding: 20px; text-align: center;">
-                  <h1 style="margin: 0;">TicketApp</h1>
-                  <p style="margin: 10px 0 0 0;">Ticket Creato con Successo</p>
-                </div>
-                <div style="padding: 30px; background: #f8f9fa;">
-                  <h2 style="color: #333; margin-top: 0;">Ciao ${azienda || 'Cliente'}!</h2>
-                  <p>Hai creato con successo un nuovo ticket di assistenza:</p>
-                  <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #4caf50;">
-                    <h3 style="color: #4caf50; margin-top: 0;">📋 Dettagli Ticket</h3>
-                    <p><strong>Numero:</strong> ${createdTicket.numero}</p>
-                    <p><strong>Titolo:</strong> ${createdTicket.titolo}</p>
-                    <p><strong>Descrizione:</strong> ${createdTicket.descrizione}</p>
-                    <p><strong>Priorità:</strong> ${createdTicket.priorita.toUpperCase()}</p>
-                    <p><strong>Stato:</strong> ${createdTicket.stato}</p>
-                    <p><strong>Data apertura:</strong> ${new Date(createdTicket.dataapertura).toLocaleDateString('it-IT')}</p>
-                  </div>
-                  <div style="background: #e8f5e8; border-radius: 8px; padding: 15px; margin: 20px 0;">
-                    <p style="margin: 0; color: #2e7d32;">
-                      <strong>✅ Il tuo ticket è stato creato e aggiunto al calendario!</strong><br>
-                      Il nostro team tecnico lo esaminerà al più presto.
-                    </p>
-                  </div>
-                  ${getEmailFooter()}
-                </div>
-              </div>
-            `
+            html: getTicketCreatedTemplate(createdTicket, azienda || 'Cliente')
           };
 
           await transporter.sendMail(mailOptions);
@@ -1186,32 +1170,40 @@ app.use((err, req, res, next) => {
     return next(err);
   }
 
-  console.error('❌ Errore non gestito:', err);
-  console.error('❌ Stack:', err.stack);
-  console.error('❌ Route:', req.method, req.path);
+  // Log error with context
+  logger.error('Unhandled error', {
+    error: err.message,
+    stack: err.stack,
+    method: req.method,
+    path: req.path,
+    requestId: req.id,
+    userId: req.user?.id
+  });
 
   // Non esporre dettagli dell'errore in produzione
   const isDevelopment = process.env.NODE_ENV !== 'production';
 
   res.status(err.status || 500).json({
     error: err.message || 'Errore interno del server',
-    ...(isDevelopment && { stack: err.stack, details: err })
+    requestId: req.id,
+    ...(isDevelopment && { stack: err.stack })
   });
 });
 
 // Gestione errori non catturati - IMPORTANTE: non fare exit per evitare crash
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise);
-  console.error('❌ Reason:', reason);
-  if (reason instanceof Error) {
-    console.error('❌ Stack:', reason.stack);
-  }
+  logger.error('Unhandled Rejection', {
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined
+  });
   // NON fare exit - il backend deve continuare a funzionare
 });
 
 process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
-  console.error('❌ Stack:', error.stack);
+  logger.error('Uncaught Exception', {
+    error: error.message,
+    stack: error.stack
+  });
   // NON fare exit - il backend deve continuare a funzionare
   // In produzione, potresti voler fare exit(1) qui, ma per ora manteniamo il server attivo
 });
@@ -1781,10 +1773,15 @@ const startServer = async () => {
     }
 
     server.listen(PORT, () => {
+      logger.info('Server started', { port: PORT, environment: process.env.NODE_ENV });
       console.log(`🚀 Server backend OTTIMIZZATO in ascolto sulla porta ${PORT}`);
       console.log(`📁 Routes organizzate in moduli separati`);
       console.log(`🔌 WebSocket server attivo`);
     });
+
+    // Setup graceful shutdown
+    const gracefulShutdown = require('./utils/gracefulShutdown');
+    gracefulShutdown(server, [pool, poolVivaldi, poolPackVision].filter(Boolean));
   } catch (err) {
     console.error("❌ Errore critico - Impossibile connettersi al database:", err);
     process.exit(1);

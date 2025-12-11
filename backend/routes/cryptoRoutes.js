@@ -41,8 +41,8 @@ const emitCryptoEvent = (eventName, data) => {
     }
 };
 
-// Helper for native HTTPS get request (no dependencies)
-const httpsGet = (url) => {
+// Helper for native HTTPS get request (no dependencies) with timeout
+const httpsGet = (url, timeout = 10000) => {
     return new Promise((resolve, reject) => {
         const req = https.get(url, (res) => {
             // Check if response is JSON
@@ -83,9 +83,9 @@ const httpsGet = (url) => {
         });
 
         req.on('error', (err) => reject(err));
-        req.setTimeout(10000, () => {
+        req.setTimeout(timeout, () => {
             req.destroy();
-            reject(new Error('Request timeout'));
+            reject(new Error(`Request timeout after ${timeout}ms`));
         });
         req.end();
     });
