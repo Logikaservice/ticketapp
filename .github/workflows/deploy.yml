@@ -63,6 +63,15 @@ jobs:
               git reset --hard origin/main
             }
             
+            echo "🧹 Pulizia simboli EUR non disponibili su Binance..."
+            cd backend
+            if [ -f "remove_unavailable_eur_symbols.js" ]; then
+              node remove_unavailable_eur_symbols.js || echo "⚠️ Errore rimozione simboli EUR (continua...)"
+            else
+              echo "⚠️ Script rimozione simboli EUR non trovato (continua...)"
+            fi
+            cd ..
+            
             echo "📦 Installazione dipendenze backend..."
             cd backend
             timeout 180 npm install --production || timeout 180 npm install || {
