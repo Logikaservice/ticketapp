@@ -750,7 +750,7 @@ class BidirectionalSignalGenerator {
         };
 
         // ✅ FIX CRITICO: Verifica movimento prezzo per LONG (PREREQUISITO)
-        // Calcola variazioni prezzo su più timeframe
+        // Calcola variazioni prezzo su più timeframe (dichiarate qui per essere accessibili a LONG, SHORT e professional filters)
         const priceChange = prices.length >= 3
             ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
             : 0;
@@ -760,6 +760,7 @@ class BidirectionalSignalGenerator {
         const priceChange10 = prices.length >= 10
             ? (prices[prices.length - 1] - prices[prices.length - 10]) / prices[prices.length - 10] * 100
             : 0;
+        const priceChange3 = priceChange; // Alias per compatibilità con professional filters
 
         // ✅ LOGICA INTELLIGENTE: Blocca LONG solo se prezzo scende SENZA segnali di inversione
         // Se ci sono segnali forti di inversione (RSI oversold, divergenze bullish), permette LONG anche durante discese
@@ -900,11 +901,7 @@ class BidirectionalSignalGenerator {
         }
 
         // ✅ CONFERMA 9: MOMENTUM TREND - Prezzo sale consistentemente (trend forte in corso)
-        // ✅ FIX: Riutilizza priceChange10 già dichiarato sopra (linea 760)
-        const priceChange3 = prices.length >= 3
-            ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
-            : 0;
-        // priceChange10 già dichiarato sopra per LONG (linea 760), riutilizziamo
+        // ✅ FIX: Riutilizza priceChange3 e priceChange10 già dichiarati sopra
         // Se prezzo sale consistentemente su più timeframe, è un trend forte
         if (priceChange3 > 1.0 && priceChange10 > 1.5) { // Sale >1% su 3 periodi e >1.5% su 10 periodi
             const points = 25;
@@ -1002,10 +999,11 @@ class BidirectionalSignalGenerator {
         // - OPPURE scende >0.3% su 3 periodi = discesa più rapida
         // - OPPURE scende >0.4% su 5 periodi = trend al ribasso medio termine
         // - OPPURE scende >0.5% su 10 periodi = trend al ribasso lungo termine
-        const isPriceActivelyFalling = (priceChangeShort < -0.2 && priceChange5Short < -0.2) || 
-                                       (priceChangeShort < -0.3) || 
-                                       (priceChange5Short < -0.4) ||
-                                       (priceChange10Short < -0.5);
+        // ✅ FIX: Rinomina per evitare conflitto con variabile LONG
+        const isPriceActivelyFallingShort = (priceChangeShort < -0.2 && priceChange5Short < -0.2) || 
+                                            (priceChangeShort < -0.3) || 
+                                            (priceChange5Short < -0.4) ||
+                                            (priceChange10Short < -0.5);
 
         // ✅ FIX CRITICO: Se mercato è neutrale O prezzo sta salendo, BLOCCA solo SHORT ma continua a calcolare LONG
         // NON fare return early per permettere ai segnali LONG di essere generati
@@ -1036,7 +1034,7 @@ class BidirectionalSignalGenerator {
         }
 
         // CONFERMA 1: RSI overbought + downtrend CONFERMATO - SOLO se prezzo sta scendendo attivamente (usa soglia configurata)
-        if (rsi !== null && rsi > rsiOverbought && trend === 'bearish' && isPriceActivelyFalling) {
+        if (rsi !== null && rsi > rsiOverbought && trend === 'bearish' && isPriceActivelyFallingShort) {
             const points = 35;
             shortSignal.strength += points;
             shortSignal.confirmations++;
@@ -1046,7 +1044,7 @@ class BidirectionalSignalGenerator {
 
         // CONFERMA 2: RSI fortemente overbought + trend NON bullish - SOLO se prezzo scende (usa soglia configurata + 5)
         const rsiStronglyOverbought = rsiOverbought + 5;
-        if (rsi !== null && rsi > rsiStronglyOverbought && trend !== 'bullish' && isPriceActivelyFalling) {
+        if (rsi !== null && rsi > rsiStronglyOverbought && trend !== 'bullish' && isPriceActivelyFallingShort) {
             const points = 25;
             shortSignal.strength += points;
             shortSignal.confirmations++;
@@ -1055,7 +1053,7 @@ class BidirectionalSignalGenerator {
         }
 
         // CONFERMA 2.5: BEARISH DIVERGENCE RSI (segnale molto forte!) - SOLO se prezzo scende
-        if (rsiDivergence.type === 'bearish' && isPriceActivelyFalling) {
+        if (rsiDivergence.type === 'bearish' && isPriceActivelyFallingShort) {
             const points = Math.min(40, rsiDivergence.strength);
             shortSignal.strength += points;
             shortSignal.confirmations++;
@@ -1064,7 +1062,7 @@ class BidirectionalSignalGenerator {
         }
 
         // CONFERMA 3: MACD negativo e decrescente - SOLO se prezzo sta scendendo attivamente
-        if (macd && !macd.macdAboveSignal && !macd.macdAboveZero && !macd.histogramGrowing && isPriceActivelyFalling) {
+        if (macd && !macd.macdAboveSignal && !macd.macdAboveZero && !macd.histogramGrowing && isPriceActivelyFallingShort) {
             const points = 30;
             shortSignal.strength += points;
             shortSignal.confirmations++;
@@ -1073,7 +1071,7 @@ class BidirectionalSignalGenerator {
         }
 
         // CONFERMA 4: Bollinger - Prezzo tocca upper band + RSI overbought - SOLO se prezzo scende (usa soglia configurata - 5)
-        if (bollinger && bollinger.priceAtUpper && rsi !== null && rsi > (rsiOverbought - 5) && isPriceActivelyFalling) {
+        if (bollinger && bollinger.priceAtUpper && rsi !== null && rsi > (rsiOverbought - 5) && isPriceActivelyFallingShort) {
             const points = 25;
             shortSignal.strength += points;
             shortSignal.confirmations++;
@@ -1082,7 +1080,7 @@ class BidirectionalSignalGenerator {
         }
 
         // CONFERMA 5: Trend bearish su multiple timeframe - SOLO se prezzo sta scendendo attivamente
-        if (trend === 'bearish' && (majorTrend === 'bearish' || majorTrend === 'neutral') && isPriceActivelyFalling) {
+        if (trend === 'bearish' && (majorTrend === 'bearish' || majorTrend === 'neutral') && isPriceActivelyFallingShort) {
             const points = 25;
             shortSignal.strength += points;
             shortSignal.confirmations++;
@@ -1091,7 +1089,7 @@ class BidirectionalSignalGenerator {
         }
 
         // ✅ NUOVO: CONFERMA 5.5: Trend bearish anche senza RSI estremo (per mercati neutri)
-        if (trend === 'bearish' && isPriceActivelyFalling && rsi !== null && rsi >= 40 && rsi <= 60) {
+        if (trend === 'bearish' && isPriceActivelyFallingShort && rsi !== null && rsi >= 40 && rsi <= 60) {
             const points = 15;
             shortSignal.strength += points;
             shortSignal.confirmations++;
@@ -1100,7 +1098,7 @@ class BidirectionalSignalGenerator {
         }
 
         // CONFERMA 6: Prezzo sotto EMA key levels - SOLO se prezzo sta scendendo attivamente
-        if (ema10 && ema20 && currentPrice < ema10 && ema10 < ema20 && isPriceActivelyFalling) {
+        if (ema10 && ema20 && currentPrice < ema10 && ema10 < ema20 && isPriceActivelyFallingShort) {
             const points = 20;
             shortSignal.strength += points;
             shortSignal.confirmations++;
@@ -1109,7 +1107,7 @@ class BidirectionalSignalGenerator {
         }
 
         // ✅ NUOVO: CONFERMA 6.5: MACD bearish anche con RSI neutrale (segnale forte)
-        if (macd && !macd.macdAboveSignal && !macd.macdAboveZero && isPriceActivelyFalling && rsi !== null && rsi >= 40 && rsi <= 60) {
+        if (macd && !macd.macdAboveSignal && !macd.macdAboveZero && isPriceActivelyFallingShort && rsi !== null && rsi >= 40 && rsi <= 60) {
             const points = 20;
             shortSignal.strength += points;
             shortSignal.confirmations++;
@@ -1118,7 +1116,7 @@ class BidirectionalSignalGenerator {
         }
 
         // CONFERMA 7: Prezzo STA SCENDENDO (non solo "potrebbe") - SOLO se scende significativamente
-        if (isPriceActivelyFalling) { // Prezzo sceso >0.3% o >0.5% su 5 periodi
+        if (isPriceActivelyFallingShort) { // Prezzo sceso >0.3% o >0.5% su 5 periodi
             const points = 20;
             shortSignal.strength += points;
             shortSignal.confirmations++;
@@ -1127,7 +1125,7 @@ class BidirectionalSignalGenerator {
         }
 
         // CONFERMA 8: Volume alto (movimento forte) - SOLO se accompagnato da movimento del prezzo significativo
-        if (volume.isHigh && isPriceActivelyFalling) {
+        if (volume.isHigh && isPriceActivelyFallingShort) {
             const points = 15;
             shortSignal.strength += points;
             shortSignal.confirmations++;
