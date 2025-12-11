@@ -4,7 +4,7 @@
 
 ```bash
 # 1. Connessione VPS
-ssh root@185.199.53.169
+ssh root@159.69.121.162
 
 # 2. Vai nella directory progetto
 cd /root/ticketapp
@@ -52,7 +52,7 @@ pm2 logs --lines 50
 
 ### Passo 1: Connessione
 ```bash
-ssh root@185.199.53.169
+ssh root@159.69.121.162
 ```
 
 ### Passo 2: Navigazione

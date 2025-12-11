@@ -17,7 +17,7 @@
 
 ```bash
 # 1. Connettiti alla VPS
-ssh root@185.199.53.169
+ssh root@159.69.121.162
 
 # 2. Vai nella directory del progetto
 cd /root/ticketapp
