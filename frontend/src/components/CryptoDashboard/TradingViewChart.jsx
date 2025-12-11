@@ -356,7 +356,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                                                 </span>
                                             </div>
                                             <div className="position-info-row">
-                                                <span className="position-label">Entry:</span>
+                                                <span className="position-label">Prezzo di Ingresso:</span>
                                                 <span className="position-value">{formatPriceWithSymbol(pos.entry_price, 2)}</span>
                                             </div>
                                             <div className="position-info-row">
@@ -364,11 +364,11 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                                                 <span className="position-value">{formatPriceWithSymbol(currentPrice, 2)}</span>
                                             </div>
                                             <div className="position-info-row">
-                                                <span className="position-label">Volume:</span>
+                                                <span className="position-label">Quantità:</span>
                                                 <span className="position-value">{pos.volume.toFixed(4)}</span>
                                             </div>
                                             <div className="position-info-row">
-                                                <span className="position-label">Aperta:</span>
+                                                <span className="position-label">Aperta il:</span>
                                                 <span className="position-value">
                                                     {new Date(pos.timestamp).toLocaleString('it-IT', {
                                                         day: '2-digit',
