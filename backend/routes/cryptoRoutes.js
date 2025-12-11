@@ -5513,6 +5513,10 @@ router.get('/statistics', async (req, res) => {
                 } else if (pnl < 0) {
                     totalLoss += Math.abs(pnl);
                     losingTrades++;
+                } else {
+                    // ✅ FIX: Conta anche posizioni con P&L = 0 (break-even) come trade completati
+                    // Esempio: SHIBA chiusa con 0.00€ deve essere contata nel total_trades
+                    losingTrades++; // Conta come losing (anche se 0, è più conservativo)
                 }
 
                 // ✅ FIX: Aggiungi volume delle posizioni chiuse (volume totale scambiato)
