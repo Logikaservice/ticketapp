@@ -68,7 +68,7 @@ async function diagnoseSymbol(symbol) {
         console.log(`\n📊 GENERAZIONE SEGNALE...`);
         const params = await dbGet("SELECT * FROM bot_parameters WHERE symbol = $1", [symbol]).catch(() => null);
         const finalParams = params || {};
-        const signal = signalGenerator.generateSignal(priceHistory, symbol, params);
+        const signal = signalGenerator.generateSignal(priceHistory, symbol, finalParams);
         
         if (!signal || signal.direction === 'NEUTRAL') {
             console.log(`❌ Nessun segnale generato (NEUTRAL)`);
