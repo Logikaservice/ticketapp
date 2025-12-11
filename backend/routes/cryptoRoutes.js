@@ -2283,8 +2283,15 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 }
 
                 // ✅ FIX: Blocca SOLO se portfolio in drawdown significativo E non è in profitto
-                // Se il portfolio è in profitto, permette sempre nuove posizioni (usa l'80% del Total Equity)
-                if (!isPortfolioInProfit && portfolioPnLPct < -5.0) {
+                // ✅ FALLBACK: Se Total Equity > 900, NON bloccare mai (protezione contro calcoli errati)
+                const MIN_SAFE_EQUITY = 900; // Se sopra questa soglia, non bloccare mai
+                const isEquityAboveMinimum = totalEquity >= MIN_SAFE_EQUITY;
+                
+                if (isEquityAboveMinimum) {
+                    // ✅ Portfolio sopra soglia minima: NON bloccare mai (usa l'80% del Total Equity)
+                    const availableExposure = totalEquity * 0.80;
+                    console.log(`✅ [PORTFOLIO-CHECK] Portfolio sopra soglia minima ($${totalEquity.toFixed(2)} > $${MIN_SAFE_EQUITY}): Disponibilità (80%): $${availableExposure.toFixed(2)} | NON BLOCCATO`);
+                } else if (!isPortfolioInProfit && portfolioPnLPct < -5.0) {
                     portfolioDrawdownBlock = true;
                     portfolioDrawdownReason = `Portfolio drawdown troppo alto: ${portfolioPnLPct.toFixed(2)}% (soglia: -5%)`;
                 } else if (!isPortfolioInProfit && avgOpenPnL < -2.0 && allOpenPositions.length >= 5) {
@@ -7076,8 +7083,15 @@ router.get('/bot-analysis', async (req, res) => {
                 }
 
                 // ✅ FIX: Blocca SOLO se portfolio in drawdown significativo E non è in profitto
-                // Se il portfolio è in profitto, permette sempre nuove posizioni (usa l'80% del Total Equity)
-                if (!isPortfolioInProfit && portfolioPnLPct < -5.0) {
+                // ✅ FALLBACK: Se Total Equity > 900, NON bloccare mai (protezione contro calcoli errati)
+                const MIN_SAFE_EQUITY = 900; // Se sopra questa soglia, non bloccare mai
+                const isEquityAboveMinimum = totalEquity >= MIN_SAFE_EQUITY;
+                
+                if (isEquityAboveMinimum) {
+                    // ✅ Portfolio sopra soglia minima: NON bloccare mai (usa l'80% del Total Equity)
+                    const availableExposure = totalEquity * 0.80;
+                    console.log(`✅ [BOT-ANALYSIS PORTFOLIO] Portfolio sopra soglia minima ($${totalEquity.toFixed(2)} > $${MIN_SAFE_EQUITY}): Disponibilità (80%): $${availableExposure.toFixed(2)} | NON BLOCCATO`);
+                } else if (!isPortfolioInProfit && portfolioPnLPct < -5.0) {
                     portfolioDrawdownBlock = true;
                     portfolioDrawdownReason = `Portfolio drawdown troppo alto: ${portfolioPnLPct.toFixed(2)}% (soglia: -5%)`;
                 } else if (!isPortfolioInProfit && avgOpenPnL < -2.0 && allOpenPositions.length >= 5) {
@@ -7086,7 +7100,7 @@ router.get('/bot-analysis', async (req, res) => {
                 } else if (isPortfolioInProfit) {
                     // ✅ Portfolio in profitto: usa l'80% del Total Equity come disponibilità
                     const availableExposure = totalEquity * 0.80;
-                    console.log(`✅ [PORTFOLIO-CHECK] Portfolio in profitto: Total Equity $${totalEquity.toFixed(2)} | Disponibilità (80%): $${availableExposure.toFixed(2)}`);
+                    console.log(`✅ [BOT-ANALYSIS PORTFOLIO] Portfolio in profitto: Total Equity $${totalEquity.toFixed(2)} | Disponibilità (80%): $${availableExposure.toFixed(2)}`);
                 }
             }
         } catch (e) {
