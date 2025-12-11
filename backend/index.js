@@ -775,8 +775,16 @@ app.get('/api/availability/public', async (req, res) => {
 // Import email templates utility
 const { getEmailFooter, getTicketCreatedTemplate } = require('./utils/emailTemplates');
 
+// Import input validation middleware
+const { sanitizeInputs, validateRequiredFields, validateEmail } = require('./middleware/inputValidation');
+
 // Endpoint pubblico per richiesta assistenza veloce (senza login)
-app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), async (req, res) => {
+app.post('/api/tickets/quick-request',
+  uploadTicketPhotos.array('photos', 10),
+  sanitizeInputs(['titolo', 'descrizione', 'email', 'nomerichiedente', 'telefono', 'azienda']),
+  validateRequiredFields(['titolo', 'descrizione', 'email', 'nomerichiedente']),
+  validateEmail('email'),
+  async (req, res) => {
   // Gestisce sia JSON che multipart/form-data
   const titolo = req.body.titolo;
   const descrizione = req.body.descrizione;
@@ -786,10 +794,6 @@ app.post('/api/tickets/quick-request', uploadTicketPhotos.array('photos', 10), a
   const telefono = req.body.telefono;
   const azienda = req.body.azienda;
   const photos = req.files || [];
-
-  if (!titolo || !descrizione || !email || !nomerichiedente) {
-    return res.status(400).json({ error: 'Titolo, descrizione, email e nome sono obbligatori' });
-  }
 
   try {
     const client = await pool.connect();
