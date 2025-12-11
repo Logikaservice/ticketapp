@@ -77,6 +77,13 @@ jobs:
             else
               echo "⚠️ Script download klines EUR non trovato (continua...)"
             fi
+            
+            echo "🔧 Configurazione simboli EUR nel database..."
+            if [ -f "setup_eur_symbols.js" ]; then
+              timeout 60 node setup_eur_symbols.js || echo "⚠️ Timeout o errore configurazione simboli EUR (continua...)"
+            else
+              echo "⚠️ Script configurazione simboli EUR non trovato (continua...)"
+            fi
             cd ..
             
             echo "📦 Installazione dipendenze backend..."
