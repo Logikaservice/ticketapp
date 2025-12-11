@@ -2199,10 +2199,24 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         try {
             const portfolio = await dbGet("SELECT * FROM portfolio WHERE id = 1");
             if (portfolio) {
-                const totalPnL = parseFloat(portfolio.total_pnl || 0);
-                const balance = parseFloat(portfolio.balance_usd || 10000);
+                const cashBalance = parseFloat(portfolio.balance_usd || 0);
                 const initialBalance = 1000; // Bilancio iniziale
-                const portfolioPnLPct = balance > 0 ? ((balance - initialBalance) / initialBalance) * 100 : -100;
+                
+                // ✅ FIX CRITICO: Calcola Total Equity (cash + valore posizioni aperte)
+                // Non usare solo balance_usd, ma considera anche il valore delle posizioni
+                let currentExposureValue = 0;
+                for (const pos of allOpenPositions) {
+                    const vol = parseFloat(pos.volume) || 0;
+                    const volClosed = parseFloat(pos.volume_closed) || 0;
+                    const remaining = vol - volClosed;
+                    const entry = parseFloat(pos.entry_price) || 0;
+                    const current = parseFloat(pos.current_price) || entry;
+                    currentExposureValue += remaining * current;
+                }
+                const totalEquity = cashBalance + currentExposureValue;
+                
+                // ✅ FIX: Calcola drawdown basato su Total Equity, non solo cash
+                const portfolioPnLPct = totalEquity > 0 ? ((totalEquity - initialBalance) / initialBalance) * 100 : -100;
 
                 // Calcola P&L medio posizioni aperte
                 let avgOpenPnL = 0;
@@ -2220,7 +2234,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     portfolioDrawdownReason = `P&L medio posizioni aperte troppo negativo: ${avgOpenPnL.toFixed(2)}% (soglia: -2%)`;
                 }
 
-                console.log(`📊 [PORTFOLIO-CHECK] P&L Portfolio: ${portfolioPnLPct.toFixed(2)}% | P&L Medio Aperte: ${avgOpenPnL.toFixed(2)}% | Block: ${portfolioDrawdownBlock}`);
+                console.log(`📊 [PORTFOLIO-CHECK] Cash: $${cashBalance.toFixed(2)} | Equity: $${totalEquity.toFixed(2)} | P&L Portfolio: ${portfolioPnLPct.toFixed(2)}% | P&L Medio Aperte: ${avgOpenPnL.toFixed(2)}% | Block: ${portfolioDrawdownBlock}`);
             }
         } catch (e) {
             console.error('⚠️ Error checking portfolio drawdown:', e.message);
