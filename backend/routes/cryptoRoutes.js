@@ -6931,9 +6931,23 @@ router.get('/bot-analysis', async (req, res) => {
         try {
             const portfolio = await dbGet("SELECT * FROM portfolio WHERE id = 1");
             if (portfolio) {
-                const balance = parseFloat(portfolio.balance_usd || 10000);
+                const cashBalance = parseFloat(portfolio.balance_usd || 0);
                 const initialBalance = 1000;
-                const portfolioPnLPct = balance > 0 ? ((balance - initialBalance) / initialBalance) * 100 : -100;
+                
+                // ✅ FIX CRITICO: Calcola Total Equity (cash + valore posizioni aperte)
+                let currentExposureValue = 0;
+                for (const pos of allOpenPositions) {
+                    const vol = parseFloat(pos.volume) || 0;
+                    const volClosed = parseFloat(pos.volume_closed) || 0;
+                    const remaining = vol - volClosed;
+                    const entry = parseFloat(pos.entry_price) || 0;
+                    const current = parseFloat(pos.current_price) || entry;
+                    currentExposureValue += remaining * current;
+                }
+                const totalEquity = cashBalance + currentExposureValue;
+                
+                // ✅ FIX: Calcola drawdown basato su Total Equity, non solo cash
+                const portfolioPnLPct = totalEquity > 0 ? ((totalEquity - initialBalance) / initialBalance) * 100 : -100;
 
                 let avgOpenPnL = 0;
                 if (allOpenPositions.length > 0) {
