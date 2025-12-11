@@ -2215,8 +2215,13 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 }
                 const totalEquity = cashBalance + currentExposureValue;
                 
-                // ✅ FIX: Calcola drawdown basato su Total Equity, non solo cash
+                // ✅ FIX CRITICO: Calcola drawdown rispetto al picco del Total Equity, non rispetto a 1000
+                // Se il portfolio è in profitto rispetto a 1000, NON bloccare
                 const portfolioPnLPct = totalEquity > 0 ? ((totalEquity - initialBalance) / initialBalance) * 100 : -100;
+                
+                // ✅ FIX: Se il portfolio è in profitto (sopra 1000), NON bloccare mai
+                // Il drawdown deve essere calcolato solo se il portfolio è in perdita
+                const isPortfolioInProfit = portfolioPnLPct > 0;
 
                 // Calcola P&L medio posizioni aperte
                 let avgOpenPnL = 0;
@@ -2225,16 +2230,21 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     avgOpenPnL = totalOpenPnL / allOpenPositions.length;
                 }
 
-                // Blocca se portfolio in drawdown significativo
-                if (portfolioPnLPct < -5.0) {
+                // ✅ FIX: Blocca SOLO se portfolio in drawdown significativo E non è in profitto
+                // Se il portfolio è in profitto, permette sempre nuove posizioni (usa l'80% del Total Equity)
+                if (!isPortfolioInProfit && portfolioPnLPct < -5.0) {
                     portfolioDrawdownBlock = true;
                     portfolioDrawdownReason = `Portfolio drawdown troppo alto: ${portfolioPnLPct.toFixed(2)}% (soglia: -5%)`;
-                } else if (avgOpenPnL < -2.0 && allOpenPositions.length >= 5) {
+                } else if (!isPortfolioInProfit && avgOpenPnL < -2.0 && allOpenPositions.length >= 5) {
                     portfolioDrawdownBlock = true;
                     portfolioDrawdownReason = `P&L medio posizioni aperte troppo negativo: ${avgOpenPnL.toFixed(2)}% (soglia: -2%)`;
+                } else if (isPortfolioInProfit) {
+                    // ✅ Portfolio in profitto: usa l'80% del Total Equity come disponibilità
+                    const availableExposure = totalEquity * 0.80;
+                    console.log(`✅ [PORTFOLIO-CHECK] Portfolio in profitto: Total Equity $${totalEquity.toFixed(2)} | Disponibilità (80%): $${availableExposure.toFixed(2)}`);
                 }
 
-                console.log(`📊 [PORTFOLIO-CHECK] Cash: $${cashBalance.toFixed(2)} | Equity: $${totalEquity.toFixed(2)} | P&L Portfolio: ${portfolioPnLPct.toFixed(2)}% | P&L Medio Aperte: ${avgOpenPnL.toFixed(2)}% | Block: ${portfolioDrawdownBlock}`);
+                console.log(`📊 [PORTFOLIO-CHECK] Cash: $${cashBalance.toFixed(2)} | Equity: $${totalEquity.toFixed(2)} | P&L Portfolio: ${portfolioPnLPct.toFixed(2)}% | P&L Medio Aperte: ${avgOpenPnL.toFixed(2)}% | In Profitto: ${isPortfolioInProfit} | Block: ${portfolioDrawdownBlock}`);
             }
         } catch (e) {
             console.error('⚠️ Error checking portfolio drawdown:', e.message);
@@ -6947,8 +6957,13 @@ router.get('/bot-analysis', async (req, res) => {
                 }
                 const totalEquity = cashBalance + currentExposureValue;
                 
-                // ✅ FIX: Calcola drawdown basato su Total Equity, non solo cash
+                // ✅ FIX CRITICO: Calcola drawdown rispetto al picco del Total Equity, non rispetto a 1000
+                // Se il portfolio è in profitto rispetto a 1000, NON bloccare
                 const portfolioPnLPct = totalEquity > 0 ? ((totalEquity - initialBalance) / initialBalance) * 100 : -100;
+                
+                // ✅ FIX: Se il portfolio è in profitto (sopra 1000), NON bloccare mai
+                // Il drawdown deve essere calcolato solo se il portfolio è in perdita
+                const isPortfolioInProfit = portfolioPnLPct > 0;
 
                 let avgOpenPnL = 0;
                 if (allOpenPositions.length > 0) {
@@ -6956,12 +6971,18 @@ router.get('/bot-analysis', async (req, res) => {
                     avgOpenPnL = totalOpenPnL / allOpenPositions.length;
                 }
 
-                if (portfolioPnLPct < -5.0) {
+                // ✅ FIX: Blocca SOLO se portfolio in drawdown significativo E non è in profitto
+                // Se il portfolio è in profitto, permette sempre nuove posizioni (usa l'80% del Total Equity)
+                if (!isPortfolioInProfit && portfolioPnLPct < -5.0) {
                     portfolioDrawdownBlock = true;
                     portfolioDrawdownReason = `Portfolio drawdown troppo alto: ${portfolioPnLPct.toFixed(2)}% (soglia: -5%)`;
-                } else if (avgOpenPnL < -2.0 && allOpenPositions.length >= 5) {
+                } else if (!isPortfolioInProfit && avgOpenPnL < -2.0 && allOpenPositions.length >= 5) {
                     portfolioDrawdownBlock = true;
                     portfolioDrawdownReason = `P&L medio posizioni aperte troppo negativo: ${avgOpenPnL.toFixed(2)}% (soglia: -2%)`;
+                } else if (isPortfolioInProfit) {
+                    // ✅ Portfolio in profitto: usa l'80% del Total Equity come disponibilità
+                    const availableExposure = totalEquity * 0.80;
+                    console.log(`✅ [PORTFOLIO-CHECK] Portfolio in profitto: Total Equity $${totalEquity.toFixed(2)} | Disponibilità (80%): $${availableExposure.toFixed(2)}`);
                 }
             }
         } catch (e) {
