@@ -900,12 +900,11 @@ class BidirectionalSignalGenerator {
         }
 
         // ✅ CONFERMA 9: MOMENTUM TREND - Prezzo sale consistentemente (trend forte in corso)
+        // ✅ FIX: Riutilizza priceChange10 già dichiarato sopra (linea 760)
         const priceChange3 = prices.length >= 3
             ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
             : 0;
-        const priceChange10 = prices.length >= 10
-            ? (prices[prices.length - 1] - prices[prices.length - 10]) / prices[prices.length - 10] * 100
-            : 0;
+        // priceChange10 già dichiarato sopra per LONG (linea 760), riutilizziamo
         // Se prezzo sale consistentemente su più timeframe, è un trend forte
         if (priceChange3 > 1.0 && priceChange10 > 1.5) { // Sale >1% su 3 periodi e >1.5% su 10 periodi
             const points = 25;
@@ -963,15 +962,19 @@ class BidirectionalSignalGenerator {
         };
 
         // Verifica che il prezzo stia effettivamente scendendo (PREREQUISITO)
-        const priceChange = prices.length >= 3
+        // ✅ FIX: Usa nomi diversi per evitare conflitto con variabili LONG
+        const priceChangeShort = prices.length >= 3
             ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
             : 0;
 
         // ✅ FIX CRITICO: Verifica movimento prezzo su più periodi per evitare SHORT su mercati neutri
-        const priceChange5 = prices.length >= 5
+        const priceChange5Short = prices.length >= 5
             ? (prices[prices.length - 1] - prices[prices.length - 5]) / prices[prices.length - 5] * 100
             : 0;
-        // priceChange10 already declared above at line 553
+        // priceChange10 già dichiarato sopra per LONG, riutilizziamo per SHORT se necessario
+        const priceChange10Short = prices.length >= 10
+            ? (prices[prices.length - 1] - prices[prices.length - 10]) / prices[prices.length - 10] * 100
+            : 0;
 
 
         // BLOCCA SHORT se:
@@ -979,14 +982,14 @@ class BidirectionalSignalGenerator {
         // 2. Prezzo è stabile/neutrale (non scende in modo significativo su più timeframe)
         // Questo evita di generare SHORT su mercati laterali/neutri
         // ✅ FIX: Soglia leggermente più alta (0.15% invece di 0.1%) per evitare falsi positivi
-        const isPriceRising = priceChange > 0.15;
+        const isPriceRising = priceChangeShort > 0.15;
         // ✅ FIX: Mercato neutrale = nessun movimento significativo in nessuna direzione
         // ✅ MIGLIORATO: Considera neutrale solo se NON c'è movimento su TUTTI i timeframe
         // ✅ FIX: Soglie più flessibili per riconoscere mercati davvero neutri
         // Se almeno un timeframe mostra movimento al ribasso, NON è neutrale
-        const isPriceNeutral = (priceChange > -0.2 && priceChange < 0.2) &&
-            (priceChange5 > -0.3 && priceChange5 < 0.3) &&
-            (priceChange10 > -0.5 && priceChange10 < 0.5);
+        const isPriceNeutral = (priceChangeShort > -0.2 && priceChangeShort < 0.2) &&
+            (priceChange5Short > -0.3 && priceChange5Short < 0.3) &&
+            (priceChange10Short > -0.5 && priceChange10Short < 0.5);
 
         // ✅ FIX CRITICO: Verifica se prezzo sta scendendo attivamente E in modo consistente
         // Se il prezzo è neutrale o laterale, NON generare segnali SHORT
@@ -999,17 +1002,17 @@ class BidirectionalSignalGenerator {
         // - OPPURE scende >0.3% su 3 periodi = discesa più rapida
         // - OPPURE scende >0.4% su 5 periodi = trend al ribasso medio termine
         // - OPPURE scende >0.5% su 10 periodi = trend al ribasso lungo termine
-        const isPriceActivelyFalling = (priceChange < -0.2 && priceChange5 < -0.2) || 
-                                       (priceChange < -0.3) || 
-                                       (priceChange5 < -0.4) ||
-                                       (priceChange10 < -0.5);
+        const isPriceActivelyFalling = (priceChangeShort < -0.2 && priceChange5Short < -0.2) || 
+                                       (priceChangeShort < -0.3) || 
+                                       (priceChange5Short < -0.4) ||
+                                       (priceChange10Short < -0.5);
 
         // ✅ FIX CRITICO: Se mercato è neutrale O prezzo sta salendo, BLOCCA solo SHORT ma continua a calcolare LONG
         // NON fare return early per permettere ai segnali LONG di essere generati
         if (isPriceNeutral || isPriceRising) {
             const reason = isPriceNeutral
-                ? `Mercato neutrale/laterale (Var: ${priceChange.toFixed(2)}%, Var5: ${priceChange5.toFixed(2)}%, Var10: ${priceChange10.toFixed(2)}%)`
-                : `Prezzo ancora in salita (+${priceChange.toFixed(2)}%) - in attesa di inversione`;
+                ? `Mercato neutrale/laterale (Var: ${priceChangeShort.toFixed(2)}%, Var5: ${priceChange5Short.toFixed(2)}%, Var10: ${priceChange10Short.toFixed(2)}%)`
+                : `Prezzo ancora in salita (+${priceChangeShort.toFixed(2)}%) - in attesa di inversione`;
             // Log solo se symbol è disponibile (non sempre presente)
             if (symbol) {
                 console.log(`🚫 [${symbol}] SHORT bloccato: ${reason}`);
@@ -1026,9 +1029,9 @@ class BidirectionalSignalGenerator {
 
         // ⚠️ PANIC SELL EXCEPTION: Se c'è un crollo violento, ignora RSI Oversold
         // Normalmente RSI < 30 bloccherebbe lo SHORT, ma in un crash il prezzo può scendere con RSI a 5
-        const isPanicSell = priceChange < -3.0 && volume.isHigh; // Crollo > 3% e volume alto
+        const isPanicSell = priceChangeShort < -3.0 && volume.isHigh; // Crollo > 3% e volume alto
         if (isPanicSell) {
-            shortSignal.reasons.push(`⚠️ PANIC SELL DETECTED: Ignoring RSI oversold due to crash (${priceChange.toFixed(2)}%)`);
+            shortSignal.reasons.push(`⚠️ PANIC SELL DETECTED: Ignoring RSI oversold due to crash (${priceChangeShort.toFixed(2)}%)`);
             shortSignal.strength += 20; // Bonus forza per il crash
         }
 
@@ -1119,8 +1122,8 @@ class BidirectionalSignalGenerator {
             const points = 20;
             shortSignal.strength += points;
             shortSignal.confirmations++;
-            shortSignal.reasons.push(`Prezzo in calo attivo (${priceChange.toFixed(2)}%)`);
-            shortSignal.strengthContributions.push({ indicator: 'Prezzo in calo attivo', points, reason: `Prezzo in calo attivo (${priceChange.toFixed(2)}%)` });
+            shortSignal.reasons.push(`Prezzo in calo attivo (${priceChangeShort.toFixed(2)}%)`);
+            shortSignal.strengthContributions.push({ indicator: 'Prezzo in calo attivo', points, reason: `Prezzo in calo attivo (${priceChangeShort.toFixed(2)}%)` });
         }
 
         // CONFERMA 8: Volume alto (movimento forte) - SOLO se accompagnato da movimento del prezzo significativo
