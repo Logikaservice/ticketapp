@@ -1096,7 +1096,7 @@ const DEFAULT_PARAMS = {
     trade_size_eur: 100,  // Aggiornato da 50 a 100
     trailing_stop_enabled: true,  // Aggiornato da false a true
     trailing_stop_distance_pct: 1.5,  // Aggiornato da 1.0 a 1.5
-    trailing_profit_protection_enabled: true,  // ✅ NUOVO: Trailing Profit Protection abilitato di default
+    trailing_profit_protection_enabled: false,  // ✅ FIX: Default disabilitato - l'utente deve abilitarlo esplicitamente
     partial_close_enabled: true,  // Aggiornato da false a true
     take_profit_1_pct: 2.5,  // Aggiornato da 1.5 a 2.5
     take_profit_2_pct: 5.0,  // Aggiornato da 3.0 a 5.0
@@ -5302,9 +5302,10 @@ router.put('/bot/parameters', async (req, res) => {
                 : (existingParams.analysis_timeframe || '15m'),
 
             // ✅ NUOVO: Trailing Profit Protection
+            // ✅ FIX: Default a FALSE se non specificato (l'utente deve abilitarlo esplicitamente)
             trailing_profit_protection_enabled: parameters.trailing_profit_protection_enabled !== undefined
                 ? (parameters.trailing_profit_protection_enabled === true || parameters.trailing_profit_protection_enabled === 'true' || parameters.trailing_profit_protection_enabled === 1)
-                : (existingParams.trailing_profit_protection_enabled !== undefined ? existingParams.trailing_profit_protection_enabled : true),
+                : (existingParams.trailing_profit_protection_enabled !== undefined ? existingParams.trailing_profit_protection_enabled : false),
 
             // Note (opzionale)
             notes: parameters.notes || existingParams.notes || ''
