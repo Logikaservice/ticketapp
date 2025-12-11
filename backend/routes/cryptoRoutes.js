@@ -9192,6 +9192,19 @@ router.post('/reset-balance', async (req, res) => {
 });
 
 // ✅ ENDPOINT ANALISI: Analizza posizioni chiuse per capire PERCHÉ sono state chiuse
+// Simple endpoint to get closed positions count
+router.get('/closed-positions-count', async (req, res) => {
+    try {
+        const result = await dbAll(
+            "SELECT COUNT(*) as count FROM open_positions WHERE status IN ('closed', 'stopped', 'taken')"
+        );
+        res.json({ count: parseInt(result[0]?.count || 0) });
+    } catch (error) {
+        console.error('Error getting closed positions count:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 router.get('/analyze-closed-positions', async (req, res) => {
     try {
         const { limit = 50 } = req.query;

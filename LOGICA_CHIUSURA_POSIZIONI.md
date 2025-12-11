@@ -296,3 +296,4 @@ Per evitare che il bot continui ad aprire posizioni SHORT su ATOM con win rate 0
 
 
 
+

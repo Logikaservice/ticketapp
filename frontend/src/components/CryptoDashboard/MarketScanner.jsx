@@ -425,8 +425,8 @@ const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
                                                                             <Lock size={12} /> Blockers:
                                                                         </div>
                                                                         <ul style={{ margin: 0, paddingLeft: '15px', color: '#fca5a5', fontSize: '0.8rem' }}>
-                                                                            {quickAnalysis.blockers.long.map((b, i) => (
-                                                                                <li key={i}>{b.type}</li>
+                                                                            {(quickAnalysis.blockers.long || []).map((b, i) => (
+                                                                                <li key={i}>{b?.type || 'Unknown blocker'}</li>
                                                                             ))}
                                                                         </ul>
                                                                     </div>
@@ -463,8 +463,8 @@ const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
                                                                             <Lock size={12} /> Blockers:
                                                                         </div>
                                                                         <ul style={{ margin: 0, paddingLeft: '15px', color: '#fca5a5', fontSize: '0.8rem' }}>
-                                                                            {quickAnalysis.blockers.short.map((b, i) => (
-                                                                                <li key={i}>{b.type}</li>
+                                                                            {(quickAnalysis.blockers.short || []).map((b, i) => (
+                                                                                <li key={i}>{b?.type || 'Unknown blocker'}</li>
                                                                             ))}
                                                                         </ul>
                                                                     </div>
