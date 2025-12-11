@@ -72,7 +72,21 @@ function httpsGet(url) {
             res.on('data', (chunk) => data += chunk);
             res.on('end', () => {
                 try {
-                    resolve(JSON.parse(data));
+                    // ✅ FIX: Verifica se la risposta è HTML (errore Binance)
+                    if (data.trim().startsWith('<!DOCTYPE') || data.trim().startsWith('<html')) {
+                        reject(new Error(`Binance API returned HTML instead of JSON (symbol may not exist)`));
+                        return;
+                    }
+                    
+                    const parsed = JSON.parse(data);
+                    
+                    // ✅ FIX: Verifica se Binance ha restituito un errore
+                    if (parsed.code && parsed.msg) {
+                        reject(new Error(`Binance API Error ${parsed.code}: ${parsed.msg}`));
+                        return;
+                    }
+                    
+                    resolve(parsed);
                 } catch (e) {
                     reject(new Error(`Parse error: ${e.message}`));
                 }
@@ -99,16 +113,34 @@ async function downloadKlines(symbol, binanceSymbol, days = 30) {
         
         try {
             const klines = await httpsGet(url);
-            if (!klines || klines.length === 0) break;
             
-            allKlines.push(...klines);
+            // ✅ FIX: Verifica che klines sia un array
+            if (!Array.isArray(klines)) {
+                // Se Binance restituisce un errore (es. simbolo non esiste), klines potrebbe essere un oggetto
+                if (klines && klines.code) {
+                    console.error(`      ❌ Binance API Error: ${klines.msg || klines.code}`);
+                } else {
+                    console.error(`      ❌ Risposta non valida da Binance (non è un array)`);
+                }
+                break;
+            }
+            
+            if (klines.length === 0) break;
+            
+            // ✅ FIX: Usa concat invece di spread per evitare errori
+            allKlines = allKlines.concat(klines);
             currentStartTime = klines[klines.length - 1][0] + 1;
             attempts++;
             
             // Rate limiting
             await new Promise(resolve => setTimeout(resolve, 300));
         } catch (error) {
-            console.error(`      ❌ Errore: ${error.message}`);
+            // ✅ FIX: Migliora gestione errori
+            if (error.message.includes('Parse error') && error.message.includes('<!DOCTYPE')) {
+                console.error(`      ❌ Simbolo ${binanceSymbol} non esiste su Binance (API restituisce HTML)`);
+            } else {
+                console.error(`      ❌ Errore: ${error.message}`);
+            }
             break;
         }
     }
@@ -196,6 +228,13 @@ async function fixStatusIssues() {
             for (const row of klinesCheck) {
                 const symbol = row.symbol;
                 const currentCount = parseInt(row.count);
+                
+                // ✅ FIX: Salta simboli EUR (Binance non li supporta)
+                if (symbol.toLowerCase().includes('_eur') || symbol.toLowerCase().endsWith('eur')) {
+                    console.log(`   ⏭️ ${symbol}: Saltato (simboli EUR non supportati da Binance)`);
+                    console.log('');
+                    continue;
+                }
                 
                 // Trova simbolo Binance corrispondente
                 let binanceSymbol = SYMBOL_MAP[symbol.toLowerCase()];
