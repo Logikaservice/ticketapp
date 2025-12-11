@@ -93,61 +93,87 @@ const lastTradeTime = new Map();
 // HELPER FUNCTIONS
 // ===================================
 
+// Constants for API configuration
+const API_CONFIG = {
+    BINANCE_BASE_URL: 'https://api.binance.com/api/v3',
+    REQUEST_TIMEOUT_MS: 10000,
+    MAX_RETRIES: 3,
+    RETRY_DELAY_MS: 1000
+};
+
 /**
- * Get current price for a symbol from Binance
+ * Get current price for a symbol from Binance with timeout and retry logic
  */
-async function getSymbolPrice(symbol) {
+async function getSymbolPrice(symbol, retries = API_CONFIG.MAX_RETRIES) {
     try {
         const pair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
         const https = require('https');
-        const url = `https://api.binance.com/api/v3/ticker/price?symbol=${pair}`;
+        const url = `${API_CONFIG.BINANCE_BASE_URL}/ticker/price?symbol=${pair}`;
 
         const data = await new Promise((resolve, reject) => {
-            https.get(url, (res) => {
+            const req = https.get(url, (res) => {
                 let body = '';
                 res.on('data', chunk => body += chunk);
                 res.on('end', () => {
                     try {
                         resolve(JSON.parse(body));
                     } catch (e) {
-                        reject(e);
+                        reject(new Error(`Failed to parse response: ${e.message}`));
                     }
                 });
             }).on('error', reject);
+
+            req.setTimeout(API_CONFIG.REQUEST_TIMEOUT_MS, () => {
+                req.destroy();
+                reject(new Error('Request timeout'));
+            });
         });
 
         return parseFloat(data.price) || 0;
     } catch (error) {
+        if (retries > 0) {
+            await new Promise(resolve => setTimeout(resolve, API_CONFIG.RETRY_DELAY_MS));
+            return getSymbolPrice(symbol, retries - 1);
+        }
         console.error(`❌ Error fetching price for ${symbol}:`, error.message);
         return 0;
     }
 }
 
 /**
- * Get 24h volume for a symbol
+ * Get 24h volume for a symbol with timeout and retry logic
  */
-async function get24hVolume(symbol) {
+async function get24hVolume(symbol, retries = API_CONFIG.MAX_RETRIES) {
     try {
         const pair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
         const https = require('https');
-        const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${pair}`;
+        const url = `${API_CONFIG.BINANCE_BASE_URL}/ticker/24hr?symbol=${pair}`;
 
         const data = await new Promise((resolve, reject) => {
-            https.get(url, (res) => {
+            const req = https.get(url, (res) => {
                 let body = '';
                 res.on('data', chunk => body += chunk);
                 res.on('end', () => {
                     try {
                         resolve(JSON.parse(body));
                     } catch (e) {
-                        reject(e);
+                        reject(new Error(`Failed to parse response: ${e.message}`));
                     }
                 });
             }).on('error', reject);
+
+            req.setTimeout(API_CONFIG.REQUEST_TIMEOUT_MS, () => {
+                req.destroy();
+                reject(new Error('Request timeout'));
+            });
         });
 
         return parseFloat(data.quoteVolume) || 0;
     } catch (error) {
+        if (retries > 0) {
+            await new Promise(resolve => setTimeout(resolve, API_CONFIG.RETRY_DELAY_MS));
+            return get24hVolume(symbol, retries - 1);
+        }
         console.error(`❌ Error fetching volume for ${symbol}:`, error.message);
         return 0;
     }
