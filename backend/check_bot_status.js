@@ -83,14 +83,16 @@ async function checkBotStatus(symbol) {
         }
         
         // 5. Verifica volume 24h
+        let volumeData = null;
+        let volume24h = 0;
         try {
-            const volumeData = await dbGet(
+            volumeData = await dbGet(
                 "SELECT volume_24h FROM market_data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1",
                 [symbol]
             );
             
             if (volumeData) {
-                const volume24h = volumeData.volume_24h || 0;
+                volume24h = volumeData.volume_24h || 0;
                 console.log(`\n💰 Volume 24h: $${volume24h.toLocaleString()}`);
                 if (volume24h < 500000) {
                     console.log(`   ⚠️ Volume insufficiente (minimo $500,000 richiesto)`);
@@ -111,7 +113,7 @@ async function checkBotStatus(symbol) {
         const issues = [];
         if (bot.is_active !== 1) issues.push('Bot non attivo');
         if (klinesCount < 50) issues.push('Klines insufficienti');
-        if (volumeData && volumeData.volume_24h < 500000) issues.push('Volume 24h insufficiente');
+        if (volumeData && volume24h < 500000) issues.push('Volume 24h insufficiente');
         
         if (issues.length === 0) {
             console.log(`✅ Tutto OK - Il bot dovrebbe funzionare correttamente`);
