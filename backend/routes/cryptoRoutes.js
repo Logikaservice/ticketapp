@@ -5516,7 +5516,8 @@ router.get('/statistics', async (req, res) => {
                 } else {
                     // ✅ FIX: Conta anche posizioni con P&L = 0 (break-even) come trade completati
                     // Esempio: SHIBA chiusa con 0.00€ deve essere contata nel total_trades
-                    losingTrades++; // Conta come losing (anche se 0, è più conservativo)
+                    // Break-even = non perdita, quindi conta come winning (più accurato per win rate)
+                    winningTrades++;
                 }
 
                 // ✅ FIX: Aggiungi volume delle posizioni chiuse (volume totale scambiato)
