@@ -761,31 +761,39 @@ class BidirectionalSignalGenerator {
             ? (prices[prices.length - 1] - prices[prices.length - 10]) / prices[prices.length - 10] * 100
             : 0;
 
-        // ✅ BLOCCA LONG se:
-        // 1. Prezzo sta scendendo significativamente (>0.3% su più timeframe)
-        // 2. Prezzo è in downtrend forte (scende >0.5% su 5 periodi)
-        // Questo evita di aprire LONG mentre il prezzo sta ancora scendendo
+        // ✅ LOGICA INTELLIGENTE: Blocca LONG solo se prezzo scende SENZA segnali di inversione
+        // Se ci sono segnali forti di inversione (RSI oversold, divergenze bullish), permette LONG anche durante discese
         const isPriceActivelyFalling = (priceChange < -0.3 && priceChange5 < -0.3) || 
                                        (priceChange5 < -0.5) ||
                                        (priceChange10 < -1.0 && priceChange5 < -0.2);
         
-        // Se prezzo sta scendendo attivamente, blocca completamente LONG
-        if (isPriceActivelyFalling) {
-            const reason = `Prezzo in calo attivo (${priceChange.toFixed(2)}%, ${priceChange5.toFixed(2)}%, ${priceChange10.toFixed(2)}%) - in attesa di inversione`;
+        // Verifica se ci sono segnali forti di inversione che giustificano LONG durante discesa
+        const hasStrongReversalSignals = (rsi !== null && rsi < rsiOversold) || // RSI oversold = possibile inversione
+                                        (rsiDivergence.type === 'bullish' && rsiDivergence.strength > 30); // Divergenza bullish forte
+        
+        // Blocca LONG solo se prezzo scende E NON ci sono segnali di inversione forti
+        if (isPriceActivelyFalling && !hasStrongReversalSignals) {
+            const reason = `Prezzo in calo attivo (${priceChange.toFixed(2)}%, ${priceChange5.toFixed(2)}%, ${priceChange10.toFixed(2)}%) senza segnali di inversione - in attesa di inversione`;
             if (symbol) {
                 console.log(`🚫 [${symbol}] LONG bloccato: ${reason}`);
             }
-            // Blocca completamente LONG se prezzo scende
+            // Blocca completamente LONG se prezzo scende senza segnali di inversione
             longSignal.strength = 0;
             longSignal.confirmations = 0;
             longSignal.reasons = [`🚫 BLOCKED: ${reason}`];
             longSignal.strengthContributions = [];
             // NON fare return - continua per permettere SHORT di essere generato
             // Ma salta tutte le conferme LONG (vedi controlli sotto)
+        } else if (isPriceActivelyFalling && hasStrongReversalSignals) {
+            // Prezzo scende MA ci sono segnali di inversione - permette LONG ma con strength ridotta
+            if (symbol) {
+                console.log(`⚠️ [${symbol}] LONG durante discesa ma con segnali di inversione (RSI: ${rsi?.toFixed(1) || 'N/A'}, Divergence: ${rsiDivergence.type || 'none'}) - Permettendo LONG`);
+            }
+            // Non bloccare, ma le conferme aggiungeranno strength normalmente
         }
 
-        // ✅ SKIP tutte le conferme LONG se prezzo sta scendendo
-        if (!isPriceActivelyFalling) {
+        // ✅ SKIP tutte le conferme LONG solo se prezzo scende SENZA segnali di inversione
+        if (!isPriceActivelyFalling || hasStrongReversalSignals) {
         // CONFERMA 1: RSI oversold + uptrend (usa soglia configurata)
         if (rsi !== null && rsi < rsiOversold && trend === 'bullish') {
             const points = 25;

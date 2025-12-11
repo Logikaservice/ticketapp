@@ -78,12 +78,12 @@ const SMART_EXIT_CONFIG = {
     // 🎯 TRAILING PROFIT PROTECTION - PIÙ STRETTO per proteggere guadagni
     TRAILING_PROFIT_ENABLED: true,
     TRAILING_PROFIT_LEVELS: [
-        { peakProfit: 2.0, lockPercent: 0.50 },  // Se sale a 2%, blocca 1% (50%)
-        { peakProfit: 3.0, lockPercent: 0.60 },  // Se sale a 3%, blocca 1.8% (60%)
-        { peakProfit: 4.0, lockPercent: 0.65 },  // Se sale a 4%, blocca 2.6% (65%)
-        { peakProfit: 5.0, lockPercent: 0.70 },  // Se sale a 5%, blocca 3.5% (70%)
-        { peakProfit: 7.0, lockPercent: 0.75 },  // Se sale a 7%, blocca 5.25% (75%)
-        { peakProfit: 10.0, lockPercent: 0.80 }, // Se sale a 10%, blocca 8% (80%)
+        { peakProfit: 2.0, lockPercent: 0.30 },  // ✅ FIX: Se sale a 2%, blocca 0.6% (30% invece di 50%) - Meno aggressivo
+        { peakProfit: 3.0, lockPercent: 0.40 },  // ✅ FIX: Se sale a 3%, blocca 1.2% (40% invece di 60%) - Meno aggressivo
+        { peakProfit: 4.0, lockPercent: 0.45 },  // ✅ FIX: Se sale a 4%, blocca 1.8% (45% invece di 65%) - Meno aggressivo
+        { peakProfit: 5.0, lockPercent: 0.50 },  // ✅ FIX: Se sale a 5%, blocca 2.5% (50% invece di 70%) - Meno aggressivo
+        { peakProfit: 7.0, lockPercent: 0.60 },  // ✅ FIX: Se sale a 7%, blocca 4.2% (60% invece di 75%) - Meno aggressivo
+        { peakProfit: 10.0, lockPercent: 0.70 }, // ✅ FIX: Se sale a 10%, blocca 7% (70% invece di 80%) - Meno aggressivo
     ],
 
     // ✅ Soglie Dinamiche Basate su ATR
