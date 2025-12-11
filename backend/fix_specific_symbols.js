@@ -134,12 +134,30 @@ async function fixSpecificSymbols() {
 
         // 2. Verifica POLPOLYGON
         console.log('2️⃣ Verifica POLPOLYGON...');
-        const polKlines = await dbAll(
-            "SELECT COUNT(*) as count FROM klines WHERE symbol = $1 AND interval = $2",
-            ['polpolygon', '15m']
-        );
         
-        const polCount = parseInt(polKlines[0]?.count || 0);
+        // Verifica entrambe le varianti del nome
+        const polVariants = ['polpolygon', 'pol_polygon', 'polygon'];
+        let polSymbol = null;
+        let polCount = 0;
+        
+        for (const variant of polVariants) {
+            const polKlines = await dbAll(
+                "SELECT COUNT(*) as count FROM klines WHERE symbol = $1 AND interval = $2",
+                [variant, '15m']
+            );
+            const count = parseInt(polKlines[0]?.count || 0);
+            if (count > 0) {
+                polSymbol = variant;
+                polCount = count;
+                break;
+            }
+        }
+        
+        if (!polSymbol) {
+            polSymbol = 'polpolygon'; // Default
+        }
+        
+        console.log(`   Simbolo nel DB: ${polSymbol}`);
         console.log(`   Klines attuali: ${polCount}`);
         
         // ✅ FIX: POLPOLYGON = MATIC (Polygon)
@@ -147,15 +165,21 @@ async function fixSpecificSymbols() {
         
         if (polCount < 100) {
             console.log(`   ⚠️ Klines insufficienti, download con MATICUSDT...`);
+            console.log(`   📥 Usa: node download_klines.js ${polSymbol} MATICUSDT`);
+            console.log(`   💡 Oppure esegui manualmente il download...`);
+            
             try {
-                const inserted = await downloadKlines('polpolygon', 'MATICUSDT', 60);
+                // Prova download diretto
+                const inserted = await downloadKlines(polSymbol, 'MATICUSDT', 60);
                 if (inserted > 0) {
                     console.log(`   ✅ POLPOLYGON: ${inserted} nuove klines scaricate (usando MATICUSDT)`);
                 } else {
-                    console.log(`   ❌ POLPOLYGON: Download fallito`);
+                    console.log(`   ⚠️ POLPOLYGON: Nessuna nuova kline (potrebbero essere già presenti o errore)`);
+                    console.log(`   💡 Prova manualmente: node download_klines.js ${polSymbol} MATICUSDT`);
                 }
             } catch (error) {
                 console.log(`   ❌ POLPOLYGON: Errore download - ${error.message}`);
+                console.log(`   💡 Prova manualmente: node download_klines.js ${polSymbol} MATICUSDT`);
             }
         } else {
             console.log(`   ✅ POLPOLYGON: Klines sufficienti`);
