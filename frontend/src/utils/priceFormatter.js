@@ -148,3 +148,34 @@ export const formatPercent = (percent, decimals = 2) => {
     return `${sign}${percent.toFixed(decimals)}%`;
 };
 
+/**
+ * Formatta un P&L (Profit & Loss) in dollari con decimali intelligenti
+ * Mostra più decimali quando il valore è molto piccolo per evitare di mostrare $0.00
+ * @param {number} pnl - Il P&L da formattare
+ * @returns {string} P&L formattato con simbolo $ e decimali appropriati
+ */
+export const formatPnL = (pnl) => {
+    if (pnl == null || isNaN(pnl) || pnl === 0) {
+        return '$0.00';
+    }
+    
+    const absPnl = Math.abs(pnl);
+    const sign = pnl >= 0 ? '+' : '';
+    
+    // ✅ LOGICA INTELLIGENTE: Mostra più decimali per valori piccoli
+    // Se il valore è molto piccolo (< 0.01), mostra più decimali per evitare $0.00
+    if (absPnl < 0.0001) {
+        // Valori molto piccoli (< 0.0001): mostra 6 decimali (es. $0.000001)
+        return `${sign}$${absPnl.toFixed(6)}`;
+    } else if (absPnl < 0.01) {
+        // Valori piccoli (< 0.01): mostra 4 decimali (es. $0.0012)
+        return `${sign}$${absPnl.toFixed(4)}`;
+    } else if (absPnl < 1) {
+        // Valori < 1: mostra 3 decimali (es. $0.123)
+        return `${sign}$${absPnl.toFixed(3)}`;
+    } else {
+        // Valori >= 1: mostra 2 decimali (es. $12.34)
+        return `${sign}$${absPnl.toFixed(2)}`;
+    }
+};
+

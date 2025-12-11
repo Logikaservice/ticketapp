@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, TrendingUp, TrendingDown, AlertCircle, BarChart2, ChevronsDown, ExternalLink } from 'lucide-react';
-import { formatPrice, formatPriceWithSymbol, formatVolume, formatSymbol } from '../../utils/priceFormatter';
+import { formatPrice, formatPriceWithSymbol, formatVolume, formatSymbol, formatPnL } from '../../utils/priceFormatter';
 
 const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices = {}, onClosePosition, onUpdatePnL, availableSymbols = [], onSelectSymbol, apiBase }) => {
     const [isUpdating, setIsUpdating] = useState(false);
@@ -484,7 +484,7 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                         fontWeight: '600',
                                         color: pnl >= 0 ? '#10b981' : '#ef4444'
                                     }}>
-                                        {pnl >= 0 ? '+' : ''}${(pnl || 0).toFixed(2)}
+                                        {formatPnL(pnl)}
                                     </td>
                                     <td style={{
                                         padding: '10px 8px',
