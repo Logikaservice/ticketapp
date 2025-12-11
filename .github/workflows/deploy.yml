@@ -70,6 +70,13 @@ jobs:
             else
               echo "⚠️ Script rimozione simboli EUR non trovato (continua...)"
             fi
+            
+            echo "📥 Download klines per simboli EUR disponibili..."
+            if [ -f "download_eur_klines.js" ]; then
+              node download_eur_klines.js || echo "⚠️ Errore download klines EUR (continua...)"
+            else
+              echo "⚠️ Script download klines EUR non trovato (continua...)"
+            fi
             cd ..
             
             echo "📦 Installazione dipendenze backend..."
