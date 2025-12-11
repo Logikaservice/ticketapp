@@ -1760,7 +1760,8 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = 
     }
 
     // ✅ LOGICA INTELLIGENTE: Se limite totale raggiunto, confronta nuovo segnale con posizioni esistenti
-    if (openPositions.length >= maxTotalPositions) {
+    // ✅ FIX: Smart Replacement solo se ci sono almeno 5 posizioni (evita blocchi precoci)
+    if (openPositions.length >= maxTotalPositions && openPositions.length >= 5) {
         // Se non abbiamo il nuovo segnale, non possiamo confrontare - blocca
         if (!newSignal || !signalType) {
             return {
