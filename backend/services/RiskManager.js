@@ -335,8 +335,35 @@ class SeriousRiskManager {
             // Applica minimo assoluto (mai meno di $80 USDT)
             let maxPositionSize = Math.max(calculatedPositionSize, MIN_POSITION_SIZE);
 
-            // Limita al cash disponibile (non puoi investire più di quanto hai)
-            maxPositionSize = Math.min(maxPositionSize, cashBalance);
+            // ✅ FIX CRITICO: Se il cash disponibile è inferiore al minimo richiesto,
+            // blocca l'apertura di nuove posizioni (non aprire posizioni troppo piccole)
+            // Questo garantisce che ogni posizione sia almeno $80 USDT
+            if (cashBalance < MIN_POSITION_SIZE) {
+                console.log(`⚠️ [FIXED SIZING] Cash insufficiente per posizione minima: $${cashBalance.toFixed(2)} < $${MIN_POSITION_SIZE} USDT`);
+                // Non bloccare completamente, ma limitare a cash disponibile solo se è ragionevole (>$10)
+                // Se cash è troppo piccolo (<$10), blocca completamente
+                if (cashBalance < 10) {
+                    this.cachedResult = {
+                        canTrade: false,
+                        reason: `Insufficient cash for minimum position size ($${cashBalance.toFixed(2)} < $${MIN_POSITION_SIZE} USDT)`,
+                        maxPositionSize: 0,
+                        availableExposure: 0,
+                        dailyLoss: dailyLossPct,
+                        currentExposure: currentExposurePct,
+                        drawdown: drawdown,
+                        currentCapital: cashBalance,
+                        totalEquity: totalEquity
+                    };
+                    this.lastCheck = now;
+                    return this.cachedResult;
+                }
+                // Se cash è tra $10 e $80, permette posizione piccola ma avvisa
+                maxPositionSize = cashBalance;
+                console.log(`⚠️ [FIXED SIZING] Posizione limitata a cash disponibile: $${maxPositionSize.toFixed(2)} USDT (minimo richiesto: $${MIN_POSITION_SIZE} USDT)`);
+            } else {
+                // Limita al cash disponibile (non puoi investire più di quanto hai)
+                maxPositionSize = Math.min(maxPositionSize, cashBalance);
+            }
 
             console.log(`💰 [FIXED SIZING] Portfolio: $${totalEquity.toFixed(2)} USDT | Position: $${maxPositionSize.toFixed(2)} USDT (${FIXED_POSITION_PCT * 100}% o min $${MIN_POSITION_SIZE} USDT)`);
 

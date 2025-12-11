@@ -2539,12 +2539,24 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         // Usa default
                     }
 
-                    // ✅ FIXED POSITION SIZING: Usa dimensione dal RiskManager (minimo $80 USDT)
-                    // Il RiskManager già calcola la dimensione ottimale (8% portfolio o $80 USDT minimo)
-                    // Limitiamo solo all'exposure disponibile per non superare i limiti
+                    // ✅ FIXED POSITION SIZING: Usa trade_size_usdt se configurato, altrimenti RiskManager
+                    // Se l'utente ha configurato trade_size_usdt (es. $80-100), usa quello
+                    // Altrimenti usa il calcolo automatico del RiskManager (8% portfolio o $80 USDT minimo)
+                    const configuredTradeSize = params.trade_size_usdt || params.trade_size_eur || null;
+                    let targetPositionSize = riskCheck.maxPositionSize; // Default: calcolo automatico
+                    
+                    if (configuredTradeSize && configuredTradeSize >= 10) {
+                        // ✅ Usa trade_size configurato dall'utente (minimo $10 per sicurezza)
+                        targetPositionSize = Math.min(configuredTradeSize, riskCheck.availableExposure);
+                        console.log(`💰 [TRADE-SIZE] Usando trade_size configurato: $${configuredTradeSize.toFixed(2)} USDT (limitato a exposure disponibile: $${riskCheck.availableExposure.toFixed(2)} USDT)`);
+                    } else {
+                        console.log(`💰 [TRADE-SIZE] Usando calcolo automatico RiskManager: $${riskCheck.maxPositionSize.toFixed(2)} USDT`);
+                    }
+                    
                     const maxAvailableForNewPosition = Math.min(
-                        riskCheck.maxPositionSize,  // $80 USDT minimo (o più se portfolio cresce)
-                        riskCheck.availableExposure // Exposure disponibile (non superare limiti)
+                        targetPositionSize,  // trade_size configurato o calcolo automatico
+                        riskCheck.availableExposure, // Exposure disponibile (non superare limiti)
+                        riskCheck.maxPositionSize    // Non superare mai il limite del RiskManager
                     );
 
                     console.log(`📊 [POSITION-SIZE] Total Equity: $${totalEquity.toFixed(2)} USDT | Risk Manager Size: $${riskCheck.maxPositionSize.toFixed(2)} USDT | Available Exposure: $${riskCheck.availableExposure.toFixed(2)} USDT | Final: $${maxAvailableForNewPosition.toFixed(2)} USDT`);
@@ -2754,12 +2766,24 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                             // Usa default
                         }
 
-                        // ✅ FIXED POSITION SIZING: Usa dimensione dal RiskManager (minimo $80 USDT)
-                        // Il RiskManager già calcola la dimensione ottimale (8% portfolio o $80 USDT minimo)
-                        // Limitiamo solo all'exposure disponibile per non superare i limiti
+                        // ✅ FIXED POSITION SIZING: Usa trade_size_usdt se configurato, altrimenti RiskManager
+                        // Se l'utente ha configurato trade_size_usdt (es. $80-100), usa quello
+                        // Altrimenti usa il calcolo automatico del RiskManager (8% portfolio o $80 USDT minimo)
+                        const configuredTradeSize = params.trade_size_usdt || params.trade_size_eur || null;
+                        let targetPositionSize = riskCheck.maxPositionSize; // Default: calcolo automatico
+                        
+                        if (configuredTradeSize && configuredTradeSize >= 10) {
+                            // ✅ Usa trade_size configurato dall'utente (minimo $10 per sicurezza)
+                            targetPositionSize = Math.min(configuredTradeSize, riskCheck.availableExposure);
+                            console.log(`💰 [SHORT-TRADE-SIZE] Usando trade_size configurato: $${configuredTradeSize.toFixed(2)} USDT (limitato a exposure disponibile: $${riskCheck.availableExposure.toFixed(2)} USDT)`);
+                        } else {
+                            console.log(`💰 [SHORT-TRADE-SIZE] Usando calcolo automatico RiskManager: $${riskCheck.maxPositionSize.toFixed(2)} USDT`);
+                        }
+                        
                         const maxAvailableForNewPosition = Math.min(
-                            riskCheck.maxPositionSize,  // $80 USDT minimo (o più se portfolio cresce)
-                            riskCheck.availableExposure // Exposure disponibile (non superare limiti)
+                            targetPositionSize,  // trade_size configurato o calcolo automatico
+                            riskCheck.availableExposure, // Exposure disponibile (non superare limiti)
+                            riskCheck.maxPositionSize    // Non superare mai il limite del RiskManager
                         );
 
                         console.log(`📊 [SHORT-POSITION-SIZE] Total Equity: $${totalEquity.toFixed(2)} USDT | Risk Manager Size: $${riskCheck.maxPositionSize.toFixed(2)} USDT | Available Exposure: $${riskCheck.availableExposure.toFixed(2)} USDT | Final: $${maxAvailableForNewPosition.toFixed(2)} USDT`);
