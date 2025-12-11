@@ -64,7 +64,32 @@ const SYMBOL_MAP = {
     'render': 'RENDERUSDT',
     'polygon': 'MATICUSDT',
     'polpolygon': 'MATICUSDT', // ✅ FIX: POLPOLYGON = MATIC
-    'pol_polygon': 'MATICUSDT' // ✅ FIX: Variante con underscore
+    'pol_polygon': 'MATICUSDT', // ✅ FIX: Variante con underscore
+    // ✅ Simboli EUR disponibili su Binance
+    'bitcoin_eur': 'BTCEUR',
+    'ethereum_eur': 'ETHEUR',
+    'cardano_eur': 'ADAEUR',
+    'polkadot_eur': 'DOTEUR',
+    'chainlink_eur': 'LINKEUR',
+    'litecoin_eur': 'LTCEUR',
+    'ripple_eur': 'XRPEUR',
+    'binance_coin_eur': 'BNBEUR',
+    'solana_eur': 'SOLEUR',
+    'avax_eur': 'AVAXEUR',
+    'avalanche_eur': 'AVAXEUR',
+    'matic_eur': 'MATICEUR',
+    'dogecoin_eur': 'DOGEEUR',
+    'shiba_eur': 'SHIBEUR',
+    'tron_eur': 'TRXEUR',
+    'stellar_eur': 'XLMEUR',
+    'cosmos_eur': 'ATOMEUR',
+    'near_eur': 'NEAREUR',
+    'sui_eur': 'SUIEUR',
+    'arbitrum_eur': 'ARBEUR',
+    'optimism_eur': 'OPEUR',
+    'pepe_eur': 'PEPEEUR',
+    'gala_eur': 'GALAEUR',
+    'uniswap_eur': 'UNIEUR'
 };
 
 function httpsGet(url) {
@@ -231,11 +256,19 @@ async function fixStatusIssues() {
                 const symbol = row.symbol;
                 const currentCount = parseInt(row.count);
                 
-                // ✅ FIX: Salta simboli EUR (Binance non li supporta)
-                if (symbol.toLowerCase().includes('_eur') || symbol.toLowerCase().endsWith('eur')) {
-                    console.log(`   ⏭️ ${symbol}: Saltato (simboli EUR non supportati da Binance)`);
-                    console.log('');
-                    continue;
+                // ✅ FIX: Verifica se il simbolo EUR è disponibile su Binance
+                const symbolLower = symbol.toLowerCase();
+                const isEurSymbol = symbolLower.includes('_eur') || symbolLower.endsWith('eur');
+                
+                if (isEurSymbol) {
+                    // Verifica se è nella mappa (disponibile su Binance)
+                    const binanceEurSymbol = SYMBOL_MAP[symbolLower];
+                    if (!binanceEurSymbol) {
+                        console.log(`   ⏭️ ${symbol}: Saltato (simbolo EUR non disponibile su Binance)`);
+                        console.log('');
+                        continue;
+                    }
+                    // Se è disponibile, continua con il download usando il simbolo EUR
                 }
                 
                 // Trova simbolo Binance corrispondente
