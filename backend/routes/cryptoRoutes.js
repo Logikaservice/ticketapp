@@ -2202,17 +2202,47 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 const cashBalance = parseFloat(portfolio.balance_usd || 0);
                 const initialBalance = 1000; // Bilancio iniziale
                 
-                // ✅ FIX CRITICO: Calcola Total Equity (cash + valore posizioni aperte)
-                // Non usare solo balance_usd, ma considera anche il valore delle posizioni
+                // ✅ FIX CRITICO: Calcola Total Equity usando prezzi REALI, non quelli nel database
+                // Recupera il prezzo corrente per ogni simbolo per calcolare il valore reale delle posizioni
                 let currentExposureValue = 0;
+                let totalPnLFromPositions = 0;
+                
                 for (const pos of allOpenPositions) {
                     const vol = parseFloat(pos.volume) || 0;
                     const volClosed = parseFloat(pos.volume_closed) || 0;
                     const remaining = vol - volClosed;
                     const entry = parseFloat(pos.entry_price) || 0;
-                    const current = parseFloat(pos.current_price) || entry;
-                    currentExposureValue += remaining * current;
+                    
+                    // ✅ FIX: Recupera prezzo REALE invece di usare current_price dal database
+                    let currentPrice = parseFloat(pos.current_price) || entry;
+                    try {
+                        const realPrice = await getSymbolPrice(pos.symbol);
+                        if (realPrice && realPrice > 0) {
+                            currentPrice = realPrice;
+                        }
+                    } catch (priceErr) {
+                        // Se errore, usa current_price dal database o entry_price
+                        console.warn(`⚠️ [PORTFOLIO-CHECK] Errore recupero prezzo per ${pos.symbol}:`, priceErr.message);
+                    }
+                    
+                    // Calcola valore attuale della posizione
+                    const currentValue = remaining * currentPrice;
+                    currentExposureValue += currentValue;
+                    
+                    // Calcola P&L per questa posizione
+                    if (pos.type === 'buy') {
+                        // LONG: P&L = (currentPrice - entryPrice) * volume
+                        const pnl = (currentPrice - entry) * remaining;
+                        totalPnLFromPositions += pnl;
+                    } else {
+                        // SHORT: P&L = (entryPrice - currentPrice) * volume
+                        const pnl = (entry - currentPrice) * remaining;
+                        totalPnLFromPositions += pnl;
+                    }
                 }
+                
+                // ✅ Total Equity = Cash + Valore Investito + P&L Realizzato (già incluso nel valore delle posizioni)
+                // In realtà: Total Equity = Cash + Valore Attuale delle Posizioni
                 const totalEquity = cashBalance + currentExposureValue;
                 
                 // ✅ FIX CRITICO: Calcola drawdown rispetto al picco del Total Equity, non rispetto a 1000
@@ -2226,7 +2256,23 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 // Calcola P&L medio posizioni aperte
                 let avgOpenPnL = 0;
                 if (allOpenPositions.length > 0) {
-                    const totalOpenPnL = allOpenPositions.reduce((sum, p) => sum + (parseFloat(p.profit_loss_pct) || 0), 0);
+                    const totalOpenPnL = allOpenPositions.reduce((sum, p) => {
+                        // ✅ Usa profit_loss_pct se disponibile, altrimenti calcola
+                        const pnlPct = parseFloat(p.profit_loss_pct);
+                        if (!isNaN(pnlPct)) {
+                            return sum + pnlPct;
+                        }
+                        // Fallback: calcola P&L% dalla posizione
+                        const entryP = parseFloat(p.entry_price) || 0;
+                        const currentP = parseFloat(p.current_price) || entryP;
+                        if (entryP > 0) {
+                            const pct = p.type === 'buy' 
+                                ? ((currentP - entryP) / entryP) * 100 
+                                : ((entryP - currentP) / entryP) * 100;
+                            return sum + pct;
+                        }
+                        return sum;
+                    }, 0);
                     avgOpenPnL = totalOpenPnL / allOpenPositions.length;
                 }
 
@@ -2244,7 +2290,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     console.log(`✅ [PORTFOLIO-CHECK] Portfolio in profitto: Total Equity $${totalEquity.toFixed(2)} | Disponibilità (80%): $${availableExposure.toFixed(2)}`);
                 }
 
-                console.log(`📊 [PORTFOLIO-CHECK] Cash: $${cashBalance.toFixed(2)} | Equity: $${totalEquity.toFixed(2)} | P&L Portfolio: ${portfolioPnLPct.toFixed(2)}% | P&L Medio Aperte: ${avgOpenPnL.toFixed(2)}% | In Profitto: ${isPortfolioInProfit} | Block: ${portfolioDrawdownBlock}`);
+                console.log(`📊 [PORTFOLIO-CHECK] Cash: $${cashBalance.toFixed(2)} | Exposure Value: $${currentExposureValue.toFixed(2)} | Total Equity: $${totalEquity.toFixed(2)} | P&L Portfolio: ${portfolioPnLPct.toFixed(2)}% | P&L Medio Aperte: ${avgOpenPnL.toFixed(2)}% | In Profitto: ${isPortfolioInProfit} | Block: ${portfolioDrawdownBlock}`);
             }
         } catch (e) {
             console.error('⚠️ Error checking portfolio drawdown:', e.message);
