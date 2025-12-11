@@ -59,7 +59,9 @@ const SYMBOL_MAP = {
     'etc': 'ETCUSDT',
     'flow': 'FLOWUSDT',
     'render': 'RENDERUSDT',
-    'polygon': 'MATICUSDT'
+    'polygon': 'MATICUSDT',
+    'polpolygon': 'MATICUSDT', // ✅ FIX: POLPOLYGON = MATIC
+    'pol_polygon': 'MATICUSDT' // ✅ FIX: Variante con underscore
 };
 
 function httpsGet(url) {
