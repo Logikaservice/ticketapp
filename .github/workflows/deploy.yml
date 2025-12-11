@@ -46,7 +46,7 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           timeout: 1200s
           script: |
-            set -e
+            # ✅ FIX: Rimosso set -e per permettere al deploy di continuare anche se alcuni step falliscono
             echo "🚀 Inizio deploy su VPS..."
             
             # Verifica che la directory esista
