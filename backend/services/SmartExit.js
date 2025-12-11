@@ -815,21 +815,36 @@ async function shouldClosePosition(position, priceHistory) {
         }
 
         // ✅ PRIORITÀ 1: Trailing Profit Protection - CRITICO
-        // ✅ FIX: Applica solo dopo almeno 5 minuti dall'apertura per evitare chiusure premature su volatilità iniziale
-        const MIN_TIME_FOR_TRAILING_PROFIT_MS = 5 * 60 * 1000; // 5 minuti
+        // ✅ FIX: Applica solo dopo almeno 10 minuti dall'apertura per dare tempo al profitto di crescere
+        const MIN_TIME_FOR_TRAILING_PROFIT_MS = 10 * 60 * 1000; // ✅ Aumentato da 5 a 10 minuti
         if (timeInPosition >= MIN_TIME_FOR_TRAILING_PROFIT_MS) {
             const peakProfit = calculatePeakProfit(position, priceHistory);
             const trailingProfit = await calculateTrailingProfitProtection(currentPnLPct, peakProfit);
 
             if (trailingProfit && trailingProfit.shouldLock) {
-                return {
-                    shouldClose: true,
-                    reason: `Trailing Profit Protection: Profitto sceso da ${peakProfit.toFixed(2)}% a ${currentPnLPct.toFixed(2)}% (sotto soglia bloccata ${trailingProfit.lockedProfit.toFixed(2)}%) - Chiusura per bloccare ${(trailingProfit.lockPercent * 100).toFixed(0)}% del profitto massimo`,
-                    currentPnL: currentPnLPct,
-                    peakProfit: peakProfit,
-                    lockedProfit: trailingProfit.lockedProfit,
-                    decisionFactor: 'trailing_profit_protection'
-                };
+                // ✅ FIX CRITICO: Chiudi solo se profitto è sceso SIGNIFICATIVAMENTE sotto la soglia bloccata
+                // Non chiudere se è solo leggermente sotto (dà margine per recupero)
+                const profitDropFromPeak = peakProfit - currentPnLPct;
+                const profitDropFromLocked = currentPnLPct - trailingProfit.lockedProfit;
+                
+                // Chiudi solo se:
+                // 1. Profitto è sceso >0.5% dal picco E
+                // 2. Profitto è <80% della soglia bloccata (dà margine per recupero)
+                const shouldCloseTrailing = profitDropFromPeak > 0.5 && currentPnLPct < (trailingProfit.lockedProfit * 0.8);
+                
+                if (shouldCloseTrailing) {
+                    return {
+                        shouldClose: true,
+                        reason: `Trailing Profit Protection: Profitto sceso da ${peakProfit.toFixed(2)}% a ${currentPnLPct.toFixed(2)}% (sotto soglia bloccata ${trailingProfit.lockedProfit.toFixed(2)}%) - Chiusura per bloccare ${(trailingProfit.lockPercent * 100).toFixed(0)}% del profitto massimo`,
+                        currentPnL: currentPnLPct,
+                        peakProfit: peakProfit,
+                        lockedProfit: trailingProfit.lockedProfit,
+                        decisionFactor: 'trailing_profit_protection'
+                    };
+                } else {
+                    // Profitto è sceso ma non abbastanza - aspetta recupero
+                    console.log(`⏳ [TRAILING-PROFIT] ${position.symbol}: Profitto sceso da ${peakProfit.toFixed(2)}% a ${currentPnLPct.toFixed(2)}% ma ancora sopra ${(trailingProfit.lockedProfit * 0.8).toFixed(2)}% - Aspettando recupero`);
+                }
             }
         }
 
