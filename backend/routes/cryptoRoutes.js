@@ -1150,8 +1150,8 @@ const SYMBOL_TO_PAIR = {
     'cardano_usdt': 'ADAUSDT',
     'polkadot': 'DOTUSDT',       // Era DOTEUR
     'polkadot_usdt': 'DOTUSDT',
-    'chainlink': 'LINKUSDT',     // Era LINKEUR
-    'chainlink_usdt': 'LINKUSDT',
+    'chainlink': 'LINKEUR',       // ✅ FIX: chainlink = LINK/EUR
+    'chainlink_usdt': 'LINKUSDT', // chainlink_usdt = LINK/USDT
     'litecoin': 'LTCUSDT',       // Era LTCEUR
     'litecoin_usdt': 'LTCUSDT',
     'ripple': 'XRPUSDT',
