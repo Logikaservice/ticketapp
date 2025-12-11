@@ -59,7 +59,8 @@ async function verifySymbol(symbol) {
                 info.minConfirmationsLong = botParams.min_confirmations_long;
                 info.minConfirmationsShort = botParams.min_confirmations_short;
             } else {
-                issues.push('⚠️ Nessun parametro personalizzato (usa default)');
+                // Non è un problema, usa default - non aggiungere agli issues
+                // issues.push('⚠️ Nessun parametro personalizzato (usa default)');
             }
         } catch (error) {
             if (error.message.includes('does not exist')) {
@@ -108,7 +109,8 @@ async function verifySymbol(symbol) {
                     issues.push(`⚠️ Volume 24h basso: $${info.volume24h.toLocaleString()} (minimo $500,000)`);
                 }
             } else {
-                issues.push('⚠️ Nessun dato market_data disponibile');
+                // Non è un problema critico, solo un avviso
+                // issues.push('⚠️ Nessun dato market_data disponibile');
             }
         } catch (error) {
             if (error.message.includes('does not exist')) {
