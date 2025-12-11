@@ -398,13 +398,19 @@ async function runBotCycleForSymbol(symbol, botSettings) {
         const adjustedStrength = Math.max(0, rawStrength + mtfBonus);
 
         // 9. Check minimum requirements
+        // ✅ FIX: Leggi requisiti minimi da database (bot_parameters) invece di hardcoded
+        const botParams = await dbGet("SELECT * FROM bot_parameters WHERE symbol = $1", [symbol]).catch(() => null);
         const minStrength = signal.direction === 'LONG'
-            ? BOT_CONFIG.MIN_STRENGTH_LONG
-            : BOT_CONFIG.MIN_STRENGTH_SHORT;
-
+            ? (botParams?.min_signal_strength || BOT_CONFIG.MIN_STRENGTH_LONG)
+            : (botParams?.min_signal_strength || BOT_CONFIG.MIN_STRENGTH_SHORT);
+        
         const minConfirmations = signal.direction === 'LONG'
-            ? BOT_CONFIG.MIN_CONFIRMATIONS_LONG
-            : BOT_CONFIG.MIN_CONFIRMATIONS_SHORT;
+            ? (botParams?.min_confirmations_long || BOT_CONFIG.MIN_CONFIRMATIONS_LONG)
+            : (botParams?.min_confirmations_short || BOT_CONFIG.MIN_CONFIRMATIONS_SHORT);
+
+        console.log(`🔍 [BOT] ${symbol} - ${signal.direction} Requirements Check:`);
+        console.log(`   Strength: ${adjustedStrength}/${minStrength} (raw: ${rawStrength}, MTF: ${mtfBonus})`);
+        console.log(`   Confirmations: ${confirmations}/${minConfirmations}`);
 
         if (adjustedStrength < minStrength) {
             console.log(`⏸️ [BOT] ${symbol} - ${signal.direction} strength too low: ${adjustedStrength}/${minStrength}`);
@@ -418,6 +424,7 @@ async function runBotCycleForSymbol(symbol, botSettings) {
 
         // 10. Check volume
         const volume24h = await get24hVolume(symbol);
+        console.log(`🔍 [BOT] ${symbol} - Volume 24h: $${volume24h.toLocaleString()}/$${BOT_CONFIG.MIN_VOLUME_24H.toLocaleString()}`);
         if (volume24h < BOT_CONFIG.MIN_VOLUME_24H) {
             console.log(`⏸️ [BOT] ${symbol} - Volume too low: $${volume24h.toLocaleString()}/$${BOT_CONFIG.MIN_VOLUME_24H.toLocaleString()}`);
             return;
@@ -427,19 +434,24 @@ async function runBotCycleForSymbol(symbol, botSettings) {
         const openPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
 
         // 12. Check Hybrid Strategy
+        console.log(`🔍 [BOT] ${symbol} - Hybrid Strategy Check: ${openPositions.length} open positions`);
         const hybridCheck = await canOpenPositionHybridStrategy(symbol, openPositions, signal, signal.direction);
         if (!hybridCheck.allowed) {
             console.log(`⏸️ [BOT] ${symbol} - Hybrid Strategy blocked: ${hybridCheck.reason}`);
             return;
         }
+        console.log(`✅ [BOT] ${symbol} - Hybrid Strategy OK`);
 
         // 13. Check Risk Manager
         const tradeSize = BOT_CONFIG.DEFAULT_TRADE_SIZE_USDT;
+        console.log(`🔍 [BOT] ${symbol} - Risk Manager Check: Trade size $${tradeSize}`);
         const riskCheck = await riskManager.canOpenPosition(tradeSize);
         if (!riskCheck.allowed) {
             console.log(`⏸️ [BOT] ${symbol} - Risk Manager blocked: ${riskCheck.reason}`);
+            console.log(`   Details: Exposure=${riskCheck.currentExposure}%, Daily Loss=${riskCheck.dailyLoss}%, Available=$${riskCheck.availableExposure || 0}`);
             return;
         }
+        console.log(`✅ [BOT] ${symbol} - Risk Manager OK (Available: $${riskCheck.availableExposure || 0})`);
 
         // 14. Calculate position size
         const volume = tradeSize / currentPrice;
