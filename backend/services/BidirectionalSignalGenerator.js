@@ -769,14 +769,23 @@ class BidirectionalSignalGenerator {
                                        (priceChange5 < -0.5) ||
                                        (priceChange10 < -1.0 && priceChange5 < -0.2);
         
-        // Se prezzo sta scendendo attivamente, riduci drasticamente strength LONG
+        // Se prezzo sta scendendo attivamente, blocca completamente LONG
         if (isPriceActivelyFalling) {
-            // Blocca completamente LONG se prezzo scende fortemente
+            const reason = `Prezzo in calo attivo (${priceChange.toFixed(2)}%, ${priceChange5.toFixed(2)}%, ${priceChange10.toFixed(2)}%) - in attesa di inversione`;
+            if (symbol) {
+                console.log(`🚫 [${symbol}] LONG bloccato: ${reason}`);
+            }
+            // Blocca completamente LONG se prezzo scende
             longSignal.strength = 0;
-            longSignal.reasons.push(`🚫 BLOCKED: Prezzo in calo attivo (${priceChange.toFixed(2)}%, ${priceChange5.toFixed(2)}%, ${priceChange10.toFixed(2)}%) - in attesa di inversione`);
-            // Non aggiungere conferme se prezzo sta scendendo
+            longSignal.confirmations = 0;
+            longSignal.reasons = [`🚫 BLOCKED: ${reason}`];
+            longSignal.strengthContributions = [];
+            // NON fare return - continua per permettere SHORT di essere generato
+            // Ma salta tutte le conferme LONG (vedi controlli sotto)
         }
 
+        // ✅ SKIP tutte le conferme LONG se prezzo sta scendendo
+        if (!isPriceActivelyFalling) {
         // CONFERMA 1: RSI oversold + uptrend (usa soglia configurata)
         if (rsi !== null && rsi < rsiOversold && trend === 'bullish') {
             const points = 25;
@@ -935,6 +944,7 @@ class BidirectionalSignalGenerator {
             longSignal.reasons.push(`Volume crescente in trend rialzista (${volumeTrend.toFixed(2)}x)`);
             longSignal.strengthContributions.push({ indicator: 'Volume crescente', points, reason: `Volume crescente in trend rialzista (${volumeTrend.toFixed(2)}x)` });
         }
+        } // ✅ FINE BLOCCO: Salta tutte le conferme LONG se prezzo sta scendendo
 
         // 4. SHORT SIGNAL (vendi) - SISTEMA MULTI-CONFERMA (PIÙ RIGOROSO)
         const shortSignal = {
