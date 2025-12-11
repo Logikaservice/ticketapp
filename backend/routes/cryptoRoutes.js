@@ -2147,6 +2147,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     // ✅ CONFIGURABILE: Usa min_atr_pct come base, con logica speciale per segnali forti
                     const MIN_ATR_FOR_STRONG_SIGNAL = params.min_atr_pct || 0.2; // Per segnali 90-100%
                     const MIN_ATR_FOR_NORMAL_SIGNAL = Math.max((params.min_atr_pct || 0.2), 0.3); // Per segnali 70-89% (almeno 0.3%)
+                    const MAX_ATR_PCT = params.max_atr_pct || 5.0; // ✅ FIX CRITICO: Definisci MAX_ATR_PCT qui
                 const STRONG_SIGNAL_THRESHOLD = 90;
 
                 const isStrongSignal = signal.strength >= STRONG_SIGNAL_THRESHOLD;
