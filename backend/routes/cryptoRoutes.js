@@ -2354,7 +2354,8 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             if (adjustedStrength < MIN_SIGNAL_STRENGTH) {
                 console.log(`🛑 [MTF] LONG BLOCKED: Adjusted strength ${adjustedStrength} < ${MIN_SIGNAL_STRENGTH} (1h=${trend1h}, 4h=${trend4h})`);
                 console.log(`   → Waiting for higher timeframes to align or signal to strengthen`);
-                // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti e dati
+                // ✅ FIX CRITICO: Blocca apertura se adjustedStrength < MIN_SIGNAL_STRENGTH
+                return; // Non aprire posizione se strength insufficiente dopo MTF
             } else {
 
                 console.log(`✅ [MTF] LONG APPROVED: Adjusted strength ${adjustedStrength} >= ${MIN_SIGNAL_STRENGTH}`);
@@ -2566,7 +2567,8 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     console.log(`🛑 [MTF] SHORT BLOCKED: Adjusted strength ${adjustedStrength} < ${MIN_SIGNAL_STRENGTH} (1h=${trend1h}, 4h=${trend4h})`);
                     console.log(`   → Waiting for higher timeframes to align or signal to strengthen`);
                     console.log(`   📊 [SHORT-DEBUG] Original strength: ${signal.strength} | MTF bonus: ${mtfBonus} | Adjusted: ${adjustedStrength} | Required: ${MIN_SIGNAL_STRENGTH}`);
-                    // ✅ FIX: NON fare return - continua il ciclo per aggiornare posizioni esistenti e dati
+                    // ✅ FIX CRITICO: Blocca apertura se adjustedStrength < MIN_SIGNAL_STRENGTH
+                    return; // Non aprire posizione se strength insufficiente dopo MTF
                 } else {
 
                     console.log(`✅ [MTF] SHORT APPROVED: Adjusted strength ${adjustedStrength} >= ${MIN_SIGNAL_STRENGTH}`);
