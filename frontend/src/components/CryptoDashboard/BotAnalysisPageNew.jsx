@@ -592,56 +592,68 @@ const BotAnalysisPageNew = () => {
                         </div>
                     )}
 
-                    {/* Blocchi Attivi */}
-                    {data.blockers && (data.blockers.long.length > 0 || data.blockers.short.length > 0) && (
-                        <div className="blockers-section" key={`blockers-${updateKey}`} style={{ marginTop: '20px' }}>
-                            <h3 style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                🚫 Blocchi Attivi - Perché il bot non sta aprendo?
-                            </h3>
+                    {/* Blocchi Attivi - Mostra solo i blocchi del segnale attivo */}
+                    {(() => {
+                        // Determina quale segnale è attivo
+                        const activeSignalDirection = signal?.direction;
+                        const shouldShowLongBlockers = activeSignalDirection === 'LONG' && data.blockers?.long?.length > 0;
+                        const shouldShowShortBlockers = activeSignalDirection === 'SHORT' && data.blockers?.short?.length > 0;
+                        
+                        // Mostra la sezione solo se c'è un segnale attivo con blocchi
+                        if (!shouldShowLongBlockers && !shouldShowShortBlockers) {
+                            return null;
+                        }
+                        
+                        return (
+                            <div className="blockers-section" key={`blockers-${updateKey}`} style={{ marginTop: '20px' }}>
+                                <h3 style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    🚫 Blocchi Attivi - Perché il bot non sta aprendo?
+                                </h3>
 
-                            {data.blockers.long.length > 0 && (
-                                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid #ef4444', borderRadius: '12px', padding: '20px', marginBottom: '15px' }}>
-                                    <h4 style={{ color: '#10b981', marginBottom: '15px' }}>📈 LONG Bloccato</h4>
-                                    {data.blockers.long.map((blocker, idx) => (
-                                        <div key={idx} style={{
-                                            background: blocker.severity === 'high' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(251, 191, 36, 0.2)',
-                                            border: `1px solid ${blocker.severity === 'high' ? '#ef4444' : '#fbbf24'}`,
-                                            borderRadius: '8px',
-                                            padding: '12px',
-                                            marginBottom: '10px',
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center'
-                                        }}>
-                                            <span style={{ fontWeight: 'bold', color: '#fff' }}>⚠️ {blocker.type}</span>
-                                            <span style={{ color: '#d1d5db' }}>{blocker.reason}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                {shouldShowLongBlockers && (
+                                    <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid #ef4444', borderRadius: '12px', padding: '20px', marginBottom: '15px' }}>
+                                        <h4 style={{ color: '#10b981', marginBottom: '15px' }}>📈 LONG Bloccato</h4>
+                                        {data.blockers.long.map((blocker, idx) => (
+                                            <div key={idx} style={{
+                                                background: blocker.severity === 'high' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(251, 191, 36, 0.2)',
+                                                border: `1px solid ${blocker.severity === 'high' ? '#ef4444' : '#fbbf24'}`,
+                                                borderRadius: '8px',
+                                                padding: '12px',
+                                                marginBottom: '10px',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center'
+                                            }}>
+                                                <span style={{ fontWeight: 'bold', color: '#fff' }}>⚠️ {blocker.type}</span>
+                                                <span style={{ color: '#d1d5db' }}>{blocker.reason}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
 
-                            {data.blockers.short.length > 0 && (
-                                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid #ef4444', borderRadius: '12px', padding: '20px' }}>
-                                    <h4 style={{ color: '#ef4444', marginBottom: '15px' }}>📉 SHORT Bloccato</h4>
-                                    {data.blockers.short.map((blocker, idx) => (
-                                        <div key={idx} style={{
-                                            background: blocker.severity === 'high' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(251, 191, 36, 0.2)',
-                                            border: `1px solid ${blocker.severity === 'high' ? '#ef4444' : '#fbbf24'}`,
-                                            borderRadius: '8px',
-                                            padding: '12px',
-                                            marginBottom: '10px',
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center'
-                                        }}>
-                                            <span style={{ fontWeight: 'bold', color: '#fff' }}>⚠️ {blocker.type}</span>
-                                            <span style={{ color: '#d1d5db' }}>{blocker.reason}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                {shouldShowShortBlockers && (
+                                    <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid #ef4444', borderRadius: '12px', padding: '20px' }}>
+                                        <h4 style={{ color: '#ef4444', marginBottom: '15px' }}>📉 SHORT Bloccato</h4>
+                                        {data.blockers.short.map((blocker, idx) => (
+                                            <div key={idx} style={{
+                                                background: blocker.severity === 'high' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(251, 191, 36, 0.2)',
+                                                border: `1px solid ${blocker.severity === 'high' ? '#ef4444' : '#fbbf24'}`,
+                                                borderRadius: '8px',
+                                                padding: '12px',
+                                                marginBottom: '10px',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center'
+                                            }}>
+                                                <span style={{ fontWeight: 'bold', color: '#fff' }}>⚠️ {blocker.type}</span>
+                                                <span style={{ color: '#d1d5db' }}>{blocker.reason}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
         </div>
