@@ -567,7 +567,7 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
                                     <td style={{ padding: '10px 8px', textAlign: 'center' }}>
                                         <button
                                             onClick={() => {
-                                                onClosePosition(pos.ticket_id);
+                                                onClosePosition(pos.ticket_id, pos.symbol);
                                             }}
                                             style={{
                                                 background: '#ef4444',

@@ -259,15 +259,24 @@ const CryptoDashboard = () => {
         }
     };
 
-    const handleClosePosition = async (ticketId) => {
+    const handleClosePosition = async (ticketId, positionSymbol = null) => {
         try {
+            // ✅ FIX: Usa il simbolo della posizione invece di sempre 'bitcoin'
+            const symbolToUse = positionSymbol || currentSymbol;
+            
+            // Trova il prezzo corretto per questo simbolo
+            let priceToUse = currentPrice;
+            if (positionSymbol && allSymbolPrices[positionSymbol]) {
+                priceToUse = allSymbolPrices[positionSymbol];
+            }
+            
             // Pass current price to ensure correct closing price
             const res = await fetch(`${apiBase}/api/crypto/positions/close/${ticketId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    close_price: currentPrice,
-                    symbol: 'bitcoin'
+                    close_price: priceToUse,
+                    symbol: symbolToUse
                 })
             });
             if (res.ok) {
