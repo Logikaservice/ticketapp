@@ -121,13 +121,6 @@ async function downloadKlines(dbSymbol, binanceSymbol = null, days = 30) {
         console.log(`   Simbolo DB: ${dbSymbol}`);
         console.log(`   Intervallo: ${interval}`);
         console.log(`   Periodo: ${days} giorni\n`);
-        
-        // Verifica formato simbolo Binance prima di procedere
-        if (!/^[A-Z0-9]{1,20}$/.test(symbol)) {
-            console.log(`❌ Formato simbolo Binance non valido: ${symbol}`);
-            console.log(`   💡 Il simbolo deve essere solo lettere maiuscole e numeri (es. AVAXUSDT, non avax_usdt)`);
-            return { success: false, error: 'Formato simbolo non valido' };
-        }
 
         // Scarica a blocchi
         let blockCount = 0;
@@ -145,9 +138,14 @@ async function downloadKlines(dbSymbol, binanceSymbol = null, days = 30) {
                 }
 
                 // Verifica se è un errore di Binance
-                if (klines.code) {
-                    console.error(`   ❌ Errore Binance: ${klines.msg || 'Unknown error'}`);
-                    break;
+                if (klines.code || (typeof klines === 'object' && klines.msg)) {
+                    const errorMsg = klines.msg || klines.message || 'Unknown error';
+                    console.error(`   ❌ Errore Binance: ${errorMsg}`);
+                    if (errorMsg.includes('Illegal characters') || errorMsg.includes('Invalid symbol')) {
+                        console.error(`   💡 Il simbolo "${symbol}" non è valido su Binance`);
+                        console.error(`   💡 Verifica che il simbolo sia corretto (es. AVAXUSDT invece di avax_usdt)`);
+                    }
+                    return { success: false, error: errorMsg };
                 }
 
                 allKlines.push(...klines);
