@@ -12,8 +12,13 @@
  * - LONG: Strength >= 60, Confirmations >= 3
  * - SHORT: Strength >= 70, Confirmations >= 4
  * 
+ * API CONFIGURATION:
+ * - Binance API base URL: https://api.binance.com/api/v3
+ * - Request timeout: 10 seconds
+ * - Max retries: 3 attempts with 1 second delay
+ * 
  * @author AI Assistant
- * @version 2.0 - Professional Trading Implementation
+ * @version 2.1 - Enhanced with timeout handling and retry logic
  */
 
 const { dbAll, dbGet, dbRun } = require('../db/crypto_db');
