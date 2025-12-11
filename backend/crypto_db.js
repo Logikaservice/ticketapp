@@ -288,6 +288,38 @@ async function initDb() {
             ON CONFLICT (id) DO NOTHING
         `);
 
+        // Bot Parameters (per configurazione personalizzata per simbolo)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS bot_parameters (
+                id SERIAL PRIMARY KEY,
+                symbol TEXT NOT NULL UNIQUE,
+                min_signal_strength INTEGER DEFAULT 60,
+                min_confirmations_long INTEGER DEFAULT 3,
+                min_confirmations_short INTEGER DEFAULT 4,
+                market_scanner_min_strength INTEGER DEFAULT 30,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Market Data (per volume 24h e dati di mercato)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS market_data (
+                id SERIAL PRIMARY KEY,
+                symbol TEXT NOT NULL,
+                volume_24h DOUBLE PRECISION DEFAULT 0,
+                price_usd DOUBLE PRECISION DEFAULT 0,
+                price_change_24h DOUBLE PRECISION DEFAULT 0,
+                timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(symbol, timestamp)
+            )
+        `);
+
+        // Indici market_data
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_market_data_symbol_timestamp ON market_data(symbol, timestamp DESC)
+        `);
+
         console.log('✅ Tabelle crypto PostgreSQL inizializzate correttamente');
     } catch (err) {
         console.error('❌ Errore inizializzazione database:', err.message);

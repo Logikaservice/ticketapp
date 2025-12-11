@@ -83,19 +83,27 @@ async function checkBotStatus(symbol) {
         }
         
         // 5. Verifica volume 24h
-        const volumeData = await dbGet(
-            "SELECT volume_24h FROM market_data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1",
-            [symbol]
-        ).catch(() => null);
-        
-        if (volumeData) {
-            const volume24h = volumeData.volume_24h || 0;
-            console.log(`\n💰 Volume 24h: $${volume24h.toLocaleString()}`);
-            if (volume24h < 500000) {
-                console.log(`   ⚠️ Volume insufficiente (minimo $500,000 richiesto)`);
+        try {
+            const volumeData = await dbGet(
+                "SELECT volume_24h FROM market_data WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1",
+                [symbol]
+            );
+            
+            if (volumeData) {
+                const volume24h = volumeData.volume_24h || 0;
+                console.log(`\n💰 Volume 24h: $${volume24h.toLocaleString()}`);
+                if (volume24h < 500000) {
+                    console.log(`   ⚠️ Volume insufficiente (minimo $500,000 richiesto)`);
+                }
+            } else {
+                console.log(`\n⚠️ Volume 24h non disponibile (tabella market_data vuota o simbolo non trovato)`);
             }
-        } else {
-            console.log(`\n⚠️ Volume 24h non disponibile`);
+        } catch (error) {
+            if (error.message.includes('does not exist')) {
+                console.log(`\n❌ Tabella market_data non esiste - Esegui inizializzazione database`);
+            } else {
+                console.log(`\n⚠️ Errore recupero volume 24h: ${error.message}`);
+            }
         }
         
         // 6. Conclusione

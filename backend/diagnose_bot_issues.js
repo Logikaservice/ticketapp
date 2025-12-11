@@ -17,7 +17,32 @@ const riskManager = require('./services/RiskManager');
 async function getSymbolPrice(symbol) {
     const https = require('https');
     return new Promise((resolve, reject) => {
-        const pair = symbol.includes('_usdt') ? symbol.replace('_', '').toUpperCase() : symbol.toUpperCase() + 'USDT';
+        // ✅ FIX: Normalizza simbolo per Binance
+        let pair = symbol.toLowerCase();
+        
+        // Rimuovi _usdt e aggiungi USDT
+        if (pair.includes('_usdt')) {
+            pair = pair.replace('_usdt', '') + 'usdt';
+        } else if (!pair.endsWith('usdt') && !pair.endsWith('eur')) {
+            pair = pair + 'usdt';
+        }
+        
+        // Converti in uppercase per Binance
+        pair = pair.toUpperCase();
+        
+        // Mapping speciali
+        const symbolMap = {
+            'ETHEREUM': 'ETHUSDT',
+            'BITCOIN': 'BTCUSDT',
+            'AVAX_USDT': 'AVAXUSDT',
+            'SAND': 'SANDUSDT',
+            'UNISWAP': 'UNIUSDT'
+        };
+        
+        if (symbolMap[symbol.toUpperCase()]) {
+            pair = symbolMap[symbol.toUpperCase()];
+        }
+        
         const url = `https://api.binance.com/api/v3/ticker/price?symbol=${pair}`;
         
         https.get(url, (res) => {
@@ -26,7 +51,11 @@ async function getSymbolPrice(symbol) {
             res.on('end', () => {
                 try {
                     const json = JSON.parse(data);
-                    resolve(parseFloat(json.price));
+                    if (json.price) {
+                        resolve(parseFloat(json.price));
+                    } else {
+                        reject(new Error(`Prezzo non trovato per ${pair}`));
+                    }
                 } catch (e) {
                     reject(e);
                 }
@@ -58,11 +87,38 @@ async function diagnoseSymbol(symbol) {
         console.log(`✅ Klines trovate: ${klines.length}`);
         
         // 3. Prepara price history
-        const priceHistory = klines.reverse().map(k => ({
-            timestamp: new Date(k.open_time).toISOString(),
-            price: parseFloat(k.close_price),
-            volume: parseFloat(k.volume || 0)
-        }));
+        const priceHistory = klines.reverse().map(k => {
+            // ✅ FIX: Gestisci correttamente open_time (può essere BIGINT o stringa)
+            let timestamp;
+            try {
+                const openTime = k.open_time;
+                if (typeof openTime === 'number') {
+                    // Se è un numero (timestamp in millisecondi o secondi)
+                    timestamp = new Date(openTime > 1000000000000 ? openTime : openTime * 1000).toISOString();
+                } else if (typeof openTime === 'string') {
+                    // Se è una stringa, prova a parsarla
+                    const parsed = parseInt(openTime);
+                    if (!isNaN(parsed)) {
+                        timestamp = new Date(parsed > 1000000000000 ? parsed : parsed * 1000).toISOString();
+                    } else {
+                        // Se è già una stringa ISO, usala direttamente
+                        timestamp = openTime;
+                    }
+                } else {
+                    // Fallback: usa timestamp corrente
+                    timestamp = new Date().toISOString();
+                }
+            } catch (e) {
+                // Se fallisce, usa timestamp corrente
+                timestamp = new Date().toISOString();
+            }
+            
+            return {
+                timestamp: timestamp,
+                price: parseFloat(k.close_price) || 0,
+                volume: parseFloat(k.volume || 0)
+            };
+        });
         
         // 4. Genera segnale
         console.log(`\n📊 GENERAZIONE SEGNALE...`);
