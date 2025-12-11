@@ -749,6 +749,34 @@ class BidirectionalSignalGenerator {
             strengthContributions: [] // Array per tracciare i punti di ogni indicatore
         };
 
+        // ✅ FIX CRITICO: Verifica movimento prezzo per LONG (PREREQUISITO)
+        // Calcola variazioni prezzo su più timeframe
+        const priceChange = prices.length >= 3
+            ? (prices[prices.length - 1] - prices[prices.length - 3]) / prices[prices.length - 3] * 100
+            : 0;
+        const priceChange5 = prices.length >= 5
+            ? (prices[prices.length - 1] - prices[prices.length - 5]) / prices[prices.length - 5] * 100
+            : 0;
+        const priceChange10 = prices.length >= 10
+            ? (prices[prices.length - 1] - prices[prices.length - 10]) / prices[prices.length - 10] * 100
+            : 0;
+
+        // ✅ BLOCCA LONG se:
+        // 1. Prezzo sta scendendo significativamente (>0.3% su più timeframe)
+        // 2. Prezzo è in downtrend forte (scende >0.5% su 5 periodi)
+        // Questo evita di aprire LONG mentre il prezzo sta ancora scendendo
+        const isPriceActivelyFalling = (priceChange < -0.3 && priceChange5 < -0.3) || 
+                                       (priceChange5 < -0.5) ||
+                                       (priceChange10 < -1.0 && priceChange5 < -0.2);
+        
+        // Se prezzo sta scendendo attivamente, riduci drasticamente strength LONG
+        if (isPriceActivelyFalling) {
+            // Blocca completamente LONG se prezzo scende fortemente
+            longSignal.strength = 0;
+            longSignal.reasons.push(`🚫 BLOCKED: Prezzo in calo attivo (${priceChange.toFixed(2)}%, ${priceChange5.toFixed(2)}%, ${priceChange10.toFixed(2)}%) - in attesa di inversione`);
+            // Non aggiungere conferme se prezzo sta scendendo
+        }
+
         // CONFERMA 1: RSI oversold + uptrend (usa soglia configurata)
         if (rsi !== null && rsi < rsiOversold && trend === 'bullish') {
             const points = 25;
