@@ -44,7 +44,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          timeout: 600s
+          timeout: 1200s
           script: |
             set -e
             echo "🚀 Inizio deploy su VPS..."
@@ -66,14 +66,14 @@ jobs:
             echo "🧹 Pulizia simboli EUR non disponibili su Binance..."
             cd backend
             if [ -f "remove_unavailable_eur_symbols.js" ]; then
-              node remove_unavailable_eur_symbols.js || echo "⚠️ Errore rimozione simboli EUR (continua...)"
+              timeout 120 node remove_unavailable_eur_symbols.js || echo "⚠️ Timeout o errore rimozione simboli EUR (continua...)"
             else
               echo "⚠️ Script rimozione simboli EUR non trovato (continua...)"
             fi
             
             echo "📥 Download klines per simboli EUR disponibili..."
             if [ -f "download_eur_klines.js" ]; then
-              node download_eur_klines.js || echo "⚠️ Errore download klines EUR (continua...)"
+              timeout 300 node download_eur_klines.js || echo "⚠️ Timeout o errore download klines EUR (continua...)"
             else
               echo "⚠️ Script download klines EUR non trovato (continua...)"
             fi
@@ -192,8 +192,11 @@ jobs:
             echo "🔍 Esecuzione controllo avvisi e stato sistema..."
             if [ -f "backend/scripts/controlla-avvisi-vps.sh" ]; then
               chmod +x backend/scripts/controlla-avvisi-vps.sh
-              bash backend/scripts/controlla-avvisi-vps.sh || echo "⚠️ Errore durante controllo avvisi (continua...)"
+              timeout 60 bash backend/scripts/controlla-avvisi-vps.sh || echo "⚠️ Timeout o errore durante controllo avvisi (continua...)"
             else
               echo "⚠️ Script controllo avvisi non trovato"
             fi
+            
+            echo ""
+            echo "✅ Deploy completato con successo!"
 
