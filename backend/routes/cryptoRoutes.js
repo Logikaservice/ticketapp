@@ -471,7 +471,7 @@ router.get('/dashboard', async (req, res) => {
         }
 
         // ✅ NUOVO: Calcola sentimento bot per ogni posizione aperta
-        const openPositionsWithSentiment = (openPositions && openPositions.length > 0) 
+        const openPositionsWithSentiment = (openPositions && openPositions.length > 0)
             ? await Promise.all(openPositions.map(async (position) => {
                 try {
                     console.log(`🔍 [SENTIMENT] Calcolo sentimento per ${position.symbol} (${position.ticket_id})`);
@@ -2142,13 +2142,13 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             if (atr && currentPriceForATR > 0) {
                 const atrPct = (atr / currentPriceForATR) * 100;
 
-                    // ✅ SMART ATR FILTERING: Soglia dinamica basata sulla forza del segnale
-                    // Segnali FORTI (90-100%) → ATR minimo 0.2% (più permissivo)
-                    // Segnali NORMALI (70-89%) → ATR minimo 0.3% (standard, più sicuro)
-                    // ✅ CONFIGURABILE: Usa min_atr_pct come base, con logica speciale per segnali forti
-                    const MIN_ATR_FOR_STRONG_SIGNAL = params.min_atr_pct || 0.2; // Per segnali 90-100%
-                    const MIN_ATR_FOR_NORMAL_SIGNAL = Math.max((params.min_atr_pct || 0.2), 0.3); // Per segnali 70-89% (almeno 0.3%)
-                    const MAX_ATR_PCT = params.max_atr_pct || 5.0; // ✅ FIX CRITICO: Definisci MAX_ATR_PCT qui
+                // ✅ SMART ATR FILTERING: Soglia dinamica basata sulla forza del segnale
+                // Segnali FORTI (90-100%) → ATR minimo 0.2% (più permissivo)
+                // Segnali NORMALI (70-89%) → ATR minimo 0.3% (standard, più sicuro)
+                // ✅ CONFIGURABILE: Usa min_atr_pct come base, con logica speciale per segnali forti
+                const MIN_ATR_FOR_STRONG_SIGNAL = params.min_atr_pct || 0.2; // Per segnali 90-100%
+                const MIN_ATR_FOR_NORMAL_SIGNAL = Math.max((params.min_atr_pct || 0.2), 0.3); // Per segnali 70-89% (almeno 0.3%)
+                const MAX_ATR_PCT = params.max_atr_pct || 5.0; // ✅ FIX CRITICO: Definisci MAX_ATR_PCT qui
                 const STRONG_SIGNAL_THRESHOLD = 90;
 
                 const isStrongSignal = signal.strength >= STRONG_SIGNAL_THRESHOLD;
@@ -2201,18 +2201,18 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             if (portfolio) {
                 const cashBalance = parseFloat(portfolio.balance_usd || 0);
                 const initialBalance = 1000; // Bilancio iniziale
-                
+
                 // ✅ FIX CRITICO: Calcola Total Equity usando prezzi REALI, non quelli nel database
                 // Recupera il prezzo corrente per ogni simbolo per calcolare il valore reale delle posizioni
                 let currentExposureValue = 0;
                 let totalPnLFromPositions = 0;
-                
+
                 for (const pos of allOpenPositions) {
                     const vol = parseFloat(pos.volume) || 0;
                     const volClosed = parseFloat(pos.volume_closed) || 0;
                     const remaining = vol - volClosed;
                     const entry = parseFloat(pos.entry_price) || 0;
-                    
+
                     // ✅ FIX: Recupera prezzo REALE invece di usare current_price dal database
                     let currentPrice = parseFloat(pos.current_price) || entry;
                     try {
@@ -2224,11 +2224,11 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         // Se errore, usa current_price dal database o entry_price
                         console.warn(`⚠️ [PORTFOLIO-CHECK] Errore recupero prezzo per ${pos.symbol}:`, priceErr.message);
                     }
-                    
+
                     // Calcola valore attuale della posizione
                     const currentValue = remaining * currentPrice;
                     currentExposureValue += currentValue;
-                    
+
                     // Calcola P&L per questa posizione
                     if (pos.type === 'buy') {
                         // LONG: P&L = (currentPrice - entryPrice) * volume
@@ -2240,23 +2240,23 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         totalPnLFromPositions += pnl;
                     }
                 }
-                
+
                 // ✅ Total Equity = Cash + Valore Investito + P&L Realizzato (già incluso nel valore delle posizioni)
                 // In realtà: Total Equity = Cash + Valore Attuale delle Posizioni
                 const totalEquity = cashBalance + currentExposureValue;
-                
+
                 // ✅ LOGGING DETTAGLIATO per debug
                 console.log(`🔍 [RUN-BOT-CYCLE PORTFOLIO] Cash: $${cashBalance.toFixed(2)} | Exposure Value: $${currentExposureValue.toFixed(2)} | Total Equity: $${totalEquity.toFixed(2)}`);
                 console.log(`🔍 [RUN-BOT-CYCLE PORTFOLIO] Initial Balance: $${initialBalance} | Total Equity: $${totalEquity.toFixed(2)}`);
-                
+
                 // ✅ FIX CRITICO: Calcola drawdown rispetto al picco del Total Equity, non rispetto a 1000
                 // Se il portfolio è in profitto rispetto a 1000, NON bloccare
                 const portfolioPnLPct = totalEquity > 0 ? ((totalEquity - initialBalance) / initialBalance) * 100 : -100;
-                
+
                 // ✅ FIX: Se il portfolio è in profitto (sopra 1000), NON bloccare mai
                 // Il drawdown deve essere calcolato solo se il portfolio è in perdita
                 const isPortfolioInProfit = portfolioPnLPct > 0;
-                
+
                 console.log(`🔍 [RUN-BOT-CYCLE PORTFOLIO] P&L Portfolio: ${portfolioPnLPct.toFixed(2)}% | In Profitto: ${isPortfolioInProfit}`);
 
                 // Calcola P&L medio posizioni aperte
@@ -2272,8 +2272,8 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         const entryP = parseFloat(p.entry_price) || 0;
                         const currentP = parseFloat(p.current_price) || entryP;
                         if (entryP > 0) {
-                            const pct = p.type === 'buy' 
-                                ? ((currentP - entryP) / entryP) * 100 
+                            const pct = p.type === 'buy'
+                                ? ((currentP - entryP) / entryP) * 100
                                 : ((entryP - currentP) / entryP) * 100;
                             return sum + pct;
                         }
@@ -2289,14 +2289,14 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 // 3. Se Total Equity < 700 E portfolio in perdita E avgOpenPnL < -2% (con >=5 posizioni): BLOCCA
                 // 4. Se portfolio in profitto (rispetto a 1000 iniziale): NON bloccare MAI
                 // ============================================================
-                
+
                 const MIN_SAFE_EQUITY = 700; // Soglia minima di sicurezza (protezione contro calcoli errati)
                 const MAX_DRAWDOWN_PCT = -5.0; // Drawdown massimo consentito (-5%)
                 const MIN_AVG_PNL_PCT = -2.0; // P&L medio minimo per posizioni aperte (-2%)
                 const MIN_POSITIONS_FOR_AVG_CHECK = 5; // Numero minimo di posizioni per controllare P&L medio
-                
+
                 const isEquityAboveMinimum = totalEquity >= MIN_SAFE_EQUITY;
-                
+
                 // ✅ REGOLA 1: Se Total Equity >= 700, NON bloccare MAI
                 if (isEquityAboveMinimum) {
                     const availableExposure = totalEquity * 0.80; // 80% del Total Equity disponibile
@@ -2544,7 +2544,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     // Altrimenti usa il calcolo automatico del RiskManager (8% portfolio o $80 USDT minimo)
                     const configuredTradeSize = params.trade_size_usdt || params.trade_size_eur || null;
                     let targetPositionSize = riskCheck.maxPositionSize; // Default: calcolo automatico
-                    
+
                     if (configuredTradeSize && configuredTradeSize >= 10) {
                         // ✅ Usa trade_size configurato dall'utente (minimo $10 per sicurezza)
                         targetPositionSize = Math.min(configuredTradeSize, riskCheck.availableExposure);
@@ -2552,7 +2552,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     } else {
                         console.log(`💰 [TRADE-SIZE] Usando calcolo automatico RiskManager: $${riskCheck.maxPositionSize.toFixed(2)} USDT`);
                     }
-                    
+
                     const maxAvailableForNewPosition = Math.min(
                         targetPositionSize,  // trade_size configurato o calcolo automatico
                         riskCheck.availableExposure, // Exposure disponibile (non superare limiti)
@@ -2771,7 +2771,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         // Altrimenti usa il calcolo automatico del RiskManager (8% portfolio o $80 USDT minimo)
                         const configuredTradeSize = params.trade_size_usdt || params.trade_size_eur || null;
                         let targetPositionSize = riskCheck.maxPositionSize; // Default: calcolo automatico
-                        
+
                         if (configuredTradeSize && configuredTradeSize >= 10) {
                             // ✅ Usa trade_size configurato dall'utente (minimo $10 per sicurezza)
                             targetPositionSize = Math.min(configuredTradeSize, riskCheck.availableExposure);
@@ -2779,7 +2779,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         } else {
                             console.log(`💰 [SHORT-TRADE-SIZE] Usando calcolo automatico RiskManager: $${riskCheck.maxPositionSize.toFixed(2)} USDT`);
                         }
-                        
+
                         const maxAvailableForNewPosition = Math.min(
                             targetPositionSize,  // trade_size configurato o calcolo automatico
                             riskCheck.availableExposure, // Exposure disponibile (non superare limiti)
@@ -2884,7 +2884,7 @@ const runBotCycle = async () => {
         // ✅ FIX: Ottieni tutti i simboli disponibili e aggiungi quelli senza entry (sono attivi di default)
         const allSymbols = Object.keys(SYMBOL_TO_PAIR);
         const symbolsWithEntry = new Set(activeBots.map(b => b.symbol));
-        
+
         // Aggiungi simboli senza entry come "bot attivi" (default: attivo)
         for (const symbol of allSymbols) {
             if (!symbolsWithEntry.has(symbol)) {
@@ -2907,9 +2907,24 @@ const runBotCycle = async () => {
         // Questo garantisce che i dati siano sempre freschi anche se il bot non è attivo per quel simbolo
         const allScannedSymbols = new Set(activeBots.map(b => b.symbol));
 
-        // Lista simboli comuni da scansionare (per aggiornare dati anche se bot non attivo)
-        const commonSymbols = ['bitcoin', 'ethereum', 'solana', 'cardano', 'polkadot', 'chainlink',
-            'litecoin', 'ripple', 'binance_coin', 'dogecoin', 'shiba', 'mana', 'eos'];
+        // ✅ SIMBOLI AD ALTO VOLUME - Filtrati per liquidità e spread bassi
+        // Rimossi: SHIBA, DOGE (volume basso, spread >2%, manipolabili)
+        // Aggiunti: AVAX, MATIC, DOT (volume >€10M, spread <0.3%)
+        const commonSymbols = [
+            'bitcoin',      // BTC - Volume: €500M+, Spread: 0.02-0.05%
+            'ethereum',     // ETH - Volume: €200M+, Spread: 0.03-0.06%
+            'binance_coin', // BNB - Volume: €50M+,  Spread: 0.05-0.10%
+            'solana',       // SOL - Volume: €30M+,  Spread: 0.08-0.15%
+            'cardano',      // ADA - Volume: €20M+,  Spread: 0.10-0.20%
+            'ripple',       // XRP - Volume: €25M+,  Spread: 0.12-0.18%
+            'polkadot',     // DOT - Volume: €10M+,  Spread: 0.18-0.28%
+            'chainlink',    // LINK - Volume: €10M+, Spread: 0.18-0.28%
+            'litecoin',     // LTC - Volume: €15M+,  Spread: 0.15-0.25%
+            'avalanche',    // AVAX - Volume: €15M+, Spread: 0.15-0.25%
+            'matic',        // MATIC - Volume: €12M+, Spread: 0.15-0.25%
+            // ❌ RIMOSSI: 'dogecoin', 'shiba' (volume <€5M, spread >2%)
+            // ❌ RIMOSSI: 'mana', 'eos' (volume basso, liquidità insufficiente)
+        ];
 
         // Aggiungi simboli comuni che non sono già nella lista attiva
         for (const symbol of commonSymbols) {
@@ -4609,23 +4624,23 @@ router.get('/symbols-table', async (req, res) => {
             const symbol = row.symbol;
             const base = getBaseCurrency(symbol);
             const quote = getQuoteCurrency(symbol);
-            
+
             if (!grouped[base]) {
                 grouped[base] = { base: base, variants: [] };
             }
-            
+
             const klines = await dbAll(
                 "SELECT COUNT(*) as count FROM klines WHERE symbol = $1 AND interval = '15m'",
                 [symbol]
             );
             const klinesCount = parseInt(klines[0]?.count || 0);
-            
+
             const botSettings = await dbAll(
                 "SELECT is_active FROM bot_settings WHERE symbol = $1 AND strategy_name = $2",
                 [symbol, 'RSI_Strategy']
             );
             const isActive = botSettings.length > 0 && botSettings[0].is_active === 1;
-            
+
             grouped[base].variants.push({
                 symbol: symbol,
                 quote: quote,
@@ -4636,11 +4651,11 @@ router.get('/symbols-table', async (req, res) => {
         }
 
         const sortedBases = Object.keys(grouped).sort();
-        
+
         // Calcola statistiche
         let totalSymbols = 0, totalActive = 0, totalWithKlines = 0;
         const byQuote = { 'USDT': 0, 'EUR': 0, 'USDC': 0, 'OTHER': 0 };
-        
+
         for (const base of sortedBases) {
             const group = grouped[base];
             totalSymbols += group.variants.length;
@@ -4765,14 +4780,14 @@ router.get('/symbols-table', async (req, res) => {
                 const order = { 'USDT': 1, 'EUR': 2, 'USDC': 3 };
                 return (order[a.quote] || 99) - (order[b.quote] || 99);
             });
-            
+
             html += `<tr class="group-header"><td colspan="6">📌 ${base}</td></tr>`;
-            
+
             for (const v of variants) {
                 const klinesClass = v.klines >= 100 ? 'klines-good' : v.klines >= 50 ? 'klines-warning' : 'klines-bad';
                 const klinesStatus = v.klines >= 100 ? '✅' : v.klines >= 50 ? '⚠️' : '❌';
                 const badgeClass = `badge-${v.quote.toLowerCase()}`;
-                
+
                 html += `
                     <tr>
                         <td></td>
@@ -7051,18 +7066,18 @@ router.get('/bot-analysis', async (req, res) => {
             if (portfolio) {
                 const cashBalance = parseFloat(portfolio.balance_usd || 0);
                 const initialBalance = 1000;
-                
+
                 // ✅ FIX CRITICO: Calcola Total Equity usando prezzi REALI, non quelli nel database
                 // Recupera il prezzo corrente per ogni simbolo per calcolare il valore reale delle posizioni
                 let currentExposureValue = 0;
                 let totalPnLFromPositions = 0;
-                
+
                 for (const pos of allOpenPositions) {
                     const vol = parseFloat(pos.volume) || 0;
                     const volClosed = parseFloat(pos.volume_closed) || 0;
                     const remaining = vol - volClosed;
                     const entry = parseFloat(pos.entry_price) || 0;
-                    
+
                     // ✅ FIX: Recupera prezzo REALE invece di usare current_price dal database
                     let currentPrice = parseFloat(pos.current_price) || entry;
                     try {
@@ -7074,11 +7089,11 @@ router.get('/bot-analysis', async (req, res) => {
                         // Se errore, usa current_price dal database o entry_price
                         console.warn(`⚠️ [PORTFOLIO-CHECK] Errore recupero prezzo per ${pos.symbol}:`, priceErr.message);
                     }
-                    
+
                     // Calcola valore attuale della posizione
                     const currentValue = remaining * currentPrice;
                     currentExposureValue += currentValue;
-                    
+
                     // Calcola P&L per questa posizione
                     if (pos.type === 'buy') {
                         // LONG: P&L = (currentPrice - entryPrice) * volume
@@ -7090,22 +7105,22 @@ router.get('/bot-analysis', async (req, res) => {
                         totalPnLFromPositions += pnl;
                     }
                 }
-                
+
                 // ✅ Total Equity = Cash + Valore Attuale delle Posizioni
                 const totalEquity = cashBalance + currentExposureValue;
-                
+
                 // ✅ LOGGING DETTAGLIATO per debug
                 console.log(`🔍 [BOT-ANALYSIS PORTFOLIO] Cash: $${cashBalance.toFixed(2)} | Exposure Value: $${currentExposureValue.toFixed(2)} | Total Equity: $${totalEquity.toFixed(2)}`);
                 console.log(`🔍 [BOT-ANALYSIS PORTFOLIO] Initial Balance: $${initialBalance} | Total Equity: $${totalEquity.toFixed(2)}`);
-                
+
                 // ✅ FIX CRITICO: Calcola drawdown rispetto al picco del Total Equity, non rispetto a 1000
                 // Se il portfolio è in profitto rispetto a 1000, NON bloccare
                 const portfolioPnLPct = totalEquity > 0 ? ((totalEquity - initialBalance) / initialBalance) * 100 : -100;
-                
+
                 // ✅ FIX: Se il portfolio è in profitto (sopra 1000), NON bloccare mai
                 // Il drawdown deve essere calcolato solo se il portfolio è in perdita
                 const isPortfolioInProfit = portfolioPnLPct > 0;
-                
+
                 console.log(`🔍 [BOT-ANALYSIS PORTFOLIO] P&L Portfolio: ${portfolioPnLPct.toFixed(2)}% | In Profitto: ${isPortfolioInProfit}`);
 
                 let avgOpenPnL = 0;
@@ -7120,8 +7135,8 @@ router.get('/bot-analysis', async (req, res) => {
                         const entryP = parseFloat(p.entry_price) || 0;
                         const currentP = parseFloat(p.current_price) || entryP;
                         if (entryP > 0) {
-                            const pct = p.type === 'buy' 
-                                ? ((currentP - entryP) / entryP) * 100 
+                            const pct = p.type === 'buy'
+                                ? ((currentP - entryP) / entryP) * 100
                                 : ((entryP - currentP) / entryP) * 100;
                             return sum + pct;
                         }
@@ -7137,14 +7152,14 @@ router.get('/bot-analysis', async (req, res) => {
                 // 3. Se Total Equity < 700 E portfolio in perdita E avgOpenPnL < -2% (con >=5 posizioni): BLOCCA
                 // 4. Se portfolio in profitto (rispetto a 1000 iniziale): NON bloccare MAI
                 // ============================================================
-                
+
                 const MIN_SAFE_EQUITY = 700; // Soglia minima di sicurezza (protezione contro calcoli errati)
                 const MAX_DRAWDOWN_PCT = -5.0; // Drawdown massimo consentito (-5%)
                 const MIN_AVG_PNL_PCT = -2.0; // P&L medio minimo per posizioni aperte (-2%)
                 const MIN_POSITIONS_FOR_AVG_CHECK = 5; // Numero minimo di posizioni per controllare P&L medio
-                
+
                 const isEquityAboveMinimum = totalEquity >= MIN_SAFE_EQUITY;
-                
+
                 // ✅ REGOLA 1: Se Total Equity >= 700, NON bloccare MAI
                 if (isEquityAboveMinimum) {
                     const availableExposure = totalEquity * 0.80; // 80% del Total Equity disponibile
@@ -7437,8 +7452,8 @@ router.get('/bot-analysis', async (req, res) => {
                     name: 'Bot Attivo',
                     passed: isBotActive,
                     severity: 'high',
-                    message: isBotActive 
-                        ? 'Il bot è attivo su questo simbolo' 
+                    message: isBotActive
+                        ? 'Il bot è attivo su questo simbolo'
                         : 'Il bot non è attivo su questa moneta. Attivalo dalla Dashboard.'
                 });
                 if (!isBotActive) {
@@ -7453,7 +7468,7 @@ router.get('/bot-analysis', async (req, res) => {
                     severity: 'high',
                     value: volume24h,
                     required: MIN_VOLUME,
-                    message: volumeOK 
+                    message: volumeOK
                         ? `Volume sufficiente: €${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })} >= €${MIN_VOLUME.toLocaleString('it-IT')}`
                         : `Volume troppo basso: €${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })} < €${MIN_VOLUME.toLocaleString('it-IT')}`
                 });
@@ -7466,7 +7481,7 @@ router.get('/bot-analysis', async (req, res) => {
                     name: 'Risk Manager Globale',
                     passed: riskCheck.canTrade,
                     severity: 'high',
-                    message: riskCheck.canTrade 
+                    message: riskCheck.canTrade
                         ? 'Trading permesso dal Risk Manager'
                         : `Trading bloccato: ${riskCheck.reason || 'sconosciuto'}`
                 });
@@ -7482,7 +7497,7 @@ router.get('/bot-analysis', async (req, res) => {
                     severity: 'high',
                     value: priceHistoryData?.length || 0,
                     required: 20,
-                    message: hasEnoughData 
+                    message: hasEnoughData
                         ? `Dati sufficienti: ${priceHistoryData.length} candele`
                         : `Dati insufficienti: ${priceHistoryData?.length || 0} < 20 candele`
                 });
@@ -7503,7 +7518,7 @@ router.get('/bot-analysis', async (req, res) => {
                         severity: 'high',
                         value: longAdjustedStrength,
                         required: LONG_MIN_STRENGTH,
-                        message: longStrengthOK 
+                        message: longStrengthOK
                             ? `Strength sufficiente: ${longAdjustedStrength}/${LONG_MIN_STRENGTH} (original: ${longCurrentStrength}, MTF: ${longMtfBonus >= 0 ? '+' : ''}${longMtfBonus})`
                             : `Strength insufficiente: ${longAdjustedStrength}/${LONG_MIN_STRENGTH} (mancano ${LONG_MIN_STRENGTH - longAdjustedStrength} punti)`
                     });
@@ -7517,7 +7532,7 @@ router.get('/bot-analysis', async (req, res) => {
                         severity: 'high',
                         value: longCurrentConfirmations,
                         required: LONG_MIN_CONFIRMATIONS,
-                        message: longConfirmationsOK 
+                        message: longConfirmationsOK
                             ? `Conferme sufficienti: ${longCurrentConfirmations}/${LONG_MIN_CONFIRMATIONS}`
                             : `Conferme insufficienti: ${longCurrentConfirmations}/${LONG_MIN_CONFIRMATIONS} (mancano ${LONG_MIN_CONFIRMATIONS - longCurrentConfirmations})`
                     });
@@ -7529,7 +7544,7 @@ router.get('/bot-analysis', async (req, res) => {
                         name: 'LONG - ATR',
                         passed: !signal.atrBlocked,
                         severity: 'high',
-                        message: signal.atrBlocked 
+                        message: signal.atrBlocked
                             ? `ATR bloccato: ${signal.atrPct?.toFixed(2)}% (richiesto: ${signal.minAtrRequired}% - ${params.max_atr_pct || 5.0}%)`
                             : `ATR OK: ${signal.atrPct?.toFixed(2)}% (range: ${signal.minAtrRequired}% - ${params.max_atr_pct || 5.0}%)`
                     });
@@ -7548,7 +7563,7 @@ router.get('/bot-analysis', async (req, res) => {
                         name: 'LONG - Filtri Professionali',
                         passed: !longBlockedByFilters,
                         severity: 'high',
-                        message: longBlockedByFilters 
+                        message: longBlockedByFilters
                             ? `Bloccato da filtri professionali: ${longProfessionalFilters.filter(f => f.includes('🚫')).map(f => f.replace('🚫 BLOCKED: ', '')).join(', ')}`
                             : 'Filtri professionali OK'
                     });
@@ -7560,7 +7575,7 @@ router.get('/bot-analysis', async (req, res) => {
                         name: 'LONG - Risk Manager Specifico',
                         passed: longRiskOK,
                         severity: 'high',
-                        message: longRiskOK 
+                        message: longRiskOK
                             ? `Risk Manager OK - Disponibile: €${maxAvailableForNewPosition.toFixed(2)}`
                             : `Risk Manager blocca: ${canOpenCheck.reason || 'sconosciuto'}`
                     });
@@ -7588,7 +7603,7 @@ router.get('/bot-analysis', async (req, res) => {
                         severity: 'high',
                         value: shortAdjustedStrength,
                         required: SHORT_MIN_STRENGTH,
-                        message: shortStrengthOK 
+                        message: shortStrengthOK
                             ? `Strength sufficiente: ${shortAdjustedStrength}/${SHORT_MIN_STRENGTH} (original: ${shortCurrentStrength}, MTF: ${shortMtfBonus >= 0 ? '+' : ''}${shortMtfBonus})`
                             : `Strength insufficiente: ${shortAdjustedStrength}/${SHORT_MIN_STRENGTH} (mancano ${SHORT_MIN_STRENGTH - shortAdjustedStrength} punti)`
                     });
@@ -7602,7 +7617,7 @@ router.get('/bot-analysis', async (req, res) => {
                         severity: 'high',
                         value: shortCurrentConfirmations,
                         required: SHORT_MIN_CONFIRMATIONS,
-                        message: shortConfirmationsOK 
+                        message: shortConfirmationsOK
                             ? `Conferme sufficienti: ${shortCurrentConfirmations}/${SHORT_MIN_CONFIRMATIONS}`
                             : `Conferme insufficienti: ${shortCurrentConfirmations}/${SHORT_MIN_CONFIRMATIONS} (mancano ${SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations})`
                     });
@@ -7614,7 +7629,7 @@ router.get('/bot-analysis', async (req, res) => {
                         name: 'SHORT - ATR',
                         passed: !signal.atrBlocked,
                         severity: 'high',
-                        message: signal.atrBlocked 
+                        message: signal.atrBlocked
                             ? `ATR bloccato: ${signal.atrPct?.toFixed(2)}% (richiesto: ${signal.minAtrRequired}% - ${params.max_atr_pct || 5.0}%)`
                             : `ATR OK: ${signal.atrPct?.toFixed(2)}% (range: ${signal.minAtrRequired}% - ${params.max_atr_pct || 5.0}%)`
                     });
@@ -7633,7 +7648,7 @@ router.get('/bot-analysis', async (req, res) => {
                         name: 'SHORT - Filtri Professionali',
                         passed: !shortBlockedByFilters,
                         severity: 'high',
-                        message: shortBlockedByFilters 
+                        message: shortBlockedByFilters
                             ? `Bloccato da filtri professionali: ${shortProfessionalFilters.filter(f => f.includes('🚫')).map(f => f.replace('🚫 BLOCKED: ', '')).join(', ')}`
                             : 'Filtri professionali OK'
                     });
@@ -7657,7 +7672,7 @@ router.get('/bot-analysis', async (req, res) => {
                         name: 'SHORT - Risk Manager Specifico',
                         passed: shortRiskOK,
                         severity: 'high',
-                        message: shortRiskOK 
+                        message: shortRiskOK
                             ? `Risk Manager OK - Disponibile: €${maxAvailableForNewPosition.toFixed(2)}`
                             : `Risk Manager blocca: ${canOpenCheck.reason || 'sconosciuto'}`
                     });
@@ -7673,7 +7688,7 @@ router.get('/bot-analysis', async (req, res) => {
                     name: 'Portfolio Drawdown',
                     passed: !portfolioDrawdownBlock,
                     severity: 'high',
-                    message: portfolioDrawdownBlock 
+                    message: portfolioDrawdownBlock
                         ? portfolioDrawdownReason
                         : 'Portfolio in salute'
                 });
@@ -7686,7 +7701,7 @@ router.get('/bot-analysis', async (req, res) => {
                     name: 'Market Regime (BTC)',
                     passed: !marketRegimeBlock,
                     severity: 'high',
-                    message: marketRegimeBlock 
+                    message: marketRegimeBlock
                         ? marketRegimeReason
                         : 'Market regime OK'
                 });
@@ -8369,7 +8384,7 @@ router.get('/bot-analysis', async (req, res) => {
                         if (!canOpenCheck.allowed) missingChecks.push(`risk manager: ${canOpenCheck.reason || 'sconosciuto'}`);
                         if (signal.atrBlocked) missingChecks.push('ATR blocked');
                         if (!supportsShort) missingChecks.push('SHORT non supportato');
-                        
+
                         blocks.push({
                             type: 'Blocco sconosciuto',
                             reason: `Requirements sembrano soddisfatti ma posizione SHORT non può essere aperta. Motivi possibili: ${missingChecks.join(', ')}. Verifica log backend per dettagli.`,
