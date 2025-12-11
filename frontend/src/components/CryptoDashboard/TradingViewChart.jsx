@@ -210,8 +210,9 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
                 onClick={toggleFullscreen}
                 style={{
                     position: 'absolute',
-                    top: '10px',
-                    right: '10px',
+                    top: '712px',
+                    left: '759px',
+                    width: '36px',
                     background: 'rgba(31, 41, 55, 0.9)',
                     color: '#fff',
                     border: '1px solid #374151',
