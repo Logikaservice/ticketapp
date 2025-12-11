@@ -35,16 +35,22 @@ async function getTrailingProfitProtectionEnabled() {
         
         if (bot && bot.parameters) {
             const params = typeof bot.parameters === 'string' ? JSON.parse(bot.parameters) : bot.parameters;
-            // Return the setting if present, otherwise default to true
-            return params.trailing_profit_protection_enabled !== undefined 
-                ? params.trailing_profit_protection_enabled 
-                : SMART_EXIT_CONFIG.TRAILING_PROFIT_ENABLED;
+            // ✅ FIX: Se il valore è esplicitamente definito (true o false), usalo
+            // Se non è definito, default a FALSE (non abilitato) invece di TRUE
+            if (params.trailing_profit_protection_enabled !== undefined) {
+                const isEnabled = params.trailing_profit_protection_enabled === true || 
+                                 params.trailing_profit_protection_enabled === 'true' || 
+                                 params.trailing_profit_protection_enabled === 1;
+                console.log(`🔍 [TRAILING-PROFIT] Valore dal database: ${params.trailing_profit_protection_enabled} → ${isEnabled ? 'ABILITATO' : 'DISABILITATO'}`);
+                return isEnabled;
+            }
         }
     } catch (err) {
-        console.error('Error loading trailing_profit_protection_enabled:', err.message);
+        console.error('❌ [TRAILING-PROFIT] Errore caricamento setting:', err.message);
     }
-    // Default to config value if error or not found
-    return SMART_EXIT_CONFIG.TRAILING_PROFIT_ENABLED;
+    // ✅ FIX: Default a FALSE se non trovato (l'utente deve abilitarlo esplicitamente)
+    console.log(`⚠️ [TRAILING-PROFIT] Valore non trovato nel database, default: DISABILITATO`);
+    return false;
 }
 
 /**
@@ -75,15 +81,15 @@ const SMART_EXIT_CONFIG = {
     MIN_ABSOLUTE_PROFIT_TO_CLOSE: 0.8, // 0.8% minimo (da 1%) - Più veloce!
     MIN_PROFIT_FOR_SLOW_MARKET: 1.2, // 1.2% in mercato lento (da 1.5%) - Più veloce!
 
-    // 🎯 TRAILING PROFIT PROTECTION - PIÙ STRETTO per proteggere guadagni
-    TRAILING_PROFIT_ENABLED: true,
+    // 🎯 TRAILING PROFIT PROTECTION - MENO AGGRESSIVO per permettere crescita
+    TRAILING_PROFIT_ENABLED: false,  // ✅ FIX: Default disabilitato - l'utente deve abilitarlo esplicitamente
     TRAILING_PROFIT_LEVELS: [
-        { peakProfit: 2.0, lockPercent: 0.30 },  // ✅ FIX: Se sale a 2%, blocca 0.6% (30% invece di 50%) - Meno aggressivo
-        { peakProfit: 3.0, lockPercent: 0.40 },  // ✅ FIX: Se sale a 3%, blocca 1.2% (40% invece di 60%) - Meno aggressivo
-        { peakProfit: 4.0, lockPercent: 0.45 },  // ✅ FIX: Se sale a 4%, blocca 1.8% (45% invece di 65%) - Meno aggressivo
-        { peakProfit: 5.0, lockPercent: 0.50 },  // ✅ FIX: Se sale a 5%, blocca 2.5% (50% invece di 70%) - Meno aggressivo
-        { peakProfit: 7.0, lockPercent: 0.60 },  // ✅ FIX: Se sale a 7%, blocca 4.2% (60% invece di 75%) - Meno aggressivo
-        { peakProfit: 10.0, lockPercent: 0.70 }, // ✅ FIX: Se sale a 10%, blocca 7% (70% invece di 80%) - Meno aggressivo
+        { peakProfit: 3.0, lockPercent: 0.20 },  // ✅ MENO AGGRESSIVO: Se sale a 3%, blocca 0.6% (20% invece di 30%)
+        { peakProfit: 5.0, lockPercent: 0.30 },  // ✅ MENO AGGRESSIVO: Se sale a 5%, blocca 1.5% (30% invece di 50%)
+        { peakProfit: 7.0, lockPercent: 0.40 },  // ✅ MENO AGGRESSIVO: Se sale a 7%, blocca 2.8% (40% invece di 60%)
+        { peakProfit: 10.0, lockPercent: 0.50 },  // ✅ MENO AGGRESSIVO: Se sale a 10%, blocca 5% (50% invece di 70%)
+        { peakProfit: 15.0, lockPercent: 0.60 },  // ✅ NUOVO: Se sale a 15%, blocca 9% (60%)
+        { peakProfit: 20.0, lockPercent: 0.70 }, // ✅ NUOVO: Se sale a 20%, blocca 14% (70%)
     ],
 
     // ✅ Soglie Dinamiche Basate su ATR
@@ -735,7 +741,12 @@ async function calculateTrailingProfitProtection(currentPnLPct, peakProfit) {
     // ✅ Check if trailing profit protection is enabled from database
     const isEnabled = await getTrailingProfitProtectionEnabled();
     
-    if (!isEnabled || peakProfit <= 0) {
+    if (!isEnabled) {
+        // ✅ LOG: Se disabilitato, non applicare trailing profit
+        return null;
+    }
+    
+    if (peakProfit <= 0) {
         return null;
     }
 
@@ -814,37 +825,46 @@ async function shouldClosePosition(position, priceHistory) {
             };
         }
 
-        // ✅ PRIORITÀ 1: Trailing Profit Protection - CRITICO
-        // ✅ FIX: Applica solo dopo almeno 10 minuti dall'apertura per dare tempo al profitto di crescere
-        const MIN_TIME_FOR_TRAILING_PROFIT_MS = 10 * 60 * 1000; // ✅ Aumentato da 5 a 10 minuti
-        if (timeInPosition >= MIN_TIME_FOR_TRAILING_PROFIT_MS) {
-            const peakProfit = calculatePeakProfit(position, priceHistory);
-            const trailingProfit = await calculateTrailingProfitProtection(currentPnLPct, peakProfit);
+        // ✅ PRIORITÀ 1: Trailing Profit Protection - SOLO SE ABILITATO
+        // ✅ FIX: Verifica se è abilitato PRIMA di controllare
+        const isTrailingProfitEnabled = await getTrailingProfitProtectionEnabled();
+        
+        if (isTrailingProfitEnabled) {
+            // ✅ FIX: Applica solo dopo almeno 15 minuti dall'apertura per dare tempo al profitto di crescere
+            const MIN_TIME_FOR_TRAILING_PROFIT_MS = 15 * 60 * 1000; // ✅ Aumentato da 10 a 15 minuti
+            if (timeInPosition >= MIN_TIME_FOR_TRAILING_PROFIT_MS) {
+                const peakProfit = calculatePeakProfit(position, priceHistory);
+                const trailingProfit = await calculateTrailingProfitProtection(currentPnLPct, peakProfit);
 
-            if (trailingProfit && trailingProfit.shouldLock) {
-                // ✅ FIX CRITICO: Chiudi solo se profitto è sceso SIGNIFICATIVAMENTE sotto la soglia bloccata
-                // Non chiudere se è solo leggermente sotto (dà margine per recupero)
-                const profitDropFromPeak = peakProfit - currentPnLPct;
-                const profitDropFromLocked = currentPnLPct - trailingProfit.lockedProfit;
-                
-                // Chiudi solo se:
-                // 1. Profitto è sceso >0.5% dal picco E
-                // 2. Profitto è <80% della soglia bloccata (dà margine per recupero)
-                const shouldCloseTrailing = profitDropFromPeak > 0.5 && currentPnLPct < (trailingProfit.lockedProfit * 0.8);
-                
-                if (shouldCloseTrailing) {
-                    return {
-                        shouldClose: true,
-                        reason: `Trailing Profit Protection: Profitto sceso da ${peakProfit.toFixed(2)}% a ${currentPnLPct.toFixed(2)}% (sotto soglia bloccata ${trailingProfit.lockedProfit.toFixed(2)}%) - Chiusura per bloccare ${(trailingProfit.lockPercent * 100).toFixed(0)}% del profitto massimo`,
-                        currentPnL: currentPnLPct,
-                        peakProfit: peakProfit,
-                        lockedProfit: trailingProfit.lockedProfit,
-                        decisionFactor: 'trailing_profit_protection'
-                    };
-                } else {
-                    // Profitto è sceso ma non abbastanza - aspetta recupero
-                    console.log(`⏳ [TRAILING-PROFIT] ${position.symbol}: Profitto sceso da ${peakProfit.toFixed(2)}% a ${currentPnLPct.toFixed(2)}% ma ancora sopra ${(trailingProfit.lockedProfit * 0.8).toFixed(2)}% - Aspettando recupero`);
+                if (trailingProfit && trailingProfit.shouldLock) {
+                    // ✅ FIX MENO AGGRESSIVO: Chiudi solo se profitto è sceso MOLTO SIGNIFICATIVAMENTE sotto la soglia bloccata
+                    // Non chiudere se è solo leggermente sotto (dà margine per recupero)
+                    const profitDropFromPeak = peakProfit - currentPnLPct;
+                    
+                    // ✅ MENO AGGRESSIVO: Chiudi solo se:
+                    // 1. Profitto è sceso >1.0% dal picco (invece di 0.5%) E
+                    // 2. Profitto è <70% della soglia bloccata (invece di 80%) - dà più margine per recupero
+                    const shouldCloseTrailing = profitDropFromPeak > 1.0 && currentPnLPct < (trailingProfit.lockedProfit * 0.7);
+                    
+                    if (shouldCloseTrailing) {
+                        return {
+                            shouldClose: true,
+                            reason: `Trailing Profit Protection: Profitto sceso da ${peakProfit.toFixed(2)}% a ${currentPnLPct.toFixed(2)}% (sotto soglia bloccata ${trailingProfit.lockedProfit.toFixed(2)}%) - Chiusura per bloccare ${(trailingProfit.lockPercent * 100).toFixed(0)}% del profitto massimo`,
+                            currentPnL: currentPnLPct,
+                            peakProfit: peakProfit,
+                            lockedProfit: trailingProfit.lockedProfit,
+                            decisionFactor: 'trailing_profit_protection'
+                        };
+                    } else {
+                        // Profitto è sceso ma non abbastanza - aspetta recupero
+                        console.log(`⏳ [TRAILING-PROFIT] ${position.symbol}: Profitto sceso da ${peakProfit.toFixed(2)}% a ${currentPnLPct.toFixed(2)}% ma ancora sopra ${(trailingProfit.lockedProfit * 0.7).toFixed(2)}% - Aspettando recupero`);
+                    }
                 }
+            }
+        } else {
+            // ✅ LOG: Trailing Profit Protection disabilitato
+            if (Math.random() < 0.01) { // Log solo 1% delle volte per non intasare
+                console.log(`🔍 [TRAILING-PROFIT] ${position.symbol}: Trailing Profit Protection DISABILITATO dall'utente`);
             }
         }
 

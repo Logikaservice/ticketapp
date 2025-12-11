@@ -356,7 +356,7 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                                     <span>Abilita Trailing Profit Protection</span>
                                 </label>
                                 <div className="parameter-desc">
-                                    Protegge i profitti quando raggiungi un picco: se il profitto scende sotto una soglia minima (es. 75% del picco), chiude automaticamente la posizione per bloccare i guadagni. <strong>Attivo solo dopo 5 minuti dall'apertura</strong> per evitare chiusure premature.
+                                    Protegge i profitti quando raggiungi un picco: se il profitto scende sotto una soglia minima, chiude automaticamente la posizione per bloccare i guadagni. <strong>Attivo solo dopo 15 minuti dall'apertura</strong> per evitare chiusure premature. <strong>MENO AGGRESSIVO:</strong> Chiude solo se il profitto scende >1% dal picco, permettendo più crescita.
                                 </div>
                             </div>
 
