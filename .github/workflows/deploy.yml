@@ -44,7 +44,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          timeout: 300s
+          timeout: 600s
           script: |
             set -e
             echo "🚀 Inizio deploy su VPS..."
@@ -65,7 +65,9 @@ jobs:
             
             echo "📦 Installazione dipendenze backend..."
             cd backend
-            npm install --production || npm install
+            timeout 180 npm install --production || timeout 180 npm install || {
+              echo "⚠️ Errore installazione dipendenze backend, continua..."
+            }
             
             echo "📦 Installazione dipendenze frontend..."
             cd ../frontend
@@ -91,7 +93,13 @@ jobs:
             rm -f .env.production
             
             echo "📦 Reinstallazione dipendenze frontend..."
-            npm install
+            timeout 300 npm install || {
+              echo "⚠️ Timeout o errore npm install, provo con --legacy-peer-deps..."
+              timeout 300 npm install --legacy-peer-deps || {
+                echo "❌ Errore installazione dipendenze frontend"
+                exit 1
+              }
+            }
             
             echo "🔧 Configurazione variabili d'ambiente..."
             # Crea file .env per il build con l'URL corretto del backend
@@ -105,7 +113,7 @@ jobs:
             echo "🔨 Build frontend (pulito)..."
             # Pulisci eventuali file residui prima del build
             rm -rf build/static 2>/dev/null || true
-            npm run build || {
+            timeout 600 npm run build || {
               echo "❌ Errore build frontend"
               echo "📋 Verifica errori sopra"
               exit 1
