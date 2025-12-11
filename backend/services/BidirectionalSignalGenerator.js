@@ -782,8 +782,8 @@ class BidirectionalSignalGenerator {
             const points = 30;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`MACD bullish (${macd.macdLine.toFixed(2)} > ${macd.signalLine.toFixed(2)})`);
-            longSignal.strengthContributions.push({ indicator: 'MACD bullish', points, reason: `MACD bullish (${macd.macdLine.toFixed(2)} > ${macd.signalLine.toFixed(2)})` });
+            longSignal.reasons.push(`MACD rialzista (${macd.macdLine.toFixed(2)} > ${macd.signalLine.toFixed(2)})`);
+            longSignal.strengthContributions.push({ indicator: 'MACD rialzista', points, reason: `MACD rialzista (${macd.macdLine.toFixed(2)} > ${macd.signalLine.toFixed(2)})` });
         }
 
         // CONFERMA 4: Bollinger - Prezzo tocca lower band (usa soglia configurata + 5)
@@ -791,8 +791,8 @@ class BidirectionalSignalGenerator {
             const points = 25;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`Price at lower Bollinger + RSI oversold`);
-            longSignal.strengthContributions.push({ indicator: 'Bollinger lower band', points, reason: `Price at lower Bollinger + RSI oversold` });
+            longSignal.reasons.push(`Prezzo alla Bollinger inferiore + RSI ipervenduto`);
+            longSignal.strengthContributions.push({ indicator: 'Bollinger inferiore', points, reason: `Prezzo alla Bollinger inferiore + RSI ipervenduto` });
         }
 
         // CONFERMA 5: Trend bullish su multiple timeframe
@@ -800,8 +800,8 @@ class BidirectionalSignalGenerator {
             const points = 20;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`Bullish trend confirmed (EMA 10>20, 50>200)`);
-            longSignal.strengthContributions.push({ indicator: 'Bullish trend confirmed', points, reason: `Bullish trend confirmed (EMA 10>20, 50>200)` });
+            longSignal.reasons.push(`Trend rialzista confermato (EMA 10>20, 50>200)`);
+            longSignal.strengthContributions.push({ indicator: 'Trend rialzista confermato', points, reason: `Trend rialzista confermato (EMA 10>20, 50>200)` });
         }
 
         // ✅ NUOVO: CONFERMA 5.5: Trend bullish anche senza RSI estremo (per mercati neutri)
@@ -809,8 +809,8 @@ class BidirectionalSignalGenerator {
             const points = 15;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`Bullish trend with neutral RSI (${rsi.toFixed(1)}) - trend momentum`);
-            longSignal.strengthContributions.push({ indicator: 'Bullish trend (neutral RSI)', points, reason: `Bullish trend with neutral RSI (${rsi.toFixed(1)})` });
+            longSignal.reasons.push(`Trend rialzista con RSI neutrale (${rsi.toFixed(1)}) - momentum trend`);
+            longSignal.strengthContributions.push({ indicator: 'Trend rialzista (RSI neutrale)', points, reason: `Trend rialzista con RSI neutrale (${rsi.toFixed(1)})` });
         }
 
         // CONFERMA 6: Prezzo sopra EMA key levels
@@ -818,8 +818,8 @@ class BidirectionalSignalGenerator {
             const points = 15;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`Price above EMA 10 & EMA 10 > EMA 20`);
-            longSignal.strengthContributions.push({ indicator: 'Price above EMA', points, reason: `Price above EMA 10 & EMA 10 > EMA 20` });
+            longSignal.reasons.push(`Prezzo sopra EMA 10 e EMA 10 > EMA 20`);
+            longSignal.strengthContributions.push({ indicator: 'Prezzo sopra EMA', points, reason: `Prezzo sopra EMA 10 e EMA 10 > EMA 20` });
         }
 
         // ✅ NUOVO: CONFERMA 6.5: MACD bullish anche con RSI neutrale (segnale forte)
@@ -827,8 +827,8 @@ class BidirectionalSignalGenerator {
             const points = 20;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`MACD bullish with neutral RSI (${rsi.toFixed(1)}) - momentum building`);
-            longSignal.strengthContributions.push({ indicator: 'MACD bullish (neutral RSI)', points, reason: `MACD bullish with neutral RSI (${rsi.toFixed(1)})` });
+            longSignal.reasons.push(`MACD rialzista con RSI neutrale (${rsi.toFixed(1)}) - momentum in crescita`);
+            longSignal.strengthContributions.push({ indicator: 'MACD rialzista (RSI neutrale)', points, reason: `MACD rialzista con RSI neutrale (${rsi.toFixed(1)})` });
         }
 
         // CONFERMA 7: Volume alto (movimento forte) - SOLO se prezzo sale o è stabile
@@ -839,8 +839,8 @@ class BidirectionalSignalGenerator {
             const points = 15;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`High volume (${volume.ratio.toFixed(2)}x) + price stable/rising`);
-            longSignal.strengthContributions.push({ indicator: 'High volume', points, reason: `High volume (${volume.ratio.toFixed(2)}x) + price stable/rising` });
+            longSignal.reasons.push(`Volume alto (${volume.ratio.toFixed(2)}x) + prezzo stabile/in crescita`);
+            longSignal.strengthContributions.push({ indicator: 'Volume alto', points, reason: `Volume alto (${volume.ratio.toFixed(2)}x) + prezzo stabile/in crescita` });
         }
 
         // CONFERMA 8: Prezzo NON scende (ultimi periodi) - SOLO se prezzo sale o è stabile
@@ -850,8 +850,8 @@ class BidirectionalSignalGenerator {
         if (priceChangeLong >= 0) { // Prezzo sale o è stabile (NON scende)
             const points = 10;
             longSignal.strength += points;
-            longSignal.reasons.push(`Price stable/rising (${priceChangeLong.toFixed(2)}%)`);
-            longSignal.strengthContributions.push({ indicator: 'Price stable/rising', points, reason: `Price stable/rising (${priceChangeLong.toFixed(2)}%)` });
+            longSignal.reasons.push(`Prezzo stabile/in crescita (${priceChangeLong.toFixed(2)}%)`);
+            longSignal.strengthContributions.push({ indicator: 'Prezzo stabile/in crescita', points, reason: `Prezzo stabile/in crescita (${priceChangeLong.toFixed(2)}%)` });
         }
 
         // ✅ CONFERMA 9: MOMENTUM TREND - Prezzo sale consistentemente (trend forte in corso)
@@ -866,8 +866,8 @@ class BidirectionalSignalGenerator {
             const points = 25;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`Strong momentum trend (+${priceChange3.toFixed(2)}% short, +${priceChange10.toFixed(2)}% medium)`);
-            longSignal.strengthContributions.push({ indicator: 'Strong momentum trend', points, reason: `Strong momentum trend (+${priceChange3.toFixed(2)}% short, +${priceChange10.toFixed(2)}% medium)` });
+            longSignal.reasons.push(`Trend momentum forte (+${priceChange3.toFixed(2)}% breve, +${priceChange10.toFixed(2)}% medio)`);
+            longSignal.strengthContributions.push({ indicator: 'Trend momentum forte', points, reason: `Trend momentum forte (+${priceChange3.toFixed(2)}% breve, +${priceChange10.toFixed(2)}% medio)` });
         }
 
         // ✅ CONFERMA 10: RSI FORTE in trend positivo (60-85) - NON solo oversold!
@@ -876,8 +876,8 @@ class BidirectionalSignalGenerator {
             const points = 20;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`RSI strong in uptrend (${rsi.toFixed(1)} - momentum signal)`);
-            longSignal.strengthContributions.push({ indicator: 'RSI strong in uptrend', points, reason: `RSI strong in uptrend (${rsi.toFixed(1)} - momentum signal)` });
+            longSignal.reasons.push(`RSI forte in trend rialzista (${rsi.toFixed(1)} - segnale momentum)`);
+            longSignal.strengthContributions.push({ indicator: 'RSI forte in trend rialzista', points, reason: `RSI forte in trend rialzista (${rsi.toFixed(1)} - segnale momentum)` });
         }
 
         // ✅ CONFERMA 11: PREZZO SOPRA MULTIPLE EMA (trend molto forte)
@@ -885,8 +885,8 @@ class BidirectionalSignalGenerator {
             const points = 20;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`Price above all key EMAs (strong trend alignment)`);
-            longSignal.strengthContributions.push({ indicator: 'Price above all EMAs', points, reason: `Price above all key EMAs (strong trend alignment)` });
+            longSignal.reasons.push(`Prezzo sopra tutte le EMA chiave (allineamento trend forte)`);
+            longSignal.strengthContributions.push({ indicator: 'Prezzo sopra tutte le EMA', points, reason: `Prezzo sopra tutte le EMA chiave (allineamento trend forte)` });
         }
 
         // ✅ CONFERMA 12: BREAKOUT PATTERN - Prezzo rompe upper Bollinger Band (breakout)
@@ -894,8 +894,8 @@ class BidirectionalSignalGenerator {
             const points = 20;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`Breakout above upper Bollinger Band (+${priceChange3.toFixed(2)}%)`);
-            longSignal.strengthContributions.push({ indicator: 'Breakout pattern', points, reason: `Breakout above upper Bollinger Band (+${priceChange3.toFixed(2)}%)` });
+            longSignal.reasons.push(`Breakout sopra Bollinger superiore (+${priceChange3.toFixed(2)}%)`);
+            longSignal.strengthContributions.push({ indicator: 'Pattern breakout', points, reason: `Breakout sopra Bollinger superiore (+${priceChange3.toFixed(2)}%)` });
         }
 
         // ✅ CONFERMA 13: VOLUME CRESCENTE in trend positivo
@@ -904,8 +904,8 @@ class BidirectionalSignalGenerator {
             const points = 15;
             longSignal.strength += points;
             longSignal.confirmations++;
-            longSignal.reasons.push(`Increasing volume in uptrend (${volumeTrend.toFixed(2)}x)`);
-            longSignal.strengthContributions.push({ indicator: 'Increasing volume', points, reason: `Increasing volume in uptrend (${volumeTrend.toFixed(2)}x)` });
+            longSignal.reasons.push(`Volume crescente in trend rialzista (${volumeTrend.toFixed(2)}x)`);
+            longSignal.strengthContributions.push({ indicator: 'Volume crescente', points, reason: `Volume crescente in trend rialzista (${volumeTrend.toFixed(2)}x)` });
         }
 
         // 4. SHORT SIGNAL (vendi) - SISTEMA MULTI-CONFERMA (PIÙ RIGOROSO)
@@ -1019,8 +1019,8 @@ class BidirectionalSignalGenerator {
             const points = 30;
             shortSignal.strength += points;
             shortSignal.confirmations++;
-            shortSignal.reasons.push(`MACD bearish (${macd.macdLine.toFixed(2)} < ${macd.signalLine.toFixed(2)})`);
-            shortSignal.strengthContributions.push({ indicator: 'MACD bearish', points, reason: `MACD bearish (${macd.macdLine.toFixed(2)} < ${macd.signalLine.toFixed(2)})` });
+            shortSignal.reasons.push(`MACD ribassista (${macd.macdLine.toFixed(2)} < ${macd.signalLine.toFixed(2)})`);
+            shortSignal.strengthContributions.push({ indicator: 'MACD ribassista', points, reason: `MACD ribassista (${macd.macdLine.toFixed(2)} < ${macd.signalLine.toFixed(2)})` });
         }
 
         // CONFERMA 4: Bollinger - Prezzo tocca upper band + RSI overbought - SOLO se prezzo scende (usa soglia configurata - 5)
@@ -1028,8 +1028,8 @@ class BidirectionalSignalGenerator {
             const points = 25;
             shortSignal.strength += points;
             shortSignal.confirmations++;
-            shortSignal.reasons.push(`Price at upper Bollinger + RSI overbought`);
-            shortSignal.strengthContributions.push({ indicator: 'Bollinger upper band', points, reason: `Price at upper Bollinger + RSI overbought` });
+            shortSignal.reasons.push(`Prezzo alla Bollinger superiore + RSI ipercomprato`);
+            shortSignal.strengthContributions.push({ indicator: 'Bollinger superiore', points, reason: `Prezzo alla Bollinger superiore + RSI ipercomprato` });
         }
 
         // CONFERMA 5: Trend bearish su multiple timeframe - SOLO se prezzo sta scendendo attivamente
@@ -1037,8 +1037,8 @@ class BidirectionalSignalGenerator {
             const points = 25;
             shortSignal.strength += points;
             shortSignal.confirmations++;
-            shortSignal.reasons.push(`Bearish trend confirmed (EMA 10<20)`);
-            shortSignal.strengthContributions.push({ indicator: 'Bearish trend confirmed', points, reason: `Bearish trend confirmed (EMA 10<20)` });
+            shortSignal.reasons.push(`Trend ribassista confermato (EMA 10<20)`);
+            shortSignal.strengthContributions.push({ indicator: 'Trend ribassista confermato', points, reason: `Trend ribassista confermato (EMA 10<20)` });
         }
 
         // ✅ NUOVO: CONFERMA 5.5: Trend bearish anche senza RSI estremo (per mercati neutri)
@@ -1046,8 +1046,8 @@ class BidirectionalSignalGenerator {
             const points = 15;
             shortSignal.strength += points;
             shortSignal.confirmations++;
-            shortSignal.reasons.push(`Bearish trend with neutral RSI (${rsi.toFixed(1)}) - trend momentum`);
-            shortSignal.strengthContributions.push({ indicator: 'Bearish trend (neutral RSI)', points, reason: `Bearish trend with neutral RSI (${rsi.toFixed(1)})` });
+            shortSignal.reasons.push(`Trend ribassista con RSI neutrale (${rsi.toFixed(1)}) - momentum trend`);
+            shortSignal.strengthContributions.push({ indicator: 'Trend ribassista (RSI neutrale)', points, reason: `Trend ribassista con RSI neutrale (${rsi.toFixed(1)})` });
         }
 
         // CONFERMA 6: Prezzo sotto EMA key levels - SOLO se prezzo sta scendendo attivamente
@@ -1055,8 +1055,8 @@ class BidirectionalSignalGenerator {
             const points = 20;
             shortSignal.strength += points;
             shortSignal.confirmations++;
-            shortSignal.reasons.push(`Price below EMA 10 & EMA 10 < EMA 20`);
-            shortSignal.strengthContributions.push({ indicator: 'Price below EMA', points, reason: `Price below EMA 10 & EMA 10 < EMA 20` });
+            shortSignal.reasons.push(`Prezzo sotto EMA 10 e EMA 10 < EMA 20`);
+            shortSignal.strengthContributions.push({ indicator: 'Prezzo sotto EMA', points, reason: `Prezzo sotto EMA 10 e EMA 10 < EMA 20` });
         }
 
         // ✅ NUOVO: CONFERMA 6.5: MACD bearish anche con RSI neutrale (segnale forte)
@@ -1064,8 +1064,8 @@ class BidirectionalSignalGenerator {
             const points = 20;
             shortSignal.strength += points;
             shortSignal.confirmations++;
-            shortSignal.reasons.push(`MACD bearish with neutral RSI (${rsi.toFixed(1)}) - momentum building`);
-            shortSignal.strengthContributions.push({ indicator: 'MACD bearish (neutral RSI)', points, reason: `MACD bearish with neutral RSI (${rsi.toFixed(1)})` });
+            shortSignal.reasons.push(`MACD ribassista con RSI neutrale (${rsi.toFixed(1)}) - momentum in crescita`);
+            shortSignal.strengthContributions.push({ indicator: 'MACD ribassista (RSI neutrale)', points, reason: `MACD ribassista con RSI neutrale (${rsi.toFixed(1)})` });
         }
 
         // CONFERMA 7: Prezzo STA SCENDENDO (non solo "potrebbe") - SOLO se scende significativamente
@@ -1073,8 +1073,8 @@ class BidirectionalSignalGenerator {
             const points = 20;
             shortSignal.strength += points;
             shortSignal.confirmations++;
-            shortSignal.reasons.push(`Price actively falling (${priceChange.toFixed(2)}%)`);
-            shortSignal.strengthContributions.push({ indicator: 'Price actively falling', points, reason: `Price actively falling (${priceChange.toFixed(2)}%)` });
+            shortSignal.reasons.push(`Prezzo in calo attivo (${priceChange.toFixed(2)}%)`);
+            shortSignal.strengthContributions.push({ indicator: 'Prezzo in calo attivo', points, reason: `Prezzo in calo attivo (${priceChange.toFixed(2)}%)` });
         }
 
         // CONFERMA 8: Volume alto (movimento forte) - SOLO se accompagnato da movimento del prezzo significativo
@@ -1082,8 +1082,8 @@ class BidirectionalSignalGenerator {
             const points = 15;
             shortSignal.strength += points;
             shortSignal.confirmations++;
-            shortSignal.reasons.push(`High volume (${volume.ratio.toFixed(2)}x)`);
-            shortSignal.strengthContributions.push({ indicator: 'High volume', points, reason: `High volume (${volume.ratio.toFixed(2)}x)` });
+            shortSignal.reasons.push(`Volume alto (${volume.ratio.toFixed(2)}x)`);
+            shortSignal.strengthContributions.push({ indicator: 'Volume alto', points, reason: `Volume alto (${volume.ratio.toFixed(2)}x)` });
         }
 
         // 5. 🎯 PROFESSIONAL TRADING FILTERS - Analisi professionale prima della decisione finale
