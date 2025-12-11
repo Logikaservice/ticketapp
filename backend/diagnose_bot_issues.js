@@ -10,7 +10,7 @@
  * 5. Requisiti minimi
  */
 
-const { dbAll, dbGet } = require('./db/crypto_db');
+const { dbAll, dbGet } = require('./crypto_db');
 const signalGenerator = require('./services/BidirectionalSignalGenerator');
 const riskManager = require('./services/RiskManager');
 
@@ -46,8 +46,8 @@ async function diagnoseSymbol(symbol) {
         
         // 2. Recupera klines
         const klines = await dbAll(
-            "SELECT open_time, open_price, high_price, low_price, close_price, volume FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
-            [symbol]
+            "SELECT open_time, open_price, high_price, low_price, close_price, volume FROM klines WHERE symbol = $1 AND interval = $2 ORDER BY open_time DESC LIMIT 100",
+            [symbol, '15m']
         );
         
         if (klines.length === 0) {
@@ -66,7 +66,8 @@ async function diagnoseSymbol(symbol) {
         
         // 4. Genera segnale
         console.log(`\n📊 GENERAZIONE SEGNALE...`);
-        const params = await dbGet("SELECT * FROM bot_parameters WHERE symbol = $1", [symbol]).catch(() => null) || {};
+        const params = await dbGet("SELECT * FROM bot_parameters WHERE symbol = $1", [symbol]).catch(() => null);
+        const finalParams = params || {};
         const signal = signalGenerator.generateSignal(priceHistory, symbol, params);
         
         if (!signal || signal.direction === 'NEUTRAL') {

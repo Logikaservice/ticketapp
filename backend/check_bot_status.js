@@ -8,7 +8,7 @@
  * 4. Log recenti
  */
 
-const { dbAll, dbGet } = require('./db/crypto_db');
+const { dbAll, dbGet } = require('./crypto_db');
 
 async function checkBotStatus(symbol) {
     console.log(`\n🔍 VERIFICA STATO BOT PER ${symbol.toUpperCase()}`);
@@ -17,8 +17,8 @@ async function checkBotStatus(symbol) {
     try {
         // 1. Verifica bot attivo
         const botSettings = await dbAll(
-            "SELECT * FROM bot_settings WHERE symbol = $1 AND strategy_name = 'RSI_Strategy'",
-            [symbol]
+            "SELECT * FROM bot_settings WHERE symbol = $1 AND strategy_name = $2",
+            [symbol, 'RSI_Strategy']
         );
         
         if (botSettings.length === 0) {
@@ -59,8 +59,8 @@ async function checkBotStatus(symbol) {
         
         // 3. Verifica posizioni aperte
         const openPositions = await dbAll(
-            "SELECT * FROM open_positions WHERE symbol = $1 AND status = 'open'",
-            [symbol]
+            "SELECT * FROM open_positions WHERE symbol = $1 AND status = $2",
+            [symbol, 'open']
         );
         
         console.log(`\n📈 Posizioni Aperte: ${openPositions.length}`);
@@ -72,8 +72,8 @@ async function checkBotStatus(symbol) {
         
         // 4. Verifica klines
         const klines = await dbAll(
-            "SELECT COUNT(*) as count FROM klines WHERE symbol = $1 AND interval = '15m'",
-            [symbol]
+            "SELECT COUNT(*) as count FROM klines WHERE symbol = $1 AND interval = $2",
+            [symbol, '15m']
         );
         
         const klinesCount = klines[0]?.count || 0;
