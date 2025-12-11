@@ -2265,9 +2265,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         // ✅ STRATEGY: 1000 posizioni piccole su analisi giuste > 1 posizione ogni tanto
         // Permettiamo MULTIPLE posizioni se il segnale è forte e il risk manager lo permette
 
-        // ✅ SOGLIA CONFIGURABILE: Legge da parametri bot (default 70)
+        // ✅ SOGLIA CONFIGURABILE: Legge da parametri bot (default 65)
         // I filtri di protezione reali (Risk Manager, ATR, Market Regime, Portfolio Drawdown) gestiscono il rischio
-        const MIN_SIGNAL_STRENGTH = params.min_signal_strength || 70;
+        const MIN_SIGNAL_STRENGTH = params.min_signal_strength || 65;
 
         console.log(`🎯 Segnale: ${signal.direction} | Strength Attuale: ${signal.strength}/100 | Strength Richiesta: ${MIN_SIGNAL_STRENGTH}/100`);
 
