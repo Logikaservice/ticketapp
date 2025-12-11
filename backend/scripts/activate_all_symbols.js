@@ -114,3 +114,4 @@ activateAllSymbols()
         process.exit(1);
     });
 
+

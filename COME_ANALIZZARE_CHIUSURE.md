@@ -153,3 +153,5 @@ Se vedi posizioni chiuse in < 1 secondo con perdite elevate, controlla:
 
 
 
+
+

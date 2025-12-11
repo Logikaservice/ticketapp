@@ -849,11 +849,9 @@ const CryptoDashboard = () => {
                         return `${upperSymbol}USDT`;
                     })()}
                     trades={filteredTrades}
-                    openPositions={openPositions}
+                    openPositions={filteredOpenPositions}
                     currentPrice={currentPrice}
                     priceHistory={priceData || []}
-                    currentSymbol={currentSymbol}
-                    availableSymbols={availableSymbols}
                 />
             </div>
         );
