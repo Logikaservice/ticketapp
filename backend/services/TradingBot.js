@@ -21,7 +21,7 @@
  * @version 2.1 - Enhanced with timeout handling and retry logic
  */
 
-const { dbAll, dbGet, dbRun } = require('../db/crypto_db');
+const { dbAll, dbGet, dbRun } = require('../crypto_db');
 const signalGenerator = require('../services/BidirectionalSignalGenerator');
 const riskManager = require('../services/RiskManager');
 

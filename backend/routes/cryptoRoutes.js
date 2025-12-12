@@ -6534,8 +6534,14 @@ router.get('/bot-analysis', async (req, res) => {
                         // Se è un numero (timestamp in millisecondi o secondi)
                         timestamp = new Date(openTime > 1000000000000 ? openTime : openTime * 1000).toISOString();
                     } else if (typeof openTime === 'string') {
-                        // Se è una stringa, prova a parsarla
-                        timestamp = new Date(openTime).toISOString();
+                        // ✅ FIX: Se è una stringa numerica, convertila prima in numero
+                        const numTime = Number(openTime);
+                        if (!isNaN(numTime) && numTime > 0) {
+                            timestamp = new Date(numTime > 1000000000000 ? numTime : numTime * 1000).toISOString();
+                        } else {
+                            // Prova come stringa ISO
+                            timestamp = new Date(openTime).toISOString();
+                        }
                     } else if (openTime instanceof Date) {
                         // Se è già un oggetto Date
                         timestamp = openTime.toISOString();
@@ -6545,7 +6551,10 @@ router.get('/bot-analysis', async (req, res) => {
                         timestamp = new Date().toISOString();
                     }
                 } catch (e) {
-                    console.error(`❌ [BOT-ANALYSIS] Errore conversione timestamp:`, e.message, 'open_time:', row.open_time);
+                    // ✅ FIX: Riduci logging eccessivo - logga solo ogni 100 errori per non saturare i log
+                    if (Math.random() < 0.01) { // 1% di probabilità = ~1 ogni 100 errori
+                        console.warn(`⚠️ [BOT-ANALYSIS] Errore conversione timestamp:`, e.message, 'open_time:', row.open_time);
+                    }
                     timestamp = new Date().toISOString();
                 }
 
@@ -8469,7 +8478,14 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = n
                     } else if (typeof openTime === 'number') {
                         timestamp = new Date(openTime > 1000000000000 ? openTime : openTime * 1000).toISOString();
                     } else if (typeof openTime === 'string') {
-                        timestamp = new Date(openTime).toISOString();
+                        // ✅ FIX: Se è una stringa numerica, convertila prima in numero
+                        const numTime = Number(openTime);
+                        if (!isNaN(numTime) && numTime > 0) {
+                            timestamp = new Date(numTime > 1000000000000 ? numTime : numTime * 1000).toISOString();
+                        } else {
+                            // Prova come stringa ISO
+                            timestamp = new Date(openTime).toISOString();
+                        }
                     } else if (openTime instanceof Date) {
                         timestamp = openTime.toISOString();
                     } else {
@@ -8477,7 +8493,10 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = n
                         timestamp = new Date().toISOString();
                     }
                 } catch (e) {
-                    console.error(`❌ [SCANNER] Errore conversione timestamp per ${symbol}:`, e.message, 'open_time:', row.open_time);
+                    // ✅ FIX: Riduci logging eccessivo - logga solo ogni 100 errori per non saturare i log
+                    if (Math.random() < 0.01) { // 1% di probabilità = ~1 ogni 100 errori
+                        console.warn(`⚠️ [SCANNER] Errore conversione timestamp per ${symbol}:`, e.message, 'open_time:', row.open_time);
+                    }
                     timestamp = new Date().toISOString();
                 }
 
