@@ -94,6 +94,8 @@
   padding: 1.5rem;
   border: 1px solid #2c2c2e;
   height: 100%;
+  width: 1163px;
+  margin-bottom: 20px;
 }
 
 /* Chart card - no padding on sides to maximize chart space */
