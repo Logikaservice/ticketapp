@@ -8108,10 +8108,16 @@ router.get('/bot-analysis', async (req, res) => {
             },
             blockers: {
                 // ✅ FIX LOGICA: Blockers seguono il direction del segnale principale
-                // Se Signal=LONG → blockers vanno in "long"
-                // Se Signal=SHORT → blockers vanno in "short"
+                // Se Signal=LONG → blockers vanno in "long", SHORT rimane vuoto
+                // Se Signal=SHORT → blockers vanno in "short", LONG rimane vuoto
                 // Questo rende la UI coerente e logica
                 long: (() => {
+                    // ✅ LOGICA CORRETTA: Se il segnale principale è SHORT, NON mostrare blockers per LONG
+                    // I blockers devono apparire solo nella sezione del segnale attivo
+                    if (signal.direction === 'SHORT') {
+                        return []; // Signal è SHORT, quindi blockers LONG devono essere vuoti
+                    }
+                    
                     // ✅ Solo se il segnale principale è LONG oppure c'è un segnale LONG parziale
                     if (signal.direction !== 'LONG' && longCurrentStrength === 0) {
                         return []; // Nessun blocker per LONG se non c'è segnale LONG
@@ -8254,6 +8260,12 @@ router.get('/bot-analysis', async (req, res) => {
                     return blocks;
                 })(),
                 short: (() => {
+                    // ✅ LOGICA CORRETTA: Se il segnale principale è LONG, NON mostrare blockers per SHORT
+                    // I blockers devono apparire solo nella sezione del segnale attivo
+                    if (signal.direction === 'LONG') {
+                        return []; // Signal è LONG, quindi blockers SHORT devono essere vuoti
+                    }
+                    
                     // ✅ Solo se il segnale principale è SHORT oppure c'è un segnale SHORT parziale
                     if (signal.direction !== 'SHORT' && shortCurrentStrength === 0) {
                         return []; // Nessun blocker per SHORT se non c'è segnale SHORT
