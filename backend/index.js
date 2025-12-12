@@ -12,22 +12,59 @@ const fs = require('fs');
 const { Pool } = require('pg');
 const http = require('http');
 const { Server } = require('socket.io');
+const url = require('url');
 
 const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 
 // --- CONFIGURAZIONE DATABASE ---
+// ✅ FIX: Decodifica manualmente l'URL per gestire password con caratteri speciali
+let databaseUrl = process.env.DATABASE_URL;
+if (databaseUrl) {
+  try {
+    const parsedUrl = url.parse(databaseUrl, true);
+    // Decodifica la password se è URL-encoded
+    if (parsedUrl.auth) {
+      const [user, password] = parsedUrl.auth.split(':');
+      if (password) {
+        const decodedPassword = decodeURIComponent(password);
+        parsedUrl.auth = `${user}:${decodedPassword}`;
+        databaseUrl = url.format(parsedUrl);
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ Errore decodifica DATABASE_URL, uso originale:', e.message);
+  }
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
   ssl: {
     rejectUnauthorized: false
   }
 });
 
 // --- CONFIGURAZIONE DATABASE VIVALDI (separato) ---
-const vivaldiDbUrl = process.env.DATABASE_URL_VIVALDI ||
+let vivaldiDbUrl = process.env.DATABASE_URL_VIVALDI ||
   process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/vivaldi_db');
+
+// ✅ FIX: Decodifica anche DATABASE_URL_VIVALDI
+if (vivaldiDbUrl) {
+  try {
+    const parsedUrl = url.parse(vivaldiDbUrl, true);
+    if (parsedUrl.auth) {
+      const [user, password] = parsedUrl.auth.split(':');
+      if (password) {
+        const decodedPassword = decodeURIComponent(password);
+        parsedUrl.auth = `${user}:${decodedPassword}`;
+        vivaldiDbUrl = url.format(parsedUrl);
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ Errore decodifica DATABASE_URL_VIVALDI, uso originale:', e.message);
+  }
+}
 
 if (!vivaldiDbUrl) {
   console.warn('⚠️ DATABASE_URL_VIVALDI non configurato! Vivaldi non sarà disponibile.');
@@ -49,7 +86,25 @@ if (vivaldiDbUrl) {
 // --- CONFIGURAZIONE DATABASE PACKVISION (separato) ---
 // Tenta di connettersi a packvision_db, se fallisce (es. non esiste), poolPackVision sarà null
 // e le route restituiranno 503 Service Unavailable
-const packvisionDbUrl = process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/packvision_db');
+let packvisionDbUrl = process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/packvision_db');
+
+// ✅ FIX: Decodifica anche packvisionDbUrl
+if (packvisionDbUrl) {
+  try {
+    const parsedUrl = url.parse(packvisionDbUrl, true);
+    if (parsedUrl.auth) {
+      const [user, password] = parsedUrl.auth.split(':');
+      if (password) {
+        const decodedPassword = decodeURIComponent(password);
+        parsedUrl.auth = `${user}:${decodedPassword}`;
+        packvisionDbUrl = url.format(parsedUrl);
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️ Errore decodifica packvisionDbUrl, uso originale:', e.message);
+  }
+}
+
 let poolPackVision = null;
 
 if (packvisionDbUrl) {
