@@ -4,241 +4,57 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:  # Permette di attivare manualmente la workflow
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Debug - Informazioni evento
-        run: |
-          echo "🔍 Evento che ha attivato la workflow: ${{ github.event_name }}"
-          echo "🔍 Branch: ${{ github.ref }}"
-          echo "🔍 Commit: ${{ github.sha }}"
-          echo "🔍 Autore: ${{ github.actor }}"
-      
       - name: Checkout code
         uses: actions/checkout@v3
       
-      - name: Check VPS secrets
-        run: |
-          if [ -z "${{ secrets.VPS_HOST }}" ]; then
-            echo "❌ VPS_HOST secret non configurato"
-            exit 1
-          fi
-          if [ -z "${{ secrets.VPS_USER }}" ]; then
-            echo "❌ VPS_USER secret non configurato"
-            exit 1
-          fi
-          if [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then
-            echo "❌ VPS_SSH_KEY secret non configurato"
-            exit 1
-          fi
-          echo "✅ Tutti i secrets sono configurati"
-      
-      - name: Deploy to VPS (with automated backups)
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          timeout: "1200s"
+          timeout: "600s"
           script: |
-            # ✅ FIX: Rimosso set -e per permettere al deploy di continuare anche se alcuni step falliscono
-            echo "🚀 Inizio deploy su VPS..."
-            
-            # Verifica che la directory esista
-            if [ ! -d "/var/www/ticketapp" ]; then
-              echo "❌ Directory /var/www/ticketapp non trovata"
-              exit 1
-            fi
-            
-            echo "🛡️ Backup automatici (DB + codice) prima del deploy..."
-            BACKUP_DIR="/var/backups/ticketapp"
-            TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
-            sudo mkdir -p "$BACKUP_DIR" || true
-            
-            # Backup Database PostgreSQL
-            if command -v pg_dump &> /dev/null; then
-              echo "📦 Backup DB Postgres..."
-              DB_NAME=${DB_NAME:-ticketapp_db}
-              DB_USER=${DB_USER:-postgres}
-              DB_HOST=${DB_HOST:-localhost}
-              sudo -u "$DB_USER" pg_dump -h "$DB_HOST" "$DB_NAME" -F c -f "$BACKUP_DIR/${DB_NAME}_${TIMESTAMP}.dump" 2>/dev/null || \
-                pg_dump -U "$DB_USER" -h "$DB_HOST" "$DB_NAME" -F c -f "$BACKUP_DIR/${DB_NAME}_${TIMESTAMP}.dump" || \
-                echo "⚠️ Backup DB non riuscito (continua...)"
-            else
-              echo "⚠️ pg_dump non disponibile, salto backup DB"
-            fi
-            
-            # Backup codice applicazione
-            echo "📦 Backup codice applicazione..."
-            sudo tar -czf "$BACKUP_DIR/ticketapp_code_${TIMESTAMP}.tar.gz" -C /var/www ticketapp 2>/dev/null || \
-              tar -czf "$BACKUP_DIR/ticketapp_code_${TIMESTAMP}.tar.gz" -C /var/www ticketapp || \
-              echo "⚠️ Backup codice non riuscito (continua...)"
+            set -e
+            echo "🚀 Deploy TicketApp..."
             
             cd /var/www/ticketapp
-            echo "📥 Aggiornamento codice da GitHub..."
-            git pull origin main || {
-              echo "⚠️ Errore git pull, provo a resettare..."
-              git fetch origin
-              git reset --hard origin/main
-            }
             
-            echo "🧹 Pulizia simboli EUR non disponibili su Binance..."
+            echo "📥 Git pull..."
+            git pull origin main
+            
+            echo "📦 Backend dependencies..."
             cd backend
-            if [ -f "remove_unavailable_eur_symbols.js" ]; then
-              timeout 120 node remove_unavailable_eur_symbols.js || echo "⚠️ Timeout o errore rimozione simboli EUR (continua...)"
-            else
-              echo "⚠️ Script rimozione simboli EUR non trovato (continua...)"
-            fi
-            
-            echo "📥 Download klines per simboli EUR disponibili..."
-            if [ -f "download_eur_klines.js" ]; then
-              timeout 300 node download_eur_klines.js || echo "⚠️ Timeout o errore download klines EUR (continua...)"
-            else
-              echo "⚠️ Script download klines EUR non trovato (continua...)"
-            fi
-            
-            echo "🔧 Configurazione simboli EUR nel database..."
-            if [ -f "setup_eur_symbols.js" ]; then
-              timeout 60 node setup_eur_symbols.js || echo "⚠️ Timeout o errore configurazione simboli EUR (continua...)"
-            else
-              echo "⚠️ Script configurazione simboli EUR non trovato (continua...)"
-            fi
+            npm install --production
             cd ..
             
-            echo "📦 Installazione dipendenze backend..."
+            echo "📦 Backend dependencies..."
             cd backend
-            timeout 180 npm install --production || timeout 180 npm install || {
-              echo "⚠️ Errore installazione dipendenze backend, continua..."
-            }
+            npm install --production
+            cd ..
             
-            echo "📦 Installazione dipendenze frontend..."
-            cd ../frontend
+            echo "📦 Frontend dependencies..."
+            cd frontend
+            rm -rf build node_modules/.cache
+            npm install
             
-            echo "🧹 Pulizia cache e build vecchi..."
-            # Rimuovi directory build completamente e tutti i file residui
-            rm -rf build || true
-            rm -rf build/static 2>/dev/null || true
-            rm -rf build/*.map 2>/dev/null || true
-            
-            # Rimuovi cache in modo sicuro (gestisce directory non vuote)
-            if [ -d "node_modules/.cache" ]; then
-              find node_modules/.cache -mindepth 1 -delete 2>/dev/null || rm -rf node_modules/.cache 2>/dev/null || true
-            fi
-            
-            # Rimuovi anche cache di react-scripts e altri file temporanei
-            rm -rf node_modules/.cache/.eslintcache 2>/dev/null || true
-            rm -rf .cache 2>/dev/null || true
-            rm -rf .eslintcache 2>/dev/null || true
-            find . -name "*.map" -type f -delete 2>/dev/null || true
-            
-            rm -f .env
-            rm -f .env.production
-            
-            echo "📦 Reinstallazione dipendenze frontend..."
-            timeout 300 npm install || {
-              echo "⚠️ Timeout o errore npm install, provo con --legacy-peer-deps..."
-              timeout 300 npm install --legacy-peer-deps || {
-                echo "❌ Errore installazione dipendenze frontend"
-                exit 1
-              }
-            }
-            
-            echo "🔧 Configurazione variabili d'ambiente..."
-            # Crea file .env per il build con l'URL corretto del backend
-            # Se nginx fa proxy per /api/, usa URL vuoto (chiamate relative)
-            # Disabilita source maps per evitare errori durante il build
+            echo "🔨 Build frontend..."
             echo "REACT_APP_API_URL=" > .env
             echo "GENERATE_SOURCEMAP=false" >> .env
-            echo "✅ File .env creato:"
-            cat .env
+            npm run build
+            cd ..
             
-            echo "🔨 Build frontend (pulito)..."
-            # Pulisci eventuali file residui prima del build
-            rm -rf build/static 2>/dev/null || true
-            timeout 900 npm run build || {
-              echo "❌ Errore build frontend (timeout o errore)"
-              echo "📋 Verifica errori sopra"
-              echo "⚠️ Continuo comunque il deploy..."
-            }
-            
-            echo "✅ Verifica build completato..."
-            if [ -d "build" ]; then
-              echo "✅ Directory build creata correttamente"
-              echo "📊 Dimensione build:"
-              du -sh build
-            else
-              echo "❌ Directory build non trovata!"
-              exit 1
-            fi
-            
-            echo "🔄 Riavvio servizi..."
-            # Prova a riavviare il backend con PM2 (preferito)
-            if command -v pm2 &> /dev/null; then
-              echo "🔄 Riavvio backend con PM2..."
-              pm2 restart ticketapp-backend 2>/dev/null || \
-              pm2 restart all 2>/dev/null || \
-              echo "⚠️ PM2 non ha trovato il processo, continua..."
-            fi
-            
-            # Prova anche con systemctl (fallback)
-            sudo systemctl restart ticketapp-backend 2>/dev/null || \
-            sudo systemctl restart ticketapp 2>/dev/null || \
-            sudo systemctl restart node 2>/dev/null || \
-            echo "⚠️ Servizio backend systemctl non trovato, continua..."
-            
-            # Configura nginx
-            echo "🔧 Configurazione nginx..."
-            if [ -f "deploy/nginx/ticketapp.conf" ]; then
-              echo "📋 Copia configurazione nginx..."
-              sudo cp deploy/nginx/ticketapp.conf /etc/nginx/sites-available/ticketapp.conf
-              sudo ln -sf /etc/nginx/sites-available/ticketapp.conf /etc/nginx/sites-enabled/ticketapp.conf
-              # Rimuovi default se esiste
-              sudo rm -f /etc/nginx/sites-enabled/default
-              echo "✅ Configurazione nginx copiata"
-            else
-              echo "⚠️ File nginx config non trovato, continua..."
-            fi
-            
-            # Test configurazione nginx
-            sudo nginx -t || {
-              echo "❌ Errore configurazione nginx!"
-              exit 1
-            }
-            
-            # Riavvia nginx
-            sudo systemctl restart nginx || {
-              echo "⚠️ Errore riavvio nginx, provo reload..."
-              sudo systemctl reload nginx || echo "⚠️ Impossibile riavviare nginx"
-            }
+            echo "🔄 Restart services..."
+            pm2 restart ticketapp-backend || sudo systemctl restart ticketapp-backend
+            sudo nginx -t && sudo systemctl reload nginx
             
             echo "✅ Deploy completato!"
-            
-            # Esegui controllo avvisi e stato sistema
-            echo ""
-            echo "🔍 Esecuzione controllo avvisi e stato sistema..."
-            if [ -f "backend/scripts/controlla-avvisi-vps.sh" ]; then
-              chmod +x backend/scripts/controlla-avvisi-vps.sh
-              timeout 60 bash backend/scripts/controlla-avvisi-vps.sh || echo "⚠️ Timeout o errore durante controllo avvisi (continua...)"
-            else
-              echo "⚠️ Script controllo avvisi non trovato"
-            fi
-            
-            echo ""
-            echo "✅ Deploy completato con successo!"
-            echo ""
-            echo "🔎 Avvio diagnostica VPS..."
-            set -x
-            pm2 status || sudo systemctl status ticketapp-backend -n 50 --no-pager || true
-            pm2 logs --lines 100 || sudo journalctl -u ticketapp-backend -n 100 --no-pager || true
-            sudo nginx -t || true
-            sudo tail -n 100 /var/log/nginx/error.log || true
-            sudo tail -n 100 /var/log/nginx/access.log || true
-            sudo ss -lntp | grep -E "(3001|node)" || true
-            psql -U postgres -h localhost -c "SELECT version();" || echo "⚠️ Postgres non raggiungibile"
-            sudo systemctl cat ticketapp-backend | sed -n '1,160p' || true
-            echo "✅ Diagnostica completata"
+            pm2 status || sudo systemctl status ticketapp-backend --no-pager
 
