@@ -8,7 +8,7 @@
 // Usa fetch nativo di Node.js (disponibile dalla versione 18+)
 
 // Configurazione
-const API_URL = process.env.API_URL || 'https://ticketapp-backend-ton5.onrender.com';
+const API_URL = process.env.API_URL || 'https://ticket.logikaservice.it';
 const ENDPOINT = '/api/bulk-sync-google-calendar';
 
 async function bulkSyncCalendar() {

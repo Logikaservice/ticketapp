@@ -4,7 +4,7 @@
 const fetch = globalThis.fetch || require('node-fetch');
 
 // Configurazione
-const API_URL = process.env.API_URL || 'https://ticketapp-4eqb.onrender.com';
+const API_URL = process.env.API_URL || 'https://ticket.logikaservice.it';
 const TECHNICIAN_EMAIL = 'tecnico@example.com';
 const NEW_PASSWORD = 'nuovaPasswordSicura123!';
 

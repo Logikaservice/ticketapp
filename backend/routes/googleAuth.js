@@ -23,13 +23,13 @@ module.exports = (pool) => {
       console.log('Configuring OAuth2 client with:', {
         clientId: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET ? '***' : 'MISSING',
-        redirectUri: process.env.GOOGLE_REDIRECT_URI || 'https://ticketapp-frontend-ton5.onrender.com'
+        redirectUri: process.env.GOOGLE_REDIRECT_URI || 'https://ticket.logikaservice.it'
       });
 
       const oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI || 'https://ticketapp-frontend-ton5.onrender.com'
+        process.env.GOOGLE_REDIRECT_URI || 'https://ticket.logikaservice.it'
       );
 
       // Scambia il codice con i token

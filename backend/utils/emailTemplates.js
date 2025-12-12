@@ -3,7 +3,7 @@
  */
 
 const getEmailFooter = (frontendUrl) => {
-  const url = frontendUrl || process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com';
+  const url = frontendUrl || process.env.FRONTEND_URL || 'https://ticket.logikaservice.it';
   return `
     <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center;">
       <p style="color: #6b7280; font-size: 11px; margin: 0 0 8px 0;">

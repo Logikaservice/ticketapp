@@ -241,7 +241,7 @@ module.exports = (pool) => {
         colorId: getPriorityColorId(ticket.priorita),
         source: {
           title: 'TicketApp',
-          url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
+          url: `${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/ticket/${ticket.id}`
         }
       };
 
@@ -481,7 +481,7 @@ module.exports = (pool) => {
               descInterventoText += `📋 TICKET: #${ticket.numero}\n`;
               descInterventoText += `📝 Titolo Ticket: ${ticket.titolo || 'N/A'}\n`;
               descInterventoText += `👤 Cliente: ${clientName}\n`;
-              descInterventoText += `🔗 Link Ticket: ${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}\n\n`;
+              descInterventoText += `🔗 Link Ticket: ${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/ticket/${ticket.id}\n\n`;
               descInterventoText += `───────────────────────────────────\n`;
               descInterventoText += `DETTAGLI INTERVENTO:\n`;
               descInterventoText += `───────────────────────────────────\n`;
@@ -522,7 +522,7 @@ module.exports = (pool) => {
                 colorId: '10', // Colore viola per gli interventi
                 source: {
                   title: 'TicketApp - Intervento',
-                  url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
+                  url: `${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/ticket/${ticket.id}`
                 },
                 extendedProperties: {
                   private: {
@@ -704,7 +704,7 @@ module.exports = (pool) => {
                 descInterventoText += `📋 TICKET: #${ticket.numero}\n`;
                 descInterventoText += `📝 Titolo Ticket: ${ticket.titolo || 'N/A'}\n`;
                 descInterventoText += `👤 Cliente: ${clientName}\n`;
-                descInterventoText += `🔗 Link Ticket: ${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}\n\n`;
+                descInterventoText += `🔗 Link Ticket: ${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/ticket/${ticket.id}\n\n`;
                 descInterventoText += `───────────────────────────────────\n`;
                 descInterventoText += `DETTAGLI INTERVENTO:\n`;
                 descInterventoText += `───────────────────────────────────\n`;
@@ -743,7 +743,7 @@ module.exports = (pool) => {
                   colorId: '10', // Colore viola per gli interventi
                   source: {
                     title: 'TicketApp - Intervento',
-                    url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
+                    url: `${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/ticket/${ticket.id}`
                   },
                   extendedProperties: {
                     private: {
@@ -1483,7 +1483,7 @@ module.exports = (pool) => {
                 descInterventoText += `📋 TICKET: #${ticket.numero}\n`;
                 descInterventoText += `📝 Titolo Ticket: ${ticket.titolo || 'N/A'}\n`;
                 descInterventoText += `👤 Cliente: ${clientName}\n`;
-                descInterventoText += `🔗 Link Ticket: ${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}\n\n`;
+                descInterventoText += `🔗 Link Ticket: ${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/ticket/${ticket.id}\n\n`;
                 descInterventoText += `───────────────────────────────────\n`;
                 descInterventoText += `DETTAGLI INTERVENTO:\n`;
                 descInterventoText += `───────────────────────────────────\n`;
@@ -1522,7 +1522,7 @@ module.exports = (pool) => {
                   colorId: '10', // Colore viola per gli interventi
                   source: {
                     title: 'TicketApp - Intervento',
-                    url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
+                    url: `${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/ticket/${ticket.id}`
                   },
                   extendedProperties: {
                     private: {
@@ -1728,7 +1728,7 @@ module.exports = (pool) => {
         descInterventoText += `📋 TICKET: #${ticket.numero}\n`;
         descInterventoText += `📝 Titolo Ticket: ${ticket.titolo || 'N/A'}\n`;
         descInterventoText += `👤 Cliente: ${clientName}\n`;
-        descInterventoText += `🔗 Link Ticket: ${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}\n\n`;
+        descInterventoText += `🔗 Link Ticket: ${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/ticket/${ticket.id}\n\n`;
         descInterventoText += `───────────────────────────────────\n`;
         descInterventoText += `DETTAGLI INTERVENTO:\n`;
         descInterventoText += `───────────────────────────────────\n`;
@@ -1767,7 +1767,7 @@ module.exports = (pool) => {
           colorId: '10',
           source: {
             title: 'TicketApp - Intervento',
-            url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
+            url: `${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/ticket/${ticket.id}`
           },
           extendedProperties: {
             private: {
@@ -2046,7 +2046,7 @@ module.exports = (pool) => {
             colorId: getPriorityColorId(ticket.priorita),
             source: {
               title: 'TicketApp',
-              url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
+              url: `${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/ticket/${ticket.id}`
             }
           };
 
@@ -2251,7 +2251,7 @@ module.exports = (pool) => {
                 descInterventoText += `📋 TICKET: #${ticket.numero}\n`;
                 descInterventoText += `📝 Titolo Ticket: ${ticket.titolo || 'N/A'}\n`;
                 descInterventoText += `👤 Cliente: ${clientName}\n`;
-                descInterventoText += `🔗 Link Ticket: ${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}\n\n`;
+                descInterventoText += `🔗 Link Ticket: ${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/ticket/${ticket.id}\n\n`;
                 descInterventoText += `───────────────────────────────────\n`;
                 descInterventoText += `DETTAGLI INTERVENTO:\n`;
                 descInterventoText += `───────────────────────────────────\n`;
@@ -2291,7 +2291,7 @@ module.exports = (pool) => {
                   colorId: '10',
                   source: {
                     title: 'TicketApp - Intervento',
-                    url: `${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}/ticket/${ticket.id}`
+                    url: `${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}/ticket/${ticket.id}`
                   },
                   extendedProperties: {
                     private: {

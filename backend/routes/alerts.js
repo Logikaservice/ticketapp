@@ -294,7 +294,7 @@ module.exports = function createAlertsRouter(pool) {
             }
 
             // Invia email a tutti i destinatari
-            const frontendUrl = process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com';
+            const frontendUrl = process.env.FRONTEND_URL || 'https://ticket.logikaservice.it';
             const levelColors = {
               'info': '#3b82f6',
               'warning': '#f59e0b',
