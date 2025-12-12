@@ -53,7 +53,7 @@ const httpsGet = (url, timeout = 10000) => {
                 res.on('data', (chunk) => data += chunk);
                 res.on('end', () => {
                     if (data.trim().startsWith('<!DOCTYPE') || data.trim().startsWith('<html')) {
-                        reject(new Error(`Received HTML instead of JSON. Status: ${res.statusCode}. Response starts with: ${data.substring(0, 100)}`));
+                        reject(new Error(`Received HTML instead of JSON. Status: ${res.statusCode}.`));
                     } else {
                         reject(new Error(`Unexpected content-type: ${contentType}. Status: ${res.statusCode}`));
                     }
@@ -66,7 +66,8 @@ const httpsGet = (url, timeout = 10000) => {
                 let errorData = '';
                 res.on('data', (chunk) => errorData += chunk);
                 res.on('end', () => {
-                    reject(new Error(`HTTP ${res.statusCode}: ${errorData.substring(0, 200)}`));
+                    const snippet = errorData.substring(0, 200);
+                    reject(new Error(`HTTP ${res.statusCode}: ${snippet}`));
                 });
                 return;
             }
