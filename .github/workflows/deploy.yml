@@ -37,7 +37,7 @@ jobs:
           fi
           echo "✅ Tutti i secrets sono configurati"
       
-      - name: Deploy to VPS
+      - name: Deploy to VPS (with automated backups)
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -54,6 +54,30 @@ jobs:
               echo "❌ Directory /var/www/ticketapp non trovata"
               exit 1
             fi
+            
+            echo "🛡️ Backup automatici (DB + codice) prima del deploy..."
+            BACKUP_DIR="/var/backups/ticketapp"
+            TIMESTAMP=$(date +'%Y%m%d_%H%M%S')
+            sudo mkdir -p "$BACKUP_DIR" || true
+            
+            # Backup Database PostgreSQL
+            if command -v pg_dump &> /dev/null; then
+              echo "📦 Backup DB Postgres..."
+              DB_NAME=${DB_NAME:-ticketapp_db}
+              DB_USER=${DB_USER:-postgres}
+              DB_HOST=${DB_HOST:-localhost}
+              sudo -u "$DB_USER" pg_dump -h "$DB_HOST" "$DB_NAME" -F c -f "$BACKUP_DIR/${DB_NAME}_${TIMESTAMP}.dump" 2>/dev/null || \
+                pg_dump -U "$DB_USER" -h "$DB_HOST" "$DB_NAME" -F c -f "$BACKUP_DIR/${DB_NAME}_${TIMESTAMP}.dump" || \
+                echo "⚠️ Backup DB non riuscito (continua...)"
+            else
+              echo "⚠️ pg_dump non disponibile, salto backup DB"
+            fi
+            
+            # Backup codice applicazione
+            echo "📦 Backup codice applicazione..."
+            sudo tar -czf "$BACKUP_DIR/ticketapp_code_${TIMESTAMP}.tar.gz" -C /var/www ticketapp 2>/dev/null || \
+              tar -czf "$BACKUP_DIR/ticketapp_code_${TIMESTAMP}.tar.gz" -C /var/www ticketapp || \
+              echo "⚠️ Backup codice non riuscito (continua...)"
             
             cd /var/www/ticketapp
             echo "📥 Aggiornamento codice da GitHub..."
