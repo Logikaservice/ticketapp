@@ -86,8 +86,24 @@ const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
                 <button
                     onClick={runScan}
                     disabled={loading}
-                    className="toggle-btn"
-                    style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                    style={{ 
+                        background: '#ffffff',
+                        color: '#000000',
+                        border: 'none',
+                        borderRadius: '20px',
+                        padding: '8px 20px',
+                        fontSize: '0.9rem',
+                        fontWeight: '600',
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        opacity: loading ? 0.7 : 1,
+                        transition: 'all 0.2s',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                    }}
+                    onMouseEnter={(e) => !loading && (e.currentTarget.style.transform = 'translateY(-2px)')}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                     <RefreshCw size={16} className={loading ? 'spin' : ''} />
                     {loading ? 'Scanning...' : 'Scan Now'}
