@@ -235,7 +235,7 @@ jobs:
             host: ${{ secrets.VPS_HOST }}
             username: ${{ secrets.VPS_USER }}
             key: ${{ secrets.VPS_SSH_KEY }}
-          timeout: 900
+            timeout: 900
             script: |
               echo "🔎 Avvio diagnostica VPS..."
               set -x
