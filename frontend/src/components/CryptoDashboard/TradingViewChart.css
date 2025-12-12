@@ -535,8 +535,8 @@
 /* Pulsante Ingrandisci */
 .chart-fullscreen-button {
     position: absolute;
-    top: 713px;
-    left: 2102px;
+    bottom: 20px;
+    right: 20px;
     width: 36px;
     height: 36px;
     background: rgba(31, 41, 55, 0.9);
