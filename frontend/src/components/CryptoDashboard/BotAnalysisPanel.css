@@ -1,16 +1,101 @@
-/* Stili per pagina separata */
+/* Stili per pagina separata - UNIFORMATA CON CRYPTO DASHBOARD */
 .bot-analysis-page {
     min-height: 100vh;
-    background: #0f0f0f;
+    background: #0a1929;
     padding: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Sparkles overlay like crypto dashboard */
+.bot-analysis-page::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        radial-gradient(2px 2px at 20% 30%, rgba(255, 255, 255, 0.3), transparent),
+        radial-gradient(1px 1px at 60% 70%, rgba(255, 255, 255, 0.2), transparent),
+        radial-gradient(1px 1px at 80% 10%, rgba(255, 255, 255, 0.3), transparent),
+        radial-gradient(1px 1px at 33% 80%, rgba(255, 255, 255, 0.2), transparent);
+    background-size: 200% 200%;
+    background-position: 0% 0%;
+    opacity: 0.4;
+    animation: twinkle 3s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes twinkle {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.5; }
+}
+
+/* Floating stars like crypto dashboard */
+.bot-analysis-page::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image: 
+        radial-gradient(circle, rgba(255, 255, 255, 0.8) 1px, transparent 1px),
+        radial-gradient(circle, rgba(255, 255, 255, 0.6) 2px, transparent 2px),
+        radial-gradient(circle, rgba(255, 255, 255, 0.9) 1px, transparent 1px),
+        radial-gradient(circle, rgba(255, 255, 255, 0.7) 1px, transparent 1px),
+        radial-gradient(circle, rgba(255, 255, 255, 0.5) 2px, transparent 2px);
+    background-size: 
+        200px 300px,
+        250px 350px,
+        300px 280px,
+        180px 320px,
+        220px 290px;
+    background-position: 
+        0% 0%,
+        40% 10%,
+        80% 5%,
+        20% 15%,
+        60% 8%;
+    animation: 
+        floatStars1 25s linear infinite,
+        floatStars2 30s linear infinite,
+        floatStars3 35s linear infinite;
+    filter: blur(1px);
+}
+
+@keyframes floatStars1 {
+    0% { background-position: 0% 0%, 40% 10%, 80% 5%, 20% 15%, 60% 8%; }
+    100% { background-position: 0% 100%, 40% 110%, 80% 105%, 20% 115%, 60% 108%; }
+}
+
+@keyframes floatStars2 {
+    0% { opacity: 0.6; transform: translateX(0); }
+    50% { opacity: 0.9; transform: translateX(20px); }
+    100% { opacity: 0.6; transform: translateX(0); }
+}
+
+@keyframes floatStars3 {
+    0% { filter: blur(1px); }
+    50% { filter: blur(2px); }
+    100% { filter: blur(1px); }
 }
 
 .page-container {
     max-width: 1200px;
     margin: 0 auto;
-    background: #1c1c1e;
+    background: rgba(28, 28, 30, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 12px;
     overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
+    z-index: 1;
 }
 
 .page-header {
@@ -18,8 +103,10 @@
     align-items: center;
     gap: 16px;
     padding: 20px;
-    border-bottom: 1px solid #374151;
-    background: #1c1c1e;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(28, 28, 30, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
 
 .page-header h1 {
@@ -34,8 +121,10 @@
     align-items: center;
     gap: 8px;
     padding: 10px 16px;
-    background: #2d2d30;
-    border: 1px solid #374151;
+    background: rgba(45, 45, 48, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 6px;
     color: #fff;
     cursor: pointer;
@@ -44,14 +133,16 @@
 }
 
 .back-button:hover {
-    background: #374151;
-    border-color: #4b5563;
+    background: rgba(75, 85, 99, 0.6);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
 .refresh-button {
     padding: 10px;
-    background: #2d2d30;
-    border: 1px solid #374151;
+    background: rgba(45, 45, 48, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 6px;
     color: #fff;
     cursor: pointer;
@@ -59,7 +150,7 @@
 }
 
 .refresh-button:hover {
-    background: #374151;
+    background: rgba(75, 85, 99, 0.6);
 }
 
 .page-content {
@@ -83,13 +174,16 @@
 }
 
 .bot-analysis-panel {
-    background: #1c1c1e;
+    background: rgba(28, 28, 30, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 12px;
     width: 100%;
     max-width: 900px;
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .panel-header {
@@ -97,10 +191,12 @@
     justify-content: space-between;
     align-items: center;
     padding: 20px;
-    border-bottom: 1px solid #374151;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     position: sticky;
     top: 0;
-    background: #1c1c1e;
+    background: rgba(28, 28, 30, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     z-index: 10;
 }
 
@@ -121,7 +217,7 @@
 }
 
 .close-button:hover {
-    background: #374151;
+    background: rgba(75, 85, 99, 0.5);
     color: #fff;
 }
 
@@ -144,10 +240,12 @@
 }
 
 .info-card {
-    background: #2d2d30;
+    background: rgba(45, 45, 48, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 8px;
     padding: 16px;
-    border: 1px solid #374151;
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .info-label {
@@ -188,10 +286,12 @@
 }
 
 .signal-card {
-    background: #2d2d30;
+    background: rgba(45, 45, 48, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 8px;
     padding: 16px;
-    border: 2px solid #374151;
+    border: 2px solid rgba(255, 255, 255, 0.05);
 }
 
 .signal-card.long {
@@ -266,10 +366,12 @@
 }
 
 .requirement-card {
-    background: #2d2d30;
+    background: rgba(45, 45, 48, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 8px;
     padding: 16px;
-    border: 2px solid #374151;
+    border: 2px solid rgba(255, 255, 255, 0.05);
 }
 
 .requirement-card.ready {
@@ -625,10 +727,12 @@
 }
 
 .risk-card {
-    background: #2d2d30;
+    background: rgba(45, 45, 48, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 8px;
     padding: 16px;
-    border: 2px solid #374151;
+    border: 2px solid rgba(255, 255, 255, 0.05);
 }
 
 .risk-card.ok {
@@ -693,10 +797,12 @@
 }
 
 .positions-card {
-    background: #2d2d30;
+    background: rgba(45, 45, 48, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 8px;
     padding: 16px;
-    border: 1px solid #374151;
+    border: 1px solid rgba(255, 255, 255, 0.05);
     display: flex;
     gap: 24px;
 }
@@ -721,10 +827,12 @@
 }
 
 .explanation-card {
-    background: #2d2d30;
+    background: rgba(45, 45, 48, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 8px;
     padding: 20px;
-    border: 1px solid #374151;
+    border: 1px solid rgba(255, 255, 255, 0.05);
     color: #d1d5db;
     font-size: 14px;
     line-height: 1.6;
@@ -753,16 +861,16 @@
 }
 
 .bot-analysis-panel::-webkit-scrollbar-track {
-    background: #1c1c1e;
+    background: rgba(28, 28, 30, 0.5);
 }
 
 .bot-analysis-panel::-webkit-scrollbar-thumb {
-    background: #374151;
+    background: rgba(75, 85, 99, 0.6);
     border-radius: 4px;
 }
 
 .bot-analysis-panel::-webkit-scrollbar-thumb:hover {
-    background: #4b5563;
+    background: rgba(75, 85, 99, 0.8);
 }
 
 /* Multi-Timeframe Confirmation Section */
@@ -777,7 +885,9 @@
 }
 
 .mtf-card {
-    background: #2d2d30;
+    background: rgba(45, 45, 48, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 8px;
     padding: 16px;
     border: 2px solid #8b5cf6;
@@ -891,7 +1001,9 @@
 .mtf-progress-bar {
     width: 100%;
     height: 8px;
-    background: #374151;
+    background: rgba(75, 85, 99, 0.3);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
     border-radius: 4px;
     overflow: hidden;
     margin-bottom: 10px;
@@ -923,7 +1035,9 @@
     justify-content: space-between;
     align-items: center;
     padding: 8px 12px;
-    background: #2a2a2d;
+    background: rgba(42, 42, 45, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 6px;
     border-left: 3px solid #3b82f6;
 }
@@ -954,7 +1068,9 @@
     align-items: center;
     gap: 8px;
     padding: 6px 10px;
-    background: #2a2a2d;
+    background: rgba(42, 42, 45, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     border-radius: 4px;
     font-size: 12px;
 }
