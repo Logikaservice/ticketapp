@@ -57,3 +57,5 @@ echo ""
 echo "Se il problema persiste, verifica i log:"
 echo "  pm2 logs ticketapp-backend --lines 50"
 
+
+

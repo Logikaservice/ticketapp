@@ -11,18 +11,10 @@
  * PM2: pm2 start klines_recovery_daemon.js --name klines-recovery --cron "0 3 * * *"
  */
 
-const postgres = require('pg');
+const cryptoDb = require('./crypto_db');
 const https = require('https');
 
 // ===== CONFIGURAZIONE =====
-const DB_CONFIG = {
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || '',
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 5432,
-    database: process.env.DB_NAME || 'crypto_trading'
-};
-
 const KLINE_INTERVAL = '15m'; // Timeframe da controllare
 const LOOKBACK_DAYS = 7; // Ultimi 7 giorni
 const BATCH_SIZE = 100; // Download 100 klines per volta da Binance
@@ -37,36 +29,12 @@ const log = {
     recovery: (msg) => console.log(`[${new Date().toISOString()}] 🔄 ${msg}`)
 };
 
-// ===== DATABASE =====
-class Database {
-    constructor() {
-        this.pool = new postgres.Pool(DB_CONFIG);
-    }
-
-    async query(sql, params = []) {
-        const client = await this.pool.connect();
-        try {
-            return await client.query(sql, params);
-        } finally {
-            client.release();
-        }
-    }
-
-    async close() {
-        await this.pool.end();
-    }
-}
-
 // ===== SYSTEM STATUS =====
 class SystemStatus {
-    constructor(db) {
-        this.db = db;
-    }
-
     async init() {
         try {
             // Crea tabella se non esiste
-            await this.db.query(`
+            await cryptoDb.dbRun(`
                 CREATE TABLE IF NOT EXISTS system_status (
                     id SERIAL PRIMARY KEY,
                     status_key VARCHAR(50) UNIQUE NOT NULL,
@@ -84,7 +52,7 @@ class SystemStatus {
     async setRecoveryMode(enabled) {
         try {
             const timestamp = new Date().toISOString();
-            await this.db.query(`
+            await cryptoDb.dbRun(`
                 INSERT INTO system_status (status_key, status_value, last_updated)
                 VALUES ('klines_recovery_in_progress', $1, NOW())
                 ON CONFLICT (status_key) 
@@ -100,10 +68,10 @@ class SystemStatus {
 
     async isRecoveryMode() {
         try {
-            const result = await this.db.query(
+            const result = await cryptoDb.dbGet(
                 `SELECT status_value FROM system_status WHERE status_key = 'klines_recovery_in_progress'`
             );
-            return result.rows.length > 0 && result.rows[0].status_value === 'true';
+            return result && result.status_value === 'true';
         } catch (err) {
             log.warn(`Errore lettura recovery mode: ${err.message}`);
             return false;
@@ -113,8 +81,7 @@ class SystemStatus {
 
 // ===== KLINES VERIFIER =====
 class KlinesVerifier {
-    constructor(db) {
-        this.db = db;
+    constructor() {
         this.BINANCE_URL = 'https://api.binance.com/api/v3/klines';
         this.SYMBOL_MAP = {
             'bitcoin': 'BTCUSDT',
@@ -146,12 +113,12 @@ class KlinesVerifier {
      */
     async getActiveSymbols() {
         try {
-            const result = await this.db.query(`
+            const result = await cryptoDb.dbAll(`
                 SELECT DISTINCT symbol FROM bot_settings 
                 WHERE is_active = 1 
                 ORDER BY symbol
             `);
-            return result.rows.map(r => r.symbol);
+            return result.map(r => r.symbol);
         } catch (err) {
             log.error(`Errore recupero simboli attivi: ${err.message}`);
             return [];
@@ -163,17 +130,17 @@ class KlinesVerifier {
      */
     async checkGapsForSymbol(symbol) {
         try {
-            const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+            const sevenDaysAgo = Date.now() - (LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
             
             // Recupera klines dal DB negli ultimi 7 giorni
-            const result = await this.db.query(`
+            const result = await cryptoDb.dbAll(`
                 SELECT open_time, close_time
                 FROM klines
                 WHERE symbol = $1 AND interval = $2 AND open_time >= $3
                 ORDER BY open_time ASC
             `, [symbol, KLINE_INTERVAL, sevenDaysAgo]);
 
-            const klines = result.rows;
+            const klines = result;
             if (klines.length === 0) {
                 return { symbol, gaps: [], totalKlines: 0 };
             }
@@ -262,7 +229,7 @@ class KlinesVerifier {
                 const closeTime = parseInt(k[6]);
 
                 try {
-                    await this.db.query(`
+                    await cryptoDb.dbRun(`
                         INSERT INTO klines 
                         (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time)
                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -338,9 +305,8 @@ class KlinesVerifier {
 
 // ===== MAIN =====
 async function main() {
-    const db = new Database();
-    const status = new SystemStatus(db);
-    const verifier = new KlinesVerifier(db);
+    const status = new SystemStatus();
+    const verifier = new KlinesVerifier();
 
     try {
         log.info('🌙 INIZIO VERIFICA NOTTURNA KLINES (3:00 AM)');
@@ -354,7 +320,6 @@ async function main() {
         if (activeSymbols.length === 0) {
             log.warn('Nessun simbolo attivo trovato');
             await status.setRecoveryMode(false);
-            await db.close();
             process.exit(0);
         }
 
@@ -383,10 +348,9 @@ async function main() {
     } catch (err) {
         log.error(`Errore fatale: ${err.message}`);
         log.error(err.stack);
+        const status = new SystemStatus();
         await status.setRecoveryMode(false);
         process.exit(1);
-    } finally {
-        await db.close();
     }
 }
 

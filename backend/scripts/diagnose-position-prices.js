@@ -64,3 +64,5 @@ db.all("SELECT ticket_id, symbol, type, entry_price, current_price, opened_at, s
 
 
 
+
+

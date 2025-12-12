@@ -8,15 +8,7 @@
  * Uso: node backend/test_klines_recovery.js
  */
 
-const postgres = require('pg');
-
-const DB_CONFIG = {
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || '',
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 5432,
-    database: process.env.DB_NAME || 'crypto_trading'
-};
+const cryptoDb = require('./crypto_db');
 
 const log = {
     info: (msg) => console.log(`[${new Date().toISOString()}] ℹ️  ${msg}`),
@@ -27,39 +19,46 @@ const log = {
 };
 
 async function main() {
-    const pool = new postgres.Pool(DB_CONFIG);
-    
     try {
         log.test('Connessione al database...');
-        const client = await pool.connect();
-        log.success('Connesso al database');
-        client.release();
+        
+        // Test connessione
+        const testResult = await cryptoDb.dbGet('SELECT NOW() as timestamp');
+        if (testResult) {
+            log.success(`Connesso al database (${testResult.timestamp})`);
+        }
 
         // Test 1: Verifica tabella system_status
         log.test('\n1️⃣  Test: Verifica tabella system_status');
         try {
-            const result = await pool.query(
+            // Prova a crearla prima se non esiste
+            await cryptoDb.dbRun(`
+                CREATE TABLE IF NOT EXISTS system_status (
+                    id SERIAL PRIMARY KEY,
+                    status_key VARCHAR(50) UNIQUE NOT NULL,
+                    status_value TEXT,
+                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+            
+            const result = await cryptoDb.dbGet(
                 `SELECT * FROM system_status WHERE status_key = 'klines_recovery_in_progress'`
             );
-            if (result.rows.length > 0) {
-                log.success(`  system_status esiste: ${result.rows[0].status_value}`);
+            if (result) {
+                log.success(`  system_status esiste: ${result.status_value}`);
             } else {
                 log.warn('  Tabella esiste ma no entry recovery - OK');
             }
         } catch (err) {
-            if (err.message.includes('does not exist')) {
-                log.warn('  Tabella system_status non esiste ancora (verrà creata al primo avvio)');
-            } else {
-                throw err;
-            }
+            log.error(`  Errore: ${err.message}`);
         }
 
         // Test 2: Conta simboli attivi
         log.test('\n2️⃣  Test: Conta simboli attivi');
-        const activeResult = await pool.query(
+        const activeResult = await cryptoDb.dbGet(
             `SELECT COUNT(DISTINCT symbol) as count FROM bot_settings WHERE is_active = 1`
         );
-        const activeCount = activeResult.rows[0].count;
+        const activeCount = activeResult.count;
         log.success(`  Simboli attivi: ${activeCount}`);
         if (activeCount === 0) {
             log.warn('  ⚠️  Nessun simbolo attivo! Lo script non farà nulla.');
@@ -67,35 +66,35 @@ async function main() {
 
         // Test 3: Conta klines per intervallo
         log.test('\n3️⃣  Test: Conta klines per intervallo');
-        const klinesResult = await pool.query(`
+        const klinesResult = await cryptoDb.dbAll(`
             SELECT interval, COUNT(*) as count 
             FROM klines 
             GROUP BY interval 
             ORDER BY interval
         `);
         log.success('  Klines per intervallo:');
-        klinesResult.rows.forEach(row => {
+        klinesResult.forEach(row => {
             log.info(`    ${row.interval}: ${row.count} klines`);
         });
 
         // Test 4: Verifica gap ultimi 7 giorni (Bitcoin)
         log.test('\n4️⃣  Test: Analizza gap ultimi 7 giorni (Bitcoin)');
         const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-        const gapResult = await pool.query(`
+        const gapResult = await cryptoDb.dbAll(`
             SELECT open_time, close_time
             FROM klines
             WHERE symbol = 'bitcoin' AND interval = '15m' AND open_time >= $1
             ORDER BY open_time ASC
         `, [sevenDaysAgo]);
 
-        if (gapResult.rows.length > 0) {
-            log.success(`  Bitcoin: ${gapResult.rows.length} klines trovate negli ultimi 7 giorni`);
+        if (gapResult.length > 0) {
+            log.success(`  Bitcoin: ${gapResult.length} klines trovate negli ultimi 7 giorni`);
             
             // Analizza gap
             let gaps = 0;
-            for (let i = 1; i < gapResult.rows.length; i++) {
-                const prevCloseTime = gapResult.rows[i - 1].close_time;
-                const currentOpenTime = gapResult.rows[i].open_time;
+            for (let i = 1; i < gapResult.length; i++) {
+                const prevCloseTime = gapResult[i - 1].close_time;
+                const currentOpenTime = gapResult[i].open_time;
                 const expectedGap = 15 * 60 * 1000;
                 const actualGap = currentOpenTime - prevCloseTime;
                 
@@ -155,8 +154,6 @@ async function main() {
         log.error(`Errore test: ${err.message}`);
         log.error(err.stack);
         process.exit(1);
-    } finally {
-        await pool.end();
     }
 }
 

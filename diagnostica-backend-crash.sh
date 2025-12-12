@@ -101,3 +101,5 @@ echo "  1. Esegui: cd /var/www/ticketapp/backend && npm install"
 echo "  2. Riavvia: pm2 restart ticketapp-backend"
 echo ""
 
+
+
