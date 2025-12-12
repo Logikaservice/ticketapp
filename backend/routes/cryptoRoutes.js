@@ -193,8 +193,6 @@ router.get('/history', async (req, res) => {
                             interval === '4h' ? 42 : // 7 days
                                 interval === '1d' ? 30 : // 30 days
                                     672; // Default: 7 days
-                            const klinesCountRows = await dbAll(`SELECT COUNT(*) as count FROM klines WHERE symbol = $1 AND interval = $2`, [symbol, interval]);
-                            const klinesCount = klinesCountRows && klinesCountRows.length > 0 ? klinesCountRows[0].count : 0;
         const binanceLimit = Math.max(limit, candlesNeededFor7Days);
 
         // Carica sempre da Binance se abbiamo meno del minimo richiesto o se è un simbolo nuovo
@@ -242,14 +240,45 @@ router.get('/history', async (req, res) => {
                     });
 
                     request.on('error', (err) => {
-                                    const { getKlinesByPair } = require('../services/PriceService');
-                                    const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
-                                    const binanceData = await getKlinesByPair(tradingPair, interval, binanceLimit);
-                        // Ignore duplicate errors
+                        reject(new Error(`Binance API error: ${err.message}`));
+                    });
+
+                    request.end();
+                });
+
+                // Save klines to database
+                let savedKlines = 0;
+                if (binanceData && Array.isArray(binanceData)) {
+                    for (const kline of binanceData) {
+                        try {
+                            await dbRun(
+                                `INSERT OR REPLACE INTO klines 
+                                (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time, quote_asset_volume, number_of_trades, taker_buy_base_asset_volume, taker_buy_quote_asset_volume)
+                                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+                                [
+                                    symbol,
+                                    interval,
+                                    kline[0], // open_time
+                                    parseFloat(kline[1]), // open
+                                    parseFloat(kline[2]), // high
+                                    parseFloat(kline[3]), // low
+                                    parseFloat(kline[4]), // close
+                                    parseFloat(kline[5]), // volume
+                                    kline[6], // close_time
+                                    parseFloat(kline[7]), // quote_asset_volume
+                                    parseInt(kline[8]), // number_of_trades
+                                    parseFloat(kline[9]), // taker_buy_base_asset_volume
+                                    parseFloat(kline[10]) // taker_buy_quote_asset_volume
+                                ]
+                            );
+                            savedKlines++;
+                        } catch (e) {
+                            // Ignore duplicate errors
+                        }
                     }
                 }
 
-                console.log(`✅ Loaded ${saved} historical prices and ${savedKlines} klines from Binance`);
+                console.log(`✅ Loaded and saved ${savedKlines} klines from Binance for ${symbol} (${interval})`);
             } catch (err) {
                 console.error('⚠️ Error loading from Binance, using existing data:', err.message);
             }
@@ -295,15 +324,15 @@ router.get('/history', async (req, res) => {
                 .map(row => {
                     // open_time from Binance is in milliseconds, convert to seconds for Lightweight Charts
                     const timeSeconds = Math.floor(row.open_time / 1000);
-                    try {
-                        const tradingPair = SYMBOL_TO_PAIR[symbol];
-                        if (!tradingPair) {
-                            return 0;
-                        }
-                        const { get24hVolumeByPair } = require('../services/PriceService');
-                        const vol = await get24hVolumeByPair(tradingPair);
-                        return vol || 0;
-                    } catch (err) {
+                    return {
+                        time: timeSeconds,
+                        open: parseFloat(row.open_price),
+                        high: parseFloat(row.high_price),
+                        low: parseFloat(row.low_price),
+                        close: parseFloat(row.close_price),
+                        volume: parseFloat(row.volume || 0)
+                    };
+                })
                 .filter(candle => !isNaN(candle.time) && candle.time > 0) // Filter invalid data
                 .sort((a, b) => a.time - b.time); // Ordina per sicurezza
 

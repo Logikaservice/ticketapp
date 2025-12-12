@@ -19,11 +19,7 @@ const PORT = process.env.PORT || 3001;
 
 // --- CONFIGURAZIONE DATABASE ---
 // ✅ FIX: Parsa l'URL e passa parametri separati per gestire password con caratteri speciali
-let poolConfig = {
-  ssl: {
-    rejectUnauthorized: false
-  }
-};
+let poolConfig = {};
 
 if (process.env.DATABASE_URL) {
   console.log('🔍 Inizio parsing DATABASE_URL...');
@@ -44,6 +40,17 @@ if (process.env.DATABASE_URL) {
       poolConfig.host = match[3];
       poolConfig.port = parseInt(match[4]);
       poolConfig.database = match[5];
+      
+      // ✅ FIX: Disabilita SSL per connessioni localhost
+      if (poolConfig.host === 'localhost' || poolConfig.host === '127.0.0.1') {
+        poolConfig.ssl = false;
+        console.log('✅ SSL disabilitato per database localhost');
+      } else {
+        poolConfig.ssl = {
+          rejectUnauthorized: false
+        };
+        console.log('✅ SSL abilitato per database remoto');
+      }
       
       // ✅ FIX: Verifica che la password sia una stringa
       if (typeof poolConfig.password !== 'string') {
@@ -109,11 +116,7 @@ let vivaldiDbUrl = process.env.DATABASE_URL_VIVALDI ||
 let poolVivaldi = null;
 if (vivaldiDbUrl) {
   // ✅ FIX: Parsing manuale robusto
-  let vivaldiConfig = {
-    ssl: {
-      rejectUnauthorized: false
-    }
-  };
+  let vivaldiConfig = {};
   
   try {
     const match = vivaldiDbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
@@ -127,6 +130,13 @@ if (vivaldiDbUrl) {
       vivaldiConfig.host = match[3];
       vivaldiConfig.port = parseInt(match[4]);
       vivaldiConfig.database = match[5];
+      
+      // ✅ FIX: Disabilita SSL per connessioni localhost
+      if (vivaldiConfig.host === 'localhost' || vivaldiConfig.host === '127.0.0.1') {
+        vivaldiConfig.ssl = false;
+      } else {
+        vivaldiConfig.ssl = { rejectUnauthorized: false };
+      }
     } else {
       throw new Error('Formato non riconosciuto');
     }
@@ -150,11 +160,7 @@ let poolPackVision = null;
 
 if (packvisionDbUrl) {
   // ✅ FIX: Parsing manuale robusto
-  let packvisionConfig = {
-    ssl: {
-      rejectUnauthorized: false
-    }
-  };
+  let packvisionConfig = {};
   
   try {
     const match = packvisionDbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
@@ -168,6 +174,13 @@ if (packvisionDbUrl) {
       packvisionConfig.host = match[3];
       packvisionConfig.port = parseInt(match[4]);
       packvisionConfig.database = match[5];
+      
+      // ✅ FIX: Disabilita SSL per connessioni localhost
+      if (packvisionConfig.host === 'localhost' || packvisionConfig.host === '127.0.0.1') {
+        packvisionConfig.ssl = false;
+      } else {
+        packvisionConfig.ssl = { rejectUnauthorized: false };
+      }
     } else {
       throw new Error('Formato non riconosciuto');
     }
