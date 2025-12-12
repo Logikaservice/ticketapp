@@ -34,16 +34,25 @@ if (process.env.DATABASE_URL) {
     
     if (match) {
       poolConfig.user = decodeURIComponent(match[1]);
-      poolConfig.password = decodeURIComponent(match[2]); // Decodifica %21 -> !, ecc.
+      const rawPassword = match[2];
+      poolConfig.password = decodeURIComponent(rawPassword); // Decodifica %21 -> !, ecc.
       poolConfig.host = match[3];
       poolConfig.port = parseInt(match[4]);
       poolConfig.database = match[5];
+      
+      // ✅ FIX: Verifica che la password sia una stringa
+      if (typeof poolConfig.password !== 'string') {
+        console.error('❌ ERRORE: Password non è una stringa! Tipo:', typeof poolConfig.password);
+        poolConfig.password = String(poolConfig.password);
+      }
       
       console.log('✅ DATABASE_URL parsato correttamente:', {
         host: poolConfig.host,
         port: poolConfig.port,
         database: poolConfig.database,
         user: poolConfig.user,
+        passwordType: typeof poolConfig.password,
+        passwordLength: poolConfig.password ? poolConfig.password.length : 0,
         password: '***'
       });
     } else {
@@ -78,6 +87,10 @@ if (vivaldiDbUrl) {
     if (match) {
       vivaldiConfig.user = decodeURIComponent(match[1]);
       vivaldiConfig.password = decodeURIComponent(match[2]);
+      // ✅ FIX: Verifica che la password sia una stringa
+      if (typeof vivaldiConfig.password !== 'string') {
+        vivaldiConfig.password = String(vivaldiConfig.password);
+      }
       vivaldiConfig.host = match[3];
       vivaldiConfig.port = parseInt(match[4]);
       vivaldiConfig.database = match[5];
@@ -115,6 +128,10 @@ if (packvisionDbUrl) {
     if (match) {
       packvisionConfig.user = decodeURIComponent(match[1]);
       packvisionConfig.password = decodeURIComponent(match[2]);
+      // ✅ FIX: Verifica che la password sia una stringa
+      if (typeof packvisionConfig.password !== 'string') {
+        packvisionConfig.password = String(packvisionConfig.password);
+      }
       packvisionConfig.host = match[3];
       packvisionConfig.port = parseInt(match[4]);
       packvisionConfig.database = match[5];
