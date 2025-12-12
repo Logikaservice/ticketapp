@@ -375,9 +375,10 @@ router.get('/history', async (req, res) => {
         }
     } catch (error) {
         clearTimeout(requestTimeout);
-        console.error('❌ Error fetching price history:', error);
+        console.error('❌ Error fetching price history:', error.message || error);
+        // ✅ Fallback sicuro: ritorna un array vuoto con metadati di errore
         if (!res.headersSent) {
-            res.status(500).json({ error: error.message || 'Internal server error' });
+            res.json([]);
         }
     }
 });

@@ -32,16 +32,16 @@ async function getPriceByPair(tradingPair) {
     return parseFloat(data.price);
 }
 
-async function get24hVolumeByPair(tradingPair) {
+async function get24hVolumeByPair(tradingPair, timeoutMs = 15000) {
     const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${tradingPair}`;
-    const data = await httpsGet(url);
+    const data = await httpsGet(url, timeoutMs);
     if (!data || typeof data.quoteVolume === 'undefined') throw new Error('Invalid data from Binance');
     return parseFloat(data.quoteVolume);
 }
 
-async function getKlinesByPair(tradingPair, interval = '15m', limit = 500) {
+async function getKlinesByPair(tradingPair, interval = '15m', limit = 500, timeoutMs = 15000) {
     const url = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=${interval}&limit=${limit}`;
-    const data = await httpsGet(url);
+    const data = await httpsGet(url, timeoutMs);
     if (!Array.isArray(data)) throw new Error('Invalid klines data from Binance');
     return data.map(item => ({
         openTime: item[0],
