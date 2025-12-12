@@ -263,12 +263,12 @@ async function getMultiTimeframeTrend(symbol) {
     try {
         // Get 1h and 4h klines
         const klines1h = await dbAll(
-            "SELECT * FROM klines WHERE symbol = ? AND interval = '1h' ORDER BY open_time DESC LIMIT 50",
+            "SELECT * FROM klines WHERE symbol = $1 AND interval = '1h' ORDER BY open_time DESC LIMIT 50",
             [symbol]
         );
 
         const klines4h = await dbAll(
-            "SELECT * FROM klines WHERE symbol = ? AND interval = '4h' ORDER BY open_time DESC LIMIT 50",
+            "SELECT * FROM klines WHERE symbol = $1 AND interval = '4h' ORDER BY open_time DESC LIMIT 50",
             [symbol]
         );
 
@@ -384,7 +384,7 @@ async function runBotCycleForSymbol(symbol, botSettings) {
 
         // 3. Get klines for signal generation
         const klines = await dbAll(
-            "SELECT * FROM klines WHERE symbol = ? AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
+            "SELECT * FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
             [symbol]
         );
 
