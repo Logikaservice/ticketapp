@@ -43,7 +43,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          timeout: 1200
+          timeout: "1200s"
           script: |
             # ✅ FIX: Rimosso set -e per permettere al deploy di continuare anche se alcuni step falliscono
             echo "🚀 Inizio deploy su VPS..."
