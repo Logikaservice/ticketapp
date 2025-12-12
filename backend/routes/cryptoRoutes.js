@@ -6641,7 +6641,8 @@ router.get('/bot-analysis', async (req, res) => {
                     }));
 
                     // Salva i dati freschi nel DB in background (non bloccare risposta)
-                    const klinesToSave = klines.slice(-20);
+                    try {
+                        const klinesToSave = klines.slice(-20);
                         const savePromises = klinesToSave.map(k => {
                             const openTime = parseInt(k[0]);
                             const open = parseFloat(k[1]);
@@ -6670,14 +6671,9 @@ router.get('/bot-analysis', async (req, res) => {
 
                         // Non bloccare la risposta, salva in background
                         Promise.all(savePromises)
-                            .then(() => console.log(`💾 [BOT-ANALYSIS] Sincronizzate ${klines.length} klines nel DB per ${symbol}`))
-                            .catch(err => console.error(`❌ [BOT-ANALYSIS] Errore salvataggio DB:`, err.message));
-
+                            .catch(err => console.error('DB save error:', err.message));
                     } catch (dbError) {
-                        consocatch(err => console.error('DB save error:', err.message));
-
-                    } catch (dbError) {
-                        // Ignora errori di salvataggio DB per non rallentare risposta
+                        // Ignora errori di salvataggio DB
                     }
                 }
             } catch (binanceError) {
@@ -6686,6 +6682,9 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         // Aggiorna ultima candela con prezzo corrente
+        if (historyForSignal.length > 0) {
+            const lastCandle = historyForSignal[historyForSignal.length - 1];
+            lastCandle.close = currentPrice;
             lastCandle.price = currentPrice;
             // Aggiorna high/low solo se ha senso (es. se siamo ancora nella stessa candela temporale)
             // o se la candela è stata appena aggiornata.
@@ -6694,17 +6693,16 @@ router.get('/bot-analysis', async (req, res) => {
             lastCandle.low = Math.min(lastCandle.low, currentPrice);
         }
 
-        // ❌ DISABILITATO: Scaricamento da Binance causa rate limit 503 per simboli USDT
-        // Usa invece i dati dal DB che vengono aggiornati dal bot ogni 15 minuti
-        console.log('🔍 [BOT-ANALYSIS] Uso dati dal DB (aggiornati dal bot ogni 15min) per evitare rate limit Binance');
-        /* COMMENTATO PER EVITARE RATE LIMIT
-        try {
-            const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
-           Generate signal with full details
+        // Generate signal with full details
         if (!historyForSignal || historyForSignal.length === 0) {
+            return res.status(500).json({
+                error: `Nessun dato storico disponibile per ${symbol}`,
+                symbol: symbol,
+                normalizedSymbol: dbSymbol,
+                suggestion: 'Verifica che il simbolo sia corretto e che ci siano dati nel database'
+            });
         }
 
-        console.log('🔍 [BOT-ANALYSIS] Generating signal...');
         // ✅ FIX: Recupera parametri RSI configurati per questo simbolo
         const analysisParams = await getBotParameters(symbol).catch(() => ({}));
         let signal;
