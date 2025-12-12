@@ -6397,49 +6397,16 @@ router.delete('/backtest/results/:id', async (req, res) => {
 
 // ✅ NUOVO ENDPOINT: Analisi bot in tempo reale - Mostra cosa sta valutando il bot
 router.get('/bot-analysis', async (req, res) => {
-    console.log('🔍 [BOT-ANALYSIS] ========== RICHIESTA RICEVUTA ==========');
-    console.log('🔍 [BOT-ANALYSIS] Timestamp:', new Date().toISOString());
-
+    const startTime = Date.now();
+    
     try {
-        // ✅ FIX: Verifica che le dipendenze siano disponibili
-        console.log('🔍 [BOT-ANALYSIS] Verifica dipendenze...');
-        console.log('🔍 [BOT-ANALYSIS] httpsGet:', typeof httpsGet);
-        console.log('🔍 [BOT-ANALYSIS] dbGet:', typeof dbGet);
-        console.log('🔍 [BOT-ANALYSIS] dbAll:', typeof dbAll);
-        console.log('🔍 [BOT-ANALYSIS] signalGenerator:', typeof signalGenerator);
-        console.log('🔍 [BOT-ANALYSIS] riskManager:', typeof riskManager);
-        console.log('🔍 [BOT-ANALYSIS] getBotParameters:', typeof getBotParameters);
-
-        if (typeof httpsGet === 'undefined') {
-            console.error('❌ [BOT-ANALYSIS] httpsGet non definito');
-            return res.status(500).json({ error: 'httpsGet non disponibile' });
+        // Quick dependency checks (no verbose logging)
+        if (!httpsGet || !dbGet || !dbAll || !signalGenerator || !riskManager || !getBotParameters) {
+            return res.status(500).json({ error: 'Dipendenze mancanti' });
         }
-        if (typeof dbGet === 'undefined') {
-            console.error('❌ [BOT-ANALYSIS] dbGet non definito');
-            return res.status(500).json({ error: 'dbGet non disponibile' });
-        }
-        if (typeof dbAll === 'undefined') {
-            console.error('❌ [BOT-ANALYSIS] dbAll non definito');
-            return res.status(500).json({ error: 'dbAll non disponibile' });
-        }
-        if (typeof signalGenerator === 'undefined') {
-            console.error('❌ [BOT-ANALYSIS] signalGenerator non definito');
-            return res.status(500).json({ error: 'signalGenerator non disponibile' });
-        }
-        if (typeof riskManager === 'undefined') {
-            console.error('❌ [BOT-ANALYSIS] riskManager non definito');
-            return res.status(500).json({ error: 'riskManager non disponibile' });
-        }
-        if (typeof getBotParameters === 'undefined') {
-            console.error('❌ [BOT-ANALYSIS] getBotParameters non definito');
-            return res.status(500).json({ error: 'getBotParameters non disponibile' });
-        }
-
-        console.log('🔍 [BOT-ANALYSIS] Tutte le dipendenze verificate OK');
 
         // Get symbol from query parameter, default to bitcoin
         let symbol = req.query.symbol || 'bitcoin';
-        console.log('🔍 [BOT-ANALYSIS] Symbol originale:', symbol);
 
         // ✅ FIX CRITICO: Normalizza il simbolo per il database
         // Gestisce vari formati: "BTC/USDT", "bitcoin_usdt", "bitcoin", "BTC", ecc.
@@ -6510,35 +6477,25 @@ router.get('/bot-analysis', async (req, res) => {
             normalizedSymbol = normalizedInput.replace('_usdt', '').replace('usdt', '');
         }
 
-        console.log('🔍 [BOT-ANALYSIS] Symbol normalizzato per DB:', normalizedSymbol, '(da:', symbol, ')');
-
-        // Usa il simbolo normalizzato per le query al database, ma mantieni l'originale per getSymbolPrice
         const dbSymbol = normalizedSymbol;
 
-        // Get current price from Binance
-        // Get current price using the helper function that handles correct symbol mapping and USDT conversion
+        // Get current price
         let currentPrice = 0;
-        console.log('🔍 [BOT-ANALYSIS] Fetching current price for', symbol);
         try {
             currentPrice = await getSymbolPrice(symbol);
         } catch (err) {
-            console.error('Error fetching current price:', err);
-            // Fallback: get last price from DB (PostgreSQL syntax) - usa simbolo normalizzato
+            // Fallback: get last price from DB
             const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [dbSymbol]);
             if (lastPrice) {
                 currentPrice = parseFloat(lastPrice.price);
             }
         }
 
-        console.log('🔍 [BOT-ANALYSIS] Current price:', currentPrice);
-
         if (!currentPrice || currentPrice === 0) {
-            console.error('❌ [BOT-ANALYSIS] Prezzo corrente non disponibile');
             return res.status(500).json({ error: 'Impossibile ottenere prezzo corrente' });
         }
 
         // Get price history for analysis (usa klines per dati più accurati)
-        console.log('🔍 [BOT-ANALYSIS] Fetching price history...');
         const priceHistoryData = await dbAll(
             "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
             [dbSymbol] // ✅ FIX: Usa simbolo normalizzato per query DB
@@ -6667,7 +6624,7 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         if (!historyForSignal || historyForSignal.length < 20 || isStale) {
-            console.log(`⚠️ [BOT-ANALYSIS] Data stale (${isStale}) or insufficient (${historyForSignal ? historyForSignal.length : 0}), downloading from Binance as fallback...`);
+            // Data stale o insufficiente - download da Binance
             try {
                 const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
                 const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
@@ -6682,13 +6639,9 @@ router.get('/bot-analysis', async (req, res) => {
                         price: parseFloat(k[4]),
                         volume: parseFloat(k[5])
                     }));
-                    console.log(`✅ [BOT-ANALYSIS] Downloaded ${historyForSignal.length} candles from Binance`);
 
-                    // ✅ FIX: Salva i dati freschi nel DB così lo Scanner li vede!
-                    // Questo risolve la discrepanza tra Quick Analysis (fresco) e Scanner (vecchio/corrotto)
-                    try {
-                        // ✅ FIX: Salva SOLO le ultime 20 candele per non intasare il DB
-                        const klinesToSave = klines.slice(-20);
+                    // Salva i dati freschi nel DB in background (non bloccare risposta)
+                    const klinesToSave = klines.slice(-20);
                         const savePromises = klinesToSave.map(k => {
                             const openTime = parseInt(k[0]);
                             const open = parseFloat(k[1]);
@@ -6721,20 +6674,18 @@ router.get('/bot-analysis', async (req, res) => {
                             .catch(err => console.error(`❌ [BOT-ANALYSIS] Errore salvataggio DB:`, err.message));
 
                     } catch (dbError) {
-                        console.error(`❌ [BOT-ANALYSIS] Errore preparazione salvataggio:`, dbError.message);
+                        consocatch(err => console.error('DB save error:', err.message));
+
+                    } catch (dbError) {
+                        // Ignora errori di salvataggio DB per non rallentare risposta
                     }
                 }
             } catch (binanceError) {
-                console.error('❌ [BOT-ANALYSIS] Binance fallback failed:', binanceError.message);
+                // Continua con dati DB se Binance fallisce
             }
         }
 
-        // ✅ FIX: Sempre aggiorna l'ultima candela con il prezzo corrente per analisi in tempo reale
-        // Questo allinea la logica con il Market Scanner
-        if (historyForSignal.length > 0) {
-            const lastCandle = historyForSignal[historyForSignal.length - 1];
-            // Aggiorna sempre close con currentPrice per RSI in tempo reale
-            lastCandle.close = currentPrice;
+        // Aggiorna ultima candela con prezzo corrente
             lastCandle.price = currentPrice;
             // Aggiorna high/low solo se ha senso (es. se siamo ancora nella stessa candela temporale)
             // o se la candela è stata appena aggiornata.
@@ -6749,55 +6700,8 @@ router.get('/bot-analysis', async (req, res) => {
         /* COMMENTATO PER EVITARE RATE LIMIT
         try {
             const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
-            const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
-            console.log(`🔍 [BOT-ANALYSIS] Fetching klines from ${binanceUrl}`);
-        
-            const klines = await httpsGet(binanceUrl);
-        
-            if (Array.isArray(klines) && klines.length > 0) {
-                historyForSignal = klines.map(k => ({
-                    timestamp: new Date(k[0]).toISOString(),
-                    open: parseFloat(k[1]),
-                    high: parseFloat(k[2]),
-                    low: parseFloat(k[3]),
-                    close: parseFloat(k[4]),
-                    price: parseFloat(k[4]), // compatibilità
-                    volume: parseFloat(k[5])
-                }));
-                console.log(`✅ [BOT-ANALYSIS] Scaricate ${historyForSignal.length} candele FRESCHE da Binance`);
-        
-                // ✅ Aggiorna anche l'ultima candela scaricata da Binance con il prezzo corrente
-                if (historyForSignal.length > 0) {
-                    const lastBinanceCandle = historyForSignal[historyForSignal.length - 1];
-                    const lastBinanceCandleTime = new Date(lastBinanceCandle.timestamp);
-                    const timeSinceBinanceCandle = new Date() - lastBinanceCandleTime;
-        
-                    if (timeSinceBinanceCandle < 15 * 60 * 1000) {
-                        console.log('🔍 [BOT-ANALYSIS] Aggiornamento ultima candela Binance con prezzo corrente');
-                        lastBinanceCandle.high = Math.max(lastBinanceCandle.high, currentPrice);
-                        lastBinanceCandle.low = Math.min(lastBinanceCandle.low, currentPrice);
-                        lastBinanceCandle.close = currentPrice;
-                        lastBinanceCandle.price = currentPrice;
-                    }
-                }
-            }
-        } catch (binanceError) {
-            console.error('❌ [BOT-ANALYSIS] Errore scaricamento Binance:', binanceError.message);
-            // Continua con i dati vecchi se fallisce
-        }
-        */  // FINE BLOCCO COMMENTATO
-
-        // Generate signal with full details
-        console.log('🔍 [BOT-ANALYSIS] History length:', historyForSignal ? historyForSignal.length : 0);
+           Generate signal with full details
         if (!historyForSignal || historyForSignal.length === 0) {
-            console.error(`❌ [BOT-ANALYSIS] Nessun dato storico disponibile per ${symbol} (normalized: ${dbSymbol})`);
-            console.error(`   → Prova a verificare che il simbolo sia corretto e che ci siano klines nel database`);
-            return res.status(500).json({
-                error: `Nessun dato storico disponibile per ${symbol}`,
-                symbol: symbol,
-                normalizedSymbol: dbSymbol,
-                suggestion: 'Verifica che il simbolo sia corretto e che ci siano dati nel database'
-            });
         }
 
         console.log('🔍 [BOT-ANALYSIS] Generating signal...');
@@ -8455,6 +8359,13 @@ router.get('/bot-analysis', async (req, res) => {
             }
 
         });
+        
+        // Log tempo di risposta totale
+        const responseTime = Date.now() - startTime;
+        if (responseTime > 1000) {
+            console.log(`⚠️ [BOT-ANALYSIS] Slow response: ${responseTime}ms for ${symbol}`);
+        }
+        
     } catch (error) {
         console.error('❌ [BOT-ANALYSIS] ========== ERRORE CRITICO ==========');
         console.error('❌ [BOT-ANALYSIS] Error message:', error.message);
