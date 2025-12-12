@@ -43,8 +43,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          timeout: 1200s
+          timeout: 1200
           script: |
             # ✅ FIX: Rimosso set -e per permettere al deploy di continuare anche se alcuni step falliscono
             echo "🚀 Inizio deploy su VPS..."
@@ -230,14 +229,13 @@ jobs:
             
             echo ""
             echo "✅ Deploy completato con successo!"
-        - name: Diagnostica VPS (Backend, Nginx, PostgreSQL)
+      - name: Diagnostica VPS (Backend, Nginx, PostgreSQL)
           uses: appleboy/ssh-action@master
           with:
             host: ${{ secrets.VPS_HOST }}
             username: ${{ secrets.VPS_USER }}
             key: ${{ secrets.VPS_SSH_KEY }}
-            port: ${{ secrets.VPS_PORT || 22 }}
-            timeout: 900s
+          timeout: 900
             script: |
               echo "🔎 Avvio diagnostica VPS..."
               set -x
