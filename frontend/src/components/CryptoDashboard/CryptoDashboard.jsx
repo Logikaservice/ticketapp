@@ -1268,7 +1268,9 @@ const CryptoDashboard = () => {
 
 
             {/* ADVANCED STATISTICS PANEL - Moved here per user request */}
-            <StatisticsPanel apiBase={apiBase} />
+            <div style={{ marginTop: '20px' }}>
+                <StatisticsPanel apiBase={apiBase} />
+            </div>
 
             {/* 📊 PERFORMANCE ANALYTICS - Day/Week/Month/Year */}
             {performanceAnalytics && (
