@@ -6695,11 +6695,17 @@ router.get('/bot-analysis', async (req, res) => {
 
         // Generate signal with full details
         if (!historyForSignal || historyForSignal.length === 0) {
-            return res.status(500).json({
-                error: `Nessun dato storico disponibile per ${symbol}`,
+            console.log(`⚠️ No data for ${symbol} (normalized: ${dbSymbol})`);
+            return res.status(200).json({
+                error: `Dati insufficienti per ${symbol}`,
                 symbol: symbol,
                 normalizedSymbol: dbSymbol,
-                suggestion: 'Verifica che il simbolo sia corretto e che ci siano dati nel database'
+                suggestion: 'Il bot sta ancora raccogliendo dati per questo simbolo',
+                // Restituisci dati mock per evitare crash frontend
+                signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Dati insufficienti'] },
+                currentPrice: 0,
+                longSignal: { strength: 0, confirmations: 0 },
+                shortSignal: { strength: 0, confirmations: 0 }
             });
         }
 
@@ -8365,20 +8371,17 @@ router.get('/bot-analysis', async (req, res) => {
         }
         
     } catch (error) {
-        console.error('❌ [BOT-ANALYSIS] ========== ERRORE CRITICO ==========');
-        console.error('❌ [BOT-ANALYSIS] Error message:', error.message);
-        console.error('❌ [BOT-ANALYSIS] Error name:', error.name);
-        console.error('❌ [BOT-ANALYSIS] Error code:', error.code);
-        console.error('❌ [BOT-ANALYSIS] Error stack:', error.stack);
-        console.error('❌ [BOT-ANALYSIS] ======================================');
+        console.error(`❌ [BOT-ANALYSIS] Error for ${req.query.symbol}:`, error.message);
 
-        // Invia risposta di errore più dettagliata
-        res.status(500).json({
-            error: error.message || 'Internal Server Error',
-            name: error.name,
-            code: error.code,
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-            timestamp: new Date().toISOString()
+        // Invia risposta di errore più gentile per non rompere il frontend
+        res.status(200).json({
+            error: error.message || 'Errore interno',
+            symbol: req.query.symbol,
+            // Restituisci dati mock per evitare crash frontend
+            signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Errore analisi'] },
+            currentPrice: 0,
+            longSignal: { strength: 0, confirmations: 0 },
+            shortSignal: { strength: 0, confirmations: 0 }
         });
     }
 });
