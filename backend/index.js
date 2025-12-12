@@ -12,7 +12,6 @@ const fs = require('fs');
 const { Pool } = require('pg');
 const http = require('http');
 const { Server } = require('socket.io');
-const url = require('url');
 
 const app = express();
 const server = http.createServer(app);
@@ -28,18 +27,31 @@ let poolConfig = {
 
 if (process.env.DATABASE_URL) {
   try {
-    const parsedUrl = url.parse(process.env.DATABASE_URL, true);
-    // Estrai e decodifica la password
-    if (parsedUrl.auth) {
-      const [user, password] = parsedUrl.auth.split(':');
-      poolConfig.user = user;
-      poolConfig.password = password ? decodeURIComponent(password) : password;
+    // ✅ FIX: Usa URL() invece di url.parse() per parsing più robusto
+    const dbUrl = new URL(process.env.DATABASE_URL);
+    poolConfig.host = dbUrl.hostname || 'localhost';
+    poolConfig.port = dbUrl.port ? parseInt(dbUrl.port) : 5432;
+    poolConfig.database = dbUrl.pathname ? dbUrl.pathname.replace(/^\//, '') : 'ticketapp';
+    
+    // Estrai e decodifica user e password
+    if (dbUrl.username) {
+      poolConfig.user = decodeURIComponent(dbUrl.username);
     }
-    poolConfig.host = parsedUrl.hostname || 'localhost';
-    poolConfig.port = parsedUrl.port ? parseInt(parsedUrl.port) : 5432;
-    poolConfig.database = parsedUrl.pathname ? parsedUrl.pathname.replace(/^\//, '') : 'ticketapp';
+    if (dbUrl.password) {
+      // Decodifica la password (gestisce %21 per !, ecc.)
+      poolConfig.password = decodeURIComponent(dbUrl.password);
+    }
+    
+    console.log('✅ DATABASE_URL parsato correttamente:', {
+      host: poolConfig.host,
+      port: poolConfig.port,
+      database: poolConfig.database,
+      user: poolConfig.user,
+      password: poolConfig.password ? '***' : undefined
+    });
   } catch (e) {
-    console.warn('⚠️ Errore parsing DATABASE_URL, uso connectionString:', e.message);
+    console.error('❌ Errore parsing DATABASE_URL:', e.message);
+    console.warn('⚠️ Uso connectionString come fallback');
     poolConfig.connectionString = process.env.DATABASE_URL;
   }
 } else {
@@ -54,7 +66,7 @@ let vivaldiDbUrl = process.env.DATABASE_URL_VIVALDI ||
 
 let poolVivaldi = null;
 if (vivaldiDbUrl) {
-  // ✅ FIX: Parsa l'URL e passa parametri separati
+  // ✅ FIX: Usa URL() invece di url.parse() per parsing più robusto
   let vivaldiConfig = {
     ssl: {
       rejectUnauthorized: false
@@ -62,15 +74,17 @@ if (vivaldiDbUrl) {
   };
   
   try {
-    const parsedUrl = url.parse(vivaldiDbUrl, true);
-    if (parsedUrl.auth) {
-      const [user, password] = parsedUrl.auth.split(':');
-      vivaldiConfig.user = user;
-      vivaldiConfig.password = password ? decodeURIComponent(password) : password;
+    const dbUrl = new URL(vivaldiDbUrl);
+    vivaldiConfig.host = dbUrl.hostname || 'localhost';
+    vivaldiConfig.port = dbUrl.port ? parseInt(dbUrl.port) : 5432;
+    vivaldiConfig.database = dbUrl.pathname ? dbUrl.pathname.replace(/^\//, '') : 'vivaldi_db';
+    
+    if (dbUrl.username) {
+      vivaldiConfig.user = decodeURIComponent(dbUrl.username);
     }
-    vivaldiConfig.host = parsedUrl.hostname || 'localhost';
-    vivaldiConfig.port = parsedUrl.port ? parseInt(parsedUrl.port) : 5432;
-    vivaldiConfig.database = parsedUrl.pathname ? parsedUrl.pathname.replace(/^\//, '') : 'vivaldi_db';
+    if (dbUrl.password) {
+      vivaldiConfig.password = decodeURIComponent(dbUrl.password);
+    }
   } catch (e) {
     console.warn('⚠️ Errore parsing DATABASE_URL_VIVALDI, uso connectionString:', e.message);
     vivaldiConfig.connectionString = vivaldiDbUrl;
@@ -90,7 +104,7 @@ let packvisionDbUrl = process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/packvisio
 let poolPackVision = null;
 
 if (packvisionDbUrl) {
-  // ✅ FIX: Parsa l'URL e passa parametri separati
+  // ✅ FIX: Usa URL() invece di url.parse() per parsing più robusto
   let packvisionConfig = {
     ssl: {
       rejectUnauthorized: false
@@ -98,15 +112,17 @@ if (packvisionDbUrl) {
   };
   
   try {
-    const parsedUrl = url.parse(packvisionDbUrl, true);
-    if (parsedUrl.auth) {
-      const [user, password] = parsedUrl.auth.split(':');
-      packvisionConfig.user = user;
-      packvisionConfig.password = password ? decodeURIComponent(password) : password;
+    const dbUrl = new URL(packvisionDbUrl);
+    packvisionConfig.host = dbUrl.hostname || 'localhost';
+    packvisionConfig.port = dbUrl.port ? parseInt(dbUrl.port) : 5432;
+    packvisionConfig.database = dbUrl.pathname ? dbUrl.pathname.replace(/^\//, '') : 'packvision_db';
+    
+    if (dbUrl.username) {
+      packvisionConfig.user = decodeURIComponent(dbUrl.username);
     }
-    packvisionConfig.host = parsedUrl.hostname || 'localhost';
-    packvisionConfig.port = parsedUrl.port ? parseInt(parsedUrl.port) : 5432;
-    packvisionConfig.database = parsedUrl.pathname ? parsedUrl.pathname.replace(/^\//, '') : 'packvision_db';
+    if (dbUrl.password) {
+      packvisionConfig.password = decodeURIComponent(dbUrl.password);
+    }
   } catch (e) {
     console.warn('⚠️ Errore parsing packvisionDbUrl, uso connectionString:', e.message);
     packvisionConfig.connectionString = packvisionDbUrl;
