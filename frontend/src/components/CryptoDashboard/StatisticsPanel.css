@@ -1,9 +1,12 @@
 .statistics-panel {
     background: #1c1c1e;
-    border-radius: 12px;
+    border-radius: 20px;
     padding: 24px;
     border: 1px solid #2c2c2e;
     margin-bottom: 20px;
+    width: 1163px;
+    max-width: 1163px;
+    box-sizing: border-box;
 }
 
 .statistics-header {

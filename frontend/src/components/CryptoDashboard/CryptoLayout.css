@@ -16,6 +16,9 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+  width: 1163px;
+  max-width: 1163px;
+  box-sizing: border-box;
 }
 
 .crypto-title {
@@ -36,6 +39,7 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   position: relative;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .balance-label {
@@ -72,6 +76,16 @@
   grid-template-columns: 1fr;
   gap: 1.5rem;
   margin-right: 0;
+  width: 1163px;
+  max-width: 1163px;
+  box-sizing: border-box;
+}
+
+/* Stats Grid - Allineato al grafico */
+.stats-grid {
+  width: 1163px;
+  max-width: 1163px;
+  box-sizing: border-box;
 }
 
 /* Chart takes full width */
@@ -95,7 +109,9 @@
   border: 1px solid #2c2c2e;
   height: 100%;
   width: 1163px;
+  max-width: 1163px;
   margin-bottom: 20px;
+  box-sizing: border-box;
 }
 
 /* Chart card - no padding on sides to maximize chart space */
