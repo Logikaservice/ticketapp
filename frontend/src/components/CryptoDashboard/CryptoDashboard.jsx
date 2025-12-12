@@ -932,8 +932,9 @@ const CryptoDashboard = () => {
                 <div className="balance-card" style={{ marginBottom: 0 }}>
                     <div className="balance-label">Total Balance (Equity)</div>
                     <div className="balance-amount">${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    <div className="balance-change change-positive">
-                        <ArrowUpRight size={16} /> +2.4% Today
+                    <div className={`balance-change ${performanceAnalytics?.daily?.roi_percent >= 0 ? 'change-positive' : 'change-negative'}`}>
+                        {performanceAnalytics?.daily?.roi_percent >= 0 ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                        {performanceAnalytics?.daily?.roi_percent >= 0 ? '+' : ''}{(performanceAnalytics?.daily?.roi_percent || 0).toFixed(2)}% Today
                     </div>
                 </div>
 
