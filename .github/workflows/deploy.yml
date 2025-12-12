@@ -229,28 +229,16 @@ jobs:
             
             echo ""
             echo "✅ Deploy completato con successo!"
-      - name: Diagnostica VPS (Backend, Nginx, PostgreSQL)
-          uses: appleboy/ssh-action@master
-          with:
-            host: ${{ secrets.VPS_HOST }}
-            username: ${{ secrets.VPS_USER }}
-            key: ${{ secrets.VPS_SSH_KEY }}
-            timeout: 900
-            script: |
-              echo "🔎 Avvio diagnostica VPS..."
-              set -x
-              # Stato backend (PM2 o systemd)
-              pm2 status || sudo systemctl status ticketapp-backend -n 50 --no-pager || true
-              pm2 logs --lines 100 || sudo journalctl -u ticketapp-backend -n 100 --no-pager || true
-              # Test nginx configurazione e log
-              sudo nginx -t || true
-              sudo tail -n 100 /var/log/nginx/error.log || true
-              sudo tail -n 100 /var/log/nginx/access.log || true
-              # Porte in ascolto
-              sudo ss -lntp | grep -E "(3001|node)" || true
-              # PostgreSQL ping e versione
-              psql -U postgres -h localhost -c "SELECT version();" || echo "⚠️ Postgres non raggiungibile"
-              # Se variabili di ambiente sono in systemd unit
-              sudo systemctl cat ticketapp-backend | sed -n '1,160p' || true
-              echo "✅ Diagnostica completata"
+            echo ""
+            echo "🔎 Avvio diagnostica VPS..."
+            set -x
+            pm2 status || sudo systemctl status ticketapp-backend -n 50 --no-pager || true
+            pm2 logs --lines 100 || sudo journalctl -u ticketapp-backend -n 100 --no-pager || true
+            sudo nginx -t || true
+            sudo tail -n 100 /var/log/nginx/error.log || true
+            sudo tail -n 100 /var/log/nginx/access.log || true
+            sudo ss -lntp | grep -E "(3001|node)" || true
+            psql -U postgres -h localhost -c "SELECT version();" || echo "⚠️ Postgres non raggiungibile"
+            sudo systemctl cat ticketapp-backend | sed -n '1,160p' || true
+            echo "✅ Diagnostica completata"
 
