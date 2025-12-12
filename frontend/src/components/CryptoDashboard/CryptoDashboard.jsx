@@ -721,10 +721,10 @@ const CryptoDashboard = () => {
 
     // Balance debug validated values logging removed
 
-    // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
-    // Se hai $1000 USDT totali e investi $500, il Total Balance deve mostrare $500 (capitale disponibile)
-    // Il valore delle posizioni (totalLongValue - totalShortLiability) è già "bloccato" e non è disponibile
-    const totalBalance = validatedBalance; // Solo capitale disponibile, non equity totale
+    // ✅ FIX: Total Balance = Cash + Valore Posizioni (Equity Totale)
+    // Se hai $500 cash + $600 in BTC → mostra $1100 (patrimonio totale)
+    // Quando chiudi posizioni, il balance non fa salti strani
+    const totalBalance = validatedBalance + totalLongValue - totalShortLiability;
 
     // ✅ FIX CRITICO: Usa direttamente profit_loss calcolato dal backend
     // ✅ FIX: Validazione STRICTA - solo posizioni con status === 'open' e dati validi
@@ -930,7 +930,7 @@ const CryptoDashboard = () => {
             {/* TOP STATS GRID - 4 COLUMNS (separato Impostazioni) */}
             <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 0.8fr 0.6fr', gap: '20px', marginBottom: '20px' }}>
                 <div className="balance-card" style={{ marginBottom: 0 }}>
-                    <div className="balance-label">Total Balance (Available Cash)</div>
+                    <div className="balance-label">Total Balance (Equity)</div>
                     <div className="balance-amount">${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     <div className="balance-change change-positive">
                         <ArrowUpRight size={16} /> +2.4% Today
