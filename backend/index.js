@@ -19,67 +19,66 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 
 // --- CONFIGURAZIONE DATABASE ---
-// ✅ FIX: Decodifica manualmente l'URL per gestire password con caratteri speciali
-let databaseUrl = process.env.DATABASE_URL;
-if (databaseUrl) {
-  try {
-    const parsedUrl = url.parse(databaseUrl, true);
-    // Decodifica la password se è URL-encoded
-    if (parsedUrl.auth) {
-      const [user, password] = parsedUrl.auth.split(':');
-      if (password) {
-        const decodedPassword = decodeURIComponent(password);
-        parsedUrl.auth = `${user}:${decodedPassword}`;
-        databaseUrl = url.format(parsedUrl);
-      }
-    }
-  } catch (e) {
-    console.warn('⚠️ Errore decodifica DATABASE_URL, uso originale:', e.message);
-  }
-}
-
-const pool = new Pool({
-  connectionString: databaseUrl,
+// ✅ FIX: Parsa l'URL e passa parametri separati per gestire password con caratteri speciali
+let poolConfig = {
   ssl: {
     rejectUnauthorized: false
   }
-});
+};
+
+if (process.env.DATABASE_URL) {
+  try {
+    const parsedUrl = url.parse(process.env.DATABASE_URL, true);
+    // Estrai e decodifica la password
+    if (parsedUrl.auth) {
+      const [user, password] = parsedUrl.auth.split(':');
+      poolConfig.user = user;
+      poolConfig.password = password ? decodeURIComponent(password) : password;
+    }
+    poolConfig.host = parsedUrl.hostname || 'localhost';
+    poolConfig.port = parsedUrl.port ? parseInt(parsedUrl.port) : 5432;
+    poolConfig.database = parsedUrl.pathname ? parsedUrl.pathname.replace(/^\//, '') : 'ticketapp';
+  } catch (e) {
+    console.warn('⚠️ Errore parsing DATABASE_URL, uso connectionString:', e.message);
+    poolConfig.connectionString = process.env.DATABASE_URL;
+  }
+} else {
+  poolConfig.connectionString = process.env.DATABASE_URL;
+}
+
+const pool = new Pool(poolConfig);
 
 // --- CONFIGURAZIONE DATABASE VIVALDI (separato) ---
 let vivaldiDbUrl = process.env.DATABASE_URL_VIVALDI ||
   process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/vivaldi_db');
 
-// ✅ FIX: Decodifica anche DATABASE_URL_VIVALDI
+let poolVivaldi = null;
 if (vivaldiDbUrl) {
+  // ✅ FIX: Parsa l'URL e passa parametri separati
+  let vivaldiConfig = {
+    ssl: {
+      rejectUnauthorized: false
+    }
+  };
+  
   try {
     const parsedUrl = url.parse(vivaldiDbUrl, true);
     if (parsedUrl.auth) {
       const [user, password] = parsedUrl.auth.split(':');
-      if (password) {
-        const decodedPassword = decodeURIComponent(password);
-        parsedUrl.auth = `${user}:${decodedPassword}`;
-        vivaldiDbUrl = url.format(parsedUrl);
-      }
+      vivaldiConfig.user = user;
+      vivaldiConfig.password = password ? decodeURIComponent(password) : password;
     }
+    vivaldiConfig.host = parsedUrl.hostname || 'localhost';
+    vivaldiConfig.port = parsedUrl.port ? parseInt(parsedUrl.port) : 5432;
+    vivaldiConfig.database = parsedUrl.pathname ? parsedUrl.pathname.replace(/^\//, '') : 'vivaldi_db';
   } catch (e) {
-    console.warn('⚠️ Errore decodifica DATABASE_URL_VIVALDI, uso originale:', e.message);
+    console.warn('⚠️ Errore parsing DATABASE_URL_VIVALDI, uso connectionString:', e.message);
+    vivaldiConfig.connectionString = vivaldiDbUrl;
   }
-}
-
-if (!vivaldiDbUrl) {
-  console.warn('⚠️ DATABASE_URL_VIVALDI non configurato! Vivaldi non sarà disponibile.');
-}
-
-// Crea poolVivaldi solo se abbiamo una URL valida
-let poolVivaldi = null;
-if (vivaldiDbUrl) {
-  poolVivaldi = new Pool({
-    connectionString: vivaldiDbUrl,
-    ssl: {
-      rejectUnauthorized: false
-    }
-  });
+  
+  poolVivaldi = new Pool(vivaldiConfig);
 } else {
+  console.warn('⚠️ DATABASE_URL_VIVALDI non configurato! Vivaldi non sarà disponibile.');
   poolVivaldi = null;
 }
 
@@ -88,33 +87,33 @@ if (vivaldiDbUrl) {
 // e le route restituiranno 503 Service Unavailable
 let packvisionDbUrl = process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/packvision_db');
 
-// ✅ FIX: Decodifica anche packvisionDbUrl
+let poolPackVision = null;
+
 if (packvisionDbUrl) {
+  // ✅ FIX: Parsa l'URL e passa parametri separati
+  let packvisionConfig = {
+    ssl: {
+      rejectUnauthorized: false
+    }
+  };
+  
   try {
     const parsedUrl = url.parse(packvisionDbUrl, true);
     if (parsedUrl.auth) {
       const [user, password] = parsedUrl.auth.split(':');
-      if (password) {
-        const decodedPassword = decodeURIComponent(password);
-        parsedUrl.auth = `${user}:${decodedPassword}`;
-        packvisionDbUrl = url.format(parsedUrl);
-      }
+      packvisionConfig.user = user;
+      packvisionConfig.password = password ? decodeURIComponent(password) : password;
     }
+    packvisionConfig.host = parsedUrl.hostname || 'localhost';
+    packvisionConfig.port = parsedUrl.port ? parseInt(parsedUrl.port) : 5432;
+    packvisionConfig.database = parsedUrl.pathname ? parsedUrl.pathname.replace(/^\//, '') : 'packvision_db';
   } catch (e) {
-    console.warn('⚠️ Errore decodifica packvisionDbUrl, uso originale:', e.message);
+    console.warn('⚠️ Errore parsing packvisionDbUrl, uso connectionString:', e.message);
+    packvisionConfig.connectionString = packvisionDbUrl;
   }
-}
-
-let poolPackVision = null;
-
-if (packvisionDbUrl) {
+  
   // Non creiamo subito il pool, o meglio lo creiamo ma gestiamo errori di connessione nelle route
-  poolPackVision = new Pool({
-    connectionString: packvisionDbUrl,
-    ssl: {
-      rejectUnauthorized: false
-    }
-  });
+  poolPackVision = new Pool(packvisionConfig);
 
   // Gestione errori idle client per evitare crash se il DB non esiste
   poolPackVision.on('error', (err, client) => {
