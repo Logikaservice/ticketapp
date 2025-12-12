@@ -192,8 +192,8 @@ router.get('/history', async (req, res) => {
                             interval === '4h' ? 42 : // 7 days
                                 interval === '1d' ? 30 : // 30 days
                                     672; // Default: 7 days
-
-        // ✅ FIX: Usa sempre almeno 7 giorni, o il limite richiesto se maggiore
+                            const klinesCountRows = await dbAll(`SELECT COUNT(*) as count FROM klines WHERE symbol = $1 AND interval = $2`, [symbol, interval]);
+                            const klinesCount = klinesCountRows && klinesCountRows.length > 0 ? klinesCountRows[0].count : 0;
         const binanceLimit = Math.max(limit, candlesNeededFor7Days);
 
         // Carica sempre da Binance se abbiamo meno del minimo richiesto o se è un simbolo nuovo
@@ -241,48 +241,9 @@ router.get('/history', async (req, res) => {
                     });
 
                     request.on('error', (err) => {
-                        reject(new Error(`Binance API request failed: ${err.message}`));
-                    });
-                });
-
-                // Save OHLC klines to database (complete candlestick data)
-                let saved = 0;
-                let savedKlines = 0;
-                for (const kline of binanceData) {
-                    // Binance kline format: [openTime, open, high, low, close, volume, closeTime, ...]
-                    const openTime = parseInt(kline[0]);
-                    const open = parseFloat(kline[1]);
-                    const high = parseFloat(kline[2]);
-                    const low = parseFloat(kline[3]);
-                    const close = parseFloat(kline[4]);
-                    const volume = parseFloat(kline[5]);
-                    const closeTime = parseInt(kline[6]);
-                    const timestamp = new Date(openTime).toISOString();
-
-                    // ✅ FIX: Verifica che tutti i valori siano validi prima di inserire
-                    if (!open || !high || !low || !close || isNaN(open) || isNaN(high) || isNaN(low) || isNaN(close) || open <= 0 || high <= 0 || low <= 0 || close <= 0) {
-                        console.warn(`⚠️ Invalid kline data for ${symbol}: open=${open}, high=${high}, low=${low}, close=${close}, skipping`);
-                        continue;
-                    }
-
-                    try {
-                        // Save close price for backward compatibility
-                        await dbRun(
-                            "INSERT INTO price_history (symbol, price, timestamp) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
-                            [symbol, close, timestamp]
-                        );
-                        saved++;
-
-                        // Save complete OHLC kline
-                        await dbRun(
-                            `INSERT INTO klines 
-                            (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time) 
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
-                            ON CONFLICT (symbol, interval, open_time) DO NOTHING`,
-                            [symbol, interval, openTime, open, high, low, close, volume, closeTime]
-                        );
-                        savedKlines++;
-                    } catch (err) {
+                                    const { getKlinesByPair } = require('../services/PriceService');
+                                    const tradingPair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
+                                    const binanceData = await getKlinesByPair(tradingPair, interval, binanceLimit);
                         // Ignore duplicate errors
                     }
                 }
@@ -333,15 +294,15 @@ router.get('/history', async (req, res) => {
                 .map(row => {
                     // open_time from Binance is in milliseconds, convert to seconds for Lightweight Charts
                     const timeSeconds = Math.floor(row.open_time / 1000);
-                    return {
-                        time: timeSeconds, // Unix timestamp in seconds
-                        open: parseFloat(row.open_price),
-                        high: parseFloat(row.high_price),
-                        low: parseFloat(row.low_price),
-                        close: parseFloat(row.close_price),
-                        volume: parseFloat(row.volume || 0)
-                    };
-                })
+                    try {
+                        const tradingPair = SYMBOL_TO_PAIR[symbol];
+                        if (!tradingPair) {
+                            return 0;
+                        }
+                        const { get24hVolumeByPair } = require('../services/PriceService');
+                        const vol = await get24hVolumeByPair(tradingPair);
+                        return vol || 0;
+                    } catch (err) {
                 .filter(candle => !isNaN(candle.time) && candle.time > 0) // Filter invalid data
                 .sort((a, b) => a.time - b.time); // Ordina per sicurezza
 

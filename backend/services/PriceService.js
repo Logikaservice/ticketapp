@@ -39,8 +39,24 @@ async function get24hVolumeByPair(tradingPair) {
     return parseFloat(data.quoteVolume);
 }
 
+async function getKlinesByPair(tradingPair, interval = '15m', limit = 500) {
+    const url = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=${interval}&limit=${limit}`;
+    const data = await httpsGet(url);
+    if (!Array.isArray(data)) throw new Error('Invalid klines data from Binance');
+    return data.map(item => ({
+        openTime: item[0],
+        open: parseFloat(item[1]),
+        high: parseFloat(item[2]),
+        low: parseFloat(item[3]),
+        close: parseFloat(item[4]),
+        volume: parseFloat(item[5]),
+        closeTime: item[6],
+    }));
+}
+
 module.exports = {
     httpsGet,
     getPriceByPair,
     get24hVolumeByPair,
+    getKlinesByPair,
 };
