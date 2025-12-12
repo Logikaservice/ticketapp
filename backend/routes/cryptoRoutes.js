@@ -259,6 +259,12 @@ router.get('/history', async (req, res) => {
                     const closeTime = parseInt(kline[6]);
                     const timestamp = new Date(openTime).toISOString();
 
+                    // ✅ FIX: Verifica che tutti i valori siano validi prima di inserire
+                    if (!open || !high || !low || !close || isNaN(open) || isNaN(high) || isNaN(low) || isNaN(close) || open <= 0 || high <= 0 || low <= 0 || close <= 0) {
+                        console.warn(`⚠️ Invalid kline data for ${symbol}: open=${open}, high=${high}, low=${low}, close=${close}, skipping`);
+                        continue;
+                    }
+
                     try {
                         // Save close price for backward compatibility
                         await dbRun(
@@ -1836,8 +1842,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         // Get current price for this symbol
         let currentPrice = await getSymbolPrice(symbol);
 
-        if (currentPrice === 0) {
-            console.error(`⚠️ Could not fetch price for ${symbol}, skipping cycle`);
+        // ✅ FIX: Verifica che currentPrice sia valido (non null, undefined, NaN, o 0)
+        if (!currentPrice || currentPrice === 0 || isNaN(currentPrice)) {
+            console.error(`⚠️ Could not fetch valid price for ${symbol} (got: ${currentPrice}), skipping cycle`);
             return;
         }
 
@@ -1923,6 +1930,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             );
 
             if (existingKline) {
+                // ✅ FIX: Verifica che currentPrice sia valido prima di aggiornare
+                if (!currentPrice || isNaN(currentPrice) || currentPrice <= 0) {
+                    console.error(`⚠️ [${symbol.toUpperCase()}] Invalid currentPrice (${currentPrice}), skipping kline update`);
+                    return;
+                }
+                
                 // Aggiorna candela esistente: aggiorna high, low, close
                 const newHigh = Math.max(existingKline.high_price, currentPrice);
                 const newLow = Math.min(existingKline.low_price, currentPrice);
@@ -1937,6 +1950,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     console.log(`📊 [${symbol.toUpperCase()}] Kline ${primaryInterval} aggiornata: ${new Date(candleStartTime).toISOString()} | Price: $${currentPrice.toFixed(6)} USDT | High: $${newHigh.toFixed(6)} USDT | Low: $${newLow.toFixed(6)} USDT`);
                 }
             } else {
+                // ✅ FIX: Verifica che currentPrice sia valido prima di inserire
+                if (!currentPrice || isNaN(currentPrice) || currentPrice <= 0) {
+                    console.error(`⚠️ [${symbol.toUpperCase()}] Invalid currentPrice (${currentPrice}), skipping kline insert`);
+                    return;
+                }
+                
                 // Crea nuova candela
                 await dbRun(
                     `INSERT INTO klines 
@@ -1951,7 +1970,8 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
         }
 
         // Aggiorna anche gli altri intervalli, ma meno frequentemente (ogni 10 cicli)
-        if (Math.random() < 0.1) {
+        // ✅ FIX: Verifica che currentPrice sia valido prima di aggiornare altri intervalli
+        if (Math.random() < 0.1 && currentPrice && !isNaN(currentPrice) && currentPrice > 0) {
             for (const interval of intervalsToUpdate) {
                 if (interval === primaryInterval) continue; // Già aggiornato sopra
 
@@ -1964,6 +1984,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         [symbol, interval, candleStartTime]
                     );
 
+                    // ✅ FIX: Verifica che currentPrice sia valido prima di aggiornare/inserire
+                    if (!currentPrice || isNaN(currentPrice) || currentPrice <= 0) {
+                        console.error(`⚠️ [${symbol.toUpperCase()}] Invalid currentPrice (${currentPrice}) for interval ${interval}, skipping`);
+                        continue;
+                    }
+                    
                     if (existingKline) {
                         const newHigh = Math.max(existingKline.high_price, currentPrice);
                         const newLow = Math.min(existingKline.low_price, currentPrice);
