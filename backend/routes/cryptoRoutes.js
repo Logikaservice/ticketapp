@@ -1475,20 +1475,13 @@ const getSymbolPrice = async (symbol) => {
     const coingeckoId = SYMBOL_TO_COINGECKO[symbol] || 'bitcoin';
 
     try {
-        const binanceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${tradingPair}`;
-
-        const data = await httpsGet(binanceUrl);
-        if (data && data.price) {
-            const price = parseFloat(data.price);
-            if (Math.random() < 0.05) { // Log solo ~5% delle volte
-                console.log(`✅ [PRICE] Got price from Binance for ${symbol} (${tradingPair}): $${price.toFixed(6)}`);
-            }
-
-            // ✅ Salva in cache (sempre in USDT)
-            priceCache.set(symbol, { price, timestamp: Date.now() });
-            return price;
+        const { getPriceByPair } = require('../services/PriceService');
+        const price = await getPriceByPair(tradingPair);
+        if (Math.random() < 0.05) {
+            console.log(`✅ [PRICE] Got price from Binance for ${symbol} (${tradingPair}): $${price.toFixed(6)}`);
         }
-        throw new Error("Invalid data from Binance");
+        priceCache.set(symbol, { price, timestamp: Date.now() });
+        return price;
     } catch (e) {
         console.error(`❌ [PRICE] Binance fetch failed for ${symbol} (${tradingPair}):`, e.message);
         try {
