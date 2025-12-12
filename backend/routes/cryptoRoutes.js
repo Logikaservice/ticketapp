@@ -94,6 +94,23 @@ const httpsGet = (url, timeout = 10000) => {
 
 // ✅ POSTGRESQL ONLY: dbAll, dbGet, dbRun sono già definiti sopra
 
+// ✅ RECOVERY MODE CHECK - Verifica se il sistema è in modalità recovery klines
+const checkRecoveryMode = async () => {
+    try {
+        const result = await dbGet(
+            `SELECT status_value FROM system_status WHERE status_key = 'klines_recovery_in_progress'`
+        );
+        const isRecovering = result && result.status_value === 'true';
+        if (isRecovering) {
+            console.log('⚠️ [RECOVERY MODE ACTIVE] Bot bloccato durante recovery klines');
+        }
+        return isRecovering;
+    } catch (err) {
+        // Se la tabella non esiste ancora, ritorna false
+        return false;
+    }
+};
+
 // Helper to get portfolio
 const getPortfolio = async () => {
     try {
@@ -1429,9 +1446,9 @@ const getSymbolPrice = async (symbol) => {
         'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniusdt': 'UNIUSDT',
         // Additional symbols to ensure price resolution
         'optimism': 'OPUSDT', 'op': 'OPUSDT', 'opusdt': 'OPUSDT',
-        'the_sandbox': 'SANDUSDT', 'sand': 'SANDUSDT', 'sandusdt': 'SANDUSDT',
+        'the_sandbox': 'SANDUSDT', 'sand': 'SANDUSDT', 'sandusdt': 'SANDUSDT', 'thesandbox': 'SANDUSDT',
         'decentraland': 'MANAUSDT', 'mana': 'MANAUSDT', 'manausdt': 'MANAUSDT',
-        'axie_infinity': 'AXSUSDT', 'axs': 'AXSUSDT', 'axsusdt': 'AXSUSDT',
+        'axie_infinity': 'AXSUSDT', 'axs': 'AXSUSDT', 'axsusdt': 'AXSUSDT', 'axieinfinity': 'AXSUSDT',
         'icp': 'ICPUSDT', 'icpusdt': 'ICPUSDT' // Internet Computer
     };
 
@@ -1732,6 +1749,17 @@ const calculatePositionQualityScore = async (position) => {
 };
 
 const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = null, signalType = null) => {
+    // ✅ CHECK RECOVERY MODE - Se il sistema sta recuperando klines, blocca aperture
+    const isRecovering = await checkRecoveryMode();
+    if (isRecovering) {
+        return {
+            allowed: false,
+            reason: '🔄 Sistema in recovery klines - aperture bloccate temporaneamente',
+            groupPositions: 0,
+            recoveryMode: true
+        };
+    }
+
     const group = getCorrelationGroup(symbol);
 
     if (!group) {
@@ -6597,14 +6625,22 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         // Get price history for analysis (usa klines per dati più accurati)
-        const priceHistoryData = await dbAll(
+        let priceHistoryData = await dbAll(
             "SELECT open_time, open_price, high_price, low_price, close_price FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 100",
             [dbSymbol] // ✅ FIX: Usa simbolo normalizzato per query DB
         );
 
         // Se non ci sono klines, usa price_history
         let historyForSignal = [];
+        // ✅ SANITIZE: rimuovi righe con prezzi non numerici o nulli
         if (priceHistoryData && priceHistoryData.length > 0) {
+            priceHistoryData = priceHistoryData.filter(row => {
+                const o = parseFloat(row.open_price);
+                const h = parseFloat(row.high_price);
+                const l = parseFloat(row.low_price);
+                const c = parseFloat(row.close_price);
+                return Number.isFinite(o) && Number.isFinite(h) && Number.isFinite(l) && Number.isFinite(c) && c > 0;
+            });
             historyForSignal = priceHistoryData.reverse().map(row => {
                 // ✅ FIX CRITICO: Gestisci correttamente open_time da PostgreSQL
                 // PostgreSQL può restituire timestamp come numero (bigint) o come stringa
@@ -6639,11 +6675,15 @@ router.get('/bot-analysis', async (req, res) => {
                     timestamp = new Date().toISOString();
                 }
 
+                const price = parseFloat(row.close_price);
+                const high = parseFloat(row.high_price);
+                const low = parseFloat(row.low_price);
+                const close = parseFloat(row.close_price);
                 return {
-                    price: parseFloat(row.close_price) || 0,
-                    high: parseFloat(row.high_price) || 0,
-                    low: parseFloat(row.low_price) || 0,
-                    close: parseFloat(row.close_price) || 0,
+                    price: Number.isFinite(price) ? price : 0,
+                    high: Number.isFinite(high) ? high : 0,
+                    low: Number.isFinite(low) ? low : 0,
+                    close: Number.isFinite(close) ? close : 0,
                     timestamp: timestamp
                 };
             });
@@ -6652,7 +6692,9 @@ router.get('/bot-analysis', async (req, res) => {
                 "SELECT price, timestamp FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 100",
                 [dbSymbol] // ✅ FIX: Usa simbolo normalizzato per query DB
             );
-            historyForSignal = priceHistoryRows.reverse().map(row => {
+            // ✅ SANITIZE: rimuovi righe con prezzo non numerico
+            const sanitized = (priceHistoryRows || []).filter(row => Number.isFinite(parseFloat(row.price)) && parseFloat(row.price) > 0);
+            historyForSignal = sanitized.reverse().map(row => {
                 // ✅ FIX: Gestisci timestamp da price_history (potrebbe essere stringa o Date)
                 let timestamp = row.timestamp;
                 if (timestamp instanceof Date) {
@@ -6680,8 +6722,12 @@ router.get('/bot-analysis', async (req, res) => {
                     timestamp = new Date().toISOString();
                 }
 
+                const price = parseFloat(row.price);
                 return {
-                    price: parseFloat(row.price) || 0,
+                    price: Number.isFinite(price) ? price : 0,
+                    close: Number.isFinite(price) ? price : 0,
+                    high: Number.isFinite(price) ? price : 0,
+                    low: Number.isFinite(price) ? price : 0,
                     timestamp: timestamp
                 };
             });
