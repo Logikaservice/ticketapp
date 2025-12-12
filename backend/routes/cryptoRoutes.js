@@ -8107,7 +8107,16 @@ router.get('/bot-analysis', async (req, res) => {
                 })()
             },
             blockers: {
+                // ✅ FIX LOGICA: Blockers seguono il direction del segnale principale
+                // Se Signal=LONG → blockers vanno in "long"
+                // Se Signal=SHORT → blockers vanno in "short"
+                // Questo rende la UI coerente e logica
                 long: (() => {
+                    // ✅ Solo se il segnale principale è LONG oppure c'è un segnale LONG parziale
+                    if (signal.direction !== 'LONG' && longCurrentStrength === 0) {
+                        return []; // Nessun blocker per LONG se non c'è segnale LONG
+                    }
+                    
                     const blocks = [];
                     // Check if requirements are met
                     const meetsRequirements = longAdjustedStrength >= LONG_MIN_STRENGTH &&
@@ -8245,6 +8254,11 @@ router.get('/bot-analysis', async (req, res) => {
                     return blocks;
                 })(),
                 short: (() => {
+                    // ✅ Solo se il segnale principale è SHORT oppure c'è un segnale SHORT parziale
+                    if (signal.direction !== 'SHORT' && shortCurrentStrength === 0) {
+                        return []; // Nessun blocker per SHORT se non c'è segnale SHORT
+                    }
+                    
                     const blocks = [];
                     // Check if requirements are met
                     const meetsRequirements = shortAdjustedStrength >= SHORT_MIN_STRENGTH &&
