@@ -23,6 +23,9 @@ backend/backups/
 *.sql
 *.backup
 
+# Backup folders
+.backup/
+
 # SQLite Database (Local)
 backend/crypto.db
 backend/crypto.db-journal

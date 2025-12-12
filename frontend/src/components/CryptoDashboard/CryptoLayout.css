@@ -6,8 +6,10 @@
   color: #ffffff;
   min-height: 100vh;
   font-family: 'Inter', sans-serif;
-  padding: 2rem 0 2rem 2rem;
+  padding: 2rem;
   box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Header Section */
@@ -16,8 +18,8 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
-  width: 1163px;
-  max-width: 1163px;
+  width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
 }
 
@@ -76,15 +78,15 @@
   grid-template-columns: 1fr;
   gap: 1.5rem;
   margin-right: 0;
-  width: 1163px;
-  max-width: 1163px;
+  width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
 }
 
 /* Stats Grid - Allineato al grafico */
 .stats-grid {
-  width: 1163px;
-  max-width: 1163px;
+  width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
 }
 
@@ -99,6 +101,26 @@
   .crypto-grid {
     grid-template-columns: 1fr;
   }
+  
+  .crypto-dashboard {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .crypto-dashboard {
+    padding: 1rem;
+  }
+  
+  .crypto-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .crypto-card {
+    padding: 1rem;
+  }
 }
 
 /* Common Card Style */
@@ -108,8 +130,8 @@
   padding: 1.5rem;
   border: 1px solid #2c2c2e;
   height: 100%;
-  width: 1163px;
-  max-width: 1163px;
+  width: 100%;
+  max-width: 100%;
   margin-bottom: 20px;
   box-sizing: border-box;
 }
