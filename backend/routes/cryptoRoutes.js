@@ -1418,13 +1418,20 @@ const getSymbolPrice = async (symbol) => {
         'binance_coin': 'BNBUSDT', 'bnb': 'BNBUSDT', 'bnbusdt': 'BNBUSDT',
         'chainlink': 'LINKUSDT', 'link': 'LINKUSDT', 'linkusdt': 'LINKUSDT',
         'litecoin': 'LTCUSDT', 'ltc': 'LTCUSDT', 'ltcusdt': 'LTCUSDT',
-        'matic': 'MATICUSDT', 'polygon': 'MATICUSDT', 'maticusdt': 'MATICUSDT',
+        // Polygon migrated from MATICUSDT to POLUSDT on Binance
+        'matic': 'POLUSDT', 'polygon': 'POLUSDT', 'maticusdt': 'POLUSDT', 'polusdt': 'POLUSDT',
         'ton': 'TONUSDT', 'toncoin': 'TONUSDT', 'tonusdt': 'TONUSDT',
         'tron': 'TRXUSDT', 'trx': 'TRXUSDT', 'trxusdt': 'TRXUSDT',
         'stellar': 'XLMUSDT', 'xlm': 'XLMUSDT', 'xlmusdt': 'XLMUSDT',
+        // Monero not available on Binance; keep mapping but expect null price
         'monero': 'XMRUSDT', 'xmr': 'XMRUSDT', 'xmrusdt': 'XMRUSDT',
         'cosmos': 'ATOMUSDT', 'atom': 'ATOMUSDT', 'atomusdt': 'ATOMUSDT',
         'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniusdt': 'UNIUSDT',
+        // Additional symbols to ensure price resolution
+        'optimism': 'OPUSDT', 'op': 'OPUSDT', 'opusdt': 'OPUSDT',
+        'the_sandbox': 'SANDUSDT', 'sand': 'SANDUSDT', 'sandusdt': 'SANDUSDT',
+        'decentraland': 'MANAUSDT', 'mana': 'MANAUSDT', 'manausdt': 'MANAUSDT',
+        'axie_infinity': 'AXSUSDT', 'axs': 'AXSUSDT', 'axsusdt': 'AXSUSDT',
         'icp': 'ICPUSDT', 'icpusdt': 'ICPUSDT' // Internet Computer
     };
 
