@@ -95,3 +95,5 @@ echo "✅ Fix completato!"
 echo "🔄 Riavvia il backend:"
 echo "   pm2 restart ticketapp-backend"
 
+
+

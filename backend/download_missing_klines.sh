@@ -13,7 +13,7 @@ SYMBOLS=(
     "bitcoin:BTCUSDT"
     "ethereum:ETHUSDT"
     "polkadot:DOTUSDT"
-    "polygon:MATICUSDT"
+    "polygon:POLUSDT"
     "chainlink:LINKUSDT"
     "litecoin:LTCUSDT"
     "stellar:XLMUSDT"
