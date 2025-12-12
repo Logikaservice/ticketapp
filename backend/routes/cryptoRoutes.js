@@ -252,9 +252,21 @@ router.get('/history', async (req, res) => {
                     for (const kline of binanceData) {
                         try {
                             await dbRun(
-                                `INSERT OR REPLACE INTO klines 
+                                `INSERT INTO klines 
                                 (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time, quote_asset_volume, number_of_trades, taker_buy_base_asset_volume, taker_buy_quote_asset_volume)
-                                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+                                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                                ON CONFLICT (symbol, interval, open_time) 
+                                DO UPDATE SET 
+                                    open_price = EXCLUDED.open_price,
+                                    high_price = EXCLUDED.high_price,
+                                    low_price = EXCLUDED.low_price,
+                                    close_price = EXCLUDED.close_price,
+                                    volume = EXCLUDED.volume,
+                                    close_time = EXCLUDED.close_time,
+                                    quote_asset_volume = EXCLUDED.quote_asset_volume,
+                                    number_of_trades = EXCLUDED.number_of_trades,
+                                    taker_buy_base_asset_volume = EXCLUDED.taker_buy_base_asset_volume,
+                                    taker_buy_quote_asset_volume = EXCLUDED.taker_buy_quote_asset_volume`,
                                 [
                                     symbol,
                                     interval,
