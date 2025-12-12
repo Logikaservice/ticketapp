@@ -26,9 +26,11 @@ let poolConfig = {
 };
 
 if (process.env.DATABASE_URL) {
+  console.log('🔍 Inizio parsing DATABASE_URL...');
   try {
     // ✅ FIX: Parsing manuale robusto per gestire caratteri speciali nella password
     const dbUrl = process.env.DATABASE_URL;
+    console.log('🔍 DATABASE_URL letto (masked):', dbUrl.replace(/:[^:@]*@/, ':****@'));
     // Regex per estrarre: postgresql://user:password@host:port/database
     const match = dbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
     
@@ -60,12 +62,24 @@ if (process.env.DATABASE_URL) {
     }
   } catch (e) {
     console.error('❌ Errore parsing DATABASE_URL:', e.message);
+    console.error('❌ Stack:', e.stack);
     console.warn('⚠️ Uso connectionString come fallback');
     poolConfig.connectionString = process.env.DATABASE_URL;
   }
 } else {
+  console.error('❌ DATABASE_URL non trovato in process.env!');
   poolConfig.connectionString = process.env.DATABASE_URL;
 }
+
+console.log('🔍 Creazione Pool con config:', {
+  user: poolConfig.user,
+  host: poolConfig.host,
+  port: poolConfig.port,
+  database: poolConfig.database,
+  hasPassword: !!poolConfig.password,
+  passwordType: typeof poolConfig.password,
+  hasConnectionString: !!poolConfig.connectionString
+});
 
 const pool = new Pool(poolConfig);
 
