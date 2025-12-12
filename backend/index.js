@@ -27,28 +27,28 @@ let poolConfig = {
 
 if (process.env.DATABASE_URL) {
   try {
-    // ✅ FIX: Usa URL() invece di url.parse() per parsing più robusto
-    const dbUrl = new URL(process.env.DATABASE_URL);
-    poolConfig.host = dbUrl.hostname || 'localhost';
-    poolConfig.port = dbUrl.port ? parseInt(dbUrl.port) : 5432;
-    poolConfig.database = dbUrl.pathname ? dbUrl.pathname.replace(/^\//, '') : 'ticketapp';
+    // ✅ FIX: Parsing manuale robusto per gestire caratteri speciali nella password
+    const dbUrl = process.env.DATABASE_URL;
+    // Regex per estrarre: postgresql://user:password@host:port/database
+    const match = dbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
     
-    // Estrai e decodifica user e password
-    if (dbUrl.username) {
-      poolConfig.user = decodeURIComponent(dbUrl.username);
+    if (match) {
+      poolConfig.user = decodeURIComponent(match[1]);
+      poolConfig.password = decodeURIComponent(match[2]); // Decodifica %21 -> !, ecc.
+      poolConfig.host = match[3];
+      poolConfig.port = parseInt(match[4]);
+      poolConfig.database = match[5];
+      
+      console.log('✅ DATABASE_URL parsato correttamente:', {
+        host: poolConfig.host,
+        port: poolConfig.port,
+        database: poolConfig.database,
+        user: poolConfig.user,
+        password: '***'
+      });
+    } else {
+      throw new Error('Formato DATABASE_URL non riconosciuto');
     }
-    if (dbUrl.password) {
-      // Decodifica la password (gestisce %21 per !, ecc.)
-      poolConfig.password = decodeURIComponent(dbUrl.password);
-    }
-    
-    console.log('✅ DATABASE_URL parsato correttamente:', {
-      host: poolConfig.host,
-      port: poolConfig.port,
-      database: poolConfig.database,
-      user: poolConfig.user,
-      password: poolConfig.password ? '***' : undefined
-    });
   } catch (e) {
     console.error('❌ Errore parsing DATABASE_URL:', e.message);
     console.warn('⚠️ Uso connectionString come fallback');
@@ -66,7 +66,7 @@ let vivaldiDbUrl = process.env.DATABASE_URL_VIVALDI ||
 
 let poolVivaldi = null;
 if (vivaldiDbUrl) {
-  // ✅ FIX: Usa URL() invece di url.parse() per parsing più robusto
+  // ✅ FIX: Parsing manuale robusto
   let vivaldiConfig = {
     ssl: {
       rejectUnauthorized: false
@@ -74,16 +74,15 @@ if (vivaldiDbUrl) {
   };
   
   try {
-    const dbUrl = new URL(vivaldiDbUrl);
-    vivaldiConfig.host = dbUrl.hostname || 'localhost';
-    vivaldiConfig.port = dbUrl.port ? parseInt(dbUrl.port) : 5432;
-    vivaldiConfig.database = dbUrl.pathname ? dbUrl.pathname.replace(/^\//, '') : 'vivaldi_db';
-    
-    if (dbUrl.username) {
-      vivaldiConfig.user = decodeURIComponent(dbUrl.username);
-    }
-    if (dbUrl.password) {
-      vivaldiConfig.password = decodeURIComponent(dbUrl.password);
+    const match = vivaldiDbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
+    if (match) {
+      vivaldiConfig.user = decodeURIComponent(match[1]);
+      vivaldiConfig.password = decodeURIComponent(match[2]);
+      vivaldiConfig.host = match[3];
+      vivaldiConfig.port = parseInt(match[4]);
+      vivaldiConfig.database = match[5];
+    } else {
+      throw new Error('Formato non riconosciuto');
     }
   } catch (e) {
     console.warn('⚠️ Errore parsing DATABASE_URL_VIVALDI, uso connectionString:', e.message);
@@ -104,7 +103,7 @@ let packvisionDbUrl = process.env.DATABASE_URL?.replace(/\/[^\/]+$/, '/packvisio
 let poolPackVision = null;
 
 if (packvisionDbUrl) {
-  // ✅ FIX: Usa URL() invece di url.parse() per parsing più robusto
+  // ✅ FIX: Parsing manuale robusto
   let packvisionConfig = {
     ssl: {
       rejectUnauthorized: false
@@ -112,16 +111,15 @@ if (packvisionDbUrl) {
   };
   
   try {
-    const dbUrl = new URL(packvisionDbUrl);
-    packvisionConfig.host = dbUrl.hostname || 'localhost';
-    packvisionConfig.port = dbUrl.port ? parseInt(dbUrl.port) : 5432;
-    packvisionConfig.database = dbUrl.pathname ? dbUrl.pathname.replace(/^\//, '') : 'packvision_db';
-    
-    if (dbUrl.username) {
-      packvisionConfig.user = decodeURIComponent(dbUrl.username);
-    }
-    if (dbUrl.password) {
-      packvisionConfig.password = decodeURIComponent(dbUrl.password);
+    const match = packvisionDbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
+    if (match) {
+      packvisionConfig.user = decodeURIComponent(match[1]);
+      packvisionConfig.password = decodeURIComponent(match[2]);
+      packvisionConfig.host = match[3];
+      packvisionConfig.port = parseInt(match[4]);
+      packvisionConfig.database = match[5];
+    } else {
+      throw new Error('Formato non riconosciuto');
     }
   } catch (e) {
     console.warn('⚠️ Errore parsing packvisionDbUrl, uso connectionString:', e.message);
