@@ -45,31 +45,35 @@ const BotAnalysisPageNew = () => {
                 _counter: counterRef.current
             };
 
-            // ✅ FORZA RE-RENDER: Crea sempre un nuovo oggetto per forzare React a ri-renderizzare
-            setData(prevData => {
-                // Se i dati sono identici, forziamo comunque un update con nuovo timestamp
-                return freshData;
-            });
+            // ✅ AGGIORNAMENTO SENZA AZZERAMENTO: Mantieni i dati precedenti durante l'aggiornamento
+            setData(freshData);
             setError(null);
-            setLoading(false);
+            // Non settare loading a false per evitare il flash durante l'aggiornamento
+            // Il loading è già false dopo il primo caricamento
+            if (loading) {
+                setLoading(false);
+            }
 
             // Data fetched successfully
         } catch (err) {
             console.error(`❌ [NUOVA VERSIONE] [${symbol}] Fetch error:`, err);
-            setError(err.message);
+            // Non settare errore se abbiamo già dei dati validi (mantieni i dati vecchi)
+            if (!data) {
+                setError(err.message);
+            }
             setLoading(false);
         }
-    }, [symbol, apiBase]);
+    }, [symbol, apiBase, loading, data]);
 
     useEffect(() => {
         fetchData();
-        const interval = setInterval(fetchData, 2000); // Aggiorna ogni 2 secondi
+        const interval = setInterval(fetchData, 5000); // Aggiorna ogni 5 secondi (ridotto carico)
 
         return () => clearInterval(interval);
     }, [fetchData]);
 
     const handleRefresh = () => {
-        setLoading(true);
+        // Non azzerare i dati durante il refresh manuale
         fetchData();
     };
 

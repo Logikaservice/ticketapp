@@ -6395,6 +6395,10 @@ router.delete('/backtest/results/:id', async (req, res) => {
     }
 });
 
+// ✅ CACHE PER BOT-ANALYSIS - Mantiene i dati calcolati per 3 secondi
+const botAnalysisCache = new Map();
+const BOT_ANALYSIS_CACHE_TTL = 3000; // 3 secondi
+
 // ✅ NUOVO ENDPOINT: Analisi bot in tempo reale - Mostra cosa sta valutando il bot
 router.get('/bot-analysis', async (req, res) => {
     const startTime = Date.now();
@@ -6407,6 +6411,20 @@ router.get('/bot-analysis', async (req, res) => {
 
         // Get symbol from query parameter, default to bitcoin
         let symbol = req.query.symbol || 'bitcoin';
+
+        // ✅ CHECK CACHE - Se abbiamo dati freschi (< 3 secondi), restituiscili immediatamente
+        const cacheKey = `bot-analysis-${symbol}`;
+        const cachedData = botAnalysisCache.get(cacheKey);
+        if (cachedData && (Date.now() - cachedData.timestamp < BOT_ANALYSIS_CACHE_TTL)) {
+            console.log(`⚡ [BOT-ANALYSIS-CACHE] Cache HIT per ${symbol} (age: ${Date.now() - cachedData.timestamp}ms)`);
+            // Aggiorna timestamp per forzare re-render nel frontend
+            return res.json({
+                ...cachedData.data,
+                _timestamp: Date.now(),
+                _cached: true,
+                _cacheAge: Date.now() - cachedData.timestamp
+            });
+        }
 
         // ✅ FIX CRITICO: Normalizza il simbolo per il database
         // Gestisce vari formati: "BTC/USDT", "bitcoin_usdt", "bitcoin", "BTC", ecc.
@@ -8438,6 +8456,85 @@ router.get('/bot-analysis', async (req, res) => {
                 })()
             }
 
+        });
+        
+        // ✅ SALVA NELLA CACHE - Per evitare ricalcoli pesanti
+        // Non aspettare il salvataggio, rispondi subito al frontend
+        const responseData = {
+            currentPrice,
+            rsi: rsi || 0,
+            signal: {
+                direction: signal.direction,
+                strength: signal.strength || 0,
+                confirmations: signal.confirmations || 0,
+                reasons: signal.reasons || [],
+                indicators: signal.indicators || {}
+            },
+            requirements: {
+                long: {
+                    minStrength: LONG_MIN_STRENGTH,
+                    minConfirmations: LONG_MIN_CONFIRMATIONS,
+                    currentStrength: longAdjustedStrength,
+                    currentConfirmations: longCurrentConfirmations,
+                    needsStrength: longNeedsStrength,
+                    needsConfirmations: longNeedsConfirmations,
+                    canOpen: longMeetsRequirements && canOpenCheck.allowed,
+                    reason: longReason,
+                    confirmationsList: [],
+                    strengthContributions: longStrengthContributions
+                },
+                short: {
+                    minStrength: SHORT_MIN_STRENGTH,
+                    minConfirmations: SHORT_MIN_CONFIRMATIONS,
+                    currentStrength: shortAdjustedStrength,
+                    currentConfirmations: shortCurrentConfirmations,
+                    needsStrength: shortNeedsStrength,
+                    needsConfirmations: shortNeedsConfirmations,
+                    canOpen: shortMeetsRequirements && canOpenCheck.allowed,
+                    reason: shortReason,
+                    confirmationsList: [],
+                    strengthContributions: shortStrengthContributions
+                }
+            },
+            mtf: {
+                trend1h,
+                trend4h,
+                long: {
+                    bonus: longMtfBonus,
+                    reason: longMtfReason,
+                    adjustedStrength: longAdjustedStrength,
+                    originalStrength: longCurrentStrength
+                },
+                short: {
+                    bonus: shortMtfBonus,
+                    reason: shortMtfReason,
+                    adjustedStrength: shortAdjustedStrength,
+                    originalStrength: shortCurrentStrength
+                }
+            },
+            risk: {
+                canTrade: riskCheck.canTrade,
+                reason: riskCheck.reason || 'OK',
+                dailyLoss: riskCheck.dailyLoss * 100,
+                currentExposure: riskCheck.currentExposure * 100,
+                availableExposure: riskCheck.availableExposure,
+                maxPositionSize: riskCheck.maxPositionSize,
+                maxAvailableForNewPosition
+            },
+            positions: {
+                long: longPositions.length,
+                short: shortPositions.length,
+                total: openPositions.length
+            }
+        };
+
+        // Salva nella cache senza aspettare
+        setImmediate(() => {
+            botAnalysisCache.set(cacheKey, {
+                data: responseData,
+                timestamp: Date.now()
+            });
+            console.log(`💾 [BOT-ANALYSIS-CACHE] Salvato in cache ${symbol}`);
         });
         
         // Log tempo di risposta totale
