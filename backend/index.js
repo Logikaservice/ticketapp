@@ -27,10 +27,13 @@ let poolConfig = {
 
 if (process.env.DATABASE_URL) {
   console.log('🔍 Inizio parsing DATABASE_URL...');
+  console.log('🔍 __dirname:', __dirname);
+  console.log('🔍 process.cwd():', process.cwd());
   try {
     // ✅ FIX: Parsing manuale robusto per gestire caratteri speciali nella password
     const dbUrl = process.env.DATABASE_URL;
     console.log('🔍 DATABASE_URL letto (masked):', dbUrl.replace(/:[^:@]*@/, ':****@'));
+    console.log('🔍 DATABASE_URL length:', dbUrl.length);
     // Regex per estrarre: postgresql://user:password@host:port/database
     const match = dbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
     
@@ -48,6 +51,17 @@ if (process.env.DATABASE_URL) {
         poolConfig.password = String(poolConfig.password);
       }
       
+      // ✅ FIX: Verifica che la password non sia vuota
+      if (!poolConfig.password || poolConfig.password.length === 0) {
+        console.error('❌ ERRORE CRITICO: Password vuota dopo parsing!');
+        console.error('❌ rawPassword (masked):', rawPassword.substring(0, 3) + '***');
+      }
+      
+      // ✅ FIX: Verifica caratteri speciali nella password
+      if (poolConfig.password.includes('!')) {
+        console.log('✅ Password contiene ! (carattere speciale gestito)');
+      }
+      
       console.log('✅ DATABASE_URL parsato correttamente:', {
         host: poolConfig.host,
         port: poolConfig.port,
@@ -55,9 +69,13 @@ if (process.env.DATABASE_URL) {
         user: poolConfig.user,
         passwordType: typeof poolConfig.password,
         passwordLength: poolConfig.password ? poolConfig.password.length : 0,
-        password: '***'
+        passwordFirstChar: poolConfig.password ? poolConfig.password[0] : 'N/A',
+        passwordLastChar: poolConfig.password ? poolConfig.password[poolConfig.password.length - 1] : 'N/A',
+        hasExclamation: poolConfig.password ? poolConfig.password.includes('!') : false
       });
     } else {
+      console.error('❌ ERRORE: Regex non ha fatto match!');
+      console.error('❌ DATABASE_URL (first 100 chars):', dbUrl.substring(0, 100));
       throw new Error('Formato DATABASE_URL non riconosciuto');
     }
   } catch (e) {
@@ -68,6 +86,7 @@ if (process.env.DATABASE_URL) {
   }
 } else {
   console.error('❌ DATABASE_URL non trovato in process.env!');
+  console.error('❌ process.env keys:', Object.keys(process.env).filter(k => k.includes('DATABASE')).join(', '));
   poolConfig.connectionString = process.env.DATABASE_URL;
 }
 

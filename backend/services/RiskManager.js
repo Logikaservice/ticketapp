@@ -372,7 +372,7 @@ class SeriousRiskManager {
             const MAX_REASONABLE_CASH = 1000000; // 1 milione USDT max ragionevole
             if (cashBalance > MAX_REASONABLE_CASH) {
                 console.warn(`⚠️ [RISK MANAGER] Cash balance anomalo ($${cashBalance.toLocaleString()} USDT), usando limite conservativo $${MAX_REASONABLE_CASH.toLocaleString()} USDT`);
-                const conservativeMax = Math.min(totalEquity * maxPositionSizePct, MAX_REASONABLE_CASH);
+                const conservativeMax = Math.min(totalEquity * baseMaxPositionSizePct, MAX_REASONABLE_CASH);
                 // Se il maxPositionSize calcolato è troppo alto, limitalo
                 if (maxPositionSize > conservativeMax) {
                     return {
