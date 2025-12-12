@@ -532,6 +532,31 @@
     transition: transform 0.2s;
 }
 
+/* Pulsante Ingrandisci */
+.chart-fullscreen-button {
+    position: absolute;
+    top: 713px;
+    left: 2102px;
+    width: 36px;
+    height: 36px;
+    background: rgba(31, 41, 55, 0.9);
+    color: #fff;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    padding: 8px;
+    cursor: pointer;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.chart-fullscreen-button:hover {
+    background: rgba(55, 65, 81, 0.95);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .tradingview-chart-container {

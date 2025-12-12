@@ -208,26 +208,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
             {/* Pulsante ingrandimento */}
             <button
                 onClick={toggleFullscreen}
-                style={{
-                    position: 'absolute',
-                    top: '712px',
-                    left: '759px',
-                    width: '36px',
-                    background: 'rgba(31, 41, 55, 0.9)',
-                    color: '#fff',
-                    border: '1px solid #374151',
-                    borderRadius: '6px',
-                    padding: '8px',
-                    cursor: 'pointer',
-                    zIndex: 100,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'background 0.2s',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(55, 65, 81, 0.95)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(31, 41, 55, 0.9)'}
+                className="chart-fullscreen-button"
                 title={isFullscreen ? "Riduci" : "Ingrandisci"}
             >
                 {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
