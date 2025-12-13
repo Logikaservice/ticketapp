@@ -116,9 +116,10 @@ class SeriousRiskManager {
 
         try {
             // ✅ SCELTA UTENTE (DB):
-            // - max_exposure_pct: percentuale massima exposure (es. 80)
             // - trade_size_usdt: se configurato, diventa anche "minimo assoluto" (no micro-trade)
-            let maxExposurePct = this.MAX_TOTAL_EXPOSURE_PCT;
+            // ✅ RIMOSSO: max_exposure_pct non più utilizzato (limitava erroneamente le posizioni)
+            // Usa sempre 100% come default per non limitare l'esposizione
+            let maxExposurePct = 1.0; // 100% - non limita più l'esposizione
             let configuredTradeSize = null;
 
             try {
