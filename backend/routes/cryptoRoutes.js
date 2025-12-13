@@ -6717,9 +6717,16 @@ const BOT_ANALYSIS_CACHE_TTL = 3000; // 3 secondi
 
 // ✅ NUOVO ENDPOINT: Analisi bot in tempo reale - Mostra cosa sta valutando il bot
 router.get('/bot-analysis', async (req, res) => {
+    // ✅ FIX CRITICO: Wrapper esterno per catturare TUTTI gli errori, anche quelli di inizializzazione
     const startTime = Date.now();
+    const symbol = req.query?.symbol || 'bitcoin';
     
+    // ✅ Log all'inizio per verificare che la funzione viene chiamata
+    console.log(`🔍 [BOT-ANALYSIS] Richiesta ricevuta per simbolo: ${symbol}`);
+    
+    // ✅ FIX: Wrapper esterno per catturare errori di inizializzazione variabili
     try {
+        try {
         // Quick dependency checks (no verbose logging)
         if (!httpsGet || !dbGet || !dbAll || !signalGenerator || !riskManager || !getBotParameters) {
             console.error('❌ [BOT-ANALYSIS] Dipendenze mancanti');
