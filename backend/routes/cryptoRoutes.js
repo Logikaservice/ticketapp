@@ -4675,9 +4675,9 @@ router.get('/symbols-table', async (req, res) => {
             return `${base}/${quote}`;
         };
 
-        // Recupera tutti i simboli
+        // Recupera tutti i simboli (escludi "global" che è solo per impostazioni)
         const allSymbols = await dbAll(
-            "SELECT DISTINCT symbol FROM bot_settings WHERE strategy_name = $1 ORDER BY symbol",
+            "SELECT DISTINCT symbol FROM bot_settings WHERE strategy_name = $1 AND symbol != 'global' ORDER BY symbol",
             ['RSI_Strategy']
         );
 
@@ -5115,7 +5115,7 @@ router.get('/bot/status', async (req, res) => {
 
         // Check if bot cycle is running (check last activity)
         const lastBotActivity = await dbAll(
-            "SELECT MAX(timestamp) as last_update FROM price_history WHERE symbol IN (SELECT symbol FROM bot_settings WHERE strategy_name = 'RSI_Strategy') LIMIT 1"
+            "SELECT MAX(timestamp) as last_update FROM price_history WHERE symbol IN (SELECT symbol FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol != 'global') LIMIT 1"
         );
         const lastUpdate = lastBotActivity[0]?.last_update || null;
         const minutesSinceUpdate = lastUpdate ? Math.floor((Date.now() - new Date(lastUpdate).getTime()) / (1000 * 60)) : null;
@@ -5204,7 +5204,7 @@ router.get('/symbols/available', async (req, res) => {
 
         // Get active bots to show which symbols have bots running
         const activeBots = await dbAll(
-            "SELECT symbol FROM bot_settings WHERE is_active = 1"
+            "SELECT symbol FROM bot_settings WHERE is_active = 1 AND symbol != 'global'"
         );
         const activeSymbols = new Set(activeBots.map(b => b.symbol));
 
