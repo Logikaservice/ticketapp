@@ -272,9 +272,39 @@ router.get('/history', async (req, res) => {
 
                 // Save klines to database
                 let savedKlines = 0;
+                let skippedAnomalous = 0;
                 if (binanceData && Array.isArray(binanceData)) {
                     for (const kline of binanceData) {
                         try {
+                            const openPrice = parseFloat(kline[1]);
+                            const highPrice = parseFloat(kline[2]);
+                            const lowPrice = parseFloat(kline[3]);
+                            const closePrice = parseFloat(kline[4]);
+                            
+                            // ✅ FIX: Valida prezzi prima di salvare (evita valori anomali)
+                            const MAX_PRICE = 100000;
+                            const MIN_PRICE = 0.000001;
+                            
+                            if (openPrice > MAX_PRICE || openPrice < MIN_PRICE ||
+                                highPrice > MAX_PRICE || highPrice < MIN_PRICE ||
+                                lowPrice > MAX_PRICE || lowPrice < MIN_PRICE ||
+                                closePrice > MAX_PRICE || closePrice < MIN_PRICE) {
+                                skippedAnomalous++;
+                                if (skippedAnomalous <= 5) {
+                                    console.warn(`⚠️ [KLINES] Kline anomala saltata per ${symbol}: O=$${openPrice} H=$${highPrice} L=$${lowPrice} C=$${closePrice}`);
+                                }
+                                continue; // Salta questa kline
+                            }
+                            
+                            // ✅ FIX: Valida che high >= low e high >= close >= low
+                            if (highPrice < lowPrice || closePrice > highPrice || closePrice < lowPrice) {
+                                skippedAnomalous++;
+                                if (skippedAnomalous <= 5) {
+                                    console.warn(`⚠️ [KLINES] Kline con range invalido saltata per ${symbol}: H=$${highPrice} L=$${lowPrice} C=$${closePrice}`);
+                                }
+                                continue; // Salta questa kline
+                            }
+                            
                             await dbRun(
                                 `INSERT INTO klines 
                                 (symbol, interval, open_time, open_price, high_price, low_price, close_price, volume, close_time, quote_asset_volume, number_of_trades, taker_buy_base_asset_volume, taker_buy_quote_asset_volume)
@@ -295,10 +325,10 @@ router.get('/history', async (req, res) => {
                                     symbol,
                                     interval,
                                     kline[0], // open_time
-                                    parseFloat(kline[1]), // open
-                                    parseFloat(kline[2]), // high
-                                    parseFloat(kline[3]), // low
-                                    parseFloat(kline[4]), // close
+                                    openPrice,
+                                    highPrice,
+                                    lowPrice,
+                                    closePrice,
                                     parseFloat(kline[5]), // volume
                                     kline[6], // close_time
                                     parseFloat(kline[7]), // quote_asset_volume
@@ -312,6 +342,10 @@ router.get('/history', async (req, res) => {
                             // Ignore duplicate errors
                         }
                     }
+                }
+                
+                if (skippedAnomalous > 0) {
+                    console.warn(`⚠️ [KLINES] Saltate ${skippedAnomalous} klines anomale per ${symbol}`);
                 }
 
                 console.log(`✅ Loaded and saved ${savedKlines} klines from Binance for ${symbol} (${interval})`);
@@ -9577,7 +9611,34 @@ router.get('/scanner', async (req, res) => {
             { symbol: 'ldo', pair: 'LDOUSDT', display: 'LDO/USDT' },
             // Gaming/Metaverse (solo USDT disponibile)
             { symbol: 'mana', pair: 'MANAUSDT', display: 'MANA/USDT' },
-            { symbol: 'axs', pair: 'AXSUSDT', display: 'AXS/USDT' }
+            { symbol: 'axs', pair: 'AXSUSDT', display: 'AXS/USDT' },
+            // Layer 1 Altcoins (solo USDT disponibile)
+            { symbol: 'sui', pair: 'SUIUSDT', display: 'SUI/USDT' },
+            { symbol: 'apt', pair: 'APTUSDT', display: 'APT/USDT' },
+            { symbol: 'sei', pair: 'SEIUSDT', display: 'SEI/USDT' },
+            { symbol: 'ton', pair: 'TONUSDT', display: 'TON/USDT' },
+            { symbol: 'inj', pair: 'INJUSDT', display: 'INJ/USDT' },
+            { symbol: 'algo', pair: 'ALGOUSDT', display: 'ALGO/USDT' },
+            { symbol: 'vet', pair: 'VETUSDT', display: 'VET/USDT' },
+            { symbol: 'icp', pair: 'ICPUSDT', display: 'ICP/USDT' },
+            // DeFi (solo USDT disponibile)
+            { symbol: 'mkr', pair: 'MKRUSDT', display: 'MKR/USDT' },
+            { symbol: 'comp', pair: 'COMPUSDT', display: 'COMP/USDT' },
+            { symbol: 'snx', pair: 'SNXUSDT', display: 'SNX/USDT' },
+            // AI & Other (solo USDT disponibile)
+            { symbol: 'fet', pair: 'FETUSDT', display: 'FET/USDT' },
+            { symbol: 'render', pair: 'RENDERUSDT', display: 'RENDER/USDT' },
+            { symbol: 'grt', pair: 'GRTUSDT', display: 'GRT/USDT' },
+            // Gaming & NFT (solo USDT disponibile)
+            { symbol: 'imx', pair: 'IMXUSDT', display: 'IMX/USDT' },
+            { symbol: 'gala', pair: 'GALAUSDT', display: 'GALA/USDT' },
+            { symbol: 'enj', pair: 'ENJUSDT', display: 'ENJ/USDT' },
+            // Meme Coins (solo USDT disponibile)
+            { symbol: 'pepe', pair: 'PEPEUSDT', display: 'PEPE/USDT' },
+            { symbol: 'floki', pair: 'FLOKIUSDT', display: 'FLOKI/USDT' },
+            { symbol: 'bonk', pair: 'BONKUSDT', display: 'BONK/USDT' },
+            // Other
+            { symbol: 'ar', pair: 'ARUSDT', display: 'AR/USDT' }
             // ❌ Simboli EUR non disponibili su Binance rimossi:
             // EOSEUR, ARBEUR, ATOMEUR, UNIEUR, NEAREUR, OPEUR, MATICEUR
             // FILEUR, SANDEUR, AAVEEUR, CRVEUR, LDOEUR, MANAEUR, AXSEUR
