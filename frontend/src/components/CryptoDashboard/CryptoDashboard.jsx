@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Settings, BarChart2, Wallet, Maximize2, Minimize2, DollarSign, TrendingUp, Info } from 'lucide-react'; // ✅ FIX: Added TrendingUp & Info
+import { ArrowUpRight, ArrowDownRight, Activity, Power, RefreshCw, Settings, BarChart2, Wallet, Maximize2, Minimize2, DollarSign, TrendingUp, Info, AlertTriangle } from 'lucide-react'; // ✅ FIX: Added TrendingUp & Info & AlertTriangle
 import OpenPositions from './OpenPositions';
 import TradingViewChart from './TradingViewChart';
 import BotSettings from './BotSettings';
@@ -7,6 +7,7 @@ import StatisticsPanel from './StatisticsPanel';
 import CryptoNotification from './CryptoNotification';
 import MarketScanner from './MarketScanner';
 import GeneralSettings from './GeneralSettings';
+import SystemHealthMonitor from './SystemHealthMonitor';
 
 import cryptoSounds from '../../utils/cryptoSounds';
 import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
@@ -53,6 +54,8 @@ const CryptoDashboard = () => {
     const [showGeneralSettings, setShowGeneralSettings] = useState(false); // Modal per impostazioni generali
     const [showDetailsModal, setShowDetailsModal] = useState(false); // Modal per dettagli posizione
     const [selectedPositionDetails, setSelectedPositionDetails] = useState(null); // Dettagli posizione selezionata
+    const [showHealthMonitor, setShowHealthMonitor] = useState(false); // Modal per health monitor
+    const [healthStatus, setHealthStatus] = useState(null); // Stato health check
 
     // WebSocket for real-time notifications
     const { connected: wsConnected } = useCryptoWebSocket(
@@ -90,6 +93,25 @@ const CryptoDashboard = () => {
     const removeNotification = (id) => {
         setNotifications(prev => prev.filter(n => n.id !== id));
     };
+
+    // Fetch health status periodically
+    const fetchHealthStatus = async () => {
+        try {
+            const response = await fetch(`${apiBase}/api/crypto/health-status`);
+            const data = await response.json();
+            if (data.success) {
+                setHealthStatus(data.status);
+            }
+        } catch (error) {
+            console.error('Errore fetch health status:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchHealthStatus();
+        const interval = setInterval(fetchHealthStatus, 30000); // ogni 30 secondi
+        return () => clearInterval(interval);
+    }, [apiBase]);
 
     const fetchData = async () => {
         try {
@@ -1177,16 +1199,50 @@ setBotParameters(data.bot_parameters);
                         <div className="balance-label">Impostazioni</div>
                         <Settings size={20} className="text-blue-500" />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                        {/* Pulsante Impostazioni */}
                         <button
                             className="toggle-btn"
                             onClick={() => setShowGeneralSettings(true)}
-                            style={{ width: '100%', padding: '10px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                            style={{ flex: 1, padding: '10px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                             title="Impostazioni Generali"
                         >
                             <Settings size={18} />
                             <span>Impostazioni</span>
                         </button>
+                        
+                        {/* Pulsante Health Monitor */}
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                className="toggle-btn"
+                                onClick={() => setShowHealthMonitor(!showHealthMonitor)}
+                                style={{ 
+                                    padding: '10px 12px', 
+                                    fontSize: '0.9rem', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    position: 'relative'
+                                }}
+                                title="Stato Sistema"
+                            >
+                                <Activity size={18} className={healthStatus?.overall === 'healthy' ? 'text-green-500' : 'text-red-500'} />
+                            </button>
+                            
+                            {/* Triangolo giallo lampeggiante se ci sono problemi */}
+                            {healthStatus?.criticalIssues?.length > 0 && (
+                                <div 
+                                    style={{ 
+                                        position: 'absolute', 
+                                        top: '-8px', 
+                                        right: '-8px',
+                                        animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                                    }}
+                                >
+                                    <AlertTriangle size={20} className="text-yellow-500" style={{ fill: 'rgba(234, 179, 8, 0.2)' }} />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Mail, Volume2, VolumeX, Wallet, Bell, Moon, Sun, RefreshCw, X, BarChart2 } from 'lucide-react';
 import cryptoSounds from '../../utils/cryptoSounds';
+import SystemHealthMonitor from './SystemHealthMonitor';
 import './GeneralSettings.css';
 
 const GeneralSettings = ({
@@ -379,6 +380,14 @@ const GeneralSettings = ({
                                 Frequenza aggiornamento dati dashboard
                             </p>
                         </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div style={{ height: '1px', background: '#374151', margin: '20px 0' }}></div>
+
+                    {/* System Health Monitor */}
+                    <div style={{ marginBottom: '12px' }}>
+                        <SystemHealthMonitor />
                     </div>
 
                 </div>

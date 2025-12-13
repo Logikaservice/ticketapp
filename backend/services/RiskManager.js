@@ -228,11 +228,28 @@ class SeriousRiskManager {
             const dailyLossPct = totalEquity > 0 ? dailyLoss / totalEquity : 0;
 
             // 4. Calcola drawdown (serve picco capitale)
+            // ✅ FIX CRITICO: Il drawdown deve essere calcolato rispetto al picco DOPO l'ultimo reset
+            // Se il balance attuale è molto più basso del picco storico, potrebbe essere perché
+            // è stato fatto un reset. In questo caso, usa il balance attuale come nuovo picco.
             const peakCapital = await dbGet(
                 "SELECT MAX(balance_usd) as peak FROM portfolio" // Nota: questo traccia solo picco cash storico, approssimazione accettabile per ora
                 // TODO: In futuro tracciare Equity Peak
             );
-            const peak = Math.max(parseFloat(peakCapital?.peak || 0), totalEquity); // Usa max tra storico e attuale
+            const historicalPeak = parseFloat(peakCapital?.peak || 0);
+            
+            // ✅ FIX: Se il balance attuale è molto più basso del picco storico (es. >50% di differenza),
+            // probabilmente è stato fatto un reset. In questo caso, usa il balance attuale come nuovo picco.
+            // Questo evita che il drawdown blocchi tutto dopo un reset.
+            const peakDifference = historicalPeak > 0 ? (historicalPeak - cashBalance) / historicalPeak : 0;
+            const likelyReset = peakDifference > 0.5; // Se differenza > 50%, probabilmente è un reset
+            
+            let peak = Math.max(historicalPeak, totalEquity);
+            if (likelyReset && cashBalance > 0) {
+                // Se sembra un reset, usa il balance attuale come nuovo picco
+                peak = Math.max(cashBalance, totalEquity);
+                console.log(`🔄 [RISK-MANAGER] Rilevato possibile reset (differenza picco: ${(peakDifference * 100).toFixed(1)}%). Usando balance attuale ($${cashBalance.toFixed(2)}) come nuovo picco.`);
+            }
+            
             const drawdown = peak > 0 ? (peak - totalEquity) / peak : 0;
 
             // 5. VERIFICA LIMITI ASSOLUTI
@@ -251,7 +268,11 @@ class SeriousRiskManager {
                 return this.cachedResult;
             }
 
-            if (dailyLossPct >= maxDailyLossPct) {
+            // ✅ MODIFICATO: Daily Loss Limit reso opzionale e più permissivo
+            // Se maxDailyLossPct è 0 o negativo, il limite è disabilitato
+            // Se maxDailyLossPct è molto alto (>50%), è praticamente disabilitato
+            // Il limite ha senso solo se configurato esplicitamente dall'utente e con valori ragionevoli
+            if (maxDailyLossPct > 0 && maxDailyLossPct <= 0.5 && dailyLossPct >= maxDailyLossPct) {
                 this.cachedResult = {
                     canTrade: false,
                     reason: `Daily loss limit reached (${(dailyLossPct * 100).toFixed(2)}% >= ${(maxDailyLossPct * 100).toFixed(2)}%)`,
@@ -281,19 +302,18 @@ class SeriousRiskManager {
                 return this.cachedResult;
             }
 
-            if (drawdown >= this.MAX_DRAWDOWN_PCT) {
-                this.cachedResult = {
-                    canTrade: false,
-                    reason: `Max drawdown reached (${(drawdown * 100).toFixed(2)}% >= ${(this.MAX_DRAWDOWN_PCT * 100).toFixed(2)}%)`,
-                    maxPositionSize: 0,
-                    availableExposure: 0,
-                    dailyLoss: dailyLossPct,
-                    currentExposure: currentExposurePct,
-                    drawdown: drawdown
-                };
-                this.lastCheck = now;
-                return this.cachedResult;
-            }
+            // ✅ RIMOSSO: Blocco basato su drawdown rispetto a picco storico
+            // Se l'utente ha investito $1000 o $250, quei soldi sono già investiti.
+            // Il bot deve semplicemente usare il capitale disponibile con la migliore strategia.
+            // Il blocco basato su "drawdown rispetto a picco storico" non ha senso
+            // perché il capitale è già investito e l'utente vuole che venga usato.
+            // 
+            // I controlli che rimangono attivi sono:
+            // - Max Exposure - per non investire più dell'80% del capitale
+            // - Daily Loss Limit (configurabile) - per proteggere da perdite eccessive in un giorno
+            // - Equity minima (< $50) - per evitare posizioni troppo piccole
+            //
+            // NON blocchiamo più basandoci su drawdown rispetto a picco storico
 
             // 6. ✅ CALCOLA LIMITI DINAMICI basati su win rate
             const dynamicLimits = await this.getDynamicLimits();

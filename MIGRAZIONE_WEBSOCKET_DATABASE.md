@@ -172,3 +172,4 @@ Con queste modifiche:
 - **Cache**: Mantiene anche cache in-memory per accesso veloce
 - **Validazione**: Filtra prezzi anomali (> $100k o < $0.000001)
 
+

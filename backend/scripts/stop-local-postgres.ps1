@@ -20,22 +20,22 @@ Write-Host ""
 # Ferma tutti i servizi PostgreSQL
 foreach ($service in $postgresServices) {
     if ($service.Status -eq "Running") {
-        Write-Host "⏸️  Fermo $($service.Name)..." -ForegroundColor Yellow
+        Write-Host "Fermo $($service.Name)..." -ForegroundColor Yellow
         try {
             Stop-Service -Name $service.Name -Force
-            Write-Host "   ✅ $($service.Name) fermato" -ForegroundColor Green
+            Write-Host "   Servizio $($service.Name) fermato" -ForegroundColor Green
         } catch {
-            Write-Host "   ❌ Errore: $_" -ForegroundColor Red
+            Write-Host "   Errore: $_" -ForegroundColor Red
         }
     } else {
-        Write-Host "   ℹ️  $($service.Name) già fermo" -ForegroundColor Gray
+        Write-Host "   $($service.Name) gia fermo" -ForegroundColor Gray
     }
 }
 
 Write-Host ""
-Write-Host "✅ Operazione completata" -ForegroundColor Green
+Write-Host "Operazione completata" -ForegroundColor Green
 Write-Host ""
-Write-Host "📝 Per riavviare PostgreSQL locale:" -ForegroundColor Cyan
+Write-Host "Per riavviare PostgreSQL locale:" -ForegroundColor Cyan
 foreach ($service in $postgresServices) {
     Write-Host "   Start-Service -Name $($service.Name)" -ForegroundColor Gray
 }

@@ -9,6 +9,9 @@ const BotAnalysisPageNew = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const counterRef = React.useRef(0);
+    // ✅ FIX: Preserva i blocchi precedenti durante le transizioni per evitare che scompaiano
+    const preservedReasonsRef = React.useRef([]);
+    const preservedBlockersRef = React.useRef({ long: [], short: [] });
 
     const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
     const urlParams = new URLSearchParams(window.location.search);
@@ -39,14 +42,108 @@ const BotAnalysisPageNew = () => {
 
             // ✅ FORZA AGGIORNAMENTO: Aggiungi sempre timestamp unico per forzare re-render
             counterRef.current += 1;
+            
+            // ✅ FIX: Preserva signal.reasons e blockers per evitare che scompaiano durante l'aggiornamento
+            // Se i nuovi dati hanno reasons/blockers validi, usali. Altrimenti, mantieni quelli precedenti
+            const newReasons = jsonData.signal?.reasons;
+            const newBlockers = jsonData.blockers;
+            const newDirection = jsonData.signal?.direction;
+            const oldDirection = data?.signal?.direction;
+            
+            // ✅ Inizializza i preservati con i dati esistenti se non sono ancora stati impostati
+            if (preservedBlockersRef.current.long.length === 0 && data?.blockers?.long?.length > 0) {
+                preservedBlockersRef.current.long = data.blockers.long;
+            }
+            if (preservedBlockersRef.current.short.length === 0 && data?.blockers?.short?.length > 0) {
+                preservedBlockersRef.current.short = data.blockers.short;
+            }
+            
+            // ✅ Reset i blocchi preservati SOLO se il segnale cambia direzione E i nuovi blockers sono vuoti
+            // Questo evita di resettare i blockers quando il segnale cambia ma i blockers rimangono validi
+            if (oldDirection && newDirection && oldDirection !== newDirection) {
+                // Reset solo se i nuovi blockers sono vuoti
+                const hasNewBlockers = (newBlockers?.long?.length > 0) || (newBlockers?.short?.length > 0);
+                if (!hasNewBlockers) {
+                    preservedReasonsRef.current = [];
+                    preservedBlockersRef.current = { long: [], short: [] };
+                }
+            }
+            
+            // ✅ Aggiorna i ref SOLO se i nuovi dati contengono informazioni valide (non vuote)
+            if (newReasons && Array.isArray(newReasons) && newReasons.length > 0) {
+                preservedReasonsRef.current = newReasons;
+            }
+            
+            // ✅ Aggiorna i blockers preservati SOLO se i nuovi hanno contenuto valido
+            // Se i nuovi sono vuoti, mantieni quelli preservati
+            if (newBlockers) {
+                if (newBlockers.long && Array.isArray(newBlockers.long) && newBlockers.long.length > 0) {
+                    preservedBlockersRef.current.long = newBlockers.long;
+                }
+                // Se i nuovi sono vuoti, NON aggiornare il ref - mantieni quelli preservati
+                
+                if (newBlockers.short && Array.isArray(newBlockers.short) && newBlockers.short.length > 0) {
+                    preservedBlockersRef.current.short = newBlockers.short;
+                }
+                // Se i nuovi sono vuoti, NON aggiornare il ref - mantieni quelli preservati
+            }
+            
+            // ✅ Determina quali blockers usare: preferisci i nuovi se validi, altrimenti usa i preservati
+            const finalBlockers = {
+                long: (newBlockers?.long && Array.isArray(newBlockers.long) && newBlockers.long.length > 0)
+                    ? newBlockers.long
+                    : (preservedBlockersRef.current.long.length > 0)
+                        ? preservedBlockersRef.current.long
+                        : (data?.blockers?.long?.length > 0) // Fallback ai dati esistenti nello stato
+                            ? data.blockers.long
+                            : [],
+                short: (newBlockers?.short && Array.isArray(newBlockers.short) && newBlockers.short.length > 0)
+                    ? newBlockers.short
+                    : (preservedBlockersRef.current.short.length > 0)
+                        ? preservedBlockersRef.current.short
+                        : (data?.blockers?.short?.length > 0) // Fallback ai dati esistenti nello stato
+                            ? data.blockers.short
+                            : []
+            };
+            
             const freshData = {
                 ...jsonData,
                 _timestamp: timestamp,
-                _counter: counterRef.current
+                _counter: counterRef.current,
+                // Usa i nuovi reasons se validi, altrimenti mantieni quelli preservati
+                signal: {
+                    ...jsonData.signal,
+                    reasons: (newReasons && Array.isArray(newReasons) && newReasons.length > 0)
+                        ? newReasons
+                        : (preservedReasonsRef.current.length > 0)
+                            ? preservedReasonsRef.current
+                            : (data?.signal?.reasons?.length > 0) // Fallback ai dati esistenti
+                                ? data.signal.reasons
+                                : []
+                },
+                // ✅ Usa i blockers finali calcolati sopra
+                blockers: finalBlockers
             };
 
             // ✅ AGGIORNAMENTO SENZA AZZERAMENTO: Mantieni i dati precedenti durante l'aggiornamento
-            setData(freshData);
+            // ✅ FIX: Se i nuovi blockers sono vuoti ma abbiamo blockers preservati validi, 
+            // mantieni i blockers preservati nello stato invece di sovrascriverli con array vuoti
+            if (finalBlockers.long.length > 0 || finalBlockers.short.length > 0) {
+                // Abbiamo blockers validi, aggiorna lo stato
+                setData(freshData);
+            } else if (data?.blockers && ((data.blockers.long?.length > 0) || (data.blockers.short?.length > 0))) {
+                // I nuovi blockers sono vuoti ma abbiamo blockers nello stato esistente, mantienili
+                setData({
+                    ...freshData,
+                    blockers: {
+                        long: data.blockers.long || [],
+                        short: data.blockers.short || []
+                    }
+                });
+            } else {
+                // Nessun blocker valido, aggiorna normalmente
+                setData(freshData);
+            }
             setError(null);
             // Non settare loading a false per evitare il flash durante l'aggiornamento
             // Il loading è già false dopo il primo caricamento
@@ -126,6 +223,10 @@ const BotAnalysisPageNew = () => {
         );
     }
 
+    // ✅ FIX: Mostra messaggio informativo se i dati sono insufficienti
+    const hasInsufficientData = data?.error || (data?.signal?.reasons && data.signal.reasons.some(r => r.includes('Dati insufficienti')));
+    const dataAvailable = data?.dataAvailable !== false;
+
     const { signal, requirements, risk, positions, currentPrice, rsi, mtf } = data;
     const updateKey = data._timestamp || Date.now(); // Key per forzare re-render
 
@@ -176,6 +277,38 @@ const BotAnalysisPageNew = () => {
                         <RefreshCw size={20} />
                     </button>
                 </div>
+
+                {/* ✅ FIX: Messaggio informativo se i dati sono insufficienti */}
+                {hasInsufficientData && !dataAvailable && (
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.1))',
+                        border: '2px solid #ef4444',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        margin: '20px 0',
+                        color: '#fff'
+                    }}>
+                        <h3 style={{ color: '#ef4444', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            ⚠️ Dati Storici Insufficienti
+                        </h3>
+                        <p style={{ marginBottom: '10px' }}>
+                            {data?.error || 'Il bot sta ancora raccogliendo dati storici per questo simbolo.'}
+                        </p>
+                        {data?.suggestion && (
+                            <p style={{ marginBottom: '10px', fontStyle: 'italic' }}>
+                                💡 {data.suggestion}
+                            </p>
+                        )}
+                        {data?.dataCount !== undefined && (
+                            <p style={{ marginBottom: '10px' }}>
+                                📊 Dati disponibili: {data.dataCount} candele (minimo {data.dataRequired || 20} richieste)
+                            </p>
+                        )}
+                        <p style={{ fontSize: '0.9rem', opacity: 0.8 }}>
+                            Il bot scaricherà automaticamente i dati storici da Binance. Attendi qualche minuto e ricarica la pagina.
+                        </p>
+                    </div>
+                )}
 
                 <div className="page-content">
                     {/* Prezzo e RSI */}
@@ -596,15 +729,15 @@ const BotAnalysisPageNew = () => {
                         </div>
                     )}
 
-                    {/* Blocchi Attivi - Mostra solo i blocchi del segnale attivo */}
+                    {/* Blocchi Attivi - SEMPRE VISIBILI se esistono, indipendentemente dal segnale attivo */}
                     {(() => {
-                        // Determina quale segnale è attivo
-                        const activeSignalDirection = signal?.direction;
-                        const shouldShowLongBlockers = activeSignalDirection === 'LONG' && data.blockers?.long?.length > 0;
-                        const shouldShowShortBlockers = activeSignalDirection === 'SHORT' && data.blockers?.short?.length > 0;
+                        // ✅ FIX: Mostra SEMPRE i blockers se esistono, non solo quando corrispondono al segnale attivo
+                        // Questo permette di vedere sempre perché il bot non sta aprendo posizioni
+                        const hasLongBlockers = data.blockers?.long && Array.isArray(data.blockers.long) && data.blockers.long.length > 0;
+                        const hasShortBlockers = data.blockers?.short && Array.isArray(data.blockers.short) && data.blockers.short.length > 0;
                         
-                        // Mostra la sezione solo se c'è un segnale attivo con blocchi
-                        if (!shouldShowLongBlockers && !shouldShowShortBlockers) {
+                        // ✅ Mostra la sezione se ci sono blockers LONG o SHORT (o entrambi)
+                        if (!hasLongBlockers && !hasShortBlockers) {
                             return null;
                         }
                         
@@ -614,8 +747,8 @@ const BotAnalysisPageNew = () => {
                                     🚫 Blocchi Attivi - Perché il bot non sta aprendo?
                                 </h3>
 
-                                {shouldShowLongBlockers && (
-                                    <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid #ef4444', borderRadius: '12px', padding: '20px', marginBottom: '15px' }}>
+                                {hasLongBlockers && (
+                                    <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid #ef4444', borderRadius: '12px', padding: '20px', marginBottom: hasShortBlockers ? '15px' : '0' }}>
                                         <h4 style={{ color: '#10b981', marginBottom: '15px' }}>📈 LONG Bloccato</h4>
                                         {data.blockers.long.map((blocker, idx) => (
                                             <div key={idx} style={{
@@ -635,7 +768,7 @@ const BotAnalysisPageNew = () => {
                                     </div>
                                 )}
 
-                                {shouldShowShortBlockers && (
+                                {hasShortBlockers && (
                                     <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '2px solid #ef4444', borderRadius: '12px', padding: '20px' }}>
                                         <h4 style={{ color: '#ef4444', marginBottom: '15px' }}>📉 SHORT Bloccato</h4>
                                         {data.blockers.short.map((blocker, idx) => (

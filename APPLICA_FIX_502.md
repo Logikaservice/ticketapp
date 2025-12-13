@@ -62,3 +62,4 @@ Dovresti vedere:
 - ✅ Endpoint che restituiscono 200 OK anche quando non possono recuperare i dati
 - ✅ Prezzi che ritornano 0 invece di causare 502 quando non disponibili
 
+
