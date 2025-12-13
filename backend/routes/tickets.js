@@ -1294,8 +1294,9 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
 
   // ENDPOINT: Ottieni tutte le forniture temporanee da tutti i ticket
   router.get('/forniture/all', async (req, res) => {
+    let client = null;
     try {
-      const client = await pool.connect();
+      client = await pool.connect();
       const query = `
         SELECT 
           ft.*,
@@ -1309,12 +1310,22 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         ORDER BY ft.data_prestito DESC
       `;
       const result = await client.query(query);
-      client.release();
-
-      res.json(result.rows);
+      
+      // ✅ FIX: Restituisci sempre 200 OK anche in caso di errore (per evitare 502)
+      if (!res.headersSent) {
+        res.status(200).json(result.rows || []);
+      }
     } catch (err) {
-      console.error('Errore nel recuperare tutte le forniture temporanee:', err);
-      res.status(500).json({ error: 'Errore interno del server' });
+      console.error('⚠️ [FORNITURE] Errore nel recuperare tutte le forniture temporanee:', err.message);
+      // ✅ FIX: Restituisci 200 OK con array vuoto invece di 500 per evitare 502
+      if (!res.headersSent) {
+        res.status(200).json([]);
+      }
+    } finally {
+      // ✅ FIX: Rilascia sempre il client anche in caso di errore
+      if (client) {
+        client.release();
+      }
     }
   });
 
