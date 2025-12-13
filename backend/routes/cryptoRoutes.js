@@ -1503,30 +1503,46 @@ const getSymbolPrice = async (symbol) => {
 
     // ✅ FIX CRITICO: Se IP è bannato da Binance (HTTP 418), usa SOLO cache/WebSocket
     // Non fare MAI chiamate REST API se siamo bannati
+    // ✅ MIGLIORAMENTO: Prova a verificare se il ban è scaduto ogni 24 ore
     const BINANCE_BAN_COOLDOWN = 86400000 * 365; // 1 anno (ban permanente)
+    const BAN_CHECK_INTERVAL = 86400000; // Controlla se ban è scaduto ogni 24 ore
     const last418Error = rateLimitErrors.get('BINANCE_IP_BANNED') || 0;
-    if (Date.now() - last418Error < BINANCE_BAN_COOLDOWN) {
-        // IP bannato - usa cache anche se scaduta, o ritorna null
-        if (cached) {
-            if (Math.random() < 0.1) { // Log solo 10% per non spammare
-                console.log(`🚫 [BINANCE-BAN] IP bannato - usando cache scaduta per ${symbol}: $${cached.price.toFixed(6)}`);
+    const timeSinceBan = Date.now() - last418Error;
+    
+    if (last418Error > 0 && timeSinceBan < BINANCE_BAN_COOLDOWN) {
+        // IP bannato - ma prova a verificare se il ban è scaduto ogni 24 ore
+        const lastBanCheck = rateLimitErrors.get('BINANCE_BAN_LAST_CHECK') || 0;
+        const shouldTestBan = (Date.now() - lastBanCheck) > BAN_CHECK_INTERVAL;
+        
+        if (!shouldTestBan) {
+            // Usa cache/WebSocket/database senza provare REST API
+            if (cached) {
+                if (Math.random() < 0.1) { // Log solo 10% per non spammare
+                    console.log(`🚫 [BINANCE-BAN] IP bannato - usando cache per ${symbol}: $${cached.price.toFixed(6)}`);
+                }
+                return cached.price;
             }
-            return cached.price;
-        }
-        // Se non c'è cache, la cache viene aggiornata dal WebSocket automaticamente
-        // Non serve chiamare getLatestPrice, la cache è già controllata sopra
-        // Ultimo fallback: database
-        try {
-            const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [normalizedSymbol]);
-            if (lastPrice && lastPrice.price) {
-                console.log(`💾 [BINANCE-BAN] Usando prezzo dal database per ${symbol}: $${parseFloat(lastPrice.price).toFixed(6)}`);
-                return parseFloat(lastPrice.price);
+            // Fallback: database
+            try {
+                const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [normalizedSymbol]);
+                if (lastPrice && lastPrice.price) {
+                    if (Math.random() < 0.1) {
+                        console.log(`💾 [BINANCE-BAN] Usando prezzo dal database per ${symbol}: $${parseFloat(lastPrice.price).toFixed(6)}`);
+                    }
+                    return parseFloat(lastPrice.price);
+                }
+            } catch (e) {
+                // Ignora errori DB
             }
-        } catch (e) {
-            // Ignora errori DB
+            console.warn(`⚠️ [BINANCE-BAN] Nessun prezzo disponibile per ${symbol} (IP bannato, cache vuota)`);
+            return null;
+        } else {
+            // ✅ TEST BAN: Prova una chiamata REST per vedere se il ban è scaduto
+            // Se ha successo, rimuovi il ban. Se fallisce, aggiorna timestamp check
+            console.log(`🔄 [BAN-CHECK] Verifico se ban IP è scaduto (ultimo ban: ${Math.floor(timeSinceBan / 86400000)} giorni fa)...`);
+            rateLimitErrors.set('BINANCE_BAN_LAST_CHECK', Date.now());
+            // Continua e prova la chiamata REST (vedi sotto)
         }
-        console.warn(`⚠️ [BINANCE-BAN] Nessun prezzo disponibile per ${symbol} (IP bannato, cache vuota, WebSocket non disponibile)`);
-        return null;
     }
 
     // ✅ RATE LIMITING: Controlla se abbiamo ricevuto errori 429 recentemente
@@ -1557,6 +1573,12 @@ const getSymbolPrice = async (symbol) => {
             console.log(`✅ [PRICE] Got price from Binance for ${symbol} (${tradingPair}): $${price.toFixed(6)}`);
         }
         priceCache.set(symbol, { price, timestamp: Date.now() });
+        // ✅ FIX: Se chiamata REST ha successo, rimuovi ban IP (ban scaduto)
+        if (rateLimitErrors.has('BINANCE_IP_BANNED')) {
+            console.log(`✅ [BAN-EXPIRED] Ban IP scaduto! Rimuovo ban e riattivo REST API`);
+            rateLimitErrors.delete('BINANCE_IP_BANNED');
+            rateLimitErrors.delete('BINANCE_BAN_LAST_CHECK');
+        }
         // Rimuovi eventuale errore 429 precedente se la chiamata ha successo
         rateLimitErrors.delete(tradingPair);
         return price;
