@@ -21,6 +21,7 @@ const https = require('https');
 const riskManager = require('../services/RiskManager');
 const signalGenerator = require('../services/BidirectionalSignalGenerator');
 const { sendCryptoEmail } = require('../services/CryptoEmailNotifications');
+const dataIntegrityService = require('../services/DataIntegrityService');
 // ✅ IMPORTANTE: Carica SmartExit per attivare il sistema di ragionamento avanzato
 require('../services/SmartExit');
 
@@ -2557,6 +2558,38 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
         // Volume filter OK logging removed
 
+        // ✅ FIX CRITICO: Verifica e rigenera dati storici PRIMA delle analisi
+        // Questo garantisce che il bot non faccia analisi su dati incompleti o corrotti
+        try {
+            const dataIntegrity = await dataIntegrityService.verifyAndRegenerate(symbol);
+            
+            if (!dataIntegrity.valid) {
+                console.error(`❌ BOT [${symbol.toUpperCase()}]: Dati storici non validi o incompleti.`);
+                console.error(`   Klines: ${dataIntegrity.klinesCount} | Price History: ${dataIntegrity.priceHistoryCount} | Gap: ${dataIntegrity.gaps}`);
+                if (dataIntegrity.issues && dataIntegrity.issues.length > 0) {
+                    dataIntegrity.issues.forEach(issue => console.error(`   - ${issue}`));
+                }
+                
+                if (dataIntegrity.regenerated) {
+                    console.log(`🔄 BOT [${symbol.toUpperCase()}]: Dati rigenerati. Riprova nel prossimo ciclo.`);
+                } else {
+                    console.error(`❌ BOT [${symbol.toUpperCase()}]: Impossibile rigenerare dati. Salto questo ciclo.`);
+                }
+                
+                // ✅ BLOCCA analisi e aperture se dati non validi
+                return; // STOP - Non fare analisi su dati incompleti
+            }
+            
+            if (dataIntegrity.regenerated) {
+                console.log(`✅ BOT [${symbol.toUpperCase()}]: Dati rigenerati con successo. Procedo con analisi.`);
+            }
+            
+        } catch (error) {
+            console.error(`❌ BOT [${symbol.toUpperCase()}]: Errore verifica integrità dati: ${error.message}`);
+            // ✅ In caso di errore, continua comunque (non bloccare tutto il bot)
+            // ma logga l'errore per debugging
+        }
+
         // 6. RISK CHECK - Protezione PRIMA di tutto
         const riskCheck = await riskManager.calculateMaxRisk();
 
@@ -2589,19 +2622,34 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 "SELECT price, timestamp FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 50",
                 [symbol]
             );
-            const historyForSignal = priceHistoryData.reverse().map(row => ({
-                price: row.price,
-                timestamp: row.timestamp
-            }));
-            // ✅ FIX: Passa parametri RSI configurati dall'utente al signalGenerator
-            signal = signalGenerator.generateSignal(historyForSignal, symbol, {
-                rsi_period: params.rsi_period || 14,
-                rsi_oversold: params.rsi_oversold || 30,
-                rsi_overbought: params.rsi_overbought || 70,
-                min_signal_strength: params.min_signal_strength || 60, // ✅ CONFIGURABILE dal database
-                min_confirmations_long: params.min_confirmations_long || 3,
-                min_confirmations_short: params.min_confirmations_short || 4
-            });
+            
+            // ✅ FIX CRITICO: Verifica che anche price_history abbia dati sufficienti
+            if (!priceHistoryData || priceHistoryData.length < 20) {
+                console.error(`❌ BOT [${symbol.toUpperCase()}]: DATI INSUFFICIENTI - Klines: ${klinesData?.length || 0}, Price History: ${priceHistoryData?.length || 0}. BLOCCATO apertura posizioni.`);
+                // ✅ BLOCCA APERTURA POSIZIONI se dati insufficienti
+                // Continua il ciclo per aggiornare posizioni esistenti, ma NON aprire nuove posizioni
+                signal = {
+                    direction: 'NEUTRAL',
+                    strength: 0,
+                    confirmations: 0,
+                    reasons: [`Dati insufficienti: ${klinesData?.length || 0} klines, ${priceHistoryData?.length || 0} price_history (minimo 20 richiesti)`],
+                    atrBlocked: true // Blocca trading per dati insufficienti
+                };
+            } else {
+                const historyForSignal = priceHistoryData.reverse().map(row => ({
+                    price: row.price,
+                    timestamp: row.timestamp
+                }));
+                // ✅ FIX: Passa parametri RSI configurati dall'utente al signalGenerator
+                signal = signalGenerator.generateSignal(historyForSignal, symbol, {
+                    rsi_period: params.rsi_period || 14,
+                    rsi_oversold: params.rsi_oversold || 30,
+                    rsi_overbought: params.rsi_overbought || 70,
+                    min_signal_strength: params.min_signal_strength || 60, // ✅ CONFIGURABILE dal database
+                    min_confirmations_long: params.min_confirmations_long || 3,
+                    min_confirmations_short: params.min_confirmations_short || 4
+                });
+            }
         } else {
             // Reverse to chronological order (oldest first)
             const klinesChronological = klinesData.reverse();
@@ -2947,7 +2995,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             } else {
                 console.log(`\n🛑 [BLOCCATO] ${symbol.toUpperCase()}: Trading bloccato da filtri professionali LONG\n`);
             }
-        } else if (signal.direction === 'LONG' && signal.strength >= MIN_SIGNAL_STRENGTH) {
+        } else if (!signal.atrBlocked && signal.direction === 'LONG' && signal.strength >= MIN_SIGNAL_STRENGTH) {
+            // ✅ FIX CRITICO: Verifica che signal.atrBlocked sia false prima di aprire posizioni
+            // Se atrBlocked è true (dati insufficienti o volatilità anomala), NON aprire posizioni
             // LONG approved logging removed
             // ✅ MULTI-TIMEFRAME CONFIRMATION (con sistema a punteggio)
             const trend1h = await detectTrendOnTimeframe(symbol, '1h', 50);
@@ -5947,7 +5997,14 @@ router.put('/bot/parameters', async (req, res) => {
                 ? Math.max(2.0, Math.min(10.0, parseFloat(parameters.max_atr_pct) || existingParams.max_atr_pct || 5.0))
                 : (existingParams.max_atr_pct || 5.0),
             min_volume_24h: (parameters.min_volume_24h !== undefined && parameters.min_volume_24h !== null && parameters.min_volume_24h !== '')
-                ? Math.max(10000, Math.min(10000000, parseFloat(parameters.min_volume_24h) || existingParams.min_volume_24h || 500000))
+                ? (() => {
+                    const parsed = parseFloat(parameters.min_volume_24h);
+                    // ✅ FIX: Se parseFloat restituisce NaN, usa il valore esistente, altrimenti usa il valore parsato (anche se 0)
+                    if (isNaN(parsed)) {
+                        return existingParams.min_volume_24h || 500000;
+                    }
+                    return Math.max(10000, Math.min(10000000, parsed));
+                })()
                 : (existingParams.min_volume_24h || 500000),
 
             // ✅ NUOVI: Risk Management (personalizzabili)
@@ -8231,6 +8288,323 @@ router.get('/bot-analysis', async (req, res) => {
                 short: shortPositions.length,
                 total: openPositions.length
             },
+            blockers: {
+                // ✅ FIX: Mostra SEMPRE i blockers se esistono, indipendentemente dal segnale attivo
+                // L'utente vuole vedere sempre perché il bot non sta aprendo posizioni
+                long: (() => {
+                    // ✅ RIMOSSO: Non filtrare i blockers in base al segnale attivo
+                    // Mostra sempre i blockers LONG se esistono, anche se il segnale è SHORT o NEUTRAL
+                    // Questo permette all'utente di vedere sempre tutti i motivi per cui il bot non apre
+                    
+                    const blocks = [];
+                    // Check if requirements are met
+                    const meetsRequirements = longAdjustedStrength >= LONG_MIN_STRENGTH &&
+                        longCurrentConfirmations >= LONG_MIN_CONFIRMATIONS;
+
+                    // ✅ FIX CRITICO: Mostra blocker anche se requirements sono soddisfatti ma canOpen è false
+                    // Questo permette di vedere PERCHÉ non apre anche quando segnale è READY
+                    const canOpen = meetsRequirements && canOpenCheck.allowed && !signal.atrBlocked;
+
+                    // ✅ FIX: Controllo Bot Attivo (mostra sempre, anche se requirements non soddisfatti)
+                    if (!isBotActive) {
+                        blocks.push({
+                            type: 'Bot Disabilitato',
+                            reason: 'Il bot non è attivo su questa moneta. Attivalo dalla Dashboard.',
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Controllo Portfolio Drawdown (mostra sempre)
+                    if (portfolioDrawdownBlock) {
+                        blocks.push({
+                            type: 'Portfolio Drawdown',
+                            reason: portfolioDrawdownReason,
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Controllo Market Regime (mostra sempre)
+                    if (marketRegimeBlock) {
+                        blocks.push({
+                            type: 'Market Regime (BTC)',
+                            reason: marketRegimeReason,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Se requirements NON sono soddisfatti, non mostrare altri blocker (mostra solo nel "Top Reason")
+                    if (!meetsRequirements) {
+                        return blocks; // Restituisci i blocchi globali anche se requirements non soddisfatti
+                    }
+
+                    // ✅ IMPORTANTE: Se requirements sono OK ma canOpen è false, mostra TUTTI i blocker
+                    // Freshness Blockers
+                    if (freshnessBlockers.length > 0) {
+                        blocks.push(...freshnessBlockers);
+                    }
+
+                    // ✅ FIX CRITICO: Mostra filtri professionali che bloccano LONG
+                    if (longBlockedByFilters) {
+                        const blockingFilters = longProfessionalFilters.filter(f => f.includes('🚫') && (f.includes('BLOCKED') || f.includes('BLOCCATO')));
+                        blockingFilters.forEach(filter => {
+                            const filterText = filter.replace(/^🚫.*?: /, '');
+                            blocks.push({
+                                type: 'Filtro Professionale',
+                                reason: filterText,
+                                severity: 'high'
+                            });
+                        });
+                    }
+
+                    // ATR block
+                    if (signal.atrBlocked) {
+                        blocks.push({
+                            type: 'ATR',
+                            reason: `Mercato troppo ${signal.atrPct < signal.minAtrRequired ? 'piatto' : 'volatile'} (ATR: ${signal.atrPct?.toFixed(2)}%, richiesto: ${signal.minAtrRequired}%)`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Risk Manager block (GLOBALE - blocca tutto il trading)
+                    if (!riskCheck.canTrade) {
+                        blocks.push({
+                            type: 'Risk Manager (Globale)',
+                            reason: riskCheck.reason || 'Esposizione massima raggiunta',
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX CRITICO: Risk Manager block per questa specifica posizione
+                    // Questo è diverso da riskCheck.canTrade - controlla se può aprire questa specifica posizione
+                    if (!canOpenCheck.allowed) {
+                        blocks.push({
+                            type: 'Risk Manager',
+                            reason: canOpenCheck.reason || `Esposizione insufficiente o limite raggiunto (disponibile: €${maxAvailableForNewPosition.toFixed(2)})`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Existing positions
+                    if (longPositions.length > 0) {
+                        blocks.push({
+                            type: 'Posizioni esistenti',
+                            reason: `Già ${longPositions.length} posizione/i LONG aperta/e su ${symbol}`,
+                            severity: 'medium'
+                        });
+                    }
+
+                    // Balance check
+                    if (maxAvailableForNewPosition < 10) {
+                        blocks.push({
+                            type: 'Balance insufficiente',
+                            reason: `Solo €${maxAvailableForNewPosition.toFixed(2)} disponibili (minimo €10)`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Volume check
+                    if (volumeBlocked) {
+                        blocks.push({
+                            type: 'Volume troppo basso',
+                            reason: `Volume 24h €${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })} < €${MIN_VOLUME.toLocaleString('it-IT')}`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Hybrid Strategy check
+                    if (!hybridCheck.allowed) {
+                        blocks.push({
+                            type: 'Strategia Ibrida',
+                            reason: hybridCheck.reason,
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Se non ci sono blocker ma canOpen è false, aggiungi un blocker generico
+                    // Questo garantisce che SEMPRE si veda perché non apre quando requirements sono OK
+                    if (blocks.length === 0 && !canOpen) {
+                        blocks.push({
+                            type: 'Blocco sconosciuto',
+                            reason: `Requirements soddisfatti ma posizione non può essere aperta. Verifica log backend per dettagli.`,
+                            severity: 'medium'
+                        });
+                    }
+
+                    return blocks;
+                })(),
+                short: (() => {
+                    // ✅ FIX: Mostra SEMPRE i blockers se esistono, indipendentemente dal segnale attivo
+                    // L'utente vuole vedere sempre perché il bot non sta aprendo posizioni
+                    // ✅ RIMOSSO: Non filtrare i blockers in base al segnale attivo
+                    // Mostra sempre i blockers SHORT se esistono, anche se il segnale è LONG o NEUTRAL
+                    // Questo permette all'utente di vedere sempre tutti i motivi per cui il bot non apre
+                    
+                    const blocks = [];
+                    // Check if requirements are met
+                    const meetsRequirements = shortAdjustedStrength >= SHORT_MIN_STRENGTH &&
+                        shortCurrentConfirmations >= SHORT_MIN_CONFIRMATIONS;
+
+                    // ✅ FIX: Controllo Bot Attivo
+                    if (!isBotActive) {
+                        blocks.push({
+                            type: 'Bot Disabilitato',
+                            reason: 'Il bot non è attivo su questa moneta. Attivalo dalla Dashboard.',
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Controllo Volume
+                    if (volumeBlocked) {
+                        blocks.push({
+                            type: 'Volume troppo basso',
+                            reason: `Volume 24h €${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })} < €${MIN_VOLUME.toLocaleString('it-IT')}`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Controllo Portfolio Drawdown
+                    if (portfolioDrawdownBlock) {
+                        blocks.push({
+                            type: 'Portfolio Drawdown',
+                            reason: portfolioDrawdownReason,
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Controllo Market Regime
+                    if (marketRegimeBlock) {
+                        blocks.push({
+                            type: 'Market Regime (BTC)',
+                            reason: marketRegimeReason,
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ Binance Short Check
+                    const binanceMode = process.env.BINANCE_MODE || 'demo';
+                    // In DEMO mode, ignoriamo il controllo "supportsShort" per permettere testing
+                    const supportsShort = binanceMode === 'demo' || process.env.BINANCE_SUPPORTS_SHORT === 'true';
+
+                    if (binanceMode !== 'demo' && !supportsShort) {
+                        blocks.push({
+                            type: 'SHORT non supportato',
+                            reason: 'Binance Spot non supporta vendite allo scoperto. Usa Futures o Demo per testare.',
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX CRITICO: Controllo MTF - Adjusted strength dopo bonus/malus timeframe
+                    if (shortAdjustedStrength < SHORT_MIN_STRENGTH) {
+                        blocks.push({
+                            type: 'Strength insufficiente',
+                            reason: `Strength troppo bassa: ${shortAdjustedStrength}/${SHORT_MIN_STRENGTH} (original: ${shortCurrentStrength}, MTF: ${shortMtfBonus >= 0 ? '+' : ''}${shortMtfBonus})`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX CRITICO: Controllo Conferme
+                    if (shortCurrentConfirmations < SHORT_MIN_CONFIRMATIONS) {
+                        blocks.push({
+                            type: 'Conferme insufficienti',
+                            reason: `Conferme insufficienti: ${shortCurrentConfirmations}/${SHORT_MIN_CONFIRMATIONS} (mancano ${SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations})`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Se requirements NON sono soddisfatti, non mostrare altri blocker (mostra solo nel "Top Reason")
+                    if (!meetsRequirements) {
+                        return blocks; // Restituisci i blocchi globali anche se requirements non soddisfatti
+                    }
+
+                    // ✅ IMPORTANTE: Se requirements sono OK ma canOpen è false, mostra TUTTI i blocker
+                    // Freshness Blockers
+                    if (freshnessBlockers.length > 0) {
+                        blocks.push(...freshnessBlockers);
+                    }
+
+                    // ✅ FIX CRITICO: Mostra filtri professionali che bloccano SHORT
+                    if (shortBlockedByFilters) {
+                        const blockingFilters = shortProfessionalFilters.filter(f => f.includes('🚫') && (f.includes('BLOCKED') || f.includes('BLOCCATO')));
+                        blockingFilters.forEach(filter => {
+                            const filterText = filter.replace(/^🚫.*?: /, '');
+                            blocks.push({
+                                type: 'Filtro Professionale',
+                                reason: filterText,
+                                severity: 'high'
+                            });
+                        });
+                    }
+
+                    // ATR block
+                    if (signal.atrBlocked) {
+                        blocks.push({
+                            type: 'ATR',
+                            reason: `Mercato troppo ${signal.atrPct < signal.minAtrRequired ? 'piatto' : 'volatile'} (ATR: ${signal.atrPct?.toFixed(2)}%, richiesto: ${signal.minAtrRequired}%)`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Risk Manager block (GLOBALE - blocca tutto il trading)
+                    if (!riskCheck.canTrade) {
+                        blocks.push({
+                            type: 'Risk Manager (Globale)',
+                            reason: riskCheck.reason || 'Esposizione massima raggiunta',
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX CRITICO: Risk Manager block per questa specifica posizione
+                    if (!canOpenCheck.allowed) {
+                        blocks.push({
+                            type: 'Risk Manager',
+                            reason: canOpenCheck.reason || `Esposizione insufficiente o limite raggiunto (disponibile: €${maxAvailableForNewPosition.toFixed(2)})`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Existing positions
+                    if (shortPositions.length > 0) {
+                        blocks.push({
+                            type: 'Posizioni esistenti',
+                            reason: `Già ${shortPositions.length} posizione/i SHORT aperta/e su ${symbol}`,
+                            severity: 'medium'
+                        });
+                    }
+
+                    // Balance check
+                    if (maxAvailableForNewPosition < 10) {
+                        blocks.push({
+                            type: 'Balance insufficiente',
+                            reason: `Solo €${maxAvailableForNewPosition.toFixed(2)} disponibili (minimo €10)`,
+                            severity: 'high'
+                        });
+                    }
+
+                    // Hybrid Strategy check
+                    if (!hybridCheck.allowed) {
+                        blocks.push({
+                            type: 'Strategia Ibrida',
+                            reason: hybridCheck.reason,
+                            severity: 'high'
+                        });
+                    }
+
+                    // ✅ FIX: Se non ci sono blocker ma canOpen è false, aggiungi un blocker generico
+                    if (blocks.length === 0 && !canOpen) {
+                        const missingChecks = [];
+                        if (signal.atrBlocked) missingChecks.push('ATR blocked');
+                        if (!supportsShort) missingChecks.push('SHORT non supportato');
+
+                        blocks.push({
+                            type: 'Blocco sconosciuto',
+                            reason: `Requirements sembrano soddisfatti ma posizione SHORT non può essere aperta. Motivi possibili: ${missingChecks.join(', ')}. Verifica log backend per dettagli.`,
+                            severity: 'medium'
+                        });
+                    }
+
+                    return blocks;
+                })()
+            },
             botParameters: {
                 rsiPeriod: params.rsi_period,
                 stopLossPct: params.stop_loss_pct,
@@ -8878,21 +9252,12 @@ router.get('/bot-analysis', async (req, res) => {
                 })()
             },
             blockers: {
-                // ✅ FIX LOGICA: Blockers seguono il direction del segnale principale
-                // Se Signal=LONG → blockers vanno in "long", SHORT rimane vuoto
-                // Se Signal=SHORT → blockers vanno in "short", LONG rimane vuoto
-                // Questo rende la UI coerente e logica
+                // ✅ FIX: Mostra SEMPRE i blockers se esistono, indipendentemente dal segnale attivo
+                // L'utente vuole vedere sempre perché il bot non sta aprendo posizioni
                 long: (() => {
-                    // ✅ LOGICA CORRETTA: Se il segnale principale è SHORT, NON mostrare blockers per LONG
-                    // I blockers devono apparire solo nella sezione del segnale attivo
-                    if (signal.direction === 'SHORT') {
-                        return []; // Signal è SHORT, quindi blockers LONG devono essere vuoti
-                    }
-                    
-                    // ✅ Solo se il segnale principale è LONG oppure c'è un segnale LONG parziale
-                    if (signal.direction !== 'LONG' && longCurrentStrength === 0) {
-                        return []; // Nessun blocker per LONG se non c'è segnale LONG
-                    }
+                    // ✅ RIMOSSO: Non filtrare i blockers in base al segnale attivo
+                    // Mostra sempre i blockers LONG se esistono, anche se il segnale è SHORT o NEUTRAL
+                    // Questo permette all'utente di vedere sempre tutti i motivi per cui il bot non apre
                     
                     const blocks = [];
                     // Check if requirements are met
@@ -9031,16 +9396,11 @@ router.get('/bot-analysis', async (req, res) => {
                     return blocks;
                 })(),
                 short: (() => {
-                    // ✅ LOGICA CORRETTA: Se il segnale principale è LONG, NON mostrare blockers per SHORT
-                    // I blockers devono apparire solo nella sezione del segnale attivo
-                    if (signal.direction === 'LONG') {
-                        return []; // Signal è LONG, quindi blockers SHORT devono essere vuoti
-                    }
-                    
-                    // ✅ Solo se il segnale principale è SHORT oppure c'è un segnale SHORT parziale
-                    if (signal.direction !== 'SHORT' && shortCurrentStrength === 0) {
-                        return []; // Nessun blocker per SHORT se non c'è segnale SHORT
-                    }
+                    // ✅ FIX: Mostra SEMPRE i blockers se esistono, indipendentemente dal segnale attivo
+                    // L'utente vuole vedere sempre perché il bot non sta aprendo posizioni
+                    // ✅ RIMOSSO: Non filtrare i blockers in base al segnale attivo
+                    // Mostra sempre i blockers SHORT se esistono, anche se il segnale è LONG o NEUTRAL
+                    // Questo permette all'utente di vedere sempre tutti i motivi per cui il bot non apre
                     
                     const blocks = [];
                     // Check if requirements are met
@@ -11279,3 +11639,4 @@ router.get('/debug-positions', async (req, res) => {
 
 module.exports = router;
 module.exports.setSocketIO = setSocketIO;
+module.exports.SYMBOL_TO_PAIR = SYMBOL_TO_PAIR;
