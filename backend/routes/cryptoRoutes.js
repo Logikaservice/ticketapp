@@ -7299,8 +7299,44 @@ router.get('/bot-analysis', async (req, res) => {
             // Data stale o insufficiente - download da Binance (solo se non bannati)
             try {
                 const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
-                const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
-                const klines = await httpsGet(binanceUrl);
+                
+                // ✅ FIX: Se il database è completamente vuoto, scarica più dati (almeno 30 giorni)
+                // Altrimenti scarica solo le ultime 100 candele per aggiornare
+                // ✅ FIX CRITICO: Calcola isDatabaseEmpty PRIMA di modificare historyForSignal
+                const wasDatabaseEmpty = !historyForSignal || historyForSignal.length === 0;
+                const limit = wasDatabaseEmpty ? 1000 : 100; // Max 1000 se vuoto, 100 se solo stale
+                
+                let allKlines = [];
+                if (wasDatabaseEmpty) {
+                    // ✅ FIX: Scarica a blocchi per database vuoto (30 giorni = ~2880 candele a 15m)
+                    const daysToDownload = 30;
+                    let currentStartTime = Date.now() - (daysToDownload * 24 * 60 * 60 * 1000);
+                    const endTime = Date.now();
+                    
+                    while (currentStartTime < endTime && allKlines.length < limit) {
+                        const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&startTime=${currentStartTime}&limit=${Math.min(1000, limit - allKlines.length)}`;
+                        const klines = await httpsGet(binanceUrl);
+                        
+                        if (!Array.isArray(klines) || klines.length === 0) break;
+                        
+                        allKlines.push(...klines);
+                        currentStartTime = klines[klines.length - 1][0] + 1;
+                        
+                        // Pausa per non sovraccaricare API
+                        if (allKlines.length < limit) {
+                            await new Promise(resolve => setTimeout(resolve, 300));
+                        }
+                    }
+                } else {
+                    // Database non vuoto, scarica solo le ultime 100 candele
+                    const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=${limit}`;
+                    const klines = await httpsGet(binanceUrl);
+                    if (Array.isArray(klines)) {
+                        allKlines = klines;
+                    }
+                }
+                
+                const klines = allKlines;
                 if (Array.isArray(klines) && klines.length > 0) {
                     historyForSignal = klines.map(k => ({
                         timestamp: new Date(k[0]).toISOString(),
@@ -7312,9 +7348,10 @@ router.get('/bot-analysis', async (req, res) => {
                         volume: parseFloat(k[5])
                     }));
 
-                    // Salva i dati freschi nel DB in background (non bloccare risposta)
+                    // ✅ FIX: Salva TUTTI i dati scaricati nel DB se database era vuoto, altrimenti solo le ultime 20
+                    // ✅ FIX CRITICO: Usa wasDatabaseEmpty invece di ricalcolare (historyForSignal è già popolato)
                     try {
-                        const klinesToSave = klines.slice(-20);
+                        const klinesToSave = wasDatabaseEmpty ? klines : klines.slice(-20);
                         const savePromises = klinesToSave.map(k => {
                             const openTime = parseInt(k[0]);
                             const open = parseFloat(k[1]);
@@ -7343,9 +7380,15 @@ router.get('/bot-analysis', async (req, res) => {
 
                         // Non bloccare la risposta, salva in background
                         Promise.all(savePromises)
+                            .then(() => {
+                                if (wasDatabaseEmpty) {
+                                    console.log(`✅ [BOT-ANALYSIS] Scaricati e salvati ${klinesToSave.length} candele storiche per ${symbol} (database era vuoto)`);
+                                }
+                            })
                             .catch(err => console.error('DB save error:', err.message));
                     } catch (dbError) {
                         // Ignora errori di salvataggio DB
+                        console.error('DB save error:', dbError.message);
                     }
                 }
             } catch (binanceError) {
