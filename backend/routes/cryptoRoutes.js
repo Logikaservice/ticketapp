@@ -7438,7 +7438,33 @@ router.get('/bot-analysis', async (req, res) => {
                     // ✅ FIX CRITICO: Usa wasDatabaseEmpty invece di ricalcolare (historyForSignal è già popolato)
                     try {
                         const klinesToSave = wasDatabaseEmpty ? klines : klines.slice(-20);
-                        const savePromises = klinesToSave.map(k => {
+                        const MAX_PRICE = 100000;
+                        const MIN_PRICE = 0.000001;
+                        
+                        const savePromises = klinesToSave
+                            .filter(k => {
+                                // ✅ FIX: Filtra klines anomale prima di salvare
+                                const open = parseFloat(k[1]);
+                                const high = parseFloat(k[2]);
+                                const low = parseFloat(k[3]);
+                                const close = parseFloat(k[4]);
+                                
+                                // Valida range prezzi
+                                if (open > MAX_PRICE || open < MIN_PRICE ||
+                                    high > MAX_PRICE || high < MIN_PRICE ||
+                                    low > MAX_PRICE || low < MIN_PRICE ||
+                                    close > MAX_PRICE || close < MIN_PRICE) {
+                                    return false; // Salta questa kline
+                                }
+                                
+                                // Valida che high >= low e close è nel range
+                                if (high < low || close > high || close < low) {
+                                    return false; // Salta questa kline
+                                }
+                                
+                                return true; // Kline valida
+                            })
+                            .map(k => {
                             const openTime = parseInt(k[0]);
                             const open = parseFloat(k[1]);
                             const high = parseFloat(k[2]);
