@@ -212,8 +212,15 @@ router.get('/history', async (req, res) => {
                                     672; // Default: 7 days
         const binanceLimit = Math.max(limit, candlesNeededFor7Days);
 
+        // ✅ FIX: Controlla se IP è bannato da Binance prima di caricare klines
+        const BINANCE_BAN_COOLDOWN = 86400000 * 365; // 1 anno (ban permanente)
+        const last418Error = rateLimitErrors.get('BINANCE_IP_BANNED') || 0;
+        const timeSinceBan = Date.now() - last418Error;
+        const isBinanceBanned = last418Error > 0 && timeSinceBan < BINANCE_BAN_COOLDOWN;
+
         // Carica sempre da Binance se abbiamo meno del minimo richiesto o se è un simbolo nuovo
-        if (shouldLoadFromBinance || klinesCount < candlesNeededFor7Days) {
+        // ⚠️ MA NON caricare se IP è bannato (usiamo klines esistenti o le costruiamo in tempo reale)
+        if ((shouldLoadFromBinance || klinesCount < candlesNeededFor7Days) && !isBinanceBanned) {
             console.log(`📥 Loading ${binanceLimit} klines from Binance for interval ${interval} (current count: ${klinesCount})...`);
 
             try {
@@ -310,7 +317,15 @@ router.get('/history', async (req, res) => {
                 console.log(`✅ Loaded and saved ${savedKlines} klines from Binance for ${symbol} (${interval})`);
             } catch (err) {
                 console.error('⚠️ Error loading from Binance, using existing data:', err.message);
+                // ✅ Rileva ban IP (HTTP 418) e aggiorna flag
+                if (err.message && (err.message.includes('418') || err.message.includes('IP banned'))) {
+                    rateLimitErrors.set('BINANCE_IP_BANNED', Date.now());
+                    console.error(`🚫 [BINANCE-BAN] IP bannato durante caricamento klines - uso klines esistenti`);
+                }
             }
+        } else if (isBinanceBanned && (shouldLoadFromBinance || klinesCount < candlesNeededFor7Days)) {
+            // ✅ Se IP è bannato e mancano klines, usa quelle esistenti o le costruiamo in tempo reale
+            console.log(`⚠️ [BINANCE-BAN] IP bannato - salto caricamento klines storiche per ${symbol}. Klines verranno costruite in tempo reale dal bot.`);
         }
 
         // Try to get OHLC klines first (more accurate) with specified interval
@@ -6915,8 +6930,14 @@ router.get('/bot-analysis', async (req, res) => {
             }
         }
 
-        if (!historyForSignal || historyForSignal.length < 20 || isStale) {
-            // Data stale o insufficiente - download da Binance
+        // ✅ FIX: Controlla se IP è bannato prima di scaricare klines
+        const BINANCE_BAN_COOLDOWN_BOT = 86400000 * 365; // 1 anno (ban permanente)
+        const last418ErrorBot = rateLimitErrors.get('BINANCE_IP_BANNED') || 0;
+        const timeSinceBanBot = Date.now() - last418ErrorBot;
+        const isBinanceBannedBot = last418ErrorBot > 0 && timeSinceBanBot < BINANCE_BAN_COOLDOWN_BOT;
+
+        if ((!historyForSignal || historyForSignal.length < 20 || isStale) && !isBinanceBannedBot) {
+            // Data stale o insufficiente - download da Binance (solo se non bannati)
             try {
                 const tradingPair = SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
                 const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${tradingPair}&interval=15m&limit=100`;
@@ -6969,8 +6990,16 @@ router.get('/bot-analysis', async (req, res) => {
                     }
                 }
             } catch (binanceError) {
+                // ✅ Rileva ban IP (HTTP 418) e aggiorna flag
+                if (binanceError.message && (binanceError.message.includes('418') || binanceError.message.includes('IP banned'))) {
+                    rateLimitErrors.set('BINANCE_IP_BANNED', Date.now());
+                    console.error(`🚫 [BINANCE-BAN] IP bannato durante analisi bot - uso dati DB esistenti`);
+                }
                 // Continua con dati DB se Binance fallisce
             }
+        } else if (isBinanceBannedBot && (!historyForSignal || historyForSignal.length < 20 || isStale)) {
+            // ✅ Se IP è bannato e dati insufficienti, usa quelli esistenti dal DB
+            console.log(`⚠️ [BINANCE-BAN] IP bannato - uso dati DB esistenti per ${symbol} (potrebbero essere incompleti)`);
         }
 
         // Aggiorna ultima candela con prezzo corrente
@@ -8865,8 +8894,14 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = n
             }
         }
 
-        // Se dati mancanti o obsoleti, scarica da Binance
-        if (deepAnalysisHistory.length < 20 || isStale) {
+        // ✅ FIX: Controlla se IP è bannato prima di scaricare klines per deepAnalysis
+        const BINANCE_BAN_COOLDOWN_DEEP = 86400000 * 365; // 1 anno (ban permanente)
+        const last418ErrorDeep = rateLimitErrors.get('BINANCE_IP_BANNED') || 0;
+        const timeSinceBanDeep = Date.now() - last418ErrorDeep;
+        const isBinanceBannedDeep = last418ErrorDeep > 0 && timeSinceBanDeep < BINANCE_BAN_COOLDOWN_DEEP;
+
+        // Se dati mancanti o obsoleti, scarica da Binance (solo se non bannati)
+        if ((deepAnalysisHistory.length < 20 || isStale) && !isBinanceBannedDeep) {
             try {
                 const tradingPair = explicitPair || SYMBOL_TO_PAIR[symbol] || symbol.toUpperCase().replace('_', '');
                 // Timeout 2.5s per non rallentare troppo lo scanner
@@ -8885,9 +8920,17 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = n
                     }));
                 }
             } catch (err) {
+                // ✅ Rileva ban IP (HTTP 418) e aggiorna flag
+                if (err.message && (err.message.includes('418') || err.message.includes('IP banned'))) {
+                    rateLimitErrors.set('BINANCE_IP_BANNED', Date.now());
+                    console.error(`🚫 [BINANCE-BAN] IP bannato durante deepAnalysis - uso dati DB esistenti`);
+                }
                 // Se fallisce anche Binance, e i dati sono stale o vuoti, allora return null
                 if (deepAnalysisHistory.length === 0) return null;
             }
+        } else if (isBinanceBannedDeep && (deepAnalysisHistory.length < 20 || isStale)) {
+            // ✅ Se IP è bannato e dati insufficienti, usa quelli esistenti dal DB
+            console.log(`⚠️ [BINANCE-BAN] IP bannato - uso dati DB esistenti per deepAnalysis di ${symbol} (potrebbero essere incompleti)`);
         }
 
         if (deepAnalysisHistory.length === 0) return null;
