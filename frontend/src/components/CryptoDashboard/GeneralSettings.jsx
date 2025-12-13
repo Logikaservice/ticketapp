@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Mail, Volume2, VolumeX, Wallet, Bell, Moon, Sun, RefreshCw, X, BarChart2 } from 'lucide-react';
 import cryptoSounds from '../../utils/cryptoSounds';
-import SystemHealthMonitor from './SystemHealthMonitor';
 import './GeneralSettings.css';
 
 const GeneralSettings = ({
@@ -382,21 +381,6 @@ const GeneralSettings = ({
                         </div>
                     </div>
 
-                    {/* Divider */}
-                    <div style={{ height: '1px', background: '#374151', margin: '20px 0' }}></div>
-
-                    {/* System Health Monitor */}
-                    <div style={{ marginBottom: '12px' }}>
-                        <SystemHealthMonitor />
-                    </div>
-
-                </div>
-
-                {/* Footer */}
-                <div className="general-settings-footer">
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#6b7280', textAlign: 'center' }}>
-                        ✅ Impostazioni salvate automaticamente
-                    </p>
                 </div>
             </div>
         </div>
