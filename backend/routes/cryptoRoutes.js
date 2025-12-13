@@ -6724,9 +6724,8 @@ router.get('/bot-analysis', async (req, res) => {
     // ✅ Log all'inizio per verificare che la funzione viene chiamata
     console.log(`🔍 [BOT-ANALYSIS] Richiesta ricevuta per simbolo: ${symbol}`);
     
-    // ✅ FIX: Wrapper esterno per catturare errori di inizializzazione variabili
+    // ✅ FIX: Wrapper unico per catturare TUTTI gli errori
     try {
-        try {
         // Quick dependency checks (no verbose logging)
         if (!httpsGet || !dbGet || !dbAll || !signalGenerator || !riskManager || !getBotParameters) {
             console.error('❌ [BOT-ANALYSIS] Dipendenze mancanti');
