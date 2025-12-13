@@ -1296,6 +1296,14 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
   router.get('/forniture/all', async (req, res) => {
     let client = null;
     try {
+      // ✅ FIX: Timeout per evitare che la query si blocchi
+      const queryTimeout = setTimeout(() => {
+        if (!res.headersSent) {
+          console.error('⚠️ [FORNITURE] Timeout query forniture/all');
+          res.status(200).json([]);
+        }
+      }, 5000); // 5 secondi timeout
+
       client = await pool.connect();
       const query = `
         SELECT 
@@ -1308,8 +1316,11 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
         LEFT JOIN tickets t ON ft.ticket_id = t.id
         LEFT JOIN users u ON t.clienteid = u.id
         ORDER BY ft.data_prestito DESC
+        LIMIT 1000
       `;
       const result = await client.query(query);
+      
+      clearTimeout(queryTimeout);
       
       // ✅ FIX: Restituisci sempre 200 OK anche in caso di errore (per evitare 502)
       if (!res.headersSent) {
@@ -1317,6 +1328,7 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
       }
     } catch (err) {
       console.error('⚠️ [FORNITURE] Errore nel recuperare tutte le forniture temporanee:', err.message);
+      console.error('⚠️ [FORNITURE] Stack:', err.stack);
       // ✅ FIX: Restituisci 200 OK con array vuoto invece di 500 per evitare 502
       if (!res.headersSent) {
         res.status(200).json([]);
@@ -1324,7 +1336,11 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
     } finally {
       // ✅ FIX: Rilascia sempre il client anche in caso di errore
       if (client) {
-        client.release();
+        try {
+          client.release();
+        } catch (releaseErr) {
+          console.error('⚠️ [FORNITURE] Errore nel rilasciare client:', releaseErr.message);
+        }
       }
     }
   });
