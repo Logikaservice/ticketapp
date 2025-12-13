@@ -6,9 +6,11 @@ const NEW_VALUE = 900000;
 async function testSave() {
     console.log(`🔧 Test salvataggio min_volume_24h = ${NEW_VALUE}\n`);
     
-    // Prepara i dati da inviare
+    // Prepara i dati da inviare (l'API richiede un oggetto parameters)
     const data = JSON.stringify({
-        min_volume_24h: NEW_VALUE
+        parameters: {
+            min_volume_24h: NEW_VALUE
+        }
     });
     
     const options = {
