@@ -565,7 +565,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
       setKeepassSearchError(null);
 
       const authHeader = getAuthHeader();
-      const response = await fetch(`${apiBase}/api/keepass/credentials`, {
+      const response = await fetch(buildApiUrl('/api/keepass/credentials'), {
         headers: {
           ...authHeader,
           'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',

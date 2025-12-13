@@ -60,10 +60,12 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
     }
   };
 
-  // Carica le forniture al mount
+  // Carica le forniture al mount e quando getAuthHeader cambia
   useEffect(() => {
-    fetchTemporarySupplies();
-  }, []);
+    if (getAuthHeader) {
+      fetchTemporarySupplies();
+    }
+  }, [getAuthHeader]);
 
   return {
     temporarySupplies,
