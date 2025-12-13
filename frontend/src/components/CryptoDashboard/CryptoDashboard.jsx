@@ -878,7 +878,7 @@ const CryptoDashboard = () => {
                     paddingTop: '0.5rem'
                 }}>
                     <img
-                        src="/logo-logika.png"
+                        src="/logo-logika-transparent.png"
                         alt="Logika"
                         style={{
                             height: '80px',
@@ -888,9 +888,9 @@ const CryptoDashboard = () => {
                             objectFit: 'contain'
                         }}
                         onError={(e) => {
-                            // Fallback se l'immagine non viene trovata
-                            console.warn('Logo Logika non trovato in /logo-logika.png');
-                            e.target.style.display = 'none';
+                            // Fallback al logo originale se quello trasparente non viene trovato
+                            e.target.src = '/logo-logika.png';
+                            console.warn('Logo trasparente non trovato, uso versione originale');
                         }}
                     />
                 </div>

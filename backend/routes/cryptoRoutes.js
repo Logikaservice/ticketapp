@@ -7008,7 +7008,7 @@ router.get('/bot-analysis', async (req, res) => {
         let longCurrentConfirmations = signal.longSignal?.confirmations || 0;
 
         const longNeedsConfirmations = Math.max(0, LONG_MIN_CONFIRMATIONS - longCurrentConfirmations);
-        const longNeedsStrength = Math.max(0, LONG_MIN_STRENGTH - longCurrentStrength);
+        let longNeedsStrength = Math.max(0, LONG_MIN_STRENGTH - longCurrentStrength); // ✅ Sarà ricalcolato dopo MTF bonus
         // ✅ FIX: Calcola MTF PRIMA e poi verifica requirements con adjusted strength
         // (Questo viene ricalcolato più in basso dopo il calcolo MTF)
         const longMeetsRequirementsInitial = signal.direction === 'LONG' &&
@@ -7021,7 +7021,7 @@ router.get('/bot-analysis', async (req, res) => {
         let shortCurrentConfirmations = signal.shortSignal?.confirmations || 0;
 
         const shortNeedsConfirmations = Math.max(0, SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations);
-        const shortNeedsStrength = Math.max(0, SHORT_MIN_STRENGTH - shortCurrentStrength);
+        let shortNeedsStrength = Math.max(0, SHORT_MIN_STRENGTH - shortCurrentStrength); // ✅ Sarà ricalcolato dopo MTF bonus
         // ✅ FIX: Calcola MTF PRIMA e poi verifica requirements con adjusted strength
         // (Questo viene spostato più in basso dopo il calcolo MTF)
         const shortMeetsRequirementsInitial = signal.direction === 'SHORT' &&
@@ -7315,8 +7315,13 @@ router.get('/bot-analysis', async (req, res) => {
         const longAdjustedStrength = longCurrentStrength + longMtfBonus;
         const shortAdjustedStrength = shortCurrentStrength + shortMtfBonus;
 
+        // ✅ FIX CRITICO: Ricalcola needsStrength DOPO il bonus MTF (usando adjusted strength)
+        const longNeedsStrength = Math.max(0, LONG_MIN_STRENGTH - longAdjustedStrength);
+        const shortNeedsStrength = Math.max(0, SHORT_MIN_STRENGTH - shortAdjustedStrength);
+
         console.log(`📊 [MTF] LONG: ${longCurrentStrength} + ${longMtfBonus} = ${longAdjustedStrength} | SHORT: ${shortCurrentStrength} + ${shortMtfBonus} = ${shortAdjustedStrength}`);
         console.log(`📊 [MTF] Trends: 1h=${trend1h}, 4h=${trend4h}`);
+        console.log(`📊 [MTF] Needs: LONG=${longNeedsStrength}, SHORT=${shortNeedsStrength}`);
 
         // ✅ FIX CRITICO: Ricalcola requirements con adjusted strength e controllo ATR (stessa logica del bot reale)
         // MIN_SIGNAL_STRENGTH già definito sopra con valore dal database
