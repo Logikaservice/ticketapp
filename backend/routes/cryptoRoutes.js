@@ -1240,27 +1240,32 @@ const DEFAULT_PARAMS = {
 // Helper to get bot strategy parameters from database (supports multi-symbol)
 const getBotParameters = async (symbol = 'bitcoin') => {
     try {
-        // ✅ NUOVO: Prima cerca parametri specifici per simbolo, poi globali
-        let bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = $1", [symbol]);
+        // ✅ FIX CRITICO: Leggi PRIMA i parametri globali (base), poi quelli specifici del simbolo (sovrascrivono)
+        // Questo assicura che tutti i parametri (incluso min_volume_24h) siano sempre disponibili
+        const globalBot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global'", []);
+        const symbolBot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = $1", [symbol]);
 
-        // Se non trovato per simbolo, usa parametri globali
-        if (!bot) {
-            bot = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global'", []);
+        let mergedParams = { ...DEFAULT_PARAMS };
+
+        // 1. Prima merge con parametri globali (se esistono)
+        if (globalBot && globalBot.parameters) {
+            const globalParams = typeof globalBot.parameters === 'string' ? JSON.parse(globalBot.parameters) : globalBot.parameters;
+            mergedParams = { ...mergedParams, ...globalParams };
         }
 
-        if (bot && bot.parameters) {
-            const params = typeof bot.parameters === 'string' ? JSON.parse(bot.parameters) : bot.parameters;
-            // ✅ FIX: Merge con defaults per assicurarsi che tutti i parametri esistano (incluso trailing_profit_protection_enabled)
-            const merged = { ...DEFAULT_PARAMS, ...params };
-
-            // Debug log solo per trailing_profit_protection_enabled
-            if (merged.trailing_profit_protection_enabled === undefined) {
-                console.warn('⚠️ [BOT-PARAMS] trailing_profit_protection_enabled non trovato, uso default:', DEFAULT_PARAMS.trailing_profit_protection_enabled);
-                merged.trailing_profit_protection_enabled = DEFAULT_PARAMS.trailing_profit_protection_enabled;
-            }
-
-            return merged;
+        // 2. Poi merge con parametri specifici del simbolo (sovrascrivono i globali)
+        if (symbolBot && symbolBot.parameters) {
+            const symbolParams = typeof symbolBot.parameters === 'string' ? JSON.parse(symbolBot.parameters) : symbolBot.parameters;
+            mergedParams = { ...mergedParams, ...symbolParams };
         }
+
+        // Debug log solo per trailing_profit_protection_enabled
+        if (mergedParams.trailing_profit_protection_enabled === undefined) {
+            console.warn('⚠️ [BOT-PARAMS] trailing_profit_protection_enabled non trovato, uso default:', DEFAULT_PARAMS.trailing_profit_protection_enabled);
+            mergedParams.trailing_profit_protection_enabled = DEFAULT_PARAMS.trailing_profit_protection_enabled;
+        }
+
+        return mergedParams;
     } catch (err) {
         console.error(`Error loading bot parameters for ${symbol}:`, err.message);
     }

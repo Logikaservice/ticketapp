@@ -432,15 +432,30 @@ async function runBotCycleForSymbol(symbol, botSettings) {
         // ✅ FIX: Leggi requisiti minimi da database (bot_settings e bot_parameters) invece di hardcoded
         const botParams = await dbGet("SELECT * FROM bot_parameters WHERE symbol = $1", [symbol]).catch(() => null);
         
-        // ✅ FIX: Leggi anche parametri da bot_settings (dove sono salvati min_volume_24h e altri parametri)
-        const botSettings = await dbGet(
-            "SELECT parameters FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND (symbol = $1 OR symbol = 'global') ORDER BY CASE WHEN symbol = $1 THEN 0 ELSE 1 END LIMIT 1",
+        // ✅ FIX CRITICO: Leggi PRIMA parametri globali, poi specifici del simbolo (merge corretto)
+        const globalSettings = await dbGet(
+            "SELECT parameters FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global'",
+            []
+        ).catch(() => null);
+        
+        const symbolSettings = await dbGet(
+            "SELECT parameters FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = $1",
             [symbol]
         ).catch(() => null);
         
-        const settingsParams = botSettings?.parameters 
-            ? (typeof botSettings.parameters === 'string' ? JSON.parse(botSettings.parameters) : botSettings.parameters)
-            : {};
+        // Merge: globali come base, poi sovrascritti da specifici del simbolo
+        let settingsParams = {};
+        if (globalSettings?.parameters) {
+            settingsParams = typeof globalSettings.parameters === 'string' 
+                ? JSON.parse(globalSettings.parameters) 
+                : globalSettings.parameters;
+        }
+        if (symbolSettings?.parameters) {
+            const symbolParams = typeof symbolSettings.parameters === 'string' 
+                ? JSON.parse(symbolSettings.parameters) 
+                : symbolSettings.parameters;
+            settingsParams = { ...settingsParams, ...symbolParams };
+        }
         
         const minStrength = signal.direction === 'LONG'
             ? (botParams?.min_signal_strength || settingsParams.min_signal_strength || BOT_CONFIG.MIN_STRENGTH_LONG)
