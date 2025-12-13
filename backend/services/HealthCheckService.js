@@ -213,45 +213,52 @@ class HealthCheckService {
 
     /**
      * Verifica aggregatore crea klines
+     * Usa KlinesVerificationService per verifica completa
      */
     async checkAggregator() {
         try {
-            // Verifica klines recenti (ultima ora)
-            const recentKlines = await dbGet(
-                `SELECT COUNT(*) as count 
-                 FROM klines 
-                 WHERE interval = '15m' 
-                   AND open_time > $1`,
-                [Date.now() - (60 * 60 * 1000)]
-            );
-
-            const count = parseInt(recentKlines?.count || 0);
-            const expected = 4; // 4 klines in un'ora (ogni 15 min)
-            const isWorking = count >= expected - 1; // Tolleranza -1
-
-            if (isWorking) {
-                return {
-                    healthy: true,
-                    working: true,
-                    klinesLastHour: count,
-                    message: `Aggregatore funziona (${count} klines ultima ora)`
-                };
-            }
+            const KlinesVerificationService = require('./KlinesVerificationService');
+            const verification = await KlinesVerificationService.verifyKlinesCompleteness();
 
             return {
-                healthy: false,
-                working: false,
-                klinesLastHour: count,
-                expected,
-                message: `Aggregatore non crea klines (${count}/${expected} ultima ora)`
+                healthy: verification.healthy,
+                working: verification.healthy,
+                message: verification.message,
+                details: verification.details
             };
         } catch (error) {
-            return {
-                healthy: false,
-                working: false,
-                error: error.message,
-                message: 'Errore verifica aggregatore'
-            };
+            // Fallback a verifica semplice se il servizio completo fallisce
+            try {
+                const recentKlines = await dbGet(
+                    `SELECT COUNT(*) as count 
+                     FROM klines 
+                     WHERE interval = '15m' 
+                       AND open_time > $1`,
+                    [Date.now() - (60 * 60 * 1000)]
+                );
+
+                const count = parseInt(recentKlines?.count || 0);
+                const expected = 4;
+                const isWorking = count >= expected - 1;
+
+                return {
+                    healthy: isWorking,
+                    working: isWorking,
+                    klinesLastHour: count,
+                    expected,
+                    message: isWorking 
+                        ? `Aggregatore funziona (${count} klines ultima ora)`
+                        : `Aggregatore non crea klines (${count}/${expected} ultima ora)`,
+                    fallback: true
+                };
+            } catch (fallbackError) {
+                return {
+                    healthy: false,
+                    working: false,
+                    error: error.message,
+                    message: 'Errore verifica aggregatore'
+                };
+            }
         }
     }
 
