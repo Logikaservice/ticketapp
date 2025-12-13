@@ -1461,8 +1461,30 @@ const initWebSocketService = () => {
         wsService = new BinanceWebSocketService(
             // Callback per prezzi
             (symbol, price) => {
-                // Callback: aggiorna cache quando arriva prezzo da WebSocket
+                // ✅ FIX CRITICO: Aggiorna cache E salva nel database per persistenza
                 priceCache.set(symbol, { price, timestamp: Date.now() });
+                
+                // ✅ NUOVO: Salva anche nel database per persistenza (fallback quando IP è bannato)
+                // Usa setImmediate per non bloccare il callback WebSocket
+                setImmediate(async () => {
+                    try {
+                        // Valida prezzo prima di salvare (evita valori anomali)
+                        if (price > 0 && price < 100000 && price > 0.000001) {
+                            await dbRun(
+                                `INSERT INTO price_history (symbol, price, timestamp) 
+                                 VALUES ($1, $2, CURRENT_TIMESTAMP)
+                                 ON CONFLICT DO NOTHING`,
+                                [symbol, price]
+                            );
+                        }
+                    } catch (dbError) {
+                        // Ignora errori DB (non critico, ma logga solo occasionalmente)
+                        if (Math.random() < 0.01) {
+                            console.warn(`⚠️ [WEBSOCKET-PRICE] Errore salvataggio DB per ${symbol}:`, dbError.message);
+                        }
+                    }
+                });
+                
                 // Log solo occasionalmente
                 if (Math.random() < 0.05) {
                     console.log(`📡 [WEBSOCKET] Prezzo aggiornato ${symbol}: $${price.toFixed(2)} USDT`);
@@ -1616,26 +1638,35 @@ const getSymbolPrice = async (symbol) => {
         const shouldTestBan = (Date.now() - lastBanCheck) > BAN_CHECK_INTERVAL;
         
         if (!shouldTestBan) {
-            // Usa cache/WebSocket/database senza provare REST API
+            // ✅ FIX CRITICO: Quando IP è bannato, usa PRIMA il database (più affidabile), poi cache
+            // Il database contiene prezzi salvati dal WebSocket, quindi è sempre aggiornato
+            try {
+                const lastPrice = await dbGet(
+                    "SELECT price FROM price_history WHERE symbol = $1 AND price > 0 AND price < 100000 AND price > 0.000001 ORDER BY timestamp DESC LIMIT 1", 
+                    [normalizedSymbol]
+                );
+                if (lastPrice && lastPrice.price) {
+                    const dbPrice = parseFloat(lastPrice.price);
+                    // Aggiorna anche la cache con il prezzo del database
+                    priceCache.set(normalizedSymbol, { price: dbPrice, timestamp: Date.now() });
+                    if (Math.random() < 0.1) {
+                        console.log(`💾 [BINANCE-BAN] Usando prezzo dal database per ${symbol}: $${dbPrice.toFixed(6)}`);
+                    }
+                    return dbPrice;
+                }
+            } catch (e) {
+                // Ignora errori DB
+            }
+            
+            // Fallback: cache (se database vuoto)
             if (cached) {
                 if (Math.random() < 0.1) { // Log solo 10% per non spammare
                     console.log(`🚫 [BINANCE-BAN] IP bannato - usando cache per ${symbol}: $${cached.price.toFixed(6)}`);
                 }
                 return cached.price;
             }
-            // Fallback: database
-            try {
-                const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [normalizedSymbol]);
-                if (lastPrice && lastPrice.price) {
-                    if (Math.random() < 0.1) {
-                        console.log(`💾 [BINANCE-BAN] Usando prezzo dal database per ${symbol}: $${parseFloat(lastPrice.price).toFixed(6)}`);
-                    }
-                    return parseFloat(lastPrice.price);
-                }
-            } catch (e) {
-                // Ignora errori DB
-            }
-            console.warn(`⚠️ [BINANCE-BAN] Nessun prezzo disponibile per ${symbol} (IP bannato, cache vuota)`);
+            
+            console.warn(`⚠️ [BINANCE-BAN] Nessun prezzo disponibile per ${symbol} (IP bannato, cache e DB vuoti)`);
             return null;
         } else {
             // ✅ TEST BAN: Prova una chiamata REST per vedere se il ban è scaduto
@@ -1879,15 +1910,8 @@ const get24hVolume = async (symbol) => {
         const isBinanceBanned = last418Error > 0 && timeSinceBan < BINANCE_BAN_COOLDOWN;
 
         if (isBinanceBanned) {
-            // IP bannato - usa cache anche se scaduta
-            if (cached) {
-                if (Math.random() < 0.1) { // Log solo 10% per non spammare
-                    console.log(`🚫 [VOLUME-BAN] IP bannato - usando volume cached per ${symbol}: $${cached.volume.toLocaleString('it-IT')}`);
-                }
-                return cached.volume;
-            }
-            
-            // ✅ FALLBACK: Prova a recuperare dal database (ultimo volume salvato)
+            // ✅ FIX CRITICO: Quando IP è bannato, usa PRIMA il database (più affidabile e persistente)
+            // Il database viene aggiornato dal WebSocket, quindi è sempre aggiornato
             try {
                 const dbVolume = await dbGet(
                     "SELECT volume_24h, updated_at FROM symbol_volumes_24h WHERE symbol = $1",
@@ -1908,12 +1932,20 @@ const get24hVolume = async (symbol) => {
                         return volume;
                     } else {
                         if (Math.random() < 0.1) {
-                            console.warn(`⚠️ [VOLUME-BAN] Volume nel DB troppo vecchio per ${symbol} (${Math.floor(volumeAge / (24 * 60 * 60 * 1000))} giorni), ritorno 0`);
+                            console.warn(`⚠️ [VOLUME-BAN] Volume nel DB troppo vecchio per ${symbol} (${Math.floor(volumeAge / (24 * 60 * 60 * 1000))} giorni), provo cache`);
                         }
                     }
                 }
             } catch (dbError) {
                 // Ignora errori DB
+            }
+            
+            // ✅ FALLBACK: Se database vuoto o vecchio, usa cache anche se scaduta
+            if (cached) {
+                if (Math.random() < 0.1) { // Log solo 10% per non spammare
+                    console.log(`🚫 [VOLUME-BAN] IP bannato - usando volume cached per ${symbol}: $${cached.volume.toLocaleString('it-IT')}`);
+                }
+                return cached.volume;
             }
             
             // Nessun volume disponibile - ritorna 0
@@ -2632,7 +2664,24 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
             const portfolio = await dbGet("SELECT * FROM portfolio WHERE id = 1");
             if (portfolio) {
                 const cashBalance = parseFloat(portfolio.balance_usd || 0);
-                const initialBalance = 1000; // Bilancio iniziale
+                // ✅ FIX CRITICO: Usa il balance attuale come initialBalance invece di 1000 hardcoded
+                // Se il portfolio è stato resettato, il balance attuale è il nuovo punto di partenza
+                // Se il balance è molto più basso del picco storico, probabilmente è stato fatto un reset
+                let initialBalance = 1000; // Default
+                try {
+                    const peakCapital = await dbGet("SELECT MAX(balance_usd) as peak FROM portfolio");
+                    const historicalPeak = parseFloat(peakCapital?.peak || 0);
+                    const peakDifference = historicalPeak > 0 ? (historicalPeak - cashBalance) / historicalPeak : 0;
+                    
+                    // Se differenza > 50%, probabilmente è stato fatto un reset → usa balance attuale come initial
+                    if (peakDifference > 0.5 && cashBalance > 0) {
+                        initialBalance = cashBalance;
+                        console.log(`🔄 [PORTFOLIO-CHECK] Rilevato possibile reset. Usando balance attuale ($${cashBalance.toFixed(2)}) come initialBalance invece di $1000.`);
+                    }
+                } catch (e) {
+                    // Se errore, usa default 1000
+                    console.warn(`⚠️ [PORTFOLIO-CHECK] Errore calcolo initialBalance, uso default $1000:`, e.message);
+                }
 
                 // ✅ FIX CRITICO: Calcola Total Equity usando prezzi REALI, non quelli nel database
                 // Recupera il prezzo corrente per ogni simbolo per calcolare il valore reale delle posizioni
@@ -7761,7 +7810,23 @@ router.get('/bot-analysis', async (req, res) => {
             const portfolio = await dbGet("SELECT * FROM portfolio WHERE id = 1");
             if (portfolio) {
                 const cashBalance = parseFloat(portfolio.balance_usd || 0);
-                const initialBalance = 1000;
+                // ✅ FIX CRITICO: Usa il balance attuale come initialBalance invece di 1000 hardcoded
+                // Se il portfolio è stato resettato, il balance attuale è il nuovo punto di partenza
+                let initialBalance = 1000; // Default
+                try {
+                    const peakCapital = await dbGet("SELECT MAX(balance_usd) as peak FROM portfolio");
+                    const historicalPeak = parseFloat(peakCapital?.peak || 0);
+                    const peakDifference = historicalPeak > 0 ? (historicalPeak - cashBalance) / historicalPeak : 0;
+                    
+                    // Se differenza > 50%, probabilmente è stato fatto un reset → usa balance attuale come initial
+                    if (peakDifference > 0.5 && cashBalance > 0) {
+                        initialBalance = cashBalance;
+                        console.log(`🔄 [BOT-ANALYSIS PORTFOLIO] Rilevato possibile reset. Usando balance attuale ($${cashBalance.toFixed(2)}) come initialBalance invece di $1000.`);
+                    }
+                } catch (e) {
+                    // Se errore, usa default 1000
+                    console.warn(`⚠️ [BOT-ANALYSIS PORTFOLIO] Errore calcolo initialBalance, uso default $1000:`, e.message);
+                }
 
                 // ✅ FIX CRITICO: Calcola Total Equity usando prezzi REALI, non quelli nel database
                 // Recupera il prezzo corrente per ogni simbolo per calcolare il valore reale delle posizioni
