@@ -346,24 +346,73 @@ class SeriousRiskManager {
             if (configuredTradeSize) {
                 maxPositionSize = configuredTradeSize;
                 console.log(`💰 [FIXED SIZING] Usando trade_size_usdt configurato: $${maxPositionSize.toFixed(2)} USDT`);
+                
+                // ✅ FIX CRITICO: Se trade_size_usdt è configurato, verifica che ci sia abbastanza cash
+                // Se non c'è abbastanza cash, blocca invece di ridurre la dimensione
+                if (cashBalance < configuredTradeSize) {
+                    this.cachedResult = {
+                        canTrade: false,
+                        reason: `Insufficient cash for configured trade size ($${cashBalance.toFixed(2)} < $${configuredTradeSize.toFixed(2)} USDT). Need $${configuredTradeSize.toFixed(2)} but only have $${cashBalance.toFixed(2)}`,
+                        maxPositionSize: 0,
+                        availableExposure: 0,
+                        dailyLoss: dailyLossPct,
+                        currentExposure: currentExposurePct,
+                        drawdown: drawdown,
+                        currentCapital: cashBalance,
+                        totalEquity: totalEquity
+                    };
+                    this.lastCheck = now;
+                    return this.cachedResult;
+                }
+                // ✅ Se c'è abbastanza cash, usa il trade_size configurato (non limitare al cash)
+                // Questo garantisce che quando trade_size_usdt è configurato, viene sempre rispettato
+                console.log(`✅ [FIXED SIZING] Cash sufficiente: $${cashBalance.toFixed(2)} >= $${configuredTradeSize.toFixed(2)} USDT`);
             } else {
                 // Calcola dimensione posizione basata su portfolio (8% default)
                 let calculatedPositionSize = totalEquity * FIXED_POSITION_PCT;
                 // Applica minimo assoluto (mai meno di $80 USDT)
                 maxPositionSize = Math.max(calculatedPositionSize, MIN_POSITION_SIZE);
+                
+                // ✅ FIX CRITICO: Se il cash disponibile è inferiore al minimo richiesto,
+                // blocca l'apertura di nuove posizioni (non aprire posizioni troppo piccole)
+                // Questo garantisce che ogni posizione sia almeno $80 USDT
+                if (cashBalance < MIN_POSITION_SIZE) {
+                    // fallback legacy: se non c'è trade_size configurato, permetti size piccola se >=$10
+                    console.log(`⚠️ [FIXED SIZING] Cash insufficiente per posizione minima: $${cashBalance.toFixed(2)} < $${MIN_POSITION_SIZE} USDT`);
+                    if (cashBalance < 10) {
+                        this.cachedResult = {
+                            canTrade: false,
+                            reason: `Insufficient cash for minimum position size ($${cashBalance.toFixed(2)} < $${MIN_POSITION_SIZE} USDT)`,
+                            maxPositionSize: 0,
+                            availableExposure: 0,
+                            dailyLoss: dailyLossPct,
+                            currentExposure: currentExposurePct,
+                            drawdown: drawdown,
+                            currentCapital: cashBalance,
+                            totalEquity: totalEquity
+                        };
+                        this.lastCheck = now;
+                        return this.cachedResult;
+                    }
+                    maxPositionSize = cashBalance;
+                    console.log(`⚠️ [FIXED SIZING] Posizione limitata a cash disponibile: $${maxPositionSize.toFixed(2)} USDT (minimo richiesto: $${MIN_POSITION_SIZE} USDT)`);
+                } else {
+                    // Limita al cash disponibile (non puoi investire più di quanto hai)
+                    maxPositionSize = Math.min(maxPositionSize, cashBalance);
+                }
             }
 
-            // ✅ FIX CRITICO: Se il cash disponibile è inferiore al minimo richiesto,
-            // blocca l'apertura di nuove posizioni (non aprire posizioni troppo piccole)
-            // Questo garantisce che ogni posizione sia almeno $80 USDT
-            if (cashBalance < MIN_POSITION_SIZE) {
-                // ✅ Se MIN_POSITION_SIZE arriva da trade_size_usdt, NON apriamo posizioni più piccole
-                if (configuredTradeSize) {
+            // ✅ FIX: Verifica anche il limite di esposizione disponibile
+            // Se trade_size_usdt è configurato, verifica che ci sia abbastanza esposizione disponibile
+            if (configuredTradeSize && maxPositionSize > availableExposure) {
+                console.warn(`⚠️ [FIXED SIZING] Trade size configurato ($${configuredTradeSize.toFixed(2)}) supera esposizione disponibile ($${availableExposure.toFixed(2)}). Current exposure: ${(currentExposurePct * 100).toFixed(2)}%, Max: ${(maxExposurePct * 100).toFixed(2)}%`);
+                // Se l'esposizione disponibile è inferiore al trade size configurato, blocca
+                if (availableExposure < configuredTradeSize) {
                     this.cachedResult = {
                         canTrade: false,
-                        reason: `Insufficient cash for configured trade size ($${cashBalance.toFixed(2)} < $${MIN_POSITION_SIZE} USDT)`,
+                        reason: `Insufficient exposure for configured trade size. Need $${configuredTradeSize.toFixed(2)} but only $${availableExposure.toFixed(2)} available (exposure: ${(currentExposurePct * 100).toFixed(2)}% / ${(maxExposurePct * 100).toFixed(2)}%)`,
                         maxPositionSize: 0,
-                        availableExposure: 0,
+                        availableExposure: availableExposure,
                         dailyLoss: dailyLossPct,
                         currentExposure: currentExposurePct,
                         drawdown: drawdown,
@@ -373,31 +422,15 @@ class SeriousRiskManager {
                     this.lastCheck = now;
                     return this.cachedResult;
                 }
-                // fallback legacy: se non c'è trade_size configurato, permetti size piccola se >=$10
-                console.log(`⚠️ [FIXED SIZING] Cash insufficiente per posizione minima: $${cashBalance.toFixed(2)} < $${MIN_POSITION_SIZE} USDT`);
-                if (cashBalance < 10) {
-                    this.cachedResult = {
-                        canTrade: false,
-                        reason: `Insufficient cash for minimum position size ($${cashBalance.toFixed(2)} < $${MIN_POSITION_SIZE} USDT)`,
-                        maxPositionSize: 0,
-                        availableExposure: 0,
-                        dailyLoss: dailyLossPct,
-                        currentExposure: currentExposurePct,
-                        drawdown: drawdown,
-                        currentCapital: cashBalance,
-                        totalEquity: totalEquity
-                    };
-                    this.lastCheck = now;
-                    return this.cachedResult;
-                }
-                maxPositionSize = cashBalance;
-                console.log(`⚠️ [FIXED SIZING] Posizione limitata a cash disponibile: $${maxPositionSize.toFixed(2)} USDT (minimo richiesto: $${MIN_POSITION_SIZE} USDT)`);
-            } else {
-                // Limita al cash disponibile (non puoi investire più di quanto hai)
-                maxPositionSize = Math.min(maxPositionSize, cashBalance);
+                // Se c'è abbastanza esposizione ma meno del trade size configurato, limita all'esposizione disponibile
+                maxPositionSize = availableExposure;
+                console.log(`⚠️ [FIXED SIZING] Trade size limitato all'esposizione disponibile: $${maxPositionSize.toFixed(2)} USDT`);
+            } else if (!configuredTradeSize) {
+                // Se non c'è trade_size configurato, limita anche all'esposizione disponibile
+                maxPositionSize = Math.min(maxPositionSize, availableExposure);
             }
 
-            console.log(`💰 [FIXED SIZING] Portfolio: $${totalEquity.toFixed(2)} USDT | Position: $${maxPositionSize.toFixed(2)} USDT (${FIXED_POSITION_PCT * 100}% o min $${MIN_POSITION_SIZE} USDT)`);
+            console.log(`💰 [FIXED SIZING] Portfolio: $${totalEquity.toFixed(2)} USDT | Position: $${maxPositionSize.toFixed(2)} USDT | Available Exposure: $${availableExposure.toFixed(2)} USDT | Cash: $${cashBalance.toFixed(2)} USDT`);
 
             // ✅ FIX AGGIUNTIVO: Verifica che il cash disponibile sia ragionevole
             // Se cashBalance è anomalo (>10M), usa un limite più conservativo
