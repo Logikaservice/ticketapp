@@ -23,10 +23,16 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
         const data = await response.json();
         setTemporarySupplies(data);
       } else {
-        console.error('Errore nel caricare le forniture temporanee');
+        // Non loggare errori CORS o di rete come errori critici
+        if (response.status !== 0 && response.status !== 403) {
+          console.error('Errore nel caricare le forniture temporanee:', response.status);
+        }
       }
     } catch (error) {
-      console.error('Errore nel caricare le forniture temporanee:', error);
+      // Non loggare errori CORS come errori critici (sono normali se il backend non è raggiungibile)
+      if (error.name !== 'TypeError' || !error.message.includes('Failed to fetch')) {
+        console.error('Errore nel caricare le forniture temporanee:', error);
+      }
     } finally {
       setLoading(false);
     }

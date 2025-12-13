@@ -316,34 +316,52 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .map(o => o.trim())
   .filter(Boolean);
 
+// Funzione helper per verificare se un'origine è permessa
+const isOriginAllowed = (origin) => {
+  if (!origin) return true; // Allow requests with no origin
+  
+  // Allow any subdomain of logikaservice.it
+  if (origin.endsWith('.logikaservice.it') || origin === 'https://logikaservice.it') {
+    return true;
+  }
+
+  // Allow localhost for development
+  if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    return true;
+  }
+
+  // Allow if in allowedOrigins list
+  if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  // If no specific origins configured, allow all (for development)
+  if (allowedOrigins.length === 0) return true;
+
+  return false;
+};
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    // Allow any subdomain of logikaservice.it
-    if (origin.endsWith('.logikaservice.it') || origin === 'https://logikaservice.it') {
+    if (isOriginAllowed(origin)) {
       return callback(null, true);
     }
-
-    // Allow localhost for development
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      return callback(null, true);
-    }
-
-    if (allowedOrigins.length === 0) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-
     console.error(`❌ CORS blocked origin: ${origin}`);
     return callback(new Error(`Not allowed by CORS: ${origin}`));
-  }
+  },
+  credentials: true
 }));
 app.use(express.json());
 
 // --- CONFIGURAZIONE SOCKET.IO ---
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins.length > 0 ? allowedOrigins : '*',
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST'],
     credentials: true
   }

@@ -133,7 +133,18 @@ export const useWebSocket = ({
       });
 
       socket.on('connect_error', (error) => {
-        console.error('❌ WebSocket: Errore connessione -', error.message);
+        // Non loggare errori CORS o di rete come errori critici se sono temporanei
+        const isNetworkError = error.message.includes('websocket error') || 
+                               error.message.includes('xhr poll error') ||
+                               error.message.includes('timeout');
+        
+        if (isNetworkError && reconnectAttemptsRef.current < 3) {
+          // Log solo come warning per i primi tentativi
+          console.warn('⚠️ WebSocket: Tentativo di connessione...', reconnectAttemptsRef.current + 1);
+        } else {
+          console.error('❌ WebSocket: Errore connessione -', error.message);
+        }
+        
         setIsConnected(false);
         isConnectingRef.current = false;
         // Non riconnettere manualmente - Socket.io lo fa automaticamente
