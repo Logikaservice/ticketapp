@@ -1472,7 +1472,27 @@ const initWebSocketService = () => {
             (symbol, volume24h) => {
                 // Callback: aggiorna cache volume quando arriva da WebSocket
                 volumeCache.set(symbol, { volume: volume24h, timestamp: Date.now() });
-                // Log solo occasionalmente
+                
+                // ✅ FIX CRITICO: Salva anche nel database per persistenza (fallback quando IP è bannato)
+                // Usa setImmediate per non bloccare il callback WebSocket
+                setImmediate(async () => {
+                    try {
+                        await dbRun(
+                            `INSERT INTO symbol_volumes_24h (symbol, volume_24h, updated_at) 
+                             VALUES ($1, $2, CURRENT_TIMESTAMP)
+                             ON CONFLICT (symbol) 
+                             DO UPDATE SET volume_24h = EXCLUDED.volume_24h, updated_at = CURRENT_TIMESTAMP`,
+                            [symbol, volume24h]
+                        );
+                    } catch (dbError) {
+                        // Ignora errori DB (non critico, ma logga solo occasionalmente)
+                        if (Math.random() < 0.01) {
+                            console.warn(`⚠️ [WEBSOCKET-VOLUME] Errore salvataggio DB per ${symbol}:`, dbError.message);
+                        }
+                    }
+                });
+                
+                // Log solo occasionalmente per non spammare
                 if (Math.random() < 0.05) {
                     console.log(`📡 [WEBSOCKET] Volume 24h aggiornato ${symbol}: $${volume24h.toLocaleString('it-IT')} USDT`);
                 }
