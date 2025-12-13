@@ -10,6 +10,7 @@ import GeneralSettings from './GeneralSettings';
 
 import cryptoSounds from '../../utils/cryptoSounds';
 import { useCryptoWebSocket } from '../../hooks/useCryptoWebSocket';
+import { fetchWithRetry, fetchJsonWithRetry } from '../../utils/apiWithRetry';
 import './CryptoLayout.css';
 import './CryptoStandalone.css';
 
@@ -94,23 +95,36 @@ const CryptoDashboard = () => {
         try {
             // ✅ FIX: Correggi automaticamente P&L anomali al caricamento
             try {
-                const fixRes = await fetch(`${apiBase}/api/crypto/fix-closed-positions-pnl`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                if (fixRes.ok) {
-                    const fixData = await fixRes.json();
-                    // Auto-fix P&L logging removed
-                }
+                const fixResult = await fetchJsonWithRetry(
+                    `${apiBase}/api/crypto/fix-closed-positions-pnl`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    },
+                    {
+                        maxRetries: 2,
+                        silent502: true // Non loggare 502 per questa chiamata opzionale
+                    }
+                );
+                // Auto-fix P&L logging removed - continua comunque
             } catch (fixError) {
-                // Non loggare errori 502 come errori critici (backend potrebbe essere temporaneamente down)
-                if (fixError.message && !fixError.message.includes('502')) {
-                    console.warn('⚠️ [AUTO-FIX] Errore correzione automatica P&L:', fixError);
-                }
-                // Continua comunque, non bloccare il caricamento
+                // Ignora errori silenziosamente - non bloccare il caricamento
             }
 
-            const res = await fetch(`${apiBase}/api/crypto/dashboard`);
+            // ✅ FIX: Usa fetchWithRetry per gestire automaticamente errori 502
+            const res = await fetchWithRetry(
+                `${apiBase}/api/crypto/dashboard`,
+                {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                },
+                {
+                    maxRetries: 3,
+                    silent502: true, // Non loggare ogni singolo errore 502
+                    timeout: 30000
+                }
+            );
+
             if (res.ok) {
                 const data = await res.json();
                 // Dashboard data received logging removed
@@ -141,31 +155,32 @@ setBotParameters(data.bot_parameters);
                     setPerformanceStats(null);
                 }
             } else if (res.status === 502) {
-                // 502 Bad Gateway - backend non raggiungibile, non loggare come errore critico
-                // Il backend potrebbe essere temporaneamente down o in riavvio
-                console.warn('⚠️ [DASHBOARD] Backend non raggiungibile (502) - riprovo al prossimo ciclo');
+                // 502 Bad Gateway - backend non raggiungibile (dopo tutti i retry)
+                // Log solo se tutti i tentativi sono falliti
+                console.warn('⚠️ [DASHBOARD] Backend non raggiungibile (502) dopo tutti i tentativi - riprovo al prossimo ciclo');
             } else {
                 console.error('❌ Dashboard fetch failed:', res.status, res.statusText);
             }
 
             // 📊 Fetch Performance Analytics (Day/Week/Month/Year)
             try {
-                const analyticsRes = await fetch(`${apiBase}/api/crypto/performance-analytics`);
-                if (analyticsRes.ok) {
-                    const analyticsData = await analyticsRes.json();
-                    setPerformanceAnalytics(analyticsData);
-                } else if (analyticsRes.status === 502) {
-                    // Non loggare 502 come errore critico
+                const analyticsResult = await fetchJsonWithRetry(
+                    `${apiBase}/api/crypto/performance-analytics`,
+                    {},
+                    {
+                        maxRetries: 2,
+                        silent502: true // Non loggare 502 per analytics
+                    }
+                );
+                if (analyticsResult.ok && analyticsResult.data) {
+                    setPerformanceAnalytics(analyticsResult.data);
                 }
             } catch (analyticsError) {
-                // Non loggare errori 502 come errori critici
-                if (analyticsError.message && !analyticsError.message.includes('502')) {
-                    console.warn('⚠️ [ANALYTICS] Error fetching performance analytics:', analyticsError);
-                }
+                // Ignora errori silenziosamente per analytics
             }
         } catch (error) {
-            // Non loggare errori 502 come errori critici
-            if (error.message && !error.message.includes('502')) {
+            // Solo loggare errori non-502
+            if (error.message && !error.message.includes('502') && !error.message.includes('Bad Gateway')) {
                 console.error("❌ Error fetching dashboard:", error);
             }
         }
@@ -173,28 +188,38 @@ setBotParameters(data.bot_parameters);
 
     const fetchAvailableSymbols = async () => {
         try {
-            const res = await fetch(`${apiBase}/api/crypto/symbols/available`);
-            if (res.ok) {
-                const data = await res.json();
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/symbols/available`,
+                {},
+                {
+                    maxRetries: 2,
+                    silent502: true
+                }
+            );
+            if (result.ok && result.data) {
                 // Available symbols logging removed
-                setAvailableSymbols(data.symbols || []);
-            } else {
-                console.error('❌ Error fetching symbols:', res.status, res.statusText);
+                setAvailableSymbols(result.data.symbols || []);
             }
         } catch (error) {
-            console.error("❌ Error fetching available symbols:", error);
+            // Ignora errori silenziosamente
         }
     };
 
     const fetchActiveBots = async () => {
         try {
-            const res = await fetch(`${apiBase}/api/crypto/bot/active`);
-            if (res.ok) {
-                const data = await res.json();
-                setActiveBots(data.active_bots || []);
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/bot/active`,
+                {},
+                {
+                    maxRetries: 2,
+                    silent502: true
+                }
+            );
+            if (result.ok && result.data) {
+                setActiveBots(result.data.active_bots || []);
             }
         } catch (error) {
-            console.error("❌ Error fetching active bots:", error);
+            // Ignora errori silenziosamente
         }
     };
 
@@ -202,13 +227,20 @@ setBotParameters(data.bot_parameters);
         try {
             // ✅ FIX: Aggiorna P&L per TUTTE le posizioni (il backend aggiorna tutte automaticamente)
             // Non serve passare un simbolo specifico - il backend gestisce tutti i simboli
-            await fetch(`${apiBase}/api/crypto/positions/update-pnl`);
+            await fetchWithRetry(
+                `${apiBase}/api/crypto/positions/update-pnl`,
+                { method: 'POST' },
+                { maxRetries: 2, silent502: true }
+            );
             
             // ✅ FIX: Refresh positions after update - recupera tutte le posizioni aperte
-            const res = await fetch(`${apiBase}/api/crypto/positions?status=open`);
-            if (res.ok) {
-                const data = await res.json();
-                const updatedPositions = data.positions || [];
+            const positionsResult = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/positions?status=open`,
+                {},
+                { maxRetries: 2, silent502: true }
+            );
+            if (positionsResult.ok && positionsResult.data) {
+                const updatedPositions = positionsResult.data.positions || [];
                 setOpenPositions(updatedPositions);
                 
                 // ✅ REAL-TIME FIX: Aggiorna i prezzi per TUTTI i simboli delle posizioni aperte
@@ -220,10 +252,13 @@ setBotParameters(data.bot_parameters);
                     // ✅ FIX CRITICO: Recupera i prezzi in parallelo per velocità
                     const pricePromises = uniqueSymbols.map(async (symbol) => {
                         try {
-                            const priceRes = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=usdt&_t=${Date.now()}`);
-                            if (priceRes.ok) {
-                                const priceData = await priceRes.json();
-                                const fetchedPrice = parseFloat(priceData.price || 0);
+                            const priceResult = await fetchJsonWithRetry(
+                                `${apiBase}/api/crypto/price/${symbol}?currency=usdt&_t=${Date.now()}`,
+                                {},
+                                { maxRetries: 1, silent502: true, timeout: 5000 }
+                            );
+                            if (priceResult.ok && priceResult.data) {
+                                const fetchedPrice = parseFloat(priceResult.data.price || 0);
                                 if (fetchedPrice > 0) {
                                     return { symbol, price: fetchedPrice };
                                 }
@@ -237,7 +272,6 @@ setBotParameters(data.bot_parameters);
                                 }
                             }
                         } catch (err) {
-                            console.warn(`Warning: Could not fetch price for ${symbol}`, err);
                             // Fallback al prezzo dal database
                             const pos = updatedPositions.find(p => p.symbol === symbol);
                             if (pos && pos.current_price) {
@@ -270,7 +304,7 @@ setBotParameters(data.bot_parameters);
                 }
             }
         } catch (error) {
-            console.error("Error updating P&L:", error);
+            // Ignora errori silenziosamente per update P&L
         }
     };
 
@@ -286,20 +320,26 @@ setBotParameters(data.bot_parameters);
             }
             
             // Pass current price to ensure correct closing price
-            const res = await fetch(`${apiBase}/api/crypto/positions/close/${ticketId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    close_price: priceToUse,
-                    symbol: symbolToUse
-                })
-            });
-            if (res.ok) {
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/positions/close/${ticketId}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        close_price: priceToUse,
+                        symbol: symbolToUse
+                    })
+                },
+                {
+                    maxRetries: 2,
+                    silent502: false // Mostra errore per azioni utente
+                }
+            );
+            if (result.ok) {
                 // Refresh data
                 fetchData();
             } else {
-                const error = await res.json();
-                alert(error.error || 'Errore nella chiusura della posizione');
+                alert(result.error || 'Errore nella chiusura della posizione');
             }
         } catch (error) {
             console.error("Error closing position:", error);
@@ -327,80 +367,99 @@ setBotParameters(data.bot_parameters);
         }
 
         try {
-            const res = await fetch(`${apiBase}/api/crypto/reset`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initial_balance: initialBalance })
-            });
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/reset`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ initial_balance: initialBalance })
+                },
+                {
+                    maxRetries: 2,
+                    silent502: false // Mostra errore per azioni utente
+                }
+            );
 
-            if (res.ok) {
-                const result = await res.json();
-                alert(result.message || 'Portfolio resettato completamente!');
+            if (result.ok && result.data) {
+                alert(result.data.message || 'Portfolio resettato completamente!');
                 // Refresh data
                 fetchData();
             } else {
-                const error = await res.json();
-                alert(error.error || 'Errore nel reset del portfolio');
+                alert(result.error || 'Errore nel reset del portfolio');
             }
         } catch (error) {
-            console.error("Error resetting portfolio:", error);
-            alert('Errore nel reset del portfolio');
+            alert(`Errore nel reset del portfolio: ${error.message || 'Errore di connessione'}`);
         }
     };
 
     const handleAddFunds = async (amount) => {
         try {
-            const res = await fetch(`${apiBase}/api/crypto/add-funds`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: parseFloat(amount) })
-            });
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/add-funds`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount: parseFloat(amount) })
+                },
+                {
+                    maxRetries: 2,
+                    silent502: false // Mostra errore per azioni utente
+                }
+            );
 
-            if (res.ok) {
-                const result = await res.json();
-                alert(`✅ Fondi aggiunti con successo!\n\nImporto: $${amount}\nNuovo saldo: $${result.new_balance.toFixed(2)}`);
+            if (result.ok && result.data) {
+                alert(`✅ Fondi aggiunti con successo!\n\nImporto: $${amount}\nNuovo saldo: $${result.data.new_balance.toFixed(2)}`);
                 // Refresh data
                 fetchData();
                 setShowAddFundsModal(false);
             } else {
-                const error = await res.json();
-                alert(error.error || 'Errore nell\'aggiunta dei fondi');
+                alert(result.error || 'Errore nell\'aggiunta dei fondi');
             }
         } catch (error) {
-            console.error("Error adding funds:", error);
-            alert('Errore nell\'aggiunta dei fondi');
+            alert(`Errore nell'aggiunta dei fondi: ${error.message || 'Errore di connessione'}`);
         }
     };
 
     const fetchPrice = async () => {
         try {
             // Fetch real price for current symbol from Binance (same source as bot)
-            const res = await fetch(`${apiBase}/api/crypto/price/${currentSymbol}?currency=usdt`);
-            if (res.ok) {
-                const data = await res.json();
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/price/${currentSymbol}?currency=usdt`,
+                {},
+                {
+                    maxRetries: 2,
+                    silent502: true,
+                    timeout: 10000
+                }
+            );
+            if (result.ok && result.data) {
                 // Read price directly (USDT from Binance, same as bot uses)
-                const price = parseFloat(data.price || data.data?.priceUsd || 0);
+                const price = parseFloat(result.data.price || result.data.data?.priceUsd || 0);
                 if (price > 0) {
                     setCurrentPrice(price);
                     // NOTE: We don't add to priceData here - the chart uses OHLC data from /api/crypto/history
                 }
-            } else if (res.status === 502) {
-                // 502 Bad Gateway - non loggare come errore critico
             }
+            // Don't set mock price - keep using last known price
         } catch (error) {
-            // Non loggare errori 502 come errori critici
-            if (error.message && !error.message.includes('502')) {
-                console.error('Error fetching price:', error);
-            }
+            // Ignora errori silenziosamente per price fetch
             // Don't set mock price - keep using last known price
         }
     };
 
     const fetchHistory = async (interval = '15m') => {
         try {
-            const res = await fetch(`${apiBase}/api/crypto/history?interval=${interval}&symbol=${currentSymbol}`);
-            if (res.ok) {
-                const history = await res.json();
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/history?interval=${interval}&symbol=${currentSymbol}`,
+                {},
+                {
+                    maxRetries: 2,
+                    silent502: true,
+                    timeout: 30000
+                }
+            );
+            if (result.ok && result.data) {
+                const history = result.data;
                 setPriceData(history);
             } else {
                 console.error('❌ History fetch failed:', res.status, res.statusText);
@@ -484,24 +543,27 @@ setBotParameters(data.bot_parameters);
 
             // Bot toggle logging removed
 
-            const response = await fetch(`${apiBase}/api/crypto/bot/toggle`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    strategy_name: 'RSI_Strategy',
-                    symbol: targetSymbol,
-                    is_active: newStatus
-                })
-            });
+            const result = await fetchJsonWithRetry(
+                `${apiBase}/api/crypto/bot/toggle`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        strategy_name: 'RSI_Strategy',
+                        symbol: targetSymbol,
+                        is_active: newStatus
+                    })
+                },
+                {
+                    maxRetries: 2,
+                    silent502: false // Mostra errore per azioni utente
+                }
+            );
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                console.error("❌ Error toggling bot:", errorData);
-                alert(`Errore nell'attivazione del bot: ${errorData.error || response.statusText}`);
+            if (!result.ok) {
+                alert(`Errore nell'attivazione del bot: ${result.error || 'Errore sconosciuto'}`);
                 return;
             }
-
-            const result = await response.json();
             // Bot toggle result logging removed
 
             // Update local state
@@ -561,16 +623,23 @@ setBotParameters(data.bot_parameters);
                 .map(async (symbol) => {
                     try {
                         // ✅ Aggiungi timestamp per evitare cache
-                        const res = await fetch(`${apiBase}/api/crypto/price/${symbol}?currency=usdt&_t=${Date.now()}`);
-                        if (res.ok) {
-                            const data = await res.json();
-                            const fetchedPrice = parseFloat(data.price || 0);
+                        const result = await fetchJsonWithRetry(
+                            `${apiBase}/api/crypto/price/${symbol}?currency=usdt&_t=${Date.now()}`,
+                            {},
+                            {
+                                maxRetries: 1,
+                                silent502: true,
+                                timeout: 5000
+                            }
+                        );
+                        if (result.ok && result.data) {
+                            const fetchedPrice = parseFloat(result.data.price || 0);
                             if (fetchedPrice > 0) {
                                 return { symbol, price: fetchedPrice };
                             }
                         }
                     } catch (error) {
-                        console.error(`Error fetching price for ${symbol}:`, error);
+                        // Ignora errori silenziosamente per price fetch
                     }
                     return null;
                 });
@@ -1004,20 +1073,26 @@ setBotParameters(data.bot_parameters);
 
                                     // Toggle all bots logging removed
 
-                                    const response = await fetch(`${apiBase}/api/crypto/bot/toggle-all`, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({
-                                            is_active: newStatus
-                                        })
-                                    });
+                                    const result = await fetchJsonWithRetry(
+                                        `${apiBase}/api/crypto/bot/toggle-all`,
+                                        {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({
+                                                is_active: newStatus
+                                            })
+                                        },
+                                        {
+                                            maxRetries: 2,
+                                            silent502: false // Mostra errore per azioni utente
+                                        }
+                                    );
 
-                                    if (!response.ok) {
-                                        const errorData = await response.json();
-                                        throw new Error(errorData.error || 'Errore nel toggle bot');
+                                    if (!result.ok) {
+                                        throw new Error(result.error || 'Errore nel toggle bot');
                                     }
 
-                                    const data = await response.json();
+                                    const data = result.data;
                                     // Toggle all bots result logging removed
 
                                     // Aggiorna stato locale

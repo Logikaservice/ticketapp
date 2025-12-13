@@ -34,9 +34,15 @@ export const useCryptoWebSocket = (onPositionOpened, onPositionClosed) => {
         const socket = socketRef.current;
 
         // Connection events
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 10;
+        let lastErrorTime = 0;
+        const ERROR_LOG_INTERVAL = 30000; // Log errori max ogni 30 secondi
+
         socket.on('connect', () => {
             console.log('✅ Crypto WebSocket connected');
             setConnected(true);
+            reconnectAttempts = 0; // Reset contatore al successo
             
             // Join crypto dashboard room
             socket.emit('crypto:join-dashboard');
@@ -46,14 +52,36 @@ export const useCryptoWebSocket = (onPositionOpened, onPositionClosed) => {
             console.log('✅ Joined crypto dashboard room:', data.room);
         });
 
-        socket.on('disconnect', () => {
-            console.log('❌ Crypto WebSocket disconnected');
+        socket.on('disconnect', (reason) => {
+            // Non loggare ogni disconnect (può essere normale durante riavvii)
+            if (reason === 'io server disconnect') {
+                // Il server ha forzato la disconnessione, non riconnettersi automaticamente
+                console.warn('⚠️ Crypto WebSocket disconnesso dal server');
+            }
             setConnected(false);
         });
 
         socket.on('connect_error', (error) => {
-            console.error('❌ Crypto WebSocket connection error:', error);
+            const now = Date.now();
+            reconnectAttempts++;
+            
+            // Log errori solo ogni 30 secondi per evitare spam nella console
+            if (now - lastErrorTime > ERROR_LOG_INTERVAL || reconnectAttempts === 1) {
+                if (error.message?.includes('502') || error.message?.includes('Bad Gateway')) {
+                    console.warn('⚠️ Crypto WebSocket: Backend non raggiungibile (502) - riprovo...');
+                } else if (reconnectAttempts <= 3) {
+                    // Log solo i primi 3 tentativi
+                    console.warn(`⚠️ Crypto WebSocket connection error (tentativo ${reconnectAttempts}):`, error.message || error);
+                }
+                lastErrorTime = now;
+            }
+            
             setConnected(false);
+            
+            // Dopo molti tentativi falliti, ferma il logging
+            if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                console.warn(`⚠️ Crypto WebSocket: Tentativi di riconnessione sospesi dopo ${MAX_RECONNECT_ATTEMPTS} tentativi`);
+            }
         });
 
         // Crypto-specific events
