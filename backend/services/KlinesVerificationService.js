@@ -178,29 +178,43 @@ class KlinesVerificationService {
             }
 
             // 5. Determina se è sano
-            // Requisiti minimi:
-            // - Almeno 50 klines totali (per avere dati storici)
-            // - Almeno alcune klines nelle ultime 24h (per verificare che l'aggregatore funzioni)
-            // - Gap non superiore a 2 ore per 15m, 4 ore per 1h, 8 ore per 4h
-            const minTotal = 50;
+            // ✅ LOGICA MIGLIORATA: Priorità alla funzionalità dell'aggregatore (klines recenti)
+            // piuttosto che alla completezza storica
+            // 
+            // Per 15m: verifica sempre che ci siano klines recenti (aggregatore funziona)
+            // Per 1h e 4h: più permissivo - accetta anche se non ci sono 50 klines storici,
+            // purché ci siano klines recenti (aggregatore sta creando dati)
             const minRecent = this.getMinRecentForInterval(interval);
             const maxGapHours = this.getMaxGapForInterval(interval);
+            
+            // Requisiti minimi storici (solo per 15m, più permissivo per 1h/4h)
+            const minTotal = interval === '15m' ? 50 : 20; // 15m richiede più dati, 1h/4h più permissivo
 
             let isHealthy = true;
             let issue = null;
 
-            if (count < minTotal) {
-                isHealthy = false;
-                issue = `Dati insufficienti: ${count} klines (minimo ${minTotal})`;
-            } else if (recent < minRecent) {
+            // Verifica 1: Klines recenti (PRIORITÀ - aggregatore deve funzionare)
+            if (recent < minRecent) {
                 isHealthy = false;
                 issue = `Poche klines recenti: ${recent} nelle ultime 24h (minimo ${minRecent})`;
-            } else if (gapHours !== null && gapHours > maxGapHours) {
+            }
+            // Verifica 2: Gap temporale (dati devono essere aggiornati)
+            else if (gapHours !== null && gapHours > maxGapHours) {
                 isHealthy = false;
                 issue = `Gap temporale troppo grande: ${gapHours.toFixed(1)}h dall'ultima kline (max ${maxGapHours}h)`;
-            } else if (lastKlineTime === null) {
+            }
+            // Verifica 3: Nessuna kline trovata
+            else if (lastKlineTime === null) {
                 isHealthy = false;
                 issue = 'Nessuna kline trovata';
+            }
+            // Verifica 4: Dati storici (solo se non ci sono klines recenti sufficienti)
+            // Se ci sono klines recenti, i dati storici sono meno critici
+            else if (count < minTotal && recent < minRecent * 2) {
+                // Solo se non ci sono abbastanza klines recenti, verifica i dati storici
+                // Questo permette a simboli nuovi di essere considerati OK se l'aggregatore funziona
+                isHealthy = false;
+                issue = `Dati insufficienti: ${count} klines (minimo ${minTotal}), ma aggregatore funziona (${recent} recenti)`;
             }
 
             return {
