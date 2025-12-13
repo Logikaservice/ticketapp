@@ -3346,8 +3346,26 @@ const executeTrade = async (symbol, type, amount, price, strategy, realizedPnl =
     }
 };
 
-// Start the loop
+// Start the main bot loop (ogni 10 secondi per analisi segnali)
 setInterval(runBotCycle, CHECK_INTERVAL_MS);
+
+// ✅ FIX CRITICO: Ciclo separato più frequente per controllo stop loss/take profit
+// Controlla le posizioni ogni 2 secondi per chiudere velocemente in caso di SL/TP
+// Usa solo cache (aggiornata da WebSocket in tempo reale) quindi zero chiamate API aggiuntive
+const POSITION_CHECK_INTERVAL_MS = 2000; // 2 secondi per controllo rapido SL/TP (vs 10s del ciclo principale)
+setInterval(async () => {
+    try {
+        // ✅ CRITICO: Controlla stop loss/take profit velocemente usando prezzi dalla cache
+        // La cache è aggiornata dal WebSocket in tempo reale (~ogni secondo)
+        // Questo permette chiusure veloci (max 2 secondi di ritardo invece di 10)
+        await updatePositionsPnL();
+    } catch (error) {
+        // Silenzia errori per non intasare log
+        if (Math.random() < 0.1) { // Log solo 10% degli errori
+            console.error('⚠️ [POSITION-CHECK] Errore controllo posizioni:', error.message);
+        }
+    }
+}, POSITION_CHECK_INTERVAL_MS);
 
 // ==========================================
 // OPEN POSITIONS API (MetaTrader 5 Style)
