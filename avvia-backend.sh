@@ -23,17 +23,52 @@ fi
 echo ""
 echo "2️⃣  Verifica configurazione..."
 if [ ! -f .env ]; then
-    echo "   ❌ File .env non trovato!"
-    echo "   Crea il file .env con le configurazioni necessarie"
-    exit 1
+    echo "   ⚠️  File .env non trovato!"
+    echo "   🔧 Creazione file .env..."
+    
+    # Usa lo script setup-vps-env.sh se esiste
+    if [ -f "scripts/setup-vps-env.sh" ]; then
+        echo "   Esecuzione setup-vps-env.sh..."
+        chmod +x scripts/setup-vps-env.sh
+        ./scripts/setup-vps-env.sh
+    else
+        # Crea .env base manualmente
+        echo "   Creazione .env base..."
+        cat > .env <<EOF
+NODE_ENV=production
+PORT=3001
+DATABASE_URL=postgresql://postgres:TicketApp2025!Secure@localhost:5432/ticketapp
+EOF
+        
+        # Genera JWT_SECRET se disponibile
+        if command -v openssl &> /dev/null; then
+            JWT_SECRET=$(openssl rand -base64 32 | tr -d '\n')
+            echo "JWT_SECRET=$JWT_SECRET" >> .env
+            echo "   ✅ JWT_SECRET generato"
+        fi
+        
+        echo "   ✅ File .env creato"
+    fi
 else
     echo "   ✅ File .env presente"
     
     # Verifica variabili critiche
     if ! grep -q "^DATABASE_URL=" .env; then
         echo "   ⚠️  DATABASE_URL non trovato in .env"
+        echo "   🔧 Aggiungo DATABASE_URL..."
+        echo "DATABASE_URL=postgresql://postgres:TicketApp2025!Secure@localhost:5432/ticketapp" >> .env
     else
         echo "   ✅ DATABASE_URL configurato"
+    fi
+    
+    if ! grep -q "^PORT=" .env; then
+        echo "   ➕ Aggiungo PORT=3001..."
+        echo "PORT=3001" >> .env
+    fi
+    
+    if ! grep -q "^NODE_ENV=" .env; then
+        echo "   ➕ Aggiungo NODE_ENV=production..."
+        echo "NODE_ENV=production" >> .env
     fi
 fi
 
