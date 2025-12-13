@@ -66,11 +66,28 @@ const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
             const res = await fetch(`${apiBase}/api/crypto/scanner`);
             if (res.ok) {
                 const data = await res.json();
-                setScanResults(data.scan_results || []);
-                setLastScan(new Date());
+                // ✅ FIX: Aggiorna solo se abbiamo dati validi
+                if (data.scan_results && Array.isArray(data.scan_results) && data.scan_results.length > 0) {
+                    setScanResults(data.scan_results);
+                    setLastScan(new Date());
+                } else {
+                    // ✅ FIX: Se non ci sono dati ma la risposta è ok, mantieni i dati esistenti
+                    console.warn('⚠️ [MARKET-SCANNER] Scanner ha restituito array vuoto, mantengo dati esistenti');
+                    // Non aggiornare scanResults, mantieni i dati vecchi
+                    if (scanResults.length === 0) {
+                        // Solo se non ci sono dati esistenti, aggiorna lastScan
+                        setLastScan(new Date());
+                    }
+                }
+            } else {
+                // ✅ FIX: Se la risposta non è ok, mantieni i dati esistenti invece di cancellarli
+                console.error(`❌ [MARKET-SCANNER] Scanner ha restituito status ${res.status}, mantengo dati esistenti`);
+                // NON aggiornare scanResults, mantieni i dati vecchi
             }
         } catch (error) {
-            console.error("Scanner error:", error);
+            // ✅ FIX: In caso di errore, mantieni i dati esistenti
+            console.error("❌ [MARKET-SCANNER] Errore scanner:", error);
+            // NON aggiornare scanResults, mantieni i dati vecchi
         } finally {
             setLoading(false);
         }
