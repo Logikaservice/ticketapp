@@ -129,13 +129,8 @@ class SeriousRiskManager {
                 if (botParams && botParams.parameters) {
                     const params = typeof botParams.parameters === 'string' ? JSON.parse(botParams.parameters) : botParams.parameters;
 
-                    // exposure
-                    if (params.max_exposure_pct !== undefined && params.max_exposure_pct !== null && params.max_exposure_pct !== '') {
-                        const parsed = parseFloat(params.max_exposure_pct);
-                        if (!isNaN(parsed) && parsed > 0) {
-                            maxExposurePct = parsed / 100;
-                        }
-                    }
+                    // ✅ RIMOSSO: max_exposure_pct non più utilizzato (limitava erroneamente le posizioni)
+                    // Manteniamo sempre 100% per non limitare
                     // trade size (minimo assoluto se configurato)
                     const ts = params.trade_size_usdt ?? params.trade_size_eur ?? null;
                     const tsParsed = ts !== null && ts !== undefined ? parseFloat(ts) : NaN;

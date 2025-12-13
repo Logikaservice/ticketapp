@@ -24,7 +24,6 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
         max_atr_pct: 5.0,
         min_volume_24h: 500000,
         // Risk Management
-        max_exposure_pct: 80.0,
         max_positions: 10,
         // Timeframe
         analysis_timeframe: '15m'
@@ -580,26 +579,6 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                                 <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '15px', color: '#ef4444' }}>
                                     🛡️ Risk Management
                                 </h3>
-                            </div>
-
-                            {/* Max Exposure */}
-                            <div className="parameter-group">
-                                <label htmlFor="max_exposure_pct">
-                                    Esposizione Massima (%)
-                                    <span className="parameter-hint">(10.0-100.0)</span>
-                                </label>
-                                <input
-                                    id="max_exposure_pct"
-                                    type="number"
-                                    min="10.0"
-                                    max="100.0"
-                                    step="5.0"
-                                    value={parameters.max_exposure_pct || 80.0}
-                                    onChange={(e) => handleChange('max_exposure_pct', e.target.value)}
-                                />
-                                <div className="parameter-desc">
-                                    Percentuale massima del capitale che può essere investita in posizioni aperte simultaneamente. Diversificazione rischio.
-                                </div>
                             </div>
 
                             {/* Max Positions */}

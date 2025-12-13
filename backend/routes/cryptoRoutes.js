@@ -6154,9 +6154,8 @@ router.put('/bot/parameters', async (req, res) => {
                 })(),
 
             // ✅ NUOVI: Risk Management (personalizzabili)
-            max_exposure_pct: (parameters.max_exposure_pct !== undefined && parameters.max_exposure_pct !== null && parameters.max_exposure_pct !== '')
-                ? Math.max(10.0, Math.min(100.0, parseFloat(parameters.max_exposure_pct) || existingParams.max_exposure_pct || 50.0))
-                : (existingParams.max_exposure_pct || 50.0),
+            // ✅ RIMOSSO: max_exposure_pct non più utilizzato (limitava erroneamente le posizioni)
+            // Manteniamo un default alto (100%) nel RiskManager per non limitare
             max_positions: (parameters.max_positions !== undefined && parameters.max_positions !== null && parameters.max_positions !== '')
                 ? Math.max(1, Math.min(20, parseInt(parameters.max_positions) || existingParams.max_positions || 5))
                 : (existingParams.max_positions || 5),
