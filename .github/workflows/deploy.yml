@@ -39,14 +39,13 @@ jobs:
             npm install --production
             cd ..
             
-            echo "📦 Backend dependencies..."
-            cd backend
-            npm install --production
-            cd ..
-            
             echo "📦 Frontend dependencies..."
             cd frontend
-            rm -rf build node_modules/.cache
+            # Rimuovi build e cache in modo sicuro
+            rm -rf build || true
+            if [ -d "node_modules/.cache" ]; then
+              rm -rf node_modules/.cache || true
+            fi
             npm install
             
             echo "🔨 Build frontend..."
