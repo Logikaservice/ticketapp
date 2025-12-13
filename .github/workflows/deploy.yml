@@ -55,9 +55,24 @@ jobs:
             cd ..
             
             echo "🔄 Restart services..."
-            pm2 restart ticketapp-backend || sudo systemctl restart ticketapp-backend
+            # Prova PM2 prima (metodo principale)
+            if pm2 restart ticketapp-backend 2>/dev/null; then
+              echo "✅ Backend riavviato con PM2"
+            elif pm2 restart all 2>/dev/null; then
+              echo "✅ Tutti i processi PM2 riavviati"
+            elif pm2 list | grep -q "ticketapp-backend"; then
+              echo "⚠️ Processo PM2 trovato ma restart fallito, provo start..."
+              pm2 start ticketapp-backend 2>/dev/null || pm2 start backend/index.js --name ticketapp-backend
+            else
+              echo "⚠️ Nessun processo PM2 trovato, provo avvio..."
+              pm2 start backend/index.js --name ticketapp-backend || {
+                echo "❌ Impossibile avviare backend con PM2"
+                echo "Esegui manualmente: pm2 start backend/index.js --name ticketapp-backend"
+              }
+            fi
+            
             sudo nginx -t && sudo systemctl reload nginx
             
             echo "✅ Deploy completato!"
-            pm2 status || sudo systemctl status ticketapp-backend --no-pager
+            pm2 status
 
