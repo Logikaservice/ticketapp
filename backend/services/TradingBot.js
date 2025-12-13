@@ -429,15 +429,26 @@ async function runBotCycleForSymbol(symbol, botSettings) {
         const adjustedStrength = Math.max(0, rawStrength + mtfBonus);
 
         // 9. Check minimum requirements
-        // ✅ FIX: Leggi requisiti minimi da database (bot_parameters) invece di hardcoded
+        // ✅ FIX: Leggi requisiti minimi da database (bot_settings e bot_parameters) invece di hardcoded
         const botParams = await dbGet("SELECT * FROM bot_parameters WHERE symbol = $1", [symbol]).catch(() => null);
+        
+        // ✅ FIX: Leggi anche parametri da bot_settings (dove sono salvati min_volume_24h e altri parametri)
+        const botSettings = await dbGet(
+            "SELECT parameters FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND (symbol = $1 OR symbol = 'global') ORDER BY CASE WHEN symbol = $1 THEN 0 ELSE 1 END LIMIT 1",
+            [symbol]
+        ).catch(() => null);
+        
+        const settingsParams = botSettings?.parameters 
+            ? (typeof botSettings.parameters === 'string' ? JSON.parse(botSettings.parameters) : botSettings.parameters)
+            : {};
+        
         const minStrength = signal.direction === 'LONG'
-            ? (botParams?.min_signal_strength || BOT_CONFIG.MIN_STRENGTH_LONG)
-            : (botParams?.min_signal_strength || BOT_CONFIG.MIN_STRENGTH_SHORT);
+            ? (botParams?.min_signal_strength || settingsParams.min_signal_strength || BOT_CONFIG.MIN_STRENGTH_LONG)
+            : (botParams?.min_signal_strength || settingsParams.min_signal_strength || BOT_CONFIG.MIN_STRENGTH_SHORT);
         
         const minConfirmations = signal.direction === 'LONG'
-            ? (botParams?.min_confirmations_long || BOT_CONFIG.MIN_CONFIRMATIONS_LONG)
-            : (botParams?.min_confirmations_short || BOT_CONFIG.MIN_CONFIRMATIONS_SHORT);
+            ? (botParams?.min_confirmations_long || settingsParams.min_confirmations_long || BOT_CONFIG.MIN_CONFIRMATIONS_LONG)
+            : (botParams?.min_confirmations_short || settingsParams.min_confirmations_short || BOT_CONFIG.MIN_CONFIRMATIONS_SHORT);
 
         console.log(`🔍 [BOT] ${symbol} - ${signal.direction} Requirements Check:`);
         console.log(`   Strength: ${adjustedStrength}/${minStrength} (raw: ${rawStrength}, MTF: ${mtfBonus})`);
@@ -454,10 +465,12 @@ async function runBotCycleForSymbol(symbol, botSettings) {
         }
 
         // 10. Check volume
+        // ✅ FIX: Leggi volume minimo da database (bot_settings) invece di hardcoded
+        const minVolume24h = settingsParams.min_volume_24h || BOT_CONFIG.MIN_VOLUME_24H;
         const volume24h = await get24hVolume(symbol);
-        console.log(`🔍 [BOT] ${symbol} - Volume 24h: $${volume24h.toLocaleString()}/$${BOT_CONFIG.MIN_VOLUME_24H.toLocaleString()}`);
-        if (volume24h < BOT_CONFIG.MIN_VOLUME_24H) {
-            console.log(`⏸️ [BOT] ${symbol} - Volume too low: $${volume24h.toLocaleString()}/$${BOT_CONFIG.MIN_VOLUME_24H.toLocaleString()}`);
+        console.log(`🔍 [BOT] ${symbol} - Volume 24h: $${volume24h.toLocaleString()}/$${minVolume24h.toLocaleString()}`);
+        if (volume24h < minVolume24h) {
+            console.log(`⏸️ [BOT] ${symbol} - Volume too low: $${volume24h.toLocaleString()}/$${minVolume24h.toLocaleString()}`);
             return;
         }
 
