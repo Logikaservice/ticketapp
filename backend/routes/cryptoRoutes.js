@@ -1413,6 +1413,11 @@ const initWebSocketService = () => {
 initWebSocketService();
 
 const getSymbolPrice = async (symbol) => {
+    // ✅ FIX: "global" è un simbolo speciale per impostazioni, non per trading
+    if (!symbol || symbol.toLowerCase() === 'global') {
+        return null;
+    }
+    
     // ✅ FIX CRITICO: Normalizza il simbolo prima di cercare nel mapping
     // Rimuovi slash, underscore multipli e suffissi USDT/EUR per ottenere il simbolo base
     let normalizedSymbol = symbol.toLowerCase()

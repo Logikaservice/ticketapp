@@ -245,7 +245,7 @@ module.exports = (pool) => {
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
+                <a href="${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}" 
                    style="background: #4caf50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   🔗 Accedi al Sistema
                 </a>
@@ -571,7 +571,7 @@ module.exports = (pool) => {
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
+                <a href="${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}" 
                    style="background: #10b981; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   🔗 Visualizza Ticket
                 </a>
@@ -799,7 +799,7 @@ ${formattedComplaints}
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
+                <a href="${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}" 
                    style="background: #dc2626; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   🔗 Gestisci Ticket
                 </a>
@@ -874,7 +874,7 @@ ${formattedComplaints}
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
+                <a href="${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}" 
                    style="background: #f59e0b; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   🔗 Accedi al Sistema
                 </a>
@@ -980,7 +980,7 @@ ${formattedComplaints}
               
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
+                <a href="${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}" 
                    style="background: #4caf50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   🔗 Accedi al Sistema
                 </a>
@@ -1058,7 +1058,7 @@ ${formattedComplaints}
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
+                <a href="${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}" 
                    style="background: #4caf50; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   🔗 Accedi al Sistema
                 </a>
@@ -1175,7 +1175,7 @@ ${formattedComplaints}
               </div>
               
               <div style="text-align: center; margin: 30px 0;">
-                <a href="${process.env.FRONTEND_URL || 'https://ticketapp-frontend-ton5.onrender.com'}" 
+                <a href="${process.env.FRONTEND_URL || 'https://ticket.logikaservice.it'}" 
                    style="background: #3b82f6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
                   🔗 Accedi al Sistema
                 </a>
