@@ -1771,7 +1771,17 @@ const get24hVolume = async (symbol) => {
         const cached = volumeCache.get(symbol);
         if (cached && (Date.now() - cached.timestamp) < VOLUME_CACHE_TTL) {
             // ✅ Volume da WebSocket o cache - usalo direttamente
+            if (Math.random() < 0.05) { // Log solo 5% per debug
+                console.log(`💾 [VOLUME-CACHE] Usando volume cached per ${symbol}: $${cached.volume.toLocaleString('it-IT')} (age: ${Math.floor((Date.now() - cached.timestamp) / 1000)}s)`);
+            }
             return cached.volume;
+        }
+        
+        // ✅ DEBUG: Verifica se WebSocket è connesso e ha volumi
+        if (wsService && wsService.isWebSocketConnected()) {
+            if (Math.random() < 0.1) {
+                console.log(`📡 [VOLUME] WebSocket connesso ma cache vuota/scaduta per ${symbol}, provo REST API o DB`);
+            }
         }
 
         // ✅ FIX: Controlla se IP è bannato da Binance prima di chiamare API
@@ -8884,11 +8894,19 @@ router.get('/bot-analysis', async (req, res) => {
         
     } catch (error) {
         console.error(`❌ [BOT-ANALYSIS] Error for ${req.query.symbol}:`, error.message);
+        console.error(`❌ [BOT-ANALYSIS] Stack:`, error.stack);
+
+        // ✅ FIX: Se headers già inviati, non inviare risposta
+        if (res.headersSent) {
+            console.error(`⚠️ [BOT-ANALYSIS] Headers già inviati, impossibile inviare risposta errore`);
+            return;
+        }
 
         // Invia risposta di errore più gentile per non rompere il frontend
+        // ✅ FIX: Usa status 200 invece di 500 per evitare errori nel frontend
         res.status(200).json({
             error: error.message || 'Errore interno',
-            symbol: req.query.symbol,
+            symbol: req.query.symbol || 'unknown',
             // Restituisci dati mock per evitare crash frontend
             signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Errore analisi'] },
             currentPrice: 0,

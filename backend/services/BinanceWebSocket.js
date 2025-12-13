@@ -165,10 +165,18 @@ class BinanceWebSocketService {
             
             // ✅ NUOVO: Aggiorna volume 24h per TUTTI i simboli nella mappa (non solo sottoscritti)
             // Il ticker Binance include 'q' (quoteVolume) che è il volume 24h in quote currency (USDT)
-            if (this.volumeCacheCallback && ticker.q) {
-                const volume24h = parseFloat(ticker.q); // 'q' = quote volume (24h volume in USDT)
+            if (this.volumeCacheCallback) {
+                // ✅ FIX: Prova sia 'q' (quoteVolume) che 'Q' (alcuni ticker usano maiuscola)
+                const volume24h = parseFloat(ticker.q || ticker.Q || 0);
                 if (volume24h > 0) {
                     this.updateVolumeCache(symbol, volume24h);
+                    // Log solo occasionalmente per non spammare
+                    if (Math.random() < 0.01) { // 1% delle volte
+                        console.log(`📊 [WEBSOCKET-VOLUME] ${symbol} (${ticker.s}): $${volume24h.toLocaleString('it-IT')} USDT`);
+                    }
+                } else if (Math.random() < 0.01) {
+                    // Debug: log quando volume è 0 o mancante
+                    console.warn(`⚠️ [WEBSOCKET-VOLUME] Volume 0 o mancante per ${symbol} (${ticker.s}), ticker.q=${ticker.q}, ticker.Q=${ticker.Q}`);
                 }
             }
         });
