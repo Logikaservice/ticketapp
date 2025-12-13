@@ -1,6 +1,22 @@
 /* CryptoLayout.css - Revolut X Inspired Theme with Christmas Background */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+/* Health Monitor Pulse Animation */
+@keyframes healthPulse {
+    0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7);
+    }
+    50% {
+        opacity: 0.8;
+        box-shadow: 0 0 0 10px rgba(234, 179, 8, 0);
+    }
+}
+
+.health-alert-pulse {
+    animation: healthPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
+}
+
 /* ✨ SIMPLE ELEGANT DARK BLUE BACKGROUND ✨ */
 .crypto-dashboard {
   background: #0a1929;
