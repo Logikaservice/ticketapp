@@ -1294,52 +1294,85 @@ module.exports = (pool, uploadTicketPhotos, uploadOffertaDocs, io) => {
 
   // ENDPOINT: Ottieni tutte le forniture temporanee da tutti i ticket
   router.get('/forniture/all', async (req, res) => {
+    // ✅ FIX CRITICO: Imposta headers immediatamente per evitare 502 da Nginx
+    res.setHeader('Content-Type', 'application/json');
+    
     let client = null;
+    let queryTimeout = null;
+    
     try {
       // ✅ FIX: Timeout per evitare che la query si blocchi
-      const queryTimeout = setTimeout(() => {
+      queryTimeout = setTimeout(() => {
         if (!res.headersSent) {
-          console.error('⚠️ [FORNITURE] Timeout query forniture/all');
-          res.status(200).json([]);
+          console.error('⚠️ [FORNITURE] Timeout query forniture/all dopo 3 secondi');
+          try {
+            res.status(200).json([]);
+          } catch (e) {
+            console.error('⚠️ [FORNITURE] Errore invio risposta timeout:', e.message);
+          }
         }
-      }, 5000); // 5 secondi timeout
+      }, 3000); // 3 secondi timeout (più breve)
 
-      client = await pool.connect();
-      const query = `
-        SELECT 
-          ft.*,
-          t.numero as ticket_numero,
-          t.titolo as ticket_titolo,
-          u.azienda,
-          u.nome as cliente_nome
-        FROM forniture_temporanee ft
-        LEFT JOIN tickets t ON ft.ticket_id = t.id
-        LEFT JOIN users u ON t.clienteid = u.id
-        ORDER BY ft.data_prestito DESC
-        LIMIT 1000
-      `;
-      const result = await client.query(query);
+      // ✅ FIX: Usa Promise.race per timeout più efficace
+      const queryPromise = pool.connect().then(client => {
+        const query = `
+          SELECT 
+            ft.*,
+            t.numero as ticket_numero,
+            t.titolo as ticket_titolo,
+            u.azienda,
+            u.nome as cliente_nome
+          FROM forniture_temporanee ft
+          LEFT JOIN tickets t ON ft.ticket_id = t.id
+          LEFT JOIN users u ON t.clienteid = u.id
+          ORDER BY ft.data_prestito DESC
+          LIMIT 500
+        `;
+        return client.query(query).then(result => {
+          client.release();
+          return result.rows || [];
+        }).catch(err => {
+          client.release();
+          throw err;
+        });
+      });
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Query timeout')), 2500);
+      });
+      
+      const rows = await Promise.race([queryPromise, timeoutPromise]);
       
       clearTimeout(queryTimeout);
+      queryTimeout = null;
       
-      // ✅ FIX: Restituisci sempre 200 OK anche in caso di errore (per evitare 502)
+      // ✅ FIX: Restituisci sempre 200 OK
       if (!res.headersSent) {
-        res.status(200).json(result.rows || []);
+        res.status(200).json(rows);
       }
     } catch (err) {
+      clearTimeout(queryTimeout);
+      
       console.error('⚠️ [FORNITURE] Errore nel recuperare tutte le forniture temporanee:', err.message);
-      console.error('⚠️ [FORNITURE] Stack:', err.stack);
-      // ✅ FIX: Restituisci 200 OK con array vuoto invece di 500 per evitare 502
-      if (!res.headersSent) {
-        res.status(200).json([]);
+      if (err.stack && !err.message.includes('timeout')) {
+        console.error('⚠️ [FORNITURE] Stack:', err.stack);
       }
-    } finally {
-      // ✅ FIX: Rilascia sempre il client anche in caso di errore
+      
+      // ✅ FIX: Rilascia client se presente
       if (client) {
         try {
           client.release();
         } catch (releaseErr) {
-          console.error('⚠️ [FORNITURE] Errore nel rilasciare client:', releaseErr.message);
+          // Ignora errori di release
+        }
+      }
+      
+      // ✅ FIX: Restituisci SEMPRE 200 OK con array vuoto invece di 500 per evitare 502
+      if (!res.headersSent) {
+        try {
+          res.status(200).json([]);
+        } catch (sendErr) {
+          console.error('⚠️ [FORNITURE] Errore invio risposta errore:', sendErr.message);
         }
       }
     }
