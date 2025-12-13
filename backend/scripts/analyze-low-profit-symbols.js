@@ -18,18 +18,17 @@ const { dbAll, dbGet } = require('../crypto_db');
 const CONFIG = {
     TRADE_SIZE_USDT: 100,           // $100 per posizione
     TAKE_PROFIT_PCT: 4.0,           // 4% take profit
-    MIN_PROFIT_ABSOLUTE: 0.50,      // Minimo $0.50 di guadagno assoluto (non percentuale)
     COMMISSION_PCT: 0.1,            // 0.1% commissione (tipica Binance)
-    MIN_PRICE_FOR_PROFIT: null      // Calcolato automaticamente
+    
+    // Criteri per identificare simboli problematici
+    MIN_PRICE: 0.01,                // Prezzo minimo consigliato (evita arrotondamenti eccessivi)
+    MAX_SPREAD_ESTIMATE: 1.0,       // Spread stimato massimo (1% = spread tipico su token liquidi)
+    MIN_VOLUME_24H: 1000000,        // Volume minimo 24h ($1M) per liquidità sufficiente
+    
+    // Con prezzo basso, lo spread reale può essere molto più alto
+    // Stimiamo spread basato su prezzo: più basso = spread più alto
+    SPREAD_MULTIPLIER: 0.5          // Spread stimato = SPREAD_MULTIPLIER / prezzo (es. 0.5 / 0.000004 = 125,000% - assurdo!)
 };
-
-// Calcola prezzo minimo per avere guadagno significativo
-// Con $100, 4% TP, vogliamo almeno $0.50 di guadagno
-// Profit = TradeSize * TP% - Commissioni
-// $0.50 = $100 * 4% - ($100 * 0.1% * 2) = $4 - $0.20 = $3.80 netto
-// Ma consideriamo anche spread e arrotondamenti, quindi minimo $0.50 netto
-// Se prezzo è troppo basso, anche con 4% il guadagno assoluto è piccolo
-CONFIG.MIN_PRICE_FOR_PROFIT = CONFIG.MIN_PROFIT_ABSOLUTE / (CONFIG.TAKE_PROFIT_PCT / 100);
 
 async function analyzeSymbols() {
     console.log('\n' + '='.repeat(80));
@@ -40,9 +39,13 @@ async function analyzeSymbols() {
     console.log('─'.repeat(80));
     console.log(`   • Trade size: $${CONFIG.TRADE_SIZE_USDT}`);
     console.log(`   • Take profit: ${CONFIG.TAKE_PROFIT_PCT}%`);
-    console.log(`   • Guadagno minimo richiesto: $${CONFIG.MIN_PROFIT_ABSOLUTE}`);
     console.log(`   • Commissione: ${CONFIG.COMMISSION_PCT}%`);
-    console.log(`   • Prezzo minimo consigliato: $${CONFIG.MIN_PRICE_FOR_PROFIT.toFixed(6)}`);
+    console.log(`   • Prezzo minimo consigliato: $${CONFIG.MIN_PRICE} (evita arrotondamenti eccessivi)`);
+    console.log(`   • Volume minimo 24h: $${(CONFIG.MIN_VOLUME_24H / 1000000).toFixed(1)}M (liquidità)`);
+    console.log(`   • Spread massimo stimato: ${CONFIG.MAX_SPREAD_ESTIMATE}%`);
+    console.log('');
+    console.log('💡 NOTA: Con $100 e 4% TP, il guadagno teorico è sempre ~$3.80.');
+    console.log('   Il problema con prezzi bassi è: spread alto, liquidità bassa, arrotondamenti.');
     console.log('');
 
     try {
@@ -101,10 +104,17 @@ async function analyzeSymbols() {
                     console.log(`   Prezzo: $${symbol.currentPrice.toFixed(8)}`);
                     console.log(`   Volume acquistabile: ${symbol.volume.toFixed(2)} unità`);
                     console.log(`   Take profit: ${CONFIG.TAKE_PROFIT_PCT}% = $${symbol.takeProfitPrice.toFixed(8)}`);
-                    console.log(`   Guadagno assoluto: $${symbol.absoluteProfit.toFixed(4)}`);
-                    console.log(`   Commissioni (entry+exit): $${symbol.commissions.toFixed(4)}`);
-                    console.log(`   Guadagno netto: $${symbol.netProfit.toFixed(4)}`);
-                    console.log(`   ⚠️  Guadagno netto < $${CONFIG.MIN_PROFIT_ABSOLUTE} (minimo richiesto)`);
+                    console.log(`   Guadagno teorico: $${symbol.absoluteProfit.toFixed(4)}`);
+                    console.log(`   Commissioni: $${symbol.commissions.toFixed(4)}`);
+                    console.log(`   Spread stimato: ${symbol.estimatedSpread?.toFixed(2) || 'N/A'}%`);
+                    if (symbol.estimatedSpread) {
+                        const spreadCost = CONFIG.TRADE_SIZE_USDT * (symbol.estimatedSpread / 100);
+                        console.log(`   Costo spread: $${spreadCost.toFixed(4)}`);
+                    }
+                    console.log(`   Guadagno reale (dopo spread): $${symbol.realProfit?.toFixed(4) || symbol.netProfit.toFixed(4)}`);
+                    if (symbol.volume24h) {
+                        console.log(`   Volume 24h: $${(symbol.volume24h / 1000000).toFixed(2)}M`);
+                    }
                 }
             });
             console.log('');
@@ -224,26 +234,60 @@ async function analyzeSymbolProfit(symbol) {
         const exitCommission = exitValue * (CONFIG.COMMISSION_PCT / 100);
         analysis.commissions = entryCommission + exitCommission;
         
-        // 6. Calcola guadagno netto (dopo commissioni)
+        // 6. Calcola guadagno netto teorico (dopo commissioni)
         analysis.netProfit = analysis.absoluteProfit - analysis.commissions;
         
-        // 7. Verifica se il guadagno netto è troppo basso
-        if (analysis.netProfit < CONFIG.MIN_PROFIT_ABSOLUTE) {
-            issues.push(`Guadagno netto troppo basso: $${analysis.netProfit.toFixed(4)} < $${CONFIG.MIN_PROFIT_ABSOLUTE}`);
+        // 7. Verifica prezzo minimo (evita arrotondamenti eccessivi)
+        if (analysis.currentPrice < CONFIG.MIN_PRICE) {
+            issues.push(`Prezzo troppo basso: $${analysis.currentPrice.toFixed(8)} < $${CONFIG.MIN_PRICE} (rischio arrotondamenti e spread alto)`);
             analysis.shouldRemove = true;
         }
         
-        // 8. Verifica se il prezzo è troppo basso (anche con 4% il guadagno è minimo)
-        if (analysis.currentPrice < CONFIG.MIN_PRICE_FOR_PROFIT) {
-            issues.push(`Prezzo troppo basso: $${analysis.currentPrice.toFixed(8)} < $${CONFIG.MIN_PRICE_FOR_PROFIT.toFixed(6)} (guadagno minimo non garantito)`);
-            // Non rimuovere solo per questo, ma segnala
+        // 8. Stima spread basato su prezzo (prezzo basso = spread più alto tipicamente)
+        // Formula semplificata: spread stimato = 0.1% + (0.5 / prezzo) per prezzo < $1
+        let estimatedSpread = 0.1; // Spread base 0.1%
+        if (analysis.currentPrice < 1.0) {
+            // Su token piccoli, lo spread può essere molto più alto
+            estimatedSpread = 0.1 + (0.5 / analysis.currentPrice);
+            if (estimatedSpread > 5.0) estimatedSpread = 5.0; // Cap a 5%
+        }
+        analysis.estimatedSpread = estimatedSpread;
+        
+        // 9. Calcola guadagno reale considerando spread
+        const spreadCost = CONFIG.TRADE_SIZE_USDT * (estimatedSpread / 100);
+        analysis.realProfit = analysis.netProfit - spreadCost;
+        
+        // 10. Verifica se lo spread mangia troppo il guadagno
+        if (estimatedSpread > CONFIG.MAX_SPREAD_ESTIMATE) {
+            issues.push(`Spread stimato troppo alto: ${estimatedSpread.toFixed(2)}% > ${CONFIG.MAX_SPREAD_ESTIMATE}% (guadagno reale: $${analysis.realProfit.toFixed(4)})`);
+            analysis.shouldRemove = true;
         }
         
-        // 9. Verifica se le commissioni mangiano troppo il guadagno
-        const commissionRatio = analysis.commissions / analysis.absoluteProfit;
-        if (commissionRatio > 0.2) { // Se commissioni > 20% del guadagno
-            issues.push(`Commissioni troppo alte: ${(commissionRatio * 100).toFixed(1)}% del guadagno`);
-            // Non rimuovere solo per questo, ma segnala
+        // 11. Verifica volume 24h (liquidità)
+        try {
+            const volumeData = await dbGet(
+                `SELECT volume_24h 
+                 FROM symbol_volumes_24h 
+                 WHERE symbol = $1 
+                 ORDER BY updated_at DESC LIMIT 1`,
+                [symbol]
+            );
+            
+            if (volumeData && volumeData.volume_24h) {
+                analysis.volume24h = parseFloat(volumeData.volume_24h);
+                if (analysis.volume24h < CONFIG.MIN_VOLUME_24H) {
+                    issues.push(`Volume 24h troppo basso: $${(analysis.volume24h / 1000000).toFixed(2)}M < $${CONFIG.MIN_VOLUME_24H / 1000000}M (liquidità insufficiente)`);
+                    analysis.shouldRemove = true;
+                }
+            }
+        } catch (err) {
+            // Ignora errori volume
+        }
+        
+        // 12. Verifica se il guadagno reale (dopo spread) è troppo basso
+        if (analysis.realProfit < 1.0) { // Minimo $1 di guadagno reale
+            issues.push(`Guadagno reale troppo basso: $${analysis.realProfit.toFixed(4)} < $1.00 (dopo spread)`);
+            analysis.shouldRemove = true;
         }
 
     } catch (error) {
