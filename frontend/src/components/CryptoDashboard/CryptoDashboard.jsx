@@ -1222,7 +1222,9 @@ setBotParameters(data.bot_parameters);
                                     display: 'flex', 
                                     alignItems: 'center', 
                                     justifyContent: 'center',
-                                    position: 'relative'
+                                    position: 'relative',
+                                    animation: healthStatus?.criticalIssues?.length > 0 ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none',
+                                    boxShadow: healthStatus?.criticalIssues?.length > 0 ? '0 0 0 3px rgba(234, 179, 8, 0.3)' : 'none'
                                 }}
                                 title="Stato Sistema"
                             >

@@ -155,16 +155,33 @@ const SystemHealthMonitor = ({ compact = false }) => {
             )}
 
             {/* Last update */}
-            <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>
+            <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">
                     Ultimo aggiornamento: {lastUpdate?.toLocaleTimeString() || 'N/A'}
                 </span>
                 <button
-                    onClick={fetchHealthStatus}
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        fetchHealthStatus();
+                    }}
                     disabled={loading}
-                    className={`text-blue-400 hover:text-blue-300 transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    style={{
+                        padding: '6px 12px',
+                        background: loading ? '#374151' : '#3b82f6',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                        fontSize: '0.75rem',
+                        fontWeight: '500',
+                        opacity: loading ? 0.5 : 1,
+                        transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => !loading && (e.target.style.background = '#2563eb')}
+                    onMouseLeave={(e) => !loading && (e.target.style.background = '#3b82f6')}
                 >
-                    {loading ? 'Aggiornamento...' : 'Aggiorna'}
+                    {loading ? '⏳ Caricamento...' : '🔄 Aggiorna'}
                 </button>
             </div>
         </div>
