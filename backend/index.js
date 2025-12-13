@@ -1338,6 +1338,21 @@ app.use((err, req, res, next) => {
   console.error('❌ Errore non gestito:', err);
   console.error('❌ Stack:', err.stack);
   console.error('❌ Route:', req.method, req.path);
+  console.error('❌ URL completo:', req.originalUrl);
+
+  // ✅ FIX: Se è un errore da /api/crypto/bot-analysis, restituisci 200 invece di 500
+  if (req.path && req.path.includes('/bot-analysis')) {
+    console.error('⚠️ [ERROR-HANDLER] Errore intercettato per bot-analysis, restituisco 200 invece di 500');
+    return res.status(200).json({
+      error: err.message || 'Errore interno',
+      symbol: req.query?.symbol || 'unknown',
+      errorType: err.constructor.name,
+      signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Errore analisi'] },
+      currentPrice: 0,
+      longSignal: { strength: 0, confirmations: 0 },
+      shortSignal: { strength: 0, confirmations: 0 }
+    });
+  }
 
   // Non esporre dettagli dell'errore in produzione
   const isDevelopment = process.env.NODE_ENV !== 'production';
