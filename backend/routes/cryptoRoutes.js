@@ -6904,10 +6904,16 @@ router.get('/bot-analysis', async (req, res) => {
 
         if (!currentPrice || currentPrice === 0) {
             console.error(`❌ [BOT-ANALYSIS] Impossibile ottenere prezzo per simbolo: ${symbol} (normalized: ${dbSymbol})`);
-            return res.status(500).json({ 
+            // ✅ FIX: Restituisci status 200 con dati mock invece di 500 per non rompere il frontend
+            return res.status(200).json({
                 error: `Impossibile ottenere prezzo corrente per ${symbol}`,
                 symbol: symbol,
-                normalizedSymbol: dbSymbol
+                normalizedSymbol: dbSymbol,
+                // Dati mock per evitare crash frontend
+                signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Prezzo non disponibile'] },
+                currentPrice: 0,
+                longSignal: { strength: 0, confirmations: 0 },
+                shortSignal: { strength: 0, confirmations: 0 }
             });
         }
 
