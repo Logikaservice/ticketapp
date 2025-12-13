@@ -1782,6 +1782,8 @@ const get24hVolume = async (symbol) => {
             if (Math.random() < 0.1) {
                 console.log(`📡 [VOLUME] WebSocket connesso ma cache vuota/scaduta per ${symbol}, provo REST API o DB`);
             }
+            // ✅ FIX: Se WebSocket è connesso ma cache vuota, aspetta un po' (il WebSocket potrebbe non aver ancora popolato)
+            // Per ora, procediamo con REST API/DB fallback
         }
 
         // ✅ FIX: Controlla se IP è bannato da Binance prima di chiamare API
@@ -6871,7 +6873,50 @@ router.get('/bot-analysis', async (req, res) => {
             'vechain': 'vechain',
             'filecoin': 'filecoin',
             'tezos': 'tezos',
-            'fantom': 'fantom'
+            'fantom': 'fantom',
+            // ✅ AGGIUNGI: Simboli mancanti
+            'aave': 'aave',
+            'aave_usdt': 'aave',
+            'crv': 'curve_dao_token',
+            'crv_usdt': 'curve_dao_token',
+            'ldo': 'lido_dao',
+            'ldo_usdt': 'lido_dao',
+            'mkr': 'maker',
+            'mkr_usdt': 'maker',
+            'comp': 'compound',
+            'comp_usdt': 'compound',
+            'snx': 'synthetix',
+            'snx_usdt': 'synthetix',
+            'arb': 'arbitrum',
+            'arb_usdt': 'arbitrum',
+            'apt': 'aptos',
+            'apt_usdt': 'aptos',
+            'sei': 'sei_network',
+            'sei_usdt': 'sei_network',
+            'ton': 'the_open_network',
+            'ton_usdt': 'the_open_network',
+            'inj': 'injective',
+            'inj_usdt': 'injective',
+            'icp': 'internet_computer',
+            'icp_usdt': 'internet_computer',
+            'fet': 'fetch_ai',
+            'fet_usdt': 'fetch_ai',
+            'render': 'render_token',
+            'render_usdt': 'render_token',
+            'grt': 'the_graph',
+            'grt_usdt': 'the_graph',
+            'imx': 'immutable_x',
+            'imx_usdt': 'immutable_x',
+            'enj': 'enjin',
+            'enj_usdt': 'enjin',
+            'pepe': 'pepe',
+            'pepe_usdt': 'pepe',
+            'floki': 'floki',
+            'floki_usdt': 'floki',
+            'bonk': 'bonk',
+            'bonk_usdt': 'bonk',
+            'ar': 'arweave',
+            'ar_usdt': 'arweave'
         };
 
         // Prova prima con il mapping completo
