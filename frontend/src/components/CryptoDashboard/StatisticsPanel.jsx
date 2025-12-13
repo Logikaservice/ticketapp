@@ -20,14 +20,24 @@ const StatisticsPanel = ({ apiBase }) => {
                     console.error('StatisticsPanel: Invalid response format', data);
                     setError('Formato risposta non valido');
                 }
+            } else if (res.status === 502) {
+                // 502 Bad Gateway - backend non raggiungibile, non mostrare errore critico
+                // Mantieni i dati precedenti se disponibili
+                setError(null); // Non mostrare errore per 502 temporanei
             } else {
                 const errorText = await res.text();
-                console.error('StatisticsPanel: API error', res.status, errorText);
-                setError(`Errore ${res.status}: ${errorText.substring(0, 100)}`);
+                // Non loggare 502 come errore critico
+                if (res.status !== 502) {
+                    console.error('StatisticsPanel: API error', res.status, errorText);
+                    setError(`Errore ${res.status}: ${errorText.substring(0, 100)}`);
+                }
             }
         } catch (err) {
-            console.error('Error fetching statistics:', err);
-            setError(`Errore di connessione: ${err.message}`);
+            // Non loggare errori 502 come errori critici
+            if (err.message && !err.message.includes('502')) {
+                console.error('Error fetching statistics:', err);
+                setError(`Errore di connessione: ${err.message}`);
+            }
         } finally {
             setLoading(false);
         }

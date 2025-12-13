@@ -103,7 +103,10 @@ const CryptoDashboard = () => {
                     // Auto-fix P&L logging removed
                 }
             } catch (fixError) {
-                console.warn('⚠️ [AUTO-FIX] Errore correzione automatica P&L:', fixError);
+                // Non loggare errori 502 come errori critici (backend potrebbe essere temporaneamente down)
+                if (fixError.message && !fixError.message.includes('502')) {
+                    console.warn('⚠️ [AUTO-FIX] Errore correzione automatica P&L:', fixError);
+                }
                 // Continua comunque, non bloccare il caricamento
             }
 
@@ -127,7 +130,7 @@ const CryptoDashboard = () => {
                 });
                 // Load bot parameters for backtesting
                 if (data.bot_parameters) {
-                    setBotParameters(data.bot_parameters);
+setBotParameters(data.bot_parameters);
                 }
                 // Load performance stats for Kelly Criterion
                 if (data.performance_stats) {
@@ -137,6 +140,10 @@ const CryptoDashboard = () => {
                     console.warn('⚠️ [KELLY] Performance stats non presenti nella risposta');
                     setPerformanceStats(null);
                 }
+            } else if (res.status === 502) {
+                // 502 Bad Gateway - backend non raggiungibile, non loggare come errore critico
+                // Il backend potrebbe essere temporaneamente down o in riavvio
+                console.warn('⚠️ [DASHBOARD] Backend non raggiungibile (502) - riprovo al prossimo ciclo');
             } else {
                 console.error('❌ Dashboard fetch failed:', res.status, res.statusText);
             }
@@ -147,12 +154,20 @@ const CryptoDashboard = () => {
                 if (analyticsRes.ok) {
                     const analyticsData = await analyticsRes.json();
                     setPerformanceAnalytics(analyticsData);
+                } else if (analyticsRes.status === 502) {
+                    // Non loggare 502 come errore critico
                 }
             } catch (analyticsError) {
-                console.warn('⚠️ [ANALYTICS] Error fetching performance analytics:', analyticsError);
+                // Non loggare errori 502 come errori critici
+                if (analyticsError.message && !analyticsError.message.includes('502')) {
+                    console.warn('⚠️ [ANALYTICS] Error fetching performance analytics:', analyticsError);
+                }
             }
         } catch (error) {
-            console.error("❌ Error fetching dashboard:", error);
+            // Non loggare errori 502 come errori critici
+            if (error.message && !error.message.includes('502')) {
+                console.error("❌ Error fetching dashboard:", error);
+            }
         }
     };
 
@@ -369,9 +384,14 @@ const CryptoDashboard = () => {
                     setCurrentPrice(price);
                     // NOTE: We don't add to priceData here - the chart uses OHLC data from /api/crypto/history
                 }
+            } else if (res.status === 502) {
+                // 502 Bad Gateway - non loggare come errore critico
             }
         } catch (error) {
-            console.error('Error fetching price:', error);
+            // Non loggare errori 502 come errori critici
+            if (error.message && !error.message.includes('502')) {
+                console.error('Error fetching price:', error);
+            }
             // Don't set mock price - keep using last known price
         }
     };
