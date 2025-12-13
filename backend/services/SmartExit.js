@@ -216,6 +216,47 @@ function assessMarketCondition(klines, currentPrice) {
 }
 
 /**
+ * ✅ NUOVO: Verifica se c'è un trend rialzista netto (uptrend) per la posizione
+ * @param {Object} position - Posizione aperta
+ * @param {Array} priceHistory - Storia dei prezzi
+ * @returns {Object} { isUptrend, trendStrength, momentum, reason }
+ */
+function checkUptrend(position, priceHistory) {
+    if (!priceHistory || priceHistory.length < 20) {
+        return { isUptrend: false, trendStrength: 0, momentum: null, reason: 'Dati insufficienti' };
+    }
+    
+    const isLongPosition = position.type === 'buy';
+    const signal = signalGenerator.generateSignal(priceHistory, position.symbol);
+    const sameDirectionSignal = isLongPosition ? signal.longSignal : signal.shortSignal;
+    const sameDirectionStrength = sameDirectionSignal?.strength || 0;
+    
+    // Calcola momentum
+    const momentum = calculateMomentum(priceHistory, [5, 10, 20]);
+    
+    // ✅ Trend rialzista netto se:
+    // 1. Stessa direzione ha forza >= 50 (trend chiaro)
+    // 2. Momentum positivo (prezzo sta salendo)
+    // 3. Non c'è segnale opposto forte
+    const oppositeSignal = isLongPosition ? signal.shortSignal : signal.longSignal;
+    const oppositeStrength = oppositeSignal?.strength || 0;
+    
+    const isUptrend = sameDirectionStrength >= 50 && 
+                     (momentum && momentum > SMART_EXIT_CONFIG.MIN_MOMENTUM_FOR_HOLD) &&
+                     oppositeStrength < 60; // Segnale opposto non troppo forte
+    
+    return {
+        isUptrend: isUptrend,
+        trendStrength: sameDirectionStrength,
+        momentum: momentum,
+        oppositeStrength: oppositeStrength,
+        reason: isUptrend 
+            ? `Trend rialzista netto: Forza ${sameDirectionStrength}/100, Momentum ${momentum?.toFixed(2) || 'N/A'}%`
+            : `Trend non rialzista: Forza ${sameDirectionStrength}/100, Momentum ${momentum?.toFixed(2) || 'N/A'}%`
+    };
+}
+
+/**
  * Valuta se ci sono opportunità migliori su altri simboli
  */
 async function checkOpportunityCost(position) {
@@ -1094,16 +1135,116 @@ async function shouldClosePosition(position, priceHistory) {
         }
 
         // 7. RAGIONAMENTO: Opportunity Cost - Ci sono simboli migliori?
+        // ✅ FIX CRITICO: Non chiudere posizioni in guadagno con trend migliorante se c'è spazio per altre posizioni
         if (currentPnLPct >= SMART_EXIT_CONFIG.MIN_PROFIT_TO_PROTECT) {
+            // ✅ PRIORITÀ 1: Verifica se c'è spazio per altre posizioni
+            const allOpenPositions = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
+            const totalOpenPositions = allOpenPositions.length;
+            
+            // Carica configurazione MAX_TOTAL_POSITIONS (da cryptoRoutes.js)
+            let maxTotalPositions = 30; // Default
+            try {
+                const botSettings = await dbGet(
+                    "SELECT parameters FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global' LIMIT 1"
+                );
+                if (botSettings && botSettings.parameters) {
+                    const params = typeof botSettings.parameters === 'string' ? JSON.parse(botSettings.parameters) : botSettings.parameters;
+                    if (params.max_positions) {
+                        maxTotalPositions = parseInt(params.max_positions) || 30;
+                    }
+                }
+            } catch (err) {
+                // Usa default se errore
+            }
+            
+            // ✅ PRIORITÀ 2: Verifica se c'è un trend rialzista netto (uptrend)
+            const uptrendCheck = checkUptrend(position, priceHistory);
+            
+            // ✅ Se c'è spazio per altre posizioni, NON chiudere per opportunità migliore
+            // L'utente vuole che il sistema apra nuove posizioni invece di chiudere quelle in guadagno
+            if (totalOpenPositions < maxTotalPositions) {
+                // ✅ Se trend è rialzista netto, NON chiudere MAI
+                if (uptrendCheck.isUptrend) {
+                    return {
+                        shouldClose: false,
+                        reason: `Trend rialzista netto (${uptrendCheck.trendStrength}/100) con spazio per altre posizioni (${totalOpenPositions}/${maxTotalPositions}) - Mantenere posizione e aprire nuove invece di chiudere`,
+                        currentPnL: currentPnLPct,
+                        trendStrength: uptrendCheck.trendStrength,
+                        momentum: uptrendCheck.momentum,
+                        availableSlots: maxTotalPositions - totalOpenPositions,
+                        uptrendCheck: uptrendCheck,
+                        decisionFactor: 'uptrend_with_space'
+                    };
+                }
+                
+                // ✅ Verifica se il trend sta migliorando (anche se non è ancora rialzista netto)
+                const sameDirectionSignal = isLongPosition ? signal.longSignal : signal.shortSignal;
+                const sameDirectionStrength = sameDirectionSignal?.strength || 0;
+                const isMomentumPositive = momentum && momentum > SMART_EXIT_CONFIG.MIN_MOMENTUM_FOR_HOLD;
+                
+                // ✅ Se trend sta migliorando (>= 40) E c'è spazio, NON chiudere
+                if (sameDirectionStrength >= 40 && (isMomentumPositive || sameDirectionStrength >= 50)) {
+                    return {
+                        shouldClose: false,
+                        reason: `Trend in miglioramento (${sameDirectionStrength}/100) con spazio per altre posizioni (${totalOpenPositions}/${maxTotalPositions}) - Mantenere posizione e aprire nuove invece di chiudere`,
+                        currentPnL: currentPnLPct,
+                        trendStrength: sameDirectionStrength,
+                        momentum: momentum,
+                        availableSlots: maxTotalPositions - totalOpenPositions,
+                        decisionFactor: 'trend_improving_with_space'
+                    };
+                }
+            }
+            
+            // ✅ Solo se NON c'è spazio per altre posizioni O trend NON sta migliorando, considera opportunity cost
             const opportunity = await checkOpportunityCost(position);
             if (opportunity.hasBetterOpportunity && opportunity.bestSignal) {
-                return {
-                    shouldClose: true,
-                    reason: `Opportunità migliore su ${opportunity.bestSignal.symbol} (${opportunity.bestSignal.strength}/100 vs guadagno attuale ${currentPnLPct.toFixed(2)}%) - Chiusura per riallocare`,
-                    currentPnL: currentPnLPct,
-                    betterOpportunity: opportunity.bestSignal,
-                    decisionFactor: 'opportunity_cost'
-                };
+                // ✅ Verifica anche che il trend attuale NON stia migliorando
+                const sameDirectionSignal = isLongPosition ? signal.longSignal : signal.shortSignal;
+                const sameDirectionStrength = sameDirectionSignal?.strength || 0;
+                const isMomentumPositive = momentum && momentum > SMART_EXIT_CONFIG.MIN_MOMENTUM_FOR_HOLD;
+                
+                // ✅ NON chiudere se:
+                // 1. Trend è rialzista netto (uptrend) O
+                // 2. Trend sta migliorando (stessa direzione >= 50) E momentum positivo E c'è spazio
+                if (uptrendCheck.isUptrend || (sameDirectionStrength >= 50 && isMomentumPositive && totalOpenPositions < maxTotalPositions)) {
+                    return {
+                        shouldClose: false,
+                        reason: uptrendCheck.isUptrend 
+                            ? `Trend rialzista netto (${uptrendCheck.trendStrength}/100) - Mantenere posizione nonostante opportunità su ${opportunity.bestSignal.symbol}`
+                            : `Trend in forte miglioramento (${sameDirectionStrength}/100) con momentum positivo - Mantenere posizione nonostante opportunità su ${opportunity.bestSignal.symbol}`,
+                        currentPnL: currentPnLPct,
+                        trendStrength: sameDirectionStrength,
+                        momentum: momentum,
+                        uptrendCheck: uptrendCheck,
+                        betterOpportunity: opportunity.bestSignal,
+                        decisionFactor: 'trend_too_strong_to_close'
+                    };
+                }
+                
+                // ✅ Solo chiudi se:
+                // 1. Portfolio è pieno (nessuno spazio) E
+                // 2. Trend NON è rialzista netto E
+                // 3. (Trend è debole (< 40) O Momentum negativo)
+                const shouldCloseForOpportunity = 
+                    totalOpenPositions >= maxTotalPositions && // Portfolio pieno
+                    !uptrendCheck.isUptrend && // Trend NON rialzista netto
+                    (sameDirectionStrength < 40 || // Trend debole
+                     (!isMomentumPositive && momentum < -0.1)); // Momentum negativo
+                
+                if (shouldCloseForOpportunity) {
+                    return {
+                        shouldClose: true,
+                        reason: `Opportunità migliore su ${opportunity.bestSignal.symbol} (${opportunity.bestSignal.strength}/100 vs guadagno attuale ${currentPnLPct.toFixed(2)}%) - Portfolio pieno (${totalOpenPositions}/${maxTotalPositions}) e trend non rialzista (${sameDirectionStrength}/100) - Chiusura per riallocare`,
+                        currentPnL: currentPnLPct,
+                        betterOpportunity: opportunity.bestSignal,
+                        trendStrength: sameDirectionStrength,
+                        momentum: momentum,
+                        uptrendCheck: uptrendCheck,
+                        portfolioFull: totalOpenPositions >= maxTotalPositions,
+                        decisionFactor: 'opportunity_cost'
+                    };
+                }
             }
         }
 
