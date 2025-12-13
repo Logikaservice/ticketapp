@@ -1977,6 +1977,28 @@ const get24hVolume = async (symbol) => {
             return cached.volume;
         }
         
+        // ✅ FIX CRITICO: Fallback finale - prova sempre a recuperare dal database
+        try {
+            const dbVolume = await dbGet(
+                "SELECT volume_24h, updated_at FROM symbol_volumes_24h WHERE symbol = $1",
+                [symbol]
+            );
+            if (dbVolume && dbVolume.volume_24h) {
+                const volume = parseFloat(dbVolume.volume_24h);
+                if (volume > 0) {
+                    // ✅ Aggiorna anche la cache per prossime chiamate
+                    volumeCache.set(symbol, { volume, timestamp: Date.now() });
+                    if (Math.random() < 0.1) {
+                        const volumeAge = Date.now() - new Date(dbVolume.updated_at).getTime();
+                        console.log(`💾 [VOLUME-FALLBACK] Usando volume dal DB per ${symbol}: $${volume.toLocaleString('it-IT')} (${Math.floor(volumeAge / (60 * 60 * 1000))}h fa)`);
+                    }
+                    return volume;
+                }
+            }
+        } catch (dbError) {
+            // Ignora errori DB (non critico)
+        }
+        
         return 0;
     }
 };
