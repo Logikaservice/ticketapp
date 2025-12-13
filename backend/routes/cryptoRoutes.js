@@ -2940,8 +2940,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 const runBotCycle = async () => {
     try {
         // Get all active bots (o simboli senza entry - sono attivi di default)
+        // ✅ FIX: Escludi "global" che è solo per impostazioni, non per trading
         const activeBots = await dbAll(
-            "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND is_active = 1"
+            "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND is_active = 1 AND symbol != 'global'"
         );
 
         // ✅ FIX: Ottieni tutti i simboli disponibili e aggiungi quelli senza entry (sono attivi di default)
