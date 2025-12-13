@@ -1501,6 +1501,34 @@ const getSymbolPrice = async (symbol) => {
         return cached.price;
     }
 
+    // ✅ FIX CRITICO: Se IP è bannato da Binance (HTTP 418), usa SOLO cache/WebSocket
+    // Non fare MAI chiamate REST API se siamo bannati
+    const BINANCE_BAN_COOLDOWN = 86400000 * 365; // 1 anno (ban permanente)
+    const last418Error = rateLimitErrors.get('BINANCE_IP_BANNED') || 0;
+    if (Date.now() - last418Error < BINANCE_BAN_COOLDOWN) {
+        // IP bannato - usa cache anche se scaduta, o ritorna null
+        if (cached) {
+            if (Math.random() < 0.1) { // Log solo 10% per non spammare
+                console.log(`🚫 [BINANCE-BAN] IP bannato - usando cache scaduta per ${symbol}: $${cached.price.toFixed(6)}`);
+            }
+            return cached.price;
+        }
+        // Se non c'è cache, la cache viene aggiornata dal WebSocket automaticamente
+        // Non serve chiamare getLatestPrice, la cache è già controllata sopra
+        // Ultimo fallback: database
+        try {
+            const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [normalizedSymbol]);
+            if (lastPrice && lastPrice.price) {
+                console.log(`💾 [BINANCE-BAN] Usando prezzo dal database per ${symbol}: $${parseFloat(lastPrice.price).toFixed(6)}`);
+                return parseFloat(lastPrice.price);
+            }
+        } catch (e) {
+            // Ignora errori DB
+        }
+        console.warn(`⚠️ [BINANCE-BAN] Nessun prezzo disponibile per ${symbol} (IP bannato, cache vuota, WebSocket non disponibile)`);
+        return null;
+    }
+
     // ✅ RATE LIMITING: Controlla se abbiamo ricevuto errori 429 recentemente
     const RATE_LIMIT_COOLDOWN = 300000; // 5 minuti di cooldown dopo errore 429
     const last429Error = rateLimitErrors.get(tradingPair) || 0;
@@ -1533,6 +1561,28 @@ const getSymbolPrice = async (symbol) => {
         rateLimitErrors.delete(tradingPair);
         return price;
     } catch (e) {
+        // ✅ FIX CRITICO: Rileva ban IP Binance (HTTP 418) e attiva ban permanente
+        if (e.message && (e.message.includes('418') || e.message.includes('IP banned'))) {
+            rateLimitErrors.set('BINANCE_IP_BANNED', Date.now());
+            console.error(`🚫 [BINANCE-BAN] IP bannato da Binance (HTTP 418) - uso solo cache/WebSocket/database`);
+            // Usa cache anche se scaduta
+            if (cached) {
+                console.log(`⏸️  [BINANCE-BAN] Usando cache scaduta per ${symbol} a causa di ban IP`);
+                return cached.price;
+            }
+            // WebSocket aggiorna automaticamente la cache, che è già stata controllata sopra
+            // Fallback database
+            try {
+                const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [normalizedSymbol]);
+                if (lastPrice && lastPrice.price) {
+                    return parseFloat(lastPrice.price);
+                }
+            } catch (e2) {
+                // Ignora
+            }
+            return null;
+        }
+        
         // ✅ RATE LIMITING: Rileva errori 429 e attiva cooldown
         if (e.message && e.message.includes('429')) {
             rateLimitErrors.set(tradingPair, Date.now());

@@ -236,6 +236,17 @@ class BinanceWebSocketService {
     isWebSocketConnected() {
         return this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN;
     }
+
+    /**
+     * Ottiene l'ultimo prezzo da cache (se disponibile)
+     * Nota: La cache è gestita dal callback, questo metodo è solo per compatibilità
+     */
+    getLatestPrice(symbol) {
+        // La cache è gestita dal callback in cryptoRoutes.js
+        // Questo metodo è qui per compatibilità con il codice che lo chiama
+        // Il prezzo reale viene recuperato dalla priceCache in cryptoRoutes.js
+        return null; // Ritorna null, la cache è gestita altrove
+    }
 }
 
 module.exports = BinanceWebSocketService;
