@@ -218,7 +218,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
         role: currentUser?.ruolo 
       });
       
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/decrypt-password`, {
+      const response = await fetch(buildApiUrl('/api/keepass/decrypt-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

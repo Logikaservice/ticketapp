@@ -120,7 +120,7 @@ export const useAvailability = (getAuthHeader) => {
       const authHeaders = getAuthHeader();
       
       const response = await retryWithBackoff(async () => {
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/availability`, {
+        const res = await fetch(buildApiUrl('/api/availability'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
