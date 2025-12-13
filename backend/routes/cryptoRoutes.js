@@ -9003,9 +9003,16 @@ router.get('/bot-analysis', async (req, res) => {
             console.log(`⚠️ [BOT-ANALYSIS] Slow response: ${responseTime}ms for ${symbol}`);
         }
         
+        } catch (innerError) {
+            // Errore interno al try principale - rilancia per essere catturato dal catch esterno
+            throw innerError;
+        }
+        
     } catch (error) {
-        console.error(`❌ [BOT-ANALYSIS] Error for ${req.query.symbol}:`, error.message);
+        // ✅ CATCH ESTERNO: Cattura TUTTI gli errori, inclusi quelli di inizializzazione
+        console.error(`❌ [BOT-ANALYSIS] Error for ${symbol}:`, error.message);
         console.error(`❌ [BOT-ANALYSIS] Stack:`, error.stack);
+        console.error(`❌ [BOT-ANALYSIS] Error type:`, error.constructor.name);
 
         // ✅ FIX: Se headers già inviati, non inviare risposta
         if (res.headersSent) {
@@ -9014,16 +9021,33 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         // Invia risposta di errore più gentile per non rompere il frontend
-        // ✅ FIX: Usa status 200 invece di 500 per evitare errori nel frontend
-        res.status(200).json({
-            error: error.message || 'Errore interno',
-            symbol: req.query.symbol || 'unknown',
-            // Restituisci dati mock per evitare crash frontend
-            signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Errore analisi'] },
-            currentPrice: 0,
-            longSignal: { strength: 0, confirmations: 0 },
-            shortSignal: { strength: 0, confirmations: 0 }
-        });
+        // ✅ FIX: Usa SEMPRE status 200 invece di 500 per evitare errori nel frontend
+        try {
+            res.status(200).json({
+                error: error.message || 'Errore interno',
+                symbol: symbol,
+                errorType: error.constructor.name,
+                // Restituisci dati mock per evitare crash frontend
+                signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Errore analisi'] },
+                currentPrice: 0,
+                longSignal: { strength: 0, confirmations: 0 },
+                shortSignal: { strength: 0, confirmations: 0 }
+            });
+        } catch (sendError) {
+            // Se anche l'invio della risposta fallisce, logga solo
+            console.error(`❌ [BOT-ANALYSIS] Impossibile inviare risposta errore:`, sendError.message);
+            // Ultimo tentativo: prova a inviare una risposta minimale
+            try {
+                if (!res.headersSent) {
+                    res.status(200).send(JSON.stringify({
+                        error: 'Errore critico nel server',
+                        symbol: symbol
+                    }));
+                }
+            } catch (finalError) {
+                console.error(`❌ [BOT-ANALYSIS] Impossibile inviare risposta anche dopo ultimo tentativo`);
+            }
+        }
     }
 });
 
