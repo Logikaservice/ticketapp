@@ -1494,6 +1494,7 @@ const updatePnLLock = new Map();
 // ✅ WEBSOCKET SERVICE per aggiornamenti real-time (zero rate limit)
 const BinanceWebSocketService = require('../services/BinanceWebSocket');
 const KlinesAggregatorService = require('../services/KlinesAggregatorService');
+const HealthCheckService = require('../services/HealthCheckService');
 let wsService = null;
 
 // Inizializza WebSocket service con callback per aggiornare cache
@@ -1616,6 +1617,57 @@ setTimeout(() => {
         console.error('❌ [KLINES-AGGREGATOR] Errore avvio:', err.message);
     }
 }, 5000); // Attendi 5 secondi dopo avvio per permettere a DB e WebSocket di inizializzarsi
+
+// ✅ NUOVO: Avvia health check per prevenire blocchi
+setTimeout(() => {
+    try {
+        // Marca che backend è attivo
+        process.env.BACKEND_RUNNING = 'true';
+        
+        // Avvia monitoring ogni 5 minuti
+        HealthCheckService.start(5, async (status) => {
+            // Callback per problemi critici
+            console.error('🚨 [HEALTH-CHECK] ALERT: Sistema non sano');
+            console.error(`   Problemi: ${status.criticalIssues.join(', ')}`);
+            
+            // TODO: Puoi aggiungere notifiche (email, Telegram, etc)
+        });
+        
+        console.log('✅ [HEALTH-CHECK] Monitoring attivato - verifica ogni 5 minuti');
+    } catch (err) {
+        console.error('❌ [HEALTH-CHECK] Errore avvio:', err.message);
+    }
+}, 10000); // Attendi 10 secondi dopo avvio
+
+// ✅ API Health Check Status
+router.get('/health-status', async (req, res) => {
+    try {
+        const status = HealthCheckService.getLastStatus();
+        
+        if (!status) {
+            // Prima verifica non ancora eseguita
+            const newStatus = await HealthCheckService.performCheck();
+            return res.json({
+                success: true,
+                status: newStatus,
+                message: 'Prima verifica eseguita'
+            });
+        }
+
+        res.json({
+            success: true,
+            status,
+            message: status.overall === 'healthy' ? 'Sistema operativo' : 'Problemi rilevati'
+        });
+    } catch (error) {
+        console.error('❌ [API] Errore health-status:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Errore verifica stato sistema',
+            message: error.message
+        });
+    }
+});
 
 const getSymbolPrice = async (symbol) => {
     // ✅ FIX: "global" è un simbolo speciale per impostazioni, non per trading
