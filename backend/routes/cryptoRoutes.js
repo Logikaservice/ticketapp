@@ -7021,8 +7021,9 @@ router.get('/bot-analysis', async (req, res) => {
             currentPrice = 0; // Reset per fallback
         }
         
-        // ✅ FALLBACK: Se prezzo non disponibile o anomalo, prova DB
+        // ✅ FALLBACK MIGLIORATO: Se prezzo non disponibile o anomalo, prova multiple sorgenti
         if (!currentPrice || currentPrice === 0) {
+            // 1. Prova price_history (più recente)
             try {
                 const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [dbSymbol]);
                 if (lastPrice && lastPrice.price) {
@@ -7030,23 +7031,56 @@ router.get('/bot-analysis', async (req, res) => {
                     // Valida anche il prezzo dal DB
                     if (dbPrice > 0 && dbPrice < 100000 && dbPrice > 0.000001) {
                         currentPrice = dbPrice;
-                        console.log(`💾 [BOT-ANALYSIS] Usando prezzo dal DB per ${symbol}: $${currentPrice}`);
+                        console.log(`💾 [BOT-ANALYSIS] Usando prezzo da price_history per ${symbol}: $${currentPrice}`);
                     }
                 }
             } catch (dbErr) {
                 // Ignora errori DB
             }
+
+            // 2. Se ancora 0, prova klines (ultimo close_price)
+            if (!currentPrice || currentPrice === 0) {
+                try {
+                    const lastKline = await dbGet("SELECT close_price FROM klines WHERE symbol = $1 AND interval = '15m' ORDER BY open_time DESC LIMIT 1", [dbSymbol]);
+                    if (lastKline && lastKline.close_price) {
+                        const klinePrice = parseFloat(lastKline.close_price);
+                        if (klinePrice > 0 && klinePrice < 100000 && klinePrice > 0.000001) {
+                            currentPrice = klinePrice;
+                            console.log(`💾 [BOT-ANALYSIS] Usando prezzo da klines per ${symbol}: $${currentPrice}`);
+                        }
+                    }
+                } catch (klineErr) {
+                    // Ignora errori DB
+                }
+            }
+
+            // 3. Se ancora 0, prova WebSocket cache (se disponibile)
+            if (!currentPrice || currentPrice === 0) {
+                try {
+                    if (wsService && typeof wsService.getLatestPrice === 'function') {
+                        const wsPrice = wsService.getLatestPrice(normalizedSymbol);
+                        if (wsPrice && wsPrice > 0 && wsPrice < 100000 && wsPrice > 0.000001) {
+                            currentPrice = wsPrice;
+                            console.log(`📡 [BOT-ANALYSIS] Usando prezzo da WebSocket cache per ${symbol}: $${currentPrice}`);
+                        }
+                    }
+                } catch (wsErr) {
+                    // Ignora errori WebSocket
+                }
+            }
         }
 
         if (!currentPrice || currentPrice === 0) {
-            console.error(`❌ [BOT-ANALYSIS] Impossibile ottenere prezzo per simbolo: ${symbol} (normalized: ${dbSymbol})`);
+            console.warn(`⚠️ [BOT-ANALYSIS] Impossibile ottenere prezzo per simbolo: ${symbol} (normalized: ${dbSymbol}). Tutti i fallback falliti.`);
             // ✅ FIX: Restituisci status 200 con dati mock invece di 500 per non rompere il frontend
+            // Ma includi un messaggio chiaro che i dati non sono disponibili
             return res.status(200).json({
-                error: `Impossibile ottenere prezzo corrente per ${symbol}`,
+                error: `Dati insufficienti per ${symbol}. Il prezzo non è disponibile da nessuna sorgente (REST API, database, WebSocket).`,
                 symbol: symbol,
                 normalizedSymbol: dbSymbol,
+                dataAvailable: false,
                 // Dati mock per evitare crash frontend
-                signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Prezzo non disponibile'] },
+                signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Dati insufficienti: prezzo non disponibile'] },
                 currentPrice: 0,
                 longSignal: { strength: 0, confirmations: 0 },
                 shortSignal: { strength: 0, confirmations: 0 }
