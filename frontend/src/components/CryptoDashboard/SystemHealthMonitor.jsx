@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, CheckCircle, XCircle, Activity, Database, Radio, Layers } from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+// Usa stessa logica di CryptoDashboard per determinare API URL
+const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
 
 const SystemHealthMonitor = ({ compact = false }) => {
     const [healthStatus, setHealthStatus] = useState(null);
