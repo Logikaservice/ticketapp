@@ -11,23 +11,32 @@ const SystemHealthMonitor = ({ compact = false }) => {
 
     // Fetch health status
     const fetchHealthStatus = async () => {
+        setLoading(true);
         try {
             const response = await fetch(`${API_URL}/api/crypto/health-status`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             const data = await response.json();
             if (data.success) {
                 setHealthStatus(data.status);
                 setLastUpdate(new Date());
+            } else {
+                throw new Error('Risposta non valida dal server');
             }
         } catch (error) {
             console.error('Errore fetch health status:', error);
             setHealthStatus({
                 overall: 'error',
-                criticalIssues: ['Impossibile contattare backend'],
+                criticalIssues: ['Impossibile contattare backend - ' + error.message],
                 backend: { healthy: false, message: 'Backend non raggiungibile' },
                 database: { healthy: false, message: 'Non verificato' },
                 websocket: { healthy: false, message: 'Non verificato' },
                 aggregator: { healthy: false, message: 'Non verificato' }
             });
+            setLastUpdate(new Date());
         } finally {
             setLoading(false);
         }
@@ -41,7 +50,7 @@ const SystemHealthMonitor = ({ compact = false }) => {
     }, []);
 
     // Loading state
-    if (loading) {
+    if (loading && !healthStatus) {
         return (
             <div className="flex items-center space-x-2 text-gray-400">
                 <Activity className="w-4 h-4 animate-spin" />
@@ -152,9 +161,10 @@ const SystemHealthMonitor = ({ compact = false }) => {
                 </span>
                 <button
                     onClick={fetchHealthStatus}
-                    className="text-blue-400 hover:text-blue-300 transition-colors"
+                    disabled={loading}
+                    className={`text-blue-400 hover:text-blue-300 transition-colors ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                    Aggiorna
+                    {loading ? 'Aggiornamento...' : 'Aggiorna'}
                 </button>
             </div>
         </div>
