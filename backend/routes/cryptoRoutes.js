@@ -1908,6 +1908,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
     try {
         // ✅ FIX CRITICO: Salta "global" completamente - è solo per impostazioni
         if (!symbol || symbol.toLowerCase() === 'global') {
+            if (Math.random() < 0.01) { // Log solo 1% per non spammare
+                console.log(`⏭️  [BOT-CYCLE] Saltando simbolo "global" (solo impostazioni)`);
+            }
             return; // Non processare "global"
         }
 
@@ -5118,7 +5121,7 @@ router.delete('/binance/order/:symbol/:orderId', async (req, res) => {
 router.get('/bot/active', async (req, res) => {
     try {
         const activeBots = await dbAll(
-            "SELECT * FROM bot_settings WHERE is_active = 1"
+            "SELECT * FROM bot_settings WHERE is_active = 1 AND symbol != 'global'"
         );
         res.json({
             success: true,
