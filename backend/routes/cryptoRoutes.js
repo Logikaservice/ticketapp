@@ -1744,6 +1744,10 @@ const detectTrendOnTimeframe = async (symbol, interval, limit = 50) => {
     }
 };
 
+// ✅ CACHE VOLUME per evitare troppe chiamate API
+const volumeCache = new Map(); // { symbol: { volume: number, timestamp: number } }
+const VOLUME_CACHE_TTL = 3600000; // 1 ora (volume 24h non cambia così spesso)
+
 /**
  * Ottiene il volume di trading 24h per un simbolo
  * @param {string} symbol - Simbolo crypto (es. 'bitcoin')
@@ -1751,6 +1755,33 @@ const detectTrendOnTimeframe = async (symbol, interval, limit = 50) => {
  */
 const get24hVolume = async (symbol) => {
     try {
+        // ✅ Controlla cache prima di chiamare API
+        const cached = volumeCache.get(symbol);
+        if (cached && (Date.now() - cached.timestamp) < VOLUME_CACHE_TTL) {
+            return cached.volume;
+        }
+
+        // ✅ FIX: Controlla se IP è bannato da Binance prima di chiamare API
+        const BINANCE_BAN_COOLDOWN = 86400000 * 365; // 1 anno (ban permanente)
+        const last418Error = rateLimitErrors.get('BINANCE_IP_BANNED') || 0;
+        const timeSinceBan = Date.now() - last418Error;
+        const isBinanceBanned = last418Error > 0 && timeSinceBan < BINANCE_BAN_COOLDOWN;
+
+        if (isBinanceBanned) {
+            // IP bannato - usa cache anche se scaduta o ritorna 0
+            if (cached) {
+                if (Math.random() < 0.1) { // Log solo 10% per non spammare
+                    console.log(`🚫 [VOLUME-BAN] IP bannato - usando volume cached per ${symbol}: $${cached.volume.toLocaleString('it-IT')}`);
+                }
+                return cached.volume;
+            }
+            // Nessun volume cached - ritorna 0 (meglio che errore)
+            if (Math.random() < 0.1) {
+                console.warn(`⚠️ [VOLUME-BAN] IP bannato - nessun volume cached per ${symbol}, ritorno 0`);
+            }
+            return 0;
+        }
+
         const tradingPair = SYMBOL_TO_PAIR[symbol];
         if (!tradingPair) {
             console.warn(`⚠️ [VOLUME] No trading pair found for ${symbol}`);
@@ -1762,14 +1793,40 @@ const get24hVolume = async (symbol) => {
 
         if (!data || !data.quoteVolume) {
             console.warn(`⚠️ [VOLUME] Invalid response for ${symbol}`);
+            // Usa cache anche se scaduta se disponibile
+            if (cached) {
+                return cached.volume;
+            }
             return 0;
         }
 
         // Volume in quote currency (USDT)
         const volumeQuote = parseFloat(data.quoteVolume);
+        
+        // ✅ Salva in cache
+        volumeCache.set(symbol, { volume: volumeQuote, timestamp: Date.now() });
+        
         return volumeQuote;
     } catch (err) {
+        // ✅ Rileva ban IP (HTTP 418) e aggiorna flag
+        if (err.message && (err.message.includes('418') || err.message.includes('IP banned'))) {
+            rateLimitErrors.set('BINANCE_IP_BANNED', Date.now());
+            console.error(`🚫 [VOLUME-BAN] IP bannato durante fetch volume per ${symbol} - uso cache se disponibile`);
+            // Usa cache anche se scaduta
+            const cached = volumeCache.get(symbol);
+            if (cached) {
+                return cached.volume;
+            }
+        }
+        
         console.error(`❌ [VOLUME] Error fetching 24h volume for ${symbol}:`, err.message);
+        
+        // ✅ Usa cache anche se scaduta se disponibile
+        const cached = volumeCache.get(symbol);
+        if (cached) {
+            return cached.volume;
+        }
+        
         return 0;
     }
 };
@@ -4534,20 +4591,16 @@ router.get('/positions/update-pnl', async (req, res) => {
         const { symbol } = req.query;
         const targetSymbol = symbol || 'bitcoin';
 
-        // Get current price
+        // ✅ FIX: Usa getSymbolPrice invece di chiamata diretta a REST API (gestisce WebSocket/cache/ban IP)
         let currentPrice = 0;
         try {
-            const data = await httpsGet(`https://api.binance.com/api/v3/ticker/price?symbol=BTCEUR`);
-            if (data && data.price) {
-                currentPrice = parseFloat(data.price);
-            } else {
-                // Fallback to CoinGecko
-                const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur');
-                if (geckoData && geckoData.bitcoin && geckoData.bitcoin.eur) {
-                    currentPrice = parseFloat(geckoData.bitcoin.eur);
-                }
+            // Usa getSymbolPrice che gestisce automaticamente WebSocket/cache quando IP è bannato
+            currentPrice = await getSymbolPrice(targetSymbol);
+            if (!currentPrice || currentPrice <= 0 || isNaN(currentPrice)) {
+                return res.status(500).json({ error: 'Could not fetch current price' });
             }
         } catch (e) {
+            console.error(`❌ Error fetching price for ${targetSymbol}:`, e.message);
             return res.status(500).json({ error: 'Could not fetch current price' });
         }
 
@@ -9083,19 +9136,37 @@ router.get('/scanner', async (req, res) => {
             // FILEUR, SANDEUR, AAVEEUR, CRVEUR, LDOEUR, MANAEUR, AXSEUR
         ];
 
+        // ✅ FIX: Controlla se IP è bannato prima di scaricare prezzi
+        const BINANCE_BAN_COOLDOWN_SCANNER = 86400000 * 365; // 1 anno (ban permanente)
+        const last418ErrorScanner = rateLimitErrors.get('BINANCE_IP_BANNED') || 0;
+        const timeSinceBanScanner = Date.now() - last418ErrorScanner;
+        const isBinanceBannedScanner = last418ErrorScanner > 0 && timeSinceBanScanner < BINANCE_BAN_COOLDOWN_SCANNER;
+
         // ✅ OTTIMIZZAZIONE: Scarica TUTTI i prezzi in una sola chiamata per evitare rate limits
+        // ⚠️ MA NON caricare se IP è bannato (usa getSymbolPrice che gestisce WebSocket/cache)
         const allPricesMap = new Map();
-        try {
-            // console.log('🔍 [SCANNER] Fetching ALL live prices from Binance...');
-            const allPrices = await httpsGet('https://api.binance.com/api/v3/ticker/price', 5000); // 5s timeout
-            if (Array.isArray(allPrices)) {
-                allPrices.forEach(p => {
-                    allPricesMap.set(p.symbol, parseFloat(p.price));
-                });
-                // console.log(`✅ [SCANNER] Fetched ${allPrices.length} prices`);
+        if (!isBinanceBannedScanner) {
+            try {
+                // console.log('🔍 [SCANNER] Fetching ALL live prices from Binance...');
+                const allPrices = await httpsGet('https://api.binance.com/api/v3/ticker/price', 5000); // 5s timeout
+                if (Array.isArray(allPrices)) {
+                    allPrices.forEach(p => {
+                        allPricesMap.set(p.symbol, parseFloat(p.price));
+                    });
+                    // console.log(`✅ [SCANNER] Fetched ${allPrices.length} prices`);
+                }
+            } catch (err) {
+                // ✅ Rileva ban IP (HTTP 418) e aggiorna flag
+                if (err.message && (err.message.includes('418') || err.message.includes('IP banned'))) {
+                    rateLimitErrors.set('BINANCE_IP_BANNED', Date.now());
+                    console.error(`🚫 [SCANNER-BAN] IP bannato durante bulk price fetch - uso getSymbolPrice con WebSocket`);
+                }
+                console.error('⚠️ [SCANNER] Bulk price fetch failed:', err.message);
             }
-        } catch (err) {
-            console.error('⚠️ [SCANNER] Bulk price fetch failed:', err.message);
+        } else {
+            if (Math.random() < 0.1) {
+                console.log(`🚫 [SCANNER-BAN] IP bannato - uso getSymbolPrice con WebSocket/cache invece di bulk fetch`);
+            }
         }
 
         const results = await Promise.all(symbolsToScan.map(async (s) => {
@@ -9104,27 +9175,87 @@ router.get('/scanner', async (req, res) => {
                 let currentPrice = 0;
                 let priceFound = false;
 
+                // ✅ Helper per validare prezzo (evita valori anomali)
+                const isValidPrice = (price) => {
+                    if (!price || price <= 0 || isNaN(price)) return false;
+                    // Prezzi anomali: troppo alti (> $100k) o troppo bassi (< $0.0001)
+                    if (price > 100000 || price < 0.0001) return false;
+                    return true;
+                };
+
                 if (allPricesMap.has(s.pair)) {
                     currentPrice = allPricesMap.get(s.pair);
-                    priceFound = currentPrice > 0;
+                    priceFound = isValidPrice(currentPrice);
+                    
+                    // ✅ Se prezzo non valido, scarta e usa fallback
+                    if (!priceFound) {
+                        console.warn(`⚠️ [SCANNER] Prezzo anomalo da bulk fetch per ${s.pair}: $${currentPrice}, uso fallback`);
+                        currentPrice = 0;
+                    }
                 } else {
-                    // Fallback fetch singolo
-                    try {
-                        const priceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${s.pair}`;
-                        const priceData = await httpsGet(priceUrl, 1500).catch(() => null);
-                        if (priceData && priceData.price) {
-                            currentPrice = parseFloat(priceData.price);
-                            priceFound = currentPrice > 0;
-                        } else {
-                            // Fallback DB
-                            const lastPriceDb = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [s.symbol]);
-                            if (lastPriceDb && lastPriceDb.price) {
-                                currentPrice = parseFloat(lastPriceDb.price);
-                                priceFound = currentPrice > 0;
+                    // ✅ FIX: Se IP è bannato o bulk fetch fallito, usa getSymbolPrice (gestisce WebSocket/cache)
+                    if (isBinanceBannedScanner) {
+                        try {
+                            // Usa getSymbolPrice che gestisce WebSocket/cache/database
+                            currentPrice = await getSymbolPrice(s.symbol);
+                            priceFound = isValidPrice(currentPrice);
+                            
+                            // ✅ Se prezzo non valido, salta questo simbolo
+                            if (!priceFound) {
+                                console.warn(`⚠️ [SCANNER] Prezzo non valido da getSymbolPrice per ${s.symbol}: $${currentPrice}, salto simbolo`);
+                            }
+                        } catch (e) {
+                            console.warn(`⚠️ [SCANNER] Errore getSymbolPrice per ${s.symbol}:`, e.message);
+                            priceFound = false;
+                        }
+                    } else {
+                        // Fallback fetch singolo (solo se non bannati)
+                        try {
+                            const priceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${s.pair}`;
+                            const priceData = await httpsGet(priceUrl, 1500).catch(() => null);
+                            if (priceData && priceData.price) {
+                                currentPrice = parseFloat(priceData.price);
+                                priceFound = isValidPrice(currentPrice);
+                                
+                                // ✅ Se prezzo non valido, usa getSymbolPrice
+                                if (!priceFound) {
+                                    console.warn(`⚠️ [SCANNER] Prezzo anomalo da REST API per ${s.pair}: $${currentPrice}, uso getSymbolPrice`);
+                                    try {
+                                        currentPrice = await getSymbolPrice(s.symbol);
+                                        priceFound = isValidPrice(currentPrice);
+                                    } catch (e) {
+                                        priceFound = false;
+                                    }
+                                }
+                            } else {
+                                // Fallback a getSymbolPrice (gestisce WebSocket/cache)
+                                try {
+                                    currentPrice = await getSymbolPrice(s.symbol);
+                                    priceFound = isValidPrice(currentPrice);
+                                } catch (e) {
+                                    // Ultimo fallback: DB (ma valida il prezzo)
+                                    const lastPriceDb = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [s.symbol]);
+                                    if (lastPriceDb && lastPriceDb.price) {
+                                        currentPrice = parseFloat(lastPriceDb.price);
+                                        priceFound = isValidPrice(currentPrice);
+                                        
+                                        // ✅ Se prezzo DB è anomalo, salta
+                                        if (!priceFound) {
+                                            console.warn(`⚠️ [SCANNER] Prezzo anomalo da DB per ${s.symbol}: $${currentPrice}, salto simbolo`);
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            console.warn(`⚠️ [SCANNER] Errore recupero prezzo per ${s.pair}:`, e.message);
+                            // Fallback a getSymbolPrice
+                            try {
+                                currentPrice = await getSymbolPrice(s.symbol);
+                                priceFound = isValidPrice(currentPrice);
+                            } catch (e2) {
+                                priceFound = false;
                             }
                         }
-                    } catch (e) {
-                        console.warn(`⚠️ [SCANNER] Errore recupero prezzo per ${s.pair}:`, e.message);
                     }
                 }
 
