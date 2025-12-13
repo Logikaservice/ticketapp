@@ -25,8 +25,7 @@ const QuickRequestModal = ({ onClose, onSubmit, existingClients = [] }) => {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const base = process.env.REACT_APP_API_URL || '';
-        const url = base + '/clients';
+        const url = '/api/clients';
         const clientsResponse = await fetch(url);
         
         if (clientsResponse.ok) {

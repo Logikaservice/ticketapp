@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { getInitialMaterial, getInitialTimeLog, getInitialOfferta } from '../utils/helpers';
+import { buildApiUrl } from '../utils/apiConfig';
 
 export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showNotification, getAuthHeader, googleCalendarSync, setModalState) => {
   const [timeLogs, setTimeLogs] = useState([]);
@@ -196,7 +197,7 @@ export const useTimeLogs = (selectedTicket, setTickets, setSelectedTicket, showN
 
       console.log('[SAVE-TIMELOGS] Dati da inviare:', logsToSave);
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/timelogs`, {
+      const response = await fetch(buildApiUrl(`/api/tickets/${selectedTicket.id}/timelogs`), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

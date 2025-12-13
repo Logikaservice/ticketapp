@@ -1,3 +1,5 @@
+import { buildApiUrl } from '../utils/apiConfig';
+
 export const useClients = (showNotification, setUsers, setTickets, getAuthHeader) => {
   const handleCreateClient = async (newClientData, closeModal) => {
     const selectedCompany = newClientData.useExistingCompany
@@ -30,7 +32,7 @@ export const useClients = (showNotification, setUsers, setTickets, getAuthHeader
     };
     
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users`, {
+      const response = await fetch(buildApiUrl('/api/users'), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -58,7 +60,7 @@ export const useClients = (showNotification, setUsers, setTickets, getAuthHeader
     if (!id) return showNotification('ID cliente non valido.', 'error');
     
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${id}`, {
+      const response = await fetch(buildApiUrl(`/api/users/${id}`), {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -87,7 +89,7 @@ export const useClients = (showNotification, setUsers, setTickets, getAuthHeader
     }
     
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${id}`, {
+      const response = await fetch(buildApiUrl(`/api/users/${id}`), {
         method: 'DELETE',
         headers: getAuthHeader()
       });

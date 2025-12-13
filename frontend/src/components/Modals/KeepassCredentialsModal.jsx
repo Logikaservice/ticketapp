@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Key, Eye, EyeOff, Copy, Check, ChevronDown, ChevronRight, Lock, Globe, User, FileText } from 'lucide-react';
+import { buildApiUrl } from '../../utils/apiConfig';
 
 const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, highlightEntryId = null }) => {
   const [credentials, setCredentials] = useState([]);
@@ -45,7 +46,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
       setError(null);
       
       const authHeader = getAuthHeader();
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/credentials`, {
+      const response = await fetch(buildApiUrl('/api/keepass/credentials'), {
         headers: {
           ...authHeader,
           'x-user-id': currentUser?.id?.toString() || authHeader['x-user-id'] || '',
@@ -261,7 +262,7 @@ const KeepassCredentialsModal = ({ isOpen, onClose, currentUser, getAuthHeader, 
       console.log('🔓 Password non visibile, decifro prima...');
       try {
         const authHeader = getAuthHeader();
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/decrypt-password`, {
+        const response = await fetch(buildApiUrl('/api/keepass/decrypt-password'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

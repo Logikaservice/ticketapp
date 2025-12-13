@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { buildApiUrl } from '../utils/apiConfig';
 
 export const useGoogleCalendar = (getAuthHeader) => {
   const [loading, setLoading] = useState(false);
@@ -13,7 +14,7 @@ export const useGoogleCalendar = (getAuthHeader) => {
       };
       
       // Invia ticket al backend per sincronizzazione automatica
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/sync-google-calendar`, {
+      const response = await fetch(buildApiUrl('/api/sync-google-calendar'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,7 +44,7 @@ export const useGoogleCalendar = (getAuthHeader) => {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/disable-calendar-notifications`, {
+      const response = await fetch(buildApiUrl('/api/disable-calendar-notifications'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

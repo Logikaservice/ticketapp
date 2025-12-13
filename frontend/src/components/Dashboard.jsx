@@ -7,6 +7,7 @@ import TicketsCalendar from './TicketsCalendar';
 import TemporarySuppliesPanel from './TemporarySuppliesPanel';
 
 import { formatDate } from '../utils/formatters';
+import { buildApiUrl } from '../utils/apiConfig';
 
 const StatCard = ({ title, value, icon, highlight = null, onClick, disabled, cardKey = null }) => {
   const ringClass = highlight
@@ -289,10 +290,10 @@ const AlertsPanel = ({ alerts = [], onOpenTicket, onCreateTicketFromAlert, onDel
                         {avv.attachments.map((attachment, index) => (
                           <div key={index} className="relative">
                             <img
-                              src={`${process.env.REACT_APP_API_URL}${attachment.path}`}
+                              src={attachment.path.startsWith('http') ? attachment.path : attachment.path}
                               alt={attachment.originalName}
                               className="w-16 h-16 object-cover rounded border cursor-pointer hover:opacity-80 transition"
-                              onClick={() => window.open(`${process.env.REACT_APP_API_URL}${attachment.path}`, '_blank')}
+                              onClick={() => window.open(attachment.path.startsWith('http') ? attachment.path : attachment.path, '_blank')}
                               title={attachment.originalName}
                             />
                           </div>
@@ -542,7 +543,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
   // Avvisi: ora da API backend
   const [alerts, setAlerts] = React.useState([]);
-  const apiBase = process.env.REACT_APP_API_URL;
+  const apiBase = buildApiUrl('');
   const isKeepassAdmin = currentUser?.ruolo === 'cliente' &&
     Array.isArray(currentUser?.admin_companies) &&
     currentUser.admin_companies.length > 0;

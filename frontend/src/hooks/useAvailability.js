@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { buildApiUrl } from '../utils/apiConfig';
 
 export const useAvailability = (getAuthHeader) => {
   const [unavailableDays, setUnavailableDays] = useState([]);
@@ -45,7 +46,7 @@ export const useAvailability = (getAuthHeader) => {
         const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout di 10 secondi
         
         try {
-          const res = await fetch(`${process.env.REACT_APP_API_URL}/api/availability/public`, {
+          const res = await fetch(buildApiUrl('/api/availability/public'), {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json'
@@ -80,7 +81,7 @@ export const useAvailability = (getAuthHeader) => {
           const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout di 10 secondi
           
           try {
-            const res = await fetch(`${process.env.REACT_APP_API_URL}/api/availability`, {
+            const res = await fetch(buildApiUrl('/api/availability'), {
               method: 'GET',
               headers: {
                 'Content-Type': 'application/json',
@@ -158,7 +159,7 @@ export const useAvailability = (getAuthHeader) => {
   // Rimuovi un giorno non disponibile
   const setDayAvailable = async (date) => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/availability/${date}`, {
+      const response = await fetch(buildApiUrl(`/api/availability/${date}`), {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

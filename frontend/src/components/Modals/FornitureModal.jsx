@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Package, Plus, Trash2 } from 'lucide-react';
+import { buildApiUrl } from '../../utils/apiConfig';
 
 const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, getAuthHeader }) => {
   const [forniture, setForniture] = useState([]);
@@ -16,7 +17,7 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
 
   const fetchForniture = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`, {
+      const response = await fetch(buildApiUrl(`/api/tickets/${ticket.id}/forniture`), {
         headers: getAuthHeader()
       });
       if (response.ok) {
@@ -46,7 +47,7 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
     console.log('🔍 DEBUG FORNITURE: Auth headers:', authHeaders);
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${ticket.id}/forniture`, {
+      const response = await fetch(buildApiUrl(`/api/tickets/${ticket.id}/forniture`), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -87,7 +88,7 @@ const FornitureModal = ({ ticket, onClose, onFornitureCountChange, currentUser, 
     if (!window.confirm('Confermi la restituzione di questo materiale?')) return;
 
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/forniture/${fornituraId}`, {
+      const response = await fetch(buildApiUrl(`/api/tickets/forniture/${fornituraId}`), {
         method: 'DELETE',
         headers: getAuthHeader()
       });

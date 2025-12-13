@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { X, Upload, FileText, AlertCircle, CheckCircle, RefreshCw, Building, Crown, ChevronRight, ChevronDown, Mail, Trash2 } from 'lucide-react';
+import { buildApiUrl } from '../../utils/apiConfig';
 
 const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }) => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -92,7 +93,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
     const checkExistingCredentials = async () => {
       try {
         const authHeader = getAuthHeader();
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/has-credentials/${selectedClientId}`, {
+        const response = await fetch(buildApiUrl(`/api/keepass/has-credentials/${selectedClientId}`), {
           method: 'GET',
           headers: {
             'x-user-role': 'tecnico',
@@ -141,7 +142,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
 
     try {
       const authHeader = getAuthHeader();
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/credentials/${selectedClientId}`, {
+      const response = await fetch(buildApiUrl(`/api/keepass/credentials/${selectedClientId}`), {
         method: 'DELETE',
         headers: {
           'x-user-role': 'tecnico',
@@ -209,7 +210,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
       formData.append('clientId', selectedClientId);
 
       const authHeader = getAuthHeader();
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/import`, {
+      const response = await fetch(buildApiUrl('/api/keepass/import'), {
         method: 'POST',
         headers: {
           'x-user-role': 'tecnico',
@@ -256,7 +257,7 @@ const ImportKeepassModal = ({ isOpen, onClose, users, getAuthHeader, onSuccess }
 
     try {
       const authHeader = getAuthHeader();
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/keepass/migrate`, {
+      const response = await fetch(buildApiUrl('/api/keepass/migrate'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

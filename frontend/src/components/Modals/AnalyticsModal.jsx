@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, BarChart3, Building } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { buildApiUrl } from '../../utils/apiConfig';
 
 const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
   const [loading, setLoading] = useState(true);
@@ -45,8 +46,8 @@ const AnalyticsModal = ({ currentUser, users, getAuthHeader, onClose }) => {
       try {
         setLoading(true);
         const url = selectedCompany === 'all' 
-          ? `${process.env.REACT_APP_API_URL}/api/analytics`
-          : `${process.env.REACT_APP_API_URL}/api/analytics?company=${encodeURIComponent(selectedCompany)}`;
+          ? buildApiUrl('/api/analytics')
+          : buildApiUrl(`/api/analytics?company=${encodeURIComponent(selectedCompany)}`);
         
         console.log('📊 Analytics: Avvio fetch per', selectedCompany);
         const response = await fetch(url, {

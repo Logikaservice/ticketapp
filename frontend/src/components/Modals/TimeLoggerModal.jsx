@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Clock, Check, Plus, Copy, Trash2, Users, Eye, Edit, Save, Wrench } from 'lucide-react';
 import { calculateDurationHours } from '../../utils/helpers';
+import { buildApiUrl } from '../../utils/apiConfig';
 
 const TimeLoggerModal = ({
   selectedTicket,
@@ -463,7 +464,7 @@ const TimeLoggerModal = ({
                                   const fd = new FormData();
                                   fd.append('file', file);
                                   const authHeaders = getAuthHeader ? getAuthHeader() : {};
-                                  const res = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/offerte/attachments`, {
+                                  const res = await fetch(buildApiUrl(`/api/tickets/${selectedTicket.id}/offerte/attachments`), {
                                     method: 'POST',
                                     headers: authHeaders,
                                     body: fd
@@ -531,7 +532,7 @@ const TimeLoggerModal = ({
 
                         {(offerta.allegati || []).map((al, idx) => (
                           <div key={idx} className="flex items-center gap-2 px-2 py-1 bg-purple-50 border border-purple-200 rounded text-xs">
-                            <a href={`${process.env.REACT_APP_API_URL}${al.path}`} target="_blank" rel="noreferrer" className="text-purple-700 hover:underline max-w-[180px] truncate">{al.originalName || al.filename}</a>
+                            <a href={al.path.startsWith('http') ? al.path : al.path} target="_blank" rel="noreferrer" className="text-purple-700 hover:underline max-w-[180px] truncate">{al.originalName || al.filename}</a>
                             {!fieldsDisabled && (
                               <button
                                 className="text-red-500"
@@ -544,7 +545,7 @@ const TimeLoggerModal = ({
 
                                   try {
                                     const authHeaders = getAuthHeader ? getAuthHeader() : {};
-                                    const res = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/offerte/attachments/${encodeURIComponent(al.filename)}`, {
+                                    const res = await fetch(buildApiUrl(`/api/tickets/${selectedTicket.id}/offerte/attachments/${encodeURIComponent(al.filename)}`), {
                                       method: 'DELETE',
                                       headers: authHeaders
                                     });

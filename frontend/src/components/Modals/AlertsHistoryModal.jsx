@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { X, Clock, AlertTriangle, Info, Sparkles, Calendar, User, Building, FileImage, Mail } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';
+import { buildApiUrl } from '../../utils/apiConfig';
 // getAuthHeader viene passato come prop, non importato
 
 const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alertsRefreshTrigger, initialAlertId }) => {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedAlert, setSelectedAlert] = useState(null);
-  const apiBase = process.env.REACT_APP_API_URL;
+  const apiBase = buildApiUrl('');
 
   useEffect(() => {
     if (isOpen) {

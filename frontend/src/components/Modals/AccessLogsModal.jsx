@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, Calendar, Building, Mail, User, Clock, Activity, Filter, RefreshCw } from 'lucide-react';
+import { buildApiUrl } from '../../utils/apiConfig';
 
 const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
   const [logs, setLogs] = useState([]);
@@ -45,7 +46,7 @@ const AccessLogsModal = ({ isOpen, onClose, getAuthHeader }) => {
       if (filters.onlyActive) params.append('onlyActive', 'true');
       
       const authHeader = getAuthHeader();
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/access-logs?${params}`, {
+      const response = await fetch(buildApiUrl(`/api/access-logs?${params}`), {
         headers: {
           ...authHeader
         }

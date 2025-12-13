@@ -521,7 +521,7 @@ export default function TicketApp() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000); // Timeout ridotto a 3 secondi
 
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`, {
+        const response = await fetch(buildApiUrl('/api/access-logs/heartbeat'), {
           method: 'POST',
           headers: {
             ...authHeader
@@ -589,7 +589,7 @@ export default function TicketApp() {
     const handleBeforeUnload = () => {
       if (!isSending && !isDisabled) {
         const authHeader = getAuthHeader();
-        fetch(`${process.env.REACT_APP_API_URL}/api/access-logs/heartbeat`, {
+        fetch(buildApiUrl('/api/access-logs/heartbeat'), {
           method: 'POST',
           headers: {
             ...authHeader
@@ -1770,7 +1770,7 @@ export default function TicketApp() {
     if (currentUser?.id) {
       try {
         const authHeader = getAuthHeader();
-        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/users/${currentUser.id}`, {
+        const response = await fetch(buildApiUrl(`/api/users/${currentUser.id}`), {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
