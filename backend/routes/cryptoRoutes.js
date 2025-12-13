@@ -8379,11 +8379,14 @@ router.get('/bot-analysis', async (req, res) => {
             !shortBlockedByFilters; // ✅ Aggiunto controllo filtri professionali
 
         // Calculate max position size
-        const maxAvailableForNewPosition = Math.min(
-            params.trade_size_eur,
-            riskCheck.maxPositionSize,
-            riskCheck.availableExposure * 0.5 // ✅ FIX: Aumentato a 50% per sbloccare conti piccoli
-        );
+        // ✅ FIX: Se trade_size_usdt è configurato, usa quello SEMPRE (non limitare da availableExposure)
+        const configuredTradeSize = params.trade_size_usdt || params.trade_size_eur || null;
+        const maxAvailableForNewPosition = configuredTradeSize 
+            ? configuredTradeSize  // Se configurato, usa sempre quello
+            : Math.min(
+                params.trade_size_eur || 100,
+                riskCheck.maxPositionSize
+              ); // Altrimenti usa il minimo tra trade_size e maxPositionSize
 
         const canOpenCheck = await riskManager.canOpenPosition(maxAvailableForNewPosition);
 
