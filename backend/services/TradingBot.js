@@ -502,15 +502,29 @@ async function runBotCycleForSymbol(symbol, botSettings) {
         console.log(`✅ [BOT] ${symbol} - Hybrid Strategy OK`);
 
         // 13. Check Risk Manager
-        const tradeSize = BOT_CONFIG.DEFAULT_TRADE_SIZE_USDT;
-        console.log(`🔍 [BOT] ${symbol} - Risk Manager Check: Trade size $${tradeSize}`);
-        const riskCheck = await riskManager.canOpenPosition(tradeSize);
-        if (!riskCheck.allowed) {
+        // ✅ FIX: Leggi trade_size_usdt dal database (settingsParams) invece di usare sempre il default
+        const configuredTradeSize = settingsParams.trade_size_usdt || settingsParams.trade_size_eur || BOT_CONFIG.DEFAULT_TRADE_SIZE_USDT;
+        
+        // Prima calcola maxPositionSize dal RiskManager per vedere il limite
+        const riskCheck = await riskManager.calculateMaxRisk();
+        if (!riskCheck.canTrade) {
             console.log(`⏸️ [BOT] ${symbol} - Risk Manager blocked: ${riskCheck.reason}`);
             console.log(`   Details: Exposure=${riskCheck.currentExposure}%, Daily Loss=${riskCheck.dailyLoss}%, Available=$${riskCheck.availableExposure || 0}`);
             return;
         }
-        console.log(`✅ [BOT] ${symbol} - Risk Manager OK (Available: $${riskCheck.availableExposure || 0})`);
+        
+        // ✅ FIX: Usa il trade size configurato, ma rispetta il limite del RiskManager
+        const tradeSize = Math.min(configuredTradeSize, riskCheck.maxPositionSize);
+        console.log(`🔍 [BOT] ${symbol} - Risk Manager Check: Configured trade size $${configuredTradeSize}, Max allowed $${riskCheck.maxPositionSize}, Using $${tradeSize}`);
+        
+        // Verifica che il trade size finale sia valido
+        const finalRiskCheck = await riskManager.canOpenPosition(tradeSize);
+        if (!finalRiskCheck.allowed) {
+            console.log(`⏸️ [BOT] ${symbol} - Risk Manager blocked: ${finalRiskCheck.reason}`);
+            console.log(`   Details: Exposure=${riskCheck.currentExposure}%, Daily Loss=${riskCheck.dailyLoss}%, Available=$${riskCheck.availableExposure || 0}`);
+            return;
+        }
+        console.log(`✅ [BOT] ${symbol} - Risk Manager OK (Available: $${riskCheck.availableExposure || 0}, Using trade size: $${tradeSize})`);
 
         // 14. Calculate position size
         const volume = tradeSize / currentPrice;

@@ -332,19 +332,26 @@ class SeriousRiskManager {
             const availableExposure = totalEquity * availableExposurePct;
 
             // ✅ FIXED POSITION SIZING: Logica semplice e aggressiva
-            // - 80% del portfolio diviso in 10 posizioni = 8% per posizione
+            // - Se trade_size_usdt è configurato, usa quello come dimensione fissa
+            // - Altrimenti: 80% del portfolio diviso in 10 posizioni = 8% per posizione
             // - Minimo assoluto: $80 USDT per posizione (anche con portfolio piccolo)
             // - Cresce con il portfolio: se portfolio cresce, posizioni crescono
 
             const FIXED_POSITION_PCT = 0.08;  // 8% del portfolio (default)
-            // ✅ Se l'utente imposta trade_size_usdt, quello diventa il minimo assoluto (no micro-trade)
-            const MIN_POSITION_SIZE = configuredTradeSize || 80.0;
+            const MIN_POSITION_SIZE = 80.0;   // Minimo assoluto quando non configurato
 
-            // Calcola dimensione posizione basata su portfolio
-            let calculatedPositionSize = totalEquity * FIXED_POSITION_PCT;
-
-            // Applica minimo assoluto (mai meno di $80 USDT)
-            let maxPositionSize = Math.max(calculatedPositionSize, MIN_POSITION_SIZE);
+            let maxPositionSize;
+            
+            // ✅ FIX: Se trade_size_usdt è configurato, usa quello come dimensione fissa
+            if (configuredTradeSize) {
+                maxPositionSize = configuredTradeSize;
+                console.log(`💰 [FIXED SIZING] Usando trade_size_usdt configurato: $${maxPositionSize.toFixed(2)} USDT`);
+            } else {
+                // Calcola dimensione posizione basata su portfolio (8% default)
+                let calculatedPositionSize = totalEquity * FIXED_POSITION_PCT;
+                // Applica minimo assoluto (mai meno di $80 USDT)
+                maxPositionSize = Math.max(calculatedPositionSize, MIN_POSITION_SIZE);
+            }
 
             // ✅ FIX CRITICO: Se il cash disponibile è inferiore al minimo richiesto,
             // blocca l'apertura di nuove posizioni (non aprire posizioni troppo piccole)
