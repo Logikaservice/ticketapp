@@ -7113,8 +7113,10 @@ router.get('/bot-analysis', async (req, res) => {
             [dbSymbol] // ✅ FIX: Usa simbolo normalizzato per query DB
         );
 
-        // Se non ci sono klines, usa price_history
+        // ✅ FIX: Se non ci sono klines o sono troppo poche, prova price_history come fallback
         let historyForSignal = [];
+        let hasEnoughHistory = false;
+        
         // ✅ SANITIZE: rimuovi righe con prezzi non numerici o nulli
         if (priceHistoryData && priceHistoryData.length > 0) {
             priceHistoryData = priceHistoryData.filter(row => {
@@ -7338,16 +7340,37 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         // Generate signal with full details
+        // ✅ FIX: Verifica che abbiamo abbastanza dati storici (almeno 20 candele) per un'analisi valida
         if (!historyForSignal || historyForSignal.length === 0) {
-            console.log(`⚠️ No data for ${symbol} (normalized: ${dbSymbol})`);
+            console.log(`⚠️ [BOT-ANALYSIS] No data for ${symbol} (normalized: ${dbSymbol})`);
             return res.status(200).json({
                 error: `Dati insufficienti per ${symbol}`,
                 symbol: symbol,
                 normalizedSymbol: dbSymbol,
-                suggestion: 'Il bot sta ancora raccogliendo dati per questo simbolo',
+                dataAvailable: false,
+                suggestion: 'Il bot sta ancora raccogliendo dati per questo simbolo. Prova tra qualche minuto.',
                 // Restituisci dati mock per evitare crash frontend
-                signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Dati insufficienti'] },
-                currentPrice: 0,
+                signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Dati insufficienti: nessun dato storico disponibile'] },
+                currentPrice: currentPrice || 0,
+                longSignal: { strength: 0, confirmations: 0 },
+                shortSignal: { strength: 0, confirmations: 0 }
+            });
+        }
+
+        // ✅ FIX: Verifica che abbiamo almeno 20 candele per un'analisi RSI valida
+        if (historyForSignal.length < 20) {
+            console.warn(`⚠️ [BOT-ANALYSIS] Dati insufficienti per ${symbol} (normalized: ${dbSymbol}): solo ${historyForSignal.length} candele (minimo 20 richieste)`);
+            return res.status(200).json({
+                error: `Dati storici insufficienti per ${symbol}`,
+                symbol: symbol,
+                normalizedSymbol: dbSymbol,
+                dataAvailable: false,
+                dataCount: historyForSignal.length,
+                dataRequired: 20,
+                suggestion: `Sono disponibili solo ${historyForSignal.length} candele. Servono almeno 20 candele per un'analisi valida. Il bot sta ancora raccogliendo dati.`,
+                // Restituisci dati mock ma con prezzo corrente se disponibile
+                signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: [`Dati insufficienti: ${historyForSignal.length}/20 candele disponibili`] },
+                currentPrice: currentPrice || 0,
                 longSignal: { strength: 0, confirmations: 0 },
                 shortSignal: { strength: 0, confirmations: 0 }
             });
