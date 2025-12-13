@@ -6452,6 +6452,9 @@ router.get('/bot-analysis', async (req, res) => {
 
         // Get symbol from query parameter, default to bitcoin
         let symbol = req.query.symbol || 'bitcoin';
+        
+        // ✅ FIX: Rimuovi eventuali suffissi tipo ":1" dal simbolo (es. "atom:1" -> "atom")
+        symbol = symbol.split(':')[0].split('?')[0];
 
         // ✅ CHECK CACHE - Se abbiamo dati freschi (< 3 secondi), restituiscili immediatamente
         const cacheKey = `bot-analysis-${symbol}`;
@@ -6627,7 +6630,12 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         if (!currentPrice || currentPrice === 0) {
-            return res.status(500).json({ error: 'Impossibile ottenere prezzo corrente' });
+            console.error(`❌ [BOT-ANALYSIS] Impossibile ottenere prezzo per simbolo: ${symbol} (normalized: ${dbSymbol})`);
+            return res.status(500).json({ 
+                error: `Impossibile ottenere prezzo corrente per ${symbol}`,
+                symbol: symbol,
+                normalizedSymbol: dbSymbol
+            });
         }
 
         // Get price history for analysis (usa klines per dati più accurati)

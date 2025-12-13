@@ -16,25 +16,45 @@ const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
     const [openMenuFor, setOpenMenuFor] = useState(null);
     const menuRefs = useRef({});
 
+    // Throttling per evitare troppe chiamate simultanee
+    const lastFetchRef = useRef({});
+    const MIN_FETCH_INTERVAL = 2000; // 2 secondi tra una chiamata e l'altra
+
     const toggleExpand = async (symbol) => {
-        if (expandedSymbol === symbol) {
+        // ✅ FIX: Rimuovi eventuali suffissi tipo ":1" dal simbolo (es. "atom:1" -> "atom")
+        const cleanSymbol = symbol.split(':')[0].split('?')[0];
+        
+        if (expandedSymbol === cleanSymbol) {
             setExpandedSymbol(null);
             setQuickAnalysis(null);
             return;
         }
 
-        setExpandedSymbol(symbol);
+        // ✅ Throttling: evita chiamate troppo frequenti
+        const now = Date.now();
+        const lastFetch = lastFetchRef.current[cleanSymbol] || 0;
+        if (now - lastFetch < MIN_FETCH_INTERVAL) {
+            console.log(`⏳ [MARKET-SCANNER] Throttling: aspetto prima di caricare analisi per ${cleanSymbol}`);
+            return;
+        }
+
+        setExpandedSymbol(cleanSymbol);
         setAnalysisLoading(true);
         setQuickAnalysis(null);
+        lastFetchRef.current[cleanSymbol] = now;
 
         try {
-            const res = await fetch(`${apiBase}/api/crypto/bot-analysis?symbol=${symbol}`);
+            const res = await fetch(`${apiBase}/api/crypto/bot-analysis?symbol=${cleanSymbol}`);
             if (res.ok) {
                 const data = await res.json();
                 setQuickAnalysis(data);
+            } else {
+                console.error(`❌ [MARKET-SCANNER] Errore ${res.status} per ${cleanSymbol}`);
+                setQuickAnalysis(null);
             }
         } catch (error) {
             console.error("Error fetching quick analysis:", error);
+            setQuickAnalysis(null);
         } finally {
             setAnalysisLoading(false);
         }
@@ -134,7 +154,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
                             return (
                                 <React.Fragment key={idx}>
                                     <tr style={{ 
-                                        borderBottom: expandedSymbol === item.symbol ? 'none' : '1px solid #1f2937', 
+                                        borderBottom: expandedSymbol === item.symbol.split(':')[0].split('?')[0] ? 'none' : '1px solid #1f2937', 
                                         background: item.symbol === currentSymbol 
                                             ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(124, 58, 237, 0.15))' 
                                             : (item.strength >= 70 ? 'rgba(34, 197, 94, 0.05)' : 'transparent'),
@@ -145,7 +165,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
                                             onClick={() => toggleExpand(item.symbol)}
                                             style={{ padding: '10px', fontWeight: 'bold', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
                                         >
-                                            {expandedSymbol === item.symbol ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                            {expandedSymbol === item.symbol.split(':')[0].split('?')[0] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                             {item.display}
                                         </td>
                                         <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
@@ -402,7 +422,7 @@ const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
                                         </td>
                                     </tr>
                                     {
-                                        expandedSymbol === item.symbol && (
+                                        expandedSymbol === item.symbol.split(':')[0].split('?')[0] && (
                                             <tr style={{ background: '#1c1c1e', borderBottom: '1px solid #374151' }}>
                                                 <td colSpan="7" style={{ padding: '15px' }}>
                                                     {analysisLoading ? (

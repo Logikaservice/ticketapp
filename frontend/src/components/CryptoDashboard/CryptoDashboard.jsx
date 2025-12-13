@@ -477,21 +477,21 @@ setBotParameters(data.bot_parameters);
         fetchData();
         fetchPrice();
 
-        // Update price frequently (every 1 second for real-time feel)
+        // Update price frequently (reduced frequency to avoid ERR_INSUFFICIENT_RESOURCES)
         const priceInterval = setInterval(() => {
             fetchPrice();
-        }, 500); // ✅ REAL-TIME: Update price every 500ms
+        }, 2000); // ✅ Reduced from 500ms to 2000ms to avoid resource exhaustion
 
-        // ✅ REAL-TIME: Update data (positions, trades) every 500ms for instant updates
+        // ✅ Update data (positions, trades) - reduced frequency
         const dataInterval = setInterval(() => {
             fetchData();
             fetchActiveBots(); // Also update active bots
-        }, 500); // ✅ REAL-TIME: Reduced from 1500ms to 500ms
+        }, 3000); // ✅ Reduced from 500ms to 3000ms to avoid ERR_INSUFFICIENT_RESOURCES
 
-        // ✅ REAL-TIME: Update history (candles) more frequently for real-time updates
+        // ✅ Update history (candles) - less frequent
         const historyInterval = setInterval(() => {
             fetchHistory();
-        }, 2000); // ✅ REAL-TIME: Ridotto a 2s per aggiornamenti candele più frequenti
+        }, 5000); // ✅ Increased from 2000ms to 5000ms to reduce load
 
         return () => {
             clearInterval(priceInterval);
