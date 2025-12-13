@@ -167,23 +167,51 @@ const MarketScanner = ({ apiBase, onSelectSymbol, currentSymbol = null }) => {
                             const isLong = item.direction === 'LONG';
                             const isShort = item.direction === 'SHORT';
                             const strengthColor = item.strength >= 80 ? '#22c55e' : item.strength >= 60 ? '#eab308' : '#6b7280';
+                            
+                            // ✅ FIX: Identifica se il simbolo ha dati insufficienti
+                            const hasInsufficientData = item.hasInsufficientData || false;
 
                             return (
                                 <React.Fragment key={idx}>
                                     <tr style={{ 
                                         borderBottom: expandedSymbol === item.symbol.split(':')[0].split('?')[0] ? 'none' : '1px solid #1f2937', 
-                                        background: item.symbol === currentSymbol 
-                                            ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(124, 58, 237, 0.15))' 
-                                            : (item.strength >= 70 ? 'rgba(34, 197, 94, 0.05)' : 'transparent'),
-                                        borderLeft: item.symbol === currentSymbol ? '3px solid rgba(139, 92, 246, 0.6)' : 'none',
+                                        background: hasInsufficientData
+                                            ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(220, 38, 38, 0.15))'
+                                            : item.symbol === currentSymbol 
+                                                ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(124, 58, 237, 0.15))' 
+                                                : (item.strength >= 70 ? 'rgba(34, 197, 94, 0.05)' : 'transparent'),
+                                        borderLeft: hasInsufficientData 
+                                            ? '3px solid #ef4444'
+                                            : item.symbol === currentSymbol ? '3px solid rgba(139, 92, 246, 0.6)' : 'none',
                                         transition: 'all 0.2s'
                                     }}>
                                         <td
                                             onClick={() => toggleExpand(item.symbol)}
-                                            style={{ padding: '10px', fontWeight: 'bold', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                                            style={{ 
+                                                padding: '10px', 
+                                                fontWeight: 'bold', 
+                                                color: hasInsufficientData ? '#ef4444' : '#fff', 
+                                                cursor: 'pointer', 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                gap: '8px' 
+                                            }}
                                         >
+                                            {hasInsufficientData && <AlertCircle size={16} color="#ef4444" />}
                                             {expandedSymbol === item.symbol.split(':')[0].split('?')[0] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                             {item.display}
+                                            {hasInsufficientData && (
+                                                <span style={{ 
+                                                    fontSize: '0.7rem', 
+                                                    color: '#ef4444', 
+                                                    background: 'rgba(239, 68, 68, 0.2)', 
+                                                    padding: '2px 6px', 
+                                                    borderRadius: '4px',
+                                                    marginLeft: '8px'
+                                                }}>
+                                                    DATI INSUFFICIENTI
+                                                </span>
+                                            )}
                                         </td>
                                         <td style={{ padding: '10px', textAlign: 'right', color: '#e5e7eb' }}>
                                             ${item.price.toFixed(4)}

@@ -10295,11 +10295,18 @@ router.get('/scanner', async (req, res) => {
                 // ✅ ANALISI UNIFICATA: Usa la stessa logica di Bot Analysis
                 // Passing s.pair is CRITICAL for correct Binance fetching
                 let unifiedResult = null;
+                let hasInsufficientData = false;
                 try {
                     unifiedResult = await performUnifiedDeepAnalysis(s.symbol, currentPrice, s.pair);
+                    
+                    // ✅ FIX: Identifica se i dati sono insufficienti
+                    if (!unifiedResult || !unifiedResult.signal) {
+                        hasInsufficientData = true;
+                    }
                 } catch (analysisError) {
                     console.warn(`⚠️ [SCANNER] Errore analisi per ${s.symbol}:`, analysisError.message);
                     unifiedResult = null;
+                    hasInsufficientData = true;
                 }
 
                 let signal;
@@ -10310,12 +10317,13 @@ router.get('/scanner', async (req, res) => {
                     rsiDeepAnalysis = unifiedResult.rsi;
                 } else {
                     // Dati stale o mancanti -> Nessun segnale valido (Strength 0)
+                    hasInsufficientData = true;
                     signal = {
                         direction: 'NEUTRAL',
                         strength: 0,
                         longSignal: { strength: 0 },
                         shortSignal: { strength: 0 },
-                        reasons: ['Dati non disponibili'],
+                        reasons: ['Dati storici insufficienti'],
                         confirmations: 0,
                         indicators: { rsi: null }
                     };
@@ -10431,7 +10439,8 @@ router.get('/scanner', async (req, res) => {
                     confirmations: signal?.confirmations || 0,
                     reasons: signal?.reasons || ['Nessun segnale'],
                     rsi: rsiDeepAnalysis !== null ? rsiDeepAnalysis : rsiSimple, // ✅ USA RSI DEEP, fallback a RSI Simple
-                    rsi_deep_analysis: rsiDeepAnalysis !== null ? rsiDeepAnalysis : rsiSimple // ✅ Stesso valore
+                    rsi_deep_analysis: rsiDeepAnalysis !== null ? rsiDeepAnalysis : rsiSimple, // ✅ Stesso valore
+                    hasInsufficientData: hasInsufficientData // ✅ Flag per indicare dati insufficienti
                 };
             } catch (err) {
                 console.error(`[SCANNER] Errore completo per ${s.symbol}:`, err.message);
