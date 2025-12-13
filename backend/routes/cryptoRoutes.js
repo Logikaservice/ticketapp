@@ -5927,7 +5927,10 @@ router.put('/bot/parameters', async (req, res) => {
             sampleReceived: {
                 trade_size_usdt: parameters.trade_size_usdt,
                 stop_loss_pct: parameters.stop_loss_pct,
-                trailing_profit_protection_enabled: parameters.trailing_profit_protection_enabled
+                trailing_profit_protection_enabled: parameters.trailing_profit_protection_enabled,
+                min_volume_24h: parameters.min_volume_24h, // ✅ DEBUG: Aggiunto min_volume_24h
+                min_volume_24h_type: typeof parameters.min_volume_24h, // ✅ DEBUG: Tipo del valore
+                min_volume_24h_raw: JSON.stringify(parameters.min_volume_24h) // ✅ DEBUG: Valore raw
             }
         });
 
@@ -6004,13 +6007,27 @@ router.put('/bot/parameters', async (req, res) => {
             min_volume_24h: (parameters.min_volume_24h !== undefined && parameters.min_volume_24h !== null && parameters.min_volume_24h !== '')
                 ? (() => {
                     const parsed = parseFloat(parameters.min_volume_24h);
+                    // ✅ DEBUG: Log dettagliato per min_volume_24h
+                    console.log('🔍 [BOT-PARAMS] Processing min_volume_24h:', {
+                        raw: parameters.min_volume_24h,
+                        type: typeof parameters.min_volume_24h,
+                        parsed: parsed,
+                        isNaN: isNaN(parsed),
+                        existing: existingParams.min_volume_24h
+                    });
                     // ✅ FIX: Se parseFloat restituisce NaN, usa il valore esistente, altrimenti usa il valore parsato (anche se 0)
                     if (isNaN(parsed)) {
+                        console.warn('⚠️ [BOT-PARAMS] min_volume_24h parseFloat restituisce NaN, uso esistente:', existingParams.min_volume_24h || 500000);
                         return existingParams.min_volume_24h || 500000;
                     }
-                    return Math.max(10000, Math.min(10000000, parsed));
+                    const finalValue = Math.max(10000, Math.min(10000000, parsed));
+                    console.log('✅ [BOT-PARAMS] min_volume_24h final value:', finalValue);
+                    return finalValue;
                 })()
-                : (existingParams.min_volume_24h || 500000),
+                : (() => {
+                    console.log('⚠️ [BOT-PARAMS] min_volume_24h non presente nei parametri ricevuti, uso esistente:', existingParams.min_volume_24h || 500000);
+                    return existingParams.min_volume_24h || 500000;
+                })(),
 
             // ✅ NUOVI: Risk Management (personalizzabili)
             max_daily_loss_pct: (parameters.max_daily_loss_pct !== undefined && parameters.max_daily_loss_pct !== null && parameters.max_daily_loss_pct !== '')
@@ -6064,12 +6081,22 @@ router.put('/bot/parameters', async (req, res) => {
 
         // ✅ FIX: Serializza correttamente per PostgreSQL TEXT
         const parametersJson = JSON.stringify(validParams);
+        
+        // ✅ DEBUG: Verifica che min_volume_24h sia nel JSON
+        const parsedCheck = JSON.parse(parametersJson);
+        console.log('🔍 [BOT-PARAMS] Verifica JSON prima del salvataggio:', {
+            hasMinVolume24h: 'min_volume_24h' in parsedCheck,
+            min_volume_24h_value: parsedCheck.min_volume_24h,
+            jsonLength: parametersJson.length
+        });
 
         console.log('💾 [BOT-PARAMS] Salvataggio parametri:', {
             hasExisting: !!existing,
             paramsCount: Object.keys(validParams).length,
             hasTrailingProfit: 'trailing_profit_protection_enabled' in validParams,
-            trailingProfitValue: validParams.trailing_profit_protection_enabled
+            trailingProfitValue: validParams.trailing_profit_protection_enabled,
+            min_volume_24h: validParams.min_volume_24h, // ✅ DEBUG: Aggiunto min_volume_24h
+            min_volume_24h_in_validParams: 'min_volume_24h' in validParams // ✅ DEBUG: Verifica presenza
         });
 
         if (existing) {
@@ -6100,8 +6127,20 @@ router.put('/bot/parameters', async (req, res) => {
                     trade_size_usdt: savedParams.trade_size_usdt,
                     stop_loss_pct: savedParams.stop_loss_pct,
                     take_profit_pct: savedParams.take_profit_pct
-                }
+                },
+                // ✅ DEBUG CRITICO: Verifica min_volume_24h
+                savedMinVolume24h: savedParams.min_volume_24h,
+                hasMinVolume24h: 'min_volume_24h' in savedParams,
+                expectedMinVolume24h: validParams.min_volume_24h,
+                minVolume24hMatch: savedParams.min_volume_24h === validParams.min_volume_24h
             });
+            
+            // ✅ DEBUG CRITICO: Se min_volume_24h non corrisponde, logga errore
+            if (savedParams.min_volume_24h !== validParams.min_volume_24h) {
+                console.error('❌ [BOT-PARAMS] ERRORE CRITICO: min_volume_24h non salvato correttamente!');
+                console.error('   Valore atteso:', validParams.min_volume_24h);
+                console.error('   Valore salvato:', savedParams.min_volume_24h);
+            }
         } else {
             console.error('❌ [BOT-PARAMS] ERRORE: Parametri non salvati correttamente!');
         }

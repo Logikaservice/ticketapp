@@ -92,8 +92,11 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                     trade_size_usdt: parameters.trade_size_usdt,
                     stop_loss_pct: parameters.stop_loss_pct,
                     take_profit_pct: parameters.take_profit_pct,
-                    trailing_profit_protection_enabled: parameters.trailing_profit_protection_enabled
-                }
+                    trailing_profit_protection_enabled: parameters.trailing_profit_protection_enabled,
+                    min_volume_24h: parameters.min_volume_24h, // ✅ DEBUG: Aggiunto min_volume_24h
+                    min_volume_24h_type: typeof parameters.min_volume_24h // ✅ DEBUG: Tipo
+                },
+                allKeys: Object.keys(parameters) // ✅ DEBUG: Tutte le chiavi
             });
 
             const res = await fetch(`${apiBase}/api/crypto/bot/parameters`, {
