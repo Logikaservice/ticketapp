@@ -1768,16 +1768,46 @@ const get24hVolume = async (symbol) => {
         const isBinanceBanned = last418Error > 0 && timeSinceBan < BINANCE_BAN_COOLDOWN;
 
         if (isBinanceBanned) {
-            // IP bannato - usa cache anche se scaduta o ritorna 0
+            // IP bannato - usa cache anche se scaduta
             if (cached) {
                 if (Math.random() < 0.1) { // Log solo 10% per non spammare
                     console.log(`🚫 [VOLUME-BAN] IP bannato - usando volume cached per ${symbol}: $${cached.volume.toLocaleString('it-IT')}`);
                 }
                 return cached.volume;
             }
-            // Nessun volume cached - ritorna 0 (meglio che errore)
+            
+            // ✅ FALLBACK: Prova a recuperare dal database (ultimo volume salvato)
+            try {
+                const dbVolume = await dbGet(
+                    "SELECT volume_24h, updated_at FROM symbol_volumes_24h WHERE symbol = $1",
+                    [symbol]
+                );
+                if (dbVolume && dbVolume.volume_24h) {
+                    const volumeAge = Date.now() - new Date(dbVolume.updated_at).getTime();
+                    const MAX_VOLUME_AGE = 7 * 24 * 60 * 60 * 1000; // 7 giorni
+                    
+                    if (volumeAge < MAX_VOLUME_AGE) {
+                        // Volume nel DB è recente (< 7 giorni) - usalo
+                        const volume = parseFloat(dbVolume.volume_24h);
+                        // ✅ Aggiorna anche la cache per prossime chiamate
+                        volumeCache.set(symbol, { volume, timestamp: Date.now() });
+                        if (Math.random() < 0.1) {
+                            console.log(`💾 [VOLUME-BAN] IP bannato - usando volume dal DB per ${symbol}: $${volume.toLocaleString('it-IT')} (${Math.floor(volumeAge / (24 * 60 * 60 * 1000))} giorni fa)`);
+                        }
+                        return volume;
+                    } else {
+                        if (Math.random() < 0.1) {
+                            console.warn(`⚠️ [VOLUME-BAN] Volume nel DB troppo vecchio per ${symbol} (${Math.floor(volumeAge / (24 * 60 * 60 * 1000))} giorni), ritorno 0`);
+                        }
+                    }
+                }
+            } catch (dbError) {
+                // Ignora errori DB
+            }
+            
+            // Nessun volume disponibile - ritorna 0
             if (Math.random() < 0.1) {
-                console.warn(`⚠️ [VOLUME-BAN] IP bannato - nessun volume cached per ${symbol}, ritorno 0`);
+                console.warn(`⚠️ [VOLUME-BAN] IP bannato - nessun volume disponibile (cache/DB) per ${symbol}, ritorno 0`);
             }
             return 0;
         }
@@ -1805,6 +1835,19 @@ const get24hVolume = async (symbol) => {
         
         // ✅ Salva in cache
         volumeCache.set(symbol, { volume: volumeQuote, timestamp: Date.now() });
+        
+        // ✅ Salva anche nel database come fallback per quando IP è bannato
+        try {
+            await dbRun(
+                `INSERT INTO symbol_volumes_24h (symbol, volume_24h, updated_at) 
+                 VALUES ($1, $2, CURRENT_TIMESTAMP)
+                 ON CONFLICT (symbol) 
+                 DO UPDATE SET volume_24h = EXCLUDED.volume_24h, updated_at = CURRENT_TIMESTAMP`,
+                [symbol, volumeQuote]
+            );
+        } catch (dbError) {
+            // Ignora errori DB (non critico)
+        }
         
         return volumeQuote;
     } catch (err) {

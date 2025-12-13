@@ -321,6 +321,19 @@ async function initDb() {
             )
         `);
 
+        // ✅ Tabella per salvare volumi 24h (fallback quando IP è bannato)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS symbol_volumes_24h (
+                symbol TEXT PRIMARY KEY,
+                volume_24h DOUBLE PRECISION NOT NULL,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_symbol_volumes_symbol ON symbol_volumes_24h(symbol)
+        `);
+
         // Indici open_positions
         await client.query(`
             CREATE INDEX IF NOT EXISTS idx_open_positions_status ON open_positions(status)
