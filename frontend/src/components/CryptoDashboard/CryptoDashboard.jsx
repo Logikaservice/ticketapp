@@ -1214,7 +1214,7 @@ setBotParameters(data.bot_parameters);
                         {/* Pulsante Health Monitor */}
                         <div style={{ position: 'relative' }}>
                             <button
-                                className="toggle-btn"
+                                className={`toggle-btn ${healthStatus?.criticalIssues?.length > 0 ? 'health-alert-pulse' : ''}`}
                                 onClick={() => setShowHealthMonitor(!showHealthMonitor)}
                                 style={{ 
                                     padding: '10px 12px', 
@@ -1223,10 +1223,10 @@ setBotParameters(data.bot_parameters);
                                     alignItems: 'center', 
                                     justifyContent: 'center',
                                     position: 'relative',
-                                    animation: healthStatus?.criticalIssues?.length > 0 ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none',
-                                    boxShadow: healthStatus?.criticalIssues?.length > 0 ? '0 0 0 3px rgba(234, 179, 8, 0.3)' : 'none'
+                                    backgroundColor: healthStatus?.criticalIssues?.length > 0 ? 'rgba(234, 179, 8, 0.15)' : '',
+                                    border: healthStatus?.criticalIssues?.length > 0 ? '2px solid rgba(234, 179, 8, 0.5)' : ''
                                 }}
-                                title="Stato Sistema"
+                                title={`Stato Sistema${healthStatus?.criticalIssues?.length > 0 ? ' - ' + healthStatus.criticalIssues.length + ' problemi!' : ''}`}
                             >
                                 <Activity size={18} className={healthStatus?.overall === 'healthy' ? 'text-green-500' : 'text-red-500'} />
                             </button>

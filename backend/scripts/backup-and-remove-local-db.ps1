@@ -115,9 +115,9 @@ Write-Host "   PostgreSQL è stato arrestato e disabilitato." -ForegroundColor G
 Write-Host "   I servizi non partiranno più automaticamente." -ForegroundColor Green
 Write-Host ""
 Write-Host "   Per disinstallare completamente PostgreSQL:" -ForegroundColor Cyan
-Write-Host "   1. Apri 'Installazione applicazioni' (Win + X -> App e funzionalità)" -ForegroundColor Gray
-Write-Host "   2. Cerca 'PostgreSQL'" -ForegroundColor Gray
-Write-Host "   3. Clicca 'Disinstalla'" -ForegroundColor Gray
+Write-Host "   1. Apri Installazione applicazioni (Win + X -> App e funzionalita)" -ForegroundColor Gray
+Write-Host "   2. Cerca PostgreSQL" -ForegroundColor Gray
+Write-Host "   3. Clicca Disinstalla" -ForegroundColor Gray
 Write-Host "   4. Elimina manualmente la cartella dati (se richiesto):" -ForegroundColor Gray
 Write-Host "      C:\Program Files\PostgreSQL\" -ForegroundColor Gray
 Write-Host "      C:\Users\$env:USERNAME\AppData\Local\Temp\postgresql_installer*" -ForegroundColor Gray
