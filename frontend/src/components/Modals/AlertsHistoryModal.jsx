@@ -8,7 +8,7 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedAlert, setSelectedAlert] = useState(null);
-  const apiBase = buildApiUrl('');
+  // Rimuovo apiBase, uso direttamente buildApiUrl
 
   useEffect(() => {
     if (isOpen) {
@@ -40,7 +40,7 @@ const AlertsHistoryModal = ({ isOpen, onClose, currentUser, getAuthHeader, alert
   const fetchAlerts = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/api/alerts`, {
+      const res = await fetch(buildApiUrl('/api/alerts'), {
         headers: getAuthHeader ? getAuthHeader() : {}
       });
       if (!res.ok) throw new Error('Errore caricamento avvisi');

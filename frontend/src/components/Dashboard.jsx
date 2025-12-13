@@ -543,7 +543,8 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
   // Avvisi: ora da API backend
   const [alerts, setAlerts] = React.useState([]);
-  const apiBase = buildApiUrl('');
+  // Usa buildApiUrl direttamente per evitare doppio slash
+  const apiBase = buildApiUrl('') || '';
   const isKeepassAdmin = currentUser?.ruolo === 'cliente' &&
     Array.isArray(currentUser?.admin_companies) &&
     currentUser.admin_companies.length > 0;
@@ -726,7 +727,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
 
   const fetchAlerts = async () => {
     try {
-      const res = await fetch(`${apiBase}/api/alerts`, {
+      const res = await fetch(buildApiUrl('/api/alerts'), {
         headers: getAuthHeader()
       });
       if (!res.ok) throw new Error('Errore caricamento avvisi');
@@ -828,7 +829,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   const addAlert = async () => {
     if (!newAlert.title || !newAlert.body) return;
     try {
-      const res = await fetch(`${apiBase}/api/alerts`, {
+      const res = await fetch(buildApiUrl('/api/alerts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-user-role': 'tecnico' },
         body: JSON.stringify({ title: newAlert.title, body: newAlert.body, level: newAlert.level })
@@ -842,7 +843,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
   };
   const deleteAlert = async (id) => {
     try {
-      const res = await fetch(`${apiBase}/api/alerts/${id}`, {
+      const res = await fetch(buildApiUrl(`/api/alerts/${id}`), {
         method: 'DELETE',
         headers: {
           ...getAuthHeader(),
@@ -875,7 +876,7 @@ const Dashboard = ({ currentUser, tickets, users = [], selectedTicket, setSelect
         });
       }
 
-      const res = await fetch(`${apiBase}/api/alerts`, {
+      const res = await fetch(buildApiUrl('/api/alerts'), {
         method: 'POST',
         headers: {
           'x-user-role': 'tecnico',
