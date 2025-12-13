@@ -6939,11 +6939,35 @@ router.get('/bot-analysis', async (req, res) => {
         let currentPrice = 0;
         try {
             currentPrice = await getSymbolPrice(symbol);
+            
+            // ✅ FIX: Valida che il prezzo sia ragionevole (evita prezzi anomali tipo $90k per AAVE)
+            // Prezzi anomali suggeriscono un problema di normalizzazione simboli o errore API
+            const MAX_REASONABLE_PRICE = 100000; // $100k è il prezzo massimo ragionevole per qualsiasi crypto
+            const MIN_REASONABLE_PRICE = 0.000001; // $0.000001 è il prezzo minimo ragionevole
+            
+            if (currentPrice > MAX_REASONABLE_PRICE || currentPrice < MIN_REASONABLE_PRICE) {
+                console.error(`⚠️ [BOT-ANALYSIS] Prezzo anomalo per ${symbol} (normalized: ${dbSymbol}): $${currentPrice}. Provo fallback DB.`);
+                currentPrice = 0; // Reset per forzare fallback
+            }
         } catch (err) {
-            // Fallback: get last price from DB
-            const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [dbSymbol]);
-            if (lastPrice) {
-                currentPrice = parseFloat(lastPrice.price);
+            console.error(`❌ [BOT-ANALYSIS] Errore recupero prezzo per ${symbol}:`, err.message);
+            currentPrice = 0; // Reset per fallback
+        }
+        
+        // ✅ FALLBACK: Se prezzo non disponibile o anomalo, prova DB
+        if (!currentPrice || currentPrice === 0) {
+            try {
+                const lastPrice = await dbGet("SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1", [dbSymbol]);
+                if (lastPrice && lastPrice.price) {
+                    const dbPrice = parseFloat(lastPrice.price);
+                    // Valida anche il prezzo dal DB
+                    if (dbPrice > 0 && dbPrice < 100000 && dbPrice > 0.000001) {
+                        currentPrice = dbPrice;
+                        console.log(`💾 [BOT-ANALYSIS] Usando prezzo dal DB per ${symbol}: $${currentPrice}`);
+                    }
+                }
+            } catch (dbErr) {
+                // Ignora errori DB
             }
         }
 
