@@ -795,9 +795,9 @@ const cryptoRoutes = require('./routes/cryptoRoutes');
 cryptoRoutes.setSocketIO(io);
 
 // ✅ Endpoint pubblico system health (FUORI da /api/ per evitare middleware globali)
-const HealthCheckService = require('./services/HealthCheckService');
 app.get('/system-health', async (req, res) => {
     try {
+        const HealthCheckService = require('./services/HealthCheckService');
         const status = HealthCheckService.getLastStatus();
         if (!status) {
             const newStatus = await HealthCheckService.performCheck();
@@ -805,7 +805,8 @@ app.get('/system-health', async (req, res) => {
         }
         res.json({ success: true, status });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        console.error('❌ [SYSTEM-HEALTH] Errore:', error);
+        res.status(500).json({ success: false, error: error.message, stack: error.stack });
     }
 });
 
