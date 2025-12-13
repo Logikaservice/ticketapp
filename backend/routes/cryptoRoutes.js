@@ -7008,9 +7008,8 @@ router.get('/bot-analysis', async (req, res) => {
         let longCurrentConfirmations = signal.longSignal?.confirmations || 0;
 
         const longNeedsConfirmations = Math.max(0, LONG_MIN_CONFIRMATIONS - longCurrentConfirmations);
-        let longNeedsStrength = Math.max(0, LONG_MIN_STRENGTH - longCurrentStrength); // ✅ Sarà ricalcolato dopo MTF bonus
+        // ✅ FIX: longNeedsStrength sarà ricalcolato dopo il bonus MTF (vedi riga 7319)
         // ✅ FIX: Calcola MTF PRIMA e poi verifica requirements con adjusted strength
-        // (Questo viene ricalcolato più in basso dopo il calcolo MTF)
         const longMeetsRequirementsInitial = signal.direction === 'LONG' &&
             signal.strength >= LONG_MIN_STRENGTH &&
             signal.confirmations >= LONG_MIN_CONFIRMATIONS;
@@ -7021,9 +7020,8 @@ router.get('/bot-analysis', async (req, res) => {
         let shortCurrentConfirmations = signal.shortSignal?.confirmations || 0;
 
         const shortNeedsConfirmations = Math.max(0, SHORT_MIN_CONFIRMATIONS - shortCurrentConfirmations);
-        let shortNeedsStrength = Math.max(0, SHORT_MIN_STRENGTH - shortCurrentStrength); // ✅ Sarà ricalcolato dopo MTF bonus
+        // ✅ FIX: shortNeedsStrength sarà ricalcolato dopo il bonus MTF (vedi riga 7320)
         // ✅ FIX: Calcola MTF PRIMA e poi verifica requirements con adjusted strength
-        // (Questo viene spostato più in basso dopo il calcolo MTF)
         const shortMeetsRequirementsInitial = signal.direction === 'SHORT' &&
             signal.strength >= SHORT_MIN_STRENGTH &&
             signal.confirmations >= SHORT_MIN_CONFIRMATIONS;
