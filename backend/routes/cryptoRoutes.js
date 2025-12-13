@@ -1373,7 +1373,8 @@ const SYMBOL_TO_COINGECKO = {
 
 // ✅ CACHE OTTIMIZZATA per real-time senza rate limit
 const priceCache = new Map();
-const PRICE_CACHE_TTL = 3000; // 3 secondi - bilanciato tra real-time e rate limit (prima era 60s)
+const PRICE_CACHE_TTL = 60000; // ✅ AUMENTATO: 60 secondi per ridurre drasticamente API calls e evitare rate limiting
+const rateLimitErrors = new Map(); // ✅ Traccia errori 429 per attivare cooldown
 // Calcolo rate limit: max 20 chiamate/sec Binance, con cache 3s = max 6-7 chiamate/sec per simbolo = SICURO
 
 // ✅ LOCK per evitare race condition nell'aggiornamento P&L
@@ -1491,12 +1492,26 @@ const getSymbolPrice = async (symbol) => {
         console.log(`💱 [PRICE] Fetching price for symbol: ${symbol} → tradingPair: ${tradingPair}`);
     }
 
-    // ✅ Cache valida - usa prezzo cached
+    // ✅ Cache valida - usa prezzo cached (aumentato TTL a 60 secondi per ridurre API calls)
+    const PRICE_CACHE_TTL = 60000; // 60 secondi invece di 30 per ridurre rate limiting
     if (cached && (Date.now() - cached.timestamp) < PRICE_CACHE_TTL) {
         if (Math.random() < 0.05) { // Log solo ~5% delle volte
             console.log(`💾 [PRICE-CACHE] Using cached price for ${symbol}: $${cached.price.toFixed(6)}`);
         }
         return cached.price;
+    }
+
+    // ✅ RATE LIMITING: Controlla se abbiamo ricevuto errori 429 recentemente
+    const RATE_LIMIT_COOLDOWN = 300000; // 5 minuti di cooldown dopo errore 429
+    const last429Error = rateLimitErrors.get(tradingPair) || 0;
+    if (Date.now() - last429Error < RATE_LIMIT_COOLDOWN) {
+        // Usa cache anche se scaduta per evitare ulteriori errori 429
+        if (cached) {
+            console.log(`⏸️  [RATE-LIMIT] Usando cache scaduta per ${symbol} (cooldown attivo)`);
+            return cached.price;
+        }
+        console.warn(`⚠️ [RATE-LIMIT] Cache non disponibile per ${symbol} durante cooldown, ritorno null`);
+        return null;
     }
 
     // Cache scaduta o non presente - aggiorna prezzo da Binance
@@ -1514,8 +1529,21 @@ const getSymbolPrice = async (symbol) => {
             console.log(`✅ [PRICE] Got price from Binance for ${symbol} (${tradingPair}): $${price.toFixed(6)}`);
         }
         priceCache.set(symbol, { price, timestamp: Date.now() });
+        // Rimuovi eventuale errore 429 precedente se la chiamata ha successo
+        rateLimitErrors.delete(tradingPair);
         return price;
     } catch (e) {
+        // ✅ RATE LIMITING: Rileva errori 429 e attiva cooldown
+        if (e.message && e.message.includes('429')) {
+            rateLimitErrors.set(tradingPair, Date.now());
+            console.error(`🚫 [RATE-LIMIT] HTTP 429 per ${symbol} (${tradingPair}) - Cooldown di ${RATE_LIMIT_COOLDOWN/1000}s attivato`);
+            // Usa cache anche se scaduta
+            if (cached) {
+                console.log(`⏸️  [RATE-LIMIT] Usando cache scaduta per ${symbol} a causa di 429`);
+                return cached.price;
+            }
+        }
+        
         console.error(`❌ [PRICE] Binance fetch failed for ${symbol} (${tradingPair}):`, e.message);
         try {
             // ✅ CAMBIATO: CoinGecko ora restituisce USDT direttamente
@@ -1536,6 +1564,11 @@ const getSymbolPrice = async (symbol) => {
                 console.warn(`⚠️ [PRICE] ${symbol} dati CoinGecko non validi o mancanti per ${coingeckoId}`);
             }
         } catch (e2) {
+            // ✅ RATE LIMITING: Gestisci anche errori 429 da CoinGecko
+            if (e2.message && e2.message.includes('429')) {
+                rateLimitErrors.set(`coingecko_${coingeckoId}`, Date.now());
+                console.error(`🚫 [RATE-LIMIT] CoinGecko HTTP 429 per ${symbol} - Cooldown attivato`);
+            }
             console.error(`Error fetching ${symbol} price from CoinGecko:`, e2.message);
         }
 
@@ -1873,6 +1906,11 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = 
 // Bot Loop Function for a single symbol
 const runBotCycleForSymbol = async (symbol, botSettings) => {
     try {
+        // ✅ FIX CRITICO: Salta "global" completamente - è solo per impostazioni
+        if (!symbol || symbol.toLowerCase() === 'global') {
+            return; // Non processare "global"
+        }
+
         // ✅ FIX: Bot attivo di default se non c'è entry nel database
         const isBotActive = botSettings ? (Number(botSettings.is_active) === 1) : true;
 
