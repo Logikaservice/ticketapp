@@ -320,6 +320,19 @@ async function initDb() {
             CREATE INDEX IF NOT EXISTS idx_market_data_symbol_timestamp ON market_data(symbol, timestamp DESC)
         `);
 
+        // ✅ Tabella per salvare volumi 24h (fallback quando IP è bannato)
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS symbol_volumes_24h (
+                symbol TEXT PRIMARY KEY,
+                volume_24h DOUBLE PRECISION NOT NULL,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        await client.query(`
+            CREATE INDEX IF NOT EXISTS idx_symbol_volumes_symbol ON symbol_volumes_24h(symbol)
+        `);
+
         console.log('✅ Tabelle crypto PostgreSQL inizializzate correttamente');
     } catch (err) {
         console.error('❌ Errore inizializzazione database:', err.message);
