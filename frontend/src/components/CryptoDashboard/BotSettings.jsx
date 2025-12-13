@@ -130,6 +130,16 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
     };
 
     const handleChange = (key, value) => {
+        // ✅ DEBUG: Log per min_volume_24h
+        if (key === 'min_volume_24h') {
+            console.log('🔍 [BOT-SETTINGS] handleChange per min_volume_24h:', {
+                key,
+                value,
+                valueType: typeof value,
+                valueString: String(value)
+            });
+        }
+        
         if (key === 'trailing_stop_enabled' || key === 'partial_close_enabled' || key === 'trailing_profit_protection_enabled') {
             setParameters(prev => ({ ...prev, [key]: value === true || value === 'true' || value === 1 }));
         } else if (key === 'analysis_timeframe') {
@@ -140,7 +150,13 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                 setParameters(prev => ({ ...prev, [key]: prev[key] }));
             } else {
                 const parsed = parseInt(value);
-                setParameters(prev => ({ ...prev, [key]: isNaN(parsed) ? prev[key] : parsed }));
+                setParameters(prev => {
+                    const newParams = { ...prev, [key]: isNaN(parsed) ? prev[key] : parsed };
+                    if (key === 'min_volume_24h') {
+                        console.log('🔍 [BOT-SETTINGS] min_volume_24h dopo parseInt:', newParams.min_volume_24h);
+                    }
+                    return newParams;
+                });
             }
         } else {
             // ✅ FIX: Se il valore è vuoto, mantieni il valore esistente invece di 0
@@ -151,7 +167,18 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                 // Converti virgola in punto per parsing corretto
                 const normalizedValue = String(value).replace(',', '.');
                 const parsed = parseFloat(normalizedValue);
-                setParameters(prev => ({ ...prev, [key]: isNaN(parsed) ? prev[key] : parsed }));
+                setParameters(prev => {
+                    const newParams = { ...prev, [key]: isNaN(parsed) ? prev[key] : parsed };
+                    if (key === 'min_volume_24h') {
+                        console.log('🔍 [BOT-SETTINGS] min_volume_24h dopo parseFloat:', {
+                            normalizedValue,
+                            parsed,
+                            isNaN: isNaN(parsed),
+                            finalValue: newParams.min_volume_24h
+                        });
+                    }
+                    return newParams;
+                });
             }
         }
     };
