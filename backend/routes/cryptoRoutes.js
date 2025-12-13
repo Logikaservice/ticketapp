@@ -3212,25 +3212,19 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                     let canOpen = { allowed: false, reason: 'Not evaluated' };
 
                     if (strictTradeSize) {
-                        // Controlli hard: exposure disponibile e limite RiskManager
-                        if (riskCheck.availableExposure < strictTradeSize) {
-                            console.log(`🛑 [TRADE-SIZE-STRICT] Exposure insufficiente per aprire $${strictTradeSize.toFixed(2)} (available: $${riskCheck.availableExposure.toFixed(2)}). Skip.`);
-                            return;
-                        }
-                        if (riskCheck.maxPositionSize < strictTradeSize) {
-                            console.log(`🛑 [TRADE-SIZE-STRICT] Max position size insufficiente per $${strictTradeSize.toFixed(2)} (max: $${riskCheck.maxPositionSize.toFixed(2)}). Skip.`);
-                            return;
-                        }
+                        // ✅ FIX CRITICO: Se trade_size_usdt è configurato, usa SEMPRE quello (non limitare da availableExposure o maxPositionSize)
+                        // Il RiskManager ora usa sempre 100% di esposizione, quindi non dovrebbe limitare
+                        // Verifica solo che ci sia abbastanza cash (non exposure)
                         canOpen = await riskManager.canOpenPosition(strictTradeSize);
                         if (!canOpen.allowed) {
                             console.log(`🛑 [TRADE-SIZE-STRICT] RiskManager blocca size $${strictTradeSize.toFixed(2)}: ${canOpen.reason}. Skip.`);
                             return;
                         }
-                        positionSizeToUse = strictTradeSize; // ✅ ESATTO
-                        console.log(`💰 [TRADE-SIZE-STRICT] Aprirò ESATTAMENTE $${strictTradeSize.toFixed(2)} USDT`);
+                        positionSizeToUse = strictTradeSize; // ✅ ESATTO - usa sempre il valore configurato
+                        console.log(`💰 [TRADE-SIZE-STRICT] Aprirò ESATTAMENTE $${strictTradeSize.toFixed(2)} USDT (non limitato da availableExposure o maxPositionSize)`);
                     } else {
-                        // Nessun trade_size configurato → usa logica RiskManager
-                        positionSizeToUse = Math.min(riskCheck.maxPositionSize, riskCheck.availableExposure);
+                        // Se non configurato, usa il limite del RiskManager
+                        positionSizeToUse = riskCheck.maxPositionSize;
                         canOpen = await riskManager.canOpenPosition(positionSizeToUse);
                         console.log(`💰 [TRADE-SIZE] (fallback) RiskManager: $${positionSizeToUse.toFixed(2)} USDT`);
                     }
