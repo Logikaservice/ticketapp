@@ -7,13 +7,21 @@ const OpenPositions = ({ positions, currentPrice, currentSymbol, allSymbolPrices
     const [openMenuFor, setOpenMenuFor] = useState(null);
     const menuRefs = useRef({});
 
-    // Debug: log posizioni ricevute
+    // Debug: log posizioni ricevute (solo in sviluppo e solo quando cambia il numero)
+    const prevCountRef = useRef(0);
     useEffect(() => {
-        console.log(`📋 [OPEN POSITIONS] Ricevute ${positions?.length || 0} posizioni`);
-        if (positions && positions.length > 0) {
-            positions.forEach((pos, idx) => {
-                console.log(`  ${idx + 1}. ${pos.symbol} - ${pos.type} - ${pos.status} - Ticket: ${pos.ticket_id}`);
-            });
+        const currentCount = positions?.length || 0;
+        // Log solo se il numero di posizioni cambia (non ad ogni render)
+        if (currentCount !== prevCountRef.current) {
+            if (process.env.NODE_ENV === 'development') {
+                console.log(`📋 [OPEN POSITIONS] Ricevute ${currentCount} posizioni`);
+                if (positions && positions.length > 0) {
+                    positions.forEach((pos, idx) => {
+                        console.log(`  ${idx + 1}. ${pos.symbol} - ${pos.type} - ${pos.status} - Ticket: ${pos.ticket_id}`);
+                    });
+                }
+            }
+            prevCountRef.current = currentCount;
         }
     }, [positions]);
 

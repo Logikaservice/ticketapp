@@ -139,7 +139,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
     // Usa direttamente le posizioni aperte invece di filtrare i trades
     const displayPositions = useMemo(() => {
         if (!openPositions || openPositions.length === 0) {
-            console.log('🔍 [TradingViewChart] displayPositions: openPositions è vuoto o undefined', openPositions);
+            // Log rimosso - intasava la console
             return [];
         }
 
@@ -147,9 +147,7 @@ const TradingViewChart = ({ symbol = 'BTCUSDT', trades = [], openPositions = [],
         const positions = openPositions
             .filter(pos => {
                 const isOpen = pos && pos.status === 'open';
-                if (!isOpen) {
-                    console.log('🔍 [TradingViewChart] Posizione filtrata (non open):', pos);
-                }
+                // Log rimosso - intasava la console
                 return isOpen;
             })
             .map(pos => ({
