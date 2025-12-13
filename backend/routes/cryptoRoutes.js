@@ -6722,7 +6722,14 @@ router.get('/bot-analysis', async (req, res) => {
     try {
         // Quick dependency checks (no verbose logging)
         if (!httpsGet || !dbGet || !dbAll || !signalGenerator || !riskManager || !getBotParameters) {
-            return res.status(500).json({ error: 'Dipendenze mancanti' });
+            console.error('❌ [BOT-ANALYSIS] Dipendenze mancanti');
+            // ✅ FIX: Restituisci status 200 invece di 500 per evitare errori frontend
+            return res.status(200).json({ 
+                error: 'Dipendenze mancanti',
+                symbol: req.query?.symbol || 'unknown',
+                signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Errore sistema'] },
+                currentPrice: 0
+            });
         }
 
         // Get symbol from query parameter, default to bitcoin
