@@ -63,8 +63,7 @@ async function savePrice(symbol, price) {
         
         await dbRun(
             `INSERT INTO price_history (symbol, price, timestamp) 
-             VALUES ($1, $2, CURRENT_TIMESTAMP)
-             ON CONFLICT DO NOTHING`,
+             VALUES ($1, $2, CURRENT_TIMESTAMP)`,
             [symbol, price]
         );
         

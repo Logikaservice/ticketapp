@@ -1466,16 +1466,27 @@ const initWebSocketService = () => {
                 
                 // ✅ NUOVO: Salva anche nel database per persistenza (fallback quando IP è bannato)
                 // Usa setImmediate per non bloccare il callback WebSocket
+                // ✅ FIX: Salva solo se prezzo è cambiato rispetto all'ultimo salvato (evita duplicati)
                 setImmediate(async () => {
                     try {
                         // Valida prezzo prima di salvare (evita valori anomali)
                         if (price > 0 && price < 100000 && price > 0.000001) {
-                            await dbRun(
-                                `INSERT INTO price_history (symbol, price, timestamp) 
-                                 VALUES ($1, $2, CURRENT_TIMESTAMP)
-                                 ON CONFLICT DO NOTHING`,
-                                [symbol, price]
+                            // Controlla se l'ultimo prezzo salvato è diverso (evita spam DB)
+                            const lastPrice = await dbGet(
+                                "SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1",
+                                [symbol]
                             );
+                            
+                            // Salva solo se prezzo è cambiato (> 0.1% di differenza) o non c'è prezzo precedente
+                            const shouldSave = !lastPrice || Math.abs(price - parseFloat(lastPrice.price)) / parseFloat(lastPrice.price) > 0.001;
+                            
+                            if (shouldSave) {
+                                await dbRun(
+                                    `INSERT INTO price_history (symbol, price, timestamp) 
+                                     VALUES ($1, $2, CURRENT_TIMESTAMP)`,
+                                    [symbol, price]
+                                );
+                            }
                         }
                     } catch (dbError) {
                         // Ignora errori DB (non critico, ma logga solo occasionalmente)
