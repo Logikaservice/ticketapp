@@ -1495,6 +1495,7 @@ const updatePnLLock = new Map();
 const BinanceWebSocketService = require('../services/BinanceWebSocket');
 const KlinesAggregatorService = require('../services/KlinesAggregatorService');
 const HealthCheckService = require('../services/HealthCheckService');
+const BackupService = require('../services/BackupService');
 let wsService = null;
 
 // Inizializza WebSocket service con callback per aggiornare cache
@@ -1634,6 +1635,10 @@ setTimeout(() => {
         });
         
         console.log('✅ [HEALTH-CHECK] Monitoring attivato - verifica ogni 5 minuti');
+        
+        // Avvia servizio backup automatico ogni 24 ore
+        BackupService.start(24);
+        console.log('✅ [BACKUP] Servizio backup attivato - backup ogni 24 ore');
     } catch (err) {
         console.error('❌ [HEALTH-CHECK] Errore avvio:', err.message);
     }

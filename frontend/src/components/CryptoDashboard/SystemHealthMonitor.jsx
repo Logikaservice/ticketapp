@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle, XCircle, Activity, Database, Radio, Layers } from 'lucide-react';
+import { AlertTriangle, CheckCircle, XCircle, Activity, Database, Radio, Layers, HardDrive } from 'lucide-react';
 
 // Usa stessa logica di CryptoDashboard per determinare API URL
 const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3001' : '';
@@ -136,6 +136,11 @@ const SystemHealthMonitor = ({ compact = false }) => {
                     name="Aggregatore Klines"
                     status={healthStatus?.aggregator}
                 />
+                <ServiceStatus
+                    icon={<HardDrive className="w-5 h-5" />}
+                    name="Database Backup"
+                    status={healthStatus?.backup}
+                />
             </div>
 
             {/* Problemi rilevati */}
@@ -245,6 +250,7 @@ const SystemHealthDetails = ({ status, onClose }) => {
                 <ServiceStatusCompact name="Database" status={status?.database} />
                 <ServiceStatusCompact name="WebSocket" status={status?.websocket} />
                 <ServiceStatusCompact name="Aggregatore" status={status?.aggregator} />
+                <ServiceStatusCompact name="Backup DB" status={status?.backup} />
             </div>
 
             {status?.criticalIssues?.length > 0 && (

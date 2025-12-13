@@ -2,11 +2,12 @@
  * 🏥 HEALTH CHECK SERVICE
  * 
  * Monitora stato sistema e previene blocchi
- * Controlla: Backend, WebSocket, Aggregatore, Database
+ * Controlla: Backend, WebSocket, Aggregatore, Database, Backup
  */
 
 const { dbGet } = require('../crypto_db');
 const http = require('http');
+const BackupService = require('./BackupService');
 
 class HealthCheckService {
     constructor() {
@@ -73,6 +74,7 @@ class HealthCheckService {
             database: await this.checkDatabase(),
             websocket: await this.checkWebSocket(),
             aggregator: await this.checkAggregator(),
+            backup: await this.checkBackup(),
             overall: 'unknown'
         };
 
@@ -82,6 +84,7 @@ class HealthCheckService {
         if (!status.database.healthy) criticalIssues.push('Database inaccessibile');
         if (!status.websocket.healthy) criticalIssues.push('WebSocket inattivo');
         if (!status.aggregator.healthy) criticalIssues.push('Aggregatore non funziona');
+        if (!status.backup.healthy) criticalIssues.push('Backup database non recente');
 
         status.overall = criticalIssues.length === 0 ? 'healthy' : 'unhealthy';
         status.criticalIssues = criticalIssues;
@@ -253,6 +256,23 @@ class HealthCheckService {
     }
 
     /**
+     * Verifica stato backup database
+     */
+    async checkBackup() {
+        try {
+            const backupStatus = BackupService.getBackupStatus();
+            return backupStatus;
+        } catch (error) {
+            return {
+                healthy: false,
+                active: false,
+                error: error.message,
+                message: 'Errore verifica backup'
+            };
+        }
+    }
+
+    /**
      * Gestisce stato non sano
      */
     async handleUnhealthyState(status) {
@@ -295,6 +315,7 @@ class HealthCheckService {
         console.log(`   • Database: ${status.database.healthy ? '✅' : '❌'} ${status.database.message}`);
         console.log(`   • WebSocket: ${status.websocket.healthy ? '✅' : '❌'} ${status.websocket.message}`);
         console.log(`   • Aggregatore: ${status.aggregator.healthy ? '✅' : '❌'} ${status.aggregator.message}`);
+        console.log(`   • Backup: ${status.backup.healthy ? '✅' : '⚠️ '} ${status.backup.message}`);
         console.log(`   • GENERALE: ${status.overall === 'healthy' ? '✅ SANO' : '🚨 PROBLEMI'}`);
     }
 
