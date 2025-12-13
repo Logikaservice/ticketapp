@@ -790,45 +790,99 @@ router.get('/price/:symbol', async (req, res) => {
     const { symbol } = req.params;
     const { currency } = req.query; // 'usdt' or 'usd' (normalized to USDT)
     let price = 0;
-
+    let source = 'unknown';
 
     try {
-        try {
-            // Use helper function to get price (handles normalization, caching, api selection)
-            price = await getSymbolPrice(symbol);
-        } catch (e) {
-            console.error(`Price fetch failed for ${symbol}:`, e.message);
-        }
-
-        // 2. Fallback to CoinGecko (for Bitcoin, not Solana!)
-        if (!price) {
+        // ✅ FIX: Usa Promise.race con timeout per evitare 502 da timeout Nginx
+        const PRICE_FETCH_TIMEOUT = 8000; // 8 secondi (Nginx timeout è tipicamente 60s, ma meglio essere sicuri)
+        
+        const priceFetch = async () => {
             try {
-                const geckoData = await httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
-                if (geckoData && geckoData.bitcoin && geckoData.bitcoin.usd) {
-                    price = parseFloat(geckoData.bitcoin.usd);
-                }
+                // Use helper function to get price (handles normalization, caching, api selection)
+                return await getSymbolPrice(symbol);
             } catch (e) {
-                console.error('CoinGecko API failed:', e.message);
+                console.error(`⚠️ [PRICE-ENDPOINT] Price fetch failed for ${symbol}:`, e.message);
+                return null;
+            }
+        };
+
+        const timeoutPromise = new Promise((resolve) => {
+            setTimeout(() => resolve(null), PRICE_FETCH_TIMEOUT);
+        });
+
+        price = await Promise.race([priceFetch(), timeoutPromise]);
+        
+        if (price && price > 0) {
+            source = 'Binance';
+        } else {
+            // 2. Fallback to CoinGecko (solo per simboli principali)
+            if (!price && (symbol.toLowerCase().includes('bitcoin') || symbol.toLowerCase() === 'btc')) {
+                try {
+                    const geckoData = await Promise.race([
+                        httpsGet('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd'),
+                        new Promise((resolve) => setTimeout(() => resolve(null), 5000))
+                    ]);
+                    if (geckoData && geckoData.bitcoin && geckoData.bitcoin.usd) {
+                        price = parseFloat(geckoData.bitcoin.usd);
+                        source = 'CoinGecko';
+                    }
+                } catch (e) {
+                    console.error('⚠️ [PRICE-ENDPOINT] CoinGecko API failed:', e.message);
+                }
+            }
+
+            // 3. Last Resort: Database fallback
+            if (!price) {
+                try {
+                    const normalizedSymbol = symbol.toLowerCase()
+                        .replace(/\//g, '')
+                        .replace(/_/g, '')
+                        .replace(/usdt$/, '')
+                        .replace(/eur$/, '');
+                    const lastPrice = await dbGet(
+                        "SELECT price FROM price_history WHERE symbol = $1 ORDER BY timestamp DESC LIMIT 1",
+                        [normalizedSymbol]
+                    );
+                    if (lastPrice && lastPrice.price) {
+                        price = parseFloat(lastPrice.price);
+                        source = 'Database';
+                    }
+                } catch (e) {
+                    // Ignora errori DB
+                }
+            }
+
+            // 4. Ultimate fallback: Return 0 instead of random (più onesto)
+            if (!price || price <= 0) {
+                console.warn(`⚠️ [PRICE-ENDPOINT] Nessun prezzo disponibile per ${symbol}, ritorno 0`);
+                price = 0;
+                source = 'Unavailable';
             }
         }
 
-        // 3. Last Resort: Realistic Random Fallback (matches bot logic)
-        if (!price) {
-            console.warn("⚠️ All APIs failed, using random fallback");
-            price = 120.00 + (Math.random() * 0.8); // Random between 120.00 and 120.80
+        // ✅ FIX: Sempre restituisci 200 OK, anche se prezzo è 0
+        if (!res.headersSent) {
+            res.status(200).json({
+                success: price > 0,
+                price: price, // USDT price
+                currency: 'USDT',
+                source: source,
+                timestamp: new Date().toISOString()
+            });
         }
-
-        // Return price in USDT (normalized from Binance)
-        res.json({
-            success: true,
-            price: price, // USDT price from Binance
-            currency: 'USDT',
-            source: price > 0 ? 'Binance' : 'Fallback',
-            timestamp: new Date().toISOString()
-        });
     } catch (error) {
-        console.error('❌ Critical Error fetching price:', error.message);
-        res.status(500).json({ error: error.message });
+        console.error(`❌ [PRICE-ENDPOINT] Critical Error fetching price for ${symbol}:`, error.message);
+        // ✅ FIX: Restituisci sempre 200 OK con prezzo 0 invece di 500
+        if (!res.headersSent) {
+            res.status(200).json({
+                success: false,
+                price: 0,
+                currency: 'USDT',
+                source: 'Error',
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
     }
 });
 
