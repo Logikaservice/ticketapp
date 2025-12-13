@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, CheckCircle, XCircle, Activity, Database, Radio, Layers } from 'lucide-react';
-import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
@@ -13,9 +12,10 @@ const SystemHealthMonitor = ({ compact = false }) => {
     // Fetch health status
     const fetchHealthStatus = async () => {
         try {
-            const response = await axios.get(`${API_URL}/api/crypto/health-status`);
-            if (response.data.success) {
-                setHealthStatus(response.data.status);
+            const response = await fetch(`${API_URL}/api/crypto/health-status`);
+            const data = await response.json();
+            if (data.success) {
+                setHealthStatus(data.status);
                 setLastUpdate(new Date());
             }
         } catch (error) {

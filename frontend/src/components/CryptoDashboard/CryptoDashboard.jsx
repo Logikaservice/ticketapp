@@ -1545,6 +1545,39 @@ setBotParameters(data.bot_parameters);
                 }}
             />
 
+            {/* Health Monitor Dropdown */}
+            {showHealthMonitor && (
+                <div 
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 999
+                    }}
+                    onClick={() => setShowHealthMonitor(false)}
+                >
+                    <div 
+                        style={{
+                            position: 'absolute',
+                            top: '200px',
+                            right: '20px',
+                            width: '400px',
+                            background: '#1f2937',
+                            border: '1px solid #374151',
+                            borderRadius: '12px',
+                            boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+                            padding: '20px',
+                            zIndex: 1000
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <SystemHealthMonitor />
+                    </div>
+                </div>
+            )}
+
             {/* Add Funds Modal */}
             {
                 showAddFundsModal && (
