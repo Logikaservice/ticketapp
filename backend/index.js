@@ -1341,17 +1341,34 @@ app.use((err, req, res, next) => {
   console.error('❌ URL completo:', req.originalUrl);
 
   // ✅ FIX: Se è un errore da /api/crypto/bot-analysis, restituisci 200 invece di 500
-  if (req.path && req.path.includes('/bot-analysis')) {
+  if (req.path && (req.path.includes('/bot-analysis') || req.originalUrl && req.originalUrl.includes('/bot-analysis'))) {
     console.error('⚠️ [ERROR-HANDLER] Errore intercettato per bot-analysis, restituisco 200 invece di 500');
-    return res.status(200).json({
-      error: err.message || 'Errore interno',
-      symbol: req.query?.symbol || 'unknown',
-      errorType: err.constructor.name,
-      signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Errore analisi'] },
-      currentPrice: 0,
-      longSignal: { strength: 0, confirmations: 0 },
-      shortSignal: { strength: 0, confirmations: 0 }
-    });
+    console.error('⚠️ [ERROR-HANDLER] Path:', req.path, '| OriginalUrl:', req.originalUrl);
+    console.error('⚠️ [ERROR-HANDLER] Query:', req.query);
+    try {
+      return res.status(200).json({
+        error: err.message || 'Errore interno',
+        symbol: req.query?.symbol || 'unknown',
+        errorType: err.constructor.name,
+        signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Errore analisi'] },
+        currentPrice: 0,
+        longSignal: { strength: 0, confirmations: 0 },
+        shortSignal: { strength: 0, confirmations: 0 }
+      });
+    } catch (sendErr) {
+      console.error('❌ [ERROR-HANDLER] Impossibile inviare risposta 200, provo send:', sendErr.message);
+      // Ultimo tentativo
+      try {
+        if (!res.headersSent) {
+          res.status(200).send(JSON.stringify({
+            error: 'Errore interno',
+            symbol: req.query?.symbol || 'unknown'
+          }));
+        }
+      } catch (finalErr) {
+        console.error('❌ [ERROR-HANDLER] Impossibile inviare risposta anche dopo ultimo tentativo');
+      }
+    }
   }
 
   // Non esporre dettagli dell'errore in produzione
