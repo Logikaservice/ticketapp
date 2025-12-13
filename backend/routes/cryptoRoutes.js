@@ -1854,22 +1854,30 @@ const get24hVolume = async (symbol) => {
         }
 
         // Volume in quote currency (USDT)
-        const volumeQuote = parseFloat(data.quoteVolume);
+        const volumeQuote = parseFloat(data.quoteVolume || data.q || 0);
         
-        // ✅ Salva in cache
-        volumeCache.set(symbol, { volume: volumeQuote, timestamp: Date.now() });
-        
-        // ✅ Salva anche nel database come fallback per quando IP è bannato
-        try {
-            await dbRun(
-                `INSERT INTO symbol_volumes_24h (symbol, volume_24h, updated_at) 
-                 VALUES ($1, $2, CURRENT_TIMESTAMP)
-                 ON CONFLICT (symbol) 
-                 DO UPDATE SET volume_24h = EXCLUDED.volume_24h, updated_at = CURRENT_TIMESTAMP`,
-                [symbol, volumeQuote]
-            );
-        } catch (dbError) {
-            // Ignora errori DB (non critico)
+        if (volumeQuote > 0) {
+            // ✅ Salva in cache
+            volumeCache.set(symbol, { volume: volumeQuote, timestamp: Date.now() });
+            
+            // ✅ Salva anche nel database come fallback per quando IP è bannato
+            try {
+                await dbRun(
+                    `INSERT INTO symbol_volumes_24h (symbol, volume_24h, updated_at) 
+                     VALUES ($1, $2, CURRENT_TIMESTAMP)
+                     ON CONFLICT (symbol) 
+                     DO UPDATE SET volume_24h = EXCLUDED.volume_24h, updated_at = CURRENT_TIMESTAMP`,
+                    [symbol, volumeQuote]
+                );
+            } catch (dbError) {
+                // Ignora errori DB (non critico)
+            }
+            
+            if (Math.random() < 0.1) {
+                console.log(`✅ [VOLUME-REST] Volume recuperato da REST API per ${symbol}: $${volumeQuote.toLocaleString('it-IT')} USDT`);
+            }
+        } else {
+            console.warn(`⚠️ [VOLUME-REST] Volume 0 o invalido da REST API per ${symbol}, data.quoteVolume=${data.quoteVolume}, data.q=${data.q}`);
         }
         
         return volumeQuote;

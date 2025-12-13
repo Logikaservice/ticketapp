@@ -157,6 +157,9 @@ class BinanceWebSocketService {
         }
         
         // Processa TUTTI i ticker (non solo quelli sottoscritti) per avere volumi completi
+        let volumesUpdated = 0;
+        let pricesUpdated = 0;
+        
         tickers.forEach(ticker => {
             const symbol = pairToSymbol[ticker.s];
             if (!symbol) {
@@ -173,25 +176,30 @@ class BinanceWebSocketService {
                 // ✅ FIX CRITICO: Tutti i prezzi sono già in USDT, nessuna conversione necessaria
                 // Tutte le coppie sono USDT pairs (es. BTCUSDT, DOTUSDT, etc.)
                 this.updatePriceCache(symbol, price);
+                pricesUpdated++;
             }
             
             // ✅ NUOVO: Aggiorna volume 24h per TUTTI i simboli nella mappa (non solo sottoscritti)
             // Il ticker Binance include 'q' (quoteVolume) che è il volume 24h in quote currency (USDT)
             if (this.volumeCacheCallback) {
                 // ✅ FIX: Prova sia 'q' (quoteVolume) che 'Q' (alcuni ticker usano maiuscola)
-                const volume24h = parseFloat(ticker.q || ticker.Q || 0);
+                // Secondo documentazione Binance: 'q' = quoteVolume (volume 24h in quote currency)
+                const volume24h = parseFloat(ticker.q || ticker.Q || ticker.quoteVolume || 0);
                 if (volume24h > 0) {
                     this.updateVolumeCache(symbol, volume24h);
+                    volumesUpdated++;
                     // Log solo occasionalmente per non spammare
-                    if (Math.random() < 0.01) { // 1% delle volte
+                    if (Math.random() < 0.005) { // 0.5% delle volte
                         console.log(`📊 [WEBSOCKET-VOLUME] ${symbol} (${ticker.s}): $${volume24h.toLocaleString('it-IT')} USDT`);
                     }
-                } else if (Math.random() < 0.01) {
-                    // Debug: log quando volume è 0 o mancante
-                    console.warn(`⚠️ [WEBSOCKET-VOLUME] Volume 0 o mancante per ${symbol} (${ticker.s}), ticker.q=${ticker.q}, ticker.Q=${ticker.Q}`);
                 }
             }
         });
+        
+        // ✅ DEBUG: Log statistiche ogni tanto per vedere se stiamo aggiornando volumi
+        if (Math.random() < 0.01) { // 1% delle volte
+            console.log(`📊 [WEBSOCKET-STATS] Processati ${tickers.length} ticker | Prezzi aggiornati: ${pricesUpdated} | Volumi aggiornati: ${volumesUpdated} | Simboli nella mappa: ${Object.keys(pairToSymbol).length}`);
+        }
     }
 
     // ✅ RIMOSSO: Funzioni convertUSDTtoEUR e getUSDTtoEURRate - non più necessarie, tutto è già in USDT
