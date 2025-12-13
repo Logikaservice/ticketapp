@@ -71,7 +71,6 @@ const resetRSIService = async () => {
             min_volume_24h: 500000,            // Volume minimo 24h (EUR/USDT)
             
             // Risk Management
-            max_daily_loss_pct: 5.0,           // Perdita massima giornaliera (%)
             max_exposure_pct: 50.0,            // Esposizione massima (% del portfolio)
             max_positions: 5,                  // Numero massimo posizioni aperte simultanee
             
@@ -107,7 +106,6 @@ const resetRSIService = async () => {
         console.log(`      - Max ATR: ${defaultRSIParams.max_atr_pct}%`);
         console.log(`      - Min Volume 24h: ${defaultRSIParams.min_volume_24h}`);
         console.log('   Risk Management:');
-        console.log(`      - Max Daily Loss: ${defaultRSIParams.max_daily_loss_pct}%`);
         console.log(`      - Max Exposure: ${defaultRSIParams.max_exposure_pct}%`);
         console.log(`      - Max Positions: ${defaultRSIParams.max_positions}`);
         

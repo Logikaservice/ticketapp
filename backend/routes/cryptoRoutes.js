@@ -971,7 +971,24 @@ router.post('/reset', async (req, res) => {
 router.post('/cleanup-positions', async (req, res) => {
     try {
         const { max_positions } = req.body;
-        const targetMax = max_positions && !isNaN(parseInt(max_positions)) ? parseInt(max_positions) : HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
+        // ✅ REQUIREMENT: se non passato esplicitamente, usa max_positions salvato nei parametri (default 10)
+        let targetMax = max_positions && !isNaN(parseInt(max_positions)) ? parseInt(max_positions) : null;
+        if (!targetMax) {
+            try {
+                const botParamsRow = await dbGet(
+                    "SELECT parameters FROM bot_settings WHERE strategy_name = $1 AND symbol = $2 LIMIT 1",
+                    ['RSI_Strategy', 'global']
+                );
+                if (botParamsRow && botParamsRow.parameters) {
+                    const parsed = typeof botParamsRow.parameters === 'string' ? JSON.parse(botParamsRow.parameters) : botParamsRow.parameters;
+                    const dbMax = parseInt(parsed.max_positions);
+                    if (!isNaN(dbMax) && dbMax > 0) targetMax = dbMax;
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+        if (!targetMax) targetMax = 10;
 
         // Recupera tutte le posizioni aperte
         const allOpenPositions = await dbAll(
@@ -1234,7 +1251,10 @@ const DEFAULT_PARAMS = {
     min_signal_strength: 70,  // ✅ Soglia minima strength richiesta per aprire posizioni (configurabile dal frontend)
     min_confirmations_long: 3,  // ✅ Numero minimo di conferme per aprire LONG (configurabile)
     min_confirmations_short: 4,  // ✅ Numero minimo di conferme per aprire SHORT (configurabile)
-    market_scanner_min_strength: 30  // ✅ Soglia minima per mostrare "potenziale" nel Market Scanner (configurabile)
+    market_scanner_min_strength: 30,  // ✅ Soglia minima per mostrare "potenziale" nel Market Scanner (configurabile)
+    // ✅ Risk management (configurabile dal DB/UI)
+    max_exposure_pct: 80.0,
+    max_positions: 10
 };
 
 // Helper to get bot strategy parameters from database (supports multi-symbol)
@@ -1263,6 +1283,11 @@ const getBotParameters = async (symbol = 'bitcoin') => {
         if (mergedParams.trailing_profit_protection_enabled === undefined) {
             console.warn('⚠️ [BOT-PARAMS] trailing_profit_protection_enabled non trovato, uso default:', DEFAULT_PARAMS.trailing_profit_protection_enabled);
             mergedParams.trailing_profit_protection_enabled = DEFAULT_PARAMS.trailing_profit_protection_enabled;
+        }
+
+        // ✅ Per richiesta utente: rimuovi completamente max_daily_loss_pct (non deve esistere né tornare al frontend)
+        if ('max_daily_loss_pct' in mergedParams) {
+            delete mergedParams.max_daily_loss_pct;
         }
 
         return mergedParams;
@@ -2284,7 +2309,7 @@ const calculatePositionQualityScore = async (position) => {
     };
 };
 
-const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = null, signalType = null) => {
+const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = null, signalType = null, options = {}) => {
     // ✅ CHECK RECOVERY MODE - Se il sistema sta recuperando klines, blocca aperture
     const isRecovering = await checkRecoveryMode();
     if (isRecovering) {
@@ -2318,20 +2343,8 @@ const canOpenPositionHybridStrategy = async (symbol, openPositions, newSignal = 
         };
     }
 
-    // ✅ LOGICA DINAMICA: Calcola limite max posizioni basato su win rate
-    let maxTotalPositions = HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS;
-    try {
-        // ✅ MIGRAZIONE POSTGRESQL: Usa dbGet invece di db.get
-        const stats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
-
-        if (stats && stats.total_trades >= 10) {
-            const winRate = stats.total_trades > 0 ? stats.winning_trades / stats.total_trades : 0.5;
-            maxTotalPositions = HYBRID_STRATEGY_CONFIG.getMaxPositionsForWinRate(winRate);
-            console.log(`📊 [DYNAMIC POSITIONS] Win rate ${(winRate * 100).toFixed(1)}% → Max positions: ${maxTotalPositions}`);
-        }
-    } catch (e) {
-        // Usa default se errore
-    }
+    // ✅ SCELTA UTENTE: max posizioni deve essere deciso dall'utente (DB/UI), non dal win-rate
+    const maxTotalPositions = Math.max(1, parseInt(options.maxTotalPositions || HYBRID_STRATEGY_CONFIG.MAX_TOTAL_POSITIONS));
 
     // ✅ LOGICA INTELLIGENTE: Se limite totale raggiunto, confronta nuovo segnale con posizioni esistenti
     // ✅ FIX: Smart Replacement solo se ci sono almeno 5 posizioni (evita blocchi precoci)
@@ -3112,7 +3125,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                 // ✅ HYBRID STRATEGY - Verifica limiti correlazione con LOGICA INTELLIGENTE
                 // ✅ Passa il segnale per confronto con posizioni esistenti
-                const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions, signal, 'buy');
+                const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions, signal, 'buy', {
+                    maxTotalPositions: params.max_positions || 10
+                });
 
                 if (!hybridCheck.allowed) {
                     console.log(`🛑 [HYBRID-STRATEGY] LONG BLOCKED: ${hybridCheck.reason}`);
@@ -3155,6 +3170,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                     // Calcola totalEquity (cash + valore posizioni aperte)
                     const allOpenPos = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
+                    // ✅ REQUIREMENT: Rispetta SEMPRE max_positions configurato (default 10)
+                    const maxPositionsLimit = Math.max(1, parseInt(params.max_positions || 10));
+                    if (allOpenPos.length >= maxPositionsLimit) {
+                        console.log(`🛑 [MAX-POSITIONS] Limite posizioni raggiunto: ${allOpenPos.length}/${maxPositionsLimit}. Non apro nuove posizioni.`);
+                        return;
+                    }
                     let currentExposureValue = 0;
                     for (const pos of allOpenPos) {
                         const vol = parseFloat(pos.volume) || 0;
@@ -3181,36 +3202,48 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                         // Usa default
                     }
 
-                    // ✅ FIXED POSITION SIZING: Usa trade_size_usdt se configurato, altrimenti RiskManager
-                    // Se l'utente ha configurato trade_size_usdt (es. $80-100), usa quello
-                    // Altrimenti usa il calcolo automatico del RiskManager (8% portfolio o $80 USDT minimo)
+                    // ✅ REQUIREMENT: trade_size_usdt è un valore RIGIDO (es. 100$) → mai meno, mai più
+                    // Se non possiamo aprire ESATTAMENTE quella size (per exposure/cash/risk), non apriamo.
                     const configuredTradeSize = params.trade_size_usdt || params.trade_size_eur || null;
-                    let targetPositionSize = riskCheck.maxPositionSize; // Default: calcolo automatico
+                    const hasStrictTradeSize = configuredTradeSize && !isNaN(parseFloat(configuredTradeSize)) && parseFloat(configuredTradeSize) >= 10;
+                    const strictTradeSize = hasStrictTradeSize ? parseFloat(configuredTradeSize) : null;
 
-                    if (configuredTradeSize && configuredTradeSize >= 10) {
-                        // ✅ Usa trade_size configurato dall'utente (minimo $10 per sicurezza)
-                        targetPositionSize = Math.min(configuredTradeSize, riskCheck.availableExposure);
-                        console.log(`💰 [TRADE-SIZE] Usando trade_size configurato: $${configuredTradeSize.toFixed(2)} USDT (limitato a exposure disponibile: $${riskCheck.availableExposure.toFixed(2)} USDT)`);
+                    let positionSizeToUse = riskCheck.maxPositionSize; // fallback (solo se non c'è trade_size configurato)
+                    let canOpen = { allowed: false, reason: 'Not evaluated' };
+
+                    if (strictTradeSize) {
+                        // Controlli hard: exposure disponibile e limite RiskManager
+                        if (riskCheck.availableExposure < strictTradeSize) {
+                            console.log(`🛑 [TRADE-SIZE-STRICT] Exposure insufficiente per aprire $${strictTradeSize.toFixed(2)} (available: $${riskCheck.availableExposure.toFixed(2)}). Skip.`);
+                            return;
+                        }
+                        if (riskCheck.maxPositionSize < strictTradeSize) {
+                            console.log(`🛑 [TRADE-SIZE-STRICT] Max position size insufficiente per $${strictTradeSize.toFixed(2)} (max: $${riskCheck.maxPositionSize.toFixed(2)}). Skip.`);
+                            return;
+                        }
+                        canOpen = await riskManager.canOpenPosition(strictTradeSize);
+                        if (!canOpen.allowed) {
+                            console.log(`🛑 [TRADE-SIZE-STRICT] RiskManager blocca size $${strictTradeSize.toFixed(2)}: ${canOpen.reason}. Skip.`);
+                            return;
+                        }
+                        positionSizeToUse = strictTradeSize; // ✅ ESATTO
+                        console.log(`💰 [TRADE-SIZE-STRICT] Aprirò ESATTAMENTE $${strictTradeSize.toFixed(2)} USDT`);
                     } else {
-                        console.log(`💰 [TRADE-SIZE] Usando calcolo automatico RiskManager: $${riskCheck.maxPositionSize.toFixed(2)} USDT`);
+                        // Nessun trade_size configurato → usa logica RiskManager
+                        positionSizeToUse = Math.min(riskCheck.maxPositionSize, riskCheck.availableExposure);
+                        canOpen = await riskManager.canOpenPosition(positionSizeToUse);
+                        console.log(`💰 [TRADE-SIZE] (fallback) RiskManager: $${positionSizeToUse.toFixed(2)} USDT`);
                     }
 
-                    const maxAvailableForNewPosition = Math.min(
-                        targetPositionSize,  // trade_size configurato o calcolo automatico
-                        riskCheck.availableExposure, // Exposure disponibile (non superare limiti)
-                        riskCheck.maxPositionSize    // Non superare mai il limite del RiskManager
-                    );
+                    console.log(`📊 [POSITION-SIZE] Total Equity: $${totalEquity.toFixed(2)} USDT | Risk Manager Max: $${riskCheck.maxPositionSize.toFixed(2)} USDT | Available Exposure: $${riskCheck.availableExposure.toFixed(2)} USDT | Final: $${positionSizeToUse.toFixed(2)} USDT`);
 
-                    console.log(`📊 [POSITION-SIZE] Total Equity: $${totalEquity.toFixed(2)} USDT | Risk Manager Size: $${riskCheck.maxPositionSize.toFixed(2)} USDT | Available Exposure: $${riskCheck.availableExposure.toFixed(2)} USDT | Final: $${maxAvailableForNewPosition.toFixed(2)} USDT`);
-                    const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
-
-                    console.log(`🔍 LONG SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length} | AvailableExposure=$${riskCheck.availableExposure.toFixed(2)} USDT`);
+                    console.log(`🔍 LONG SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | LongPositions=${longPositions.length} | AvailableExposure=$${riskCheck.availableExposure.toFixed(2)} USDT | MaxPositions=${allOpenPos.length}/${maxPositionsLimit}`);
 
                     // ✅ FIX: Rimuovo controllo longPositions.length === 0 - permetto multiple posizioni
                     if (canOpen.allowed) {
-                        console.log(`✅ [BOT-OPEN-LONG] Opening position for ${symbol} - Price: $${currentPrice.toFixed(2)} USDT, Size: $${maxAvailableForNewPosition.toFixed(2)} USDT`);
+                        console.log(`✅ [BOT-OPEN-LONG] Opening position for ${symbol} - Price: $${currentPrice.toFixed(2)} USDT, Size: $${positionSizeToUse.toFixed(2)} USDT`);
                         // Apri LONG position
-                        const amount = maxAvailableForNewPosition / currentPrice;
+                        const amount = positionSizeToUse / currentPrice;
                         const stopLoss = currentPrice * (1 - params.stop_loss_pct / 100);
                         const takeProfit = currentPrice * (1 + params.take_profit_pct / 100);
 
@@ -3254,7 +3287,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                             // ✅ FIX: Usa i parametri configurati dall'utente invece di valori hardcoded
                             // trailing_stop_enabled e trailing_stop_distance_pct vengono da options (configurati dall'utente)
                         });
-                        console.log(`✅ BOT LONG: Opened position #${longPositions.length + 1} @ $${currentPrice.toFixed(2)} USDT | Size: $${maxAvailableForNewPosition.toFixed(2)} USDT | Signal: ${signal.reasons.join(', ')}`);
+                        console.log(`✅ BOT LONG: Opened position #${longPositions.length + 1} @ $${currentPrice.toFixed(2)} USDT | Size: $${positionSizeToUse.toFixed(2)} USDT | Signal: ${signal.reasons.join(', ')}`);
                         riskManager.invalidateCache(); // Invalida cache dopo operazione
                     } else if (!canOpen.allowed) {
                         console.log(`⚠️ BOT LONG: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: $${riskCheck.availableExposure.toFixed(2)} USDT`);
@@ -3337,7 +3370,9 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                     // ✅ HYBRID STRATEGY - Verifica limiti correlazione con LOGICA INTELLIGENTE
                     // ✅ Passa il segnale per confronto con posizioni esistenti
-                    const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions, signal, 'sell');
+                    const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions, signal, 'sell', {
+                        maxTotalPositions: params.max_positions || 10
+                    });
 
                     if (!hybridCheck.allowed) {
                         console.log(`🛑 [HYBRID-STRATEGY] SHORT BLOCKED: ${hybridCheck.reason}`);
@@ -3382,6 +3417,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
 
                         // Calcola totalEquity (cash + valore posizioni aperte)
                         const allOpenPos = await dbAll("SELECT * FROM open_positions WHERE status = 'open'");
+                        // ✅ REQUIREMENT: Rispetta SEMPRE max_positions configurato (default 10)
+                        const maxPositionsLimit = Math.max(1, parseInt(params.max_positions || 10));
+                        if (allOpenPos.length >= maxPositionsLimit) {
+                            console.log(`🛑 [MAX-POSITIONS] Limite posizioni raggiunto: ${allOpenPos.length}/${maxPositionsLimit}. Non apro nuove posizioni.`);
+                            return;
+                        }
                         let currentExposureValue = 0;
                         for (const pos of allOpenPos) {
                             const vol = parseFloat(pos.volume) || 0;
@@ -3408,36 +3449,45 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                             // Usa default
                         }
 
-                        // ✅ FIXED POSITION SIZING: Usa trade_size_usdt se configurato, altrimenti RiskManager
-                        // Se l'utente ha configurato trade_size_usdt (es. $80-100), usa quello
-                        // Altrimenti usa il calcolo automatico del RiskManager (8% portfolio o $80 USDT minimo)
+                        // ✅ REQUIREMENT: trade_size_usdt è un valore RIGIDO (es. 100$) → mai meno, mai più
                         const configuredTradeSize = params.trade_size_usdt || params.trade_size_eur || null;
-                        let targetPositionSize = riskCheck.maxPositionSize; // Default: calcolo automatico
+                        const hasStrictTradeSize = configuredTradeSize && !isNaN(parseFloat(configuredTradeSize)) && parseFloat(configuredTradeSize) >= 10;
+                        const strictTradeSize = hasStrictTradeSize ? parseFloat(configuredTradeSize) : null;
 
-                        if (configuredTradeSize && configuredTradeSize >= 10) {
-                            // ✅ Usa trade_size configurato dall'utente (minimo $10 per sicurezza)
-                            targetPositionSize = Math.min(configuredTradeSize, riskCheck.availableExposure);
-                            console.log(`💰 [SHORT-TRADE-SIZE] Usando trade_size configurato: $${configuredTradeSize.toFixed(2)} USDT (limitato a exposure disponibile: $${riskCheck.availableExposure.toFixed(2)} USDT)`);
+                        let positionSizeToUse = riskCheck.maxPositionSize; // fallback
+                        let canOpen = { allowed: false, reason: 'Not evaluated' };
+
+                        if (strictTradeSize) {
+                            if (riskCheck.availableExposure < strictTradeSize) {
+                                console.log(`🛑 [SHORT-TRADE-SIZE-STRICT] Exposure insufficiente per aprire $${strictTradeSize.toFixed(2)} (available: $${riskCheck.availableExposure.toFixed(2)}). Skip.`);
+                                return;
+                            }
+                            if (riskCheck.maxPositionSize < strictTradeSize) {
+                                console.log(`🛑 [SHORT-TRADE-SIZE-STRICT] Max position size insufficiente per $${strictTradeSize.toFixed(2)} (max: $${riskCheck.maxPositionSize.toFixed(2)}). Skip.`);
+                                return;
+                            }
+                            canOpen = await riskManager.canOpenPosition(strictTradeSize);
+                            if (!canOpen.allowed) {
+                                console.log(`🛑 [SHORT-TRADE-SIZE-STRICT] RiskManager blocca size $${strictTradeSize.toFixed(2)}: ${canOpen.reason}. Skip.`);
+                                return;
+                            }
+                            positionSizeToUse = strictTradeSize; // ✅ ESATTO
+                            console.log(`💰 [SHORT-TRADE-SIZE-STRICT] Aprirò ESATTAMENTE $${strictTradeSize.toFixed(2)} USDT`);
                         } else {
-                            console.log(`💰 [SHORT-TRADE-SIZE] Usando calcolo automatico RiskManager: $${riskCheck.maxPositionSize.toFixed(2)} USDT`);
+                            positionSizeToUse = Math.min(riskCheck.maxPositionSize, riskCheck.availableExposure);
+                            canOpen = await riskManager.canOpenPosition(positionSizeToUse);
+                            console.log(`💰 [SHORT-TRADE-SIZE] (fallback) RiskManager: $${positionSizeToUse.toFixed(2)} USDT`);
                         }
 
-                        const maxAvailableForNewPosition = Math.min(
-                            targetPositionSize,  // trade_size configurato o calcolo automatico
-                            riskCheck.availableExposure, // Exposure disponibile (non superare limiti)
-                            riskCheck.maxPositionSize    // Non superare mai il limite del RiskManager
-                        );
+                        console.log(`📊 [SHORT-POSITION-SIZE] Total Equity: $${totalEquity.toFixed(2)} USDT | Risk Manager Max: $${riskCheck.maxPositionSize.toFixed(2)} USDT | Available Exposure: $${riskCheck.availableExposure.toFixed(2)} USDT | Final: $${positionSizeToUse.toFixed(2)} USDT`);
 
-                        console.log(`📊 [SHORT-POSITION-SIZE] Total Equity: $${totalEquity.toFixed(2)} USDT | Risk Manager Size: $${riskCheck.maxPositionSize.toFixed(2)} USDT | Available Exposure: $${riskCheck.availableExposure.toFixed(2)} USDT | Final: $${maxAvailableForNewPosition.toFixed(2)} USDT`);
-                        const canOpen = await riskManager.canOpenPosition(maxAvailableForNewPosition);
-
-                        console.log(`🔍 SHORT SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length} | AvailableExposure=$${riskCheck.availableExposure.toFixed(2)} USDT`);
+                        console.log(`🔍 SHORT SIGNAL CHECK: Strength=${adjustedStrength} (original: ${signal.strength}, MTF: ${mtfBonus >= 0 ? '+' : ''}${mtfBonus}) | Confirmations=${signal.confirmations} | CanOpen=${canOpen.allowed} | ShortPositions=${shortPositions.length} | AvailableExposure=$${riskCheck.availableExposure.toFixed(2)} USDT | MaxPositions=${allOpenPos.length}/${maxPositionsLimit}`);
 
                         // ✅ FIX: Rimuovo controllo shortPositions.length === 0 - permetto multiple posizioni
                         if (canOpen.allowed) {
-                            console.log(`✅ [BOT-OPEN-SHORT] Opening position for ${symbol} - Price: $${currentPrice.toFixed(2)} USDT, Size: $${maxAvailableForNewPosition.toFixed(2)} USDT`);
+                            console.log(`✅ [BOT-OPEN-SHORT] Opening position for ${symbol} - Price: $${currentPrice.toFixed(2)} USDT, Size: $${positionSizeToUse.toFixed(2)} USDT`);
                             // Apri SHORT position
-                            const amount = maxAvailableForNewPosition / currentPrice;
+                            const amount = positionSizeToUse / currentPrice;
                             const stopLoss = currentPrice * (1 + params.stop_loss_pct / 100); // Per SHORT, SL è sopra
                             const takeProfit = currentPrice * (1 - params.take_profit_pct / 100); // Per SHORT, TP è sotto
 
@@ -3481,12 +3531,12 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                                 // ✅ FIX: Usa i parametri configurati dall'utente invece di valori hardcoded
                                 // trailing_stop_enabled e trailing_stop_distance_pct vengono da options (configurati dall'utente)
                             });
-                            console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ $${currentPrice.toFixed(2)} USDT | Size: $${maxAvailableForNewPosition.toFixed(2)} USDT | Signal: ${signal.reasons.join(', ')}`);
+                            console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ $${currentPrice.toFixed(2)} USDT | Size: $${positionSizeToUse.toFixed(2)} USDT | Signal: ${signal.reasons.join(', ')}`);
                             riskManager.invalidateCache(); // Invalida cache dopo operazione
                         } else if (!canOpen.allowed) {
                             console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: $${riskCheck.availableExposure.toFixed(2)} USDT`);
                             console.log(`   📊 [SHORT-DEBUG] Risk check failed for ${symbol}: ${canOpen.reason}`);
-                            console.log(`   📊 [SHORT-DEBUG] Max available for new position: $${maxAvailableForNewPosition.toFixed(2)} USDT | Trade size: $${params.trade_size_usdt || params.trade_size_eur || 0} USDT | Max position size: $${riskCheck.maxPositionSize.toFixed(2)} USDT`);
+                            console.log(`   📊 [SHORT-DEBUG] Final position size: $${positionSizeToUse.toFixed(2)} USDT | Trade size: $${params.trade_size_usdt || params.trade_size_eur || 0} USDT | Max position size: $${riskCheck.maxPositionSize.toFixed(2)} USDT`);
                         }
                     }
                 }
@@ -5987,6 +6037,11 @@ router.put('/bot/parameters', async (req, res) => {
             return res.status(400).json({ error: 'parameters object is required' });
         }
 
+        // ✅ Per richiesta utente: non accettare / non salvare max_daily_loss_pct
+        // (se arriva dal frontend o da chiamate vecchie, lo ignoriamo)
+        const sanitizedInput = { ...(parameters || {}) };
+        delete sanitizedInput.max_daily_loss_pct;
+
         // ✅ NUOVO: Recupera parametri esistenti per merge (mantiene valori non specificati)
         const existingParams = await getBotParameters('bitcoin');
 
@@ -6017,69 +6072,69 @@ router.put('/bot/parameters', async (req, res) => {
         // ✅ FIX: Gestisce valori vuoti/null/undefined mantenendo il valore esistente
         const validParams = {
             // Parametri RSI
-            rsi_period: (parameters.rsi_period !== undefined && parameters.rsi_period !== null && parameters.rsi_period !== '')
-                ? Math.max(5, Math.min(30, parseInt(parameters.rsi_period) || existingParams.rsi_period || DEFAULT_PARAMS.rsi_period))
+            rsi_period: (sanitizedInput.rsi_period !== undefined && sanitizedInput.rsi_period !== null && sanitizedInput.rsi_period !== '')
+                ? Math.max(5, Math.min(30, parseInt(sanitizedInput.rsi_period) || existingParams.rsi_period || DEFAULT_PARAMS.rsi_period))
                 : (existingParams.rsi_period || DEFAULT_PARAMS.rsi_period),
-            rsi_oversold: (parameters.rsi_oversold !== undefined && parameters.rsi_oversold !== null && parameters.rsi_oversold !== '')
-                ? Math.max(0, Math.min(50, parseFloat(parameters.rsi_oversold) || existingParams.rsi_oversold || DEFAULT_PARAMS.rsi_oversold))
+            rsi_oversold: (sanitizedInput.rsi_oversold !== undefined && sanitizedInput.rsi_oversold !== null && sanitizedInput.rsi_oversold !== '')
+                ? Math.max(0, Math.min(50, parseFloat(sanitizedInput.rsi_oversold) || existingParams.rsi_oversold || DEFAULT_PARAMS.rsi_oversold))
                 : (existingParams.rsi_oversold || DEFAULT_PARAMS.rsi_oversold),
-            rsi_overbought: (parameters.rsi_overbought !== undefined && parameters.rsi_overbought !== null && parameters.rsi_overbought !== '')
-                ? Math.max(50, Math.min(100, parseFloat(parameters.rsi_overbought) || existingParams.rsi_overbought || DEFAULT_PARAMS.rsi_overbought))
+            rsi_overbought: (sanitizedInput.rsi_overbought !== undefined && sanitizedInput.rsi_overbought !== null && sanitizedInput.rsi_overbought !== '')
+                ? Math.max(50, Math.min(100, parseFloat(sanitizedInput.rsi_overbought) || existingParams.rsi_overbought || DEFAULT_PARAMS.rsi_overbought))
                 : (existingParams.rsi_overbought || DEFAULT_PARAMS.rsi_overbought),
 
             // Parametri Trading
-            stop_loss_pct: (parameters.stop_loss_pct !== undefined && parameters.stop_loss_pct !== null && parameters.stop_loss_pct !== '')
-                ? Math.max(0.1, Math.min(10, parseFloat(parameters.stop_loss_pct) || existingParams.stop_loss_pct || DEFAULT_PARAMS.stop_loss_pct))
+            stop_loss_pct: (sanitizedInput.stop_loss_pct !== undefined && sanitizedInput.stop_loss_pct !== null && sanitizedInput.stop_loss_pct !== '')
+                ? Math.max(0.1, Math.min(10, parseFloat(sanitizedInput.stop_loss_pct) || existingParams.stop_loss_pct || DEFAULT_PARAMS.stop_loss_pct))
                 : (existingParams.stop_loss_pct || DEFAULT_PARAMS.stop_loss_pct),
-            take_profit_pct: (parameters.take_profit_pct !== undefined && parameters.take_profit_pct !== null && parameters.take_profit_pct !== '')
-                ? Math.max(0.1, Math.min(20, parseFloat(parameters.take_profit_pct) || existingParams.take_profit_pct || DEFAULT_PARAMS.take_profit_pct))
+            take_profit_pct: (sanitizedInput.take_profit_pct !== undefined && sanitizedInput.take_profit_pct !== null && sanitizedInput.take_profit_pct !== '')
+                ? Math.max(0.1, Math.min(20, parseFloat(sanitizedInput.take_profit_pct) || existingParams.take_profit_pct || DEFAULT_PARAMS.take_profit_pct))
                 : (existingParams.take_profit_pct || DEFAULT_PARAMS.take_profit_pct),
-            trade_size_usdt: parameters.trade_size_usdt !== undefined && parameters.trade_size_usdt !== null && parameters.trade_size_usdt !== ''
-                ? Math.max(10, Math.min(1000, parseFloat(parameters.trade_size_usdt || parameters.trade_size_eur) || existingParams.trade_size_usdt || DEFAULT_PARAMS.trade_size_usdt))
+            trade_size_usdt: sanitizedInput.trade_size_usdt !== undefined && sanitizedInput.trade_size_usdt !== null && sanitizedInput.trade_size_usdt !== ''
+                ? Math.max(10, Math.min(1000, parseFloat(sanitizedInput.trade_size_usdt || sanitizedInput.trade_size_eur) || existingParams.trade_size_usdt || DEFAULT_PARAMS.trade_size_usdt))
                 : (existingParams.trade_size_usdt || DEFAULT_PARAMS.trade_size_usdt),
 
             // Trailing Stop
-            trailing_stop_enabled: parameters.trailing_stop_enabled !== undefined
-                ? (parameters.trailing_stop_enabled === true || parameters.trailing_stop_enabled === 'true' || parameters.trailing_stop_enabled === 1)
+            trailing_stop_enabled: sanitizedInput.trailing_stop_enabled !== undefined
+                ? (sanitizedInput.trailing_stop_enabled === true || sanitizedInput.trailing_stop_enabled === 'true' || sanitizedInput.trailing_stop_enabled === 1)
                 : (existingParams.trailing_stop_enabled !== undefined ? existingParams.trailing_stop_enabled : DEFAULT_PARAMS.trailing_stop_enabled),
-            trailing_stop_distance_pct: (parameters.trailing_stop_distance_pct !== undefined && parameters.trailing_stop_distance_pct !== null && parameters.trailing_stop_distance_pct !== '')
-                ? Math.max(0.1, Math.min(5, parseFloat(parameters.trailing_stop_distance_pct) || existingParams.trailing_stop_distance_pct || DEFAULT_PARAMS.trailing_stop_distance_pct))
+            trailing_stop_distance_pct: (sanitizedInput.trailing_stop_distance_pct !== undefined && sanitizedInput.trailing_stop_distance_pct !== null && sanitizedInput.trailing_stop_distance_pct !== '')
+                ? Math.max(0.1, Math.min(5, parseFloat(sanitizedInput.trailing_stop_distance_pct) || existingParams.trailing_stop_distance_pct || DEFAULT_PARAMS.trailing_stop_distance_pct))
                 : (existingParams.trailing_stop_distance_pct || DEFAULT_PARAMS.trailing_stop_distance_pct),
 
             // Partial Close
-            partial_close_enabled: parameters.partial_close_enabled !== undefined
-                ? (parameters.partial_close_enabled === true || parameters.partial_close_enabled === 'true' || parameters.partial_close_enabled === 1)
+            partial_close_enabled: sanitizedInput.partial_close_enabled !== undefined
+                ? (sanitizedInput.partial_close_enabled === true || sanitizedInput.partial_close_enabled === 'true' || sanitizedInput.partial_close_enabled === 1)
                 : (existingParams.partial_close_enabled !== undefined ? existingParams.partial_close_enabled : DEFAULT_PARAMS.partial_close_enabled),
-            take_profit_1_pct: (parameters.take_profit_1_pct !== undefined && parameters.take_profit_1_pct !== null && parameters.take_profit_1_pct !== '')
-                ? Math.max(0.1, Math.min(5, parseFloat(parameters.take_profit_1_pct) || existingParams.take_profit_1_pct || DEFAULT_PARAMS.take_profit_1_pct))
+            take_profit_1_pct: (sanitizedInput.take_profit_1_pct !== undefined && sanitizedInput.take_profit_1_pct !== null && sanitizedInput.take_profit_1_pct !== '')
+                ? Math.max(0.1, Math.min(5, parseFloat(sanitizedInput.take_profit_1_pct) || existingParams.take_profit_1_pct || DEFAULT_PARAMS.take_profit_1_pct))
                 : (existingParams.take_profit_1_pct || DEFAULT_PARAMS.take_profit_1_pct),
-            take_profit_2_pct: (parameters.take_profit_2_pct !== undefined && parameters.take_profit_2_pct !== null && parameters.take_profit_2_pct !== '')
-                ? Math.max(0.1, Math.min(10, parseFloat(parameters.take_profit_2_pct) || existingParams.take_profit_2_pct || DEFAULT_PARAMS.take_profit_2_pct))
+            take_profit_2_pct: (sanitizedInput.take_profit_2_pct !== undefined && sanitizedInput.take_profit_2_pct !== null && sanitizedInput.take_profit_2_pct !== '')
+                ? Math.max(0.1, Math.min(10, parseFloat(sanitizedInput.take_profit_2_pct) || existingParams.take_profit_2_pct || DEFAULT_PARAMS.take_profit_2_pct))
                 : (existingParams.take_profit_2_pct || DEFAULT_PARAMS.take_profit_2_pct),
 
             // ✅ NUOVI: Filtri Avanzati (personalizzabili)
-            min_signal_strength: (parameters.min_signal_strength !== undefined && parameters.min_signal_strength !== null && parameters.min_signal_strength !== '')
-                ? Math.max(50, Math.min(100, parseInt(parameters.min_signal_strength) || existingParams.min_signal_strength || 70))
+            min_signal_strength: (sanitizedInput.min_signal_strength !== undefined && sanitizedInput.min_signal_strength !== null && sanitizedInput.min_signal_strength !== '')
+                ? Math.max(50, Math.min(100, parseInt(sanitizedInput.min_signal_strength) || existingParams.min_signal_strength || 70))
                 : (existingParams.min_signal_strength || 70),
-            min_confirmations_long: (parameters.min_confirmations_long !== undefined && parameters.min_confirmations_long !== null && parameters.min_confirmations_long !== '')
-                ? Math.max(1, Math.min(10, parseInt(parameters.min_confirmations_long) || existingParams.min_confirmations_long || 3))
+            min_confirmations_long: (sanitizedInput.min_confirmations_long !== undefined && sanitizedInput.min_confirmations_long !== null && sanitizedInput.min_confirmations_long !== '')
+                ? Math.max(1, Math.min(10, parseInt(sanitizedInput.min_confirmations_long) || existingParams.min_confirmations_long || 3))
                 : (existingParams.min_confirmations_long || 3),
-            min_confirmations_short: (parameters.min_confirmations_short !== undefined && parameters.min_confirmations_short !== null && parameters.min_confirmations_short !== '')
-                ? Math.max(1, Math.min(10, parseInt(parameters.min_confirmations_short) || existingParams.min_confirmations_short || 4))
+            min_confirmations_short: (sanitizedInput.min_confirmations_short !== undefined && sanitizedInput.min_confirmations_short !== null && sanitizedInput.min_confirmations_short !== '')
+                ? Math.max(1, Math.min(10, parseInt(sanitizedInput.min_confirmations_short) || existingParams.min_confirmations_short || 4))
                 : (existingParams.min_confirmations_short || 4),
-            min_atr_pct: (parameters.min_atr_pct !== undefined && parameters.min_atr_pct !== null && parameters.min_atr_pct !== '')
-                ? Math.max(0.1, Math.min(2.0, parseFloat(parameters.min_atr_pct) || existingParams.min_atr_pct || 0.2))
+            min_atr_pct: (sanitizedInput.min_atr_pct !== undefined && sanitizedInput.min_atr_pct !== null && sanitizedInput.min_atr_pct !== '')
+                ? Math.max(0.1, Math.min(2.0, parseFloat(sanitizedInput.min_atr_pct) || existingParams.min_atr_pct || 0.2))
                 : (existingParams.min_atr_pct || 0.2),
-            max_atr_pct: (parameters.max_atr_pct !== undefined && parameters.max_atr_pct !== null && parameters.max_atr_pct !== '')
-                ? Math.max(2.0, Math.min(10.0, parseFloat(parameters.max_atr_pct) || existingParams.max_atr_pct || 5.0))
+            max_atr_pct: (sanitizedInput.max_atr_pct !== undefined && sanitizedInput.max_atr_pct !== null && sanitizedInput.max_atr_pct !== '')
+                ? Math.max(2.0, Math.min(10.0, parseFloat(sanitizedInput.max_atr_pct) || existingParams.max_atr_pct || 5.0))
                 : (existingParams.max_atr_pct || 5.0),
-            min_volume_24h: (parameters.min_volume_24h !== undefined && parameters.min_volume_24h !== null && parameters.min_volume_24h !== '')
+            min_volume_24h: (sanitizedInput.min_volume_24h !== undefined && sanitizedInput.min_volume_24h !== null && sanitizedInput.min_volume_24h !== '')
                 ? (() => {
-                    const parsed = parseFloat(parameters.min_volume_24h);
+                    const parsed = parseFloat(sanitizedInput.min_volume_24h);
                     // ✅ DEBUG: Log dettagliato per min_volume_24h
                     console.log('🔍 [BOT-PARAMS] Processing min_volume_24h:', {
-                        raw: parameters.min_volume_24h,
-                        type: typeof parameters.min_volume_24h,
+                        raw: sanitizedInput.min_volume_24h,
+                        type: typeof sanitizedInput.min_volume_24h,
                         parsed: parsed,
                         isNaN: isNaN(parsed),
                         existing: existingParams.min_volume_24h
@@ -6099,9 +6154,6 @@ router.put('/bot/parameters', async (req, res) => {
                 })(),
 
             // ✅ NUOVI: Risk Management (personalizzabili)
-            max_daily_loss_pct: (parameters.max_daily_loss_pct !== undefined && parameters.max_daily_loss_pct !== null && parameters.max_daily_loss_pct !== '')
-                ? Math.max(1.0, Math.min(20.0, parseFloat(parameters.max_daily_loss_pct) || existingParams.max_daily_loss_pct || 5.0))
-                : (existingParams.max_daily_loss_pct || 5.0),
             max_exposure_pct: (parameters.max_exposure_pct !== undefined && parameters.max_exposure_pct !== null && parameters.max_exposure_pct !== '')
                 ? Math.max(10.0, Math.min(100.0, parseFloat(parameters.max_exposure_pct) || existingParams.max_exposure_pct || 50.0))
                 : (existingParams.max_exposure_pct || 50.0),
@@ -6271,6 +6323,85 @@ router.put('/bot/parameters', async (req, res) => {
     } catch (error) {
         console.error('Error updating bot parameters:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// POST /api/crypto/bot/remove-max-daily-loss-pct - Rimuove "max_daily_loss_pct" (Perdita Massima Giornaliera) da tutti i record
+router.post('/bot/remove-max-daily-loss-pct', async (req, res) => {
+    try {
+        console.log('🔄 [REMOVE-MAX-DAILY-LOSS] Rimozione "max_daily_loss_pct" dal database...');
+
+        // Ottieni tutti i record da bot_settings
+        const allSettings = await dbAll(
+            "SELECT id, strategy_name, symbol, parameters FROM bot_settings WHERE parameters IS NOT NULL"
+        );
+
+        if (!allSettings || allSettings.length === 0) {
+            return res.json({
+                success: true,
+                message: 'Nessun record trovato in bot_settings',
+                updated: 0,
+                skipped: 0
+            });
+        }
+
+        let updatedCount = 0;
+        let skippedCount = 0;
+        const updatedRecords = [];
+
+        for (const setting of allSettings) {
+            try {
+                // Parse del JSON
+                let params = {};
+                if (typeof setting.parameters === 'string') {
+                    params = JSON.parse(setting.parameters);
+                } else {
+                    params = setting.parameters;
+                }
+
+                // Verifica se contiene max_daily_loss_pct
+                if ('max_daily_loss_pct' in params) {
+                    const oldValue = params.max_daily_loss_pct;
+                    
+                    // Rimuovi il parametro
+                    delete params.max_daily_loss_pct;
+
+                    // Aggiorna il database
+                    await dbRun(
+                        "UPDATE bot_settings SET parameters = $1::text WHERE id = $2",
+                        [JSON.stringify(params), setting.id]
+                    );
+
+                    updatedRecords.push({
+                        strategy: setting.strategy_name,
+                        symbol: setting.symbol,
+                        oldValue: oldValue
+                    });
+                    updatedCount++;
+                } else {
+                    skippedCount++;
+                }
+            } catch (err) {
+                console.error(`❌ [REMOVE-MAX-DAILY-LOSS] Errore processando record ID ${setting.id}:`, err.message);
+            }
+        }
+
+        console.log(`✅ [REMOVE-MAX-DAILY-LOSS] Completato: ${updatedCount} aggiornati, ${skippedCount} già puliti`);
+
+        res.json({
+            success: true,
+            message: `Rimozione completata: ${updatedCount} record aggiornati, ${skippedCount} già puliti`,
+            updated: updatedCount,
+            skipped: skippedCount,
+            total: allSettings.length,
+            updatedRecords: updatedRecords
+        });
+    } catch (error) {
+        console.error('❌ [REMOVE-MAX-DAILY-LOSS] Errore:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message 
+        });
     }
 });
 
@@ -8209,7 +8340,9 @@ router.get('/bot-analysis', async (req, res) => {
         }
 
         // ✅ Check Hybrid Strategy (pass ALL positions)
-        const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions);
+        const hybridCheck = await canOpenPositionHybridStrategy(symbol, allOpenPositions, null, null, {
+            maxTotalPositions: (params && params.max_positions) ? params.max_positions : 10
+        });
         console.log(`📊 [BOT-ANALYSIS] Hybrid Check: ${hybridCheck.allowed ? 'OK' : 'BLOCKED'} (${hybridCheck.reason})`);
 
         const longAdjustedStrength = longCurrentStrength + longMtfBonus;

@@ -18,8 +18,11 @@ const dbAll = cryptoDb.dbAll;
 class SeriousRiskManager {
     constructor() {
         // LIMITI ASSOLUTI (non negoziabili)
-        this.MAX_DAILY_LOSS_PCT = 0.05;        // 5% capitale
-        this.MAX_TOTAL_EXPOSURE_PCT = 0.80;    // 80% capitale (base, aumenta con win rate alto)
+        // Default sensati (possono essere sovrascritti da DB)
+        // NOTE: max_daily_loss_pct è stato rimosso dal sistema per richiesta utente.
+        this.MAX_DAILY_LOSS_PCT = 0.05;        // (non usato)
+        // max_exposure_pct: di default 80%, ma sempre configurabile da DB
+        this.MAX_TOTAL_EXPOSURE_PCT = 0.80;    // 80% capitale (default)
         this.MAX_POSITION_SIZE_PCT = 0.10;     // 10% capitale per posizione (base, aumenta con win rate alto)
         this.MAX_DRAWDOWN_PCT = 0.10;          // 10% drawdown
         this.BASE_CAPITAL = 250;                // Protezione capitale base
@@ -39,18 +42,21 @@ class SeriousRiskManager {
             // ✅ MIGRAZIONE POSTGRESQL: Usa dbGet invece di db.get
             const stats = await dbGet("SELECT * FROM performance_stats WHERE id = 1");
 
-            // ✅ CONFIGURABILE: Legge max_exposure_pct dal database
+            // ✅ CONFIGURABILE: max_exposure_pct dal DB (global ha precedenza)
             let baseMaxExposurePct = this.MAX_TOTAL_EXPOSURE_PCT;
             try {
-                const botParams = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND (symbol = 'global' OR symbol = 'bitcoin') ORDER BY CASE WHEN symbol = 'global' THEN 0 ELSE 1 END LIMIT 1");
+                const botParams = await dbGet(
+                    "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND (symbol = 'global' OR symbol = 'bitcoin') ORDER BY CASE WHEN symbol = 'global' THEN 0 ELSE 1 END LIMIT 1"
+                );
                 if (botParams && botParams.parameters) {
                     const params = typeof botParams.parameters === 'string' ? JSON.parse(botParams.parameters) : botParams.parameters;
-                    if (params.max_exposure_pct !== undefined) {
-                        baseMaxExposurePct = parseFloat(params.max_exposure_pct) / 100; // Converti da % a decimale
+                    const parsed = parseFloat(params.max_exposure_pct);
+                    if (!isNaN(parsed) && parsed > 0) {
+                        baseMaxExposurePct = parsed / 100;
                     }
                 }
-            } catch (paramError) {
-                // Usa default se errore
+            } catch (e) {
+                // ignore
             }
 
             if (!stats || !stats.total_trades || stats.total_trades < 10) {
@@ -63,25 +69,23 @@ class SeriousRiskManager {
 
             const winRate = stats.total_trades > 0 ? stats.winning_trades / stats.total_trades : 0.5;
 
-            // ✅ LOGICA DINAMICA: Aumenta limiti se win rate è alto (ma rispetta max_exposure_pct configurato)
+            // ✅ SCELTA UTENTE: max exposure NON deve essere cambiato dal win-rate
+            // (il win-rate può al massimo influenzare la size % per posizione)
             let maxExposurePct = baseMaxExposurePct;
             let maxPositionSizePct = this.MAX_POSITION_SIZE_PCT;
 
             if (winRate >= 0.90) {
                 // Win rate 90%+ → molto aggressivo
-                maxExposurePct = 0.95; // 95% exposure (quasi tutto il capitale)
                 maxPositionSizePct = 0.15; // 15% per posizione (più grande)
-                console.log(`📊 [DYNAMIC LIMITS] Win rate ${(winRate * 100).toFixed(1)}% → Exposure: 95%, Position size: 15%`);
+                console.log(`📊 [DYNAMIC LIMITS] Win rate ${(winRate * 100).toFixed(1)}% → Exposure: ${(maxExposurePct * 100).toFixed(0)}%, Position size: 15%`);
             } else if (winRate >= 0.80) {
                 // Win rate 80-89% → aggressivo
-                maxExposurePct = 0.90; // 90% exposure
                 maxPositionSizePct = 0.12; // 12% per posizione
-                console.log(`📊 [DYNAMIC LIMITS] Win rate ${(winRate * 100).toFixed(1)}% → Exposure: 90%, Position size: 12%`);
+                console.log(`📊 [DYNAMIC LIMITS] Win rate ${(winRate * 100).toFixed(1)}% → Exposure: ${(maxExposurePct * 100).toFixed(0)}%, Position size: 12%`);
             } else if (winRate >= 0.70) {
                 // Win rate 70-79% → moderato
-                maxExposurePct = 0.85; // 85% exposure
                 maxPositionSizePct = 0.11; // 11% per posizione
-                console.log(`📊 [DYNAMIC LIMITS] Win rate ${(winRate * 100).toFixed(1)}% → Exposure: 85%, Position size: 11%`);
+                console.log(`📊 [DYNAMIC LIMITS] Win rate ${(winRate * 100).toFixed(1)}% → Exposure: ${(maxExposurePct * 100).toFixed(0)}%, Position size: 11%`);
             }
             // Win rate <70% → usa limiti base (80% exposure, 10% position size)
 
@@ -111,35 +115,36 @@ class SeriousRiskManager {
         }
 
         try {
-            // ✅ CONFIGURABILE: Legge max_daily_loss_pct e max_exposure_pct dal database
-            let maxDailyLossPct = this.MAX_DAILY_LOSS_PCT;
+            // ✅ SCELTA UTENTE (DB):
+            // - max_exposure_pct: percentuale massima exposure (es. 80)
+            // - trade_size_usdt: se configurato, diventa anche "minimo assoluto" (no micro-trade)
             let maxExposurePct = this.MAX_TOTAL_EXPOSURE_PCT;
-            
+            let configuredTradeSize = null;
+
             try {
-                // Prova prima 'global', poi 'bitcoin'
                 let botParams = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = $1 AND symbol = $2 LIMIT 1", ['RSI_Strategy', 'global']);
                 if (!botParams) {
                     botParams = await dbGet("SELECT * FROM bot_settings WHERE strategy_name = $1 AND symbol = $2 LIMIT 1", ['RSI_Strategy', 'bitcoin']);
                 }
-                
                 if (botParams && botParams.parameters) {
                     const params = typeof botParams.parameters === 'string' ? JSON.parse(botParams.parameters) : botParams.parameters;
-                    if (params.max_daily_loss_pct !== undefined && params.max_daily_loss_pct !== null && params.max_daily_loss_pct !== '') {
-                        const parsedValue = parseFloat(params.max_daily_loss_pct);
-                        if (!isNaN(parsedValue) && parsedValue > 0) {
-                            maxDailyLossPct = parsedValue / 100; // Converti da % a decimale
+
+                    // exposure
+                    if (params.max_exposure_pct !== undefined && params.max_exposure_pct !== null && params.max_exposure_pct !== '') {
+                        const parsed = parseFloat(params.max_exposure_pct);
+                        if (!isNaN(parsed) && parsed > 0) {
+                            maxExposurePct = parsed / 100;
                         }
                     }
-                    if (params.max_exposure_pct !== undefined && params.max_exposure_pct !== null && params.max_exposure_pct !== '') {
-                        const parsedValue = parseFloat(params.max_exposure_pct);
-                        if (!isNaN(parsedValue) && parsedValue > 0) {
-                            maxExposurePct = parsedValue / 100; // Converti da % a decimale
-                        }
+                    // trade size (minimo assoluto se configurato)
+                    const ts = params.trade_size_usdt ?? params.trade_size_eur ?? null;
+                    const tsParsed = ts !== null && ts !== undefined ? parseFloat(ts) : NaN;
+                    if (!isNaN(tsParsed) && tsParsed >= 10) {
+                        configuredTradeSize = tsParsed;
                     }
                 }
             } catch (paramError) {
                 console.warn('⚠️ [RISK-MANAGER] Errore lettura parametri, uso defaults:', paramError.message);
-                // Le variabili rimangono con i valori di default già assegnati sopra
             }
 
             // 1. Ottieni portfolio
@@ -268,23 +273,8 @@ class SeriousRiskManager {
                 return this.cachedResult;
             }
 
-            // ✅ MODIFICATO: Daily Loss Limit reso opzionale e più permissivo
-            // Se maxDailyLossPct è 0 o negativo, il limite è disabilitato
-            // Se maxDailyLossPct è molto alto (>50%), è praticamente disabilitato
-            // Il limite ha senso solo se configurato esplicitamente dall'utente e con valori ragionevoli
-            if (maxDailyLossPct > 0 && maxDailyLossPct <= 0.5 && dailyLossPct >= maxDailyLossPct) {
-                this.cachedResult = {
-                    canTrade: false,
-                    reason: `Daily loss limit reached (${(dailyLossPct * 100).toFixed(2)}% >= ${(maxDailyLossPct * 100).toFixed(2)}%)`,
-                    maxPositionSize: 0,
-                    availableExposure: 0,
-                    dailyLoss: dailyLossPct,
-                    currentExposure: currentExposurePct,
-                    drawdown: drawdown
-                };
-                this.lastCheck = now;
-                return this.cachedResult;
-            }
+            // ✅ Per richiesta utente: max_daily_loss_pct è stato rimosso.
+            // Non blocchiamo MAI l'apertura basandoci su perdita giornaliera.
 
             // ✅ Verifica limite exposure (sarà verificato anche dopo con limiti dinamici, ma questo è un check preliminare)
             // Usa maxExposurePct già letto dal database all'inizio
@@ -346,8 +336,9 @@ class SeriousRiskManager {
             // - Minimo assoluto: $80 USDT per posizione (anche con portfolio piccolo)
             // - Cresce con il portfolio: se portfolio cresce, posizioni crescono
 
-            const FIXED_POSITION_PCT = 0.08;  // 8% del portfolio (10 posizioni = 80% exposure)
-            const MIN_POSITION_SIZE = 80.0;   // Minimo assoluto $80 USDT
+            const FIXED_POSITION_PCT = 0.08;  // 8% del portfolio (default)
+            // ✅ Se l'utente imposta trade_size_usdt, quello diventa il minimo assoluto (no micro-trade)
+            const MIN_POSITION_SIZE = configuredTradeSize || 80.0;
 
             // Calcola dimensione posizione basata su portfolio
             let calculatedPositionSize = totalEquity * FIXED_POSITION_PCT;
@@ -359,9 +350,24 @@ class SeriousRiskManager {
             // blocca l'apertura di nuove posizioni (non aprire posizioni troppo piccole)
             // Questo garantisce che ogni posizione sia almeno $80 USDT
             if (cashBalance < MIN_POSITION_SIZE) {
+                // ✅ Se MIN_POSITION_SIZE arriva da trade_size_usdt, NON apriamo posizioni più piccole
+                if (configuredTradeSize) {
+                    this.cachedResult = {
+                        canTrade: false,
+                        reason: `Insufficient cash for configured trade size ($${cashBalance.toFixed(2)} < $${MIN_POSITION_SIZE} USDT)`,
+                        maxPositionSize: 0,
+                        availableExposure: 0,
+                        dailyLoss: dailyLossPct,
+                        currentExposure: currentExposurePct,
+                        drawdown: drawdown,
+                        currentCapital: cashBalance,
+                        totalEquity: totalEquity
+                    };
+                    this.lastCheck = now;
+                    return this.cachedResult;
+                }
+                // fallback legacy: se non c'è trade_size configurato, permetti size piccola se >=$10
                 console.log(`⚠️ [FIXED SIZING] Cash insufficiente per posizione minima: $${cashBalance.toFixed(2)} < $${MIN_POSITION_SIZE} USDT`);
-                // Non bloccare completamente, ma limitare a cash disponibile solo se è ragionevole (>$10)
-                // Se cash è troppo piccolo (<$10), blocca completamente
                 if (cashBalance < 10) {
                     this.cachedResult = {
                         canTrade: false,
@@ -377,7 +383,6 @@ class SeriousRiskManager {
                     this.lastCheck = now;
                     return this.cachedResult;
                 }
-                // Se cash è tra $10 e $80, permette posizione piccola ma avvisa
                 maxPositionSize = cashBalance;
                 console.log(`⚠️ [FIXED SIZING] Posizione limitata a cash disponibile: $${maxPositionSize.toFixed(2)} USDT (minimo richiesto: $${MIN_POSITION_SIZE} USDT)`);
             } else {

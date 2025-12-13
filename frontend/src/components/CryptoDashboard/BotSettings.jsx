@@ -9,7 +9,7 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
         rsi_overbought: 70,
         stop_loss_pct: 2.0,
         take_profit_pct: 3.0,
-        trade_size_usdt: 50,
+        trade_size_usdt: 100,
         trailing_stop_enabled: false,
         trailing_stop_distance_pct: 1.0,
         trailing_profit_protection_enabled: true,
@@ -24,9 +24,8 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
         max_atr_pct: 5.0,
         min_volume_24h: 500000,
         // Risk Management
-        max_daily_loss_pct: 5.0,
-        max_exposure_pct: 50.0,
-        max_positions: 5,
+        max_exposure_pct: 80.0,
+        max_positions: 10,
         // Timeframe
         analysis_timeframe: '15m'
     });
@@ -583,26 +582,6 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                                 </h3>
                             </div>
 
-                            {/* Max Daily Loss */}
-                            <div className="parameter-group">
-                                <label htmlFor="max_daily_loss_pct">
-                                    Perdita Massima Giornaliera (%)
-                                    <span className="parameter-hint">(1.0-20.0)</span>
-                                </label>
-                                <input
-                                    id="max_daily_loss_pct"
-                                    type="number"
-                                    min="1.0"
-                                    max="20.0"
-                                    step="0.5"
-                                    value={parameters.max_daily_loss_pct || 5.0}
-                                    onChange={(e) => handleChange('max_daily_loss_pct', e.target.value)}
-                                />
-                                <div className="parameter-desc">
-                                    Se la perdita giornaliera supera questa percentuale, il bot smette di tradare per il resto della giornata. Protezione capitale.
-                                </div>
-                            </div>
-
                             {/* Max Exposure */}
                             <div className="parameter-group">
                                 <label htmlFor="max_exposure_pct">
@@ -615,7 +594,7 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                                     min="10.0"
                                     max="100.0"
                                     step="5.0"
-                                    value={parameters.max_exposure_pct || 50.0}
+                                    value={parameters.max_exposure_pct || 80.0}
                                     onChange={(e) => handleChange('max_exposure_pct', e.target.value)}
                                 />
                                 <div className="parameter-desc">
@@ -635,7 +614,7 @@ const BotSettings = ({ isOpen, onClose, apiBase }) => {
                                     min="1"
                                     max="20"
                                     step="1"
-                                    value={parameters.max_positions || 5}
+                                    value={parameters.max_positions || 10}
                                     onChange={(e) => handleChange('max_positions', e.target.value)}
                                 />
                                 <div className="parameter-desc">

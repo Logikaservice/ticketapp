@@ -180,7 +180,6 @@ const DEFAULT_PARAMS = {
     min_atr_pct: 0.2,
     max_atr_pct: 5.0,
     min_volume_24h: 500000,
-    max_daily_loss_pct: 5.0,
     max_exposure_pct: 40.0,
     max_positions: 10,
     analysis_timeframe: '15m',

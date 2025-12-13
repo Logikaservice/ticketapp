@@ -27,7 +27,6 @@ const OPTIMAL_CONFIG = {
     min_confirmations_short: 4,
     atr_minimum_pct: 0.3,
     volume_minimum_24h: 300000,
-    max_daily_loss_pct: 3.0,
     max_exposure_pct: 40.0,
     max_positions: 6
 };

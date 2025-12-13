@@ -30,7 +30,6 @@ const OPTIMAL_CONFIG = {
     volume_minimum_24h: 300000,
 
     // Risk Management Limits
-    max_daily_loss_pct: 3.0,
     max_exposure_pct: 40.0,
     max_positions: 6
 };
