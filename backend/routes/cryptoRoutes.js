@@ -9985,7 +9985,11 @@ const performUnifiedDeepAnalysis = async (symbol, currentPrice, explicitPair = n
             console.log(`⚠️ [BINANCE-BAN] IP bannato - uso dati DB esistenti per deepAnalysis di ${symbol} (potrebbero essere incompleti)`);
         }
 
-        if (deepAnalysisHistory.length === 0) return null;
+        // ✅ FIX CRITICO: Restituisci null se dati insufficienti (< 20 klines richieste per RSI valido)
+        if (deepAnalysisHistory.length === 0 || deepAnalysisHistory.length < 20) {
+            console.log(`⚠️ [SCANNER] ${symbol}: Dati insufficienti (${deepAnalysisHistory.length}/20 klines) - return null`);
+            return null;
+        }
 
         if (deepAnalysisHistory.length > 0) {
             // Logic to append/update last candle
@@ -10315,6 +10319,19 @@ router.get('/scanner', async (req, res) => {
                 if (unifiedResult && unifiedResult.signal) {
                     signal = unifiedResult.signal;
                     rsiDeepAnalysis = unifiedResult.rsi;
+                    
+                    // ✅ FIX CRITICO: Controlla anche se signal.reasons contiene messaggi di dati insufficienti
+                    if (signal.reasons && Array.isArray(signal.reasons)) {
+                        const hasInsufficientDataMessage = signal.reasons.some(r => 
+                            typeof r === 'string' && 
+                            (r.includes('Dati non disponibili') || 
+                             r.includes('Dati insufficienti') || 
+                             r.includes('Dati storici insufficienti'))
+                        );
+                        if (hasInsufficientDataMessage) {
+                            hasInsufficientData = true;
+                        }
+                    }
                 } else {
                     // Dati stale o mancanti -> Nessun segnale valido (Strength 0)
                     hasInsufficientData = true;
