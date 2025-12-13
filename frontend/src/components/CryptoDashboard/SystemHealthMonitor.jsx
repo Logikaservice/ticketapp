@@ -14,7 +14,7 @@ const SystemHealthMonitor = ({ compact = false }) => {
     const fetchHealthStatus = async () => {
         setLoading(true);
         try {
-            const response = await fetch(`${API_URL}/api/crypto/health-status`);
+            const response = await fetch(`${API_URL}/api/system-health`);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);

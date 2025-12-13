@@ -73,6 +73,35 @@ class BackupService {
     }
 
     /**
+     * Avvia servizio backup automatico
+     */
+    start(intervalHours = 24) {
+        console.log(`📦 [BACKUP] Servizio backup avviato - backup ogni ${intervalHours} ore`);
+        
+        // Per ora solo log - implementazione backup reale da fare
+        this.backupInterval = setInterval(() => {
+            const status = this.getBackupStatus();
+            if (!status.healthy) {
+                console.warn(`⚠️ [BACKUP] Backup non recente: ${status.message}`);
+            } else {
+                console.log(`✅ [BACKUP] Backup OK: ${status.message}`);
+            }
+        }, intervalHours * 60 * 60 * 1000);
+        
+        return this;
+    }
+
+    /**
+     * Ferma servizio backup
+     */
+    stop() {
+        if (this.backupInterval) {
+            clearInterval(this.backupInterval);
+            console.log('📦 [BACKUP] Servizio backup fermato');
+        }
+    }
+
+    /**
      * Crea backup del database (placeholder - da implementare)
      */
     async createBackup() {

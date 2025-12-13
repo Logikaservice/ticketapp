@@ -97,7 +97,7 @@ const CryptoDashboard = () => {
     // Fetch health status periodically
     const fetchHealthStatus = async () => {
         try {
-            const response = await fetch(`${apiBase}/api/crypto/health-status`);
+            const response = await fetch(`${apiBase}/api/system-health`);
             const data = await response.json();
             if (data.success) {
                 setHealthStatus(data.status);

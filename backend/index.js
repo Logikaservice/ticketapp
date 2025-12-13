@@ -793,6 +793,22 @@ app.use('/api/packvision', packvisionRoutes);
 const cryptoRoutes = require('./routes/cryptoRoutes');
 // Pass Socket.io instance to crypto routes for real-time notifications
 cryptoRoutes.setSocketIO(io);
+
+// ✅ Endpoint pubblico system health (PRIMA di authenticateToken)
+const HealthCheckService = require('./services/HealthCheckService');
+app.get('/api/system-health', async (req, res) => {
+    try {
+        const status = HealthCheckService.getLastStatus();
+        if (!status) {
+            const newStatus = await HealthCheckService.performCheck();
+            return res.json({ success: true, status: newStatus });
+        }
+        res.json({ success: true, status });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.use('/api/crypto', cryptoRoutes);
 
 // 🤖 Start Professional Trading Bot
