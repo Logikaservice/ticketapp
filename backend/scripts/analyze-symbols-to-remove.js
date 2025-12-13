@@ -201,7 +201,7 @@ async function analyzeSymbol(symbol) {
                 `SELECT volume_24h 
                  FROM symbol_volumes_24h 
                  WHERE symbol = $1 
-                 ORDER BY timestamp DESC LIMIT 1`,
+                 ORDER BY updated_at DESC LIMIT 1`,
                 [symbol]
             );
             
