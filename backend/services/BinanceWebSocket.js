@@ -15,10 +15,11 @@ const WebSocket = require('ws');
 const https = require('https');
 
 class BinanceWebSocketService {
-    constructor(priceCacheCallback) {
+    constructor(priceCacheCallback, volumeCacheCallback = null) {
         this.ws = null;
         this.subscribedSymbols = new Set();
-        this.priceCacheCallback = priceCacheCallback; // Callback per aggiornare cache
+        this.priceCacheCallback = priceCacheCallback; // Callback per aggiornare cache prezzi
+        this.volumeCacheCallback = volumeCacheCallback; // Callback per aggiornare cache volumi (nuovo)
         this.reconnectInterval = null;
         this.reconnectDelay = 5000; // 5 secondi
         this.isConnected = false;
@@ -127,31 +128,47 @@ class BinanceWebSocketService {
             return;
         }
 
-        // Tickers è un array di tutti i ticker disponibili
-        // Filtriamo solo quelli che ci interessano (simboli con posizioni aperte)
-        const relevantTickers = tickers.filter(ticker => {
-            // Verifica se questo trading pair corrisponde a un simbolo sottoscritto
-            return Array.from(this.subscribedSymbols).some(symbol => {
-                const pair = this.getTradingPair(symbol);
-                return pair && ticker.s === pair;
-            });
-        });
-
-        // Aggiorna cache per ogni ticker rilevante
+        // ✅ FIX: Tickers è un array di TUTTI i ticker disponibili da Binance
+        // Processiamo TUTTI i ticker per avere volumi anche per simboli non sottoscritti
+        // (utile per Market Scanner che mostra molti simboli)
+        
         if (!this.symbolToPair) {
             return; // Mappa non ancora impostata
         }
         
-        relevantTickers.forEach(ticker => {
-            // Trova simbolo corrispondente
-            for (const [symbol, pair] of Object.entries(this.symbolToPair)) {
-                if (ticker.s === pair) {
-                    const price = parseFloat(ticker.c); // 'c' = last price
-                    
-                    // ✅ FIX CRITICO: Tutti i prezzi sono già in USDT, nessuna conversione necessaria
-                    // Tutte le coppie sono USDT pairs (es. BTCUSDT, DOTUSDT, etc.)
-                    this.updatePriceCache(symbol, price);
-                    break;
+        // Crea mappa inversa: pair -> symbol per lookup veloce
+        const pairToSymbol = {};
+        for (const [symbol, pair] of Object.entries(this.symbolToPair)) {
+            if (pair) {
+                pairToSymbol[pair] = symbol;
+            }
+        }
+        
+        // Processa TUTTI i ticker (non solo quelli sottoscritti) per avere volumi completi
+        tickers.forEach(ticker => {
+            const symbol = pairToSymbol[ticker.s];
+            if (!symbol) {
+                return; // Simbolo non nella nostra mappa, salta
+            }
+            
+            const price = parseFloat(ticker.c); // 'c' = last price
+            
+            // ✅ Prezzi: aggiorna solo per simboli sottoscritti (per non sprecare risorse)
+            // Ma per volumi, aggiorniamo TUTTI i simboli nella mappa (per Market Scanner)
+            const isSubscribed = this.subscribedSymbols.has(symbol);
+            
+            if (isSubscribed && price > 0) {
+                // ✅ FIX CRITICO: Tutti i prezzi sono già in USDT, nessuna conversione necessaria
+                // Tutte le coppie sono USDT pairs (es. BTCUSDT, DOTUSDT, etc.)
+                this.updatePriceCache(symbol, price);
+            }
+            
+            // ✅ NUOVO: Aggiorna volume 24h per TUTTI i simboli nella mappa (non solo sottoscritti)
+            // Il ticker Binance include 'q' (quoteVolume) che è il volume 24h in quote currency (USDT)
+            if (this.volumeCacheCallback && ticker.q) {
+                const volume24h = parseFloat(ticker.q); // 'q' = quote volume (24h volume in USDT)
+                if (volume24h > 0) {
+                    this.updateVolumeCache(symbol, volume24h);
                 }
             }
         });
@@ -165,6 +182,15 @@ class BinanceWebSocketService {
     updatePriceCache(symbol, price) {
         if (this.priceCacheCallback) {
             this.priceCacheCallback(symbol, price);
+        }
+    }
+
+    /**
+     * Aggiorna cache volumi 24h tramite callback
+     */
+    updateVolumeCache(symbol, volume24h) {
+        if (this.volumeCacheCallback) {
+            this.volumeCacheCallback(symbol, volume24h);
         }
     }
 

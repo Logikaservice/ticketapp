@@ -1404,14 +1404,26 @@ let wsService = null;
 // Inizializza WebSocket service con callback per aggiornare cache
 const initWebSocketService = () => {
     if (!wsService) {
-        wsService = new BinanceWebSocketService((symbol, price) => {
-            // Callback: aggiorna cache quando arriva prezzo da WebSocket
-            priceCache.set(symbol, { price, timestamp: Date.now() });
-            // Log solo occasionalmente
-            if (Math.random() < 0.05) {
-                console.log(`📡 [WEBSOCKET] Prezzo aggiornato ${symbol}: $${price.toFixed(2)} USDT`);
+        wsService = new BinanceWebSocketService(
+            // Callback per prezzi
+            (symbol, price) => {
+                // Callback: aggiorna cache quando arriva prezzo da WebSocket
+                priceCache.set(symbol, { price, timestamp: Date.now() });
+                // Log solo occasionalmente
+                if (Math.random() < 0.05) {
+                    console.log(`📡 [WEBSOCKET] Prezzo aggiornato ${symbol}: $${price.toFixed(2)} USDT`);
+                }
+            },
+            // ✅ NUOVO: Callback per volumi 24h
+            (symbol, volume24h) => {
+                // Callback: aggiorna cache volume quando arriva da WebSocket
+                volumeCache.set(symbol, { volume: volume24h, timestamp: Date.now() });
+                // Log solo occasionalmente
+                if (Math.random() < 0.05) {
+                    console.log(`📡 [WEBSOCKET] Volume 24h aggiornato ${symbol}: $${volume24h.toLocaleString('it-IT')} USDT`);
+                }
             }
-        });
+        );
 
         // Imposta mappa simbolo -> trading pair
         wsService.setSymbolToPairMap(SYMBOL_TO_PAIR);
@@ -1755,9 +1767,10 @@ const VOLUME_CACHE_TTL = 3600000; // 1 ora (volume 24h non cambia così spesso)
  */
 const get24hVolume = async (symbol) => {
     try {
-        // ✅ Controlla cache prima di chiamare API
+        // ✅ Controlla cache prima di chiamare API (include volumi da WebSocket)
         const cached = volumeCache.get(symbol);
         if (cached && (Date.now() - cached.timestamp) < VOLUME_CACHE_TTL) {
+            // ✅ Volume da WebSocket o cache - usalo direttamente
             return cached.volume;
         }
 
