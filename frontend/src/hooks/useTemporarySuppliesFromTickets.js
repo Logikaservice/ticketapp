@@ -1,23 +1,34 @@
 // hooks/useTemporarySuppliesFromTickets.js
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { buildApiUrl } from '../utils/apiConfig';
 
 export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
   const [temporarySupplies, setTemporarySupplies] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // ✅ LOCK per evitare chiamate simultanee
+  const fetchingRef = useRef(false);
 
   // Carica tutte le forniture temporanee dai ticket
   const fetchTemporarySupplies = async () => {
-    if (!getAuthHeader) return; // Evita chiamate se non c'è autenticazione
+    if (!getAuthHeader || fetchingRef.current) return; // Evita chiamate se non c'è autenticazione o già in corso
     
     try {
+      fetchingRef.current = true;
       setLoading(true);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // ✅ Timeout 5 secondi
+      
       const response = await fetch(buildApiUrl('/api/tickets/forniture/all'), {
         headers: {
           ...getAuthHeader()
-        }
+        },
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const data = await response.json();
@@ -29,12 +40,18 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
         }
       }
     } catch (error) {
+      // ✅ Ignora errori di aborto e timeout (normali per richieste interrotte)
+      if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+        // Silenzia questi errori - sono normali
+        return;
+      }
       // Non loggare errori CORS come errori critici (sono normali se il backend non è raggiungibile)
       if (error.name !== 'TypeError' || !error.message.includes('Failed to fetch')) {
         console.error('Errore nel caricare le forniture temporanee:', error);
       }
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   };
 
@@ -60,11 +77,24 @@ export const useTemporarySuppliesFromTickets = (getAuthHeader) => {
     }
   };
 
-  // Carica le forniture al mount e quando getAuthHeader cambia
+  // Carica le forniture al mount e quando getAuthHeader cambia (con debounce)
   useEffect(() => {
-    if (getAuthHeader) {
-      fetchTemporarySupplies();
-    }
+    if (!getAuthHeader) return;
+    
+    // ✅ Carica solo una volta al mount
+    fetchTemporarySupplies();
+    
+    // ✅ Debounce: ricarica dopo 1 secondo se getAuthHeader cambia (ma evita chiamate multiple)
+    const timeoutId = setTimeout(() => {
+      if (!fetchingRef.current) {
+        fetchTemporarySupplies();
+      }
+    }, 1000);
+    
+    return () => {
+      clearTimeout(timeoutId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getAuthHeader]);
 
   return {

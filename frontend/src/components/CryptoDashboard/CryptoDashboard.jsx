@@ -183,6 +183,8 @@ setBotParameters(data.bot_parameters);
             if (error.message && !error.message.includes('502') && !error.message.includes('Bad Gateway')) {
                 console.error("❌ Error fetching dashboard:", error);
             }
+        } finally {
+            fetchingDataRef.current = false;
         }
     };
 
@@ -420,16 +422,27 @@ setBotParameters(data.bot_parameters);
         }
     };
 
+    // ✅ LOCK per evitare chiamate simultanee
+    const fetchingPriceRef = React.useRef(false);
+    const fetchingDataRef = React.useRef(false);
+    const fetchingHistoryRef = React.useRef(false);
+
     const fetchPrice = async () => {
+        // ✅ Evita chiamate simultanee
+        if (fetchingPriceRef.current) {
+            return; // Già una chiamata in corso, salta questa
+        }
+        
         try {
+            fetchingPriceRef.current = true;
             // Fetch real price for current symbol from Binance (same source as bot)
             const result = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/price/${currentSymbol}?currency=usdt`,
                 {},
                 {
-                    maxRetries: 2,
+                    maxRetries: 1, // ✅ Ridotto da 2 a 1 per evitare accumulo richieste
                     silent502: true,
-                    timeout: 10000
+                    timeout: 5000 // ✅ Ridotto timeout da 10s a 5s
                 }
             );
             if (result.ok && result.data) {
@@ -444,28 +457,38 @@ setBotParameters(data.bot_parameters);
         } catch (error) {
             // Ignora errori silenziosamente per price fetch
             // Don't set mock price - keep using last known price
+        } finally {
+            fetchingPriceRef.current = false;
         }
     };
 
     const fetchHistory = async (interval = '15m') => {
+        // ✅ Evita chiamate simultanee
+        if (fetchingHistoryRef.current) {
+            return; // Già una chiamata in corso, salta questa
+        }
+        
         try {
+            fetchingHistoryRef.current = true;
             const result = await fetchJsonWithRetry(
                 `${apiBase}/api/crypto/history?interval=${interval}&symbol=${currentSymbol}`,
                 {},
                 {
-                    maxRetries: 2,
+                    maxRetries: 1, // ✅ Ridotto da 2 a 1 per evitare accumulo richieste
                     silent502: true,
-                    timeout: 30000
+                    timeout: 10000 // ✅ Ridotto timeout da 30s a 10s
                 }
             );
             if (result.ok && result.data) {
                 const history = result.data;
                 setPriceData(history);
             } else {
-                console.error('❌ History fetch failed:', res.status, res.statusText);
+                console.error('❌ History fetch failed:', result.status, result.statusText);
             }
         } catch (error) {
             console.error("❌ Error fetching history:", error);
+        } finally {
+            fetchingHistoryRef.current = false;
         }
     };
 
@@ -477,21 +500,21 @@ setBotParameters(data.bot_parameters);
         fetchData();
         fetchPrice();
 
-        // Update price frequently (reduced frequency to avoid ERR_INSUFFICIENT_RESOURCES)
+        // ✅ Update price frequently (aumentato per evitare ERR_INSUFFICIENT_RESOURCES)
         const priceInterval = setInterval(() => {
             fetchPrice();
-        }, 2000); // ✅ Reduced from 500ms to 2000ms to avoid resource exhaustion
+        }, 5000); // ✅ Aumentato da 2000ms a 5000ms per ridurre carico
 
         // ✅ Update data (positions, trades) - reduced frequency
         const dataInterval = setInterval(() => {
             fetchData();
             fetchActiveBots(); // Also update active bots
-        }, 3000); // ✅ Reduced from 500ms to 3000ms to avoid ERR_INSUFFICIENT_RESOURCES
+        }, 5000); // ✅ Aumentato da 3000ms a 5000ms per ridurre carico
 
         // ✅ Update history (candles) - less frequent
         const historyInterval = setInterval(() => {
             fetchHistory();
-        }, 5000); // ✅ Increased from 2000ms to 5000ms to reduce load
+        }, 10000); // ✅ Aumentato da 5000ms a 10000ms per ridurre carico
 
         return () => {
             clearInterval(priceInterval);
