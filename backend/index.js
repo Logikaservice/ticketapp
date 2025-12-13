@@ -794,9 +794,9 @@ const cryptoRoutes = require('./routes/cryptoRoutes');
 // Pass Socket.io instance to crypto routes for real-time notifications
 cryptoRoutes.setSocketIO(io);
 
-// ✅ Endpoint pubblico system health (PRIMA di authenticateToken)
+// ✅ Endpoint pubblico system health (FUORI da /api/ per evitare middleware globali)
 const HealthCheckService = require('./services/HealthCheckService');
-app.get('/api/system-health', async (req, res) => {
+app.get('/system-health', async (req, res) => {
     try {
         const status = HealthCheckService.getLastStatus();
         if (!status) {
