@@ -7179,15 +7179,29 @@ router.get('/bot-analysis', async (req, res) => {
         } catch (signalError) {
             console.error('❌ [BOT-ANALYSIS] Errore nella generazione del segnale:', signalError.message);
             console.error('❌ [BOT-ANALYSIS] Stack trace:', signalError.stack);
-            return res.status(500).json({
+            // ✅ FIX: Restituisci status 200 con dati mock invece di 500
+            return res.status(200).json({
                 error: 'Errore nella generazione del segnale',
-                details: signalError.message
+                details: signalError.message,
+                symbol: symbol,
+                signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Errore generazione segnale'] },
+                currentPrice: currentPrice || 0,
+                longSignal: { strength: 0, confirmations: 0 },
+                shortSignal: { strength: 0, confirmations: 0 }
             });
         }
 
         if (!signal || !signal.indicators) {
             console.error('❌ [BOT-ANALYSIS] Segnale generato ma incompleto:', signal);
-            return res.status(500).json({ error: 'Errore nella generazione del segnale: dati incompleti' });
+            // ✅ FIX: Restituisci status 200 con dati mock invece di 500
+            return res.status(200).json({
+                error: 'Errore nella generazione del segnale: dati incompleti',
+                symbol: symbol,
+                signal: { direction: 'NEUTRAL', strength: 0, confirmations: 0, reasons: ['Dati segnale incompleti'] },
+                currentPrice: currentPrice || 0,
+                longSignal: { strength: 0, confirmations: 0 },
+                shortSignal: { strength: 0, confirmations: 0 }
+            });
         }
 
         // ✅ FIX CRITICO: Calcola ATR e signal.atrBlocked anche nell'endpoint bot-analysis
