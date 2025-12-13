@@ -28,7 +28,11 @@ jobs:
             cd /var/www/ticketapp
             
             echo "📥 Git pull..."
-            git pull origin main
+            # Rimuovi file non tracciati che potrebbero bloccare il merge
+            git clean -fd || true
+            # Fetch e reset hard per allineare completamente con il remoto
+            git fetch origin main
+            git reset --hard origin/main
             
             echo "📦 Backend dependencies..."
             cd backend
