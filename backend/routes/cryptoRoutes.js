@@ -1493,6 +1493,7 @@ const updatePnLLock = new Map();
 
 // ✅ WEBSOCKET SERVICE per aggiornamenti real-time (zero rate limit)
 const BinanceWebSocketService = require('../services/BinanceWebSocket');
+const KlinesAggregatorService = require('../services/KlinesAggregatorService');
 let wsService = null;
 
 // Inizializza WebSocket service con callback per aggiornare cache
@@ -1604,6 +1605,17 @@ const initWebSocketService = () => {
 
 // ✅ Inizializza WebSocket all'avvio
 initWebSocketService();
+
+// ✅ NUOVO: Avvia aggregatore klines dal WebSocket (evita chiamate REST API)
+// Aggrega price_history in klines ogni 15 minuti
+setTimeout(() => {
+    try {
+        KlinesAggregatorService.start();
+        console.log('✅ [KLINES-AGGREGATOR] Servizio avviato - costruisce klines da WebSocket ogni 15 minuti');
+    } catch (err) {
+        console.error('❌ [KLINES-AGGREGATOR] Errore avvio:', err.message);
+    }
+}, 5000); // Attendi 5 secondi dopo avvio per permettere a DB e WebSocket di inizializzarsi
 
 const getSymbolPrice = async (symbol) => {
     // ✅ FIX: "global" è un simbolo speciale per impostazioni, non per trading
@@ -6079,14 +6091,33 @@ router.put('/bot/parameters', async (req, res) => {
             "SELECT * FROM bot_settings WHERE strategy_name = 'RSI_Strategy' AND symbol = 'global' LIMIT 1"
         );
 
+        // ✅ FIX CRITICO: Merge con parametri esistenti per non perdere parametri non inviati
+        // validParams contiene solo i parametri validati, ma dobbiamo mantenere anche gli altri parametri esistenti
+        let finalParams = validParams;
+        if (existing && existing.parameters) {
+            const existingGlobalParams = typeof existing.parameters === 'string' 
+                ? JSON.parse(existing.parameters) 
+                : existing.parameters;
+            // Merge: prima i parametri esistenti, poi validParams (sovrascrive)
+            finalParams = { ...existingGlobalParams, ...validParams };
+            console.log('🔄 [BOT-PARAMS] Merge con parametri esistenti:', {
+                existingParamsCount: Object.keys(existingGlobalParams).length,
+                validParamsCount: Object.keys(validParams).length,
+                finalParamsCount: Object.keys(finalParams).length,
+                min_volume_24h_after_merge: finalParams.min_volume_24h
+            });
+        }
+
         // ✅ FIX: Serializza correttamente per PostgreSQL TEXT
-        const parametersJson = JSON.stringify(validParams);
+        const parametersJson = JSON.stringify(finalParams);
         
         // ✅ DEBUG: Verifica che min_volume_24h sia nel JSON
         const parsedCheck = JSON.parse(parametersJson);
         console.log('🔍 [BOT-PARAMS] Verifica JSON prima del salvataggio:', {
             hasMinVolume24h: 'min_volume_24h' in parsedCheck,
             min_volume_24h_value: parsedCheck.min_volume_24h,
+            min_volume_24h_in_validParams: 'min_volume_24h' in validParams,
+            validParams_min_volume_24h: validParams.min_volume_24h,
             jsonLength: parametersJson.length
         });
 
