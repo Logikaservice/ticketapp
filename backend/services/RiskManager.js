@@ -402,32 +402,17 @@ class SeriousRiskManager {
                 }
             }
 
-            // ✅ FIX: Verifica anche il limite di esposizione disponibile
-            // Se trade_size_usdt è configurato, verifica che ci sia abbastanza esposizione disponibile
-            if (configuredTradeSize && maxPositionSize > availableExposure) {
-                console.warn(`⚠️ [FIXED SIZING] Trade size configurato ($${configuredTradeSize.toFixed(2)}) supera esposizione disponibile ($${availableExposure.toFixed(2)}). Current exposure: ${(currentExposurePct * 100).toFixed(2)}%, Max: ${(maxExposurePct * 100).toFixed(2)}%`);
-                // Se l'esposizione disponibile è inferiore al trade size configurato, blocca
-                if (availableExposure < configuredTradeSize) {
-                    this.cachedResult = {
-                        canTrade: false,
-                        reason: `Insufficient exposure for configured trade size. Need $${configuredTradeSize.toFixed(2)} but only $${availableExposure.toFixed(2)} available (exposure: ${(currentExposurePct * 100).toFixed(2)}% / ${(maxExposurePct * 100).toFixed(2)}%)`,
-                        maxPositionSize: 0,
-                        availableExposure: availableExposure,
-                        dailyLoss: dailyLossPct,
-                        currentExposure: currentExposurePct,
-                        drawdown: drawdown,
-                        currentCapital: cashBalance,
-                        totalEquity: totalEquity
-                    };
-                    this.lastCheck = now;
-                    return this.cachedResult;
-                }
-                // Se c'è abbastanza esposizione ma meno del trade size configurato, limita all'esposizione disponibile
-                maxPositionSize = availableExposure;
-                console.log(`⚠️ [FIXED SIZING] Trade size limitato all'esposizione disponibile: $${maxPositionSize.toFixed(2)} USDT`);
-            } else if (!configuredTradeSize) {
-                // Se non c'è trade_size configurato, limita anche all'esposizione disponibile
+            // ✅ FIX CRITICO: Se trade_size_usdt è configurato, NON limitarlo da availableExposure
+            // L'esposizione massima è un limite GLOBALE, non per singola posizione
+            // Se l'utente ha configurato $100, deve usare $100 (a meno che non ci sia abbastanza cash)
+            // L'esposizione massima verrà rispettata a livello globale (non può aprire più posizioni se supera l'80%)
+            if (!configuredTradeSize) {
+                // Se non c'è trade_size configurato, limita all'esposizione disponibile
                 maxPositionSize = Math.min(maxPositionSize, availableExposure);
+            } else {
+                // ✅ Se trade_size_usdt è configurato, usa quello SEMPRE (non limitare da availableExposure)
+                // L'esposizione massima verrà rispettata dal controllo globale (canOpenPosition)
+                console.log(`✅ [FIXED SIZING] Trade size configurato ($${configuredTradeSize.toFixed(2)}) - NON limitato da availableExposure ($${availableExposure.toFixed(2)}). L'esposizione massima è un limite globale.`);
             }
 
             console.log(`💰 [FIXED SIZING] Portfolio: $${totalEquity.toFixed(2)} USDT | Position: $${maxPositionSize.toFixed(2)} USDT | Available Exposure: $${availableExposure.toFixed(2)} USDT | Cash: $${cashBalance.toFixed(2)} USDT`);
