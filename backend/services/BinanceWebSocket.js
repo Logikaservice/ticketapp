@@ -82,6 +82,18 @@ class BinanceWebSocketService {
             this.ws.on('message', (data) => {
                 try {
                     const tickers = JSON.parse(data.toString());
+                    // ✅ DEBUG: Log primo ticker per verificare struttura dati
+                    if (Math.random() < 0.001 && Array.isArray(tickers) && tickers.length > 0) {
+                        const firstTicker = tickers[0];
+                        console.log(`🔍 [WEBSOCKET-DEBUG] Primo ticker campione:`, {
+                            symbol: firstTicker.s,
+                            price: firstTicker.c,
+                            quoteVolume: firstTicker.q,
+                            quoteVolumeQ: firstTicker.Q,
+                            volume: firstTicker.v,
+                            allFields: Object.keys(firstTicker).slice(0, 10) // Prime 10 chiavi
+                        });
+                    }
                     this.handleTickerUpdate(tickers);
                 } catch (err) {
                     console.error('⚠️ [WEBSOCKET] Errore parsing messaggio:', err.message);
