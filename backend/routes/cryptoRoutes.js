@@ -1670,6 +1670,16 @@ const getSymbolPrice = async (symbol) => {
     try {
         const { getPriceByPair } = require('../services/PriceService');
         const price = await getPriceByPair(tradingPair);
+        
+        // ✅ FIX CRITICO: Valida prezzo prima di salvare in cache
+        const MAX_REASONABLE_PRICE = 100000; // $100k max
+        const MIN_REASONABLE_PRICE = 0.000001; // $0.000001 min
+        if (price > MAX_REASONABLE_PRICE || price < MIN_REASONABLE_PRICE || isNaN(price) || !isFinite(price)) {
+            console.error(`❌ [PRICE] Prezzo anomalo da Binance per ${symbol} (${tradingPair}): $${price}. Non salvo in cache.`);
+            // Non salvare in cache, ma prova fallback
+            return null;
+        }
+        
         if (Math.random() < 0.05) {
             console.log(`✅ [PRICE] Got price from Binance for ${symbol} (${tradingPair}): $${price.toFixed(6)}`);
         }
@@ -1719,17 +1729,19 @@ const getSymbolPrice = async (symbol) => {
         
         console.error(`❌ [PRICE] Binance fetch failed for ${symbol} (${tradingPair}):`, e.message);
         try {
-            // ✅ CAMBIATO: CoinGecko ora restituisce USDT direttamente
-            const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd&precision=18`);
-            if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].usd !== undefined) {
-                let price = parseFloat(geckoData[coingeckoId].usd);
+                // ✅ CAMBIATO: CoinGecko ora restituisce USDT direttamente
+                const geckoData = await httpsGet(`https://api.coingecko.com/api/v3/simple/price?ids=${coingeckoId}&vs_currencies=usd&precision=18`);
+                if (geckoData && geckoData[coingeckoId] && geckoData[coingeckoId].usd !== undefined) {
+                    let price = parseFloat(geckoData[coingeckoId].usd);
 
-                // ✅ FIX: Verifica che il prezzo sia valido (anche se molto basso, es. 0.000007)
-                if (price > 0 && !isNaN(price) && isFinite(price)) {
-                    console.log(`💱 [PRICE] ${symbol} from CoinGecko: $${price.toFixed(8)} USDT`);
-                    // ✅ Salva in cache anche per CoinGecko
-                    priceCache.set(symbol, { price, timestamp: Date.now() });
-                    return price;
+                    // ✅ FIX: Verifica che il prezzo sia valido (anche se molto basso, es. 0.000007)
+                    const MAX_REASONABLE_PRICE = 100000; // $100k max
+                    const MIN_REASONABLE_PRICE = 0.000001; // $0.000001 min
+                    if (price > 0 && !isNaN(price) && isFinite(price) && price <= MAX_REASONABLE_PRICE && price >= MIN_REASONABLE_PRICE) {
+                        console.log(`💱 [PRICE] ${symbol} from CoinGecko: $${price.toFixed(8)} USDT`);
+                        // ✅ Salva in cache anche per CoinGecko
+                        priceCache.set(symbol, { price, timestamp: Date.now() });
+                        return price;
                 } else {
                     console.warn(`⚠️ [PRICE] ${symbol} prezzo da CoinGecko non valido: ${price}`);
                 }
