@@ -9003,13 +9003,13 @@ router.get('/bot-analysis', async (req, res) => {
             console.log(`⚠️ [BOT-ANALYSIS] Slow response: ${responseTime}ms for ${symbol}`);
         }
         
-        } catch (innerError) {
-            // Errore interno al try principale - rilancia per essere catturato dal catch esterno
-            throw innerError;
+        // ✅ FIX: Invia risposta di successo
+        if (!res.headersSent) {
+            res.json(responseData);
         }
         
     } catch (error) {
-        // ✅ CATCH ESTERNO: Cattura TUTTI gli errori, inclusi quelli di inizializzazione
+        // ✅ CATCH UNICO: Cattura TUTTI gli errori
         console.error(`❌ [BOT-ANALYSIS] Error for ${symbol}:`, error.message);
         console.error(`❌ [BOT-ANALYSIS] Stack:`, error.stack);
         console.error(`❌ [BOT-ANALYSIS] Error type:`, error.constructor.name);
@@ -9036,17 +9036,6 @@ router.get('/bot-analysis', async (req, res) => {
         } catch (sendError) {
             // Se anche l'invio della risposta fallisce, logga solo
             console.error(`❌ [BOT-ANALYSIS] Impossibile inviare risposta errore:`, sendError.message);
-            // Ultimo tentativo: prova a inviare una risposta minimale
-            try {
-                if (!res.headersSent) {
-                    res.status(200).send(JSON.stringify({
-                        error: 'Errore critico nel server',
-                        symbol: symbol
-                    }));
-                }
-            } catch (finalError) {
-                console.error(`❌ [BOT-ANALYSIS] Impossibile inviare risposta anche dopo ultimo tentativo`);
-            }
         }
     }
 });

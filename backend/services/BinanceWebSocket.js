@@ -81,7 +81,12 @@ class BinanceWebSocketService {
 
             this.ws.on('message', (data) => {
                 try {
-                    const tickers = JSON.parse(data.toString());
+                    const messageStr = data.toString();
+                    // ✅ FIX: Ignora messaggi "pong" (heartbeat) - non sono JSON
+                    if (messageStr === 'pong' || messageStr.trim() === 'pong') {
+                        return; // Ignora pong, non è JSON
+                    }
+                    const tickers = JSON.parse(messageStr);
                     // ✅ DEBUG: Log primo ticker per verificare struttura dati
                     if (Math.random() < 0.001 && Array.isArray(tickers) && tickers.length > 0) {
                         const firstTicker = tickers[0];
