@@ -737,7 +737,7 @@ setBotParameters(data.bot_parameters);
             window.removeEventListener('crypto-prices-update', handlePriceUpdate);
             clearInterval(backupInterval);
         };
-    }, [portfolio.holdings, openPositions, apiBase, currentSymbol, currentPrice]);
+    }, [portfolio.holdings, openPositions, apiBase, currentSymbol, currentPrice, wsConnected]);
 
     // Calculate total balance (USDT + All Crypto values - Short Liabilities)
     // ✅ FIX: Total Balance = Capitale Disponibile (cash) = balance_usd
