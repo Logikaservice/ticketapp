@@ -1218,6 +1218,7 @@ const DEFAULT_PARAMS = {
     rsi_overbought: 70,
     stop_loss_pct: 3.0,  // Aggiornato da 2.0 a 3.0
     take_profit_pct: 5.0,  // Aggiornato da 3.0 a 5.0
+    trade_size_usdt: 100,  // ✅ FIX CRITICO: Aggiunto trade_size_usdt (era solo trade_size_eur)
     trade_size_eur: 100,  // Aggiornato da 50 a 100
     trailing_stop_enabled: true,  // Aggiornato da false a true
     trailing_stop_distance_pct: 1.5,  // Aggiornato da 1.0 a 1.5
@@ -6342,17 +6343,21 @@ router.put('/bot/parameters', async (req, res) => {
         // ✅ FIX: Serializza correttamente per PostgreSQL TEXT
         const parametersJson = JSON.stringify(finalParams);
 
-        // ✅ DEBUG CRITICO: Verifica che trade_size_usdt sia nel JSON
+        // ✅ DEBUG CRITICO: Verifica ESATTAMENTE cosa viene scritto nel database
+        console.log('🔍 [BOT-PARAMS] ========== VERIFICA PRE-SALVATAGGIO ==========');
+        console.log('🔍 [BOT-PARAMS] finalParams.trade_size_usdt:', finalParams.trade_size_usdt, '(type:', typeof finalParams.trade_size_usdt, ')');
+        console.log('🔍 [BOT-PARAMS] finalParams.max_positions:', finalParams.max_positions, '(type:', typeof finalParams.max_positions, ')');
+        console.log('🔍 [BOT-PARAMS] parametersJson (primi 500 caratteri):', parametersJson.substring(0, 500));
+        console.log('🔍 [BOT-PARAMS] parametersJson contiene "trade_size_usdt"?', parametersJson.includes('trade_size_usdt'));
+        console.log('🔍 [BOT-PARAMS] parametersJson contiene "max_positions"?', parametersJson.includes('max_positions'));
+        
+        // ✅ DEBUG: Parse e verifica
         const parsedCheck = JSON.parse(parametersJson);
-        console.log('🔍 [BOT-PARAMS] Verifica JSON prima del salvataggio:', {
-            trade_size_usdt_IN_JSON: 'trade_size_usdt' in parsedCheck,
-            trade_size_usdt_VALUE: parsedCheck.trade_size_usdt,
-            trade_size_usdt_IN_VALIDPARAMS: 'trade_size_usdt' in validParams,
-            validParams_trade_size_usdt: validParams.trade_size_usdt,
-            hasMinVolume24h: 'min_volume_24h' in parsedCheck,
-            min_volume_24h_value: parsedCheck.min_volume_24h,
-            jsonLength: parametersJson.length
-        });
+        console.log('🔍 [BOT-PARAMS] Dopo parse JSON:');
+        console.log('   trade_size_usdt:', parsedCheck.trade_size_usdt, '(type:', typeof parsedCheck.trade_size_usdt, ')');
+        console.log('   max_positions:', parsedCheck.max_positions, '(type:', typeof parsedCheck.max_positions, ')');
+        console.log('   "trade_size_usdt" in parsedCheck:', 'trade_size_usdt' in parsedCheck);
+        console.log('   "max_positions" in parsedCheck:', 'max_positions' in parsedCheck);
 
         console.log('💾 [BOT-PARAMS] Salvataggio parametri:', {
             hasExisting: !!existing,
