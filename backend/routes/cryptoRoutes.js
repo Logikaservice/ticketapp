@@ -2906,7 +2906,7 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                 // perché il capitale è già investito e l'utente vuole che venga usato.
                 // 
                 // I controlli che rimangono attivi sono:
-                // - Max Exposure (già gestito da RiskManager) - per non investire più dell'80% del capitale
+                // - Max Exposure rimosso (RiskManager eliminato)
                 // - Daily Loss Limit (configurabile) - per proteggere da perdite eccessive in un giorno
                 // - Equity minima (< $50) - per evitare posizioni troppo piccole
                 //
@@ -3463,9 +3463,11 @@ const runBotCycleForSymbol = async (symbol, botSettings) => {
                                 // trailing_stop_enabled e trailing_stop_distance_pct vengono da options (configurati dall'utente)
                             });
                             console.log(`✅ BOT SHORT: Opened position #${shortPositions.length + 1} @ $${currentPrice.toFixed(2)} USDT | Size: $${positionSizeToUse.toFixed(2)} USDT | Signal: ${signal.reasons.join(', ')}`);
+                            riskManager.invalidateCache(); // Invalida cache dopo operazione
                         } else if (!canOpen.allowed) {
-                            console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason}`);
-                            console.log(`   📊 [SHORT-DEBUG] Final position size: $${positionSizeToUse.toFixed(2)} USDT | Trade size: $${params.trade_size_usdt || params.trade_size_eur || 0} USDT`);
+                            console.log(`⚠️ BOT SHORT: Cannot open - ${canOpen.reason} | Current exposure: ${(riskCheck.currentExposure * 100).toFixed(2)}% | Available: $${riskCheck.availableExposure.toFixed(2)} USDT`);
+                            console.log(`   📊 [SHORT-DEBUG] Risk check failed for ${symbol}: ${canOpen.reason}`);
+                            console.log(`   📊 [SHORT-DEBUG] Final position size: $${positionSizeToUse.toFixed(2)} USDT | Trade size: $${params.trade_size_usdt || params.trade_size_eur || 0} USDT | Max position size: $${riskCheck.maxPositionSize.toFixed(2)} USDT`);
                         }
                     }
                 }
@@ -6259,8 +6261,7 @@ router.put('/bot/parameters', async (req, res) => {
                 })(),
 
             // ✅ NUOVI: Risk Management (personalizzabili)
-            // ✅ RIMOSSO: max_exposure_pct non più utilizzato (limitava erroneamente le posizioni)
-            // Manteniamo un default alto (100%) nel RiskManager per non limitare
+            // ✅ RIMOSSO: max_exposure_pct e RiskManager completamente eliminati
             max_positions: (parameters.max_positions !== undefined && parameters.max_positions !== null && parameters.max_positions !== '')
                 ? Math.max(1, Math.min(20, parseInt(parameters.max_positions) || existingParams.max_positions || 5))
                 : (existingParams.max_positions || 5),
@@ -7498,7 +7499,7 @@ router.get('/bot-analysis', async (req, res) => {
     // ✅ FIX: Wrapper unico per catturare TUTTI gli errori
     try {
         // Quick dependency checks (no verbose logging)
-        if (!httpsGet || !dbGet || !dbAll || !signalGenerator || !riskManager || !getBotParameters) {
+        if (!httpsGet || !dbGet || !dbAll || !signalGenerator || !getBotParameters) {
             console.error('❌ [BOT-ANALYSIS] Dipendenze mancanti');
             // ✅ FIX: Restituisci status 200 invece di 500 per evitare errori frontend
             return res.status(200).json({
@@ -8573,7 +8574,7 @@ router.get('/bot-analysis', async (req, res) => {
                 // perché il capitale è già investito e l'utente vuole che venga usato.
                 // 
                 // I controlli che rimangono attivi sono:
-                // - Max Exposure (già gestito da RiskManager) - per non investire più dell'80% del capitale
+                // - Max Exposure rimosso (RiskManager eliminato)
                 // - Daily Loss Limit (configurabile) - per proteggere da perdite eccessive in un giorno
                 // - Equity minima (< $50) - per evitare posizioni troppo piccole
                 //
@@ -8910,14 +8911,7 @@ router.get('/bot-analysis', async (req, res) => {
                         });
                     }
 
-                    // Risk Manager block (GLOBALE - blocca tutto il trading)
-                    if (!riskCheck.canTrade) {
-                        blocks.push({
-                            type: 'Risk Manager (Globale)',
-                            reason: riskCheck.reason || 'Esposizione massima raggiunta',
-                            severity: 'high'
-                        });
-                    }
+                    // Risk Manager rimosso - nessun blocco globale
 
                     // ✅ FIX CRITICO: Risk Manager block per questa specifica posizione
                     // Questo è diverso da riskCheck.canTrade - controlla se può aprire questa specifica posizione
@@ -9089,14 +9083,7 @@ router.get('/bot-analysis', async (req, res) => {
                         });
                     }
 
-                    // Risk Manager block (GLOBALE - blocca tutto il trading)
-                    if (!riskCheck.canTrade) {
-                        blocks.push({
-                            type: 'Risk Manager (Globale)',
-                            reason: riskCheck.reason || 'Esposizione massima raggiunta',
-                            severity: 'high'
-                        });
-                    }
+                    // Risk Manager rimosso - nessun blocco globale
 
                     // ✅ FIX CRITICO: Risk Manager block per questa specifica posizione
                     if (!canOpenCheck.allowed) {
@@ -9198,18 +9185,13 @@ router.get('/bot-analysis', async (req, res) => {
                     diagnostics.blockedBy.push(`Volume troppo basso (€${volume24h.toLocaleString('it-IT', { maximumFractionDigits: 0 })})`);
                 }
 
-                // 3. Risk Manager Globale
+                // 3. Risk Manager Globale (rimosso)
                 diagnostics.checks.push({
                     name: 'Risk Manager Globale',
-                    passed: riskCheck.canTrade,
+                    passed: true,
                     severity: 'high',
-                    message: riskCheck.canTrade
-                        ? 'Trading permesso dal Risk Manager'
-                        : `Trading bloccato: ${riskCheck.reason || 'sconosciuto'}`
+                    message: 'Risk Manager rimosso - nessun blocco'
                 });
-                if (!riskCheck.canTrade) {
-                    diagnostics.blockedBy.push(`Risk Manager globale: ${riskCheck.reason || 'sconosciuto'}`);
-                }
 
                 // 4. Dati Storici
                 const hasEnoughData = priceHistoryData && priceHistoryData.length >= 20;
@@ -9873,14 +9855,7 @@ router.get('/bot-analysis', async (req, res) => {
                         });
                     }
 
-                    // Risk Manager block (GLOBALE - blocca tutto il trading)
-                    if (!riskCheck.canTrade) {
-                        blocks.push({
-                            type: 'Risk Manager (Globale)',
-                            reason: riskCheck.reason || 'Esposizione massima raggiunta',
-                            severity: 'high'
-                        });
-                    }
+                    // Risk Manager rimosso - nessun blocco globale
 
                     // ✅ FIX CRITICO: Risk Manager block per questa specifica posizione
                     // Questo è diverso da riskCheck.canTrade - controlla se può aprire questa specifica posizione
@@ -10057,14 +10032,7 @@ router.get('/bot-analysis', async (req, res) => {
                         });
                     }
 
-                    // Risk Manager block
-                    if (!riskCheck.canTrade) {
-                        blocks.push({
-                            type: 'Risk Manager',
-                            reason: riskCheck.reason || 'Esposizione massima raggiunta',
-                            severity: 'high'
-                        });
-                    }
+                    // Risk Manager rimosso - nessun blocco
 
                     // Existing positions
                     if (shortPositions.length > 0) {
