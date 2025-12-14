@@ -53,25 +53,45 @@ const BOT_CONFIG = {
     TRADE_COOLDOWN_MS: 3 * 60 * 1000, // 3 minuti (più veloce)
 };
 
-// Mappa simboli a coppie Binance
-// ✅ RIMOSSI simboli duplicati senza suffisso (eliminati dal database)
+// Mappa simboli a coppie Binance - COMPLETA
 const SYMBOL_TO_PAIR = {
-    'bitcoin_usdt': 'BTCUSDT',
-    'ethereum_usdt': 'ETHUSDT',
-    'solana_eur': 'SOLUSDT',
-    'cardano_usdt': 'ADAUSDT',
-    'polkadot_usdt': 'DOTUSDT',
-    'chainlink_usdt': 'LINKUSDT',
-    'ripple_eur': 'XRPUSDT',
-    'binance_coin_eur': 'BNBUSDT',
+    // Major cryptocurrencies
+    'bitcoin': 'BTCUSDT', 'btc': 'BTCUSDT', 'bitcoin_usdt': 'BTCUSDT', 'btcusdt': 'BTCUSDT',
+    'ethereum': 'ETHUSDT', 'eth': 'ETHUSDT', 'ethereum_usdt': 'ETHUSDT', 'ethusdt': 'ETHUSDT',
+    'solana': 'SOLUSDT', 'sol': 'SOLUSDT', 'solana_eur': 'SOLUSDT', 'solana_usdt': 'SOLUSDT', 'solusdt': 'SOLUSDT',
+    'cardano': 'ADAUSDT', 'ada': 'ADAUSDT', 'cardano_usdt': 'ADAUSDT', 'adausdt': 'ADAUSDT',
+    'ripple': 'XRPUSDT', 'xrp': 'XRPUSDT', 'ripple_eur': 'XRPUSDT', 'ripple_usdt': 'XRPUSDT', 'xrpusdt': 'XRPUSDT',
+    'polkadot': 'DOTUSDT', 'dot': 'DOTUSDT', 'polkadot_usdt': 'DOTUSDT', 'dotusdt': 'DOTUSDT',
+    'dogecoin': 'DOGEUSDT', 'doge': 'DOGEUSDT', 'dogeusdt': 'DOGEUSDT',
+    'shiba_inu': 'SHIBUSDT', 'shib': 'SHIBUSDT', 'shibusdt': 'SHIBUSDT',
+    'avalanche': 'AVAXUSDT', 'avax': 'AVAXUSDT', 'avaxusdt': 'AVAXUSDT',
+    'binance_coin': 'BNBUSDT', 'bnb': 'BNBUSDT', 'binance_coin_eur': 'BNBUSDT', 'bnbusdt': 'BNBUSDT',
+    'chainlink': 'LINKUSDT', 'link': 'LINKUSDT', 'chainlink_usdt': 'LINKUSDT', 'linkusdt': 'LINKUSDT',
+    
+    // DeFi & Gaming tokens
+    'polygon': 'POLUSDT', 'matic': 'POLUSDT', 'pol': 'POLUSDT', 'maticusdt': 'POLUSDT', 'polusdt': 'POLUSDT',
+    'the_sandbox': 'SANDUSDT', 'sand': 'SANDUSDT', 'sandusdt': 'SANDUSDT', 'thesandbox': 'SANDUSDT',
+    'axie_infinity': 'AXSUSDT', 'axs': 'AXSUSDT', 'axsusdt': 'AXSUSDT', 'axieinfinity': 'AXSUSDT',
+    'theta_network': 'THETAUSDT', 'theta': 'THETAUSDT', 'thetausdt': 'THETAUSDT', 'thetanetwork': 'THETAUSDT',
+    'decentraland': 'MANAUSDT', 'mana': 'MANAUSDT', 'manausdt': 'MANAUSDT',
+    'uniswap': 'UNIUSDT', 'uni': 'UNIUSDT', 'uniusdt': 'UNIUSDT',
+    
+    // Other major tokens
+    'ton': 'TONUSDT', 'toncoin': 'TONUSDT', 'tonusdt': 'TONUSDT',
+    'tron': 'TRXUSDT', 'trx': 'TRXUSDT', 'trxusdt': 'TRXUSDT',
+    'stellar': 'XLMUSDT', 'xlm': 'XLMUSDT', 'xlmusdt': 'XLMUSDT',
+    'cosmos': 'ATOMUSDT', 'atom': 'ATOMUSDT', 'atomusdt': 'ATOMUSDT',
+    'optimism': 'OPUSDT', 'op': 'OPUSDT', 'opusdt': 'OPUSDT',
+    'icp': 'ICPUSDT', 'icpusdt': 'ICPUSDT', // Internet Computer
 };
 
 // Gruppi di correlazione per diversificazione
-// ✅ RIMOSSI simboli duplicati senza suffisso (eliminati dal database)
 const CORRELATION_GROUPS = {
-    'BTC_MAJOR': ['bitcoin_usdt', 'ethereum_usdt', 'solana_eur'],
-    'DEFI': ['chainlink_usdt'],
-    'INDEPENDENT': ['ripple_eur', 'binance_coin_eur'],
+    'BTC_MAJOR': ['bitcoin', 'bitcoin_usdt', 'btc', 'ethereum', 'ethereum_usdt', 'eth'],
+    'DEFI': ['chainlink', 'chainlink_usdt', 'link', 'uniswap', 'uni', 'avalanche', 'avax'],
+    'GAMING': ['the_sandbox', 'sand', 'axie_infinity', 'axs', 'decentraland', 'mana'],
+    'PLATFORM': ['solana', 'solana_eur', 'sol', 'cardano', 'ada', 'polkadot', 'dot', 'polygon', 'matic', 'pol'],
+    'INDEPENDENT': ['ripple', 'ripple_eur', 'xrp', 'binance_coin', 'binance_coin_eur', 'bnb', 'dogecoin', 'doge', 'theta', 'theta_network'],
 };
 
 // ✅ LIMITI AUMENTATI per più posizioni contemporanee
@@ -98,11 +118,47 @@ const API_CONFIG = {
 };
 
 /**
+ * Normalize symbol name for mapping lookup
+ */
+function normalizeSymbol(symbol) {
+    if (!symbol) return '';
+    
+    // Convert to lowercase and remove special characters
+    let normalized = symbol.toLowerCase()
+        .replace(/\s+/g, '_')        // spaces to underscore
+        .replace(/\//g, '')           // remove slashes
+        .replace(/-/g, '_');          // hyphens to underscore
+    
+    // Remove common suffixes for lookup
+    normalized = normalized
+        .replace(/usdt$/, '')
+        .replace(/_usdt$/, '')
+        .replace(/eur$/, '')
+        .replace(/_eur$/, '');
+    
+    return normalized;
+}
+
+/**
  * Get current price for a symbol from Binance with timeout and retry logic
  */
 async function getSymbolPrice(symbol, retries = API_CONFIG.MAX_RETRIES) {
     try {
-        const pair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
+        // Try direct lookup first
+        let pair = SYMBOL_TO_PAIR[symbol];
+        
+        // If not found, try normalized symbol
+        if (!pair) {
+            const normalized = normalizeSymbol(symbol);
+            pair = SYMBOL_TO_PAIR[normalized];
+            
+            // If still not found, log warning and use BTC as last resort
+            if (!pair) {
+                console.warn(`⚠️ [BOT] Symbol mapping not found for '${symbol}' (normalized: '${normalized}'), using BTCUSDT as fallback`);
+                pair = 'BTCUSDT';
+            }
+        }
+        
         const https = require('https');
         const url = `${API_CONFIG.BINANCE_BASE_URL}/ticker/price?symbol=${pair}`;
 
@@ -141,7 +197,21 @@ async function getSymbolPrice(symbol, retries = API_CONFIG.MAX_RETRIES) {
  */
 async function get24hVolume(symbol, retries = API_CONFIG.MAX_RETRIES) {
     try {
-        const pair = SYMBOL_TO_PAIR[symbol] || 'BTCUSDT';
+        // Try direct lookup first
+        let pair = SYMBOL_TO_PAIR[symbol];
+        
+        // If not found, try normalized symbol
+        if (!pair) {
+            const normalized = normalizeSymbol(symbol);
+            pair = SYMBOL_TO_PAIR[normalized];
+            
+            // If still not found, use BTC as fallback
+            if (!pair) {
+                console.warn(`⚠️ [BOT] Symbol mapping not found for '${symbol}' (normalized: '${normalized}') in get24hVolume`);
+                pair = 'BTCUSDT';
+            }
+        }
+        
         const https = require('https');
         const url = `${API_CONFIG.BINANCE_BASE_URL}/ticker/24hr?symbol=${pair}`;
 
